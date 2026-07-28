@@ -1,6 +1,6 @@
 'use client';
 
-import { nearestString, semitonesFromString } from '@core/instrument';
+import { nearestString, semitonesFromString, TUNINGS, type TuningId } from '@core/instrument';
 import { noteName, type PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
@@ -24,6 +24,7 @@ export function Tuner(deps: TunerProps = {}) {
   const hasSignal = useSessionStore((state) => state.hasSignal);
   const clarity = useSessionStore((state) => state.clarity);
   const level = useSessionStore((state) => state.level);
+  const tuningId = useSessionStore((state) => state.tuningId);
   const { start, stop } = useListening(deps);
 
   const [devices, setDevices] = useState<readonly MediaDeviceInfo[]>([]);
@@ -83,7 +84,13 @@ export function Tuner(deps: TunerProps = {}) {
       </div>
 
       {listening === 'listening' ? (
-        <Listening reading={reading} hasSignal={hasSignal} clarity={clarity} level={level} />
+        <Listening
+          reading={reading}
+          hasSignal={hasSignal}
+          clarity={clarity}
+          level={level}
+          tuningId={tuningId}
+        />
       ) : (
         <Stopped listening={listening} message={message} onStart={() => void start()} />
       )}
@@ -135,11 +142,13 @@ function Listening({
   hasSignal,
   clarity,
   level,
+  tuningId,
 }: {
   readonly reading: PitchReading | null;
   readonly hasSignal: boolean;
   readonly clarity: number;
   readonly level: number;
+  readonly tuningId: TuningId;
 }) {
   // Solo antes de la primera nota. En cuanto suena algo, el afinador se queda
   // en pantalla: al callar se apaga, no desaparece.
@@ -158,7 +167,7 @@ function Listening({
   }
 
   const status = tuningStatus(reading.cents);
-  const string = nearestString(reading.midi);
+  const string = nearestString(reading.midi, TUNINGS[tuningId].strings);
   const distance = semitonesFromString(reading.midi, string);
 
   return (

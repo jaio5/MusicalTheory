@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import '@testing-library/jest-dom/vitest';
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -13,7 +12,7 @@ import type {
   SessionRecorder,
 } from '@media/session-recorder';
 
-import { RecorderPanel } from './RecorderPanel';
+import { RecordStage } from './RecordStage';
 
 class FakeCamera implements CameraInput {
   state: CameraState = 'idle';
@@ -86,34 +85,56 @@ class FakeRecorder implements SessionRecorder {
   }
 }
 
-describe('Panel de grabación', () => {
-  it('explica para qué quiere la cámara y que no sube nada', () => {
+describe('Grabarte tocando', () => {
+  it('dice para qué es antes de pedir la cámara', () => {
     render(
-      <RecorderPanel
-        createCamera={() => new FakeCamera()}
-        createRecorder={() => new FakeRecorder()}
-      />,
+      <RecordStage createCamera={() => new FakeCamera()} createRecorder={() => new FakeRecorder()}>
+        <p>La pantalla de componer</p>
+      </RecordStage>,
     );
 
-    expect(screen.getByText(/necesitamos la cámara para grabarte/i)).toBeInTheDocument();
-    expect(screen.getByText(/no se sube a ningún servidor/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /grabarte tocando/i })).toBeInTheDocument();
+    expect(screen.getByText('La pantalla de componer')).toBeInTheDocument();
   });
 
-  it('graba al pulsar y avisa de que está grabando', async () => {
+  it('graba al pulsar y lo dice', async () => {
     const recorder = new FakeRecorder();
-    render(<RecorderPanel createCamera={() => new FakeCamera()} createRecorder={() => recorder} />);
+    render(
+      <RecordStage createCamera={() => new FakeCamera()} createRecorder={() => recorder}>
+        <p>contenido</p>
+      </RecordStage>,
+    );
 
-    await userEvent.click(screen.getByRole('button', { name: /grabarme tocando/i }));
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
 
     expect(await screen.findByText(/grabando/i)).toBeInTheDocument();
     expect(recorder.state).toBe('recording');
   });
 
+  it('deja la interfaz en contorno y letra mientras graba', async () => {
+    const { container } = render(
+      <RecordStage createCamera={() => new FakeCamera()} createRecorder={() => new FakeRecorder()}>
+        <p>contenido</p>
+      </RecordStage>,
+    );
+
+    expect(container.querySelector('.grabando')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
+
+    expect(await screen.findByRole('button', { name: /parar la grabación/i })).toBeInTheDocument();
+    expect(container.querySelector('.grabando')).not.toBeNull();
+  });
+
   it('le pasa al grabador una función de overlay, no el store', async () => {
     const recorder = new FakeRecorder();
-    render(<RecorderPanel createCamera={() => new FakeCamera()} createRecorder={() => recorder} />);
+    render(
+      <RecordStage createCamera={() => new FakeCamera()} createRecorder={() => recorder}>
+        <p>contenido</p>
+      </RecordStage>,
+    );
 
-    await userEvent.click(screen.getByRole('button', { name: /grabarme tocando/i }));
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
 
     expect(typeof recorder.options?.overlay).toBe('function');
     const frame = recorder.options!.overlay();
@@ -123,13 +144,15 @@ describe('Panel de grabación', () => {
 
   it('explica qué hacer si se deniega la cámara', async () => {
     render(
-      <RecorderPanel
+      <RecordStage
         createCamera={() => new FakeCamera('denied')}
         createRecorder={() => new FakeRecorder()}
-      />,
+      >
+        <p>contenido</p>
+      </RecordStage>,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /grabarme tocando/i }));
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/has denegado el acceso/i);
   });
@@ -137,24 +160,29 @@ describe('Panel de grabación', () => {
   it('suelta la cámara si el navegador no sabe grabar', async () => {
     const camera = new FakeCamera();
     render(
-      <RecorderPanel createCamera={() => camera} createRecorder={() => new FakeRecorder(false)} />,
+      <RecordStage createCamera={() => camera} createRecorder={() => new FakeRecorder(false)}>
+        <p>contenido</p>
+      </RecordStage>,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: /grabarme tocando/i }));
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/no puede grabar vídeo/i);
     expect(camera.stopped).toBe(true);
   });
 
-  it('al parar ofrece la descarga con su nombre', async () => {
+  it('al parar ofrece la descarga y suelta la cámara', async () => {
     const camera = new FakeCamera();
-    render(<RecorderPanel createCamera={() => camera} createRecorder={() => new FakeRecorder()} />);
+    render(
+      <RecordStage createCamera={() => camera} createRecorder={() => new FakeRecorder()}>
+        <p>contenido</p>
+      </RecordStage>,
+    );
 
-    await userEvent.click(screen.getByRole('button', { name: /grabarme tocando/i }));
-    await userEvent.click(await screen.findByRole('button', { name: /parar y guardar/i }));
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /parar la grabación/i }));
 
     expect(await screen.findByRole('button', { name: /descargar el vídeo/i })).toBeInTheDocument();
-    expect(screen.getByText(/caos-ordenado-2026-07-28-1905\.webm/)).toBeInTheDocument();
     expect(camera.stopped).toBe(true);
   });
 });

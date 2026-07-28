@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { keyName, noteName } from '@core/music';
 import { BrowserCameraInput } from '@media/browser-camera-input';
@@ -9,17 +9,26 @@ import { CanvasSessionRecorder } from '@media/canvas-session-recorder';
 import { playQuietly } from '@media/play-quietly';
 import type { Recording, SessionRecorder } from '@media/session-recorder';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
-import { Button } from '@ui/Button';
-import { Panel } from '@ui/Panel';
 
-export interface RecorderPanelProps {
+export interface RecordStageProps {
+  readonly children: ReactNode;
   readonly createCamera?: () => CameraInput;
   readonly createRecorder?: () => SessionRecorder;
 }
 
 type Phase = 'idle' | 'preparing' | 'recording' | 'done';
 
-export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelProps = {}) {
+/**
+ * Grabarte tocando sin dejar de ver lo que estás haciendo.
+ *
+ * Al grabar, la cámara se pone detrás de todo y la interfaz se queda en
+ * contorno y letra: sigues viendo el acorde y a dónde puedes ir, y en el vídeo
+ * se te ve a ti. Los datos se queman aparte en el fichero, así que lo que se
+ * graba no depende de cómo esté la pantalla.
+ *
+ * El vídeo no sale del equipo. Se descarga y ya.
+ */
+export function RecordStage({ children, createCamera, createRecorder }: RecordStageProps) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [message, setMessage] = useState<string | null>(null);
   const [recording, setRecording] = useState<Recording | null>(null);
@@ -27,13 +36,15 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
   const cameraRef = useRef<CameraInput | null>(null);
   const recorderRef = useRef<SessionRecorder | null>(null);
   const startedAtRef = useRef(0);
-  const previewRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const factories = useRef({ createCamera, createRecorder });
   useEffect(() => {
     factories.current = { createCamera, createRecorder };
   });
 
+  // Al salir de la pantalla se cierra la cámara. Sin esto, cambiar de pantalla
+  // en medio de una grabación dejaría el piloto encendido.
   useEffect(() => {
     return () => {
       void cameraRef.current?.stop();
@@ -42,8 +53,9 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
     };
   }, []);
 
-  async function start() {
+  async function start(): Promise<void> {
     setMessage(null);
+    setRecording(null);
     setPhase('preparing');
 
     const camera = factories.current.createCamera?.() ?? new BrowserCameraInput();
@@ -56,9 +68,9 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
       return;
     }
 
-    if (previewRef.current !== null) {
-      previewRef.current.srcObject = camera.stream;
-      await playQuietly(previewRef.current);
+    if (videoRef.current !== null) {
+      videoRef.current.srcObject = camera.stream;
+      await playQuietly(videoRef.current);
     }
 
     const recorder = factories.current.createRecorder?.() ?? new CanvasSessionRecorder();
@@ -79,7 +91,7 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
               : null,
           cents: state.hasSignal ? (state.reading?.cents ?? null) : null,
           keyName: key === null ? null : keyName(key.tonic, key.mode),
-          chordSymbol: state.currentDegree,
+          chordSymbol: state.path.at(-1)?.symbol ?? null,
           elapsedMs: performance.now() - startedAtRef.current,
         };
       },
@@ -95,7 +107,7 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
     setPhase('recording');
   }
 
-  async function stop() {
+  async function stop(): Promise<void> {
     const recorder = recorderRef.current;
     if (recorder === null) {
       return;
@@ -103,15 +115,15 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
 
     const result = await recorder.stop();
     await cameraRef.current?.stop();
-    if (previewRef.current !== null) {
-      previewRef.current.srcObject = null;
+    if (videoRef.current !== null) {
+      videoRef.current.srcObject = null;
     }
 
     setRecording(result);
     setPhase('done');
   }
 
-  function download() {
+  function download(): void {
     if (recording === null) {
       return;
     }
@@ -125,57 +137,61 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
     URL.revokeObjectURL(url);
   }
 
+  const live = phase === 'recording';
+
   return (
-    <Panel id="grabar" title="Grabar">
-      <p className="text-text-muted mt-2 text-sm">
-        Necesitamos la cámara para grabarte tocando. El vídeo se queda en tu equipo y lo descargas
-        tú: no se sube a ningún servidor.
-      </p>
+    <div className={`relative flex h-full min-h-0 flex-col ${live ? 'grabando' : ''}`}>
+      <video
+        ref={videoRef}
+        muted
+        playsInline
+        aria-hidden="true"
+        className={`fixed inset-0 -z-10 h-full w-full object-cover ${live ? '' : 'hidden'}`}
+      />
+
+      <div className="border-border flex shrink-0 items-center gap-3 border-b px-3 py-1.5">
+        <button
+          type="button"
+          onClick={() => void (live ? stop() : start())}
+          disabled={phase === 'preparing'}
+          aria-pressed={live}
+          aria-label={live ? 'Parar la grabación' : 'Grabarte tocando'}
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
+            live ? 'border-oxblood-bright' : 'border-border hover:border-oxblood-bright'
+          } disabled:opacity-50`}
+        >
+          <span
+            aria-hidden="true"
+            className={`bg-oxblood-bright block ${live ? 'h-2.5 w-2.5 rounded-sm' : 'h-4 w-4 rounded-full'}`}
+          />
+        </button>
+
+        <span className="text-text-muted text-xs">
+          {live
+            ? 'Grabando. Te ves detrás; el vídeo se queda en tu equipo.'
+            : phase === 'preparing'
+              ? 'Pidiendo la cámara'
+              : 'Grabarte tocando'}
+        </span>
+
+        {recording !== null && phase === 'done' && (
+          <button
+            type="button"
+            onClick={download}
+            className="border-border text-text-muted hover:text-text ml-auto border px-2 py-1 text-xs"
+          >
+            Descargar el vídeo
+          </button>
+        )}
+      </div>
 
       {message !== null && (
-        <p role="alert" className="text-oxblood-bright mt-4 text-sm">
+        <p role="alert" className="text-oxblood-bright shrink-0 px-3 py-1 text-sm">
           {message}
         </p>
       )}
 
-      <video
-        ref={previewRef}
-        muted
-        playsInline
-        aria-label="Vista previa de la cámara"
-        className={`border-border mt-4 w-full max-w-sm rounded-md border ${
-          phase === 'recording' ? '' : 'hidden'
-        }`}
-      />
-
-      <div className="mt-6 flex flex-wrap gap-2">
-        {phase === 'recording' ? (
-          <Button onClick={() => void stop()}>Parar y guardar</Button>
-        ) : (
-          <Button disabled={phase === 'preparing'} onClick={() => void start()}>
-            {phase === 'preparing' ? 'Pidiendo permiso…' : 'Grabarme tocando'}
-          </Button>
-        )}
-
-        {phase === 'done' && recording !== null && (
-          <Button variant="quiet" onClick={download}>
-            Descargar el vídeo
-          </Button>
-        )}
-      </div>
-
-      {phase === 'recording' && (
-        <p className="text-oxblood-bright mt-4 font-mono text-sm" aria-live="polite">
-          Grabando. La nota, la tonalidad y el acorde van quemados en la imagen.
-        </p>
-      )}
-
-      {phase === 'done' && recording !== null && (
-        <p className="text-text-muted mt-4 text-sm" aria-live="polite">
-          Listo: {Math.round(recording.durationMs / 1000)} segundos en {recording.mimeType}. Se
-          guarda como <span className="text-text font-mono">{recording.filename}</span>.
-        </p>
-      )}
-    </Panel>
+      <div className="min-h-0 grow overflow-hidden">{children}</div>
+    </div>
   );
 }

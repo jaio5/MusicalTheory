@@ -162,3 +162,18 @@ compartido, y eso es otra decisión con su ADR.
 
 Lo que sale del equipo son entre diez y cincuenta caracteres de símbolos
 musicales. Ni una muestra de audio.
+
+## El profesor
+
+Un segundo route handler, `/api/teacher`, con el mismo reparto: el SDK y la
+clave viven solo en el servidor, el contrato en `features/learn` para que lo
+usen los dos lados, y el límite de peticiones compartido en `app/api/`.
+
+Lo que viaja es la tonalidad, la escala, la lección que se está leyendo y la
+pregunta escrita, recortada a 240 caracteres. El audio y el vídeo siguen sin
+salir del equipo: esta petición no los toca.
+
+De vuelta viene una respuesta corta y, si viene a cuento, un ejemplo tocable en
+grados. Los cifrados del ejemplo no se creen: se recalculan desde los grados
+contra la tonalidad real, igual que en ideas, que es la única forma de que no
+aparezca en pantalla un acorde que no existe ahí.

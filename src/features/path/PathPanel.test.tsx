@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { useSessionStore, type PathChord } from '@state/session-store';
 
-import { ChordFocus } from './PathPanel';
+import { CurrentChord, Voicings } from './PathPanel';
 
 const AM: PathChord = {
   symbol: 'Am',
@@ -31,36 +31,26 @@ function play(...chords: readonly PathChord[]): void {
   }
 }
 
-describe('ChordFocus', () => {
+describe('El acorde actual', () => {
   it('pide una tonalidad antes que nada', () => {
-    render(<ChordFocus />);
+    render(<CurrentChord />);
 
     expect(screen.getByText(/elige una tonalidad/i)).toBeInTheDocument();
   });
 
-  it('enseña las formas de una en una, no apiladas', () => {
+  it('enseña el acorde, sus notas y por qué está ahí', () => {
     play(AM);
-    render(<ChordFocus />);
+    render(<CurrentChord />);
 
-    const shapes = screen.getByRole('list', { name: /formas de hacer el acorde/i });
-    expect(shapes.children.length).toBeGreaterThan(1);
-    expect(screen.getByText(/forma 1 de/i)).toBeInTheDocument();
-  });
-
-  it('no deja retroceder desde la primera forma y avanza a la siguiente', () => {
-    play(AM);
-    render(<ChordFocus />);
-
-    expect(screen.getByRole('button', { name: 'Forma anterior' })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Forma siguiente' }));
-
-    expect(screen.getByText(/forma 2 de/i)).toBeInTheDocument();
+    // Sale dos veces: en grande arriba y como último paso de la progresión.
+    expect(screen.getAllByText('Am')).toHaveLength(2);
+    expect(screen.getByText('A · C · E')).toBeInTheDocument();
+    expect(screen.getByText('El primer grado.')).toBeInTheDocument();
   });
 
   it('recorta la progresión al pulsar un acorde anterior', () => {
     play(AM, G);
-    render(<ChordFocus />);
+    render(<CurrentChord />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Am' }));
 
@@ -69,10 +59,26 @@ describe('ChordFocus', () => {
 
   it('deja limpiar la progresión entera', () => {
     play(AM, G);
-    render(<ChordFocus />);
+    render(<CurrentChord />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Limpiar la progresión' }));
 
     expect(useSessionStore.getState().path).toEqual([]);
+  });
+});
+
+describe('Formas del acorde', () => {
+  it('enseña varias maneras de hacerlo a lo largo del mástil', () => {
+    play(AM);
+    render(<Voicings />);
+
+    const shapes = screen.getByRole('list', { name: /formas de hacer am/i });
+    expect(shapes.children.length).toBeGreaterThan(1);
+  });
+
+  it('sin acorde elegido no enseña nada', () => {
+    render(<Voicings />);
+
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 });

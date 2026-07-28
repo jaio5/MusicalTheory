@@ -143,26 +143,31 @@ empezar, y al elegir un acorde te enseña **cuatro formas de hacerlo** sobre el
 mástil y **a dónde puedes ir** desde él. Encadenando se construye la progresión,
 y se puede volver atrás a cualquier punto.
 
-## La pantalla
+## Las tres pantallas
 
-Un banco de trabajo con cuatro zonas —izquierda, centro, derecha y abajo—, cada
-una con sus pestañas. Las pestañas se arrastran de una zona a otra, se cierran
-y se vuelven a abrir desde el menú «Paneles», y las líneas que separan las zonas
-se mueven para repartir el sitio. Todo se guarda en el equipo: al volver está
-como lo dejaste.
+Cada una está hecha para una cosa y trae lo que hace falta para esa cosa. No hay
+que montarse nada: se elige arriba y ya está.
 
-De fábrica: el acorde a la izquierda, los siguientes en el centro, la rueda a la
-derecha y el mástil abajo. El afinador, componer, aprender, ideas, grabar y
-sesiones están cerrados hasta que hagan falta.
+**Aprender.** Cinco lecciones de teoría —los grados, las especies, la rueda, los
+prestados y las escalas— generadas en la tonalidad en la que estés, cada una con
+sus preguntas. Al contestar dice por qué, se acierte o no. Al lado, el profesor:
+le preguntas lo que quieras y responde con los acordes que tienes delante. Debajo,
+la escala para tocarla de verdad, validada por el micro.
 
-Arriba solo hay dos cosas: el botón de micro redondo —como el de grabar de la
-cámara del móvil— con la nota que suena al lado, y el menú de paneles.
+**Componer.** La rueda para elegir tonalidad, el acorde en el que estás con
+todas sus formas a lo largo del mástil, y a dónde puedes ir, con el buscador que
+propone mientras escribes. Cada acorde lleva un punto: verde si es seguro, ámbar
+si trae una nota de fuera y rojo si trae más. Mástil, ideas y sesiones se abren
+debajo cuando hacen falta.
 
-Las notas se escriben en cifrado anglosajón —C, D, E— en toda la aplicación: es
-lo que traen las tablaturas y los diagramas de acordes.
+Aquí está grabarte tocando: al darle al botón la cámara se pone detrás de todo y
+la interfaz se queda en contorno y letra, así que te ves mientras sigues leyendo
+los acordes. El vídeo no sale del equipo.
 
-La página no hace scroll. Lo hacen los paneles por dentro, que es lo que permite
-que quepa todo.
+**Afinar.** La afinación que elijas —estándar, drop D, medio tono abajo, DADGAD,
+open G y las demás— y nada más. Quien viene a afinar viene a eso.
+
+Las notas se escriben en cifrado anglosajón —C, D, E— en toda la aplicación.
 
 ## Deuda técnica
 

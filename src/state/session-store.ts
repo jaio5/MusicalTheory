@@ -22,20 +22,14 @@ import {
   type ScaleId,
   type StyleId,
 } from '@core/music';
+import type { TuningId } from '@core/instrument';
 
 import {
-  activatePanel,
-  closePanel,
   DEFAULT_PREFERENCES,
   loadPreferences,
-  movePanel,
-  openPanel,
-  resizeZone,
   savePreferences,
-  type Layout,
-  type PanelId,
+  type ScreenId,
   type WorkspacePreferences,
-  type ZoneId,
 } from './workspace';
 
 /** Qué está haciendo la aplicación con la escucha, en términos de interfaz. */
@@ -102,14 +96,9 @@ export interface SessionActions {
   followDetection(): void;
   setScale(scaleId: ScaleId): void;
   setStyle(styleId: StyleId): void;
-  /** Trae un panel al frente de su zona. */
-  showPanel(id: PanelId): void;
-  /** Lo lleva a otra zona, opcionalmente a una posición concreta. */
-  dockPanel(id: PanelId, zone: ZoneId, index?: number): void;
-  /** Lo abre donde se diga, o lo trae al frente si ya estaba. */
-  addPanel(id: PanelId, zone?: ZoneId): void;
-  hidePanel(id: PanelId): void;
-  resizeZone(zone: ZoneId, size: number): void;
+  /** Cambia de pantalla y lo recuerda para la próxima vez. */
+  setScreen(screen: ScreenId): void;
+  setTuning(tuningId: TuningId): void;
   /** Recupera del equipo lo que había configurado. */
   loadWorkspace(): void;
   /** Añade un acorde al final del camino. */
@@ -146,8 +135,10 @@ export interface SessionState {
   readonly pinnedKey: SessionKey | null;
   readonly scaleId: ScaleId;
   readonly styleId: StyleId;
-  /** Dónde está cada panel y qué tamaño tiene cada zona. */
-  readonly layout: Layout;
+  /** En qué pantalla estás. */
+  readonly screen: ScreenId;
+  /** La afinación con la que se compara lo que suena. */
+  readonly tuningId: TuningId;
   /** Las últimas notas tocadas, de la más antigua a la más reciente. */
   readonly noteHistory: readonly PlayedNote[];
   /** Grado que el usuario dice estar tocando, o null. */
@@ -176,7 +167,8 @@ const EMPTY = {
   pinnedKey: null,
   scaleId: 'minorPentatonic',
   styleId: DEFAULT_PREFERENCES.styleId,
-  layout: DEFAULT_PREFERENCES.layout,
+  screen: DEFAULT_PREFERENCES.screen,
+  tuningId: DEFAULT_PREFERENCES.tuningId,
   noteHistory: [],
   currentDegree: null,
   path: [],
@@ -188,16 +180,12 @@ const EMPTY = {
  */
 function remember(state: SessionState, patch: Partial<WorkspacePreferences>): void {
   savePreferences({
-    layout: state.layout,
+    screen: state.screen,
     styleId: state.styleId,
     scaleId: state.scaleId,
+    tuningId: state.tuningId,
     ...patch,
   });
-}
-
-function rememberLayout(state: SessionState, layout: Layout): { layout: Layout } {
-  remember(state, { layout });
-  return { layout };
 }
 
 export const useSessionStore = create<SessionState>()((set) => ({
@@ -255,21 +243,25 @@ export const useSessionStore = create<SessionState>()((set) => ({
         return { styleId };
       }),
 
-    showPanel: (id) => set((state) => rememberLayout(state, activatePanel(state.layout, id))),
-    dockPanel: (id, zone, index) =>
-      set((state) => rememberLayout(state, movePanel(state.layout, id, zone, index))),
-    addPanel: (id, zone) =>
-      set((state) => rememberLayout(state, openPanel(state.layout, id, zone))),
-    hidePanel: (id) => set((state) => rememberLayout(state, closePanel(state.layout, id))),
-    resizeZone: (zone, size) =>
-      set((state) => rememberLayout(state, resizeZone(state.layout, zone, size))),
+    setScreen: (screen) =>
+      set((state) => {
+        remember(state, { screen });
+        return { screen };
+      }),
+
+    setTuning: (tuningId) =>
+      set((state) => {
+        remember(state, { tuningId });
+        return { tuningId };
+      }),
 
     loadWorkspace: () => {
       const preferences = loadPreferences();
       set({
-        layout: preferences.layout,
+        screen: preferences.screen,
         styleId: preferences.styleId,
         scaleId: preferences.scaleId,
+        tuningId: preferences.tuningId,
       });
     },
     pushChord: (chord) => set((state) => ({ path: [...state.path, chord] })),
@@ -296,7 +288,7 @@ export const selectClarity = (state: SessionState): number => state.clarity;
 export const selectLevel = (state: SessionState): number => state.level;
 export const selectScaleId = (state: SessionState): ScaleId => state.scaleId;
 export const selectStyleId = (state: SessionState): StyleId => state.styleId;
-export const selectLayout = (state: SessionState): Layout => state.layout;
+export const selectScreen = (state: SessionState): ScreenId => state.screen;
 export const selectNoteHistory = (state: SessionState): readonly PlayedNote[] => state.noteHistory;
 export const selectActions = (state: SessionState): SessionActions => state.actions;
 

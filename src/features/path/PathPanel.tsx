@@ -1,18 +1,19 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 import { chordVoicings } from '@core/instrument';
 import {
   accidentalForKey,
   noteName,
+  scaleNotes,
   suggestChords,
   suggestTransitions,
   type ParsedChord,
+  type PitchClass,
 } from '@core/music';
 import { selectActiveKey, useSessionStore, type PathChord } from '@state/session-store';
 import { ChordDiagram } from '@ui/ChordDiagram';
-import { prefersReducedMotion } from '@ui/motion';
 
 import { ChordSearch } from './ChordSearch';
 
@@ -26,150 +27,80 @@ function fromSearch(chord: ParsedChord): PathChord {
   };
 }
 
+/**
+ * Verde si es seguro, ámbar si trae una nota de fuera y rojo si trae más.
+ *
+ * Es la lectura rápida que hace falta mientras tocas: no da tiempo a leer el
+ * porqué de cada acorde, pero sí a ver de qué color es el que vas a pisar.
+ */
+function safetyColour(notes: readonly PitchClass[], inKey: ReadonlySet<PitchClass>): string {
+  const outside = notes.filter((note) => !inKey.has(note)).length;
+  if (outside === 0) {
+    return 'bg-tube-bright';
+  }
+  return outside === 1 ? 'bg-brass-bright' : 'bg-oxblood-bright';
+}
+
 /** Los intervalos del acorde respecto a su fundamental, para buscar formas. */
 function relativeIntervals(chord: PathChord): number[] {
   return chord.notes.map((note) => (note - chord.root + 12) % 12).sort((a, b) => a - b);
 }
 
 /**
- * El camino: en qué acorde estás, cómo se hace y a dónde puedes ir.
- *
- * Va partido en dos columnas de la pantalla: a la izquierda, en una barra
- * estrecha, el acorde con sus diagramas; en el centro, la lista de siguientes
- * con su buscador. Las dos llevan su propio scroll para que la pantalla no
- * crezca.
+ * El camino: en qué acorde estás, de cuántas maneras se hace y a dónde puedes
+ * ir. Son tres piezas sueltas porque la pantalla de componer las coloca en
+ * sitios distintos.
  */
 
-export function ChordFocus() {
+/** En qué acorde estás y cómo has llegado. */
+export function CurrentChord() {
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
   const actions = useSessionStore((state) => state.actions);
   const current = path.at(-1) ?? null;
-
-  const voicings = useMemo(
-    () =>
-      current === null ? [] : chordVoicings(current.root, relativeIntervals(current), { limit: 4 }),
-    [current],
-  );
-
-  const { sliderRef, shape, goToShape, onSliderScroll } = useSlider(
-    voicings.length,
-    current?.symbol ?? '',
-  );
   const accidental =
     activeKey === null ? 'sharp' : accidentalForKey(activeKey.tonic, activeKey.mode);
 
-  return (
-    <div className="flex h-full flex-col">
-      {current !== null && (
-        <div className="border-border flex shrink-0 items-baseline gap-2 border-b px-3 py-1.5">
-          <span className="font-display text-brass-bright truncate text-2xl leading-none">
-            {current.symbol}
-          </span>
-          <span className="text-text-muted font-mono text-[10px]">{current.label}</span>
-        </div>
-      )}
+  if (activeKey === null) {
+    return <p className="text-text-muted p-3 text-sm">Elige una tonalidad en la rueda.</p>;
+  }
 
-      {activeKey === null ? (
-        <p className="text-text-muted p-2 text-xs">Elige una tonalidad en la rueda.</p>
-      ) : current === null ? (
-        <p className="text-text-muted p-2 text-xs">
+  return (
+    <div className="flex flex-col gap-2 p-3">
+      {current === null ? (
+        <p className="text-text-muted text-sm">
           Elige un acorde de la lista y te enseño cómo se hace.
         </p>
       ) : (
-        <div className="min-h-0 grow overflow-y-auto">
-          <p className="text-text-muted px-2 pt-1.5 font-mono text-[10px]">
-            {current.notes.map((note) => noteName(note, accidental)).join(' · ')}
-          </p>
-
-          {voicings.length === 0 ? (
-            <p className="text-text-muted p-2 text-xs">
-              No cabe en cuatro trastes con la fundamental al bajo.
-            </p>
-          ) : (
-            <>
-              {/* Las formas se pasan deslizando, no apiladas: en una barra
-                  estrecha, cuatro diagramas en columna no caben. */}
-              <ul
-                ref={sliderRef}
-                aria-label="Formas de hacer el acorde"
-                onScroll={onSliderScroll}
-                className="flex snap-x snap-mandatory overflow-x-auto"
-              >
-                {voicings.map((voicing) => (
-                  <li
-                    key={voicing.frets.join('-')}
-                    className="flex w-full shrink-0 snap-center flex-col items-center px-2 py-1"
-                  >
-                    <ChordDiagram
-                      frets={voicing.frets}
-                      position={voicing.position}
-                      label={`${current.symbol}, ${voicing.name.toLowerCase()}`}
-                    />
-                    <span className="text-text-muted mt-0.5 text-center text-[9px]">
-                      {voicing.name}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex items-center justify-center gap-2 pb-1">
-                <button
-                  type="button"
-                  onClick={() => goToShape(shape - 1)}
-                  disabled={shape === 0}
-                  aria-label="Forma anterior"
-                  className="text-text-muted hover:text-text px-1 text-sm disabled:opacity-30"
-                >
-                  ‹
-                </button>
-                <span className="flex gap-1" aria-hidden="true">
-                  {voicings.map((voicing, index) => (
-                    <span
-                      key={voicing.frets.join('-')}
-                      className={`block h-1 w-1 rounded-full ${
-                        index === shape ? 'bg-brass-bright' : 'bg-border'
-                      }`}
-                    />
-                  ))}
-                </span>
-                <span className="sr-only">
-                  Forma {shape + 1} de {voicings.length}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => goToShape(shape + 1)}
-                  disabled={shape >= voicings.length - 1}
-                  aria-label="Forma siguiente"
-                  className="text-text-muted hover:text-text px-1 text-sm disabled:opacity-30"
-                >
-                  ›
-                </button>
-              </div>
-            </>
-          )}
-
-          <p className="text-text-muted border-border border-t px-2 py-1.5 text-[11px]">
-            {current.why}
-          </p>
-        </div>
+        <>
+          <div className="flex items-baseline gap-3">
+            <span className="font-display text-brass-bright text-4xl leading-none">
+              {current.symbol}
+            </span>
+            <span className="text-text-muted font-mono text-xs">{current.label}</span>
+            <span className="text-text-muted ml-auto font-mono text-xs">
+              {current.notes.map((note) => noteName(note, accidental)).join(' · ')}
+            </span>
+          </div>
+          <p className="text-text-muted text-sm">{current.why}</p>
+        </>
       )}
 
       {path.length > 0 && (
-        <div className="border-border flex shrink-0 items-center gap-1 border-t p-1">
+        <div className="border-border flex items-center gap-1 border-t pt-2">
           <ol
             aria-label="Progresión"
             className="flex min-w-0 grow items-center gap-1 overflow-x-auto"
           >
             {path.map((chord, index) => (
               <li key={`${chord.symbol}-${index}`} className="flex shrink-0 items-center gap-1">
-                {index > 0 && <span className="text-text-muted text-[10px]">→</span>}
+                {index > 0 && <span className="text-text-muted text-xs">→</span>}
                 <button
                   type="button"
                   onClick={() => actions.trimPath(index)}
-                  className={`rounded px-1 py-0.5 font-mono text-[11px] ${
+                  className={`px-1 py-0.5 font-mono text-sm ${
                     index === path.length - 1
-                      ? 'bg-surface-raised text-brass-bright'
+                      ? 'text-brass-bright'
                       : 'text-text-muted hover:text-text'
                   }`}
                 >
@@ -183,7 +114,7 @@ export function ChordFocus() {
             onClick={() => actions.clearPath()}
             aria-label="Limpiar la progresión"
             title="Limpiar"
-            className="text-text-muted hover:text-oxblood-bright shrink-0 px-1 text-xs"
+            className="text-text-muted hover:text-oxblood-bright shrink-0 px-1 text-sm"
           >
             ×
           </button>
@@ -194,44 +125,47 @@ export function ChordFocus() {
 }
 
 /**
- * Un carrusel que se pasa deslizando.
+ * Todas las maneras de hacer el acorde a lo largo del mástil.
  *
- * El scroll horizontal con puntos de anclaje lo hace el navegador solo; esto
- * únicamente sigue en cuál está para pintar los puntos y mover con las flechas.
+ * Se enseñan a la vez y no de una en una: la gracia es ver que el mismo acorde
+ * vive en cinco sitios distintos, y eso no se ve pasando páginas.
  */
-function useSlider(count: number, resetKey: string) {
-  const ref = useRef<HTMLUListElement>(null);
-  const [index, setIndex] = useState(0);
-  const [trackedKey, setTrackedKey] = useState(resetKey);
+export function Voicings() {
+  const path = useSessionStore((state) => state.path);
+  const current = path.at(-1) ?? null;
 
-  // Al cambiar de acorde se vuelve a la primera forma. Se ajusta durante el
-  // render, que es lo que React recomienda para esto.
-  if (trackedKey !== resetKey) {
-    setTrackedKey(resetKey);
-    setIndex(0);
+  const voicings = useMemo(
+    () =>
+      current === null ? [] : chordVoicings(current.root, relativeIntervals(current), { limit: 6 }),
+    [current],
+  );
+
+  if (current === null) {
+    return null;
   }
 
-  function go(next: number): void {
-    const list = ref.current;
-    if (list === null || next < 0 || next >= count) {
-      return;
-    }
-    list.scrollTo({
-      left: list.clientWidth * next,
-      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-    });
-    setIndex(next);
+  if (voicings.length === 0) {
+    return (
+      <p className="text-text-muted p-3 text-sm">
+        No cabe en cuatro trastes con la fundamental al bajo. Prueba otra forma del acorde.
+      </p>
+    );
   }
 
-  function onScroll(): void {
-    const list = ref.current;
-    if (list === null || list.clientWidth === 0) {
-      return;
-    }
-    setIndex(Math.round(list.scrollLeft / list.clientWidth));
-  }
-
-  return { sliderRef: ref, shape: index, goToShape: go, onSliderScroll: onScroll } as const;
+  return (
+    <ul aria-label={`Formas de hacer ${current.symbol}`} className="flex flex-wrap gap-3 p-3">
+      {voicings.map((voicing) => (
+        <li key={voicing.frets.join('-')} className="flex flex-col items-center">
+          <ChordDiagram
+            frets={voicing.frets}
+            position={voicing.position}
+            label={`${current.symbol}, ${voicing.name.toLowerCase()}`}
+          />
+          <span className="text-text-muted mt-1 text-center text-[11px]">{voicing.name}</span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function NextChords() {
@@ -243,6 +177,16 @@ export function NextChords() {
 
   const current = path.at(-1) ?? null;
   const playedNotes = useMemo(() => history.map((note) => note.pitchClass), [history]);
+
+  const inKey = useMemo(
+    () =>
+      new Set<PitchClass>(
+        activeKey === null
+          ? []
+          : scaleNotes(activeKey.tonic, activeKey.mode === 'major' ? 'major' : 'naturalMinor'),
+      ),
+    [activeKey],
+  );
 
   const options = useMemo(() => {
     if (activeKey === null) {
@@ -271,8 +215,12 @@ export function NextChords() {
               type="button"
               onClick={() => actions.pushChord(option)}
               aria-label={`${option.symbol}, ${option.label}`}
-              className="hover:bg-surface-raised flex w-full items-baseline gap-2 rounded-md px-2 py-1.5 text-left"
+              className="hover:bg-surface-raised flex w-full items-baseline gap-2 px-2 py-1.5 text-left"
             >
+              <span
+                aria-hidden="true"
+                className={`mt-1 block h-2 w-2 shrink-0 rounded-full ${safetyColour(option.notes, inKey)}`}
+              />
               <span className="text-text w-16 shrink-0 font-mono text-sm">{option.symbol}</span>
               <span className="text-text-muted w-14 shrink-0 font-mono text-[10px]">
                 {option.label}

@@ -7,6 +7,7 @@
 
 export * from './notes';
 export * from './scales';
+export * from './lessons';
 export * from './chord-symbols';
 export * from './chords';
 export * from './judgement';

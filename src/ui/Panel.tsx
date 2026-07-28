@@ -1,8 +1,4 @@
-'use client';
-
 import type { ReactNode } from 'react';
-
-import { usePanelChrome } from './panel-chrome';
 
 export interface PanelProps {
   readonly title: string;
@@ -14,28 +10,12 @@ export interface PanelProps {
 }
 
 /**
- * Un panel del banco de trabajo.
+ * Un bloque con su título de una línea y el contenido debajo.
  *
- * Dentro del dock se dibuja pelado: la pestaña ya dice cómo se llama, y una
- * cabecera repitiéndolo justo debajo es ruido. Fuera del dock lleva su cabecera
- * de una línea.
+ * Cada pantalla monta varios: la cabecera es lo que deja saber de un vistazo
+ * qué es cada cosa sin tener que leerla entera.
  */
 export function Panel({ title, id, actions, children }: PanelProps) {
-  const chrome = usePanelChrome();
-
-  if (!chrome) {
-    return (
-      <div className="flex h-full min-h-0 flex-col">
-        {actions !== undefined && (
-          <div className="border-border flex shrink-0 items-center justify-end gap-2 border-b px-3 py-1">
-            {actions}
-          </div>
-        )}
-        <div className="min-h-0 grow overflow-auto p-3">{children}</div>
-      </div>
-    );
-  }
-
   return (
     <section aria-labelledby={id} className="border-border bg-surface flex flex-col border">
       <header className="border-border flex min-h-11 items-center justify-between gap-3 border-b px-4">

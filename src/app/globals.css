@@ -46,6 +46,31 @@
     outline-offset: 2px;
   }
 
+  /*
+   * Modo grabación: la cámara va detrás de todo, así que la interfaz se queda
+   * en contorno y letra. El !important es a propósito: hay que ganarle a las
+   * utilidades de fondo de cada componente sin tocar los cien sitios donde se
+   * ponen, y esto solo aplica mientras se está grabando.
+   */
+  .grabando,
+  .grabando * {
+    background-color: transparent !important;
+  }
+
+  .grabando {
+    /* Sobre un vídeo cualquiera, el texto plano no se lee. */
+    text-shadow:
+      0 1px 3px rgb(0 0 0 / 0.95),
+      0 0 12px rgb(0 0 0 / 0.7);
+  }
+
+  .grabando button,
+  .grabando input,
+  .grabando select,
+  .grabando [class*='border'] {
+    border-color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  }
+
   /* Quien pide menos movimiento no recibe ninguno. */
   @media (prefers-reduced-motion: reduce) {
     *,

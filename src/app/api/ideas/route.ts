@@ -10,7 +10,7 @@ import {
   validateIdeas,
   type IdeasRequest,
 } from '@features/ideas/contract';
-import { requesterKey, SlidingWindowRateLimiter } from '@features/ideas/rate-limit';
+import { requesterKey, SlidingWindowRateLimiter } from '../rate-limit';
 
 /**
  * Route handler de ideas. Es el único sitio del proyecto que importa el SDK de

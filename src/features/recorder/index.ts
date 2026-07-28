@@ -1,1 +1,1 @@
-export * from './RecorderPanel';
+export * from './RecordStage';
