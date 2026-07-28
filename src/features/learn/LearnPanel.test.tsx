@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { ReferenceTone } from '@audio/reference-tone';
 import { midiToFrequency, pitchClassFromName } from '@core/music';
@@ -38,10 +38,7 @@ describe('Panel de aprender', () => {
 
   beforeEach(() => {
     tone = new FakeTone();
-    useSessionStore.getState().actions.reset();
   });
-
-  afterEach(cleanup);
 
   function renderPanel() {
     render(<LearnPanel createTone={() => tone} />);

@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { A4_FREQUENCY, midiToFrequency, pitchClassFromName } from '@core/music';
 import { useSessionStore } from '@state/session-store';
@@ -11,12 +11,6 @@ import { useSessionStore } from '@state/session-store';
 import { FretboardPanel } from './FretboardPanel';
 
 describe('Panel del mástil', () => {
-  beforeEach(() => {
-    useSessionStore.getState().actions.reset();
-  });
-
-  afterEach(cleanup);
-
   it('pide una tonalidad mientras no haya ninguna', () => {
     render(<FretboardPanel />);
     expect(screen.getByText(/toca unos compases o elige una tonalidad/i)).toBeInTheDocument();

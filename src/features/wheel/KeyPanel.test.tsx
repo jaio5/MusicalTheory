@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { midiToFrequency, pitchClassFromName } from '@core/music';
 import { useSessionStore } from '@state/session-store';
@@ -19,12 +19,6 @@ function playAMinor() {
 }
 
 describe('Panel de tonalidad', () => {
-  beforeEach(() => {
-    useSessionStore.getState().actions.reset();
-  });
-
-  afterEach(cleanup);
-
   it('dice que hay que tocar algo antes de detectar nada', () => {
     render(<KeyPanel />);
     expect(screen.getByText(/toca unos compases y la detectamos sola/i)).toBeInTheDocument();

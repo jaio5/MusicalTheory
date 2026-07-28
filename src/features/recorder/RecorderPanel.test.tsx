@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { CameraInput, CameraState } from '@media/camera-input';
 import type {
@@ -87,8 +87,6 @@ class FakeRecorder implements SessionRecorder {
 }
 
 describe('Panel de grabación', () => {
-  afterEach(cleanup);
-
   it('explica para qué quiere la cámara y que no sube nada', () => {
     render(
       <RecorderPanel

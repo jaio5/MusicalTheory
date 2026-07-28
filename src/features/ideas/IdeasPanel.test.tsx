@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { pitchClassFromName } from '@core/music';
 import { useSessionStore } from '@state/session-store';
@@ -21,12 +21,6 @@ function respondWith(payload: unknown, status = 200): Response {
 }
 
 describe('Panel de ideas', () => {
-  beforeEach(() => {
-    useSessionStore.getState().actions.reset();
-  });
-
-  afterEach(cleanup);
-
   it('avisa de que a la IA solo van símbolos', () => {
     render(<IdeasPanel fetchIdeas={async () => respondWith({ ideas: [] })} />);
     expect(screen.getByText(/ni el audio ni el vídeo salen de tu equipo/i)).toBeInTheDocument();

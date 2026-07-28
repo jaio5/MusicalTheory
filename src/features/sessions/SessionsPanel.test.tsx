@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { midiToFrequency, pitchClassFromName } from '@core/music';
 import { MemorySessionStorage } from '@state/session-storage';
@@ -19,10 +19,7 @@ describe('Panel de sesiones', () => {
 
   beforeEach(() => {
     storage = new MemorySessionStorage();
-    useSessionStore.getState().actions.reset();
   });
-
-  afterEach(cleanup);
 
   function renderPanel() {
     render(<SessionsPanel createStorage={() => storage} now={() => SAVED_AT} />);

@@ -1,15 +1,14 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { AudioInput, AudioInputError, AudioInputState } from '@audio/audio-input';
 import type { PitchEngine, PitchSample } from '@audio/pitch-engine';
 import { DEFAULT_PITCH_ENGINE_OPTIONS } from '@audio/pitch-engine';
 import { midiToFrequency } from '@core/music';
-import { useSessionStore } from '@state/session-store';
 
 import { Tuner } from './Tuner';
 
@@ -71,6 +70,20 @@ class FakeEngine implements PitchEngine {
     return () => this.#listeners.delete(listener);
   }
 
+  #levelListeners = new Set<(rms: number) => void>();
+
+  subscribeLevel(listener: (rms: number) => void): () => void {
+    this.#levelListeners.add(listener);
+    return () => this.#levelListeners.delete(listener);
+  }
+
+  /** Simula el nivel que entra, haya nota o no. */
+  emitLevel(rms: number): void {
+    for (const listener of this.#levelListeners) {
+      listener(rms);
+    }
+  }
+
   /** Simula que suena una nota. */
   emit(sample: PitchSample | null): void {
     for (const listener of this.#listeners) {
@@ -84,10 +97,7 @@ describe('Afinador', () => {
 
   beforeEach(() => {
     engine = new FakeEngine();
-    useSessionStore.getState().actions.reset();
   });
-
-  afterEach(cleanup);
 
   function renderTuner(outcome: AudioInputState = 'running') {
     const input = new FakeInput(outcome);
@@ -202,5 +212,30 @@ describe('Afinador', () => {
 
     expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toBeInTheDocument();
     expect(engine.running).toBe(false);
+  });
+});
+
+describe('medidor de nivel', () => {
+  it('enseña cuánta señal entra aunque no haya nota', async () => {
+    const engine = new FakeEngine();
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => engine} />);
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    engine.emitLevel(0.05);
+
+    const meter = await screen.findByRole('meter', { name: /nivel de la señal/i });
+    expect(meter).toBeInTheDocument();
+    expect(Number(meter.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+    expect(screen.getByText(/señal de sobra/i)).toBeInTheDocument();
+  });
+
+  it('avisa cuando llega poca señal, que es lo que no se podía saber antes', async () => {
+    const engine = new FakeEngine();
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => engine} />);
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    engine.emitLevel(0.0005);
+
+    expect(await screen.findByText(/llega poca señal/i)).toBeInTheDocument();
   });
 });

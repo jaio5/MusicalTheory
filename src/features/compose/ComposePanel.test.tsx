@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { midiToFrequency, pitchClassFromName } from '@core/music';
 import { NOTE_REPEAT_MS, useSessionStore } from '@state/session-store';
@@ -20,12 +20,6 @@ async function play(midi: number, at: number) {
 
 // A nivel de fichero, no dentro de un describe: si no, los bloques de abajo se
 // quedan sin limpieza y acumulan paneles renderizados.
-beforeEach(() => {
-  useSessionStore.getState().actions.reset();
-});
-
-afterEach(cleanup);
-
 describe('Panel de componer', () => {
   it('pide una tonalidad antes de proponer nada', () => {
     render(<ComposePanel />);

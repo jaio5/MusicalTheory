@@ -20,6 +20,7 @@ export default defineConfig({
     // window, la pieza estaría en el sitio equivocado. Los tests de features/
     // pedirán jsdom con `// @vitest-environment jsdom` en su cabecera.
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     coverage: {
       provider: 'v8',
