@@ -48,8 +48,11 @@ export interface AudioInput {
   /**
    * Copia el último bloque en el dominio del tiempo sobre `target`.
    * Devuelve false si todavía no hay datos o la entrada está parada.
+   *
+   * El buffer se declara sobre ArrayBuffer y no sobre ArrayBufferLike porque
+   * las APIs de Web Audio no aceptan memoria compartida.
    */
-  readTimeDomain(target: Float32Array): boolean;
+  readTimeDomain(target: Float32Array<ArrayBuffer>): boolean;
 
   /** Avisa de cada cambio de estado. Devuelve la función para desuscribirse. */
   subscribe(listener: (state: AudioInputState) => void): () => void;
