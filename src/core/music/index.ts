@@ -12,4 +12,5 @@ export * from './circle-of-fifths';
 export * from './keys';
 export * from './styles';
 export * from './suggestions';
+export * from './transitions';
 export * from './progressions';
