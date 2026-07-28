@@ -1,0 +1,4 @@
+# Solo estas dependencias pueden ejecutar scripts de instalación.
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
