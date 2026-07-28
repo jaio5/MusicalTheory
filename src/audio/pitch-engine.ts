@@ -33,6 +33,11 @@ export interface PitchEngineOptions {
   readonly clarityThreshold: number;
   /** Cada cuánto se analiza un bloque, en milisegundos. */
   readonly analysisIntervalMs: number;
+  /**
+   * Cuánto se espera sin señal antes de avisar de que ya no suena nada. Sin
+   * esta espera, el hueco entre dos púas apagaría la nota en pantalla.
+   */
+  readonly silenceHoldMs: number;
 }
 
 export const DEFAULT_PITCH_ENGINE_OPTIONS: PitchEngineOptions = {
@@ -41,6 +46,7 @@ export const DEFAULT_PITCH_ENGINE_OPTIONS: PitchEngineOptions = {
   rmsThreshold: 0.01,
   clarityThreshold: 0.9,
   analysisIntervalMs: 50,
+  silenceHoldMs: 250,
 };
 
 export interface PitchEngine {
@@ -58,7 +64,3 @@ export interface PitchEngine {
    */
   subscribe(listener: (sample: PitchSample | null) => void): () => void;
 }
-
-// TODO (fase 1): implementar AutocorrelationPitchEngine — autocorrelación con
-// interpolación parabólica del pico, ventana de 2048 muestras y los umbrales
-// de arriba. Ver docs/AUDIO-PITCH.md.
