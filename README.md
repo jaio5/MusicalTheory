@@ -12,9 +12,9 @@ dos modos:
 Encima de los dos modos hay una grabación opcional con cámara, con los datos
 detectados quemados en el vídeo.
 
-**Estado**: fase 0. Está el dominio musical con sus tests, las interfaces de
-audio y vídeo declaradas y la documentación. La interfaz llega por fases; el
-detalle está en [docs/ROADMAP.md](./docs/ROADMAP.md).
+**Estado**: fase 1. Funciona el afinador: escucha por el micro, detecta la nota
+y dice cuánto se desvía en cents. Lo siguiente son la rueda de quintas y el
+mástil; el detalle está en [docs/ROADMAP.md](./docs/ROADMAP.md).
 
 ## Cómo arrancarlo
 

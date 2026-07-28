@@ -20,20 +20,25 @@ Estado a 28 de julio de 2026.
 - [x] Documentación y dos ADR.
 - [ ] `reference/prototype.jsx`: el prototipo no estaba disponible al arrancar.
 
-## Fase 1 — Motor de tono y afinador
+## Fase 1 — Motor de tono y afinador · hecha
 
-Implementar `AudioWorkletPitchEngine` y `WebAudioInput` según
-[AUDIO-PITCH.md](./AUDIO-PITCH.md), y encima el afinador: nota grande,
-desviación en cents, indicación de si hay que subir o bajar.
+- [x] `detectPitch`: autocorrelación normalizada con interpolación parabólica,
+      probada contra tonos sintéticos de las seis cuerdas al aire con menos de
+      un cent de error.
+- [x] `WebAudioInput`: `getUserMedia` con `echoCancellation`,
+      `noiseSuppression` y `autoGainControl` desactivados, y los errores del
+      navegador traducidos a frases que dicen qué ha pasado y qué hacer.
+- [x] `AutocorrelationPitchEngine`: bucle a 20 análisis por segundo, con margen
+      de silencio para que el hueco entre dos púas no apague la nota.
+- [x] Store de sesión en `state/`, sin conocer la capa de audio.
+- [x] Afinador: nota grande, cents, aguja, cuerda más cercana y aviso cuando la
+      señal no llega limpia.
+- [x] Estado «no se oye nada» explícito, en vez de congelar la última nota.
+- [ ] Pendiente de prueba con guitarra real: los umbrales están puestos con
+      señales sintéticas y hay que ajustarlos tocando.
 
-- Autocorrelación con interpolación parabólica, ventana de 2048 muestras.
-- `getUserMedia` con `echoCancellation`, `noiseSuppression` y `autoGainControl`
-  desactivados, y la frase que explica para qué se pide el micro.
-- Store de sesión mínimo en `state/`: nota actual, cents, estado de la entrada.
-- Estado «no se oye nada» explícito, en vez de congelar la última nota.
-
-**Terminada cuando**: se puede afinar la guitarra entera sin mirar otra app, y
-la lectura es estable con la guitarra en limpio.
+El análisis se quedó en el hilo principal en vez de ir a un `AudioWorklet`;
+el porqué está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
 
 ## Fase 2 — Rueda de quintas y mástil
 
@@ -98,3 +103,10 @@ estaba trabajando.
   valores escritos dos veces. Si crece la paleta, generar el CSS desde el TS.
 - **Reconocimiento de acordes.** La detección es monofónica. Un acorde rasgueado
   no se identifica; el modo componer trabaja con el histórico de notas sueltas.
+- **Umbrales sin tocar.** `rmsThreshold` y `clarityThreshold` salen de señales
+  sintéticas. Con guitarra, ampli y sala reales casi seguro hay que moverlos.
+- **Análisis en el hilo principal.** Puede empezar a notarse cuando la fase 2
+  anime la rueda y el mástil. La salida prevista es un Web Worker.
+- **Sin selector de dispositivo.** `WebAudioInput` acepta un `deviceId` pero la
+  interfaz todavía no deja elegir entrada: usa la que tenga el sistema por
+  defecto.

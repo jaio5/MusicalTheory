@@ -133,6 +133,7 @@ de inicio actual no la lleva: es HTML generado en build.
 
 - Por qué el dominio es puro: [adr/0001](./adr/0001-capas-y-dominio-puro.md)
 - Por qué la detección de tono es propia: [adr/0002](./adr/0002-deteccion-de-tono-propia.md)
+- Por qué el análisis corre en el hilo principal: [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md)
 - Qué implementa el dominio, en lenguaje de músico: [DOMAIN-MUSIC.md](./DOMAIN-MUSIC.md)
 - Cómo se detecta el tono: [AUDIO-PITCH.md](./AUDIO-PITCH.md)
 - Cómo se graba: [RECORDING.md](./RECORDING.md)

@@ -71,10 +71,24 @@ Las tres están pensadas para videollamadas y las tres estropean el análisis:
 
 ## Dónde vive el cálculo
 
-El análisis va a un `AudioWorklet` o, como mínimo, fuera del camino de render.
-La razón: 2048 muestras por 2048 desplazamientos son cuatro millones de
-multiplicaciones por análisis, veinte veces por segundo. En el hilo principal
-eso compite con la animación de la rueda de quintas y se nota.
+**Ahora mismo, en el hilo principal, fuera del ciclo de render.** El bucle es un
+`setInterval` dentro de `AutocorrelationPitchEngine`, no un
+`requestAnimationFrame`: así el análisis no depende de que React pinte, y
+seguir renderizando no cambia la cadencia.
+
+El coste real es menor de lo que parece. No son 2048 × 2048 comparaciones: la
+búsqueda está acotada al rango de la guitarra, así que los desplazamientos van
+de 34 a 686 muestras a 48 kHz. Eso son unos **1,2 millones de multiplicaciones
+por análisis** y unos 23 millones por segundo, que en JavaScript moderno se
+resuelven en un par de milisegundos de cada ventana de 50.
+
+La energía acumulada del bloque se calcula una sola vez y sirve para normalizar
+todos los desplazamientos, que es lo que evita recorrer el bloque otra vez por
+cada uno.
+
+Llevarlo a un `AudioWorklet` sigue siendo la salida si esto se queda corto
+cuando haya rueda de quintas y mástil animándose a la vez. Por qué no se ha
+hecho ya está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
 
 ## Limitaciones que hay que asumir
 
@@ -100,3 +114,13 @@ nota lleva sonando limpia un rato, no en el primer análisis.
 **La frecuencia de muestreo la decide el navegador.** No se asume 44 100 ni
 48 000: se lee del contexto una vez arrancado y todos los cálculos parten de
 ahí.
+
+**Por encima del rango detecta un subarmónico, no silencio.** Una señal a
+2000 Hz también es periódica a 1000 Hz, y ese pico sí cae dentro del rango
+buscado. No afecta a la guitarra —el traste 24 de la primera cuerda está en
+1319 Hz— pero conviene saberlo, y hay un test que lo fija para que no se
+confunda con un fallo.
+
+**El hueco entre dos púas no apaga la nota.** El motor espera 250 ms sin señal
+antes de avisar de que ya no suena nada. Sin esa espera, la pantalla parpadearía
+en cada silencio de la mano derecha.
