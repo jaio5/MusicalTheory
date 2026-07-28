@@ -17,6 +17,11 @@ if (typeof document !== 'undefined') {
   await import('@testing-library/jest-dom/vitest');
   const { cleanup } = await import('@testing-library/react');
   afterEach(cleanup);
+
+  // jsdom no implementa el scroll: no maqueta nada, así que no tiene qué mover.
+  // Sin esto, cualquier carrusel revienta el test con un error que no habla de
+  // scroll sino de «no es una función».
+  Element.prototype.scrollTo = () => {};
 }
 
 /**

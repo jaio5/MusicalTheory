@@ -147,8 +147,10 @@ y se puede volver atrás a cualquier punto.
 
 Tres columnas fijas que caben enteras, sin scroll de página:
 
-- **Izquierda**: el acorde en el que estás, sus notas y hasta cuatro formas de
-  hacerlo con su diagrama. Debajo, la progresión que llevas.
+- **Izquierda**: una barra estrecha con el acorde en el que estás, sus notas y
+  sus formas de hacerlo —una cada vez, se pasan deslizando, porque cuatro
+  diagramas en columna no caben—. Debajo, la progresión que llevas. La barra se
+  pliega a un canto cuando estorba.
 - **Centro**: el buscador de acordes y la lista de a dónde puedes ir, con su
   propio scroll.
 - **Derecha**: la rueda de quintas, pulsable.
