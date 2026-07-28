@@ -6,13 +6,19 @@ import type { AudioInput, AudioInputState } from '@audio/audio-input';
 import { AutocorrelationPitchEngine } from '@audio/autocorrelation-pitch-engine';
 import type { PitchEngine } from '@audio/pitch-engine';
 import { WebAudioInput } from '@audio/web-audio-input';
-import { useSessionStore, type ListeningState } from '@state/session-store';
+import { useSessionStore, type ListeningState } from './session-store';
 
 /**
+ * Conecta la captura de audio con el estado de sesión.
+ *
+ * Vive en state/ y no dentro del afinador porque lo usan dos sitios: el panel
+ * del afinador y el botón de escuchar de la barra. Un feature no puede importar
+ * de otro, así que lo compartido sube aquí.
+ *
  * Las dependencias entran por parámetro porque en React no hay contenedor de
  * inyección: quien quiera otro motor —un test, o mañana YIN— pasa otra fábrica.
  */
-export interface TunerDeps {
+export interface ListeningDeps {
   readonly createInput?: (deviceId?: string) => AudioInput;
   readonly createEngine?: () => PitchEngine;
 }
@@ -27,13 +33,13 @@ const LISTENING_BY_INPUT_STATE: Record<AudioInputState, ListeningState> = {
   error: 'error',
 };
 
-export interface TunerControls {
+export interface ListeningControls {
   /** Arranca la escucha, opcionalmente en una entrada concreta. */
   start(deviceId?: string): Promise<void>;
   stop(): Promise<void>;
 }
 
-export function useTuner({ createInput, createEngine }: TunerDeps = {}): TunerControls {
+export function useListening({ createInput, createEngine }: ListeningDeps = {}): ListeningControls {
   const actions = useSessionStore((state) => state.actions);
 
   // Las fábricas viven en una ref y no en las dependencias de useCallback: si

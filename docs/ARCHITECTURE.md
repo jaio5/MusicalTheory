@@ -41,13 +41,25 @@ nunca un `AnalyserNode`.
 
 ### `state/`
 
-El estado de sesión vivo: qué nota suena, qué tonalidad se ha detectado, qué
-modo está activo. Zustand, no Context, por lo que se explica más abajo.
+El estado de sesión vivo —qué nota suena, qué tonalidad se ha detectado— y la
+configuración del banco de trabajo: qué paneles están abiertos y con qué
+estilo. Zustand, no Context, por lo que se explica más abajo.
+
+Aquí vive también `use-listening.ts`, que es lo que conecta la captura de audio
+con el estado. Estaba dentro del afinador hasta que el botón de escuchar de la
+barra lo necesitó también, y un feature no puede importar de otro: lo compartido
+sube. Por eso `state/` depende de `audio/`, que es la única flecha que no baja
+directamente a `core/`.
 
 ### `features/`
 
-Un directorio por bloque: `tuner`, `wheel`, `fretboard`, `learn`, `compose`,
-`ideas`, `recorder`. Cada uno tiene sus componentes y su lógica de presentación.
+Un directorio por bloque: `tuner`, `wheel`, `fretboard`, `suggest`, `learn`,
+`compose`, `ideas`, `recorder`, `sessions` y `workspace` —la barra de
+herramientas—. Cada uno tiene sus componentes y su lógica de presentación, y
+ninguno conoce a los demás.
+
+Quien los junta es `app/Workspace.tsx`, que es el único sitio que puede: la
+composición es trabajo de la capa de arriba, no de un feature.
 
 ### `ui/`
 
@@ -73,6 +85,7 @@ graph TD
   features --> ui
   features --> core
   state --> core
+  state --> audio
   audio --> core
   media --> core
 

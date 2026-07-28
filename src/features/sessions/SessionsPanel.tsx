@@ -11,6 +11,7 @@ import {
 } from '@state/session-storage';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { Panel } from '@ui/Panel';
 
 export interface SessionsPanelProps {
   readonly createStorage?: () => SessionStorage;
@@ -87,14 +88,11 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
   }
 
   return (
-    <section aria-labelledby="sesiones" className="border-border bg-surface rounded-lg border p-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h2 id="sesiones" className="font-display text-text text-2xl">
-          Sesiones
-        </h2>
-        <Button onClick={() => void save()}>Guardar esta sesión</Button>
-      </div>
-
+    <Panel
+      id="sesiones"
+      title="Sesiones"
+      actions={<Button onClick={() => void save()}>Guardar esta sesión</Button>}
+    >
       <p className="text-text-muted mt-2 text-sm">
         Se guardan en tu navegador: tonalidad, escala y las notas que has tocado. Ni audio ni vídeo,
         y sin cuenta ni servidor.
@@ -136,6 +134,6 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
           ))}
         </ul>
       )}
-    </section>
+    </Panel>
   );
 }

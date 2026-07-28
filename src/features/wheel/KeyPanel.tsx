@@ -3,6 +3,7 @@
 import { keyName, NOTE_NAMES, pitchClassFromName, spanishNoteName } from '@core/music';
 import { selectActiveKey, useSessionStore, type SessionKey } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { Panel } from '@ui/Panel';
 
 import { WheelOfFifths } from './WheelOfFifths';
 
@@ -31,11 +32,7 @@ export function KeyPanel() {
   const actions = useSessionStore((state) => state.actions);
 
   return (
-    <section aria-labelledby="tonalidad" className="border-border bg-surface rounded-lg border p-6">
-      <h2 id="tonalidad" className="font-display text-text text-2xl">
-        Tonalidad
-      </h2>
-
+    <Panel id="tonalidad" title="Tonalidad">
       <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
         <WheelOfFifths
           tonic={activeKey?.tonic ?? null}
@@ -109,6 +106,6 @@ export function KeyPanel() {
           )}
         </div>
       </div>
-    </section>
+    </Panel>
   );
 }

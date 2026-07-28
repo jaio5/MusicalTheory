@@ -1,14 +1,8 @@
 'use client';
 
-import {
-  accidentalForKey,
-  SCALE_IDS,
-  SCALES,
-  scaleNotes,
-  spanishNoteName,
-  type ScaleId,
-} from '@core/music';
+import { accidentalForKey, SCALES, scaleNotes, spanishNoteName } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { Panel } from '@ui/Panel';
 
 import { Fretboard } from './Fretboard';
 
@@ -18,31 +12,9 @@ export function FretboardPanel() {
   const scaleId = useSessionStore((state) => state.scaleId);
   const reading = useSessionStore((state) => state.reading);
   const hasSignal = useSessionStore((state) => state.hasSignal);
-  const actions = useSessionStore((state) => state.actions);
 
   return (
-    <section aria-labelledby="mastil" className="border-border bg-surface rounded-lg border p-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h2 id="mastil" className="font-display text-text text-2xl">
-          Mástil
-        </h2>
-
-        <label className="flex items-center gap-2">
-          <span className="text-text-muted text-sm">Escala</span>
-          <select
-            className="border-border bg-background text-text rounded-md border px-3 py-2"
-            value={scaleId}
-            onChange={(event) => actions.setScale(event.target.value as ScaleId)}
-          >
-            {SCALE_IDS.map((id) => (
-              <option key={id} value={id}>
-                {SCALES[id].name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
+    <Panel id="mastil" title="Mástil">
       {activeKey === null ? (
         <p className="text-text-muted mt-6">
           Toca unos compases o elige una tonalidad arriba, y aquí sale la escala sobre el mástil.
@@ -73,6 +45,6 @@ export function FretboardPanel() {
           <p className="text-text-muted mt-4 text-sm">{SCALES[scaleId].character}</p>
         </>
       )}
-    </section>
+    </Panel>
   );
 }

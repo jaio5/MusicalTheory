@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { A4_FREQUENCY, midiToFrequency, pitchClassFromName } from '@core/music';
@@ -30,7 +29,12 @@ describe('Panel del mástil', () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
 
     render(<FretboardPanel />);
-    await userEvent.selectOptions(screen.getByLabelText(/^escala$/i), 'blues');
+
+    // La escala se elige en la barra de herramientas, no dentro del panel: el
+    // mástil solo pinta la que esté puesta.
+    await act(async () => {
+      useSessionStore.getState().actions.setScale('blues');
+    });
 
     expect(await screen.findByText('La · Do · Re · Re# · Mi · Sol')).toBeInTheDocument();
   });

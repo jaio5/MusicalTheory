@@ -17,6 +17,7 @@ import {
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { Panel } from '@ui/Panel';
 import { useState } from 'react';
 
 /**
@@ -42,18 +43,26 @@ export function ComposePanel() {
 
   if (activeKey === null) {
     return (
-      <section
-        aria-labelledby="componer"
-        className="border-border bg-surface rounded-lg border p-6"
+      <Panel
+        id="componer"
+        title="Componer"
+        actions={
+          <label className="text-text-muted flex items-center gap-1.5 text-xs">
+            <input
+              type="checkbox"
+              checked={seventhChords}
+              onChange={(event) => setSeventhChords(event.target.checked)}
+              className="accent-brass"
+            />
+            Cuatríadas
+          </label>
+        }
       >
-        <h2 id="componer" className="font-display text-text text-2xl">
-          Componer
-        </h2>
         <p className="text-text-muted mt-4">
           Toca unos compases o elige una tonalidad, y aquí salen sus acordes y a dónde ir desde cada
           uno.
         </p>
-      </section>
+      </Panel>
     );
   }
 
@@ -73,12 +82,11 @@ export function ComposePanel() {
   const moves = currentDegree === null ? [] : nextDegrees(activeKey.mode, currentDegree);
 
   return (
-    <section aria-labelledby="componer" className="border-border bg-surface rounded-lg border p-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h2 id="componer" className="font-display text-text text-2xl">
-          Componer
-        </h2>
-        <label className="text-text-muted flex items-center gap-2 text-sm">
+    <Panel
+      id="componer"
+      title="Componer"
+      actions={
+        <label className="text-text-muted flex items-center gap-1.5 text-xs">
           <input
             type="checkbox"
             checked={seventhChords}
@@ -87,7 +95,8 @@ export function ComposePanel() {
           />
           Cuatríadas
         </label>
-      </div>
+      }
+    >
       <p className="text-text-muted mt-2 text-sm">
         Acordes de {keyName(activeKey.tonic, activeKey.mode)}. Pulsa el que estés tocando y te digo
         a dónde suele ir.
@@ -192,6 +201,6 @@ export function ComposePanel() {
           </p>
         )}
       </div>
-    </section>
+    </Panel>
   );
 }

@@ -3,7 +3,9 @@
 import { nearestString, semitonesFromString } from '@core/instrument';
 import type { PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
+import { Panel } from '@ui/Panel';
 import { useSessionStore, type ListeningState } from '@state/session-store';
+import { useListening, type ListeningDeps } from '@state/use-listening';
 
 import { useEffect, useState } from 'react';
 
@@ -18,9 +20,8 @@ import {
   tuningAdvice,
   tuningStatus,
 } from './tuning';
-import { useTuner, type TunerDeps } from './use-tuner';
 
-export type TunerProps = TunerDeps;
+export type TunerProps = ListeningDeps;
 
 export function Tuner(deps: TunerProps = {}) {
   const listening = useSessionStore((state) => state.listening);
@@ -29,7 +30,7 @@ export function Tuner(deps: TunerProps = {}) {
   const hasSignal = useSessionStore((state) => state.hasSignal);
   const clarity = useSessionStore((state) => state.clarity);
   const level = useSessionStore((state) => state.level);
-  const { start, stop } = useTuner(deps);
+  const { start, stop } = useListening(deps);
 
   const [devices, setDevices] = useState<readonly MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState<string>('');
@@ -58,11 +59,8 @@ export function Tuner(deps: TunerProps = {}) {
   }
 
   return (
-    <section aria-labelledby="afinador" className="border-border bg-surface rounded-lg border p-6">
+    <Panel id="afinador" title="Afinador">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 id="afinador" className="font-display text-text text-2xl">
-          Afinador
-        </h2>
         {listening === 'listening' && (
           <Button variant="quiet" onClick={() => void stop()}>
             Dejar de escuchar
@@ -101,7 +99,7 @@ export function Tuner(deps: TunerProps = {}) {
       <p aria-live="polite" className="sr-only">
         {listening === 'listening' ? readingAnnouncement(reading) : ''}
       </p>
-    </section>
+    </Panel>
   );
 }
 

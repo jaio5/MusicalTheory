@@ -136,6 +136,16 @@ Sigue sin haber ni una línea de código de subida, y no la habrá sin un ADR.
 IndexedDB y no localStorage porque localStorage es síncrono, y escribir cientos
 de notas ahí bloquearía el hilo que está analizando el audio.
 
+## Banco de trabajo
+
+La aplicación no es una lista de paneles, es una barra fija y una rejilla con lo
+que hayas encendido. De fábrica salen cuatro: afinador, tonalidad, sugerencias y
+mástil. Lo demás se enciende desde «Paneles» y se recuerda en el equipo.
+
+La barra lleva siempre lo que se mira sin parar —si está escuchando y qué nota
+suena— más tonalidad, estilo y escala. Nada de eso depende de qué paneles estén
+abiertos.
+
 ## Deuda técnica
 
 ### Pagada

@@ -6,6 +6,7 @@ import { WebAudioReferenceTone, type ReferenceTone } from '@audio/reference-tone
 import { accidentalForKey, midiToFrequency, SCALES, spanishNoteName } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { Panel } from '@ui/Panel';
 
 import {
   advanceExercise,
@@ -83,28 +84,21 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
 
   if (activeKey === null || exercise === null) {
     return (
-      <section
-        aria-labelledby="aprender"
-        className="border-border bg-surface rounded-lg border p-6"
-      >
-        <h2 id="aprender" className="font-display text-text text-2xl">
-          Aprender
-        </h2>
+      <Panel id="aprender" title="Aprender">
         <p className="text-text-muted mt-4">
           Elige una tonalidad o toca unos compases, y aquí sale la escala para practicarla nota a
           nota.
         </p>
-      </section>
+      </Panel>
     );
   }
 
   return (
-    <section aria-labelledby="aprender" className="border-border bg-surface rounded-lg border p-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-4">
-        <h2 id="aprender" className="font-display text-text text-2xl">
-          Aprender
-        </h2>
-        <div className="flex gap-2">
+    <Panel
+      id="aprender"
+      title="Aprender"
+      actions={
+        <>
           <Button variant="quiet" onClick={() => void playReference()}>
             Oír la nota
           </Button>
@@ -116,12 +110,12 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
           >
             {running ? 'Empezar de nuevo' : 'Empezar'}
           </Button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       <p className="text-text-muted mt-2 text-sm">
         {SCALES[scaleId].name} de {spanishNoteName(activeKey.tonic, accidental)}, subiendo y
-        bajando. Cada cuenta cuando suena limpia y la sostienes un momento.
+        bajando. Cada nota cuenta cuando suena limpia y la sostienes un momento.
       </p>
 
       <ol className="mt-6 flex flex-wrap gap-2" aria-label="Notas del ejercicio">
@@ -174,6 +168,6 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
           style={{ width: `${exerciseCompletion(progress, exercise) * 100}%` }}
         />
       </div>
-    </section>
+    </Panel>
   );
 }

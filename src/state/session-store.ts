@@ -20,7 +20,16 @@ import {
   type DegreeSymbol,
   type PitchReading,
   type ScaleId,
+  type StyleId,
 } from '@core/music';
+
+import {
+  DEFAULT_PREFERENCES,
+  loadPreferences,
+  savePreferences,
+  togglePanel as toggleInList,
+  type PanelId,
+} from './workspace';
 
 /** Qué está haciendo la aplicación con la escucha, en términos de interfaz. */
 export type ListeningState =
@@ -75,6 +84,11 @@ export interface SessionActions {
   /** Vuelve a hacer caso a lo que se detecta. */
   followDetection(): void;
   setScale(scaleId: ScaleId): void;
+  setStyle(styleId: StyleId): void;
+  /** Enciende o apaga un panel y lo recuerda para la próxima vez. */
+  togglePanel(id: PanelId): void;
+  /** Recupera del equipo lo que había configurado. */
+  loadWorkspace(): void;
   /** Marca qué grado está sonando, para sugerir a dónde ir desde ahí. */
   setCurrentDegree(degree: DegreeSymbol | null): void;
   clearHistory(): void;
@@ -103,6 +117,9 @@ export interface SessionState {
   /** Tonalidad elegida a mano, o null si manda la detección. */
   readonly pinnedKey: SessionKey | null;
   readonly scaleId: ScaleId;
+  readonly styleId: StyleId;
+  /** Paneles visibles, en el orden del catálogo. */
+  readonly visiblePanels: readonly PanelId[];
   /** Las últimas notas tocadas, de la más antigua a la más reciente. */
   readonly noteHistory: readonly PlayedNote[];
   /** Grado que el usuario dice estar tocando, o null. */
@@ -128,6 +145,8 @@ const EMPTY = {
   keyComputedAt: 0,
   pinnedKey: null,
   scaleId: 'minorPentatonic',
+  styleId: DEFAULT_PREFERENCES.styleId,
+  visiblePanels: DEFAULT_PREFERENCES.visible,
   noteHistory: [],
   currentDegree: null,
 } as const satisfies Omit<SessionState, 'actions'>;
@@ -176,6 +195,24 @@ export const useSessionStore = create<SessionState>()((set) => ({
     pinKey: (pinnedKey) => set({ pinnedKey }),
     followDetection: () => set({ pinnedKey: null }),
     setScale: (scaleId) => set({ scaleId }),
+
+    setStyle: (styleId) =>
+      set((state) => {
+        savePreferences({ visible: state.visiblePanels, styleId });
+        return { styleId };
+      }),
+
+    togglePanel: (id) =>
+      set((state) => {
+        const visiblePanels = toggleInList(state.visiblePanels, id);
+        savePreferences({ visible: visiblePanels, styleId: state.styleId });
+        return { visiblePanels };
+      }),
+
+    loadWorkspace: () => {
+      const preferences = loadPreferences();
+      set({ visiblePanels: preferences.visible, styleId: preferences.styleId });
+    },
     setCurrentDegree: (currentDegree) => set({ currentDegree }),
     clearHistory: () =>
       set({
@@ -196,6 +233,8 @@ export const selectHasSignal = (state: SessionState): boolean => state.hasSignal
 export const selectClarity = (state: SessionState): number => state.clarity;
 export const selectLevel = (state: SessionState): number => state.level;
 export const selectScaleId = (state: SessionState): ScaleId => state.scaleId;
+export const selectStyleId = (state: SessionState): StyleId => state.styleId;
+export const selectVisiblePanels = (state: SessionState): readonly PanelId[] => state.visiblePanels;
 export const selectNoteHistory = (state: SessionState): readonly PlayedNote[] => state.noteHistory;
 export const selectActions = (state: SessionState): SessionActions => state.actions;
 

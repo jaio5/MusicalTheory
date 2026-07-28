@@ -10,6 +10,7 @@ import { playQuietly } from '@media/play-quietly';
 import type { Recording, SessionRecorder } from '@media/session-recorder';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { Panel } from '@ui/Panel';
 
 export interface RecorderPanelProps {
   readonly createCamera?: () => CameraInput;
@@ -125,10 +126,7 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
   }
 
   return (
-    <section aria-labelledby="grabar" className="border-border bg-surface rounded-lg border p-6">
-      <h2 id="grabar" className="font-display text-text text-2xl">
-        Grabar
-      </h2>
+    <Panel id="grabar" title="Grabar">
       <p className="text-text-muted mt-2 text-sm">
         Necesitamos la cámara para grabarte tocando. El vídeo se queda en tu equipo y lo descargas
         tú: no se sube a ningún servidor.
@@ -178,6 +176,6 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
           guarda como <span className="text-text font-mono">{recording.filename}</span>.
         </p>
       )}
-    </section>
+    </Panel>
   );
 }
