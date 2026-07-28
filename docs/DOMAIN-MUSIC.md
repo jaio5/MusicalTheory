@@ -160,6 +160,21 @@ dominante con séptima menor, que es justo lo que la menor natural no tiene.
 Un Cmaj7 y un C7 son el mismo grado con distinta séptima, así que el dominio
 sabe decir qué tríada hay debajo de cada cuatríada.
 
+## Los dos anillos de la rueda
+
+El de fuera va Do, Sol, Re, La... y el de dentro va Lam, Mim, Sim, Fa#m... Los
+dos son círculos de quintas completos: el de los menores es el mismo recorrido
+leído desde la relativa.
+
+Por eso **se pueden intercambiar**, y la aplicación lo hace: al elegir una
+tonalidad menor, las menores pasan al anillo de fuera. En la rueda de cartón de
+toda la vida los mayores van siempre fuera, pero eso es una convención, no una
+ley.
+
+Lo que **no** cambia son las posiciones. La menor y Do mayor comparten armadura
+—las mismas notas, ninguna alteración— y por eso comparten sitio en la rueda.
+Al pasar de una a otra la rueda no gira: solo se intercambian los anillos.
+
 ## Formas de hacer un acorde
 
 Las digitaciones no están copiadas de una tabla: se buscan. Para cada posición

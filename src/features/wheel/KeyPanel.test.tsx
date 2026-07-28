@@ -139,3 +139,35 @@ describe('pulsar en la rueda', () => {
     expect(screen.queryByTitle('La# mayor')).not.toBeInTheDocument();
   });
 });
+
+describe('los anillos se dan la vuelta', () => {
+  it('con una mayor, las mayores van por fuera', async () => {
+    render(<KeyPanel />);
+    await userEvent.click(screen.getByTitle('Sol mayor'));
+
+    expect(
+      await screen.findByRole('img', { name: /las mayores en el anillo de fuera/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('con una menor, las menores pasan a fuera', async () => {
+    render(<KeyPanel />);
+    await userEvent.click(screen.getByTitle('Mi menor'));
+
+    expect(
+      await screen.findByRole('img', { name: /las menores en el anillo de fuera/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('las posiciones no cambian: la relativa sigue en el mismo sitio', async () => {
+    render(<KeyPanel />);
+
+    // Do mayor y La menor comparten armadura, así que comparten posición: al
+    // pasar de una a otra la rueda no gira.
+    await userEvent.click(screen.getByTitle('Do mayor'));
+    const doMayor = screen.getByTitle('Do mayor').closest('foreignObject');
+    const laMenor = screen.getByTitle('La menor').closest('foreignObject');
+
+    expect(doMayor?.getAttribute('transform')).toBe(laMenor?.getAttribute('transform'));
+  });
+});
