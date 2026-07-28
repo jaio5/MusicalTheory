@@ -3,7 +3,7 @@
  * nota, hacia dónde hay que corregir y qué cuerda es la más cercana.
  */
 
-import { noteName, spanishNoteName, type PitchReading } from '@core/music';
+import { noteName, spanishNoteName, type Accidental, type PitchReading } from '@core/music';
 
 /**
  * Margen en cents dentro del cual se da la nota por buena. Cinco cents es
@@ -57,18 +57,26 @@ export function meterOffset(cents: number): number {
  * estado, no con cada cent: una región viva que se actualiza veinte veces por
  * segundo es inservible.
  */
-export function readingAnnouncement(reading: PitchReading | null): string {
+export function readingAnnouncement(
+  reading: PitchReading | null,
+  accidental: Accidental = 'sharp',
+): string {
   if (reading === null) {
     return 'No se oye nada.';
   }
   const status = tuningStatus(reading.cents);
-  return `${spanishNoteName(reading.pitchClass)}${reading.octave}, ${tuningAdvice(status).toLowerCase()}.`;
+  return `${spanishNoteName(reading.pitchClass, accidental)}${reading.octave}, ${tuningAdvice(
+    status,
+  ).toLowerCase()}.`;
 }
 
 /** Nombre para pintar en grande: en español, con el cifrado anglosajón al lado. */
-export function displayNames(reading: PitchReading): { spanish: string; english: string } {
+export function displayNames(
+  reading: PitchReading,
+  accidental: Accidental = 'sharp',
+): { spanish: string; english: string } {
   return {
-    spanish: spanishNoteName(reading.pitchClass),
-    english: noteName(reading.pitchClass),
+    spanish: spanishNoteName(reading.pitchClass, accidental),
+    english: noteName(reading.pitchClass, accidental),
   };
 }

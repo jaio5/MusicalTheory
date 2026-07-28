@@ -5,7 +5,13 @@
  * necesite trastes concretos multiplica por octavas al pintarlos.
  */
 
-import { normalizePitchClass, noteName, type NoteName, type PitchClass } from './notes';
+import {
+  normalizePitchClass,
+  noteName,
+  type Accidental,
+  type NoteName,
+  type PitchClass,
+} from './notes';
 
 export type ScaleId =
   | 'major'
@@ -115,8 +121,12 @@ export function scaleNotes(tonic: PitchClass, id: ScaleId): PitchClass[] {
   return SCALES[id].intervals.map((interval) => normalizePitchClass(tonic + interval));
 }
 
-export function scaleNoteNames(tonic: PitchClass, id: ScaleId): NoteName[] {
-  return scaleNotes(tonic, id).map(noteName);
+export function scaleNoteNames(
+  tonic: PitchClass,
+  id: ScaleId,
+  accidental: Accidental = 'sharp',
+): NoteName[] {
+  return scaleNotes(tonic, id).map((pitchClass) => noteName(pitchClass, accidental));
 }
 
 export function isInScale(pitchClass: PitchClass, tonic: PitchClass, id: ScaleId): boolean {

@@ -6,7 +6,7 @@
  * medidos desde arriba y en sentido horario. Quien dibuje decide el radio.
  */
 
-import { normalizePitchClass, type PitchClass } from './notes';
+import { normalizePitchClass, type Accidental, type PitchClass } from './notes';
 import type { KeyMode } from './keys';
 
 /**
@@ -69,4 +69,16 @@ export function rotationForKey(tonic: PitchClass, mode: KeyMode): number {
 export function shortestRotation(from: number, to: number): number {
   const difference = ((((to - from) % 360) + 540) % 360) - 180;
   return from + difference;
+}
+
+/**
+ * Si esa tonalidad se escribe con sostenidos o con bemoles.
+ *
+ * La regla es la posición en la rueda: de Do a Fa# se va añadiendo sostenidos,
+ * y de ahí en adelante es más corto contarlo como bemoles. Fa lleva un bemol
+ * (Sib), Sib lleva dos, y así. Fa# y Solb empatan a seis; gana Fa#, que es lo
+ * que escribe todo el mundo en guitarra.
+ */
+export function accidentalForKey(tonic: PitchClass, mode: KeyMode): Accidental {
+  return keyPosition(tonic, mode) <= 6 ? 'sharp' : 'flat';
 }

@@ -7,6 +7,7 @@
  */
 
 import { chordSymbol, triadNotes, type ChordQuality } from './chords';
+import { accidentalForKey } from './circle-of-fifths';
 import { normalizePitchClass, type PitchClass } from './notes';
 import type { KeyMode } from './keys';
 
@@ -273,7 +274,8 @@ export function resolveDegree(
     degree,
     root,
     quality: shape.quality,
-    symbol: chordSymbol(root, shape.quality),
+    // El grado sabe en qué tonalidad vive, así que puede escribirse solo.
+    symbol: chordSymbol(root, shape.quality, accidentalForKey(tonic, mode)),
     notes: triadNotes(root, shape.quality),
     role: shape.role,
   };

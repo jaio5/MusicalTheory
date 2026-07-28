@@ -12,6 +12,7 @@
  * le sigue en vez de quedarse anclada al principio.
  */
 
+import { accidentalForKey } from './circle-of-fifths';
 import { spanishNoteName, SEMITONES_PER_OCTAVE, type PitchClass } from './notes';
 
 export type KeyMode = 'major' | 'minor';
@@ -137,7 +138,10 @@ function rotate(profile: readonly number[], tonic: PitchClass): number[] {
 }
 
 export function keyName(tonic: PitchClass, mode: KeyMode): string {
-  return `${spanishNoteName(tonic)} ${mode === 'major' ? 'mayor' : 'menor'}`;
+  // Sib mayor, no La# mayor: la tonalidad decide su propia escritura.
+  return `${spanishNoteName(tonic, accidentalForKey(tonic, mode))} ${
+    mode === 'major' ? 'mayor' : 'menor'
+  }`;
 }
 
 function toWeights(source: PitchHistogram | readonly number[]): readonly number[] {

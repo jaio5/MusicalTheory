@@ -1,7 +1,9 @@
 'use client';
 
 import {
+  accidentalForKey,
   degreeOfChord,
+  diatonicSevenths,
   diatonicTriads,
   isHeptatonic,
   keyName,
@@ -10,10 +12,12 @@ import {
   resolveDegree,
   resolveProgression,
   spanishNoteName,
+  triadQualityOf,
   type HeptatonicScaleId,
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { useState } from 'react';
 
 /**
  * Escala con la que se arman los acordes de la tonalidad. La escala elegida en
@@ -34,6 +38,7 @@ export function ComposePanel() {
   const history = useSessionStore((state) => state.noteHistory);
   const currentDegree = useSessionStore((state) => state.currentDegree);
   const actions = useSessionStore((state) => state.actions);
+  const [seventhChords, setSeventhChords] = useState(false);
 
   if (activeKey === null) {
     return (
@@ -53,22 +58,49 @@ export function ComposePanel() {
   }
 
   const scale = harmonyScale(activeKey.mode, scaleId);
-  const triads = diatonicTriads(activeKey.tonic, scale);
+  const accidental = accidentalForKey(activeKey.tonic, activeKey.mode);
+  // Cada acorde lleva colgada la tríada que hay debajo: un Cmaj7 y un C7 son
+  // el mismo grado, y es esa tríada la que sirve para localizarlo.
+  const chords = seventhChords
+    ? diatonicSevenths(activeKey.tonic, scale, accidental).map((chord) => ({
+        ...chord,
+        triadQuality: triadQualityOf(chord.quality),
+      }))
+    : diatonicTriads(activeKey.tonic, scale, accidental).map((chord) => ({
+        ...chord,
+        triadQuality: chord.quality,
+      }));
   const moves = currentDegree === null ? [] : nextDegrees(activeKey.mode, currentDegree);
 
   return (
     <section aria-labelledby="componer" className="border-border bg-surface rounded-lg border p-6">
-      <h2 id="componer" className="font-display text-text text-2xl">
-        Componer
-      </h2>
+      <div className="flex flex-wrap items-baseline justify-between gap-4">
+        <h2 id="componer" className="font-display text-text text-2xl">
+          Componer
+        </h2>
+        <label className="text-text-muted flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={seventhChords}
+            onChange={(event) => setSeventhChords(event.target.checked)}
+            className="accent-brass"
+          />
+          Cuatríadas
+        </label>
+      </div>
       <p className="text-text-muted mt-2 text-sm">
         Acordes de {keyName(activeKey.tonic, activeKey.mode)}. Pulsa el que estés tocando y te digo
         a dónde suele ir.
       </p>
 
       <ul className="mt-6 flex flex-wrap gap-2">
-        {triads.map((chord) => {
-          const degree = degreeOfChord(activeKey.tonic, activeKey.mode, chord.root, chord.quality);
+        {chords.map((chord) => {
+          const degree = degreeOfChord(
+            activeKey.tonic,
+            activeKey.mode,
+            chord.root,
+            chord.triadQuality,
+          );
           const selected = degree !== null && degree === currentDegree;
 
           return (
@@ -156,7 +188,7 @@ export function ComposePanel() {
           <p className="text-text-muted mt-3 text-sm">Todavía no ha sonado nada.</p>
         ) : (
           <p className="text-text mt-3 font-mono text-sm break-words">
-            {history.map((note) => spanishNoteName(note.pitchClass)).join(' · ')}
+            {history.map((note) => spanishNoteName(note.pitchClass, accidental)).join(' · ')}
           </p>
         )}
       </div>

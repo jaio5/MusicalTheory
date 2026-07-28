@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  accidentalForKey,
   CIRCLE_OF_FIFTHS,
   circlePosition,
   keyPosition,
@@ -14,7 +15,7 @@ import { noteName, pitchClassFromName } from './notes';
 
 describe('el orden de la rueda', () => {
   it('avanza por quintas justas desde Do', () => {
-    expect(CIRCLE_OF_FIFTHS.map(noteName)).toEqual([
+    expect(CIRCLE_OF_FIFTHS.map((tonic) => noteName(tonic))).toEqual([
       'C',
       'G',
       'D',
@@ -101,5 +102,32 @@ describe('giro de la rueda', () => {
       angle = shortestRotation(angle, step);
     }
     expect(angle).toBe(-120);
+  });
+});
+
+describe('escritura de cada tonalidad', () => {
+  it('usa sostenidos en el lado de los sostenidos', () => {
+    for (const name of ['C', 'G', 'D', 'A', 'E', 'B', 'F#'] as const) {
+      expect(accidentalForKey(pitchClassFromName(name), 'major')).toBe('sharp');
+    }
+  });
+
+  it('usa bemoles en el lado de los bemoles', () => {
+    // Fa lleva un bemol, Sib dos, Mib tres, Lab cuatro y Reb cinco.
+    for (const name of ['F', 'A#', 'D#', 'G#', 'C#'] as const) {
+      expect(accidentalForKey(pitchClassFromName(name), 'major')).toBe('flat');
+    }
+  });
+
+  it('una menor se escribe como su relativa mayor', () => {
+    // La menor es la relativa de Do: sin alteraciones, lado de los sostenidos.
+    expect(accidentalForKey(pitchClassFromName('A'), 'minor')).toBe('sharp');
+    // Re menor es la relativa de Fa: lleva Sib.
+    expect(accidentalForKey(pitchClassFromName('D'), 'minor')).toBe('flat');
+  });
+
+  it('escribe Fa mayor con Sib y no con La#', () => {
+    const accidental = accidentalForKey(pitchClassFromName('F'), 'major');
+    expect(noteName(pitchClassFromName('A#'), accidental)).toBe('Bb');
   });
 });

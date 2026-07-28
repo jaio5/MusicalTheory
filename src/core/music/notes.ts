@@ -21,12 +21,23 @@ export const A4_MIDI = 69;
 export type PitchClass = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 
 /**
- * Nombres en notación anglosajona porque es la que usa el cifrado de acordes
- * (Am, C, G). Para la interfaz existe SPANISH_NOTE_NAMES.
+ * Una nota se escribe con sostenido o con bemol según la tonalidad. Fa mayor
+ * lleva Sib, no La#: son la misma tecla y dos nombres distintos, y escribir el
+ * que no toca es una falta de ortografía musical.
  */
-export type NoteName = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B';
+export type Accidental = 'sharp' | 'flat';
 
-export const NOTE_NAMES: readonly NoteName[] = [
+export type SharpName = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B';
+
+export type FlatName = 'C' | 'Db' | 'D' | 'Eb' | 'E' | 'F' | 'Gb' | 'G' | 'Ab' | 'A' | 'Bb' | 'B';
+
+/**
+ * Nombres en notación anglosajona porque es la que usa el cifrado de acordes
+ * (Am, C, G). Para la interfaz existe la traducción al español.
+ */
+export type NoteName = SharpName | FlatName;
+
+export const SHARP_NAMES: readonly SharpName[] = [
   'C',
   'C#',
   'D',
@@ -41,19 +52,42 @@ export const NOTE_NAMES: readonly NoteName[] = [
   'B',
 ];
 
+export const FLAT_NAMES: readonly FlatName[] = [
+  'C',
+  'Db',
+  'D',
+  'Eb',
+  'E',
+  'F',
+  'Gb',
+  'G',
+  'Ab',
+  'A',
+  'Bb',
+  'B',
+];
+
+/** Alias histórico: los nombres con sostenidos. */
+export const NOTE_NAMES: readonly SharpName[] = SHARP_NAMES;
+
 /** Traducción para los textos de la interfaz, que van en español. */
 export const SPANISH_NOTE_NAMES: Readonly<Record<NoteName, string>> = {
   C: 'Do',
   'C#': 'Do#',
+  Db: 'Reb',
   D: 'Re',
   'D#': 'Re#',
+  Eb: 'Mib',
   E: 'Mi',
   F: 'Fa',
   'F#': 'Fa#',
+  Gb: 'Solb',
   G: 'Sol',
   'G#': 'Sol#',
+  Ab: 'Lab',
   A: 'La',
   'A#': 'La#',
+  Bb: 'Sib',
   B: 'Si',
 };
 
@@ -102,20 +136,29 @@ export function midiToOctave(midi: number): number {
   return Math.floor(Math.round(midi) / SEMITONES_PER_OCTAVE) - 1;
 }
 
-export function noteName(pitchClass: PitchClass): NoteName {
-  const name = NOTE_NAMES[pitchClass];
+export function noteName(pitchClass: PitchClass, accidental: Accidental = 'sharp'): NoteName {
+  const name = (accidental === 'flat' ? FLAT_NAMES : SHARP_NAMES)[pitchClass];
   if (name === undefined) {
     throw new RangeError(`Clase de altura fuera de rango: ${pitchClass}.`);
   }
   return name;
 }
 
-export function spanishNoteName(pitchClass: PitchClass): string {
-  return SPANISH_NOTE_NAMES[noteName(pitchClass)];
+export function spanishNoteName(pitchClass: PitchClass, accidental: Accidental = 'sharp'): string {
+  return SPANISH_NOTE_NAMES[noteName(pitchClass, accidental)];
 }
 
+/** Acepta las dos escrituras: La# y Sib son la misma clase de altura. */
 export function pitchClassFromName(name: NoteName): PitchClass {
-  return normalizePitchClass(NOTE_NAMES.indexOf(name));
+  const sharp = SHARP_NAMES.indexOf(name as SharpName);
+  if (sharp !== -1) {
+    return normalizePitchClass(sharp);
+  }
+  const flat = FLAT_NAMES.indexOf(name as FlatName);
+  if (flat === -1) {
+    throw new RangeError(`Nombre de nota desconocido: ${name}.`);
+  }
+  return normalizePitchClass(flat);
 }
 
 /**

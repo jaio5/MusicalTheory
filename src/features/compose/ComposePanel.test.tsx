@@ -18,13 +18,15 @@ async function play(midi: number, at: number) {
   });
 }
 
+// A nivel de fichero, no dentro de un describe: si no, los bloques de abajo se
+// quedan sin limpieza y acumulan paneles renderizados.
+beforeEach(() => {
+  useSessionStore.getState().actions.reset();
+});
+
+afterEach(cleanup);
+
 describe('Panel de componer', () => {
-  beforeEach(() => {
-    useSessionStore.getState().actions.reset();
-  });
-
-  afterEach(cleanup);
-
   it('pide una tonalidad antes de proponer nada', () => {
     render(<ComposePanel />);
     expect(screen.getByText(/toca unos compases o elige una tonalidad/i)).toBeInTheDocument();
@@ -159,5 +161,41 @@ describe('Panel de componer', () => {
 
     const am = await screen.findByRole('button', { name: /^Am/ });
     expect(within(am).getByText('i')).toBeInTheDocument();
+  });
+});
+
+describe('escritura y cuatríadas', () => {
+  it('escribe los acordes de Fa mayor con bemoles', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('F'), mode: 'major' });
+    render(<ComposePanel />);
+
+    expect(await screen.findByRole('button', { name: /^Bb/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^A#/ })).not.toBeInTheDocument();
+  });
+
+  it('cambia a cuatríadas al marcarlo', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+    render(<ComposePanel />);
+
+    expect(screen.getByText('Am')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /cuatríadas/i }));
+
+    // Las siete cuatríadas de La menor.
+    expect(await screen.findByText('Am7')).toBeInTheDocument();
+    expect(screen.getByText('Bm7b5')).toBeInTheDocument();
+    expect(screen.getByText('G7')).toBeInTheDocument();
+    expect(screen.queryByText('Am')).not.toBeInTheDocument();
+  });
+
+  it('la cuatríada sigue siendo el mismo grado que su tríada', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+    render(<ComposePanel />);
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /cuatríadas/i }));
+    await userEvent.click(await screen.findByText('Am7'));
+
+    // El grado sigue siendo i, así que las salidas son las del menor.
+    expect(await screen.findByText(/desde Am, lo habitual/i)).toBeInTheDocument();
   });
 });

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { WebAudioReferenceTone, type ReferenceTone } from '@audio/reference-tone';
-import { midiToFrequency, SCALES, spanishNoteName } from '@core/music';
+import { accidentalForKey, midiToFrequency, SCALES, spanishNoteName } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 
@@ -70,6 +70,8 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
   }, []);
 
   const step = exercise?.steps[progress.index] ?? null;
+  const accidental =
+    activeKey === null ? 'sharp' : accidentalForKey(activeKey.tonic, activeKey.mode);
 
   async function playReference() {
     if (step === null) {
@@ -118,8 +120,8 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
       </div>
 
       <p className="text-text-muted mt-2 text-sm">
-        {SCALES[scaleId].name} de {spanishNoteName(activeKey.tonic)}, subiendo y bajando. Cada nota
-        cuenta cuando suena limpia y la sostienes un momento.
+        {SCALES[scaleId].name} de {spanishNoteName(activeKey.tonic, accidental)}, subiendo y
+        bajando. Cada cuenta cuando suena limpia y la sostienes un momento.
       </p>
 
       <ol className="mt-6 flex flex-wrap gap-2" aria-label="Notas del ejercicio">
@@ -139,7 +141,7 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
                     : 'border-border text-text-muted'
               }`}
             >
-              {spanishNoteName(item.pitchClass)}
+              {spanishNoteName(item.pitchClass, accidental)}
               {item.descending && <span aria-hidden="true"> ↓</span>}
             </li>
           );
@@ -153,7 +155,7 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
           <span className="text-tube-bright">Escala completa. Otra vez, más rápido.</span>
         ) : (
           <span className="text-text">
-            Toca {spanishNoteName(step?.pitchClass ?? activeKey.tonic)}
+            Toca {spanishNoteName(step?.pitchClass ?? activeKey.tonic, accidental)}
             {progress.heldSince !== null && <span className="text-tube-bright"> · sostenla</span>}
           </span>
         )}

@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import { useEffect, useRef } from 'react';
 
 import {
+  accidentalForKey,
   CIRCLE_OF_FIFTHS,
   keyPosition,
   positionAngle,
@@ -75,7 +76,9 @@ export function WheelOfFifths({ tonic, mode }: WheelOfFifthsProps) {
       aria-label={
         tonic === null || mode === null
           ? 'Rueda de quintas. Todavía no hay tonalidad detectada.'
-          : `Rueda de quintas con ${spanishNoteName(tonic)} ${mode === 'major' ? 'mayor' : 'menor'} arriba.`
+          : `Rueda de quintas con ${spanishNoteName(tonic, accidentalForKey(tonic, mode))} ${
+              mode === 'major' ? 'mayor' : 'menor'
+            } arriba.`
       }
     >
       <circle
@@ -116,7 +119,7 @@ export function WheelOfFifths({ tonic, mode }: WheelOfFifthsProps) {
                   active && mode === 'major' ? 'fill-brass-bright' : 'fill-text-muted'
                 }`}
               >
-                {spanishNoteName(major)}
+                {spanishNoteName(major, accidentalForKey(major, 'major'))}
               </text>
               <text
                 x={minorPoint.x}
@@ -128,7 +131,7 @@ export function WheelOfFifths({ tonic, mode }: WheelOfFifthsProps) {
                   active && mode === 'minor' ? 'fill-brass-bright' : 'fill-text-muted opacity-70'
                 }`}
               >
-                {spanishNoteName(minor)}m
+                {spanishNoteName(minor, accidentalForKey(minor, 'minor'))}m
               </text>
             </g>
           );

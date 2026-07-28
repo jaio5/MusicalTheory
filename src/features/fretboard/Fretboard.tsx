@@ -4,7 +4,14 @@ import {
   INLAY_FRETS,
   STANDARD_TUNING,
 } from '@core/instrument';
-import { SCALES, scaleNotes, spanishNoteName, type PitchClass, type ScaleId } from '@core/music';
+import {
+  SCALES,
+  scaleNotes,
+  spanishNoteName,
+  type Accidental,
+  type PitchClass,
+  type ScaleId,
+} from '@core/music';
 
 const NUT_X = 46;
 const FRET_WIDTH = 54;
@@ -16,6 +23,8 @@ const WIDTH = NUT_X + FRET_WIDTH * DEFAULT_FRET_COUNT + 18;
 export interface FretboardProps {
   readonly tonic: PitchClass;
   readonly scaleId: ScaleId;
+  /** Cómo se escriben las notas en esta tonalidad. */
+  readonly accidental?: Accidental;
   /** La nota que suena ahora, para encenderla en el mástil. */
   readonly soundingMidi: number | null;
 }
@@ -26,7 +35,7 @@ export interface FretboardProps {
  * Los trastes van igual de anchos, que no es lo que pasa en una guitarra real
  * —se estrechan hacia el puente— pero es lo que hace legible un diagrama.
  */
-export function Fretboard({ tonic, scaleId, soundingMidi }: FretboardProps) {
+export function Fretboard({ tonic, scaleId, soundingMidi, accidental = 'sharp' }: FretboardProps) {
   const notes = scaleNotes(tonic, scaleId);
   const positions = fretboardPositions().filter((position) => notes.includes(position.pitchClass));
   const stringIndex = new Map(STANDARD_TUNING.map((string, index) => [string.number, index]));
@@ -38,7 +47,7 @@ export function Fretboard({ tonic, scaleId, soundingMidi }: FretboardProps) {
       role="img"
       aria-label={`Mástil de ${DEFAULT_FRET_COUNT} trastes con la escala ${SCALES[
         scaleId
-      ].name.toLowerCase()} de ${spanishNoteName(tonic)} marcada.`}
+      ].name.toLowerCase()} de ${spanishNoteName(tonic, accidental)} marcada.`}
     >
       {INLAY_FRETS.map((fret) => (
         <rect
@@ -128,7 +137,7 @@ export function Fretboard({ tonic, scaleId, soundingMidi }: FretboardProps) {
               dominantBaseline="central"
               className={`font-mono text-[9px] ${isTonic ? 'fill-background' : 'fill-text-muted'}`}
             >
-              {spanishNoteName(position.pitchClass)}
+              {spanishNoteName(position.pitchClass, accidental)}
             </text>
           </g>
         );
