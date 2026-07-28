@@ -69,7 +69,7 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
           payload !== null &&
           'error' in payload &&
           typeof (payload as { error: { code?: unknown } }).error.code === 'string'
-            ? ((payload as { error: { code: IdeasErrorCode } }).error.code)
+            ? (payload as { error: { code: IdeasErrorCode } }).error.code
             : 'model_unavailable';
         setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.model_unavailable);
         setIdeas([]);
@@ -91,8 +91,8 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
         Ideas
       </h2>
       <p className="text-text-muted mt-2 text-sm">
-        Le pasamos la tonalidad, la escala y los nombres de las notas. Ni el audio ni el vídeo
-        salen de tu equipo.
+        Le pasamos la tonalidad, la escala y los nombres de las notas. Ni el audio ni el vídeo salen
+        de tu equipo.
       </p>
 
       {activeKey === null ? (

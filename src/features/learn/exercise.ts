@@ -136,10 +136,7 @@ export function advanceExercise(
 }
 
 /** De 0 a 1, para pintar una barra de avance. */
-export function exerciseCompletion(
-  progress: ExerciseProgress,
-  exercise: Exercise,
-): number {
+export function exerciseCompletion(progress: ExerciseProgress, exercise: Exercise): number {
   if (exercise.steps.length === 0) {
     return 0;
   }

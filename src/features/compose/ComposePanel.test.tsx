@@ -35,7 +35,9 @@ describe('Panel de componer', () => {
     render(<ComposePanel />);
 
     for (const symbol of ['Am', 'Bdim', 'C', 'Dm', 'Em', 'F', 'G']) {
-      expect(await screen.findByRole('button', { name: new RegExp(`^${symbol}`) })).toBeInTheDocument();
+      expect(
+        await screen.findByRole('button', { name: new RegExp(`^${symbol}`) }),
+      ).toBeInTheDocument();
     }
   });
 

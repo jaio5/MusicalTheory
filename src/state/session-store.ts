@@ -149,9 +149,10 @@ export const useSessionStore = create<SessionState>()((set) => ({
         const isNew =
           last === undefined || last.midi !== reading.midi || at - last.at >= NOTE_REPEAT_MS;
         const noteHistory = isNew
-          ? [...state.noteHistory, { pitchClass: reading.pitchClass, midi: reading.midi, at }].slice(
-              -NOTE_HISTORY_LIMIT,
-            )
+          ? [
+              ...state.noteHistory,
+              { pitchClass: reading.pitchClass, midi: reading.midi, at },
+            ].slice(-NOTE_HISTORY_LIMIT)
           : state.noteHistory;
 
         return {
@@ -169,7 +170,13 @@ export const useSessionStore = create<SessionState>()((set) => ({
     followDetection: () => set({ pinnedKey: null }),
     setScale: (scaleId) => set({ scaleId }),
     setCurrentDegree: (currentDegree) => set({ currentDegree }),
-    clearHistory: () => set({ noteHistory: [], histogram: createPitchHistogram(), keyCandidates: [], keyComputedAt: 0 }),
+    clearHistory: () =>
+      set({
+        noteHistory: [],
+        histogram: createPitchHistogram(),
+        keyCandidates: [],
+        keyComputedAt: 0,
+      }),
     reset: () => set({ ...EMPTY, histogram: createPitchHistogram(), noteHistory: [] }),
   },
 }));

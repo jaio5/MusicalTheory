@@ -57,12 +57,7 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
     // advanceExercise devuelve un progreso distinto.
     return useSessionStore.subscribe((state) => {
       setProgress((current) =>
-        advanceExercise(
-          current,
-          exercise,
-          state.hasSignal ? state.reading : null,
-          state.readingAt,
-        ),
+        advanceExercise(current, exercise, state.hasSignal ? state.reading : null, state.readingAt),
       );
     });
   }, [running, exercise]);
@@ -86,7 +81,10 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
 
   if (activeKey === null || exercise === null) {
     return (
-      <section aria-labelledby="aprender" className="border-border bg-surface rounded-lg border p-6">
+      <section
+        aria-labelledby="aprender"
+        className="border-border bg-surface rounded-lg border p-6"
+      >
         <h2 id="aprender" className="font-display text-text text-2xl">
           Aprender
         </h2>

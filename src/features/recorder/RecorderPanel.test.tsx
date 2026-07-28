@@ -26,7 +26,10 @@ class FakeCamera implements CameraInput {
   async start(): Promise<void> {
     if (this.outcome === 'running') {
       this.state = 'running';
-      this.stream = { getVideoTracks: () => [], getAudioTracks: () => [] } as unknown as MediaStream;
+      this.stream = {
+        getVideoTracks: () => [],
+        getAudioTracks: () => [],
+      } as unknown as MediaStream;
     } else {
       this.state = this.outcome;
       this.errorMessage = 'Has denegado el acceso a la cámara.';
@@ -87,7 +90,12 @@ describe('Panel de grabación', () => {
   afterEach(cleanup);
 
   it('explica para qué quiere la cámara y que no sube nada', () => {
-    render(<RecorderPanel createCamera={() => new FakeCamera()} createRecorder={() => new FakeRecorder()} />);
+    render(
+      <RecorderPanel
+        createCamera={() => new FakeCamera()}
+        createRecorder={() => new FakeRecorder()}
+      />,
+    );
 
     expect(screen.getByText(/necesitamos la cámara para grabarte/i)).toBeInTheDocument();
     expect(screen.getByText(/no se sube a ningún servidor/i)).toBeInTheDocument();
@@ -130,7 +138,9 @@ describe('Panel de grabación', () => {
 
   it('suelta la cámara si el navegador no sabe grabar', async () => {
     const camera = new FakeCamera();
-    render(<RecorderPanel createCamera={() => camera} createRecorder={() => new FakeRecorder(false)} />);
+    render(
+      <RecorderPanel createCamera={() => camera} createRecorder={() => new FakeRecorder(false)} />,
+    );
 
     await userEvent.click(screen.getByRole('button', { name: /grabarme tocando/i }));
 

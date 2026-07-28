@@ -56,7 +56,9 @@ describe('Panel de aprender', () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
     renderPanel();
 
-    expect(await screen.findByText(/pentatónica menor de La, subiendo y bajando/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/pentatónica menor de La, subiendo y bajando/i),
+    ).toBeInTheDocument();
     // Cinco notas más la octava subiendo, cinco bajando.
     expect(screen.getAllByRole('listitem')).toHaveLength(11);
   });

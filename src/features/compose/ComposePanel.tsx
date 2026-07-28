@@ -37,13 +37,16 @@ export function ComposePanel() {
 
   if (activeKey === null) {
     return (
-      <section aria-labelledby="componer" className="border-border bg-surface rounded-lg border p-6">
+      <section
+        aria-labelledby="componer"
+        className="border-border bg-surface rounded-lg border p-6"
+      >
         <h2 id="componer" className="font-display text-text text-2xl">
           Componer
         </h2>
         <p className="text-text-muted mt-4">
-          Toca unos compases o elige una tonalidad, y aquí salen sus acordes y a dónde ir desde
-          cada uno.
+          Toca unos compases o elige una tonalidad, y aquí salen sus acordes y a dónde ir desde cada
+          uno.
         </p>
       </section>
     );
@@ -65,12 +68,7 @@ export function ComposePanel() {
 
       <ul className="mt-6 flex flex-wrap gap-2">
         {triads.map((chord) => {
-          const degree = degreeOfChord(
-            activeKey.tonic,
-            activeKey.mode,
-            chord.root,
-            chord.quality,
-          );
+          const degree = degreeOfChord(activeKey.tonic, activeKey.mode, chord.root, chord.quality);
           const selected = degree !== null && degree === currentDegree;
 
           return (

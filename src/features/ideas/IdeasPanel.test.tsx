@@ -94,9 +94,7 @@ describe('Panel de ideas', () => {
     useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
 
     render(
-      <IdeasPanel
-        fetchIdeas={async () => respondWith(ideasError('unparseable_response'), 502)}
-      />,
+      <IdeasPanel fetchIdeas={async () => respondWith(ideasError('unparseable_response'), 502)} />,
     );
 
     await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));

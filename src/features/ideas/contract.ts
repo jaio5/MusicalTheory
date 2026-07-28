@@ -50,10 +50,7 @@ export interface IdeasResponse {
 }
 
 export type IdeasErrorCode =
-  | 'invalid_request'
-  | 'rate_limited'
-  | 'model_unavailable'
-  | 'unparseable_response';
+  'invalid_request' | 'rate_limited' | 'model_unavailable' | 'unparseable_response';
 
 export interface IdeasError {
   readonly error: { readonly code: IdeasErrorCode; readonly message: string };

@@ -1,6 +1,7 @@
 # Roadmap
 
-Estado a 28 de julio de 2026.
+Estado a 28 de julio de 2026. Las siete fases están implementadas;
+lo que queda anotado abajo es deuda y afinado con instrumento real.
 
 ## Fase 0 — Esqueleto y dominio · hecha
 
@@ -122,13 +123,18 @@ terceras.
 
 Sigue sin haber ni una línea de código de subida, y no la habrá sin un ADR.
 
-## Fase 7 — Persistencia local de sesiones
+## Fase 7 — Persistencia local de sesiones · hecha
 
-Guardar sesiones en IndexedDB: tonalidades detectadas, progresiones probadas,
-ideas guardadas. Sin cuenta y sin servidor.
+- [x] `SessionStorage` como interfaz, con dos implementaciones: IndexedDB en el
+      navegador y en memoria para los tests y el renderizado en servidor.
+- [x] Se guardan tonalidad, escala y nombres de notas. Ni audio ni vídeo.
+- [x] Retención de veinte sesiones, con la regla probada aparte de la base.
+- [x] Retomar una sesión devuelve su tonalidad y su escala.
+- [ ] No se restaura sola al abrir: hay que pulsar «Retomar». Automático sería
+      cómodo, pero también sorprendente.
 
-**Terminada cuando**: al volver a abrir la app aparece lo último en lo que se
-estaba trabajando.
+IndexedDB y no localStorage porque localStorage es síncrono, y escribir cientos
+de notas ahí bloquearía el hilo que está analizando el audio.
 
 ## Deuda técnica anotada
 

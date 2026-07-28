@@ -12,9 +12,10 @@ dos modos:
 Encima de los dos modos hay una grabación opcional con cámara, con los datos
 detectados quemados en el vídeo.
 
-**Estado**: fase 2. Funciona el afinador, la detección de tonalidad con su rueda
-de quintas y el mástil con la escala marcada. Lo siguiente es el modo aprender;
-el detalle está en [docs/ROADMAP.md](./docs/ROADMAP.md).
+**Estado**: las siete fases están implementadas — afinador, rueda de quintas,
+mástil, modo aprender, modo componer, ideas de IA, grabación con cámara y
+sesiones guardadas en local. Lo que queda es afinar con instrumento real y la
+deuda anotada en [docs/ROADMAP.md](./docs/ROADMAP.md).
 
 ## Cómo arrancarlo
 

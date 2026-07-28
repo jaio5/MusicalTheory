@@ -74,7 +74,10 @@ export class BrowserCameraInput implements CameraInput {
   }
 
   async listDevices(): Promise<MediaDeviceInfo[]> {
-    if (typeof navigator === 'undefined' || navigator.mediaDevices?.enumerateDevices === undefined) {
+    if (
+      typeof navigator === 'undefined' ||
+      navigator.mediaDevices?.enumerateDevices === undefined
+    ) {
       return [];
     }
     const devices = await navigator.mediaDevices.enumerateDevices();
