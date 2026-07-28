@@ -53,13 +53,18 @@ directamente a `core/`.
 
 ### `features/`
 
-Un directorio por bloque: `tuner`, `wheel`, `fretboard`, `suggest`, `learn`,
-`compose`, `ideas`, `recorder`, `sessions` y `workspace` —la barra de
-herramientas—. Cada uno tiene sus componentes y su lógica de presentación, y
-ninguno conoce a los demás.
+Un directorio por bloque: `tuner`, `wheel`, `fretboard`, `path`, `suggest`,
+`learn`, `compose`, `ideas`, `recorder`, `sessions`, `dock` —las zonas con
+pestañas— y `workspace` —el botón del micro y los ajustes—. Cada uno tiene sus
+componentes y su lógica de presentación, y ninguno conoce a los demás.
 
-Quien los junta es `app/Workspace.tsx`, que es el único sitio que puede: la
-composición es trabajo de la capa de arriba, no de un feature.
+`dock` es el caso interesante: monta la pantalla sin saber qué hay dentro de
+ningún panel. Los recibe ya construidos en una prop, así que no importa de
+ningún otro feature aunque los enseñe todos.
+
+Quien los junta es `app/panels.tsx`, el único sitio del proyecto donde se
+mezclan features distintos, y `app/Workspace.tsx`, que pone la barra de arriba
+y el dock. La composición es trabajo de la capa de arriba, no de un feature.
 
 ### `ui/`
 
@@ -140,6 +145,17 @@ ejecutarse dos veces en desarrollo (modo estricto) y debe devolver su propia
 limpieza. Todo lo que abre un recurso —micro, cámara, grabación— tiene que
 cerrarse en ese `return`, o al recargar en caliente se quedan dos micrófonos
 abiertos.
+
+**Un contexto para lo que atraviesa el árbol.** Los paneles llevan su propia
+cabecera, pero dentro del dock la pestaña ya dice cómo se llaman y repetirlo
+sobra. Quien lo sabe —el dock— y quien lo necesita —el `Panel` de dentro de cada
+feature— están separados por varios componentes, así que el dato viaja por un
+contexto (`ui/panel-chrome.tsx`) en vez de por una cadena de props. Es lo mismo
+que un servicio provisto en un componente padre de Angular, salvo que el valor
+baja por el árbol de render y no por el inyector. Se usa aquí y no para el
+estado de sesión porque cambia una vez cada nunca: un contexto vuelve a
+renderizar a todos sus consumidores, y con veinte lecturas por segundo eso no
+valdría.
 
 **Server components por defecto.** En Next con App Router, un componente se
 renderiza en el servidor salvo que lleve `'use client'` en la primera línea.

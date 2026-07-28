@@ -24,16 +24,33 @@ import {
 } from '@core/music';
 
 import {
+  activatePanel,
+  closePanel,
   DEFAULT_PREFERENCES,
   loadPreferences,
+  movePanel,
+  openPanel,
+  resizeZone,
   savePreferences,
-  togglePanel as toggleInList,
+  type Layout,
   type PanelId,
+  type WorkspacePreferences,
+  type ZoneId,
 } from './workspace';
 
 /** Qué está haciendo la aplicación con la escucha, en términos de interfaz. */
 export type ListeningState =
   'idle' | 'requesting' | 'listening' | 'denied' | 'unsupported' | 'error';
+
+/** Un acorde del camino, ya listo para enseñar. */
+export interface PathChord {
+  readonly symbol: string;
+  /** El grado, o de dónde sale: «bVII», «V7/vi». */
+  readonly label: string;
+  readonly root: PitchClass;
+  readonly notes: readonly PitchClass[];
+  readonly why: string;
+}
 
 export interface SessionKey {
   readonly tonic: PitchClass;
@@ -85,10 +102,21 @@ export interface SessionActions {
   followDetection(): void;
   setScale(scaleId: ScaleId): void;
   setStyle(styleId: StyleId): void;
-  /** Enciende o apaga un panel y lo recuerda para la próxima vez. */
-  togglePanel(id: PanelId): void;
+  /** Trae un panel al frente de su zona. */
+  showPanel(id: PanelId): void;
+  /** Lo lleva a otra zona, opcionalmente a una posición concreta. */
+  dockPanel(id: PanelId, zone: ZoneId, index?: number): void;
+  /** Lo abre donde se diga, o lo trae al frente si ya estaba. */
+  addPanel(id: PanelId, zone?: ZoneId): void;
+  hidePanel(id: PanelId): void;
+  resizeZone(zone: ZoneId, size: number): void;
   /** Recupera del equipo lo que había configurado. */
   loadWorkspace(): void;
+  /** Añade un acorde al final del camino. */
+  pushChord(chord: PathChord): void;
+  /** Corta el camino justo después del acorde que se pulsa. */
+  trimPath(index: number): void;
+  clearPath(): void;
   /** Marca qué grado está sonando, para sugerir a dónde ir desde ahí. */
   setCurrentDegree(degree: DegreeSymbol | null): void;
   clearHistory(): void;
@@ -118,12 +146,14 @@ export interface SessionState {
   readonly pinnedKey: SessionKey | null;
   readonly scaleId: ScaleId;
   readonly styleId: StyleId;
-  /** Paneles visibles, en el orden del catálogo. */
-  readonly visiblePanels: readonly PanelId[];
+  /** Dónde está cada panel y qué tamaño tiene cada zona. */
+  readonly layout: Layout;
   /** Las últimas notas tocadas, de la más antigua a la más reciente. */
   readonly noteHistory: readonly PlayedNote[];
   /** Grado que el usuario dice estar tocando, o null. */
   readonly currentDegree: DegreeSymbol | null;
+  /** La progresión que se está armando, del primero al último. */
+  readonly path: readonly PathChord[];
   /**
    * Las acciones viven en un objeto propio que no se reemplaza nunca, para que
    * suscribirse a ellas no provoque renders. Es el equivalente a inyectar un
@@ -146,10 +176,29 @@ const EMPTY = {
   pinnedKey: null,
   scaleId: 'minorPentatonic',
   styleId: DEFAULT_PREFERENCES.styleId,
-  visiblePanels: DEFAULT_PREFERENCES.visible,
+  layout: DEFAULT_PREFERENCES.layout,
   noteHistory: [],
   currentDegree: null,
+  path: [],
 } as const satisfies Omit<SessionState, 'actions'>;
+
+/**
+ * Guarda la configuración cada vez que cambia. Es lo único que sale del estado
+ * hacia el equipo, y va aquí y no en cada acción para que ninguna se olvide.
+ */
+function remember(state: SessionState, patch: Partial<WorkspacePreferences>): void {
+  savePreferences({
+    layout: state.layout,
+    styleId: state.styleId,
+    scaleId: state.scaleId,
+    ...patch,
+  });
+}
+
+function rememberLayout(state: SessionState, layout: Layout): { layout: Layout } {
+  remember(state, { layout });
+  return { layout };
+}
 
 export const useSessionStore = create<SessionState>()((set) => ({
   ...EMPTY,
@@ -194,25 +243,38 @@ export const useSessionStore = create<SessionState>()((set) => ({
     setLevel: (level) => set({ level }),
     pinKey: (pinnedKey) => set({ pinnedKey }),
     followDetection: () => set({ pinnedKey: null }),
-    setScale: (scaleId) => set({ scaleId }),
+    setScale: (scaleId) =>
+      set((state) => {
+        remember(state, { scaleId });
+        return { scaleId };
+      }),
 
     setStyle: (styleId) =>
       set((state) => {
-        savePreferences({ visible: state.visiblePanels, styleId });
+        remember(state, { styleId });
         return { styleId };
       }),
 
-    togglePanel: (id) =>
-      set((state) => {
-        const visiblePanels = toggleInList(state.visiblePanels, id);
-        savePreferences({ visible: visiblePanels, styleId: state.styleId });
-        return { visiblePanels };
-      }),
+    showPanel: (id) => set((state) => rememberLayout(state, activatePanel(state.layout, id))),
+    dockPanel: (id, zone, index) =>
+      set((state) => rememberLayout(state, movePanel(state.layout, id, zone, index))),
+    addPanel: (id, zone) =>
+      set((state) => rememberLayout(state, openPanel(state.layout, id, zone))),
+    hidePanel: (id) => set((state) => rememberLayout(state, closePanel(state.layout, id))),
+    resizeZone: (zone, size) =>
+      set((state) => rememberLayout(state, resizeZone(state.layout, zone, size))),
 
     loadWorkspace: () => {
       const preferences = loadPreferences();
-      set({ visiblePanels: preferences.visible, styleId: preferences.styleId });
+      set({
+        layout: preferences.layout,
+        styleId: preferences.styleId,
+        scaleId: preferences.scaleId,
+      });
     },
+    pushChord: (chord) => set((state) => ({ path: [...state.path, chord] })),
+    trimPath: (index) => set((state) => ({ path: state.path.slice(0, index + 1) })),
+    clearPath: () => set({ path: [] }),
     setCurrentDegree: (currentDegree) => set({ currentDegree }),
     clearHistory: () =>
       set({
@@ -221,7 +283,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
         keyCandidates: [],
         keyComputedAt: 0,
       }),
-    reset: () => set({ ...EMPTY, histogram: createPitchHistogram(), noteHistory: [] }),
+    reset: () => set({ ...EMPTY, histogram: createPitchHistogram(), noteHistory: [], path: [] }),
   },
 }));
 
@@ -234,7 +296,7 @@ export const selectClarity = (state: SessionState): number => state.clarity;
 export const selectLevel = (state: SessionState): number => state.level;
 export const selectScaleId = (state: SessionState): ScaleId => state.scaleId;
 export const selectStyleId = (state: SessionState): StyleId => state.styleId;
-export const selectVisiblePanels = (state: SessionState): readonly PanelId[] => state.visiblePanels;
+export const selectLayout = (state: SessionState): Layout => state.layout;
 export const selectNoteHistory = (state: SessionState): readonly PlayedNote[] => state.noteHistory;
 export const selectActions = (state: SessionState): SessionActions => state.actions;
 

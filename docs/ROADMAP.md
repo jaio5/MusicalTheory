@@ -145,27 +145,24 @@ y se puede volver atrás a cualquier punto.
 
 ## La pantalla
 
-Tres columnas fijas que caben enteras, sin scroll de página:
+Un banco de trabajo con cuatro zonas —izquierda, centro, derecha y abajo—, cada
+una con sus pestañas. Las pestañas se arrastran de una zona a otra, se cierran
+y se vuelven a abrir desde el menú «Paneles», y las líneas que separan las zonas
+se mueven para repartir el sitio. Todo se guarda en el equipo: al volver está
+como lo dejaste.
 
-- **Izquierda**: una barra estrecha con el acorde en el que estás, sus notas y
-  sus formas de hacerlo —una cada vez, se pasan deslizando, porque cuatro
-  diagramas en columna no caben—. Debajo, la progresión que llevas. La barra se
-  pliega a un canto cuando estorba.
-- **Centro**: el buscador de acordes y la lista de a dónde puedes ir, con su
-  propio scroll.
-- **Derecha**: la rueda de quintas, pulsable.
+De fábrica: el acorde a la izquierda, los siguientes en el centro, la rueda a la
+derecha y el mástil abajo. El afinador, componer, aprender, ideas, grabar y
+sesiones están cerrados hasta que hagan falta.
 
 Arriba solo hay dos cosas: el botón de micro redondo —como el de grabar de la
-cámara del móvil— con la nota que suena al lado, y los botones del cajón. El
-estilo y la escala viven debajo de la rueda, que es donde ya se elige la
-tonalidad.
+cámara del móvil— con la nota que suena al lado, y el menú de paneles.
 
-Las notas se escriben en cifrado anglosajón —C, D, E— en toda la aplicación:
-es lo que traen las tablaturas y los diagramas de acordes.
+Las notas se escriben en cifrado anglosajón —C, D, E— en toda la aplicación: es
+lo que traen las tablaturas y los diagramas de acordes.
 
-Lo demás —mástil, afinador detallado, aprender, componer, ideas, grabar,
-sesiones— vive en un cajón que se abre encima. Así está disponible sin que la
-pantalla principal crezca.
+La página no hace scroll. Lo hacen los paneles por dentro, que es lo que permite
+que quepa todo.
 
 ## Deuda técnica
 

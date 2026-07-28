@@ -183,6 +183,11 @@ Acepta las formas alternativas de escribir lo mismo (`min`, `-`, `M7`, `ø`, `+`
 y devuelve null cuando no lo reconoce, que es información útil: se puede decir
 «no conozco ese acorde» en vez de callarse.
 
+No hace falta escribirlo entero: con la fundamental basta para proponer. Quien
+teclea «A» recibe A, Am, A7, Am7... en orden de uso en una guitarra, y lo que ya
+esté escrito del todo va primero. Lo que no empieza por una nota reconocible no
+propone nada, porque cualquier cosa sería adivinar.
+
 Con el acorde leído se le puede preguntar si pega, y la respuesta tiene tres
 grados:
 

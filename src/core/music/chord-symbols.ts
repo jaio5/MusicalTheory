@@ -74,9 +74,35 @@ export interface ParsedChord {
   readonly shape: ChordShape;
 }
 
-export const KNOWN_SUFFIXES: readonly string[] = Object.keys(SHAPES).filter(
-  (suffix) => suffix !== '',
-);
+/**
+ * De más a menos frecuente en una guitarra. Es el orden en el que se ofrecen al
+ * escribir: quien teclea «A» busca A, Am o A7 mucho antes que A7b9.
+ */
+const BY_USE: readonly string[] = [
+  '',
+  'm',
+  '7',
+  'm7',
+  'maj7',
+  '5',
+  'sus4',
+  'sus2',
+  'add9',
+  '6',
+  'm6',
+  '9',
+  'm9',
+  'maj9',
+  'dim',
+  'dim7',
+  'm7b5',
+  'aug',
+  '7sus4',
+  '7#9',
+  '7b9',
+];
+
+export const KNOWN_SUFFIXES: readonly string[] = BY_USE.filter((suffix) => suffix !== '');
 
 /**
  * Interpreta un cifrado. Devuelve null si no lo reconoce, que es información
@@ -130,4 +156,36 @@ function normalizeSuffix(raw: string): string {
   }
   const lower = trimmed.toLowerCase();
   return SHAPES[lower] === undefined ? trimmed : lower;
+}
+
+/**
+ * Qué acordes podrían ser lo que se está escribiendo.
+ *
+ * Basta con la fundamental para empezar a proponer: con «A» ya se sabe que
+ * puede acabar en A, Am o A7. Lo que no se reconoce como fundamental no propone
+ * nada, porque cualquier cosa sería adivinar.
+ */
+export function suggestChordSymbols(text: string, limit = 8): readonly ParsedChord[] {
+  const clean = text.trim().replace(/\s+/g, '');
+  const match = /^([A-Ga-g])([#b]?)(.*)$/.exec(clean);
+  if (match === null) {
+    return [];
+  }
+
+  const [, letter, accidental, rest = ''] = match;
+  const root = `${letter!.toUpperCase()}${accidental ?? ''}`;
+  const typed = rest.trim();
+  const resolved = typed === '' ? '' : normalizeSuffix(typed);
+
+  // Lo que ya se ha escrito entero va primero: si alguien teclea «Am7» quiere
+  // Am7, y las variantes que empiezan igual vienen detrás.
+  const exact = SHAPES[resolved] === undefined ? [] : [resolved];
+  const starts = BY_USE.filter(
+    (suffix) => !exact.includes(suffix) && suffix.toLowerCase().startsWith(typed.toLowerCase()),
+  );
+
+  return [...exact, ...starts]
+    .slice(0, limit)
+    .map((suffix) => parseChordSymbol(`${root}${suffix}`))
+    .filter((chord): chord is ParsedChord => chord !== null);
 }

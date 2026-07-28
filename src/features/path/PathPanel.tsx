@@ -8,25 +8,15 @@ import {
   noteName,
   suggestChords,
   suggestTransitions,
-  type ChordSuggestion,
   type ParsedChord,
 } from '@core/music';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, useSessionStore, type PathChord } from '@state/session-store';
 import { ChordDiagram } from '@ui/ChordDiagram';
 import { prefersReducedMotion } from '@ui/motion';
 
 import { ChordSearch } from './ChordSearch';
 
-/** Lo que hace falta para pintar un acorde, venga de donde venga. */
-interface Chord {
-  readonly symbol: string;
-  readonly label: string;
-  readonly root: ChordSuggestion['root'];
-  readonly notes: readonly ChordSuggestion['root'][];
-  readonly why: string;
-}
-
-function fromSearch(chord: ParsedChord): Chord {
+function fromSearch(chord: ParsedChord): PathChord {
   return {
     symbol: chord.symbol,
     label: chord.shape.name,
@@ -37,7 +27,7 @@ function fromSearch(chord: ParsedChord): Chord {
 }
 
 /** Los intervalos del acorde respecto a su fundamental, para buscar formas. */
-function relativeIntervals(chord: Chord): number[] {
+function relativeIntervals(chord: PathChord): number[] {
   return chord.notes.map((note) => (note - chord.root + 12) % 12).sort((a, b) => a - b);
 }
 
@@ -50,16 +40,10 @@ function relativeIntervals(chord: Chord): number[] {
  * crezca.
  */
 
-export interface ChordFocusProps {
-  readonly path: readonly Chord[];
-  readonly onTrim: (index: number) => void;
-  readonly onClear: () => void;
-  /** Pliega la barra lateral. */
-  readonly onCollapse?: () => void;
-}
-
-export function ChordFocus({ path, onTrim, onClear, onCollapse }: ChordFocusProps) {
+export function ChordFocus() {
   const activeKey = useSessionStore(selectActiveKey);
+  const path = useSessionStore((state) => state.path);
+  const actions = useSessionStore((state) => state.actions);
   const current = path.at(-1) ?? null;
 
   const voicings = useMemo(
@@ -77,28 +61,14 @@ export function ChordFocus({ path, onTrim, onClear, onCollapse }: ChordFocusProp
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-border flex shrink-0 items-center justify-between gap-1 border-b px-2 py-1.5">
-        {current === null ? (
-          <span className="text-text-muted font-mono text-[10px] tracking-widest uppercase">
-            Acorde
-          </span>
-        ) : (
+      {current !== null && (
+        <div className="border-border flex shrink-0 items-baseline gap-2 border-b px-3 py-1.5">
           <span className="font-display text-brass-bright truncate text-2xl leading-none">
             {current.symbol}
           </span>
-        )}
-        {onCollapse !== undefined && (
-          <button
-            type="button"
-            onClick={onCollapse}
-            aria-label="Plegar el acorde"
-            title="Plegar"
-            className="text-text-muted hover:text-text shrink-0 px-1 text-sm"
-          >
-            ‹
-          </button>
-        )}
-      </div>
+          <span className="text-text-muted font-mono text-[10px]">{current.label}</span>
+        </div>
+      )}
 
       {activeKey === null ? (
         <p className="text-text-muted p-2 text-xs">Elige una tonalidad en la rueda.</p>
@@ -196,7 +166,7 @@ export function ChordFocus({ path, onTrim, onClear, onCollapse }: ChordFocusProp
                 {index > 0 && <span className="text-text-muted text-[10px]">→</span>}
                 <button
                   type="button"
-                  onClick={() => onTrim(index)}
+                  onClick={() => actions.trimPath(index)}
                   className={`rounded px-1 py-0.5 font-mono text-[11px] ${
                     index === path.length - 1
                       ? 'bg-surface-raised text-brass-bright'
@@ -210,7 +180,7 @@ export function ChordFocus({ path, onTrim, onClear, onCollapse }: ChordFocusProp
           </ol>
           <button
             type="button"
-            onClick={onClear}
+            onClick={() => actions.clearPath()}
             aria-label="Limpiar la progresión"
             title="Limpiar"
             className="text-text-muted hover:text-oxblood-bright shrink-0 px-1 text-xs"
@@ -264,13 +234,10 @@ function useSlider(count: number, resetKey: string) {
   return { sliderRef: ref, shape: index, goToShape: go, onSliderScroll: onScroll } as const;
 }
 
-export interface NextChordsProps {
-  readonly path: readonly Chord[];
-  readonly onPick: (chord: Chord) => void;
-}
-
-export function NextChords({ path, onPick }: NextChordsProps) {
+export function NextChords() {
   const activeKey = useSessionStore(selectActiveKey);
+  const path = useSessionStore((state) => state.path);
+  const actions = useSessionStore((state) => state.actions);
   const styleId = useSessionStore((state) => state.styleId);
   const history = useSessionStore((state) => state.noteHistory);
 
@@ -290,7 +257,7 @@ export function NextChords({ path, onPick }: NextChordsProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="border-border border-b p-2">
-        <ChordSearch onPick={(chord) => onPick(fromSearch(chord))} />
+        <ChordSearch onPick={(chord) => actions.pushChord(fromSearch(chord))} />
       </div>
 
       <p className="text-text-muted px-3 pt-2 text-[10px] tracking-widest uppercase">
@@ -302,7 +269,7 @@ export function NextChords({ path, onPick }: NextChordsProps) {
           <li key={option.symbol}>
             <button
               type="button"
-              onClick={() => onPick(option)}
+              onClick={() => actions.pushChord(option)}
               aria-label={`${option.symbol}, ${option.label}`}
               className="hover:bg-surface-raised flex w-full items-baseline gap-2 rounded-md px-2 py-1.5 text-left"
             >
@@ -324,5 +291,3 @@ export function NextChords({ path, onPick }: NextChordsProps) {
     </div>
   );
 }
-
-export type { Chord };

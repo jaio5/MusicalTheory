@@ -10,7 +10,7 @@ import type { KeyMode } from './keys';
 import { noteName, type Accidental, type PitchClass } from './notes';
 import { accidentalForKey } from './circle-of-fifths';
 import { scaleNotes } from './scales';
-import { chordFit, suggestChords } from './suggestions';
+import { chordFit, suggestChords, type ChordSuggestion } from './suggestions';
 import type { StyleId } from './styles';
 
 export type Verdict = 'diatonic' | 'colour' | 'outside';
@@ -46,11 +46,38 @@ function describe(outOfKey: readonly PitchClass[], accidental: Accidental): stri
  * distingue un color de un choque es si el acorde tiene un uso conocido, y eso
  * lo dice el catálogo del estilo.
  */
-export function judgeChord(
-  chord: { readonly root: PitchClass; readonly notes: readonly PitchClass[] },
+export interface JudgeableChord {
+  readonly root: PitchClass;
+  readonly notes: readonly PitchClass[];
+}
+
+/**
+ * Juzga varios acordes de una vez.
+ *
+ * El catálogo del estilo cuesta lo mismo para uno que para veinte, así que se
+ * calcula una sola vez: es lo que permite ir juzgando lo que se escribe letra a
+ * letra sin que se note.
+ */
+export function judgeChords(
+  chords: readonly JudgeableChord[],
   context: JudgementContext,
+): readonly ChordJudgement[] {
+  const { tonic, mode, styleId } = context;
+  const catalogue = suggestChords({ tonic, mode, styleId, limit: 200 });
+  return chords.map((chord) => judgeAgainst(chord, context, catalogue));
+}
+
+export function judgeChord(chord: JudgeableChord, context: JudgementContext): ChordJudgement {
+  const { tonic, mode, styleId } = context;
+  return judgeAgainst(chord, context, suggestChords({ tonic, mode, styleId, limit: 200 }));
+}
+
+function judgeAgainst(
+  chord: JudgeableChord,
+  context: JudgementContext,
+  catalogue: readonly ChordSuggestion[],
 ): ChordJudgement {
-  const { tonic, mode, styleId, playedNotes = [] } = context;
+  const { tonic, mode, playedNotes = [] } = context;
   const accidental = accidentalForKey(tonic, mode);
 
   const scale = new Set(scaleNotes(tonic, mode === 'major' ? 'major' : 'naturalMinor'));
@@ -59,7 +86,7 @@ export function judgeChord(
 
   // El catálogo del estilo trae los prestados, las dominantes secundarias y
   // demás: si el acorde está ahí, tiene un uso reconocido aunque se salga.
-  const known = suggestChords({ tonic, mode, styleId, limit: 200 }).find(
+  const known = catalogue.find(
     (candidate) =>
       candidate.root === chord.root &&
       candidate.notes.length === chord.notes.length &&
