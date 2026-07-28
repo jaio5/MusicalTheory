@@ -10,4 +10,6 @@ export * from './scales';
 export * from './chords';
 export * from './circle-of-fifths';
 export * from './keys';
+export * from './styles';
+export * from './suggestions';
 export * from './progressions';
