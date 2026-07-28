@@ -1,69 +1,68 @@
 'use client';
 
-import { ComposePanel } from '@features/compose';
-import { FretboardPanel } from '@features/fretboard';
-import { IdeasPanel } from '@features/ideas';
-import { LearnPanel } from '@features/learn';
-import { PathPanel } from '@features/path';
-import { RecorderPanel } from '@features/recorder';
-import { SessionsPanel } from '@features/sessions';
-import { SuggestPanel } from '@features/suggest';
-import { Tuner } from '@features/tuner';
+import { useState } from 'react';
+
+import { keyName } from '@core/music';
+import { ChordFocus, NextChords, type Chord } from '@features/path';
 import { KeyPanel } from '@features/wheel';
-import { Toolbar } from '@features/workspace';
-import { useSessionStore } from '@state/session-store';
-import { PANELS, type PanelId } from '@state/workspace';
+import { MicButton, Toolbar } from '@features/workspace';
+import { selectActiveKey, useSessionStore } from '@state/session-store';
+
+import { ExtrasDrawer } from './ExtrasDrawer';
 
 /**
- * El banco de trabajo.
+ * La pantalla.
+ *
+ * Tres columnas fijas que caben enteras: el acorde a la izquierda, la lista de
+ * siguientes en el centro y la rueda a la derecha. La página no hace scroll;
+ * lo hacen las columnas por dentro, que es lo que permite que quepa todo.
  *
  * Aquí es donde se componen los features, que es lo único que puede hacerlo:
- * un feature no importa de otro. Cada panel sale solo si está encendido.
+ * un feature no importa de otro.
  */
-const CONTENT: Readonly<Record<PanelId, () => React.ReactElement>> = {
-  tuner: Tuner,
-  key: KeyPanel,
-  path: PathPanel,
-  suggest: SuggestPanel,
-  fretboard: FretboardPanel,
-  compose: ComposePanel,
-  learn: LearnPanel,
-  ideas: IdeasPanel,
-  recorder: RecorderPanel,
-  sessions: SessionsPanel,
-};
-
 export function Workspace() {
-  const visible = useSessionStore((state) => state.visiblePanels);
+  const activeKey = useSessionStore(selectActiveKey);
+  const [path, setPath] = useState<readonly Chord[]>([]);
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="border-border bg-surface sticky top-0 z-10 border-b">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-2">
-          <span className="text-brass font-mono text-xs tracking-widest uppercase">
-            Caos ordenado
-          </span>
-          <Toolbar />
-        </div>
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="border-border bg-surface flex shrink-0 flex-wrap items-center gap-3 border-b px-3 py-2">
+        <MicButton />
+        <span aria-hidden="true" className="bg-border h-8 w-px" />
+        <Toolbar />
+        <ExtrasDrawer />
       </header>
 
-      <main className="mx-auto w-full max-w-6xl grow px-4 py-4">
-        {visible.length === 0 ? (
-          <p className="text-text-muted mt-16 text-center text-sm">
-            No hay ningún panel encendido. Ábrelos desde «Paneles», arriba a la derecha.
+      <main className="grid min-h-0 grow grid-cols-1 gap-px lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_auto]">
+        <section
+          aria-label="Acorde actual"
+          className="border-border bg-surface min-h-0 overflow-hidden border-r"
+        >
+          <ChordFocus
+            path={path}
+            onTrim={(index) => setPath(path.slice(0, index + 1))}
+            onClear={() => setPath([])}
+          />
+        </section>
+
+        <section
+          aria-label="Acordes que puedes tocar ahora"
+          className="border-border bg-surface min-h-0 overflow-hidden border-r"
+        >
+          <NextChords path={path} onPick={(chord) => setPath([...path, chord])} />
+        </section>
+
+        <section
+          aria-label="Rueda de quintas"
+          className="bg-surface flex min-h-0 shrink-0 flex-col items-center gap-2 overflow-y-auto p-3"
+        >
+          <KeyPanel compact />
+          <p className="text-text-muted text-center text-xs">
+            {activeKey === null
+              ? 'Pulsa una tonalidad para empezar'
+              : keyName(activeKey.tonic, activeKey.mode)}
           </p>
-        ) : (
-          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-            {PANELS.filter((panel) => visible.includes(panel.id)).map((panel) => {
-              const Content = CONTENT[panel.id];
-              return (
-                <div key={panel.id} className={panel.wide === true ? 'lg:col-span-2' : ''}>
-                  <Content />
-                </div>
-              );
-            })}
-          </div>
-        )}
+        </section>
       </main>
     </div>
   );

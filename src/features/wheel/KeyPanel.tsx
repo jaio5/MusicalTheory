@@ -25,11 +25,28 @@ function parseKeyValue(value: string): SessionKey | null {
   };
 }
 
-export function KeyPanel() {
+export interface KeyPanelProps {
+  /** Solo la rueda, sin los controles: la barra ya los lleva. */
+  readonly compact?: boolean;
+}
+
+export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
   const activeKey = useSessionStore(selectActiveKey);
   const pinnedKey = useSessionStore((state) => state.pinnedKey);
   const candidates = useSessionStore((state) => state.keyCandidates);
   const actions = useSessionStore((state) => state.actions);
+
+  const wheel = (
+    <WheelOfFifths
+      tonic={activeKey?.tonic ?? null}
+      mode={activeKey?.mode ?? null}
+      onPick={(tonic, mode) => actions.pinKey({ tonic, mode })}
+    />
+  );
+
+  if (compact) {
+    return wheel;
+  }
 
   return (
     <Panel id="tonalidad" title="Tonalidad">

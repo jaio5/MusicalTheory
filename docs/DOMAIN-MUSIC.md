@@ -175,6 +175,26 @@ Lo que **no** cambia son las posiciones. La menor y Do mayor comparten armadura
 —las mismas notas, ninguna alteración— y por eso comparten sitio en la rueda.
 Al pasar de una a otra la rueda no gira: solo se intercambian los anillos.
 
+## Leer un cifrado y juzgarlo
+
+Al revés que todo lo demás: en vez de partir de un grado y producir un cifrado,
+se lee un cifrado escrito —`F#m7`, `Bb`, `Csus4`, `A7#9`— y se dice qué es.
+Acepta las formas alternativas de escribir lo mismo (`min`, `-`, `M7`, `ø`, `+`)
+y devuelve null cuando no lo reconoce, que es información útil: se puede decir
+«no conozco ese acorde» en vez de callarse.
+
+Con el acorde leído se le puede preguntar si pega, y la respuesta tiene tres
+grados:
+
+- **Entra**: todas sus notas están en la tonalidad.
+- **Cabe como color**: se sale, pero tiene un uso reconocido en el catálogo del
+  estilo —un prestado, una dominante secundaria, un sustituto tritonal—.
+- **Se va fuera**: se sale y no hay nada en el catálogo que lo justifique.
+
+Que una nota se salga de la tonalidad no lo convierte en un error: la mitad de
+lo que hace interesante a una progresión son notas de fuera. Lo que distingue un
+color de un choque es si el acorde tiene un uso conocido.
+
 ## Formas de hacer un acorde
 
 Las digitaciones no están copiadas de una tabla: se buscan. Para cada posición

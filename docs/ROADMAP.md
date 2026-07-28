@@ -143,15 +143,23 @@ empezar, y al elegir un acorde te enseña **cuatro formas de hacerlo** sobre el
 mástil y **a dónde puedes ir** desde él. Encadenando se construye la progresión,
 y se puede volver atrás a cualquier punto.
 
-## Banco de trabajo
+## La pantalla
 
-La aplicación no es una lista de paneles, es una barra fija y una rejilla con lo
-que hayas encendido. De fábrica salen cuatro: afinador, tonalidad, sugerencias y
-mástil. Lo demás se enciende desde «Paneles» y se recuerda en el equipo.
+Tres columnas fijas que caben enteras, sin scroll de página:
 
-La barra lleva siempre lo que se mira sin parar —si está escuchando y qué nota
-suena— más tonalidad, estilo y escala. Nada de eso depende de qué paneles estén
-abiertos.
+- **Izquierda**: el acorde en el que estás, sus notas y hasta cuatro formas de
+  hacerlo con su diagrama. Debajo, la progresión que llevas.
+- **Centro**: el buscador de acordes y la lista de a dónde puedes ir, con su
+  propio scroll.
+- **Derecha**: la rueda de quintas, pulsable.
+
+Arriba, un botón de micro redondo —como el de grabar de la cámara del móvil—
+con la nota que suena al lado, y los tres ajustes que cambian todo: tonalidad,
+estilo y escala.
+
+Lo demás —mástil, afinador detallado, aprender, componer, ideas, grabar,
+sesiones— vive en un cajón que se abre encima. Así está disponible sin que la
+pantalla principal crezca.
 
 ## Deuda técnica
 
