@@ -8,5 +8,6 @@
 export * from './notes';
 export * from './scales';
 export * from './chords';
+export * from './circle-of-fifths';
 export * from './keys';
 export * from './progressions';

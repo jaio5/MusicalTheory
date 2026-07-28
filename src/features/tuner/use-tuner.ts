@@ -93,7 +93,7 @@ export function useTuner({ createInput, createEngine }: TunerDeps = {}): TunerCo
     const engine = factories.current.createEngine?.() ?? new AutocorrelationPitchEngine();
     engineRef.current = engine;
     engine.subscribe((sample) => {
-      actions.setPitch(sample?.frequency ?? null, sample?.clarity ?? 0);
+      actions.setPitch(sample?.frequency ?? null, sample?.clarity ?? 0, sample?.at ?? 0);
     });
     await engine.start(input);
   }, [actions]);

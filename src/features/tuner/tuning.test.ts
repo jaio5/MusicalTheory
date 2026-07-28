@@ -5,11 +5,7 @@ import { describePitch, midiToFrequency } from '@core/music';
 import {
   IN_TUNE_CENTS,
   meterOffset,
-  nearestString,
   readingAnnouncement,
-  semitonesFromString,
-  STANDARD_TUNING,
-  stringFrequency,
   tuningAdvice,
   tuningStatus,
 } from './tuning';
@@ -42,32 +38,6 @@ describe('aguja', () => {
   it('no se sale de la escala', () => {
     expect(meterOffset(400)).toBe(1);
     expect(meterOffset(-400)).toBe(-1);
-  });
-});
-
-describe('cuerdas al aire', () => {
-  it('tiene las seis en afinación estándar', () => {
-    expect(STANDARD_TUNING).toHaveLength(6);
-    expect(stringFrequency(STANDARD_TUNING[0]!)).toBeCloseTo(82.41, 1);
-    expect(stringFrequency(STANDARD_TUNING[5]!)).toBeCloseTo(329.63, 1);
-  });
-
-  it('encuentra la cuerda más cercana a lo que suena', () => {
-    expect(nearestString(45).label).toBe('La');
-    expect(nearestString(46).label).toBe('La');
-    expect(nearestString(64).number).toBe(1);
-  });
-
-  it('en un empate se queda con la más grave', () => {
-    // Justo en medio de la quinta (45) y la cuarta (50).
-    expect(nearestString(47.5).midi).toBe(45);
-  });
-
-  it('cuenta a cuántos semitonos está de esa cuerda', () => {
-    const fifth = STANDARD_TUNING[1]!;
-    expect(semitonesFromString(45, fifth)).toBe(0);
-    expect(semitonesFromString(47, fifth)).toBe(2);
-    expect(semitonesFromString(43, fifth)).toBe(-2);
   });
 });
 

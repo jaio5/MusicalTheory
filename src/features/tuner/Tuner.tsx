@@ -1,5 +1,6 @@
 'use client';
 
+import { nearestString, semitonesFromString } from '@core/instrument';
 import type { PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
 import { useSessionStore, type ListeningState } from '@state/session-store';
@@ -8,9 +9,7 @@ import { TuningMeter } from './TuningMeter';
 import {
   displayNames,
   isSignalClean,
-  nearestString,
   readingAnnouncement,
-  semitonesFromString,
   tuningAdvice,
   tuningStatus,
 } from './tuning';

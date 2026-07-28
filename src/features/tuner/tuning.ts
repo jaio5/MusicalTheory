@@ -3,7 +3,7 @@
  * nota, hacia dónde hay que corregir y qué cuerda es la más cercana.
  */
 
-import { midiToFrequency, noteName, spanishNoteName, type PitchReading } from '@core/music';
+import { noteName, spanishNoteName, type PitchReading } from '@core/music';
 
 /**
  * Margen en cents dentro del cual se da la nota por buena. Cinco cents es
@@ -50,47 +50,6 @@ export function tuningAdvice(status: TuningStatus): string {
 /** Posición de la aguja, de -1 (medio tono baja) a 1 (medio tono alta). */
 export function meterOffset(cents: number): number {
   return Math.max(-1, Math.min(1, cents / METER_RANGE_CENTS));
-}
-
-export interface GuitarString {
-  /** Numeración de guitarrista: la 1 es la más aguda. */
-  readonly number: 1 | 2 | 3 | 4 | 5 | 6;
-  readonly midi: number;
-  /** Nombre en español, tal como se dice al afinar. */
-  readonly label: string;
-}
-
-/** Afinación estándar, de la sexta a la primera. */
-export const STANDARD_TUNING: readonly GuitarString[] = [
-  { number: 6, midi: 40, label: 'Mi grave' },
-  { number: 5, midi: 45, label: 'La' },
-  { number: 4, midi: 50, label: 'Re' },
-  { number: 3, midi: 55, label: 'Sol' },
-  { number: 2, midi: 59, label: 'Si' },
-  { number: 1, midi: 64, label: 'Mi agudo' },
-];
-
-export function stringFrequency(string: GuitarString): number {
-  return midiToFrequency(string.midi);
-}
-
-/**
- * La cuerda al aire más cercana a lo que está sonando. En un empate, gana la
- * más grave: al afinar se sube desde abajo más veces que se baja desde arriba.
- */
-export function nearestString(midi: number): GuitarString {
-  let closest = STANDARD_TUNING[0]!;
-  for (const string of STANDARD_TUNING) {
-    if (Math.abs(string.midi - midi) < Math.abs(closest.midi - midi)) {
-      closest = string;
-    }
-  }
-  return closest;
-}
-
-/** Distancia en semitonos hasta esa cuerda al aire. Cero si es esa misma. */
-export function semitonesFromString(midi: number, string: GuitarString): number {
-  return midi - string.midi;
 }
 
 /**
