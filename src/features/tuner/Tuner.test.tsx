@@ -239,3 +239,46 @@ describe('medidor de nivel', () => {
     expect(await screen.findByText(/llega poca señal/i)).toBeInTheDocument();
   });
 });
+
+describe('selector de entrada', () => {
+  const DEVICES = [
+    { deviceId: 'default', kind: 'audioinput', label: 'Micro del portátil', groupId: 'a' },
+    { deviceId: 'scarlett', kind: 'audioinput', label: 'Focusrite Scarlett', groupId: 'b' },
+    { deviceId: 'cam', kind: 'videoinput', label: 'Cámara', groupId: 'c' },
+  ] as MediaDeviceInfo[];
+
+  beforeEach(() => {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { mediaDevices: { enumerateDevices: async () => DEVICES } },
+    });
+  });
+
+  it('deja elegir entre las entradas de audio, sin colar la cámara', async () => {
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    const selector = await screen.findByLabelText(/entrada/i);
+    expect(selector).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Focusrite Scarlett' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Cámara' })).not.toBeInTheDocument();
+  });
+
+  it('reabre la escucha en la entrada elegida', async () => {
+    const opened: Array<string | undefined> = [];
+    render(
+      <Tuner
+        createInput={(deviceId) => {
+          opened.push(deviceId);
+          return new FakeInput();
+        }}
+        createEngine={() => new FakeEngine()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    await userEvent.selectOptions(await screen.findByLabelText(/entrada/i), 'scarlett');
+
+    expect(opened).toEqual([undefined, 'scarlett']);
+  });
+});

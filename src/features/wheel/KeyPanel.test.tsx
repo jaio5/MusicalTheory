@@ -86,3 +86,56 @@ describe('Panel de tonalidad', () => {
     expect(useSessionStore.getState().pinnedKey).toBeNull();
   });
 });
+
+describe('pulsar en la rueda', () => {
+  it('cada tonalidad de la rueda es un botón de verdad', () => {
+    render(<KeyPanel />);
+
+    // Doce mayores y doce menores.
+    const wheelKeys = screen
+      .getAllByRole('button')
+      .filter((button) => /mayor|menor/.test(button.getAttribute('title') ?? ''));
+    expect(wheelKeys).toHaveLength(24);
+  });
+
+  it('fija la tonalidad al pulsarla', async () => {
+    render(<KeyPanel />);
+
+    await userEvent.click(screen.getByTitle('Mi menor'));
+
+    expect(useSessionStore.getState().pinnedKey).toEqual({
+      tonic: pitchClassFromName('E'),
+      mode: 'minor',
+    });
+    expect(await screen.findByText(/fijada a mano: Mi menor/i)).toBeInTheDocument();
+  });
+
+  it('se puede usar con el teclado, sin ratón', async () => {
+    render(<KeyPanel />);
+
+    const key = screen.getByTitle('Sol mayor');
+    key.focus();
+    expect(key).toHaveFocus();
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(useSessionStore.getState().pinnedKey).toEqual({
+      tonic: pitchClassFromName('G'),
+      mode: 'major',
+    });
+  });
+
+  it('marca cuál está activa para quien no ve la rueda', async () => {
+    render(<KeyPanel />);
+    await userEvent.click(screen.getByTitle('Fa mayor'));
+
+    expect(screen.getByTitle('Fa mayor')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTitle('Sol mayor')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('escribe cada tonalidad como toca: Sib, no La#', () => {
+    render(<KeyPanel />);
+    expect(screen.getByTitle('Sib mayor')).toBeInTheDocument();
+    expect(screen.queryByTitle('La# mayor')).not.toBeInTheDocument();
+  });
+});

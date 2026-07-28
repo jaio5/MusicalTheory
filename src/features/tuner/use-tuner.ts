@@ -13,7 +13,7 @@ import { useSessionStore, type ListeningState } from '@state/session-store';
  * inyección: quien quiera otro motor —un test, o mañana YIN— pasa otra fábrica.
  */
 export interface TunerDeps {
-  readonly createInput?: () => AudioInput;
+  readonly createInput?: (deviceId?: string) => AudioInput;
   readonly createEngine?: () => PitchEngine;
 }
 
@@ -28,7 +28,8 @@ const LISTENING_BY_INPUT_STATE: Record<AudioInputState, ListeningState> = {
 };
 
 export interface TunerControls {
-  start(): Promise<void>;
+  /** Arranca la escucha, opcionalmente en una entrada concreta. */
+  start(deviceId?: string): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -67,42 +68,47 @@ export function useTuner({ createInput, createEngine }: TunerDeps = {}): TunerCo
     actions.setListening('idle');
   }, [actions]);
 
-  const start = useCallback(async () => {
-    if (inputRef.current !== null) {
-      return;
-    }
+  const start = useCallback(
+    async (deviceId?: string) => {
+      if (inputRef.current !== null) {
+        return;
+      }
 
-    const input = factories.current.createInput?.() ?? new WebAudioInput();
-    inputRef.current = input;
-    unsubscribeRef.current = input.subscribe((state) => {
-      actions.setListening(LISTENING_BY_INPUT_STATE[state], input.error?.message ?? null);
-    });
+      const input =
+        factories.current.createInput?.(deviceId) ??
+        new WebAudioInput(deviceId === undefined ? {} : { deviceId });
+      inputRef.current = input;
+      unsubscribeRef.current = input.subscribe((state) => {
+        actions.setListening(LISTENING_BY_INPUT_STATE[state], input.error?.message ?? null);
+      });
 
-    actions.setListening('requesting');
-    await input.start();
+      actions.setListening('requesting');
+      await input.start();
 
-    if (input.state !== 'running') {
-      // El permiso se ha denegado o el dispositivo ha fallado: el mensaje ya lo
-      // ha puesto la suscripción, aquí solo hay que soltar lo abierto.
-      unsubscribeRef.current?.();
-      unsubscribeRef.current = null;
-      inputRef.current = null;
-      return;
-    }
+      if (input.state !== 'running') {
+        // El permiso se ha denegado o el dispositivo ha fallado: el mensaje ya lo
+        // ha puesto la suscripción, aquí solo hay que soltar lo abierto.
+        unsubscribeRef.current?.();
+        unsubscribeRef.current = null;
+        inputRef.current = null;
+        return;
+      }
 
-    const engine = factories.current.createEngine?.() ?? new AutocorrelationPitchEngine();
-    engineRef.current = engine;
-    engine.subscribeLevel((rms) => actions.setLevel(rms));
-    engine.subscribe((sample) => {
-      actions.setPitch(
-        sample?.frequency ?? null,
-        sample?.clarity ?? 0,
-        sample?.at ?? 0,
-        sample?.rms,
-      );
-    });
-    await engine.start(input);
-  }, [actions]);
+      const engine = factories.current.createEngine?.() ?? new AutocorrelationPitchEngine();
+      engineRef.current = engine;
+      engine.subscribeLevel((rms) => actions.setLevel(rms));
+      engine.subscribe((sample) => {
+        actions.setPitch(
+          sample?.frequency ?? null,
+          sample?.clarity ?? 0,
+          sample?.at ?? 0,
+          sample?.rms,
+        );
+      });
+      await engine.start(input);
+    },
+    [actions],
+  );
 
   // Un micrófono abierto es un recurso, y en React el sitio de cerrarlo es el
   // return del efecto. Sin esto, recargar en caliente deja capturas colgadas.

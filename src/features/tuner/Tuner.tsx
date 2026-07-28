@@ -5,6 +5,10 @@ import type { PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
 import { useSessionStore, type ListeningState } from '@state/session-store';
 
+import { useEffect, useState } from 'react';
+
+import { listAudioInputDevices } from '@audio/web-audio-input';
+
 import { LevelMeter } from './LevelMeter';
 import { TuningMeter } from './TuningMeter';
 import {
@@ -27,6 +31,32 @@ export function Tuner(deps: TunerProps = {}) {
   const level = useSessionStore((state) => state.level);
   const { start, stop } = useTuner(deps);
 
+  const [devices, setDevices] = useState<readonly MediaDeviceInfo[]>([]);
+  const [deviceId, setDeviceId] = useState<string>('');
+
+  // Los nombres de las entradas solo llegan con el permiso ya concedido, así
+  // que la lista se pide cuando ya estamos escuchando.
+  useEffect(() => {
+    if (listening !== 'listening') {
+      return;
+    }
+    let cancelled = false;
+    void listAudioInputDevices().then((found) => {
+      if (!cancelled) {
+        setDevices(found);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [listening]);
+
+  async function switchDevice(next: string) {
+    setDeviceId(next);
+    await stop();
+    await start(next === '' ? undefined : next);
+  }
+
   return (
     <section aria-labelledby="afinador" className="border-border bg-surface rounded-lg border p-6">
       <div className="flex items-baseline justify-between gap-4">
@@ -37,6 +67,26 @@ export function Tuner(deps: TunerProps = {}) {
           <Button variant="quiet" onClick={() => void stop()}>
             Dejar de escuchar
           </Button>
+        )}
+      </div>
+
+      <div className="mt-4">
+        {listening === 'listening' && devices.length > 1 && (
+          <label className="flex flex-wrap items-center gap-2">
+            <span className="text-text-muted text-sm">Entrada</span>
+            <select
+              className="border-border bg-background text-text rounded-md border px-3 py-2 text-sm"
+              value={deviceId}
+              onChange={(event) => void switchDevice(event.target.value)}
+            >
+              <option value="">La del sistema</option>
+              {devices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label === '' ? 'Entrada sin nombre' : device.label}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
       </div>
 

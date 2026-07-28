@@ -195,3 +195,18 @@ function describeCaptureError(cause: unknown): AudioInputError {
       };
   }
 }
+
+/**
+ * Las entradas de audio disponibles.
+ *
+ * Los nombres solo llegan después de conceder el permiso: antes, el navegador
+ * los deja en blanco para no delatar qué hardware hay conectado. Por eso el
+ * selector solo tiene sentido una vez arrancada la escucha.
+ */
+export async function listAudioInputDevices(): Promise<MediaDeviceInfo[]> {
+  if (typeof navigator === 'undefined' || navigator.mediaDevices?.enumerateDevices === undefined) {
+    return [];
+  }
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  return devices.filter((device) => device.kind === 'audioinput');
+}

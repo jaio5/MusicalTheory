@@ -11,6 +11,7 @@ import {
   relativeMinor,
   rotationForKey,
   shortestRotation,
+  keyName,
   spanishNoteName,
   type KeyMode,
   type PitchClass,
@@ -26,6 +27,8 @@ const MINOR_RADIUS = 66;
 export interface WheelOfFifthsProps {
   readonly tonic: PitchClass | null;
   readonly mode: KeyMode | null;
+  /** Si se da, cada tonalidad de la rueda se puede pulsar para fijarla. */
+  readonly onPick?: (tonic: PitchClass, mode: KeyMode) => void;
 }
 
 /** Coordenadas de una posición de la rueda, medidas desde arriba. */
@@ -41,7 +44,7 @@ function pointAt(position: number, radius: number): { x: number; y: number } {
  * rotada su propio ángulo, así que la que queda arriba se lee derecha y las
  * demás quedan inclinadas, igual que en el aparato de verdad.
  */
-export function WheelOfFifths({ tonic, mode }: WheelOfFifthsProps) {
+export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
   const ringRef = useRef<SVGGElement>(null);
   const rotationRef = useRef(0);
 
@@ -109,34 +112,94 @@ export function WheelOfFifths({ tonic, mode }: WheelOfFifthsProps) {
 
           return (
             <g key={major}>
-              <text
-                x={majorPoint.x}
-                y={majorPoint.y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                transform={`rotate(${tilt} ${majorPoint.x} ${majorPoint.y})`}
-                className={`font-mono text-[13px] ${
-                  active && mode === 'major' ? 'fill-brass-bright' : 'fill-text-muted'
-                }`}
-              >
-                {spanishNoteName(major, accidentalForKey(major, 'major'))}
-              </text>
-              <text
-                x={minorPoint.x}
-                y={minorPoint.y}
-                textAnchor="middle"
-                dominantBaseline="central"
-                transform={`rotate(${tilt} ${minorPoint.x} ${minorPoint.y})`}
-                className={`font-mono text-[11px] ${
-                  active && mode === 'minor' ? 'fill-brass-bright' : 'fill-text-muted opacity-70'
-                }`}
-              >
-                {spanishNoteName(minor, accidentalForKey(minor, 'minor'))}m
-              </text>
+              <KeyLabel
+                point={majorPoint}
+                tilt={tilt}
+                label={spanishNoteName(major, accidentalForKey(major, 'major'))}
+                name={keyName(major, 'major')}
+                active={active && mode === 'major'}
+                size={13}
+                onPick={onPick === undefined ? undefined : () => onPick(major, 'major')}
+              />
+              <KeyLabel
+                point={minorPoint}
+                tilt={tilt}
+                label={`${spanishNoteName(minor, accidentalForKey(minor, 'minor'))}m`}
+                name={keyName(minor, 'minor')}
+                active={active && mode === 'minor'}
+                size={11}
+                onPick={onPick === undefined ? undefined : () => onPick(minor, 'minor')}
+              />
             </g>
           );
         })}
       </g>
     </svg>
+  );
+}
+
+interface KeyLabelProps {
+  readonly point: { x: number; y: number };
+  readonly tilt: number;
+  readonly label: string;
+  /** Nombre completo, para quien no ve la rueda. */
+  readonly name: string;
+  readonly active: boolean;
+  readonly size: number;
+  readonly onPick?: () => void;
+}
+
+/**
+ * Una tonalidad de la rueda.
+ *
+ * Cuando se puede pulsar es un `<button>` de verdad dentro de un
+ * `foreignObject`, no un `<g>` con `onClick`: así entra en el orden de
+ * tabulación, responde a Intro y a espacio, y el lector de pantalla lo anuncia
+ * como lo que es. Un `<g role="button">` obliga a reimplementar todo eso a
+ * mano y siempre se queda algo por el camino.
+ */
+function KeyLabel({ point, tilt, label, name, active, size, onPick }: KeyLabelProps) {
+  const color = active ? 'fill-brass-bright' : 'fill-text-muted';
+
+  if (onPick === undefined) {
+    return (
+      <text
+        x={point.x}
+        y={point.y}
+        textAnchor="middle"
+        dominantBaseline="central"
+        transform={`rotate(${tilt} ${point.x} ${point.y})`}
+        className={`font-mono ${color}`}
+        style={{ fontSize: size }}
+      >
+        {label}
+      </text>
+    );
+  }
+
+  const box = 42;
+
+  return (
+    <foreignObject
+      x={point.x - box / 2}
+      y={point.y - box / 2}
+      width={box}
+      height={box}
+      transform={`rotate(${tilt} ${point.x} ${point.y})`}
+    >
+      <button
+        type="button"
+        onClick={onPick}
+        aria-pressed={active}
+        title={name}
+        className={`flex h-full w-full cursor-pointer items-center justify-center rounded-full font-mono transition-colors ${
+          active ? 'text-brass-bright' : 'text-text-muted hover:text-text'
+        }`}
+        style={{ fontSize: size }}
+      >
+        <span aria-hidden="true">{label}</span>
+        <span className="sr-only">{name}</span>
+      </button>
+    </foreignObject>
   );
 }
