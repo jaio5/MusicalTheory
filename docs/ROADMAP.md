@@ -177,6 +177,23 @@ D# G# C# F# A# D#, que suena igual y no lo reconoce nadie.
 
 Las notas se escriben en cifrado anglosajón —C, D, E— en toda la aplicación.
 
+## Que se lea con la guitarra puesta
+
+Se toca a un metro de la pantalla, no a cuarenta centímetros, y con las dos
+manos ocupadas. De ahí tres reglas:
+
+- Nada de letra por debajo de doce píxeles. Lo que no se lee de un vistazo no
+  está.
+- Los diagramas y la rueda, grandes: son dibujos que hay que interpretar, no
+  iconos.
+- El porqué de cada acorde cabe en dos líneas y no se corta a mitad de palabra.
+  Un texto cortado con puntos suspensivos obliga a acercarse, y acercarse
+  significa dejar de tocar.
+
+Grabando, la cámara lleva un velo por encima. Sin él hay que pelear el contraste
+letra a letra contra lo que sea que tengas detrás —una ventana, una pared
+blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
+
 ## Deuda técnica
 
 ### Pagada

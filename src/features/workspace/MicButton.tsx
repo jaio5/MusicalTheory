@@ -61,7 +61,7 @@ export function MicButton(deps: MicButtonProps = {}) {
         >
           {reading === null ? '—' : `${reading.name}${reading.octave}`}
         </span>
-        <span className="text-text-muted font-mono text-[10px] tabular-nums">
+        <span className="text-text-muted font-mono text-xs tabular-nums">
           {reading === null || !hasSignal
             ? busy
               ? 'pidiendo permiso'

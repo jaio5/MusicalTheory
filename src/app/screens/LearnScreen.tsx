@@ -19,14 +19,14 @@ export function LearnScreen() {
   const [topic, setTopic] = useState<string | undefined>(undefined);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-px lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-px lg:grid-cols-[minmax(0,1fr)_26rem]">
       <section aria-label="Teoría" className="border-border flex min-h-0 flex-col border-r">
         <TheoryLessons onTopic={setTopic} />
       </section>
 
       <section aria-label="Profesor y práctica" className="flex min-h-0 flex-col overflow-y-auto">
         <div className="border-border border-b p-3">
-          <h2 className="text-text-muted mb-2 font-mono text-[11px] tracking-widest uppercase">
+          <h2 className="text-text-muted mb-2 font-mono text-xs tracking-widest uppercase">
             Profesor
           </h2>
           <Teacher {...(topic === undefined ? {} : { topic })} />

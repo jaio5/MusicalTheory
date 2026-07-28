@@ -165,6 +165,11 @@ export function RecordStage({ children, createCamera, createRecorder }: RecordSt
         className={`fixed inset-0 -z-10 h-full w-full object-cover ${live ? '' : 'hidden'}`}
       />
 
+      {/* Un velo encima de la cámara. Sin él hay que pelear el contraste letra a
+          letra contra lo que sea que tengas detrás —una ventana, una pared
+          blanca— y nunca sale bien. Con él se te sigue viendo y se lee todo. */}
+      {live && <div aria-hidden="true" data-velo className="fixed inset-0 -z-10 bg-black/55" />}
+
       <div className="border-border flex shrink-0 items-center gap-3 border-b px-3 py-1.5">
         <button
           type="button"

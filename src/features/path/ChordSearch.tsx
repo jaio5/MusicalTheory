@@ -104,7 +104,7 @@ export function ChordSearch({ onPick }: ChordSearchProps) {
       </label>
 
       {text.trim() !== '' && matches.length === 0 && (
-        <p className="text-text-muted mt-1 text-[11px]">
+        <p className="text-text-muted mt-1 text-xs">
           No conozco ese acorde. Empieza por la fundamental: A, C#, Bb…
         </p>
       )}
@@ -130,19 +130,19 @@ export function ChordSearch({ onPick }: ChordSearchProps) {
                 >
                   <span className="text-text w-16 shrink-0 font-mono text-sm">{chord.symbol}</span>
                   {judgement === undefined ? (
-                    <span className="text-text-muted truncate text-[11px]">{chord.shape.name}</span>
+                    <span className="text-text-muted truncate text-xs">{chord.shape.name}</span>
                   ) : (
                     <>
                       <span
-                        className={`w-12 shrink-0 font-mono text-[10px] ${VERDICT_STYLE[judgement.verdict]}`}
+                        className={`w-12 shrink-0 font-mono text-xs ${VERDICT_STYLE[judgement.verdict]}`}
                       >
                         {VERDICT_LABEL[judgement.verdict]}
                       </span>
-                      <span className="text-text-muted truncate text-[11px]">
+                      <span className="text-text-muted truncate text-xs">
                         {judgement.label ?? chord.shape.name}
                       </span>
                       {judgement.fit > 0.5 && (
-                        <span className="text-tube-bright ml-auto shrink-0 text-[10px]">
+                        <span className="text-tube-bright ml-auto shrink-0 text-xs">
                           suena ahora
                         </span>
                       )}
@@ -156,7 +156,7 @@ export function ChordSearch({ onPick }: ChordSearchProps) {
       )}
 
       {matches.length > 0 && activeKey === null && (
-        <p className="text-text-muted mt-1 text-[11px]">Elige una tonalidad y te digo si pegan.</p>
+        <p className="text-text-muted mt-1 text-xs">Elige una tonalidad y te digo si pegan.</p>
       )}
     </div>
   );

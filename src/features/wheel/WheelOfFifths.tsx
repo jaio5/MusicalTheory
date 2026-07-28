@@ -128,7 +128,7 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
   return (
     <svg
       viewBox={`0 0 ${SIZE} ${SIZE}`}
-      className="h-auto w-full max-w-[260px]"
+      className="h-auto w-full max-w-[300px] min-w-[240px]"
       role="img"
       aria-label={
         tonic === null || mode === null

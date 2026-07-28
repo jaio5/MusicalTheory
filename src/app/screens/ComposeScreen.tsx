@@ -34,7 +34,7 @@ export function ComposeScreen() {
 
   return (
     <RecordStage>
-      <div className="grid h-full min-h-0 grid-cols-1 gap-px lg:grid-cols-[17rem_minmax(0,1fr)_20rem]">
+      <div className="grid h-full min-h-0 grid-cols-1 gap-px lg:grid-cols-[20rem_minmax(0,1fr)_23rem]">
         <section
           aria-label="Tonalidad"
           className="border-border flex min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3"
@@ -63,7 +63,7 @@ export function ComposeScreen() {
                   type="button"
                   onClick={() => setExtra(extra === candidate.id ? null : candidate.id)}
                   aria-pressed={extra === candidate.id}
-                  className={`border px-2 py-1 font-mono text-[11px] ${
+                  className={`border px-2 py-1 font-mono text-xs ${
                     extra === candidate.id
                       ? 'border-brass-bright text-brass-bright'
                       : 'border-border text-text-muted hover:text-text'

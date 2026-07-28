@@ -53,22 +53,20 @@
    * ponen, y esto solo aplica mientras se está grabando.
    */
   body.grabando,
-  body.grabando *:not([data-senal]) {
+  body.grabando *:not([data-senal]):not([data-velo]) {
     background-color: transparent !important;
   }
 
   body.grabando {
-    /* Sobre un vídeo cualquiera, el texto plano no se lee. */
-    text-shadow:
-      0 1px 3px rgb(0 0 0 / 0.95),
-      0 0 12px rgb(0 0 0 / 0.7);
+    /* Con el velo ya se lee; la sombra es para los sitios claros de la imagen. */
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
   }
 
   body.grabando button,
   body.grabando input,
   body.grabando select,
   body.grabando [class*='border'] {
-    border-color: color-mix(in srgb, var(--color-text) 55%, transparent);
+    border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
   }
 
   /*
@@ -83,13 +81,13 @@
     fill: transparent !important;
   }
 
-  /* Sobre vídeo, el gris apagado no se lee. */
+  /* Sobre vídeo, el gris apagado se queda corto aun con velo. */
   body.grabando .text-text-muted {
-    color: color-mix(in srgb, var(--color-text) 90%, transparent);
+    color: color-mix(in srgb, var(--color-text) 88%, transparent);
   }
 
   body.grabando .fill-text-muted {
-    fill: color-mix(in srgb, var(--color-text) 90%, transparent);
+    fill: color-mix(in srgb, var(--color-text) 88%, transparent);
   }
 
   /*

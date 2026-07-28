@@ -126,7 +126,7 @@ function Suggestion({
           · encaja
         </span>
       )}
-      <span className="text-text-muted truncate text-xs" title={suggestion.why}>
+      <span className="text-text-muted text-xs" title={suggestion.why}>
         {suggestion.why}
       </span>
       <span className="sr-only">

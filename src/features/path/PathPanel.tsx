@@ -161,7 +161,7 @@ export function Voicings() {
             position={voicing.position}
             label={`${current.symbol}, ${voicing.name.toLowerCase()}`}
           />
-          <span className="text-text-muted mt-1 text-center text-[11px]">{voicing.name}</span>
+          <span className="text-text-muted mt-1 text-center text-xs">{voicing.name}</span>
         </li>
       ))}
     </ul>
@@ -204,7 +204,7 @@ export function NextChords() {
         <ChordSearch onPick={(chord) => actions.pushChord(fromSearch(chord))} />
       </div>
 
-      <p className="text-text-muted px-3 pt-2 text-[10px] tracking-widest uppercase">
+      <p className="text-text-muted px-3 pt-2 text-xs tracking-widest uppercase">
         {current === null ? 'Por dónde empezar' : `Desde ${current.symbol}`}
       </p>
 
@@ -215,7 +215,7 @@ export function NextChords() {
               type="button"
               onClick={() => actions.pushChord(option)}
               aria-label={`${option.symbol}, ${option.label}`}
-              className="hover:bg-surface-raised flex w-full items-baseline gap-2 px-2 py-1.5 text-left"
+              className="hover:bg-surface-raised flex w-full items-baseline gap-3 px-3 py-2 text-left"
             >
               {/* Marcado como señal para que el verde y el rojo sigan ahí
                   mientras grabas: es lo único que da tiempo a mirar tocando. */}
@@ -224,11 +224,11 @@ export function NextChords() {
                 data-senal
                 className={`mt-1 block h-2 w-2 shrink-0 rounded-full ${safetyColour(option.notes, inKey)}`}
               />
-              <span className="text-text w-16 shrink-0 font-mono text-sm">{option.symbol}</span>
-              <span className="text-text-muted w-14 shrink-0 font-mono text-[10px]">
+              <span className="text-text w-16 shrink-0 font-mono text-base">{option.symbol}</span>
+              <span className="text-text-muted w-14 shrink-0 font-mono text-xs">
                 {option.label}
               </span>
-              <span className="text-text-muted truncate text-xs">
+              <span className="text-text-muted line-clamp-2 text-sm leading-snug">
                 {'motionWhy' in option &&
                 typeof option.motionWhy === 'string' &&
                 option.motionWhy !== ''

@@ -18,6 +18,9 @@ export interface ChordDiagramProps {
  * El diagrama de un acorde, como en cualquier cancionero: las cuerdas en
  * vertical, la cejuela arriba y un punto por dedo.
  *
+ * Se dibuja a un tamaño al que se lee de un vistazo desde la distancia a la que
+ * se está con la guitarra puesta, que es más lejos de la pantalla de lo normal.
+ *
  * Va marcado como imagen con su descripción: quien no lo ve necesita la
  * digitación en texto, no seis líneas y unos círculos.
  */
@@ -30,7 +33,7 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      className="h-auto w-full max-w-[110px]"
+      className="h-auto w-full max-w-[152px] min-w-[132px]"
       role="img"
       aria-label={`${label}: ${text}`}
     >

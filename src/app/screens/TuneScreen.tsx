@@ -10,7 +10,7 @@ import { Tuner, TuningPicker } from '@features/tuner';
  */
 export function TuneScreen() {
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col gap-4 overflow-y-auto p-4">
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col justify-center gap-8 overflow-y-auto p-6">
       <TuningPicker />
       <Tuner />
     </div>

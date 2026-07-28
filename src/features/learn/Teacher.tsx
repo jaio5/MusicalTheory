@@ -82,9 +82,9 @@ export function Teacher({ topic }: TeacherProps = {}) {
           event.preventDefault();
           void ask(question);
         }}
-        className="flex gap-2"
+        className="flex flex-wrap gap-2"
       >
-        <label className="grow">
+        <label className="min-w-48 grow">
           <span className="sr-only">Pregúntale al profesor</span>
           <input
             type="text"
