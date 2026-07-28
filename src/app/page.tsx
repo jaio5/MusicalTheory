@@ -2,6 +2,7 @@ import { ComposePanel } from '@features/compose';
 import { FretboardPanel } from '@features/fretboard';
 import { IdeasPanel } from '@features/ideas';
 import { LearnPanel } from '@features/learn';
+import { RecorderPanel } from '@features/recorder';
 import { Tuner } from '@features/tuner';
 import { KeyPanel } from '@features/wheel';
 
@@ -25,6 +26,7 @@ export default function Home() {
         <LearnPanel />
         <ComposePanel />
         <IdeasPanel />
+        <RecorderPanel />
       </div>
 
       <footer className="border-border text-text-muted mt-16 border-t pt-8 text-sm">

@@ -108,13 +108,19 @@ terceras.
 - [ ] Sin límite de frecuencia todavía: `rate_limited` está en el contrato pero
       nadie lo emite.
 
-## Fase 6 — Grabación con cámara
+## Fase 6 — Grabación con cámara · hecha
 
-Composición en canvas y `MediaRecorder` según [RECORDING.md](./RECORDING.md).
-Overlay con nota, tonalidad y acorde quemados. Descarga local.
+- [x] `BrowserCameraInput`: el permiso de cámara se pide solo al darle a grabar,
+      y su error se traduce a una frase que dice qué hacer.
+- [x] `CanvasSessionRecorder`: vídeo oculto → canvas → `captureStream` →
+      `MediaRecorder`, con negociación de formato y troceado cada segundo.
+- [x] Overlay con nota, cents, tonalidad y acorde, colocado en proporción al
+      lienzo y con un velo debajo para que se lea sobre ropa clara.
+- [x] Descarga local con nombre fechado, liberando la URL del objeto.
+- [ ] Pendiente de grabar de verdad: solo están probadas las partes puras
+      —formato, nombre y overlay—, porque jsdom no tiene `MediaRecorder`.
 
-**Terminada cuando**: se puede grabar una toma de tres minutos y descargarla con
-los datos visibles.
+Sigue sin haber ni una línea de código de subida, y no la habrá sin un ADR.
 
 ## Fase 7 — Persistencia local de sesiones
 
