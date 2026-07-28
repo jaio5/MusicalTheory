@@ -1,2 +1,2 @@
 export * from './MicButton';
-export * from './Toolbar';
+export * from './Settings';

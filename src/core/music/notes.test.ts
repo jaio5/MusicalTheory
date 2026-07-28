@@ -11,7 +11,6 @@ import {
   noteName,
   normalizePitchClass,
   pitchClassFromName,
-  spanishNoteName,
 } from './notes';
 
 describe('conversión entre frecuencia y MIDI', () => {
@@ -100,11 +99,6 @@ describe('nombres y clases de altura', () => {
     expect(pitchClassFromName('A')).toBe(9);
     expect(noteName(9)).toBe('A');
     expect(noteName(pitchClassFromName('F#'))).toBe('F#');
-  });
-
-  it('traduce al español para la interfaz', () => {
-    expect(spanishNoteName(9)).toBe('La');
-    expect(spanishNoteName(0)).toBe('Do');
   });
 
   it('cuenta octavas en notación científica', () => {

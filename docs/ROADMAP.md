@@ -155,9 +155,13 @@ Tres columnas fijas que caben enteras, sin scroll de página:
   propio scroll.
 - **Derecha**: la rueda de quintas, pulsable.
 
-Arriba, un botón de micro redondo —como el de grabar de la cámara del móvil—
-con la nota que suena al lado, y los tres ajustes que cambian todo: tonalidad,
-estilo y escala.
+Arriba solo hay dos cosas: el botón de micro redondo —como el de grabar de la
+cámara del móvil— con la nota que suena al lado, y los botones del cajón. El
+estilo y la escala viven debajo de la rueda, que es donde ya se elige la
+tonalidad.
+
+Las notas se escriben en cifrado anglosajón —C, D, E— en toda la aplicación:
+es lo que traen las tablaturas y los diagramas de acordes.
 
 Lo demás —mástil, afinador detallado, aprender, componer, ideas, grabar,
 sesiones— vive en un cajón que se abre encima. Así está disponible sin que la
@@ -168,7 +172,7 @@ pantalla principal crezca.
 ### Pagada
 
 - ~~**Escritura con bemoles.**~~ Cada tonalidad decide su escritura según su
-  posición en la rueda. Fa mayor escribe Sib.
+  posición en la rueda. F mayor escribe Sib.
 - ~~**Cuatríadas y tensiones.**~~ Hay cuatríadas con sus siete especies, y el
   modo componer las enciende con una casilla. Quedan las tensiones por encima de
   la séptima, que es otra cosa y no la pide nadie todavía.

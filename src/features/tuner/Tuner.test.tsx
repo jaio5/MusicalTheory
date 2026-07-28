@@ -127,7 +127,7 @@ describe('Afinador', () => {
 
     engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 });
 
-    expect(await screen.findByText('La')).toBeInTheDocument();
+    expect(await screen.findByText('A')).toBeInTheDocument();
     // Exacto a propósito: el mismo consejo aparece también en la región viva,
     // en una frase más larga para el lector de pantalla.
     expect(screen.getByText('Está afinada')).toBeInTheDocument();
@@ -144,10 +144,10 @@ describe('Afinador', () => {
 
     // Hay que esperar a que React pinte el cambio antes de leer el DOM: la
     // emisión del motor viene de fuera del ciclo de render.
-    await screen.findByText('La');
+    await screen.findByText('A');
 
     const live = container.querySelector('[aria-live="polite"]');
-    expect(live).toHaveTextContent('La2, está afinada.');
+    expect(live).toHaveTextContent('A2, está afinada.');
   });
 
   it('dice hacia dónde corregir cuando la nota está alta', async () => {
@@ -179,14 +179,14 @@ describe('Afinador', () => {
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 });
-    expect(await screen.findByText('La')).toBeInTheDocument();
+    expect(await screen.findByText('A')).toBeInTheDocument();
 
     engine.emit(null);
 
     // El afinador no desaparece: sigue enseñando la última nota y avisa de que
     // ya no hay señal.
     expect(await screen.findByText(/sin señal/i)).toBeInTheDocument();
-    expect(screen.getByText('La')).toBeInTheDocument();
+    expect(screen.getByText('A')).toBeInTheDocument();
     expect(screen.queryByText(/esperando a que suene algo/i)).not.toBeInTheDocument();
   });
 

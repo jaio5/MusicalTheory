@@ -20,9 +20,9 @@ describe('Panel del mástil', () => {
 
     render(<FretboardPanel />);
 
-    expect(await screen.findByText(/pentatónica menor de La/i)).toBeInTheDocument();
-    // La pentatónica menor de La: La, Do, Re, Mi, Sol.
-    expect(screen.getByText('La · Do · Re · Mi · Sol')).toBeInTheDocument();
+    expect(await screen.findByText(/pentatónica menor de A/i)).toBeInTheDocument();
+    // La pentatónica menor de A: A, C, D, E, G.
+    expect(screen.getByText('A · C · D · E · G')).toBeInTheDocument();
   });
 
   it('cambia de escala al elegir otra', async () => {
@@ -36,7 +36,7 @@ describe('Panel del mástil', () => {
       useSessionStore.getState().actions.setScale('blues');
     });
 
-    expect(await screen.findByText('La · Do · Re · Re# · Mi · Sol')).toBeInTheDocument();
+    expect(await screen.findByText('A · C · D · D# · E · G')).toBeInTheDocument();
   });
 
   it('describe el mástil para quien no lo ve', async () => {
@@ -45,7 +45,7 @@ describe('Panel del mástil', () => {
     render(<FretboardPanel />);
 
     expect(
-      await screen.findByRole('img', { name: /mástil de 15 trastes.*pentatónica menor.*La/i }),
+      await screen.findByRole('img', { name: /mástil de 15 trastes.*pentatónica menor.*A/i }),
     ).toBeInTheDocument();
   });
 
@@ -65,7 +65,7 @@ describe('Panel del mástil', () => {
 
   it('acumula lo tocado y acaba proponiendo una tonalidad', () => {
     const { actions } = useSessionStore.getState();
-    // Un rato en La menor, con instantes separados para que el histograma
+    // Un rato en A menor, con instantes separados para que el histograma
     // llegue a recalcularse.
     const sequence = [45, 48, 52, 45, 55, 52, 50, 48, 45, 52, 45];
     sequence.forEach((midi, index) => {

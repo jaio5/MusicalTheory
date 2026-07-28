@@ -42,11 +42,11 @@ describe('el orden de la rueda', () => {
 });
 
 describe('relativas', () => {
-  it('la relativa menor de Do es La menor', () => {
+  it('la relativa menor de Do es A menor', () => {
     expect(noteName(relativeMinor(pitchClassFromName('C')))).toBe('A');
   });
 
-  it('la relativa mayor de La menor es Do', () => {
+  it('la relativa mayor de A menor es Do', () => {
     expect(noteName(relativeMajor(pitchClassFromName('A')))).toBe('C');
   });
 
@@ -75,7 +75,7 @@ describe('posición de una tonalidad', () => {
 });
 
 describe('giro de la rueda', () => {
-  it('Do mayor no necesita girar', () => {
+  it('C mayor no necesita girar', () => {
     expect(rotationForKey(pitchClassFromName('C'), 'major')).toBe(0);
   });
 
@@ -120,13 +120,13 @@ describe('escritura de cada tonalidad', () => {
   });
 
   it('una menor se escribe como su relativa mayor', () => {
-    // La menor es la relativa de Do: sin alteraciones, lado de los sostenidos.
+    // A menor es la relativa de Do: sin alteraciones, lado de los sostenidos.
     expect(accidentalForKey(pitchClassFromName('A'), 'minor')).toBe('sharp');
-    // Re menor es la relativa de Fa: lleva Sib.
+    // D menor es la relativa de Fa: lleva Sib.
     expect(accidentalForKey(pitchClassFromName('D'), 'minor')).toBe('flat');
   });
 
-  it('escribe Fa mayor con Sib y no con La#', () => {
+  it('escribe F mayor con Sib y no con La#', () => {
     const accidental = accidentalForKey(pitchClassFromName('F'), 'major');
     expect(noteName(pitchClassFromName('A#'), accidental)).toBe('Bb');
   });

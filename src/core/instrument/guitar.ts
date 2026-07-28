@@ -19,12 +19,12 @@ export interface GuitarString {
 
 /** Afinación estándar, de la sexta a la primera. */
 export const STANDARD_TUNING: readonly GuitarString[] = [
-  { number: 6, midi: 40, label: 'Mi grave' },
-  { number: 5, midi: 45, label: 'La' },
-  { number: 4, midi: 50, label: 'Re' },
-  { number: 3, midi: 55, label: 'Sol' },
-  { number: 2, midi: 59, label: 'Si' },
-  { number: 1, midi: 64, label: 'Mi agudo' },
+  { number: 6, midi: 40, label: 'E grave' },
+  { number: 5, midi: 45, label: 'A' },
+  { number: 4, midi: 50, label: 'D' },
+  { number: 3, midi: 55, label: 'G' },
+  { number: 2, midi: 59, label: 'B' },
+  { number: 1, midi: 64, label: 'E agudo' },
 ];
 
 /**

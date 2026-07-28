@@ -46,7 +46,7 @@ describe('Panel de sesiones', () => {
     await userEvent.click(screen.getByRole('button', { name: /guardar esta sesión/i }));
 
     expect(await screen.findByText(/28\/07 19:05 · 2 notas/)).toBeInTheDocument();
-    expect(screen.getByText(/La menor/)).toBeInTheDocument();
+    expect(screen.getByText(/A menor/)).toBeInTheDocument();
 
     const stored = await storage.list();
     expect(stored[0]!.notes).toEqual(['A', 'C']);

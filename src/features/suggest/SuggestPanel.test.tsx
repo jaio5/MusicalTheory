@@ -69,7 +69,7 @@ describe('Panel de sugerencias', () => {
   it('marca los acordes que encajan con lo que se está tocando', async () => {
     const { actions } = useSessionStore.getState();
     actions.pinKey({ tonic: A, mode: 'minor' });
-    // Re, Fa# y La: no es diatónico de La menor, pero es lo que suena.
+    // Re, Fa# y La: no es diatónico de A menor, pero es lo que suena.
     actions.setPitch(midiToFrequency(50), 0.99, 0);
     actions.setPitch(midiToFrequency(54), 0.99, 400);
     actions.setPitch(midiToFrequency(57), 0.99, 800);

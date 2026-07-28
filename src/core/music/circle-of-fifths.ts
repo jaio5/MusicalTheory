@@ -57,7 +57,7 @@ export function positionAngle(position: number): number {
  */
 export function rotationForKey(tonic: PitchClass, mode: KeyMode): number {
   const angle = positionAngle(keyPosition(tonic, mode));
-  // Sin esto, Do mayor devolvería cero negativo: no rompe la aritmética, pero
+  // Sin esto, C mayor devolvería cero negativo: no rompe la aritmética, pero
   // sí las comparaciones estrictas y cualquier cosa que se serialice.
   return angle === 0 ? 0 : -angle;
 }

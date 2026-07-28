@@ -6,13 +6,11 @@ import { ComposePanel } from '@features/compose';
 import { FretboardPanel } from '@features/fretboard';
 import { IdeasPanel } from '@features/ideas';
 import { LearnPanel } from '@features/learn';
-import { RecorderPanel } from '@features/recorder';
 import { SessionsPanel } from '@features/sessions';
 import { SuggestPanel } from '@features/suggest';
 import { Tuner } from '@features/tuner';
 
-type ExtraId =
-  'tuner' | 'fretboard' | 'suggest' | 'compose' | 'learn' | 'ideas' | 'recorder' | 'sessions';
+type ExtraId = 'tuner' | 'fretboard' | 'suggest' | 'compose' | 'learn' | 'ideas' | 'sessions';
 
 const EXTRAS: ReadonlyArray<{ id: ExtraId; name: string; render: () => React.ReactElement }> = [
   { id: 'fretboard', name: 'Mástil', render: FretboardPanel },
@@ -21,7 +19,6 @@ const EXTRAS: ReadonlyArray<{ id: ExtraId; name: string; render: () => React.Rea
   { id: 'compose', name: 'Componer', render: ComposePanel },
   { id: 'learn', name: 'Aprender', render: LearnPanel },
   { id: 'ideas', name: 'Ideas', render: IdeasPanel },
-  { id: 'recorder', name: 'Grabar', render: RecorderPanel },
   { id: 'sessions', name: 'Sesiones', render: SessionsPanel },
 ];
 

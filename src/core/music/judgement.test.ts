@@ -20,7 +20,7 @@ describe('juzgar un acorde contra la tonalidad', () => {
   });
 
   it('un prestado conocido es color, no error', () => {
-    // Sib mayor en Do: el bVII, prestado del menor.
+    // Bb mayor en Do: el bVII, prestado del menor.
     const verdict = judge('Bb');
     expect(verdict.verdict).toBe('colour');
     expect(verdict.label).toBe('bVII');
@@ -40,7 +40,7 @@ describe('juzgar un acorde contra la tonalidad', () => {
   });
 
   it('distingue una nota de fuera de varias', () => {
-    // Do menor en Do mayor: solo el Mib se sale, y no es un préstamo del
+    // C menor en C mayor: solo el Mib se sale, y no es un préstamo del
     // catálogo, así que es de paso. D7 no vale de ejemplo porque sí está: es
     // la dominante secundaria del quinto grado.
     expect(judge('Cm').why).toMatch(/de paso/);

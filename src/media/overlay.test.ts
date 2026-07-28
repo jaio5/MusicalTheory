@@ -8,7 +8,7 @@ const LAYOUT = { width: 1280, height: 720 };
 const FULL = {
   noteName: 'La',
   cents: 7,
-  keyName: 'La menor',
+  keyName: 'A menor',
   chordSymbol: 'Am',
   elapsedMs: 65_000,
 };
@@ -43,7 +43,7 @@ describe('líneas del overlay', () => {
     const lines = overlayLines(FULL, LAYOUT);
     const texts = lines.map((line) => line.text);
 
-    expect(texts).toContain('La menor · Am');
+    expect(texts).toContain('A menor · Am');
     expect(texts.some((text) => text.startsWith('La'))).toBe(true);
     expect(texts).toContain('1:05');
   });

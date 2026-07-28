@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { keyName, spanishNoteName } from '@core/music';
+import { keyName, noteName } from '@core/music';
 import { BrowserCameraInput } from '@media/browser-camera-input';
 import type { CameraInput } from '@media/camera-input';
 import { CanvasSessionRecorder } from '@media/canvas-session-recorder';
@@ -75,7 +75,7 @@ export function RecorderPanel({ createCamera, createRecorder }: RecorderPanelPro
         return {
           noteName:
             state.hasSignal && state.reading !== null
-              ? `${spanishNoteName(state.reading.pitchClass)}${state.reading.octave}`
+              ? `${noteName(state.reading.pitchClass)}${state.reading.octave}`
               : null,
           cents: state.hasSignal ? (state.reading?.cents ?? null) : null,
           keyName: key === null ? null : keyName(key.tonic, key.mode),

@@ -12,7 +12,7 @@ import {
   rotationForKey,
   shortestRotation,
   keyName,
-  spanishNoteName,
+  noteName,
   type KeyMode,
   type PitchClass,
 } from '@core/music';
@@ -133,7 +133,7 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
       aria-label={
         tonic === null || mode === null
           ? 'Rueda de quintas. Todavía no hay tonalidad detectada.'
-          : `Rueda de quintas con ${spanishNoteName(tonic, accidentalForKey(tonic, mode))} ${
+          : `Rueda de quintas con ${noteName(tonic, accidentalForKey(tonic, mode))} ${
               mode === 'major' ? 'mayor' : 'menor'
             } arriba y ${mode === 'minor' ? 'las menores' : 'las mayores'} en el anillo de fuera.`
       }
@@ -166,7 +166,7 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
               key={major}
               point={pointAt(position, RING_RADIUS)}
               tilt={positionAngle(position)}
-              label={spanishNoteName(major, accidentalForKey(major, 'major'))}
+              label={noteName(major, accidentalForKey(major, 'major'))}
               name={keyName(major, 'major')}
               active={position === activePosition && mode === 'major'}
               onPick={onPick === undefined ? undefined : () => onPick(major, 'major')}
@@ -182,7 +182,7 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
                 key={minor}
                 point={pointAt(position, RING_RADIUS)}
                 tilt={positionAngle(position)}
-                label={`${spanishNoteName(minor, accidentalForKey(minor, 'minor'))}m`}
+                label={`${noteName(minor, accidentalForKey(minor, 'minor'))}m`}
                 name={keyName(minor, 'minor')}
                 active={position === activePosition && mode === 'minor'}
                 onPick={onPick === undefined ? undefined : () => onPick(minor, 'minor')}

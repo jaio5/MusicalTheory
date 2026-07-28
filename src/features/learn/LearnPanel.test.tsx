@@ -54,7 +54,7 @@ describe('Panel de aprender', () => {
     renderPanel();
 
     expect(
-      await screen.findByText(/pentatónica menor de La, subiendo y bajando/i),
+      await screen.findByText(/pentatónica menor de A, subiendo y bajando/i),
     ).toBeInTheDocument();
     // Cinco notas más la octava subiendo, cinco bajando.
     expect(screen.getAllByRole('listitem')).toHaveLength(11);
@@ -75,7 +75,7 @@ describe('Panel de aprender', () => {
     renderPanel();
     await userEvent.click(screen.getByRole('button', { name: /^empezar$/i }));
 
-    expect(await screen.findByText(/toca La/i)).toBeInTheDocument();
+    expect(await screen.findByText(/toca A/i)).toBeInTheDocument();
 
     // Rozarla no basta.
     await play(45, 0);
@@ -84,7 +84,7 @@ describe('Panel de aprender', () => {
 
     // Sostenerla sí.
     await play(45, HOLD_MS + 100);
-    expect(await screen.findByText(/toca Do/i)).toBeInTheDocument();
+    expect(await screen.findByText(/toca C/i)).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
   });
 
@@ -104,7 +104,7 @@ describe('Panel de aprender', () => {
     renderPanel();
     await userEvent.click(screen.getByRole('button', { name: /^empezar$/i }));
 
-    // La pentatónica menor de La: La, Do, Re, Mi, Sol, La, y de vuelta.
+    // La pentatónica menor de A: A, C, D, E, G, A, y de vuelta.
     const sequence = [45, 48, 50, 52, 55, 57, 55, 52, 50, 48, 45];
     let clock = 0;
     for (const midi of sequence) {
@@ -125,7 +125,7 @@ describe('Panel de aprender', () => {
 
     await play(45, 0);
     await play(45, HOLD_MS + 100);
-    expect(await screen.findByText(/toca Do/i)).toBeInTheDocument();
+    expect(await screen.findByText(/toca C/i)).toBeInTheDocument();
 
     await act(async () => {
       actions.setScale('blues');

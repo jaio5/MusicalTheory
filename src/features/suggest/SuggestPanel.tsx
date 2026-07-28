@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import {
   keyName,
-  spanishNoteName,
+  noteName,
   STYLES,
   suggestChords,
   type ChordFamily,
@@ -130,7 +130,7 @@ function Suggestion({
         {suggestion.why}
       </span>
       <span className="sr-only">
-        Notas: {suggestion.notes.map((note) => spanishNoteName(note)).join(', ')}.
+        Notas: {suggestion.notes.map((note) => noteName(note)).join(', ')}.
       </span>
     </li>
   );

@@ -25,19 +25,19 @@ function soundingNotes(voicing: Voicing): Set<number> {
 }
 
 describe('encuentra las formas que se tocan de verdad', () => {
-  it('Mi mayor es el primer acorde que aprende todo el mundo', () => {
+  it('E mayor es el primer acorde que aprende todo el mundo', () => {
     expect(best('E', MAJOR)).toBe('022100');
   });
 
-  it('La menor', () => {
+  it('A menor', () => {
     expect(best('A', MINOR)).toBe('x02210');
   });
 
-  it('Do mayor', () => {
+  it('C mayor', () => {
     expect(best('C', MAJOR)).toBe('x32010');
   });
 
-  it('Sol mayor', () => {
+  it('G mayor', () => {
     expect(best('G', MAJOR)).toBe('320003');
   });
 

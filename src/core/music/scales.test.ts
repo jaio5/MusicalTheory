@@ -39,7 +39,7 @@ describe('cada escala da sus notas desde Do', () => {
 });
 
 describe('transposición', () => {
-  it('La menor natural son las notas blancas', () => {
+  it('A menor natural son las notas blancas', () => {
     expect(scaleNoteNames(A, 'naturalMinor')).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G']);
   });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { keyName, NOTE_NAMES, pitchClassFromName, spanishNoteName } from '@core/music';
+import { keyName, NOTE_NAMES, pitchClassFromName, noteName } from '@core/music';
 import { selectActiveKey, useSessionStore, type SessionKey } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
@@ -84,7 +84,7 @@ export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
               {NOTE_NAMES.map((name) => {
                 const tonic = pitchClassFromName(name);
                 return (
-                  <optgroup key={name} label={spanishNoteName(tonic)}>
+                  <optgroup key={name} label={noteName(tonic)}>
                     <option value={keyValue({ tonic, mode: 'major' })}>
                       {keyName(tonic, 'major')}
                     </option>

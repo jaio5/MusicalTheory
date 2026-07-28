@@ -1,7 +1,7 @@
 'use client';
 
 import { nearestString, semitonesFromString } from '@core/instrument';
-import type { PitchReading } from '@core/music';
+import { noteName, type PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
 import { useSessionStore, type ListeningState } from '@state/session-store';
@@ -13,13 +13,7 @@ import { listAudioInputDevices } from '@audio/web-audio-input';
 
 import { LevelMeter } from './LevelMeter';
 import { TuningMeter } from './TuningMeter';
-import {
-  displayNames,
-  isSignalClean,
-  readingAnnouncement,
-  tuningAdvice,
-  tuningStatus,
-} from './tuning';
+import { isSignalClean, readingAnnouncement, tuningAdvice, tuningStatus } from './tuning';
 
 export type TunerProps = ListeningDeps;
 
@@ -164,7 +158,6 @@ function Listening({
   }
 
   const status = tuningStatus(reading.cents);
-  const names = displayNames(reading);
   const string = nearestString(reading.midi);
   const distance = semitonesFromString(reading.midi, string);
 
@@ -178,10 +171,9 @@ function Listening({
         <span
           className={`font-display text-7xl ${status === 'afinada' ? 'text-tube-bright' : 'text-brass-bright'}`}
         >
-          {names.spanish}
+          {noteName(reading.pitchClass)}
           <span className="text-text-muted text-3xl">{reading.octave}</span>
         </span>
-        <span className="text-text-muted font-mono text-lg">{names.english}</span>
       </p>
 
       <p className="text-text mt-2 font-mono text-sm">

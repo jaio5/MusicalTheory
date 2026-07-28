@@ -127,6 +127,6 @@ describe('Panel de ideas', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /qué escala meter encima/i }));
 
-    expect(await screen.findByText('Dórico de La')).toBeInTheDocument();
+    expect(await screen.findByText('Dórico de A')).toBeInTheDocument();
   });
 });

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { keyName } from '@core/music';
 import { ChordFocus, NextChords, type Chord } from '@features/path';
 import { KeyPanel } from '@features/wheel';
-import { MicButton, Toolbar } from '@features/workspace';
+import { MicButton, Settings } from '@features/workspace';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 
 import { ExtrasDrawer } from './ExtrasDrawer';
@@ -30,8 +30,6 @@ export function Workspace() {
     <div className="flex h-dvh flex-col overflow-hidden">
       <header className="border-border bg-surface flex shrink-0 flex-wrap items-center gap-3 border-b px-3 py-2">
         <MicButton />
-        <span aria-hidden="true" className="bg-border h-8 w-px" />
-        <Toolbar />
         <ExtrasDrawer />
       </header>
 
@@ -84,6 +82,7 @@ export function Workspace() {
               ? 'Pulsa una tonalidad para empezar'
               : keyName(activeKey.tonic, activeKey.mode)}
           </p>
+          <Settings />
         </section>
       </main>
     </div>

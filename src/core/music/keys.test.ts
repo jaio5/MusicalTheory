@@ -20,21 +20,21 @@ function play(sequence: readonly NoteName[], startAt = 0, stepMs = 300) {
 }
 
 describe('detección de tonalidad', () => {
-  it('reconoce La menor en una secuencia clara', () => {
-    // Melodía sobre La menor: insiste en la tónica y en la quinta, y usa el
-    // Sol natural que la separa de Do mayor como centro.
+  it('reconoce A menor en una secuencia clara', () => {
+    // Melodía sobre A menor: insiste en la tónica y en la quinta, y usa el
+    // Sol natural que la separa de C mayor como centro.
     const histogram = play(['A', 'C', 'E', 'A', 'G', 'E', 'D', 'C', 'A', 'E', 'A', 'B', 'C', 'A']);
 
     const candidate = bestKey(histogram);
     expect(candidate).not.toBeNull();
     expect(candidate?.mode).toBe('minor');
     expect(candidate?.tonic).toBe(pitchClassFromName('A'));
-    expect(candidate?.name).toBe('La menor');
+    expect(candidate?.name).toBe('A menor');
   });
 
-  it('reconoce Do mayor cuando el centro es Do', () => {
+  it('reconoce C mayor cuando el centro es Do', () => {
     const histogram = play(['C', 'E', 'G', 'C', 'D', 'E', 'F', 'E', 'G', 'C', 'B', 'C']);
-    expect(bestKey(histogram)?.name).toBe('Do mayor');
+    expect(bestKey(histogram)?.name).toBe('C mayor');
   });
 
   it('devuelve tres candidatas ordenadas de mejor a peor', () => {
@@ -70,15 +70,15 @@ describe('decaimiento del histograma', () => {
   });
 
   it('sigue al músico cuando se va de tono a mitad de sesión', () => {
-    // Primero un rato en Do mayor.
+    // Primero un rato en C mayor.
     let histogram = createPitchHistogram(0);
     const opening: readonly NoteName[] = ['C', 'E', 'G', 'C', 'D', 'F', 'E', 'C', 'G', 'C'];
     opening.forEach((note, index) => {
       histogram = addPitchClass(histogram, pitchClassFromName(note), index * 500);
     });
-    expect(bestKey(histogram)?.name).toBe('Do mayor');
+    expect(bestKey(histogram)?.name).toBe('C mayor');
 
-    // Dos minutos después se pasa a Mi menor y no vuelve.
+    // Dos minutos después se pasa a E menor y no vuelve.
     const shift: readonly NoteName[] = [
       'E',
       'G',
@@ -99,13 +99,13 @@ describe('decaimiento del histograma', () => {
       histogram = addPitchClass(histogram, pitchClassFromName(note), 120_000 + index * 500);
     });
 
-    expect(bestKey(histogram)?.name).toBe('Mi menor');
+    expect(bestKey(histogram)?.name).toBe('E menor');
   });
 });
 
 describe('nombres de tonalidad', () => {
-  it('escribe el nombre en español', () => {
-    expect(keyName(pitchClassFromName('A'), 'minor')).toBe('La menor');
-    expect(keyName(pitchClassFromName('F#'), 'major')).toBe('Fa# mayor');
+  it('escribe la nota en cifrado anglosajón y el modo en español', () => {
+    expect(keyName(pitchClassFromName('A'), 'minor')).toBe('A menor');
+    expect(keyName(pitchClassFromName('F#'), 'major')).toBe('F# mayor');
   });
 });

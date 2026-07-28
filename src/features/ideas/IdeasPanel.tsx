@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { noteName, SCALES, spanishNoteName } from '@core/music';
+import { noteName, SCALES } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
@@ -129,7 +129,7 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
                 )}
                 {idea.scale !== undefined && (
                   <p className="text-brass-bright mt-1 font-mono text-sm">
-                    {SCALES[idea.scale].name} de {spanishNoteName(activeKey.tonic)}
+                    {SCALES[idea.scale].name} de {noteName(activeKey.tonic)}
                   </p>
                 )}
                 <p className="text-text-muted mt-1 text-sm">{idea.why}</p>

@@ -13,14 +13,14 @@
  */
 
 import { accidentalForKey } from './circle-of-fifths';
-import { spanishNoteName, SEMITONES_PER_OCTAVE, type PitchClass } from './notes';
+import { noteName, SEMITONES_PER_OCTAVE, type PitchClass } from './notes';
 
 export type KeyMode = 'major' | 'minor';
 
 export interface KeyCandidate {
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
-  /** Nombre para la interfaz: «La menor», «Do mayor». */
+  /** Nombre para la interfaz: «A menor», «C mayor». */
   readonly name: string;
   /** Correlación de Pearson, entre -1 y 1. Cuanto más alta, mejor encaje. */
   readonly score: number;
@@ -138,8 +138,8 @@ function rotate(profile: readonly number[], tonic: PitchClass): number[] {
 }
 
 export function keyName(tonic: PitchClass, mode: KeyMode): string {
-  // Sib mayor, no La# mayor: la tonalidad decide su propia escritura.
-  return `${spanishNoteName(tonic, accidentalForKey(tonic, mode))} ${
+  // Bb mayor, no A# mayor: la tonalidad decide su propia escritura.
+  return `${noteName(tonic, accidentalForKey(tonic, mode))} ${
     mode === 'major' ? 'mayor' : 'menor'
   }`;
 }

@@ -10,7 +10,7 @@ import { useSessionStore } from '@state/session-store';
 
 import { KeyPanel } from './KeyPanel';
 
-/** Toca una melodía clara de La menor, con instantes separados. */
+/** Toca una melodía clara de A menor, con instantes separados. */
 function playAMinor() {
   const { actions } = useSessionStore.getState();
   [45, 48, 52, 45, 55, 52, 50, 48, 45, 52, 45, 57].forEach((midi, index) => {
@@ -31,13 +31,13 @@ describe('Panel de tonalidad', () => {
     ).toBeInTheDocument();
   });
 
-  it('detecta La menor al tocarla y lo dice', async () => {
+  it('detecta A menor al tocarla y lo dice', async () => {
     playAMinor();
     render(<KeyPanel />);
 
-    expect(await screen.findByText(/detectada: La menor/i)).toBeInTheDocument();
+    expect(await screen.findByText(/detectada: A menor/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: /rueda de quintas con La menor arriba/i }),
+      screen.getByRole('img', { name: /rueda de quintas con A menor arriba/i }),
     ).toBeInTheDocument();
   });
 
@@ -59,7 +59,7 @@ describe('Panel de tonalidad', () => {
       `${pitchClassFromName('E')}:major`,
     );
 
-    expect(await screen.findByText(/fijada a mano: Mi mayor/i)).toBeInTheDocument();
+    expect(await screen.findByText(/fijada a mano: E mayor/i)).toBeInTheDocument();
     expect(useSessionStore.getState().pinnedKey).toEqual({
       tonic: pitchClassFromName('E'),
       mode: 'major',
@@ -72,7 +72,7 @@ describe('Panel de tonalidad', () => {
 
     render(<KeyPanel />);
 
-    expect(await screen.findByText(/fijada a mano: Mi mayor/i)).toBeInTheDocument();
+    expect(await screen.findByText(/fijada a mano: E mayor/i)).toBeInTheDocument();
   });
 
   it('permite volver a la detección', async () => {
@@ -82,7 +82,7 @@ describe('Panel de tonalidad', () => {
     render(<KeyPanel />);
     await userEvent.click(screen.getByRole('button', { name: /volver a la detección/i }));
 
-    expect(await screen.findByText(/detectada: La menor/i)).toBeInTheDocument();
+    expect(await screen.findByText(/detectada: A menor/i)).toBeInTheDocument();
     expect(useSessionStore.getState().pinnedKey).toBeNull();
   });
 });
@@ -101,19 +101,19 @@ describe('pulsar en la rueda', () => {
   it('fija la tonalidad al pulsarla', async () => {
     render(<KeyPanel />);
 
-    await userEvent.click(screen.getByTitle('Mi menor'));
+    await userEvent.click(screen.getByTitle('E menor'));
 
     expect(useSessionStore.getState().pinnedKey).toEqual({
       tonic: pitchClassFromName('E'),
       mode: 'minor',
     });
-    expect(await screen.findByText(/fijada a mano: Mi menor/i)).toBeInTheDocument();
+    expect(await screen.findByText(/fijada a mano: E menor/i)).toBeInTheDocument();
   });
 
   it('se puede usar con el teclado, sin ratón', async () => {
     render(<KeyPanel />);
 
-    const key = screen.getByTitle('Sol mayor');
+    const key = screen.getByTitle('G mayor');
     key.focus();
     expect(key).toHaveFocus();
 
@@ -127,23 +127,23 @@ describe('pulsar en la rueda', () => {
 
   it('marca cuál está activa para quien no ve la rueda', async () => {
     render(<KeyPanel />);
-    await userEvent.click(screen.getByTitle('Fa mayor'));
+    await userEvent.click(screen.getByTitle('F mayor'));
 
-    expect(screen.getByTitle('Fa mayor')).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByTitle('Sol mayor')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTitle('F mayor')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTitle('G mayor')).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('escribe cada tonalidad como toca: Sib, no La#', () => {
     render(<KeyPanel />);
-    expect(screen.getByTitle('Sib mayor')).toBeInTheDocument();
-    expect(screen.queryByTitle('La# mayor')).not.toBeInTheDocument();
+    expect(screen.getByTitle('Bb mayor')).toBeInTheDocument();
+    expect(screen.queryByTitle('A# mayor')).not.toBeInTheDocument();
   });
 });
 
 describe('los anillos se dan la vuelta', () => {
   it('con una mayor, las mayores van por fuera', async () => {
     render(<KeyPanel />);
-    await userEvent.click(screen.getByTitle('Sol mayor'));
+    await userEvent.click(screen.getByTitle('G mayor'));
 
     expect(
       await screen.findByRole('img', { name: /las mayores en el anillo de fuera/i }),
@@ -152,7 +152,7 @@ describe('los anillos se dan la vuelta', () => {
 
   it('con una menor, las menores pasan a fuera', async () => {
     render(<KeyPanel />);
-    await userEvent.click(screen.getByTitle('Mi menor'));
+    await userEvent.click(screen.getByTitle('E menor'));
 
     expect(
       await screen.findByRole('img', { name: /las menores en el anillo de fuera/i }),
@@ -162,11 +162,11 @@ describe('los anillos se dan la vuelta', () => {
   it('las posiciones no cambian: la relativa sigue en el mismo sitio', async () => {
     render(<KeyPanel />);
 
-    // Do mayor y La menor comparten armadura, así que comparten posición: al
+    // C mayor y A menor comparten armadura, así que comparten posición: al
     // pasar de una a otra la rueda no gira.
-    await userEvent.click(screen.getByTitle('Do mayor'));
-    const doMayor = screen.getByTitle('Do mayor').closest('foreignObject');
-    const laMenor = screen.getByTitle('La menor').closest('foreignObject');
+    await userEvent.click(screen.getByTitle('C mayor'));
+    const doMayor = screen.getByTitle('C mayor').closest('foreignObject');
+    const laMenor = screen.getByTitle('A menor').closest('foreignObject');
 
     expect(doMayor?.getAttribute('transform')).toBe(laMenor?.getAttribute('transform'));
   });

@@ -39,7 +39,7 @@ describe('sugerencias por estilo', () => {
   it('en rock propone lo básico y el bVII, no solo los siete de la tonalidad', () => {
     const result = symbols({ tonic: A, mode: 'minor', styleId: 'rock', limit: 12 });
     expect(result).toContain('Am');
-    // El bVII de La menor es Sol; en menor el VII ya es diatónico, así que lo
+    // El bVII de A menor es Sol; en menor el VII ya es diatónico, así que lo
     // que hay que ver es que aparezcan quintas y suspendidos.
     expect(result).toContain('A5');
     expect(result.some((symbol) => symbol.includes('sus'))).toBe(true);
@@ -119,7 +119,7 @@ describe('sugerencias según lo que se está tocando', () => {
 
   it('saca un acorde raro cuando de verdad explica lo que se toca', () => {
     // La con séptima menor y novena aumentada: la tercera mayor y la menor a la
-    // vez. Ningún acorde diatónico de La mayor las explica.
+    // vez. Ningún acorde diatónico de A mayor las explica.
     const played = [
       pitchClassFromName('A'),
       pitchClassFromName('C#'),
@@ -151,7 +151,7 @@ describe('sugerencias según lo que se está tocando', () => {
       limit: 4,
     });
 
-    // Re mayor no es diatónico de Do: solo aparece si se está tocando.
+    // D mayor no es diatónico de Do: solo aparece si se está tocando.
     expect(blind).not.toContain('D');
     expect(listening).toContain('D');
   });

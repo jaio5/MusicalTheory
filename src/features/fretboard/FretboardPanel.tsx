@@ -1,6 +1,6 @@
 'use client';
 
-import { accidentalForKey, SCALES, scaleNotes, spanishNoteName } from '@core/music';
+import { accidentalForKey, SCALES, scaleNotes, noteName } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Panel } from '@ui/Panel';
 
@@ -23,11 +23,11 @@ export function FretboardPanel() {
         <>
           <p className="text-text-muted mt-2 text-sm">
             {SCALES[scaleId].name} de{' '}
-            {spanishNoteName(activeKey.tonic, accidentalForKey(activeKey.tonic, activeKey.mode))}:{' '}
+            {noteName(activeKey.tonic, accidentalForKey(activeKey.tonic, activeKey.mode))}:{' '}
             <span className="text-text font-mono">
               {scaleNotes(activeKey.tonic, scaleId)
                 .map((pitchClass) =>
-                  spanishNoteName(pitchClass, accidentalForKey(activeKey.tonic, activeKey.mode)),
+                  noteName(pitchClass, accidentalForKey(activeKey.tonic, activeKey.mode)),
                 )
                 .join(' · ')}
             </span>

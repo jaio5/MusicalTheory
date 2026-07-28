@@ -13,7 +13,7 @@ const cMajor = { root: C, notes: chordNotesFor(C, 'major') };
 
 describe('notas compartidas', () => {
   it('cuenta las que tienen en común', () => {
-    // Do mayor y La menor comparten Do y Mi.
+    // C mayor y A menor comparten Do y Mi.
     expect(sharedNoteCount(chordNotesFor(C, 'major'), chordNotesFor(A, 'minor'))).toBe(2);
   });
 

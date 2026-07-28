@@ -38,7 +38,7 @@ describe('caminos entre grados', () => {
 });
 
 describe('resolución de grados a acordes', () => {
-  it('convierte grados de Do mayor en cifrado', () => {
+  it('convierte grados de C mayor en cifrado', () => {
     expect(resolveDegree(C, 'major', 'I').symbol).toBe('C');
     expect(resolveDegree(C, 'major', 'vi').symbol).toBe('Am');
     expect(resolveDegree(C, 'major', 'bVII').symbol).toBe('A#');

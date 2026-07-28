@@ -13,7 +13,7 @@ parte en doce semitonos iguales, cada uno con una razón de frecuencia de
 - **Número MIDI**: numerar las notas de forma continua. La4 es el 69, y subir
   un semitono es sumar uno. Es más cómodo que trabajar con hercios porque la
   aritmética musical se vuelve suma y resta.
-- **Clase de altura**: la nota olvidando la octava. Do = 0, Do# = 1, ...,
+- **Clase de altura**: la nota olvidando la octava. C = 0, C# = 1, ...,
   Si = 11. Un Mi grave y un Mi agudo son la misma clase de altura, que es lo
   que importa para hablar de escalas y de acordes.
 - **Cents**: la centésima parte de un semitono. Una octava son 1200 cents. El
@@ -22,17 +22,17 @@ parte en doce semitonos iguales, cada uno con una razón de frecuencia de
 
 La conversión devuelve siempre la nota temperada **más cercana** y la
 desviación respecto a ella, que queda entre -50 y +50 cents. No hay caso en
-que el afinador diga «Sol muy alto» cuando lo que quiere decir es «Sol#».
+que el afinador diga «G muy alto» cuando lo que quiere decir es «G#».
 
 **Sobre los nombres**: se usa notación anglosajona (C, C#, D...) porque el
 cifrado de acordes es así en todo el repertorio de rock: `Am`, `G`, `F`. Para
-los textos de la interfaz hay una traducción a Do, Re, Mi.
+toda la interfaz se escribe así: C, D, E, no Do, Re, Mi.
 
 **Cada tonalidad decide si se escribe con sostenidos o con bemoles.** La regla
-es su posición en la rueda de quintas: de Do a Fa# se van añadiendo sostenidos,
-y de ahí en adelante sale más corto contarlo como bemoles. Así, Fa mayor escribe
+es su posición en la rueda de quintas: de C a F# se van añadiendo sostenidos,
+y de ahí en adelante sale más corto contarlo como bemoles. Así, F mayor escribe
 Sib y no La#, que es lo correcto. Una tonalidad menor se escribe como su
-relativa mayor: Re menor lleva Sib porque es la relativa de Fa. Fa# y Solb
+relativa mayor: D menor lleva Sib porque es la relativa de Fa. Fa# y Solb
 empatan a seis alteraciones; gana Fa#, que es lo que escribe todo el mundo en
 guitarra.
 
@@ -45,7 +45,7 @@ tiene octava ni digitación: es el conjunto de notas que valen.
 | ----------------- | -------------- | -------------------------------------------------------------------- |
 | Mayor             | 0 2 4 5 7 9 11 | La referencia. Todo lo demás se explica como alteración de esta.     |
 | Menor natural     | 0 2 3 5 7 8 10 | La relativa menor: mismas notas, otro centro.                        |
-| Pentatónica mayor | 0 2 4 7 9      | La mayor sin cuarta ni séptima, los dos grados que chocan.           |
+| Pentatónica mayor | 0 2 4 7 9      | A mayor sin cuarta ni séptima, los dos grados que chocan.            |
 | Pentatónica menor | 0 3 5 7 10     | La caja del rock.                                                    |
 | Blues             | 0 3 5 6 7 10   | La pentatónica menor con la quinta bemol de paso.                    |
 | Dórico            | 0 2 3 5 7 9 10 | Menor con sexta mayor. Menos oscura.                                 |
@@ -54,7 +54,7 @@ tiene octava ni digitación: es el conjunto de notas que valen.
 | Menor armónica    | 0 2 3 5 7 8 11 | Menor con sensible: crea la dominante que la menor natural no tiene. |
 
 Transponer es sumar la tónica a cada intervalo. La pentatónica menor de La sale
-La, Do, Re, Mi, Sol; el blues de La añade el Re#.
+A, C, D, E, G; el blues de A añade el D#.
 
 ## Acordes (`chords.ts`)
 
@@ -69,8 +69,8 @@ La especie sale de los dos intervalos resultantes:
 - tercera menor + quinta disminuida (3 y 6) → **disminuido**
 - tercera mayor + quinta aumentada (4 y 8) → **aumentado**
 
-En **Do mayor** salen: C, Dm, Em, F, G, Am, Bdim — o sea I, ii, iii, IV, V, vi,
-vii°. En **La menor natural**: Am, Bdim, C, Dm, Em, F, G — i, ii°, III, iv, v,
+En **C mayor** salen: C, Dm, Em, F, G, Am, Bdim — o sea I, ii, iii, IV, V, vi,
+vii°. En **A menor natural**: Am, Bdim, C, Dm, Em, F, G — i, ii°, III, iv, v,
 VI, VII. Son los mismos siete acordes con otro centro, que es exactamente lo
 que significa «relativa menor».
 
@@ -87,8 +87,8 @@ daría acordes que nadie toca, así que el tipo lo impide.
 
 El método es el de **Krumhansl y Kessler**. La intuición:
 
-1. Cada tonalidad tiene un reparto típico de cuánto suena cada nota. En Do
-   mayor el Do suena mucho, el Sol bastante, el Do# casi nada.
+1. Cada tonalidad tiene un reparto típico de cuánto suena cada nota. En C
+   mayor el C suena mucho, el G bastante, el C# casi nada.
 2. Se cuenta lo que está tocando el guitarrista, nota a nota, en un histograma
    de doce casillas.
 3. Se compara ese reparto con los veinticuatro perfiles posibles (doce mayores
@@ -98,7 +98,7 @@ El parecido se mide con la **correlación de Pearson**, que compara la _forma_
 del reparto y no su tamaño: da igual que haya tocado diez notas o mil.
 
 Se devuelven las **tres mejores candidatas con su puntuación**, no una sola. En
-música la ambigüedad es real: La menor y Do mayor tienen las mismas notas, y lo
+música la ambigüedad es real: A menor y C mayor tienen las mismas notas, y lo
 único que las separa es en cuál se apoya el que toca. Enseñar tres candidatas
 con su nota de confianza es más honesto que fingir certeza. Si no ha sonado
 nada, la lista viene vacía y la interfaz debe decirlo, no inventarse un tono.
@@ -106,8 +106,8 @@ nada, la lista viene vacía y la interfaz debe decirlo, no inventarse un tono.
 ### El histograma decae
 
 Un histograma que solo suma se queda anclado al principio de la sesión: si
-empiezas en Do mayor y a los tres minutos te pasas a Mi menor, la detección
-seguiría diciendo Do mayor durante mucho rato.
+empiezas en C mayor y a los tres minutos te pasas a E menor, la detección
+seguiría diciendo C mayor durante mucho rato.
 
 Por eso cada nota **pierde peso con el tiempo**, con una vida media de veinte
 segundos: lo que sonó hace veinte segundos pesa la mitad, lo de hace cuarenta un
@@ -127,7 +127,7 @@ uso. El criterio es de rock, no de coral a cuatro voces. En la práctica:
 - El **bVII** es un grado de primera clase, no una licencia. `I – bVII – IV` es
   una cadencia normal y evita la sensible.
 - La **dominante menor** (`v`) es tan válida como la mayor en tonalidad menor.
-  La mayor aprieta más porque trae la sensible del menor armónico.
+  A mayor aprieta más porque trae la sensible del menor armónico.
 - **V – IV** existe y se usa constantemente en blues, aunque en armonía clásica
   se considere una retrogradación.
 - Los **prestados del menor** (bIII, bVI, bVII en tonalidad mayor) están en el
@@ -150,7 +150,7 @@ Lo mismo apilando una tercera más: sobre cada grado, la nota que está seis
 posiciones más arriba en la escala. Salen las siete especies habituales, con su
 cifrado y su grado:
 
-En **Do mayor**: Cmaj7, Dm7, Em7, Fmaj7, G7, Am7, Bm7b5 — o sea Imaj7, ii7,
+En **C mayor**: Cmaj7, Dm7, Em7, Fmaj7, G7, Am7, Bm7b5 — o sea Imaj7, ii7,
 iii7, IVmaj7, V7, vi7, viiø7. Hay **una sola dominante**, la del quinto grado, y
 es lo que la convierte en el acorde que pide volver a casa.
 
@@ -162,7 +162,7 @@ sabe decir qué tríada hay debajo de cada cuatríada.
 
 ## Los dos anillos de la rueda
 
-El de fuera va Do, Sol, Re, La... y el de dentro va Lam, Mim, Sim, Fa#m... Los
+El de fuera va C, G, D, A... y el de dentro va Am, Em, Bm, F#m... Los
 dos son círculos de quintas completos: el de los menores es el mismo recorrido
 leído desde la relativa.
 
@@ -171,7 +171,7 @@ tonalidad menor, las menores pasan al anillo de fuera. En la rueda de cartón de
 toda la vida los mayores van siempre fuera, pero eso es una convención, no una
 ley.
 
-Lo que **no** cambia son las posiciones. La menor y Do mayor comparten armadura
+Lo que **no** cambia son las posiciones. A menor y C mayor comparten armadura
 —las mismas notas, ninguna alteración— y por eso comparten sitio en la rueda.
 Al pasar de una a otra la rueda no gira: solo se intercambian los anillos.
 

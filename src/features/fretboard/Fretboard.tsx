@@ -7,7 +7,7 @@ import {
 import {
   SCALES,
   scaleNotes,
-  spanishNoteName,
+  noteName,
   type Accidental,
   type PitchClass,
   type ScaleId,
@@ -47,7 +47,7 @@ export function Fretboard({ tonic, scaleId, soundingMidi, accidental = 'sharp' }
       role="img"
       aria-label={`Mástil de ${DEFAULT_FRET_COUNT} trastes con la escala ${SCALES[
         scaleId
-      ].name.toLowerCase()} de ${spanishNoteName(tonic, accidental)} marcada.`}
+      ].name.toLowerCase()} de ${noteName(tonic, accidental)} marcada.`}
     >
       {INLAY_FRETS.map((fret) => (
         <rect
@@ -137,7 +137,7 @@ export function Fretboard({ tonic, scaleId, soundingMidi, accidental = 'sharp' }
               dominantBaseline="central"
               className={`font-mono text-[9px] ${isTonic ? 'fill-background' : 'fill-text-muted'}`}
             >
-              {spanishNoteName(position.pitchClass, accidental)}
+              {noteName(position.pitchClass, accidental)}
             </text>
           </g>
         );

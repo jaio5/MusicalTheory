@@ -11,7 +11,7 @@ import {
   progressionsFor,
   resolveDegree,
   resolveProgression,
-  spanishNoteName,
+  noteName,
   triadQualityOf,
   type HeptatonicScaleId,
 } from '@core/music';
@@ -197,7 +197,7 @@ export function ComposePanel() {
           <p className="text-text-muted mt-3 text-sm">Todavía no ha sonado nada.</p>
         ) : (
           <p className="text-text mt-3 font-mono text-sm break-words">
-            {history.map((note) => spanishNoteName(note.pitchClass, accidental)).join(' · ')}
+            {history.map((note) => noteName(note.pitchClass, accidental)).join(' · ')}
           </p>
         )}
       </div>

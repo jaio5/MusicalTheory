@@ -67,7 +67,7 @@ modelo:
       "title": "Bajar por tonos y volver",
       "degrees": ["i", "VII", "VI", "VII"],
       "chords": ["Am", "G", "F", "G"],
-      "why": "Mantiene el centro en La menor y evita la sensible.",
+      "why": "Mantiene el centro en A menor y evita la sensible.",
     },
   ],
 }

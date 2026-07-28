@@ -56,7 +56,7 @@ describe('Panel de componer', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Am/ }));
 
     expect(await screen.findByText(/desde Am, lo habitual/i)).toBeInTheDocument();
-    // Lo más habitual en menor es bajar al VII, que en La menor es Sol, y va
+    // Lo más habitual en menor es bajar al VII, que en A menor es Sol, y va
     // con el porqué al lado.
     expect(screen.getByRole('button', { name: 'G' })).toBeInTheDocument();
     expect(screen.getByText('El descenso por tonos del rock menor.')).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe('Panel de componer', () => {
     await play(48, 400);
     await play(52, 800);
 
-    const history = await screen.findByText('La · Do · Mi');
+    const history = await screen.findByText('A · C · E');
     expect(history).toBeInTheDocument();
   });
 
@@ -159,7 +159,7 @@ describe('Panel de componer', () => {
 });
 
 describe('escritura y cuatríadas', () => {
-  it('escribe los acordes de Fa mayor con bemoles', async () => {
+  it('escribe los acordes de F mayor con bemoles', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('F'), mode: 'major' });
     render(<ComposePanel />);
 
@@ -175,7 +175,7 @@ describe('escritura y cuatríadas', () => {
 
     await userEvent.click(screen.getByRole('checkbox', { name: /cuatríadas/i }));
 
-    // Las siete cuatríadas de La menor.
+    // Las siete cuatríadas de A menor.
     expect(await screen.findByText('Am7')).toBeInTheDocument();
     expect(screen.getByText('Bm7b5')).toBeInTheDocument();
     expect(screen.getByText('G7')).toBeInTheDocument();

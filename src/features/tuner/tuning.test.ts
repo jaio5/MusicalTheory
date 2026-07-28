@@ -44,7 +44,7 @@ describe('aguja', () => {
 describe('aviso para el lector de pantalla', () => {
   it('dice la nota y qué hacer', () => {
     const reading = describePitch(midiToFrequency(45));
-    expect(readingAnnouncement(reading)).toBe('La2, está afinada.');
+    expect(readingAnnouncement(reading)).toBe('A2, está afinada.');
   });
 
   it('avisa cuando no se oye nada', () => {

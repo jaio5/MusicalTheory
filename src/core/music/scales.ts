@@ -57,7 +57,7 @@ export const SCALES: Readonly<Record<ScaleId, ScaleDefinition>> = {
     id: 'majorPentatonic',
     name: 'Pentatónica mayor',
     intervals: [0, 2, 4, 7, 9],
-    character: 'La mayor sin los dos grados que chocan. Difícil sonar mal.',
+    character: 'A mayor sin los dos grados que chocan. Difícil sonar mal.',
   },
   minorPentatonic: {
     id: 'minorPentatonic',

@@ -16,7 +16,7 @@ const A = pitchClassFromName('A');
 describe('tríadas de una tonalidad mayor', () => {
   const triads = diatonicTriads(C, 'major');
 
-  it('da los siete acordes de Do mayor', () => {
+  it('da los siete acordes de C mayor', () => {
     expect(triads.map((chord) => chord.symbol)).toEqual(['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim']);
   });
 
@@ -34,7 +34,7 @@ describe('tríadas de una tonalidad mayor', () => {
 describe('tríadas de una tonalidad menor', () => {
   const triads = diatonicTriads(A, 'naturalMinor');
 
-  it('da los siete acordes de La menor', () => {
+  it('da los siete acordes de A menor', () => {
     expect(triads.map((chord) => chord.symbol)).toEqual(['Am', 'Bdim', 'C', 'Dm', 'Em', 'F', 'G']);
   });
 
@@ -87,7 +87,7 @@ describe('acceso por grado', () => {
 });
 
 describe('escritura con bemoles', () => {
-  it('escribe los acordes de Fa mayor con Sib', () => {
+  it('escribe los acordes de F mayor con Sib', () => {
     const triads = diatonicTriads(pitchClassFromName('F'), 'major', 'flat');
     expect(triads.map((chord) => chord.symbol)).toEqual(['F', 'Gm', 'Am', 'Bb', 'C', 'Dm', 'Edim']);
   });
@@ -104,7 +104,7 @@ describe('escritura con bemoles', () => {
 });
 
 describe('cuatríadas', () => {
-  it('arma las siete de Do mayor', () => {
+  it('arma las siete de C mayor', () => {
     const sevenths = diatonicSevenths(C, 'major');
     expect(sevenths.map((chord) => chord.symbol)).toEqual([
       'Cmaj7',
@@ -137,7 +137,7 @@ describe('cuatríadas', () => {
     expect(dominants[0]!.degree).toBe(5);
   });
 
-  it('arma las de La menor', () => {
+  it('arma las de A menor', () => {
     expect(diatonicSevenths(A, 'naturalMinor').map((chord) => chord.symbol)).toEqual([
       'Am7',
       'Bm7b5',

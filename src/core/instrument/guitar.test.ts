@@ -23,8 +23,8 @@ describe('cuerdas al aire', () => {
   });
 
   it('encuentra la cuerda más cercana a lo que suena', () => {
-    expect(nearestString(45).label).toBe('La');
-    expect(nearestString(46).label).toBe('La');
+    expect(nearestString(45).label).toBe('A');
+    expect(nearestString(46).label).toBe('A');
     expect(nearestString(64).number).toBe(1);
   });
 
