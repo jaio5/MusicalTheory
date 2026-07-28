@@ -67,7 +67,9 @@ export interface SessionActions {
    *
    * El instante llega desde el motor porque el dominio no lee el reloj.
    */
-  setPitch(frequency: number | null, clarity?: number, at?: number): void;
+  setPitch(frequency: number | null, clarity?: number, at?: number, rms?: number): void;
+  /** Nivel de entrada aunque no haya nota reconocible, para el medidor. */
+  setLevel(rms: number): void;
   /** Fija una tonalidad a mano y deja de seguir la detección. */
   pinKey(key: SessionKey): void;
   /** Vuelve a hacer caso a lo que se detecta. */
@@ -90,6 +92,8 @@ export interface SessionState {
   /** Si esa nota está sonando ahora mismo. */
   readonly hasSignal: boolean;
   readonly clarity: number;
+  /** Nivel de la señal que entra, de 0 a 1. Sirve para ajustar los umbrales. */
+  readonly level: number;
   /** Reparto de notas tocadas, con decaimiento. Alimenta la detección. */
   readonly histogram: PitchHistogram;
   /** Las tres tonalidades que mejor explican lo tocado, de mejor a peor. */
@@ -118,6 +122,7 @@ const EMPTY = {
   readingAt: 0,
   hasSignal: false,
   clarity: 0,
+  level: 0,
   histogram: createPitchHistogram(),
   keyCandidates: [],
   keyComputedAt: 0,
@@ -132,7 +137,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
   actions: {
     setListening: (listening, message = null) => set({ listening, message }),
 
-    setPitch: (frequency, clarity = 0, at = 0) =>
+    setPitch: (frequency, clarity = 0, at = 0, rms) =>
       set((state) => {
         if (frequency === null) {
           return { hasSignal: false, clarity: 0 };
@@ -160,12 +165,14 @@ export const useSessionStore = create<SessionState>()((set) => ({
           readingAt: at,
           hasSignal: true,
           clarity,
+          ...(rms === undefined ? {} : { level: rms }),
           histogram,
           noteHistory,
           ...(stale ? { keyCandidates: detectKey(histogram, 3), keyComputedAt: at } : {}),
         };
       }),
 
+    setLevel: (level) => set({ level }),
     pinKey: (pinnedKey) => set({ pinnedKey }),
     followDetection: () => set({ pinnedKey: null }),
     setScale: (scaleId) => set({ scaleId }),
@@ -187,6 +194,7 @@ export const selectReading = (state: SessionState): PitchReading | null => state
 export const selectReadingAt = (state: SessionState): number => state.readingAt;
 export const selectHasSignal = (state: SessionState): boolean => state.hasSignal;
 export const selectClarity = (state: SessionState): number => state.clarity;
+export const selectLevel = (state: SessionState): number => state.level;
 export const selectScaleId = (state: SessionState): ScaleId => state.scaleId;
 export const selectNoteHistory = (state: SessionState): readonly PlayedNote[] => state.noteHistory;
 export const selectActions = (state: SessionState): SessionActions => state.actions;

@@ -5,6 +5,7 @@ import type { PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
 import { useSessionStore, type ListeningState } from '@state/session-store';
 
+import { LevelMeter } from './LevelMeter';
 import { TuningMeter } from './TuningMeter';
 import {
   displayNames,
@@ -23,6 +24,7 @@ export function Tuner(deps: TunerProps = {}) {
   const reading = useSessionStore((state) => state.reading);
   const hasSignal = useSessionStore((state) => state.hasSignal);
   const clarity = useSessionStore((state) => state.clarity);
+  const level = useSessionStore((state) => state.level);
   const { start, stop } = useTuner(deps);
 
   return (
@@ -39,7 +41,7 @@ export function Tuner(deps: TunerProps = {}) {
       </div>
 
       {listening === 'listening' ? (
-        <Listening reading={reading} hasSignal={hasSignal} clarity={clarity} />
+        <Listening reading={reading} hasSignal={hasSignal} clarity={clarity} level={level} />
       ) : (
         <Stopped listening={listening} message={message} onStart={() => void start()} />
       )}
@@ -90,20 +92,25 @@ function Listening({
   reading,
   hasSignal,
   clarity,
+  level,
 }: {
   readonly reading: PitchReading | null;
   readonly hasSignal: boolean;
   readonly clarity: number;
+  readonly level: number;
 }) {
   // Solo antes de la primera nota. En cuanto suena algo, el afinador se queda
   // en pantalla: al callar se apaga, no desaparece.
   if (reading === null) {
     return (
-      <div className="mt-6 flex min-h-40 flex-col justify-center">
-        <p className="text-text-muted font-mono text-lg">Esperando a que suene algo…</p>
-        <p className="text-text-muted mt-2 text-sm">
-          Toca una cuerda al aire y deja que suene un momento.
-        </p>
+      <div className="mt-6 flex min-h-40 flex-col justify-center gap-6">
+        <div>
+          <p className="text-text-muted font-mono text-lg">Esperando a que suene algo…</p>
+          <p className="text-text-muted mt-2 text-sm">
+            Toca una cuerda al aire y deja que suene un momento.
+          </p>
+        </div>
+        <LevelMeter rms={level} />
       </div>
     );
   }
@@ -149,6 +156,10 @@ function Listening({
               distance > 0 ? 'por encima' : 'por debajo'
             } de la ${string.number}.ª (${string.label})`}
       </p>
+
+      <div className="mt-6 w-full max-w-md">
+        <LevelMeter rms={level} />
+      </div>
 
       {hasSignal ? (
         !isSignalClean(clarity) && (

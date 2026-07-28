@@ -39,6 +39,19 @@ const PEAK_TOLERANCE = 0.9;
  * rango de la guitarra. Devolver null es una respuesta válida: es preferible no
  * decir nada a enseñar una nota inventada.
  */
+/** Valor eficaz del bloque: cuánta señal está entrando. */
+export function signalRms(samples: Float32Array): number {
+  if (samples.length === 0) {
+    return 0;
+  }
+  let energy = 0;
+  for (let i = 0; i < samples.length; i += 1) {
+    const sample = samples[i]!;
+    energy += sample * sample;
+  }
+  return Math.sqrt(energy / samples.length);
+}
+
 export function detectPitch(
   samples: Float32Array,
   options: PitchDetectionOptions,

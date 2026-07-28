@@ -76,4 +76,11 @@ export interface PitchEngine {
    * que la interfaz pueda apagar el afinador en vez de congelar la última nota.
    */
   subscribe(listener: (sample: PitchSample | null) => void): () => void;
+
+  /**
+   * Nivel de entrada en cada análisis, haya nota o no. Es lo que hace falta
+   * para ajustar los umbrales: el caso interesante es justo cuando entra señal
+   * y aun así no se engancha ninguna nota.
+   */
+  subscribeLevel(listener: (rms: number) => void): () => void;
 }
