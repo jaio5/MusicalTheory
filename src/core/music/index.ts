@@ -7,7 +7,9 @@
 
 export * from './notes';
 export * from './scales';
+export * from './chord-symbols';
 export * from './chords';
+export * from './judgement';
 export * from './circle-of-fifths';
 export * from './keys';
 export * from './styles';
