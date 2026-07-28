@@ -1,4 +1,5 @@
 import { FretboardPanel } from '@features/fretboard';
+import { LearnPanel } from '@features/learn';
 import { Tuner } from '@features/tuner';
 import { KeyPanel } from '@features/wheel';
 
@@ -19,6 +20,7 @@ export default function Home() {
         <Tuner />
         <KeyPanel />
         <FretboardPanel />
+        <LearnPanel />
       </div>
 
       <footer className="border-border text-text-muted mt-16 border-t pt-8 text-sm">

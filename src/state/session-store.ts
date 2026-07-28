@@ -63,6 +63,8 @@ export interface SessionState {
   readonly message: string | null;
   /** La última nota detectada. Sobrevive al silencio. */
   readonly reading: PitchReading | null;
+  /** Instante de esa lectura. Lo necesita quien mida cuánto se sostiene. */
+  readonly readingAt: number;
   /** Si esa nota está sonando ahora mismo. */
   readonly hasSignal: boolean;
   readonly clarity: number;
@@ -87,6 +89,7 @@ const EMPTY = {
   listening: 'idle',
   message: null,
   reading: null,
+  readingAt: 0,
   hasSignal: false,
   clarity: 0,
   histogram: createPitchHistogram(),
@@ -113,6 +116,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
 
         return {
           reading,
+          readingAt: at,
           hasSignal: true,
           clarity,
           histogram,
@@ -130,6 +134,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
 export const selectListening = (state: SessionState): ListeningState => state.listening;
 export const selectMessage = (state: SessionState): string | null => state.message;
 export const selectReading = (state: SessionState): PitchReading | null => state.reading;
+export const selectReadingAt = (state: SessionState): number => state.readingAt;
 export const selectHasSignal = (state: SessionState): boolean => state.hasSignal;
 export const selectClarity = (state: SessionState): number => state.clarity;
 export const selectScaleId = (state: SessionState): ScaleId => state.scaleId;

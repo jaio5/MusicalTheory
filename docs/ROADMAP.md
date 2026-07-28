@@ -62,14 +62,20 @@ el porqué está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
 Las etiquetas de la rueda giran con ella, como en el aparato de cartón: la que
 queda arriba se lee derecha y las demás quedan inclinadas.
 
-## Fase 3 — Modo aprender
+## Fase 3 — Modo aprender · hecha
 
-- La escala subiendo y bajando, nota a nota, sobre el mástil.
-- Validación por detección: el ejercicio avanza cuando la nota suena limpia el
-  tiempo suficiente, no en el primer análisis.
-- Nota de referencia sintetizada con un oscilador, para comparar de oído.
+- [x] `features/learn/exercise.ts`: la escala subiendo y bajando como máquina de
+      estados pura, con el instante por parámetro. Un ejercicio entero se prueba
+      sin esperar ni un milisegundo real.
+- [x] Validación por detección: la nota cuenta cuando se sostiene 350 ms
+      afinada; rozarla no basta y soltarla reinicia el contador.
+- [x] `audio/reference-tone.ts`: nota de referencia con oscilador triangular y
+      envolvente, para comparar de oído.
+- [x] Avance con barra, aviso al terminar y reinicio al cambiar de escala.
+- [ ] Pendiente de prueba tocando: si 350 ms es cómodo o se hace lento.
 
-**Terminada cuando**: se puede practicar una escala completa sin tocar el ratón.
+La nota se valida por clase de altura, no por octava: la misma nota cae en
+varias cuerdas y exigir una octava concreta sería pelearse con el mástil.
 
 ## Fase 4 — Modo componer
 
