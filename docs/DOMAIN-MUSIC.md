@@ -24,12 +24,17 @@ La conversión devuelve siempre la nota temperada **más cercana** y la
 desviación respecto a ella, que queda entre -50 y +50 cents. No hay caso en
 que el afinador diga «Sol muy alto» cuando lo que quiere decir es «Sol#».
 
-**Sobre los nombres**: internamente todo se escribe con sostenidos y en
-notación anglosajona (C, C#, D...), porque el cifrado de acordes es así en todo
-el repertorio de rock: `Am`, `G`, `F`. Para los textos de la interfaz hay una
-traducción a Do, Re, Mi. No se escriben bemoles: un Si♭ aparece como A#. Es una
-simplificación consciente y está anotada en el ROADMAP como deuda: en tonalidades
-con bemoles la escritura correcta sería con bemoles.
+**Sobre los nombres**: se usa notación anglosajona (C, C#, D...) porque el
+cifrado de acordes es así en todo el repertorio de rock: `Am`, `G`, `F`. Para
+los textos de la interfaz hay una traducción a Do, Re, Mi.
+
+**Cada tonalidad decide si se escribe con sostenidos o con bemoles.** La regla
+es su posición en la rueda de quintas: de Do a Fa# se van añadiendo sostenidos,
+y de ahí en adelante sale más corto contarlo como bemoles. Así, Fa mayor escribe
+Sib y no La#, que es lo correcto. Una tonalidad menor se escribe como su
+relativa mayor: Re menor lleva Sib porque es la relativa de Fa. Fa# y Solb
+empatan a seis alteraciones; gana Fa#, que es lo que escribe todo el mundo en
+guitarra.
 
 ## Escalas (`scales.ts`)
 
@@ -139,9 +144,24 @@ Cualquier grado se puede convertir en acorde concreto dentro de una tonalidad, y
 al revés: dado un acorde sonando se puede saber qué grado es, incluidos los
 prestados, para sugerir a dónde ir desde ahí.
 
+### Cuatríadas
+
+Lo mismo apilando una tercera más: sobre cada grado, la nota que está seis
+posiciones más arriba en la escala. Salen las siete especies habituales, con su
+cifrado y su grado:
+
+En **Do mayor**: Cmaj7, Dm7, Em7, Fmaj7, G7, Am7, Bm7b5 — o sea Imaj7, ii7,
+iii7, IVmaj7, V7, vi7, viiø7. Hay **una sola dominante**, la del quinto grado, y
+es lo que la convierte en el acorde que pide volver a casa.
+
+En **menor armónica** aparecen el disminuido séptima sobre la sensible y la
+dominante con séptima menor, que es justo lo que la menor natural no tiene.
+
+Un Cmaj7 y un C7 son el mismo grado con distinta séptima, así que el dominio
+sabe decir qué tríada hay debajo de cada cuatríada.
+
 ## Lo que este dominio todavía no hace
 
-- Cuatríadas y tensiones (séptimas, novenas). El modo componer las pedirá.
-- Escritura con bemoles cuando la tonalidad lo requiere.
+- Tensiones por encima de la séptima: novenas, oncenas, trecenas.
 - Acordes de paso, dominantes secundarias y modulación explícita.
 - Ritmo y compás: por ahora nada del dominio conoce el tiempo musical.

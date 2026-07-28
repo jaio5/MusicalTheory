@@ -10,6 +10,7 @@ import {
   validateIdeas,
   type IdeasRequest,
 } from '@features/ideas/contract';
+import { requesterKey, SlidingWindowRateLimiter } from '@features/ideas/rate-limit';
 
 /**
  * Route handler de ideas. Es el único sitio del proyecto que importa el SDK de
@@ -22,6 +23,13 @@ import {
 export const runtime = 'nodejs';
 
 const MODEL = process.env['ANTHROPIC_MODEL'] ?? 'claude-opus-5';
+
+/**
+ * En memoria y por instancia: si esto llega a correr en varias, cada una tendrá
+ * su cuenta. Para lo que defiende —pulsar el botón veinte veces seguidas— es
+ * suficiente; para un abuso de verdad haría falta un contador compartido.
+ */
+const limiter = new SlidingWindowRateLimiter();
 const MAX_TOKENS = 2048;
 
 const SYSTEM_PROMPT = `Eres un guitarrista de rock que ayuda a otro a componer.
@@ -126,6 +134,17 @@ async function askModel(prompt: string): Promise<unknown> {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const now = Date.now();
+  limiter.prune(now);
+
+  const { allowed, retryAfterSeconds } = limiter.check(requesterKey(request.headers), now);
+  if (!allowed) {
+    return NextResponse.json(ideasError('rate_limited'), {
+      status: 429,
+      headers: { 'Retry-After': String(retryAfterSeconds) },
+    });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

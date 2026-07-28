@@ -136,27 +136,45 @@ Sigue sin haber ni una línea de código de subida, y no la habrá sin un ADR.
 IndexedDB y no localStorage porque localStorage es síncrono, y escribir cientos
 de notas ahí bloquearía el hilo que está analizando el audio.
 
-## Deuda técnica anotada
+## Deuda técnica
 
-- **Escritura con bemoles.** Todo se escribe con sostenidos. En Fa mayor debería
-  poner Bb, no A#. Afecta a la presentación, no al cálculo.
-- **Cuatríadas y tensiones.** El dominio solo hace tríadas. El modo componer las
-  va a pedir.
-- **Tokens duplicados.** `ui/tokens.ts` y `app/globals.css` tienen los mismos
-  valores escritos dos veces. Si crece la paleta, generar el CSS desde el TS.
-- **Reconocimiento de acordes.** La detección es monofónica. Un acorde rasgueado
-  no se identifica; el modo componer trabaja con el histórico de notas sueltas.
-- **Umbrales con poco rodaje.** Los cuatro umbrales se ajustaron tras la primera
-  prueba con guitarra. Faltan más equipos, más salas y más pastillas.
-- **Sin medidor de nivel.** No hay forma de ver en pantalla cuánta señal llega,
-  que es justo lo que haría falta para ajustar los umbrales sin adivinar.
-- **La rueda no se puede pulsar.** Fijar una tonalidad se hace con el
-  desplegable, que es lo accesible; pulsar en la rueda es lo que la gente va a
-  intentar. Hacerlo bien son doce elementos con rol de botón y su teclado.
-- **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Es
-  a propósito, porque el diagrama se lee mejor, pero no es el mástil real.
-- **Análisis en el hilo principal.** Puede empezar a notarse cuando la fase 2
-  anime la rueda y el mástil. La salida prevista es un Web Worker.
-- **Sin selector de dispositivo.** `WebAudioInput` acepta un `deviceId` pero la
-  interfaz todavía no deja elegir entrada: usa la que tenga el sistema por
-  defecto.
+### Pagada
+
+- ~~**Escritura con bemoles.**~~ Cada tonalidad decide su escritura según su
+  posición en la rueda. Fa mayor escribe Sib.
+- ~~**Cuatríadas y tensiones.**~~ Hay cuatríadas con sus siete especies, y el
+  modo componer las enciende con una casilla. Quedan las tensiones por encima de
+  la séptima, que es otra cosa y no la pide nadie todavía.
+- ~~**Tokens duplicados.**~~ Siguen escritos dos veces —Tailwind v4 quiere sus
+  variables en CSS— pero ahora un test lee `globals.css` y falla si se separan.
+- ~~**Sin medidor de nivel.**~~ El afinador enseña cuánta señal entra, en
+  decibelios y con los dos umbrales marcados encima.
+- ~~**La rueda no se puede pulsar.**~~ Cada tonalidad es un `<button>` de
+  verdad: entra en el tabulador, responde a Intro y el lector de pantalla la
+  anuncia con su nombre completo.
+- ~~**Sin selector de dispositivo.**~~ Con el permiso ya concedido aparece la
+  lista de entradas y se puede cambiar sin recargar.
+- ~~**Sin límite de frecuencia en la API.**~~ Diez peticiones por minuto y
+  dirección, con `Retry-After`.
+
+### Viva
+
+- **Reconocimiento de acordes.** No es deuda, es el límite del método: la
+  autocorrelación devuelve un periodo, no varios. Un acorde rasgueado no se
+  puede identificar así, y por eso el acorde actual se marca a mano. Cambiarlo
+  significa cambiar de algoritmo, y eso es un ADR nuevo.
+- **Umbrales con poco rodaje.** Los cuatro se ajustaron tras una prueba. Ahora
+  al menos hay medidor para afinarlos con datos en vez de a ojo.
+- **Análisis en el hilo principal.** Sigue pendiente de medir antes de mover
+  nada, como dice [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md). La
+  salida prevista es un Web Worker.
+- **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Se
+  queda así a propósito: el diagrama se lee mejor.
+- **El contador de frecuencia es por instancia.** En memoria. Si esto se
+  despliega en varias, cada una llevará su cuenta.
+- **Sin restaurar la sesión al abrir.** Hay que pulsar «Retomar». Automático
+  sería cómodo y también sorprendente.
+- **Sin probar con instrumento y clave reales.** Lo que no puede comprobar un
+  test: cómo se siente el afinador, si la tonalidad se asienta rápido, si el
+  ejercicio se hace lento, si la grabación sale bien y si el modelo devuelve
+  ideas que valgan.

@@ -148,6 +148,16 @@ const response = await client.messages.create({
 - **Prompt de sistema**: fija el criterio —rock, no coral—, exige español, y
   prohíbe explicar teoría que no se haya pedido.
 
+## Límite de frecuencia
+
+Diez peticiones por minuto y dirección, en una ventana deslizante. Cada petición
+cuesta dinero y la interfaz tiene tres botones que invitan a pulsarlos seguidos.
+
+El contador vive **en memoria y por instancia**: si esto llega a correr en
+varias, cada una llevará su cuenta. Para lo que defiende —pulsar el botón veinte
+veces seguidas— es suficiente; para un abuso deliberado haría falta un contador
+compartido, y eso es otra decisión con su ADR.
+
 ## Privacidad, en una línea
 
 Lo que sale del equipo son entre diez y cincuenta caracteres de símbolos
