@@ -12,6 +12,7 @@ export type PanelId =
   | 'tuner'
   | 'key'
   | 'fretboard'
+  | 'path'
   | 'suggest'
   | 'learn'
   | 'compose'
@@ -31,6 +32,12 @@ export interface PanelDefinition {
 export const PANELS: readonly PanelDefinition[] = [
   { id: 'tuner', name: 'Afinador', summary: 'Nota, desviación y nivel de entrada.' },
   { id: 'key', name: 'Tonalidad', summary: 'Rueda de quintas y candidatas.' },
+  {
+    id: 'path',
+    name: 'El camino',
+    summary: 'Acorde a acorde: cómo se hace y a dónde sigue.',
+    wide: true,
+  },
   { id: 'suggest', name: 'Sugerencias', summary: 'Acordes que pegan con lo que tocas.' },
   { id: 'fretboard', name: 'Mástil', summary: 'La escala sobre quince trastes.', wide: true },
   { id: 'compose', name: 'Componer', summary: 'Acordes de la tonalidad y a dónde ir.' },
@@ -41,7 +48,7 @@ export const PANELS: readonly PanelDefinition[] = [
 ];
 
 /** Lo que se ve al abrir por primera vez: afinador, tonalidad y sugerencias. */
-export const DEFAULT_VISIBLE: readonly PanelId[] = ['tuner', 'key', 'suggest', 'fretboard'];
+export const DEFAULT_VISIBLE: readonly PanelId[] = ['tuner', 'key', 'path', 'fretboard'];
 
 export interface WorkspacePreferences {
   readonly visible: readonly PanelId[];

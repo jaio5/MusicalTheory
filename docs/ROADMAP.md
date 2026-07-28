@@ -136,6 +136,13 @@ Sigue sin haber ni una línea de código de subida, y no la habrá sin un ADR.
 IndexedDB y no localStorage porque localStorage es síncrono, y escribir cientos
 de notas ahí bloquearía el hilo que está analizando el audio.
 
+## El camino
+
+El panel que hace que esto se juegue: eliges tonalidad, te propone por dónde
+empezar, y al elegir un acorde te enseña **cuatro formas de hacerlo** sobre el
+mástil y **a dónde puedes ir** desde él. Encadenando se construye la progresión,
+y se puede volver atrás a cualquier punto.
+
 ## Banco de trabajo
 
 La aplicación no es una lista de paneles, es una barra fija y una rejilla con lo

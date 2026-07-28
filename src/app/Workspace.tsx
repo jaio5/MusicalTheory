@@ -4,6 +4,7 @@ import { ComposePanel } from '@features/compose';
 import { FretboardPanel } from '@features/fretboard';
 import { IdeasPanel } from '@features/ideas';
 import { LearnPanel } from '@features/learn';
+import { PathPanel } from '@features/path';
 import { RecorderPanel } from '@features/recorder';
 import { SessionsPanel } from '@features/sessions';
 import { SuggestPanel } from '@features/suggest';
@@ -22,6 +23,7 @@ import { PANELS, type PanelId } from '@state/workspace';
 const CONTENT: Readonly<Record<PanelId, () => React.ReactElement>> = {
   tuner: Tuner,
   key: KeyPanel,
+  path: PathPanel,
   suggest: SuggestPanel,
   fretboard: FretboardPanel,
   compose: ComposePanel,

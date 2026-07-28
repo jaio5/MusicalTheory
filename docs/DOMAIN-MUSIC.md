@@ -160,6 +160,39 @@ dominante con séptima menor, que es justo lo que la menor natural no tiene.
 Un Cmaj7 y un C7 son el mismo grado con distinta séptima, así que el dominio
 sabe decir qué tríada hay debajo de cada cuatríada.
 
+## Formas de hacer un acorde
+
+Las digitaciones no están copiadas de una tabla: se buscan. Para cada posición
+del mástil se prueban las combinaciones de trastes que dan las notas del acorde
+y se descartan las que no se pueden tocar. Las reglas:
+
+- Tienen que estar **todas** las notas del acorde.
+- La cuerda más grave que suena lleva la **fundamental**. Las inversiones son
+  música válida, pero no es lo que se busca al aprender un acorde.
+- La mano abarca **cuatro trastes**, contando solo lo que se pisa.
+- Una cuerda muda en medio de dos que suenan resta: se puede, pero cuesta.
+
+De las que sobreviven se ordenan por lo cómodas que son, y manda la posición: un
+acorde en primera posición con cuerdas al aire es el que se aprende y el que se
+usa, aunque más arriba haya diez formas más. Se devuelve **una por posición**,
+porque si no las cuatro mejores son la misma forma con cuerdas quitadas.
+
+Como se buscan y no se copian, funciona igual con un `7#9` que con un `Am`.
+
+## A dónde ir desde un acorde
+
+Dos cosas mandan: **cómo se mueve el bajo** y **cuántas notas comparten** los dos
+acordes.
+
+El movimiento del bajo tiene su propia tabla. Bajar una quinta es el encadenado
+más fuerte que existe —es lo que hace V–I—; bajar un tono es la escalera del rock
+menor; el tritono es el salto más raro y por eso se oye. Cada uno lleva escrito
+en qué consiste.
+
+Las notas compartidas cuentan **en proporción**, no en número: compartir dos de
+cuatro no es más terreno común que compartir una de tres. Contarlas a secas
+premiaría a los acordes grandes solo por tener más papeletas.
+
 ## Lo que este dominio todavía no hace
 
 - Tensiones por encima de la séptima: novenas, oncenas, trecenas.
