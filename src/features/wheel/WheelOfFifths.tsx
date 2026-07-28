@@ -34,10 +34,25 @@ export interface WheelOfFifthsProps {
   readonly onPick?: (tonic: PitchClass, mode: KeyMode) => void;
 }
 
-/** Coordenadas de una posición de la rueda, medidas desde arriba. */
-function pointAt(position: number, radius: number): { x: number; y: number } {
+/**
+ * Coordenadas de una posición de la rueda, medidas desde arriba.
+ *
+ * Redondeadas a tres decimales a propósito. `Math.cos` puede devolver el último
+ * bit distinto en Node y en el navegador, y eso basta para que el HTML del
+ * servidor y el del cliente no coincidan: React avisa de que la hidratación ha
+ * fallado por un `18.933358006418402` contra un `18.933358006418416`. Para
+ * colocar una etiqueta sobran doce decimales.
+ */
+export function pointAt(position: number, radius: number): { x: number; y: number } {
   const radians = ((positionAngle(position) - 90) * Math.PI) / 180;
-  return { x: CENTER + radius * Math.cos(radians), y: CENTER + radius * Math.sin(radians) };
+  return {
+    x: round(CENTER + radius * Math.cos(radians)),
+    y: round(CENTER + radius * Math.sin(radians)),
+  };
+}
+
+function round(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 /**
