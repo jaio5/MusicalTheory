@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+
+/*
+ * Espejo de src/ui/tokens.ts. Tailwind genera las utilidades a partir de aquí
+ * (bg-background, text-brass, font-display...). Si cambias un valor, cámbialo
+ * también en tokens.ts, que es lo que lee el código TypeScript.
+ */
+@theme {
+  --color-background: #12100e;
+  --color-surface: #1a1714;
+  --color-surface-raised: #241f1a;
+  --color-border: #332c25;
+
+  --color-text: #ede6da;
+  --color-text-muted: #a79c8c;
+
+  --color-brass: #b08d4f;
+  --color-brass-bright: #d8b76a;
+  --color-brass-dim: #6e5830;
+
+  --color-oxblood: #6b1f24;
+  --color-oxblood-bright: #8c2b31;
+
+  --color-tube: #5c8a5a;
+  --color-tube-bright: #7fb07c;
+
+  --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+  }
+
+  /* El foco siempre se ve, y se ve en latón sobre el negro cálido. */
+  :focus-visible {
+    outline: 2px solid var(--color-brass-bright);
+    outline-offset: 2px;
+  }
+
+  /* Quien pide menos movimiento no recibe ninguno. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
