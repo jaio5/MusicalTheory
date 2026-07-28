@@ -17,6 +17,7 @@ import {
   type KeyMode,
   type PitchClass,
   type PitchHistogram,
+  type DegreeSymbol,
   type PitchReading,
   type ScaleId,
 } from '@core/music';
@@ -38,6 +39,24 @@ export interface SessionKey {
  */
 export const KEY_REFRESH_MS = 500;
 
+/**
+ * Cuántas notas del historial se guardan. Suficiente para ver por dónde va la
+ * frase sin convertir el panel en un muro de texto.
+ */
+export const NOTE_HISTORY_LIMIT = 24;
+
+/**
+ * Cuánto tiene que cambiar la nota para contarla como una nueva en el
+ * historial. Sin esto, sostener una nota metería veinte entradas por segundo.
+ */
+export const NOTE_REPEAT_MS = 250;
+
+export interface PlayedNote {
+  readonly pitchClass: PitchClass;
+  readonly midi: number;
+  readonly at: number;
+}
+
 export interface SessionActions {
   /** Cambia el estado de escucha y, si hay algo que contar, el mensaje. */
   setListening(state: ListeningState, message?: string | null): void;
@@ -54,6 +73,9 @@ export interface SessionActions {
   /** Vuelve a hacer caso a lo que se detecta. */
   followDetection(): void;
   setScale(scaleId: ScaleId): void;
+  /** Marca qué grado está sonando, para sugerir a dónde ir desde ahí. */
+  setCurrentDegree(degree: DegreeSymbol | null): void;
+  clearHistory(): void;
   reset(): void;
 }
 
@@ -77,6 +99,10 @@ export interface SessionState {
   /** Tonalidad elegida a mano, o null si manda la detección. */
   readonly pinnedKey: SessionKey | null;
   readonly scaleId: ScaleId;
+  /** Las últimas notas tocadas, de la más antigua a la más reciente. */
+  readonly noteHistory: readonly PlayedNote[];
+  /** Grado que el usuario dice estar tocando, o null. */
+  readonly currentDegree: DegreeSymbol | null;
   /**
    * Las acciones viven en un objeto propio que no se reemplaza nunca, para que
    * suscribirse a ellas no provoque renders. Es el equivalente a inyectar un
@@ -97,6 +123,8 @@ const EMPTY = {
   keyComputedAt: 0,
   pinnedKey: null,
   scaleId: 'minorPentatonic',
+  noteHistory: [],
+  currentDegree: null,
 } as const satisfies Omit<SessionState, 'actions'>;
 
 export const useSessionStore = create<SessionState>()((set) => ({
@@ -114,12 +142,25 @@ export const useSessionStore = create<SessionState>()((set) => ({
         const histogram = addPitchClass(state.histogram, reading.pitchClass, at);
         const stale = at - state.keyComputedAt >= KEY_REFRESH_MS;
 
+        // Una nota entra en el historial si es distinta de la última, o si la
+        // misma vuelve a sonar tras una pausa: sostenerla no cuenta veinte
+        // veces.
+        const last = state.noteHistory.at(-1);
+        const isNew =
+          last === undefined || last.midi !== reading.midi || at - last.at >= NOTE_REPEAT_MS;
+        const noteHistory = isNew
+          ? [...state.noteHistory, { pitchClass: reading.pitchClass, midi: reading.midi, at }].slice(
+              -NOTE_HISTORY_LIMIT,
+            )
+          : state.noteHistory;
+
         return {
           reading,
           readingAt: at,
           hasSignal: true,
           clarity,
           histogram,
+          noteHistory,
           ...(stale ? { keyCandidates: detectKey(histogram, 3), keyComputedAt: at } : {}),
         };
       }),
@@ -127,7 +168,9 @@ export const useSessionStore = create<SessionState>()((set) => ({
     pinKey: (pinnedKey) => set({ pinnedKey }),
     followDetection: () => set({ pinnedKey: null }),
     setScale: (scaleId) => set({ scaleId }),
-    reset: () => set({ ...EMPTY, histogram: createPitchHistogram() }),
+    setCurrentDegree: (currentDegree) => set({ currentDegree }),
+    clearHistory: () => set({ noteHistory: [], histogram: createPitchHistogram(), keyCandidates: [], keyComputedAt: 0 }),
+    reset: () => set({ ...EMPTY, histogram: createPitchHistogram(), noteHistory: [] }),
   },
 }));
 
@@ -138,6 +181,7 @@ export const selectReadingAt = (state: SessionState): number => state.readingAt;
 export const selectHasSignal = (state: SessionState): boolean => state.hasSignal;
 export const selectClarity = (state: SessionState): number => state.clarity;
 export const selectScaleId = (state: SessionState): ScaleId => state.scaleId;
+export const selectNoteHistory = (state: SessionState): readonly PlayedNote[] => state.noteHistory;
 export const selectActions = (state: SessionState): SessionActions => state.actions;
 
 /**

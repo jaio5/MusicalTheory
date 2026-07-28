@@ -77,14 +77,21 @@ queda arriba se lee derecha y las demás quedan inclinadas.
 La nota se valida por clase de altura, no por octava: la misma nota cae en
 varias cuerdas y exigir una octava concreta sería pelearse con el mástil.
 
-## Fase 4 — Modo componer
+## Fase 4 — Modo componer · hecha
 
-- Acordes diatónicos de la tonalidad detectada.
-- Caminos habituales desde el acorde actual, ordenados por frecuencia de uso.
-- Historial de notas tocadas, que alimenta el histograma de tonalidad.
+- [x] Los siete acordes diatónicos de la tonalidad, con su cifrado y su grado.
+- [x] Caminos desde el acorde actual, ordenados por frecuencia de uso y con el
+      porqué de cada uno. Se encadenan: pulsar una sugerencia la convierte en el
+      acorde actual.
+- [x] Catálogo de progresiones resuelto a acordes de la tonalidad.
+- [x] Historial de notas tocadas, con la misma nota contando otra vez solo si
+      vuelve a sonar tras una pausa.
+- [ ] Pendiente: el acorde actual se marca a mano. No se detecta, y no se puede
+      con un analizador monofónico.
 
-**Terminada cuando**: se puede improvisar y ver en pantalla en qué tono se está
-y a dónde se puede ir.
+Si la escala elegida en el mástil es pentatónica o de blues, los acordes se
+arman con la mayor o la menor natural: sobre cinco notas no se pueden apilar
+terceras.
 
 ## Fase 5 — Ideas de IA
 
