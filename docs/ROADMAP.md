@@ -164,8 +164,16 @@ Aquí está grabarte tocando: al darle al botón la cámara se pone detrás de t
 la interfaz se queda en contorno y letra, así que te ves mientras sigues leyendo
 los acordes. El vídeo no sale del equipo.
 
-**Afinar.** La afinación que elijas —estándar, drop D, medio tono abajo, DADGAD,
-open G y las demás— y nada más. Quien viene a afinar viene a eso.
+**Afinar.** La afinación que elijas —estándar, drop D, medio tono abajo, un tono
+abajo, drop C, DADGAD, open G y open D— y nada más. Quien viene a afinar viene a
+eso.
+
+Las notas de cada afinación están comprobadas contra fuentes y fijadas en el
+test, con las fuentes escritas al lado. No es celo de más: un error aquí no se
+ve —una afinación mal escrita suena razonable— y acaba en una guitarra mal
+afinada con el afinador diciendo que está bien. Cada una se escribe además como
+se escribe de verdad: la bajada de medio tono es Eb Ab Db Gb Bb Eb, no
+D# G# C# F# A# D#, que suena igual y no lo reconoce nadie.
 
 Las notas se escriben en cifrado anglosajón —C, D, E— en toda la aplicación.
 

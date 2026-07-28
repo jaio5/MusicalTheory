@@ -37,7 +37,7 @@ export function TuningPicker() {
         {tuning.strings.map((string) => (
           <li key={string.number} className="flex flex-col items-center">
             <span className="text-text font-mono text-sm">
-              {noteName(midiToPitchClass(string.midi))}
+              {noteName(midiToPitchClass(string.midi), tuning.accidental)}
             </span>
             <span className="text-text-muted font-mono text-[10px]">{string.number}</span>
           </li>
