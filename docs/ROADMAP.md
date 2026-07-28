@@ -93,14 +93,20 @@ Si la escala elegida en el mástil es pentatónica o de blues, los acordes se
 arman con la mayor o la menor natural: sobre cinco notas no se pueden apilar
 terceras.
 
-## Fase 5 — Ideas de IA
+## Fase 5 — Ideas de IA · hecha
 
-Route handler `/api/ideas` según [AI.md](./AI.md): validación de entrada,
-salida estructurada, validación de la respuesta contra el dominio, un reintento
-y errores en español.
-
-**Terminada cuando**: pedir «un giro para romper el bucle» devuelve una
-progresión que la app puede resolver a acordes reales.
+- [x] Route handler `/api/ideas`, único sitio que importa el SDK y lee la clave.
+- [x] Validación de entrada: lo que no está en el esquema se ignora, y la
+      petición al modelo se reconstruye desde los campos que pasan.
+- [x] Salida estructurada con esquema JSON, más validación contra el dominio:
+      los grados tienen que existir en ese modo.
+- [x] Los cifrados que devuelve el modelo **no se creen**: se recalculan desde
+      los grados, que es la única forma de que no aparezca un acorde imposible.
+- [x] Un reintento y errores en español que dicen qué hacer.
+- [ ] Pendiente de probar con clave de verdad: el contrato está probado, la
+      llamada al modelo no.
+- [ ] Sin límite de frecuencia todavía: `rate_limited` está en el contrato pero
+      nadie lo emite.
 
 ## Fase 6 — Grabación con cámara
 
