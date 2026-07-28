@@ -42,15 +42,25 @@ Estado a 28 de julio de 2026.
 El análisis se quedó en el hilo principal en vez de ir a un `AudioWorklet`;
 el porqué está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
 
-## Fase 2 — Rueda de quintas y mástil
+## Fase 2 — Rueda de quintas y mástil · hecha
 
-- Rueda de quintas que gira hasta poner arriba la tonalidad detectada. GSAP para
-  el giro, con `prefers-reduced-motion` respetado: sin movimiento, salto directo.
-- Mástil de quince trastes con la escala elegida marcada, tónicas destacadas.
-- La nota que suena se ilumina en el mástil.
+- [x] `core/instrument/guitar.ts`: la afinación y los trastes suben a core,
+      porque los usan el afinador y el mástil y un feature no importa de otro.
+- [x] `core/music/circle-of-fifths.ts`: orden de la rueda, relativas, ángulos y
+      el giro por el camino corto.
+- [x] El store acumula lo tocado en el histograma y recalcula la tonalidad dos
+      veces por segundo, no veinte.
+- [x] Rueda de quintas que gira con GSAP hasta poner arriba la tonalidad, con
+      `prefers-reduced-motion` respetado desde `ui/motion.ts`.
+- [x] Las tres candidatas con su puntuación, y la posibilidad de fijar una
+      tonalidad a mano o volver a la detección.
+- [x] Mástil de quince trastes con la escala elegida, tónicas destacadas y la
+      nota que suena encendida.
+- [ ] Pendiente de prueba tocando: cuánto tarda la detección en asentarse y si
+      la vida media de veinte segundos es la buena.
 
-**Terminada cuando**: al tocar unos compases la rueda gira sola al tono correcto
-y el mástil muestra la escala en esa tonalidad.
+Las etiquetas de la rueda giran con ella, como en el aparato de cartón: la que
+queda arriba se lee derecha y las demás quedan inclinadas.
 
 ## Fase 3 — Modo aprender
 
@@ -109,6 +119,11 @@ estaba trabajando.
   prueba con guitarra. Faltan más equipos, más salas y más pastillas.
 - **Sin medidor de nivel.** No hay forma de ver en pantalla cuánta señal llega,
   que es justo lo que haría falta para ajustar los umbrales sin adivinar.
+- **La rueda no se puede pulsar.** Fijar una tonalidad se hace con el
+  desplegable, que es lo accesible; pulsar en la rueda es lo que la gente va a
+  intentar. Hacerlo bien son doce elementos con rol de botón y su teclado.
+- **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Es
+  a propósito, porque el diagrama se lee mejor, pero no es el mástil real.
 - **Análisis en el hilo principal.** Puede empezar a notarse cuando la fase 2
   anime la rueda y el mástil. La salida prevista es un Web Worker.
 - **Sin selector de dispositivo.** `WebAudioInput` acepta un `deviceId` pero la

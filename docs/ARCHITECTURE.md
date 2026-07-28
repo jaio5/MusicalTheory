@@ -20,6 +20,10 @@ src/
 
 ### `core/`
 
+Dos carpetas: `core/music/` con la teoría y `core/instrument/` con la guitarra
+—afinación, trastes, qué nota da cada posición—. El instrumento acabó aquí por
+la regla 3: lo necesitan el afinador y el mástil, que son features distintos.
+
 Funciones puras sobre números y cadenas. Cero React, cero DOM, cero `window`,
 cero `Date.now()`. Si algo necesita saber qué hora es, el instante entra por
 parámetro: por eso `addPitchClass(histograma, nota, instante)` recibe el tiempo
