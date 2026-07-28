@@ -52,23 +52,56 @@
    * utilidades de fondo de cada componente sin tocar los cien sitios donde se
    * ponen, y esto solo aplica mientras se está grabando.
    */
-  .grabando,
-  .grabando * {
+  body.grabando,
+  body.grabando *:not([data-senal]) {
     background-color: transparent !important;
   }
 
-  .grabando {
+  body.grabando {
     /* Sobre un vídeo cualquiera, el texto plano no se lee. */
     text-shadow:
       0 1px 3px rgb(0 0 0 / 0.95),
       0 0 12px rgb(0 0 0 / 0.7);
   }
 
-  .grabando button,
-  .grabando input,
-  .grabando select,
-  .grabando [class*='border'] {
+  body.grabando button,
+  body.grabando input,
+  body.grabando select,
+  body.grabando [class*='border'] {
     border-color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  }
+
+  /*
+   * Los fondos de los dibujos son relleno de SVG, no background: la rueda es un
+   * disco negro que, sin esto, tapa la cámara entera. Solo caen los rellenos
+   * que son fondo; los puntos del diagrama y las letras siguen ahí, que es la
+   * información.
+   */
+  body.grabando .fill-surface,
+  body.grabando .fill-surface-raised,
+  body.grabando .fill-background {
+    fill: transparent !important;
+  }
+
+  /* Sobre vídeo, el gris apagado no se lee. */
+  body.grabando .text-text-muted {
+    color: color-mix(in srgb, var(--color-text) 90%, transparent);
+  }
+
+  body.grabando .fill-text-muted {
+    fill: color-mix(in srgb, var(--color-text) 90%, transparent);
+  }
+
+  /*
+   * Lo marcado como señal conserva su color: el piloto de grabación, el de
+   * escucha y el punto verde o rojo de cada acorde. Es estado, no adorno, y en
+   * mitad de una toma es justo lo único que hay tiempo de mirar.
+   *
+   * El aro oscuro es para que el color se lea sobre lo que sea que haya detrás:
+   * un punto verde sobre una pared verde no dice nada.
+   */
+  body.grabando [data-senal] {
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.65);
   }
 
   /* Quien pide menos movimiento no recibe ninguno. */

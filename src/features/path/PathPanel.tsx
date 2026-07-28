@@ -217,8 +217,11 @@ export function NextChords() {
               aria-label={`${option.symbol}, ${option.label}`}
               className="hover:bg-surface-raised flex w-full items-baseline gap-2 px-2 py-1.5 text-left"
             >
+              {/* Marcado como señal para que el verde y el rojo sigan ahí
+                  mientras grabas: es lo único que da tiempo a mirar tocando. */}
               <span
                 aria-hidden="true"
+                data-senal
                 className={`mt-1 block h-2 w-2 shrink-0 rounded-full ${safetyColour(option.notes, inKey)}`}
               />
               <span className="text-text w-16 shrink-0 font-mono text-sm">{option.symbol}</span>

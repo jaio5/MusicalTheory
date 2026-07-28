@@ -139,8 +139,24 @@ export function RecordStage({ children, createCamera, createRecorder }: RecordSt
 
   const live = phase === 'recording';
 
+  // La marca va en el body y no en este div porque lo que tapaba la cámara eran
+  // los fondos de los ancestros —el de la página y el del cuerpo—, y una clase
+  // aquí abajo no llega a ellos.
+  useEffect(() => {
+    if (!live) {
+      return;
+    }
+    document.body.classList.add('grabando');
+    return () => {
+      document.body.classList.remove('grabando');
+    };
+  }, [live]);
+
   return (
-    <div className={`relative flex h-full min-h-0 flex-col ${live ? 'grabando' : ''}`}>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Por debajo de toda la interfaz y por encima del lienzo de la página:
+          ahí es donde el -z-10 deja el vídeo, y de ahí sale la sensación de
+          estar tocando delante de la pantalla. */}
       <video
         ref={videoRef}
         muted
@@ -162,6 +178,7 @@ export function RecordStage({ children, createCamera, createRecorder }: RecordSt
         >
           <span
             aria-hidden="true"
+            data-senal
             className={`bg-oxblood-bright block ${live ? 'h-2.5 w-2.5 rounded-sm' : 'h-4 w-4 rounded-full'}`}
           />
         </button>

@@ -40,6 +40,7 @@ export function MicButton(deps: MicButtonProps = {}) {
         {/* Un círculo relleno dentro de un aro, como el botón de grabar. */}
         <span
           aria-hidden="true"
+          data-senal
           className={`block rounded-full transition-all ${
             isListening ? 'bg-oxblood-bright h-3.5 w-3.5 rounded-sm' : 'bg-brass h-6 w-6'
           }`}

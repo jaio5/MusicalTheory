@@ -112,18 +112,47 @@ describe('Grabarte tocando', () => {
   });
 
   it('deja la interfaz en contorno y letra mientras graba', async () => {
-    const { container } = render(
+    render(
       <RecordStage createCamera={() => new FakeCamera()} createRecorder={() => new FakeRecorder()}>
         <p>contenido</p>
       </RecordStage>,
     );
 
-    expect(container.querySelector('.grabando')).toBeNull();
+    expect(document.body.classList.contains('grabando')).toBe(false);
 
     await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
 
     expect(await screen.findByRole('button', { name: /parar la grabación/i })).toBeInTheDocument();
-    expect(container.querySelector('.grabando')).not.toBeNull();
+    // En el body y no más abajo: los fondos que tapaban la cámara eran los de
+    // los ancestros, y una clase dentro del componente no llega a ellos.
+    expect(document.body.classList.contains('grabando')).toBe(true);
+  });
+
+  it('quita el modo grabación al parar', async () => {
+    render(
+      <RecordStage createCamera={() => new FakeCamera()} createRecorder={() => new FakeRecorder()}>
+        <p>contenido</p>
+      </RecordStage>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /parar la grabación/i }));
+
+    expect(document.body.classList.contains('grabando')).toBe(false);
+  });
+
+  it('lo quita también si te vas de la pantalla grabando', async () => {
+    const { unmount } = render(
+      <RecordStage createCamera={() => new FakeCamera()} createRecorder={() => new FakeRecorder()}>
+        <p>contenido</p>
+      </RecordStage>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
+    await screen.findByRole('button', { name: /parar la grabación/i });
+    unmount();
+
+    expect(document.body.classList.contains('grabando')).toBe(false);
   });
 
   it('le pasa al grabador una función de overlay, no el store', async () => {

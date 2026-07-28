@@ -91,3 +91,34 @@ que no vuelve.
   duración.
 - La cámara y el análisis de audio compiten. Si se nota, la grabación baja
   primero de resolución.
+
+## Por qué la cámara se veía negra
+
+La primera versión ponía el vídeo en `position: fixed` con `z-index: -10` y
+volvía transparente la interfaz del grabador. No se veía nada, y el motivo es de
+orden de pintado: un elemento con z negativo se pinta por encima del lienzo de la
+página pero **por debajo de los fondos de los bloques en flujo**, y los ancestros
+del grabador —el `div` raíz y el `body`— seguían siendo opacos porque la clase
+estaba en un descendiente y no llegaba a ellos.
+
+La marca de grabación va ahora en el `body`, así que la transparencia alcanza a
+todos los ancestros y el vídeo aparece donde tiene que aparecer: encima del
+lienzo y debajo de la interfaz entera.
+
+Dos cosas más tapaban la cámara sin ser fondos CSS:
+
+- **La rueda de quintas** es un disco negro pintado con `fill` de SVG, que
+  `background-color` no toca. Se apagan solo los rellenos que son fondo
+  (`fill-surface`, `fill-background`); los puntos del diagrama y las letras se
+  quedan, que es la información.
+- **El texto apagado** no se lee sobre vídeo. Al grabar sube casi al color
+  normal, y todo lleva sombra.
+
+Lo marcado con `data-senal` conserva su color con un aro oscuro para que se lea
+sobre lo que sea que haya detrás: el piloto de grabación, el de escucha y el
+punto verde o rojo de cada acorde. Es lo único que da tiempo a mirar mientras
+tocas.
+
+Comprobado en un Chromium de verdad con cámara falsa
+(`--use-fake-device-for-media-stream`), pulsando el botón y mirando la captura,
+no razonándolo sobre el papel.
