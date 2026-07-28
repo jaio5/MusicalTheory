@@ -41,14 +41,36 @@ describe('store de sesión', () => {
     expect(state.clarity).toBeCloseTo(0.98, 6);
   });
 
-  it('borra la nota cuando deja de haber señal', () => {
+  it('conserva la última nota cuando deja de haber señal', () => {
     const { actions } = useSessionStore.getState();
     actions.setPitch(A4_FREQUENCY, 0.98);
     actions.setPitch(null);
 
     const state = useSessionStore.getState();
-    expect(state.reading).toBeNull();
+    // La lectura sobrevive para que el afinador se apague en vez de
+    // desaparecer; lo que se apaga es hasSignal.
+    expect(state.reading).toMatchObject({ name: 'A' });
+    expect(state.hasSignal).toBe(false);
     expect(state.clarity).toBe(0);
+  });
+
+  it('marca que hay señal mientras suena', () => {
+    useSessionStore.getState().actions.setPitch(A4_FREQUENCY, 0.98);
+    expect(useSessionStore.getState().hasSignal).toBe(true);
+  });
+
+  it('reset deja el store como al principio', () => {
+    const { actions } = useSessionStore.getState();
+    actions.setPitch(A4_FREQUENCY, 0.98);
+    actions.setListening('listening');
+    actions.reset();
+
+    expect(useSessionStore.getState()).toMatchObject({
+      listening: 'idle',
+      reading: null,
+      hasSignal: false,
+      clarity: 0,
+    });
   });
 
   it('mantiene la identidad de las acciones para no provocar renders', () => {

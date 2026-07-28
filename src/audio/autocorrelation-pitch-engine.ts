@@ -38,6 +38,12 @@ export class AutocorrelationPitchEngine implements PitchEngine {
   #timer: ReturnType<typeof setInterval> | null = null;
   #lastSignalAt = 0;
   #silent = true;
+  /**
+   * Si hay una nota enganchada. Mientras la haya se sigue con los umbrales de
+   * seguimiento, que son más permisivos; cuando se pierde, hay que volver a
+   * superar los de enganche.
+   */
+  #tracking = false;
 
   constructor({ options, now }: AutocorrelationPitchEngineDeps = {}) {
     this.options = { ...DEFAULT_PITCH_ENGINE_OPTIONS, ...options };
@@ -59,6 +65,7 @@ export class AutocorrelationPitchEngine implements PitchEngine {
     this.#buffer = new Float32Array(input.frameSize);
     this.#lastSignalAt = this.#now();
     this.#silent = true;
+    this.#tracking = false;
     this.#timer = setInterval(() => this.#analyse(), this.options.analysisIntervalMs);
   }
 
@@ -97,8 +104,12 @@ export class AutocorrelationPitchEngine implements PitchEngine {
       sampleRate: input.sampleRate,
       minFrequency: this.options.minFrequency,
       maxFrequency: this.options.maxFrequency,
-      rmsThreshold: this.options.rmsThreshold,
-      clarityThreshold: this.options.clarityThreshold,
+      // Enganchar cuesta más que seguir: así el afinador no arranca con el
+      // ruido de fondo, pero tampoco suelta la nota en cuanto empieza a caer.
+      rmsThreshold: this.#tracking ? this.options.releaseRmsThreshold : this.options.rmsThreshold,
+      clarityThreshold: this.#tracking
+        ? this.options.releaseClarityThreshold
+        : this.options.clarityThreshold,
     });
 
     if (detection === null) {
@@ -108,6 +119,7 @@ export class AutocorrelationPitchEngine implements PitchEngine {
 
     this.#lastSignalAt = at;
     this.#silent = false;
+    this.#tracking = true;
     this.#emit({ ...detection, at });
   }
 
@@ -120,6 +132,9 @@ export class AutocorrelationPitchEngine implements PitchEngine {
       return;
     }
     this.#silent = true;
+    // La nota se ha perdido de verdad: la siguiente tendrá que volver a superar
+    // el umbral de enganche.
+    this.#tracking = false;
     this.#emit(null);
   }
 

@@ -164,7 +164,7 @@ describe('Afinador', () => {
     expect(await screen.findByText(/no llega limpia/i)).toBeInTheDocument();
   });
 
-  it('vuelve al estado de espera cuando deja de sonar', async () => {
+  it('mantiene la nota en pantalla cuando deja de sonar, apagada', async () => {
     renderTuner();
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
@@ -172,7 +172,19 @@ describe('Afinador', () => {
     expect(await screen.findByText('La')).toBeInTheDocument();
 
     engine.emit(null);
-    expect(await screen.findByText(/esperando a que suene algo/i)).toBeInTheDocument();
+
+    // El afinador no desaparece: sigue enseñando la última nota y avisa de que
+    // ya no hay señal.
+    expect(await screen.findByText(/sin señal/i)).toBeInTheDocument();
+    expect(screen.getByText('La')).toBeInTheDocument();
+    expect(screen.queryByText(/esperando a que suene algo/i)).not.toBeInTheDocument();
+  });
+
+  it('solo espera antes de la primera nota', async () => {
+    renderTuner();
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    expect(screen.getByText(/esperando a que suene algo/i)).toBeInTheDocument();
   });
 
   it('explica qué hacer si se deniega el permiso', async () => {

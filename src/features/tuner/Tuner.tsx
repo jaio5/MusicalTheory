@@ -22,6 +22,7 @@ export function Tuner(deps: TunerProps = {}) {
   const listening = useSessionStore((state) => state.listening);
   const message = useSessionStore((state) => state.message);
   const reading = useSessionStore((state) => state.reading);
+  const hasSignal = useSessionStore((state) => state.hasSignal);
   const clarity = useSessionStore((state) => state.clarity);
   const { start, stop } = useTuner(deps);
 
@@ -39,7 +40,7 @@ export function Tuner(deps: TunerProps = {}) {
       </div>
 
       {listening === 'listening' ? (
-        <Listening reading={reading} clarity={clarity} />
+        <Listening reading={reading} hasSignal={hasSignal} clarity={clarity} />
       ) : (
         <Stopped listening={listening} message={message} onStart={() => void start()} />
       )}
@@ -88,11 +89,15 @@ function Stopped({
 
 function Listening({
   reading,
+  hasSignal,
   clarity,
 }: {
   readonly reading: PitchReading | null;
+  readonly hasSignal: boolean;
   readonly clarity: number;
 }) {
+  // Solo antes de la primera nota. En cuanto suena algo, el afinador se queda
+  // en pantalla: al callar se apaga, no desaparece.
   if (reading === null) {
     return (
       <div className="mt-6 flex min-h-40 flex-col justify-center">
@@ -110,7 +115,11 @@ function Listening({
   const distance = semitonesFromString(reading.midi, string);
 
   return (
-    <div className="mt-6 flex min-h-40 flex-col items-center">
+    <div
+      className={`mt-6 flex min-h-40 flex-col items-center transition-opacity ${
+        hasSignal ? '' : 'opacity-40'
+      }`}
+    >
       <p className="flex items-baseline gap-3">
         <span
           className={`font-display text-7xl ${status === 'afinada' ? 'text-tube-bright' : 'text-brass-bright'}`}
@@ -142,9 +151,15 @@ function Listening({
             } de la ${string.number}.ª (${string.label})`}
       </p>
 
-      {!isSignalClean(clarity) && (
-        <p className="text-brass mt-4 text-sm">
-          La señal no llega limpia. Quita la distorsión y toca una sola cuerda.
+      {hasSignal ? (
+        !isSignalClean(clarity) && (
+          <p className="text-brass mt-4 text-sm">
+            La señal no llega limpia. Quita la distorsión y toca una sola cuerda.
+          </p>
+        )
+      ) : (
+        <p className="text-text-muted mt-4 font-mono text-sm">
+          Sin señal. Vuelve a tocar la cuerda.
         </p>
       )}
     </div>

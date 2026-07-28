@@ -17,6 +17,7 @@ class FakeAudioInput implements AudioInput {
   readonly error = null;
 
   frequency: number | null = null;
+  amplitude = 0.5;
   available = true;
 
   readTimeDomain(target: Float32Array): boolean {
@@ -27,7 +28,7 @@ class FakeAudioInput implements AudioInput {
       target[i] =
         this.frequency === null
           ? 0
-          : 0.5 * Math.sin((2 * Math.PI * this.frequency * i) / this.sampleRate);
+          : this.amplitude * Math.sin((2 * Math.PI * this.frequency * i) / this.sampleRate);
     }
     return true;
   }
@@ -96,6 +97,53 @@ describe('AutocorrelationPitchEngine', () => {
     expect(detected.at(-1)!.frequency).toBeCloseTo(midiToFrequency(52), 0);
   });
 
+  it('sigue una nota que decae por debajo del umbral de enganche', async () => {
+    // Es el caso real: una cuerda pulsada pierde nivel desde el primer
+    // instante, y con un solo umbral la detección se cortaba mientras la nota
+    // todavía se oía de sobra.
+    input.frequency = midiToFrequency(45);
+    input.amplitude = 0.3;
+    await engine.start(input);
+    advance(100);
+    samples = [];
+
+    // Valor eficaz por debajo del umbral de enganche y por encima del de
+    // seguimiento.
+    input.amplitude = 0.003;
+    advance(1000);
+
+    const detected = samples.filter((sample): sample is PitchSample => sample !== null);
+    expect(detected.length).toBeGreaterThan(10);
+    expect(samples).not.toContain(null);
+  });
+
+  it('no engancha una nota nueva que nace por debajo del umbral de enganche', async () => {
+    input.frequency = midiToFrequency(45);
+    input.amplitude = 0.003;
+    await engine.start(input);
+    advance(500);
+
+    expect(samples.filter((sample) => sample !== null)).toHaveLength(0);
+  });
+
+  it('vuelve a exigir el umbral de enganche después de un silencio', async () => {
+    input.frequency = midiToFrequency(45);
+    input.amplitude = 0.3;
+    await engine.start(input);
+    advance(100);
+
+    input.frequency = null;
+    advance(1500);
+    samples = [];
+
+    // El mismo nivel con el que seguía antes ya no basta para volver a engancharla.
+    input.frequency = midiToFrequency(45);
+    input.amplitude = 0.003;
+    advance(500);
+
+    expect(samples.filter((sample) => sample !== null)).toHaveLength(0);
+  });
+
   it('aguanta el silencio corto entre dos púas sin apagar la nota', async () => {
     input.frequency = midiToFrequency(45);
     await engine.start(input);
@@ -103,7 +151,7 @@ describe('AutocorrelationPitchEngine', () => {
     samples = [];
 
     input.frequency = null;
-    advance(150); // menos que silenceHoldMs
+    advance(400); // menos que silenceHoldMs
 
     expect(samples).not.toContain(null);
   });
@@ -115,7 +163,7 @@ describe('AutocorrelationPitchEngine', () => {
     samples = [];
 
     input.frequency = null;
-    advance(500);
+    advance(1000);
 
     expect(samples).toContain(null);
   });
@@ -127,7 +175,7 @@ describe('AutocorrelationPitchEngine', () => {
     samples = [];
 
     input.frequency = null;
-    advance(1000);
+    advance(2000);
 
     expect(samples.filter((sample) => sample === null)).toHaveLength(1);
   });

@@ -27,10 +27,21 @@ export interface PitchEngineOptions {
   readonly minFrequency: number;
   /** Por encima solo hay armónicos y ruido. */
   readonly maxFrequency: number;
-  /** Nivel mínimo para considerar que hay señal. */
+  /**
+   * Nivel mínimo para *enganchar* una nota nueva. Se mantiene alto para no
+   * empezar a detectar con el ruido de fondo del ampli.
+   */
   readonly rmsThreshold: number;
-  /** Confianza mínima para emitir una lectura. */
+  /** Confianza mínima para enganchar una nota nueva. */
   readonly clarityThreshold: number;
+  /**
+   * Nivel mínimo para *seguir* una nota ya enganchada. Bastante más bajo que el
+   * de enganche: una cuerda pulsada decae desde el primer instante, y con un
+   * solo umbral la detección se corta cuando la nota todavía se oye de sobra.
+   */
+  readonly releaseRmsThreshold: number;
+  /** Confianza mínima para seguir una nota ya enganchada. */
+  readonly releaseClarityThreshold: number;
   /** Cada cuánto se analiza un bloque, en milisegundos. */
   readonly analysisIntervalMs: number;
   /**
@@ -43,10 +54,12 @@ export interface PitchEngineOptions {
 export const DEFAULT_PITCH_ENGINE_OPTIONS: PitchEngineOptions = {
   minFrequency: 70,
   maxFrequency: 1400,
-  rmsThreshold: 0.01,
+  rmsThreshold: 0.006,
   clarityThreshold: 0.9,
+  releaseRmsThreshold: 0.0015,
+  releaseClarityThreshold: 0.75,
   analysisIntervalMs: 50,
-  silenceHoldMs: 250,
+  silenceHoldMs: 600,
 };
 
 export interface PitchEngine {

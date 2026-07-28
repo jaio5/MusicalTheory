@@ -34,8 +34,10 @@ Estado a 28 de julio de 2026.
 - [x] Afinador: nota grande, cents, aguja, cuerda más cercana y aviso cuando la
       señal no llega limpia.
 - [x] Estado «no se oye nada» explícito, en vez de congelar la última nota.
-- [ ] Pendiente de prueba con guitarra real: los umbrales están puestos con
-      señales sintéticas y hay que ajustarlos tocando.
+- [x] Umbrales de enganche y de seguimiento separados, tras probar con guitarra
+      real: con un solo umbral la nota se perdía a los pocos instantes.
+- [ ] Pendiente de más rodaje: los valores actuales salen de una sola prueba y
+      de señales sintéticas.
 
 El análisis se quedó en el hilo principal en vez de ir a un `AudioWorklet`;
 el porqué está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
@@ -103,8 +105,10 @@ estaba trabajando.
   valores escritos dos veces. Si crece la paleta, generar el CSS desde el TS.
 - **Reconocimiento de acordes.** La detección es monofónica. Un acorde rasgueado
   no se identifica; el modo componer trabaja con el histórico de notas sueltas.
-- **Umbrales sin tocar.** `rmsThreshold` y `clarityThreshold` salen de señales
-  sintéticas. Con guitarra, ampli y sala reales casi seguro hay que moverlos.
+- **Umbrales con poco rodaje.** Los cuatro umbrales se ajustaron tras la primera
+  prueba con guitarra. Faltan más equipos, más salas y más pastillas.
+- **Sin medidor de nivel.** No hay forma de ver en pantalla cuánta señal llega,
+  que es justo lo que haría falta para ajustar los umbrales sin adivinar.
 - **Análisis en el hilo principal.** Puede empezar a notarse cuando la fase 2
   anime la rueda y el mástil. La salida prevista es un Web Worker.
 - **Sin selector de dispositivo.** `WebAudioInput` acepta un `deviceId` pero la

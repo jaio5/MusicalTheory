@@ -26,13 +26,32 @@ El razonamiento completo está en
 
 ## Los parámetros
 
-| Parámetro        | Valor         | Por qué                                                                                                                                                                                                      |
-| ---------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Ventana          | 2048 muestras | A 48 kHz son 42,7 ms: caben dos periodos completos del Mi grave (82,4 Hz, periodo 12,1 ms) con margen. Menos ventana no permitiría detectar la sexta cuerda; más añadiría retardo perceptible.               |
-| Rango            | 70 – 1400 Hz  | Por debajo de 70 Hz no hay guitarra: el Mi2 está en 82,4 Hz y 70 deja margen para una afinación baja. Por encima de 1400 Hz ya solo hay armónicos y ruido; el traste 15 de la primera cuerda está en 987 Hz. |
-| Umbral de RMS    | 0,01          | Por debajo se considera silencio y no se emite lectura. Evita que el afinador baile con el ruido de fondo del ampli.                                                                                         |
-| Confianza mínima | 0,9           | El pico de autocorrelación normalizado. Por debajo la lectura se descarta: es preferible no decir nada a decir una nota inventada.                                                                           |
-| Cadencia         | cada 50 ms    | Veinte lecturas por segundo. Bastante para que el afinador se sienta continuo, poco para no saturar el hilo.                                                                                                 |
+| Parámetro                  | Valor         | Por qué                                                                                                                                                                                                      |
+| -------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ventana                    | 2048 muestras | A 48 kHz son 42,7 ms: caben dos periodos completos del Mi grave (82,4 Hz, periodo 12,1 ms) con margen. Menos ventana no permitiría detectar la sexta cuerda; más añadiría retardo perceptible.               |
+| Rango                      | 70 – 1400 Hz  | Por debajo de 70 Hz no hay guitarra: el Mi2 está en 82,4 Hz y 70 deja margen para una afinación baja. Por encima de 1400 Hz ya solo hay armónicos y ruido; el traste 15 de la primera cuerda está en 987 Hz. |
+| Umbral de RMS al enganchar | 0,006         | Nivel mínimo para empezar a detectar una nota nueva. Alto a propósito: evita que el afinador arranque con el ruido de fondo del ampli.                                                                       |
+| Umbral de RMS al seguir    | 0,0015        | Nivel mínimo para seguir una nota ya enganchada. Cuatro veces más bajo, porque una cuerda pulsada decae desde el primer instante.                                                                            |
+| Confianza al enganchar     | 0,9           | El pico de autocorrelación normalizado. Por debajo, la lectura se descarta: preferible no decir nada a decir una nota inventada.                                                                             |
+| Confianza al seguir        | 0,75          | Al decaer, la nota se ensucia respecto al ruido de fondo y el pico baja. Exigirle lo mismo que al principio cortaría la detección con la nota todavía sonando.                                               |
+| Margen de silencio         | 600 ms        | Lo que se espera sin señal antes de dar la nota por terminada.                                                                                                                                               |
+| Cadencia                   | cada 50 ms    | Veinte lecturas por segundo. Bastante para que el afinador se sienta continuo, poco para no saturar el hilo.                                                                                                 |
+
+### Por qué hay dos umbrales y no uno
+
+Una cuerda pulsada empieza fuerte y cae. Con un solo umbral pasa lo que se ve
+en cuanto lo pruebas con una guitarra de verdad: la nota se detecta medio
+segundo y desaparece, aunque siga oyéndose perfectamente.
+
+La solución es la de cualquier compuerta de ruido: **cuesta más entrar que
+quedarse**. Enganchar una nota nueva exige nivel y confianza altos, para no
+disparar con el ruido; una vez enganchada, se sigue con umbrales bastante más
+bajos hasta que la nota muere de verdad. Cuando muere, el siguiente ataque
+vuelve a tener que superar el umbral alto.
+
+Eso vive en el motor, no en la detección: `detectPitch` recibe los umbrales
+como parámetro y el motor decide cuáles pasarle según tenga o no una nota
+enganchada.
 
 ## Interpolación parabólica
 
