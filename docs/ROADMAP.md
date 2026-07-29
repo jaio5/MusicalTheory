@@ -159,6 +159,13 @@ debajo, ni menos— con el vídeo a la vista. El velo va de lado y no plano: por
 izquierda oscurece lo justo para leer el titular y por la derecha deja la imagen
 entera. Con un velo plano encima, o no se lee el titular o no se ve el vídeo.
 
+Las letras crecen con el ancho de la pantalla. Un tamaño fijo se queda pequeño
+en un monitor grande y se desborda en uno pequeño; con `clamp` lo resuelve el
+navegador solo, y los tamaños viven en los tokens como cualquier otro valor de
+diseño. La medida de lectura va en caracteres —`42ch`, `68ch`— y no en píxeles,
+que es lo que hace que al crecer la letra la línea siga midiendo lo mismo en
+palabras.
+
 El texto sale del diseño que hay en `reference/landing`, adaptado a lo que la
 aplicación hace de verdad hoy.
 

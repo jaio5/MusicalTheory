@@ -54,6 +54,21 @@ export const fontSizes = {
   hero: '5rem',
 } as const;
 
+/**
+ * Tamaños que crecen con el ancho de la pantalla, para la portada.
+ *
+ * Un titular con un tamaño fijo se queda pequeño en un monitor grande y se
+ * desborda en uno pequeño. Con `clamp` el navegador lo resuelve solo: mínimo
+ * legible, máximo sensato y en medio proporcional al ancho.
+ */
+export const fluidSizes = {
+  /** Ancho útil de la portada: casi todo, con un margen de aire a los lados. */
+  hero: 'clamp(2.75rem, 6.6vw, 7rem)',
+  title: 'clamp(1.9rem, 4vw, 4rem)',
+  subtitle: 'clamp(1.2rem, 2vw, 1.9rem)',
+  body: 'clamp(1rem, 1.15vw, 1.3rem)',
+} as const;
+
 export const spacing = {
   xs: '0.25rem',
   sm: '0.5rem',
