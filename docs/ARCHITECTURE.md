@@ -68,6 +68,11 @@ que permite enlazar una, volver atrás y tener el afinador abierto en una pesta�
 mientras compones en otra. El store guarda lo que eliges —estilo, escala,
 afinación—, que sí es tuyo y no de la página.
 
+`metronome` es el ejemplo más claro de la regla de las capas: la aritmética del
+tempo está en `core/`, el pulso —osciladores y relojes— en `audio/`, y el feature
+solo pone botones. Así el tempo se prueba sin audio y el pulso se puede sustituir
+por un doble en los tests de interfaz.
+
 `recorder` es el caso curioso: envuelve a la pantalla de componer con
 `children`, así que la enseña entera sin saber qué hay dentro.
 

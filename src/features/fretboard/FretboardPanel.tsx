@@ -20,22 +20,25 @@ export function FretboardPanel() {
         </p>
       ) : (
         <>
-          <p className="text-text-muted mt-2 shrink-0 text-sm">
-            {SCALES[scaleId].name} de{' '}
-            {noteName(activeKey.tonic, accidentalForScale(activeKey.tonic, scaleId))}:{' '}
-            <span className="text-text font-mono">
-              {scaleNotes(activeKey.tonic, scaleId)
-                .map((pitchClass) =>
-                  noteName(pitchClass, accidentalForScale(activeKey.tonic, scaleId)),
-                )
-                .join(' · ')}
-            </span>
-          </p>
+          <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <p className="text-text-muted text-sm">
+              {SCALES[scaleId].name} de{' '}
+              {noteName(activeKey.tonic, accidentalForScale(activeKey.tonic, scaleId))}:{' '}
+              <span className="text-text font-mono">
+                {scaleNotes(activeKey.tonic, scaleId)
+                  .map((pitchClass) =>
+                    noteName(pitchClass, accidentalForScale(activeKey.tonic, scaleId)),
+                  )
+                  .join(' · ')}
+              </span>
+            </p>
+            <p className="text-text-muted text-sm">{SCALES[scaleId].character}</p>
+          </div>
 
           {/* El dibujo se queda con el alto que sobre y se encoge hasta caber:
               un mástil que hay que arrastrar para ver el traste doce no sirve
               con la guitarra en las manos. */}
-          <div className="mt-4 min-h-0 grow">
+          <div className="mt-3 min-h-0 grow">
             <Fretboard
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}
@@ -43,8 +46,6 @@ export function FretboardPanel() {
               soundingMidi={hasSignal ? (reading?.midi ?? null) : null}
             />
           </div>
-
-          <p className="text-text-muted mt-3 shrink-0 text-sm">{SCALES[scaleId].character}</p>
         </>
       )}
     </div>

@@ -4,3 +4,4 @@ export * from './autocorrelation-pitch-engine';
 export * from './pitch-engine';
 export * from './web-audio-input';
 export * from './reference-tone';
+export * from './metronome';

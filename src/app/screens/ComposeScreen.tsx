@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { keyName } from '@core/music';
 import { FretboardPanel } from '@features/fretboard';
 import { IdeasPanel } from '@features/ideas';
+import { Metronome } from '@features/metronome';
 import { CurrentChord, NextChords, Voicings } from '@features/path';
 import { RecordStage } from '@features/recorder';
 import { SessionsPanel } from '@features/sessions';
@@ -47,10 +48,19 @@ export function ComposeScreen() {
   return (
     <RecordStage>
       <div className="flex h-full min-h-0 flex-col">
+        {/* El metrónomo, arriba y siempre a la vista: es un control de los de
+            poner en marcha y olvidarse, como el de grabar, no un ajuste que se
+            busca en una columna. */}
+        <div className="border-border shrink-0 border-b px-3 py-1.5">
+          <Metronome />
+        </div>
+
         <div className="grid min-h-0 grow grid-cols-1 gap-px overflow-y-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
+          {/* Cada cosa con su tamaño y la columna con scroll: si se dejan
+              encoger, con el mástil abierto la rueda se queda en un botón. */}
           <section
             aria-label="Tonalidad"
-            className="border-border flex min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3"
+            className="border-border flex min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3 [&>*]:shrink-0"
           >
             <KeyPanel compact />
             <p className="text-text-muted text-center font-mono text-xs">
@@ -121,7 +131,7 @@ export function ComposeScreen() {
               id="herramienta-abierta"
               className={`border-border border-t p-3 ${
                 current.fits === true
-                  ? 'h-[min(50vh,30rem)] overflow-hidden'
+                  ? 'h-[min(58vh,34rem)] overflow-hidden'
                   : 'max-h-[min(52vh,26rem)] overflow-auto'
               }`}
             >

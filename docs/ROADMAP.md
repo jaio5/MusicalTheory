@@ -180,7 +180,14 @@ sus preguntas. Al contestar dice por qué, se acierte o no. Al lado, el profesor
 le preguntas lo que quieras y responde con los acordes que tienes delante. Debajo,
 la escala para tocarla de verdad, validada por el micro.
 
-**Componer.** La rueda para elegir tonalidad, el acorde en el que estás con
+**Componer.** Arriba, el metrónomo: se pone en marcha y se olvida uno de él,
+como el botón de grabar. El tempo se escribe, se ajusta de dos en dos o se marca
+con el dedo, que es como se saca de verdad el de una canción que suena en la
+cabeza. El pulso no lo lleva un temporizador de JavaScript —el hilo se atasca
+con cualquier cosa y el clic llega tarde— sino el reloj del audio, que es
+independiente.
+
+Debajo, la rueda para elegir tonalidad, el acorde en el que estás con
 todas sus formas a lo largo del mástil, y a dónde puedes ir, con el buscador que
 propone mientras escribes. Cada acorde lleva un punto: verde si es seguro, ámbar
 si trae una nota de fuera y rojo si trae más. Mástil, ideas y sesiones se abren en una franja
@@ -189,7 +196,8 @@ trastes, y en una columna estrecha no se lee. La franja crece con lo que haya
 dentro hasta un tope, así que las sesiones no dejan medio hueco vacío debajo.
 
 El mástil no hace scroll nunca: se lleva un alto fijo y el dibujo se encoge
-hasta caber. Un mástil que hay que arrastrar para ver el traste doce no sirve
+hasta caber, con sitio de sobra para salir a todo lo ancho —1354 píxeles en una
+pantalla de 1440—. Un mástil que hay que arrastrar para ver el traste doce no sirve
 con la guitarra en las manos, y perder la mitad de la pantalla mientras está
 abierto es un precio que se paga solo mientras se mira.
 
