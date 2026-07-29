@@ -20,9 +20,14 @@ interface Extra {
   readonly name: string;
   readonly render: () => React.ReactElement;
   /**
-   * Si lo de dentro se ajusta solo al hueco. El mástil sí —se encoge hasta
-   * caber—, así que se lleva un alto fijo y no hace scroll nunca. Lo demás es
-   * texto, y el texto se lee desplazándolo.
+   * Si lo de dentro se dibuja entero o hay que desplazarlo. El mástil se dibuja
+   * entero y no hace scroll nunca; lo demás es texto, y el texto se lee
+   * desplazándolo.
+   *
+   * En los dos casos la altura la pone el contenido y el tope solo recorta.
+   * Con un alto fijo, el mástil —que es casi cuatro veces más ancho que alto—
+   * dejaba cien píxeles muertos arriba y abajo, y sin tonalidad elegida dejaba
+   * la franja entera vacía.
    */
   readonly fits?: boolean;
 }
@@ -132,7 +137,7 @@ export function ComposeScreen() {
               id="herramienta-abierta"
               className={`border-border border-t p-3 ${
                 current.fits === true
-                  ? 'h-[min(58vh,34rem)] overflow-hidden'
+                  ? 'max-h-[min(72vh,46rem)] overflow-hidden'
                   : 'max-h-[min(52vh,26rem)] overflow-auto'
               }`}
             >

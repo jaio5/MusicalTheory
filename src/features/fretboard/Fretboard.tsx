@@ -40,11 +40,14 @@ export function Fretboard({ tonic, scaleId, soundingMidi, accidental = 'sharp' }
   const positions = fretboardPositions().filter((position) => notes.includes(position.pitchClass));
   const stringIndex = new Map(STANDARD_TUNING.map((string, index) => [string.number, index]));
 
+  // El alto sale de la proporción del dibujo y no del hueco disponible, así que
+  // no sobra ni falta sitio. El tope es para las pantallas muy anchas: sin él,
+  // a 2560 px el mástil pediría media pantalla de alto solo por ser ancha.
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       preserveAspectRatio="xMidYMid meet"
-      className="h-full max-h-full w-full"
+      className="h-auto max-h-[min(60vh,38rem)] w-full"
       role="img"
       aria-label={`Mástil de ${DEFAULT_FRET_COUNT} trastes con la escala ${SCALES[
         scaleId

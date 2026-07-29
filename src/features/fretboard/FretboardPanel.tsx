@@ -13,7 +13,7 @@ export function FretboardPanel() {
   const hasSignal = useSessionStore((state) => state.hasSignal);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex min-h-0 flex-col">
       {activeKey === null ? (
         <p className="text-text-muted mt-6 shrink-0">
           Toca unos compases o elige una tonalidad arriba, y aquí sale la escala sobre el mástil.
@@ -35,10 +35,11 @@ export function FretboardPanel() {
             <p className="text-text-muted text-sm">{SCALES[scaleId].character}</p>
           </div>
 
-          {/* El dibujo se queda con el alto que sobre y se encoge hasta caber:
-              un mástil que hay que arrastrar para ver el traste doce no sirve
-              con la guitarra en las manos. */}
-          <div className="mt-3 min-h-0 grow">
+          {/* El alto lo pone el propio dibujo a partir de su proporción, no el
+              hueco disponible. Estirándolo hasta el hueco, el mástil —casi
+              cuatro veces más ancho que alto— se quedaba centrado con franjas
+              muertas arriba y abajo. */}
+          <div className="mt-3">
             <Fretboard
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}
