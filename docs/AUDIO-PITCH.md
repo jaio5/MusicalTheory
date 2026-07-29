@@ -115,8 +115,9 @@ hecho ya está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
 cuerdas a la vez, el resultado no es «las dos notas»: es una lectura inestable
 que salta entre ellas o se va a un periodo intermedio sin sentido musical. Para
 afinar y para practicar escalas es suficiente; para detectar un acorde rasgueado
-no sirve. El modo componer trabaja por eso con el histórico de notas sueltas,
-no con reconocimiento de acordes.
+no sirve. Por eso el modo componer no le pregunta a este motor qué acorde suena:
+lo saca de otro análisis distinto, el de «[Reconocer acordes](#reconocer-acordes)»
+más abajo.
 
 **La distorsión la confunde.** Un previo saturado genera armónicos que pueden
 superar en energía a la fundamental. Cuando el segundo armónico domina, la
@@ -181,3 +182,6 @@ juntos para que ese acorde de paso no llegue a confirmarse.
 Acierta con tríadas y séptimas sostenidas en limpio; con inversiones y omitidos
 duda —C sin fundamental es Em—, y con distorsión fuerte el espectro se llena de
 basura y falla. Es un detector de plantillas, no una red entrenada.
+
+Por qué este método y no otro, con lo que se descartó por el camino, en
+[adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
