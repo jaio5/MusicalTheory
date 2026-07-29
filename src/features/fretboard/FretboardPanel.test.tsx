@@ -81,6 +81,9 @@ describe('Panel del mástil', () => {
   it('el diapasón por sí solo no rompe nada', () => {
     useSessionStore.getState().actions.setPitch(A4_FREQUENCY, 0.99, 0);
     render(<FretboardPanel />);
-    expect(screen.getByRole('heading', { name: /mástil/i })).toBeInTheDocument();
+
+    // Una nota suelta no basta para saber la tonalidad, y el mástil lo dice en
+    // vez de pintar una escala inventada.
+    expect(screen.getByText(/toca unos compases/i)).toBeInTheDocument();
   });
 });

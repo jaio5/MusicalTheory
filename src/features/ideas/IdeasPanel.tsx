@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { noteName, SCALES } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
-import { Panel } from '@ui/Panel';
 
 import {
   ERROR_MESSAGES,
@@ -87,7 +86,7 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
   }
 
   return (
-    <Panel id="ideas" title="Ideas">
+    <div>
       <p className="text-text-muted mt-2 text-sm">
         Le pasamos la tonalidad, la escala y los nombres de las notas. Ni el audio ni el vídeo salen
         de tu equipo.
@@ -138,6 +137,6 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
           </ul>
         </>
       )}
-    </Panel>
+    </div>
   );
 }

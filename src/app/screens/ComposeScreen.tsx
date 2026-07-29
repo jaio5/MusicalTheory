@@ -34,62 +34,84 @@ export function ComposeScreen() {
 
   return (
     <RecordStage>
-      <div className="grid h-full min-h-0 grid-cols-1 gap-px overflow-y-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
-        <section
-          aria-label="Tonalidad"
-          className="border-border flex min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3"
-        >
-          <KeyPanel compact />
-          <p className="text-text-muted text-center font-mono text-xs">
-            {activeKey === null
-              ? 'Pulsa una tonalidad para empezar'
-              : keyName(activeKey.tonic, activeKey.mode)}
-          </p>
-          <Settings />
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="grid min-h-0 grow grid-cols-1 gap-px overflow-y-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
+          <section
+            aria-label="Tonalidad"
+            className="border-border flex min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3"
+          >
+            <KeyPanel compact />
+            <p className="text-text-muted text-center font-mono text-xs">
+              {activeKey === null
+                ? 'Pulsa una tonalidad para empezar'
+                : keyName(activeKey.tonic, activeKey.mode)}
+            </p>
+            <Settings />
+          </section>
 
-          {/* Las herramientas van con los ajustes, no colgando del acorde: son
-              de la misma familia —cosas que decides una vez— y así la columna
-              del acorde se queda solo con el acorde. */}
-          <div className="mt-auto w-full">
-            <div className="flex flex-wrap gap-1">
-              {EXTRAS.map((candidate) => (
-                <button
-                  key={candidate.id}
-                  type="button"
-                  onClick={() => setExtra(extra === candidate.id ? null : candidate.id)}
-                  aria-pressed={extra === candidate.id}
-                  className={`grow border px-2 py-1 font-mono text-xs ${
-                    extra === candidate.id
-                      ? 'border-brass-bright text-brass-bright'
-                      : 'border-border text-text-muted hover:text-text'
-                  }`}
-                >
-                  {candidate.name}
-                </button>
-              ))}
-            </div>
+          <section
+            aria-label="El acorde y sus formas"
+            className="flex min-h-0 flex-col overflow-y-auto"
+          >
+            <CurrentChord />
+            <Voicings />
+          </section>
+
+          <section
+            aria-label="A dónde puedes ir"
+            className="border-border flex min-h-0 flex-col overflow-hidden border-l"
+          >
+            <NextChords />
+          </section>
+        </div>
+
+        {/* Abajo y a todo lo ancho: el mástil son seis cuerdas y quince trastes,
+            y en una columna estrecha no se lee. La altura la pone el contenido
+            hasta un tope, así que el mástil se estira y las sesiones no dejan
+            medio hueco vacío debajo. */}
+        <section
+          aria-label="Herramientas"
+          className="border-border flex shrink-0 flex-col border-t"
+        >
+          <div className="flex gap-1 px-3 py-1.5">
+            {EXTRAS.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                onClick={() => setExtra(extra === candidate.id ? null : candidate.id)}
+                aria-expanded={extra === candidate.id}
+                aria-controls="herramienta-abierta"
+                className={`border px-3 py-1 font-mono text-xs ${
+                  extra === candidate.id
+                    ? 'border-brass-bright text-brass-bright'
+                    : 'border-border text-text-muted hover:text-text'
+                }`}
+              >
+                {candidate.name}
+              </button>
+            ))}
 
             {current !== null && (
-              <div className="border-border mt-2 border-t pt-2">
-                <current.render />
-              </div>
+              <button
+                type="button"
+                onClick={() => setExtra(null)}
+                aria-label={`Cerrar ${current.name}`}
+                title="Cerrar"
+                className="text-text-muted hover:text-oxblood-bright ml-auto px-2 text-sm"
+              >
+                ×
+              </button>
             )}
           </div>
-        </section>
 
-        <section
-          aria-label="El acorde y sus formas"
-          className="flex min-h-0 flex-col overflow-y-auto"
-        >
-          <CurrentChord />
-          <Voicings />
-        </section>
-
-        <section
-          aria-label="A dónde puedes ir"
-          className="border-border flex min-h-0 flex-col overflow-hidden border-l"
-        >
-          <NextChords />
+          {current !== null && (
+            <div
+              id="herramienta-abierta"
+              className="border-border max-h-[min(52vh,26rem)] overflow-auto border-t p-3"
+            >
+              <current.render />
+            </div>
+          )}
         </section>
       </div>
     </RecordStage>

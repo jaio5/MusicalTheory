@@ -183,8 +183,11 @@ la escala para tocarla de verdad, validada por el micro.
 **Componer.** La rueda para elegir tonalidad, el acorde en el que estás con
 todas sus formas a lo largo del mástil, y a dónde puedes ir, con el buscador que
 propone mientras escribes. Cada acorde lleva un punto: verde si es seguro, ámbar
-si trae una nota de fuera y rojo si trae más. Mástil, ideas y sesiones se abren
-debajo cuando hacen falta.
+si trae una nota de fuera y rojo si trae más. Mástil, ideas y sesiones se abren en una franja
+a lo ancho de toda la parte de abajo: el mástil son seis cuerdas y quince
+trastes, y en una columna estrecha no se lee. La franja crece con lo que haya
+dentro hasta un tope, así que el mástil se estira y las sesiones no dejan medio
+hueco vacío debajo.
 
 Aquí está grabarte tocando: al darle al botón la cámara se pone detrás de todo y
 la interfaz se queda en contorno y letra, así que te ves mientras sigues leyendo

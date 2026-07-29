@@ -2,7 +2,6 @@
 
 import { accidentalForScale, SCALES, scaleNotes, noteName } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
-import { Panel } from '@ui/Panel';
 
 import { Fretboard } from './Fretboard';
 
@@ -14,7 +13,7 @@ export function FretboardPanel() {
   const hasSignal = useSessionStore((state) => state.hasSignal);
 
   return (
-    <Panel id="mastil" title="Mástil">
+    <div>
       {activeKey === null ? (
         <p className="text-text-muted mt-6">
           Toca unos compases o elige una tonalidad arriba, y aquí sale la escala sobre el mástil.
@@ -45,6 +44,6 @@ export function FretboardPanel() {
           <p className="text-text-muted mt-4 text-sm">{SCALES[scaleId].character}</p>
         </>
       )}
-    </Panel>
+    </div>
   );
 }
