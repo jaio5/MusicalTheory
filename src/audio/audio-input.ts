@@ -20,6 +20,12 @@ export interface AudioInputOptions {
    * Ver docs/AUDIO-PITCH.md para por qué 2048 a 48 kHz.
    */
   readonly frameSize?: number;
+  /**
+   * Muestras de la ventana para el espectro. Potencia de dos y más grande que
+   * el bloque: separar dos notas a un semitono en la sexta cuerda pide
+   * resolución en frecuencia, y eso solo se compra con ventana larga.
+   */
+  readonly spectrumSize?: number;
 }
 
 export interface AudioInputError {
@@ -33,6 +39,8 @@ export interface AudioInput {
   /** Frecuencia de muestreo real del contexto, conocida solo tras arrancar. */
   readonly sampleRate: number;
   readonly frameSize: number;
+  /** Muestras de la ventana del espectro. El array a leer tiene la mitad. */
+  readonly spectrumSize: number;
   /** El último error, o null si no lo hay. */
   readonly error: AudioInputError | null;
 
@@ -53,6 +61,15 @@ export interface AudioInput {
    * las APIs de Web Audio no aceptan memoria compartida.
    */
   readTimeDomain(target: Float32Array<ArrayBuffer>): boolean;
+
+  /**
+   * Copia el espectro del último bloque en decibelios sobre `target`, que ha de
+   * tener la mitad de muestras que el bloque. Devuelve false si no hay datos.
+   *
+   * La FFT ya la calcula el analizador para su uso interno, así que leerla no
+   * cuesta nada: es lo que permite reconocer acordes sin un segundo análisis.
+   */
+  readSpectrum(target: Float32Array<ArrayBuffer>): boolean;
 
   /** Avisa de cada cambio de estado. Devuelve la función para desuscribirse. */
   subscribe(listener: (state: AudioInputState) => void): () => void;

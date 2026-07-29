@@ -143,3 +143,41 @@ confunda con un fallo.
 **El hueco entre dos púas no apaga la nota.** El motor espera 250 ms sin señal
 antes de avisar de que ya no suena nada. Sin esa espera, la pantalla parpadearía
 en cada silencio de la mano derecha.
+
+## Reconocer acordes
+
+La autocorrelación no puede: busca **un** periodo, y un acorde tiene tres o
+cuatro a la vez. Para acordes se usa otra cosa, y solo en componer —el afinador
+afina cuerda a cuerda, y analizar el espectro allí sería gastar batería por
+gusto—.
+
+El camino es: espectro → croma → plantillas.
+
+**El croma** son doce números, uno por nota, olvidando la octava. Lo difícil no
+es doblar octavas, es que los armónicos mienten: una sexta al aire suena con su
+quinta y su tercera mayor encima por física pura, y un croma ingenuo lee un
+acorde de E mayor donde solo hay una cuerda pulsada. Por eso no se suma el
+espectro entero sino sus picos, y cada pico se descuenta —no se borra— si otro
+más grave y más fuerte lo explica como armónico suyo.
+
+**Las plantillas** son las especies que ya conocía el dominio. Se compara por
+coseno, que castiga a la vez lo que suena y no debería y lo que debería y no
+suena. Hacen falta las dos mitades: contando solo lo que sobra, un acorde de
+cinco notas gana siempre; contando solo lo que falta, Am y C6 son
+indistinguibles.
+
+**Dos ventanas.** El tono quiere una ventana corta para responder al ataque; el
+acorde quiere una larga, porque separar dos notas vecinas en las cuerdas graves
+pide resolución en frecuencia. Son dos analizadores sobre la misma entrada:
+2048 muestras para el tono, 8192 para el espectro.
+
+**Lo que sale no es el último análisis** sino lo que se ha mantenido cuatro
+décimas. Un rasgueo pasa por media docena de acordes falsos antes de asentarse,
+y al cambiar de acorde la media móvil ve los dos a la vez —de C a Am se ve un
+C6, que es literalmente cierto—. El suavizado y las confirmaciones se ajustan
+juntos para que ese acorde de paso no llegue a confirmarse.
+
+**Lo que no hace.** No entra solo en el camino: se propone y lo confirmas tú.
+Acierta con tríadas y séptimas sostenidas en limpio; con inversiones y omitidos
+duda —C sin fundamental es Em—, y con distorsión fuerte el espectro se llena de
+basura y falla. Es un detector de plantillas, no una red entrenada.

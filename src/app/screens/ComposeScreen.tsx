@@ -6,7 +6,7 @@ import { keyName } from '@core/music';
 import { FretboardPanel } from '@features/fretboard';
 import { IdeasPanel } from '@features/ideas';
 import { Metronome } from '@features/metronome';
-import { CurrentChord, NextChords, Voicings } from '@features/path';
+import { CurrentChord, HeardChord, NextChords, Voicings } from '@features/path';
 import { RecordStage } from '@features/recorder';
 import { SessionsPanel } from '@features/sessions';
 import { KeyPanel } from '@features/wheel';
@@ -75,6 +75,7 @@ export function ComposeScreen() {
             aria-label="El acorde y sus formas"
             className="flex min-h-0 flex-col overflow-y-auto"
           >
+            <HeardChord />
             <CurrentChord />
             <Voicings />
           </section>

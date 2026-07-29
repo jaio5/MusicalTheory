@@ -15,10 +15,17 @@ import type {
 /** Ventana de análisis por defecto. El porqué está en docs/AUDIO-PITCH.md. */
 export const DEFAULT_FRAME_SIZE = 2048;
 
+/**
+ * Ventana del espectro. A 48 kHz son 5,9 Hz por casilla, que es lo que hace
+ * falta para no confundir dos notas vecinas en las cuerdas graves.
+ */
+export const DEFAULT_SPECTRUM_SIZE = 8192;
+
 type StateListener = (state: AudioInputState) => void;
 
 export class WebAudioInput implements AudioInput {
   readonly frameSize: number;
+  readonly spectrumSize: number;
 
   readonly #deviceId: string | undefined;
   readonly #listeners = new Set<StateListener>();
@@ -28,9 +35,11 @@ export class WebAudioInput implements AudioInput {
   #context: AudioContext | null = null;
   #stream: MediaStream | null = null;
   #analyser: AnalyserNode | null = null;
+  #spectrumAnalyser: AnalyserNode | null = null;
 
   constructor(options: AudioInputOptions = {}) {
     this.frameSize = options.frameSize ?? DEFAULT_FRAME_SIZE;
+    this.spectrumSize = options.spectrumSize ?? DEFAULT_SPECTRUM_SIZE;
     this.#deviceId = options.deviceId;
   }
 
@@ -95,9 +104,18 @@ export class WebAudioInput implements AudioInput {
       // bloques solo emborronaría el ataque de la nota.
       this.#analyser.smoothingTimeConstant = 0;
 
+      // El segundo analizador es solo para el espectro, con ventana larga: el
+      // tono quiere responder rápido y el acorde quiere ver fino, y no hay una
+      // ventana que haga las dos cosas.
+      this.#spectrumAnalyser = this.#context.createAnalyser();
+      this.#spectrumAnalyser.fftSize = this.spectrumSize;
+      this.#spectrumAnalyser.smoothingTimeConstant = 0.2;
+
       // La entrada no se conecta a los altavoces a propósito: con el ampli
       // abierto sería un acople inmediato.
-      this.#context.createMediaStreamSource(this.#stream).connect(this.#analyser);
+      const source = this.#context.createMediaStreamSource(this.#stream);
+      source.connect(this.#analyser);
+      source.connect(this.#spectrumAnalyser);
     } catch {
       await this.stop();
       this.#fail({
@@ -113,6 +131,7 @@ export class WebAudioInput implements AudioInput {
 
   async stop(): Promise<void> {
     this.#analyser = null;
+    this.#spectrumAnalyser = null;
 
     for (const track of this.#stream?.getTracks() ?? []) {
       track.stop();
@@ -135,6 +154,14 @@ export class WebAudioInput implements AudioInput {
       return false;
     }
     this.#analyser.getFloatTimeDomainData(target);
+    return true;
+  }
+
+  readSpectrum(target: Float32Array<ArrayBuffer>): boolean {
+    if (this.#spectrumAnalyser === null || this.#state !== 'running') {
+      return false;
+    }
+    this.#spectrumAnalyser.getFloatFrequencyData(target);
     return true;
   }
 

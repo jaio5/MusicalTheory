@@ -34,6 +34,14 @@ class FakeInput implements AudioInput {
     this.#set('idle');
   }
 
+  readonly spectrumSize = 8192;
+
+  readSpectrum(target: Float32Array<ArrayBuffer>): boolean {
+    target.fill(-120);
+
+    return this.state === 'running';
+  }
+
   readTimeDomain(): boolean {
     return false;
   }

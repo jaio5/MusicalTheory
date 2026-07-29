@@ -42,7 +42,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="bg-background flex h-dvh flex-col overflow-hidden">
       <header className="border-border bg-surface flex shrink-0 items-center gap-4 border-b px-3 py-1.5">
-        <MicButton />
+        {/* Reconocer acordes solo donde sirve: en componer. */}
+        <MicButton chords={pathname === '/componer'} />
 
         <nav aria-label="Pantallas" className="ml-auto flex items-center gap-1">
           <Link

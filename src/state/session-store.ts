@@ -35,6 +35,16 @@ import {
 export type ListeningState =
   'idle' | 'requesting' | 'listening' | 'denied' | 'unsupported' | 'error';
 
+/** El acorde que se está oyendo, con lo que hace falta para enseñarlo. */
+export interface HeardChord {
+  readonly symbol: string;
+  readonly root: PitchClass;
+  readonly notes: readonly PitchClass[];
+  /** Cuánto se parece, de 0 a 1. */
+  readonly score: number;
+  readonly at: number;
+}
+
 /** Un acorde del camino, ya listo para enseñar. */
 export interface PathChord {
   readonly symbol: string;
@@ -98,6 +108,8 @@ export interface SessionActions {
   setTuning(tuningId: TuningId): void;
   /** Recupera del equipo lo que había configurado. */
   loadWorkspace(): void;
+  /** Deja constancia del acorde que se está oyendo, o de que no se oye ninguno. */
+  setHeardChord(chord: HeardChord | null): void;
   /** Añade un acorde al final del camino. */
   pushChord(chord: PathChord): void;
   /** Corta el camino justo después del acorde que se pulsa. */
@@ -140,6 +152,8 @@ export interface SessionState {
   readonly currentDegree: DegreeSymbol | null;
   /** La progresión que se está armando, del primero al último. */
   readonly path: readonly PathChord[];
+  /** Lo último que se ha reconocido por el micro, o null. */
+  readonly heardChord: HeardChord | null;
   /**
    * Las acciones viven en un objeto propio que no se reemplaza nunca, para que
    * suscribirse a ellas no provoque renders. Es el equivalente a inyectar un
@@ -166,6 +180,7 @@ const EMPTY = {
   noteHistory: [],
   currentDegree: null,
   path: [],
+  heardChord: null,
 } as const satisfies Omit<SessionState, 'actions'>;
 
 /**
@@ -250,6 +265,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
         tuningId: preferences.tuningId,
       });
     },
+    setHeardChord: (heardChord) => set({ heardChord }),
     pushChord: (chord) => set((state) => ({ path: [...state.path, chord] })),
     trimPath: (index) => set((state) => ({ path: state.path.slice(0, index + 1) })),
     clearPath: () => set({ path: [] }),
@@ -261,7 +277,14 @@ export const useSessionStore = create<SessionState>()((set) => ({
         keyCandidates: [],
         keyComputedAt: 0,
       }),
-    reset: () => set({ ...EMPTY, histogram: createPitchHistogram(), noteHistory: [], path: [] }),
+    reset: () =>
+      set({
+        ...EMPTY,
+        histogram: createPitchHistogram(),
+        noteHistory: [],
+        path: [],
+        heardChord: null,
+      }),
   },
 }));
 

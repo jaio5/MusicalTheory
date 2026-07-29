@@ -22,7 +22,7 @@ export interface ChordShape {
  * Las especies que se reconocen, con sus formas de escribirse. La clave es el
  * sufijo ya normalizado a minúsculas.
  */
-const SHAPES: Readonly<Record<string, ChordShape>> = {
+export const CHORD_SHAPES: Readonly<Record<string, ChordShape>> = {
   '': { intervals: [0, 4, 7], name: 'mayor', suffix: '' },
   m: { intervals: [0, 3, 7], name: 'menor', suffix: 'm' },
   '5': { intervals: [0, 7], name: 'quinta', suffix: '5' },
@@ -130,7 +130,7 @@ export function parseChordSymbol(text: string): ParsedChord | null {
   }
 
   const suffix = normalizeSuffix(rest ?? '');
-  const shape = SHAPES[suffix];
+  const shape = CHORD_SHAPES[suffix];
   if (shape === undefined) {
     return null;
   }
@@ -155,7 +155,7 @@ function normalizeSuffix(raw: string): string {
     return alias;
   }
   const lower = trimmed.toLowerCase();
-  return SHAPES[lower] === undefined ? trimmed : lower;
+  return CHORD_SHAPES[lower] === undefined ? trimmed : lower;
 }
 
 /**
@@ -179,7 +179,7 @@ export function suggestChordSymbols(text: string, limit = 8): readonly ParsedCho
 
   // Lo que ya se ha escrito entero va primero: si alguien teclea «Am7» quiere
   // Am7, y las variantes que empiezan igual vienen detrás.
-  const exact = SHAPES[resolved] === undefined ? [] : [resolved];
+  const exact = CHORD_SHAPES[resolved] === undefined ? [] : [resolved];
   const starts = BY_USE.filter(
     (suffix) => !exact.includes(suffix) && suffix.toLowerCase().startsWith(typed.toLowerCase()),
   );

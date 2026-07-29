@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import type { AudioInput, AudioInputState } from '@audio/audio-input';
 import { AutocorrelationPitchEngine } from '@audio/autocorrelation-pitch-engine';
+import type { ChordEngine } from '@audio/chord-engine';
+import { ChromaChordEngine } from '@audio/chord-engine';
 import type { PitchEngine } from '@audio/pitch-engine';
 import { WebAudioInput } from '@audio/web-audio-input';
 import { useSessionStore, type ListeningState } from './session-store';
@@ -21,6 +23,13 @@ import { useSessionStore, type ListeningState } from './session-store';
 export interface ListeningDeps {
   readonly createInput?: (deviceId?: string) => AudioInput;
   readonly createEngine?: () => PitchEngine;
+  /**
+   * Si además de notas se reconocen acordes. Solo lo pide componer: el afinador
+   * afina cuerda a cuerda, y analizar el espectro para nada sería gastar batería
+   * por gusto.
+   */
+  readonly chords?: boolean;
+  readonly createChordEngine?: () => ChordEngine;
 }
 
 /** El estado del dispositivo no es el estado de la interfaz: aquí se traduce. */
@@ -39,7 +48,12 @@ export interface ListeningControls {
   stop(): Promise<void>;
 }
 
-export function useListening({ createInput, createEngine }: ListeningDeps = {}): ListeningControls {
+export function useListening({
+  createInput,
+  createEngine,
+  chords = false,
+  createChordEngine,
+}: ListeningDeps = {}): ListeningControls {
   const actions = useSessionStore((state) => state.actions);
 
   // Las fábricas viven en una ref y no en las dependencias de useCallback: si
@@ -50,18 +64,23 @@ export function useListening({ createInput, createEngine }: ListeningDeps = {}):
   // La ref se actualiza en un efecto, no durante el render: escribir en una ref
   // mientras se renderiza rompe las garantías de React y lo avisa el linter.
   // Para cuando alguien pulse el botón, el efecto ya ha corrido.
-  const factories = useRef({ createInput, createEngine });
+  const factories = useRef({ createInput, createEngine, chords, createChordEngine });
   useEffect(() => {
-    factories.current = { createInput, createEngine };
+    factories.current = { createInput, createEngine, chords, createChordEngine };
   });
 
   const inputRef = useRef<AudioInput | null>(null);
   const engineRef = useRef<PitchEngine | null>(null);
+  const chordEngineRef = useRef<ChordEngine | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   const stop = useCallback(async () => {
     engineRef.current?.stop();
     engineRef.current = null;
+
+    chordEngineRef.current?.stop();
+    chordEngineRef.current = null;
+    actions.setHeardChord(null);
 
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
@@ -112,6 +131,25 @@ export function useListening({ createInput, createEngine }: ListeningDeps = {}):
         );
       });
       await engine.start(input);
+
+      if (factories.current.chords === true) {
+        const chordEngine = factories.current.createChordEngine?.() ?? new ChromaChordEngine();
+        chordEngineRef.current = chordEngine;
+        chordEngine.subscribe((chord) => {
+          actions.setHeardChord(
+            chord === null
+              ? null
+              : {
+                  symbol: chord.symbol,
+                  root: chord.root,
+                  notes: chord.notes,
+                  score: chord.score,
+                  at: performance.now(),
+                },
+          );
+        });
+        await chordEngine.start(input);
+      }
     },
     [actions],
   );
@@ -121,9 +159,11 @@ export function useListening({ createInput, createEngine }: ListeningDeps = {}):
   useEffect(() => {
     return () => {
       engineRef.current?.stop();
+      chordEngineRef.current?.stop();
       unsubscribeRef.current?.();
       void inputRef.current?.stop();
       engineRef.current = null;
+      chordEngineRef.current = null;
       unsubscribeRef.current = null;
       inputRef.current = null;
     };

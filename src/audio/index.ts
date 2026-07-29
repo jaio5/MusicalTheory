@@ -5,3 +5,5 @@ export * from './pitch-engine';
 export * from './web-audio-input';
 export * from './reference-tone';
 export * from './metronome';
+export * from './chroma';
+export * from './chord-engine';
