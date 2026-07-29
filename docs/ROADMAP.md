@@ -143,6 +143,20 @@ empezar, y al elegir un acorde te enseña **cuatro formas de hacerlo** sobre el
 mástil y **a dónde puedes ir** desde él. Encadenando se construye la progresión,
 y se puede volver atrás a cualquier punto.
 
+## La portada
+
+`/` explica qué es esto y cómo funciona, y trae el afinador de verdad para
+probarlo sin entrar: es el mismo componente que hay dentro, no una imitación.
+La rueda también es la de verdad, y la tonalidad que pulses ahí ya está puesta
+al entrar.
+
+El resto no se demuestra en la portada: se cuenta y se enlaza. Meter aquí la
+pantalla de componer sería enseñar una foto de la aplicación en vez de la
+aplicación.
+
+El texto sale del diseño que hay en `reference/landing`, adaptado a lo que la
+aplicación hace de verdad hoy.
+
 ## Las tres pantallas
 
 Cada una está hecha para una cosa y trae lo que hace falta para esa cosa. No hay

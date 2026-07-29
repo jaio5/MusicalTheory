@@ -1,45 +1,21 @@
 /**
- * En qué pantalla estás y con qué ajustes.
+ * Los ajustes que se recuerdan de una vez para otra.
  *
- * Son tres pantallas hechas para tres cosas distintas, no un banco de trabajo
- * que se monta a mano: quien viene a afinar no quiere decidir dónde va nada.
- * Lo que se elige —tonalidad, estilo, escala, afinación— se guarda en el equipo
- * para que al volver esté como lo dejaste.
+ * En qué pantalla estás no está aquí: eso lo dice la dirección, que es la que
+ * manda desde que cada pantalla tiene su página. Aquí solo vive lo que eliges
+ * —estilo, escala, afinación— y que quieres encontrarte igual al volver.
  */
 
 import type { ScaleId, StyleId } from '@core/music';
 import type { TuningId } from '@core/instrument';
 
-export type ScreenId = 'learn' | 'compose' | 'tune';
-
-export interface ScreenDefinition {
-  readonly id: ScreenId;
-  readonly name: string;
-  /** Para qué es, en una frase. */
-  readonly summary: string;
-}
-
-export const SCREENS: readonly ScreenDefinition[] = [
-  { id: 'learn', name: 'Aprender', summary: 'Teoría a base de preguntas, y un profesor al lado.' },
-  {
-    id: 'compose',
-    name: 'Componer',
-    summary: 'Tonalidad, progresión, acordes y grabarte tocando.',
-  },
-  { id: 'tune', name: 'Afinar', summary: 'La afinación que elijas, cuerda a cuerda.' },
-];
-
-const SCREEN_IDS = new Set<string>(SCREENS.map((screen) => screen.id));
-
 export interface WorkspacePreferences {
-  readonly screen: ScreenId;
   readonly styleId: StyleId;
   readonly scaleId: ScaleId;
   readonly tuningId: TuningId;
 }
 
 export const DEFAULT_PREFERENCES: WorkspacePreferences = {
-  screen: 'compose',
   styleId: 'rock',
   scaleId: 'minorPentatonic',
   tuningId: 'standard',
@@ -58,16 +34,11 @@ export function parsePreferences(raw: unknown): WorkspacePreferences {
   }
   const record = raw as Record<string, unknown>;
 
-  const screen = record['screen'];
   const styleId = record['styleId'];
   const scaleId = record['scaleId'];
   const tuningId = record['tuningId'];
 
   return {
-    screen:
-      typeof screen === 'string' && SCREEN_IDS.has(screen)
-        ? (screen as ScreenId)
-        : DEFAULT_PREFERENCES.screen,
     styleId: typeof styleId === 'string' ? (styleId as StyleId) : DEFAULT_PREFERENCES.styleId,
     scaleId: typeof scaleId === 'string' ? (scaleId as ScaleId) : DEFAULT_PREFERENCES.scaleId,
     tuningId: typeof tuningId === 'string' ? (tuningId as TuningId) : DEFAULT_PREFERENCES.tuningId,

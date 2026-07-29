@@ -28,7 +28,6 @@ import {
   DEFAULT_PREFERENCES,
   loadPreferences,
   savePreferences,
-  type ScreenId,
   type WorkspacePreferences,
 } from './workspace';
 
@@ -96,8 +95,6 @@ export interface SessionActions {
   followDetection(): void;
   setScale(scaleId: ScaleId): void;
   setStyle(styleId: StyleId): void;
-  /** Cambia de pantalla y lo recuerda para la próxima vez. */
-  setScreen(screen: ScreenId): void;
   setTuning(tuningId: TuningId): void;
   /** Recupera del equipo lo que había configurado. */
   loadWorkspace(): void;
@@ -135,8 +132,6 @@ export interface SessionState {
   readonly pinnedKey: SessionKey | null;
   readonly scaleId: ScaleId;
   readonly styleId: StyleId;
-  /** En qué pantalla estás. */
-  readonly screen: ScreenId;
   /** La afinación con la que se compara lo que suena. */
   readonly tuningId: TuningId;
   /** Las últimas notas tocadas, de la más antigua a la más reciente. */
@@ -167,7 +162,6 @@ const EMPTY = {
   pinnedKey: null,
   scaleId: 'minorPentatonic',
   styleId: DEFAULT_PREFERENCES.styleId,
-  screen: DEFAULT_PREFERENCES.screen,
   tuningId: DEFAULT_PREFERENCES.tuningId,
   noteHistory: [],
   currentDegree: null,
@@ -180,7 +174,6 @@ const EMPTY = {
  */
 function remember(state: SessionState, patch: Partial<WorkspacePreferences>): void {
   savePreferences({
-    screen: state.screen,
     styleId: state.styleId,
     scaleId: state.scaleId,
     tuningId: state.tuningId,
@@ -243,12 +236,6 @@ export const useSessionStore = create<SessionState>()((set) => ({
         return { styleId };
       }),
 
-    setScreen: (screen) =>
-      set((state) => {
-        remember(state, { screen });
-        return { screen };
-      }),
-
     setTuning: (tuningId) =>
       set((state) => {
         remember(state, { tuningId });
@@ -258,7 +245,6 @@ export const useSessionStore = create<SessionState>()((set) => ({
     loadWorkspace: () => {
       const preferences = loadPreferences();
       set({
-        screen: preferences.screen,
         styleId: preferences.styleId,
         scaleId: preferences.scaleId,
         tuningId: preferences.tuningId,
@@ -288,7 +274,6 @@ export const selectClarity = (state: SessionState): number => state.clarity;
 export const selectLevel = (state: SessionState): number => state.level;
 export const selectScaleId = (state: SessionState): ScaleId => state.scaleId;
 export const selectStyleId = (state: SessionState): StyleId => state.styleId;
-export const selectScreen = (state: SessionState): ScreenId => state.screen;
 export const selectNoteHistory = (state: SessionState): readonly PlayedNote[] => state.noteHistory;
 export const selectActions = (state: SessionState): SessionActions => state.actions;
 

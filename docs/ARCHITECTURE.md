@@ -62,6 +62,12 @@ Quien los junta es `app/screens/`: una pantalla por fichero, y cada una mezcla
 los features que necesita. Es el único sitio del proyecto donde eso puede pasar,
 porque la composición es trabajo de la capa de arriba.
 
+Cada pantalla tiene su dirección —`/aprender`, `/componer`, `/afinar`— y `/` es
+la portada. En qué pantalla estás no vive en el store: lo dice la URL, que es lo
+que permite enlazar una, volver atrás y tener el afinador abierto en una pestaña
+mientras compones en otra. El store guarda lo que eliges —estilo, escala,
+afinación—, que sí es tuyo y no de la página.
+
 `recorder` es el caso curioso: envuelve a la pantalla de componer con
 `children`, así que la enseña entera sin saber qué hay dentro.
 

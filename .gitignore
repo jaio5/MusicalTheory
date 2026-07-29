@@ -16,3 +16,10 @@ next-env.d.ts
 
 .DS_Store
 *.log
+
+# El diseño de la portada se guarda como referencia; sus vídeos no, que pesan
+# lo mismo que el resto del repositorio junto. El que se sirve está en public/.
+reference/landing/hero/
+reference/landing/uploads/
+reference/landing/support.js
+reference/landing/.thumbnail

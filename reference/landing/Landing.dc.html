@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caos Ordenado — toca y la teoría se ordena sola</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; background:#12100E; color:#EDE6D8; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
+  * { box-sizing:border-box; }
+  a { color:#C9A24A; text-decoration:none; }
+  a:hover { color:#EDE6D8; }
+  [data-reveal] { transition: opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1); }
+  [data-reveal="pending"] { opacity:0; transform:translateY(16px); }
+  :focus-visible { outline:2px solid #C9A24A; outline-offset:3px; }
+  summary::-webkit-details-marker { display:none; }
+  @media (prefers-reduced-motion: reduce) { [data-reveal] { transition:none; } [data-reveal="pending"] { opacity:1; transform:none; } }
+</style>
+</helmet>
+
+<main style="background:#12100E; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; color:#EDE6D8; max-width:100%; overflow-x:hidden;">
+
+  <header style="position:relative; min-height:min(88vh,900px); display:flex; align-items:flex-end; overflow:hidden; background:#12100E;">
+    <video ref="{{ videoRef }}" muted="{{ true }}" loop="{{ true }}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .4s ease;">
+      <source src="hero/hero.mp4" type="video/mp4"></source>
+    </video>
+    <div style="position:absolute; inset:0; background:linear-gradient(100deg, rgba(9,8,7,.95) 0%, rgba(9,8,7,.88) 26%, rgba(12,10,9,.55) 54%, rgba(12,10,9,.18) 100%);"></div>
+    <div style="position:absolute; inset:0; pointer-events:none; mix-blend-mode:overlay; background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27160%27 height=%27160%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.85%27 numOctaves=%273%27/%3E%3C/filter%3E%3Crect width=%27160%27 height=%27160%27 filter=%27url(%23n)%27/%3E%3C/svg%3E'); opacity:{{ grain }};"></div>
+
+    <div style="position:relative; width:100%; padding:120px 24px 72px; display:flex; justify-content:center;">
+      <div style="width:100%; max-width:1160px;">
+        <div style="max-width:520px; display:flex; flex-direction:column; gap:26px; align-items:flex-start;">
+          <p style="margin:0; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:#C9A24A;">Caos ordenado</p>
+          <h1 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(44px,6.6vw,76px); line-height:1.02; letter-spacing:-.015em; color:#F4EEE2; text-wrap:pretty;">Toca. La teoría se ordena sola.</h1>
+          <p style="margin:0; font-size:17px; line-height:1.6; color:#CFC5B4; max-width:44ch; text-wrap:pretty;">Escucha lo que sale de tu guitarra y te devuelve la nota, el acorde y la tonalidad mientras suenan. En el navegador, sin cuenta y sin mandar tu audio a ninguna parte.</p>
+          <div style="display:flex; flex-wrap:wrap; gap:12px; padding-top:2px;">
+            <a href="#afinador" style="display:inline-flex; align-items:center; height:48px; padding:0 24px; border-radius:2px; background:#C9A24A; color:#12100E; font-size:15px; font-weight:600; letter-spacing:.01em;" style-hover="background:#DCB65C; color:#12100E;">Probar el afinador</a>
+            <a href="#modos" style="display:inline-flex; align-items:center; height:48px; padding:0 24px; border-radius:2px; border:1px solid #4A423A; color:#EDE6D8;" style-hover="border-color:#9A8E7E; color:#F4EEE2;">Ver los dos modos</a>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:28px; padding-top:14px; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:12px; color:#9A8E7E; letter-spacing:.04em;">
+            <span>440 Hz · ±1 cent</span>
+            <span>0 bytes de audio enviados</span>
+            <span>Sin instalar nada</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button onClick="{{ toggleVideo }}" aria-label="{{ videoBtnLabel }}" style="position:absolute; right:20px; bottom:20px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(237,230,216,.28); background:rgba(18,16,14,.55); color:#EDE6D8; border-radius:999px; cursor:pointer; backdrop-filter:blur(6px); font-family:'JetBrains Mono',monospace; font-size:11px;" style-hover="border-color:#C9A24A; color:#C9A24A;">{{ videoBtnGlyph }}</button>
+  </header>
+
+  <section id="afinador" data-reveal style="padding:110px 24px; border-top:1px solid #241E1A; background:#12100E;">
+    <div style="max-width:1160px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:56px; align-items:center;">
+      <div style="display:flex; flex-direction:column; gap:20px; max-width:480px;">
+        <p style="margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#9A8E7E;">01 — Pruébalo aquí</p>
+        <h2 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(32px,4vw,46px); line-height:1.1; color:#F4EEE2;">Un afinador de verdad, antes de registrarte</h2>
+        <p style="margin:0; font-size:16px; line-height:1.65; color:#9A8E7E; text-wrap:pretty;">Necesitamos el micro para escuchar la cuerda y calcular su frecuencia. El sonido se analiza en tu equipo y no se graba ni se envía.</p>
+        <button onClick="{{ toggleTuner }}" style="align-self:flex-start; height:48px; padding:0 24px; border:none; border-radius:2px; background:#4FB0A5; color:#0E1614; font-size:15px; font-weight:600; cursor:pointer;" style-hover="background:#63C4B9;">{{ tunerBtn }}</button>
+        <p style="margin:0; font-family:'JetBrains Mono',monospace; font-size:12px; color:#8C3330; min-height:16px;">{{ tunerError }}</p>
+      </div>
+
+      <div style="background:#1C1815; border:1px solid #241E1A; border-radius:4px; padding:38px 32px; display:flex; flex-direction:column; gap:26px; align-items:center;">
+        <div style="font-family:'Instrument Serif',Georgia,serif; font-size:88px; line-height:1; color:#F4EEE2;">{{ note }}</div>
+        <div style="position:relative; width:100%; height:6px; background:#241E1A; border-radius:3px;">
+          <div style="position:absolute; left:50%; top:-7px; width:1px; height:20px; background:#4A423A;"></div>
+          <div style="position:absolute; top:-4px; width:14px; height:14px; border-radius:50%; margin-left:-7px; transition:left .12s linear, background .2s; left:{{ needleLeft }}; background:{{ needleColor }};"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; width:100%; font-family:'JetBrains Mono',monospace; font-size:12px; color:#9A8E7E;">
+          <span>−50 c</span>
+          <span style="color:#EDE6D8;">{{ centsLabel }}</span>
+          <span>+50 c</span>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:12px; color:#9A8E7E; letter-spacing:.06em;">{{ freqLabel }}</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="modos" style="padding:20px 24px 110px; background:#12100E;">
+    <div style="max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:96px;">
+
+      <div data-reveal style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:56px; align-items:center;">
+        <div style="display:flex; flex-direction:column; gap:18px; max-width:460px;">
+          <p style="margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#C9A24A;">02 — Modo aprender</p>
+          <h2 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(28px,3.4vw,40px); line-height:1.12; color:#F4EEE2;">Te dice qué estás tocando mientras lo tocas</h2>
+          <p style="margin:0; font-size:16px; line-height:1.65; color:#9A8E7E; text-wrap:pretty;">Cada acorde aparece con su nombre, su función dentro de la tonalidad y las notas que lo forman. Si te equivocas de digitación, lo ves en el momento y no diez minutos después. Al terminar la sesión queda el registro de lo que has trabajado.</p>
+        </div>
+        <div style="aspect-ratio:16/10; border:1px solid #241E1A; border-radius:4px; background:repeating-linear-gradient(115deg,#1C1815 0 14px,#181411 14px 28px); display:flex; align-items:center; justify-content:center;">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#6B6156; letter-spacing:.1em;">captura — modo aprender</span>
+        </div>
+      </div>
+
+      <div data-reveal style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:56px; align-items:center;">
+        <div style="aspect-ratio:16/10; border:1px solid #241E1A; border-radius:4px; background:repeating-linear-gradient(65deg,#1C1815 0 14px,#181411 14px 28px); display:flex; align-items:center; justify-content:center; order:2;">
+          <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#6B6156; letter-spacing:.1em;">captura — modo componer</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:18px; max-width:460px; order:1;">
+          <p style="margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#C9A24A;">03 — Modo componer</p>
+          <h2 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(28px,3.4vw,40px); line-height:1.12; color:#F4EEE2;">Guarda la idea antes de que se te olvide</h2>
+          <p style="margin:0; font-size:16px; line-height:1.65; color:#9A8E7E; text-wrap:pretty;">Tocas cuatro compases y quedan escritos en cifrado, con la tonalidad ya deducida. Puedes pedir dos o tres acordes que continúen esa progresión y probarlos sobre la marcha. Lo que no te sirve se borra de un clic.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-reveal style="padding:110px 24px; background:#1C1815; border-top:1px solid #241E1A; border-bottom:1px solid #241E1A;">
+    <div style="max-width:1160px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:64px; align-items:center;">
+      <div style="display:flex; flex-direction:column; gap:18px; max-width:480px;">
+        <p style="margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#C9A24A;">04 — La rueda de quintas</p>
+        <h2 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(30px,3.8vw,44px); line-height:1.1; color:#F4EEE2;">Gira sola hasta tu tonalidad</h2>
+        <p style="margin:0; font-size:16px; line-height:1.65; color:#9A8E7E; text-wrap:pretty;">Mientras tocas, la aplicación acumula las notas y los acordes que aparecen y calcula en qué tonalidad estás. Cuando lo tiene claro, la rueda gira y coloca esa tonalidad arriba del todo.</p>
+        <p style="margin:0; font-size:16px; line-height:1.65; color:#9A8E7E; text-wrap:pretty;">A partir de ahí, lo que queda cerca en la rueda es lo que suena natural a continuación, y lo que queda lejos es el sitio al que ir cuando quieres que la canción se tuerza. Si cambias de tonalidad a mitad de una idea, la rueda vuelve a girar.</p>
+      </div>
+      <div style="display:flex; justify-content:center;">
+        <div data-wheel style="position:relative; width:min(340px,80vw); aspect-ratio:1;">
+          <div style="position:absolute; inset:0; border:1px solid #3A322B; border-radius:50%;"></div>
+          <div style="position:absolute; inset:52px; border:1px solid #2C2621; border-radius:50%;"></div>
+          <div style="position:absolute; left:50%; top:-6px; width:0; height:0; margin-left:-6px; border-left:6px solid transparent; border-right:6px solid transparent; border-top:10px solid #C9A24A;"></div>
+          <div style="position:absolute; inset:0; transition:transform .9s cubic-bezier(.22,.8,.28,1); transform:rotate({{ wheelDeg }}deg);">
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#EDE6D8; transform:translate(-50%,-50%) rotate(0deg) translateY(-134px) rotate(0deg);">C</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#9A8E7E; transform:translate(-50%,-50%) rotate(30deg) translateY(-134px) rotate(-30deg);">G</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#EDE6D8; transform:translate(-50%,-50%) rotate(60deg) translateY(-134px) rotate(-60deg);">D</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#9A8E7E; transform:translate(-50%,-50%) rotate(90deg) translateY(-134px) rotate(-90deg);">A</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#EDE6D8; transform:translate(-50%,-50%) rotate(120deg) translateY(-134px) rotate(-120deg);">E</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#9A8E7E; transform:translate(-50%,-50%) rotate(150deg) translateY(-134px) rotate(-150deg);">B</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#EDE6D8; transform:translate(-50%,-50%) rotate(180deg) translateY(-134px) rotate(-180deg);">F#</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#9A8E7E; transform:translate(-50%,-50%) rotate(210deg) translateY(-134px) rotate(-210deg);">Db</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#EDE6D8; transform:translate(-50%,-50%) rotate(240deg) translateY(-134px) rotate(-240deg);">Ab</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#9A8E7E; transform:translate(-50%,-50%) rotate(270deg) translateY(-134px) rotate(-270deg);">Eb</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#EDE6D8; transform:translate(-50%,-50%) rotate(300deg) translateY(-134px) rotate(-300deg);">Bb</div>
+            <div style="position:absolute; left:50%; top:50%; font-family:'JetBrains Mono',monospace; font-size:15px; color:#9A8E7E; transform:translate(-50%,-50%) rotate(330deg) translateY(-134px) rotate(-330deg);">F</div>
+          </div>
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.18em; color:#6B6156;">TONALIDAD</span>
+            <span style="font-family:'Instrument Serif',Georgia,serif; font-size:34px; color:#C9A24A;">{{ wheelKey }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-reveal style="padding:110px 24px; background:#12100E;">
+    <div style="max-width:1160px; margin:0 auto; display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:56px; align-items:center;">
+      <div style="position:relative; aspect-ratio:16/10; border:1px solid #241E1A; border-radius:4px; background:repeating-linear-gradient(90deg,#1C1815 0 14px,#181411 14px 28px); overflow:hidden;">
+        <div style="position:absolute; left:16px; top:16px; display:flex; gap:8px; font-family:'JetBrains Mono',monospace; font-size:11px;">
+          <span style="padding:5px 9px; background:rgba(18,16,14,.8); border:1px solid #3A322B; color:#4FB0A5;">Am7</span>
+          <span style="padding:5px 9px; background:rgba(18,16,14,.8); border:1px solid #3A322B; color:#9A8E7E;">La menor</span>
+        </div>
+        <div style="position:absolute; right:16px; top:16px; display:flex; align-items:center; gap:7px; font-family:'JetBrains Mono',monospace; font-size:11px; color:#8C3330;">
+          <span style="width:8px; height:8px; border-radius:50%; background:#8C3330;"></span>REC 01:12
+        </div>
+        <div style="position:absolute; inset:auto 0 0 0; padding:14px 16px; font-family:'JetBrains Mono',monospace; font-size:11px; color:#6B6156;">captura — grabación con datos superpuestos</div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:18px; max-width:460px;">
+        <p style="margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#C9A24A;">05 — Grabarte tocando</p>
+        <h2 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(28px,3.4vw,40px); line-height:1.12; color:#F4EEE2;">Con la cámara puesta, si te apetece</h2>
+        <p style="margin:0; font-size:16px; line-height:1.65; color:#9A8E7E; text-wrap:pretty;">Puedes grabarte mientras tocas y ver los acordes detectados sobre la imagen, así revisas la mano izquierda y la progresión a la vez. El archivo se guarda en tu disco cuando pulsas descargar; si no lo haces, desaparece al cerrar la pestaña.</p>
+      </div>
+    </div>
+  </section>
+
+  <section data-reveal style="padding:110px 24px; background:#241E1A;">
+    <div style="max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:22px;">
+      <p style="margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#4FB0A5;">06 — Privacidad</p>
+      <h2 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(30px,4vw,46px); line-height:1.1; color:#F4EEE2;">Tu audio no sale de aquí</h2>
+      <p style="margin:0; font-size:17px; line-height:1.65; color:#CFC5B4; text-wrap:pretty;">El micrófono se analiza dentro del navegador, en tu ordenador. Nadie escucha lo que tocas y no queda ninguna grabación en ningún servidor.</p>
+      <p style="margin:0; font-size:17px; line-height:1.65; color:#9A8E7E; text-wrap:pretty;">Cuando pides una sugerencia, lo único que viaja son nombres: <span style="font-family:'JetBrains Mono',monospace; color:#C9A24A;">Am7 · F · C · G</span> y la tonalidad. Ni un segundo de sonido.</p>
+    </div>
+  </section>
+
+  <section data-reveal style="padding:110px 24px; background:#12100E;">
+    <div style="max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:32px;">
+      <h2 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(30px,4vw,44px); color:#F4EEE2;">Preguntas</h2>
+      <div style="display:flex; flex-direction:column; gap:2px;">
+        <details style="border-top:1px solid #241E1A; padding:20px 0;">
+          <summary style="cursor:pointer; list-style:none; font-size:17px; color:#EDE6D8;">¿Qué necesito para usarlo?</summary>
+          <p style="margin:14px 0 0; font-size:16px; line-height:1.65; color:#9A8E7E;">La guitarra, un navegador reciente y permiso de micrófono. No hay que instalar nada ni conectar interfaz de audio: con el micro del portátil o del móvil llega.</p>
+        </details>
+        <details style="border-top:1px solid #241E1A; padding:20px 0;">
+          <summary style="cursor:pointer; list-style:none; font-size:17px; color:#EDE6D8;">¿Sirve con guitarra eléctrica?</summary>
+          <p style="margin:14px 0 0; font-size:16px; line-height:1.65; color:#9A8E7E;">Sí, tanto a pelo como enchufada. Si usas mucha distorsión, la detección de acordes pierde precisión; con un sonido limpio o poco saturado va fina.</p>
+        </details>
+        <details style="border-top:1px solid #241E1A; padding:20px 0;">
+          <summary style="cursor:pointer; list-style:none; font-size:17px; color:#EDE6D8;">¿Funciona con acordes o solo con notas sueltas?</summary>
+          <p style="margin:14px 0 0; font-size:16px; line-height:1.65; color:#9A8E7E;">Con las dos cosas. El afinador trabaja nota a nota y el análisis armónico reconoce acordes completos, arpegios y también líneas de una sola voz.</p>
+        </details>
+        <details style="border-top:1px solid #241E1A; border-bottom:1px solid #241E1A; padding:20px 0;">
+          <summary style="cursor:pointer; list-style:none; font-size:17px; color:#EDE6D8;">¿Hace falta saber teoría?</summary>
+          <p style="margin:14px 0 0; font-size:16px; line-height:1.65; color:#9A8E7E;">No. Puedes tocar y leer los nombres que van saliendo; la explicación está ahí cuando la quieras y se calla cuando no.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section data-reveal style="padding:120px 24px; background:#1C1815; border-top:1px solid #241E1A;">
+    <div style="max-width:700px; margin:0 auto; display:flex; flex-direction:column; align-items:flex-start; gap:24px;">
+      <h2 style="margin:0; font-family:'Instrument Serif',Georgia,serif; font-weight:400; font-size:clamp(34px,5vw,56px); line-height:1.05; color:#F4EEE2; text-wrap:pretty;">Coge la guitarra y enciende el micro</h2>
+      <p style="margin:0; font-size:17px; line-height:1.6; color:#9A8E7E; max-width:46ch;">Se empieza tocando. Si a los cinco minutos no te aporta nada, cierras la pestaña y no ha pasado nada.</p>
+      <a href="#afinador" style="display:inline-flex; align-items:center; height:52px; padding:0 28px; border-radius:2px; background:#C9A24A; color:#12100E; font-size:16px; font-weight:600;" style-hover="background:#DCB65C;">Empezar a tocar</a>
+    </div>
+  </section>
+
+  <footer style="padding:40px 24px; background:#12100E; border-top:1px solid #241E1A;">
+    <div style="max-width:1160px; margin:0 auto; display:flex; flex-wrap:wrap; gap:20px; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:12px; color:#6B6156;">
+      <span>Caos Ordenado</span>
+      <div style="display:flex; gap:22px;">
+        <a href="#afinador">Afinador</a>
+        <a href="#modos">Modos</a>
+        <a href="#afinador">Privacidad</a>
+      </div>
+      <span>Hecho para tocar de noche</span>
+    </div>
+  </footer>
+</main>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;grainOpacity&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:0.17,&quot;min&quot;:0,&quot;max&quot;:0.4,&quot;step&quot;:0.01,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Cabecera&quot;},&quot;wheelScroll&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Rueda de quintas&quot;}}">
+const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+
+class Component extends DCLogic {
+  state = { note: "—", cents: null, freq: null, listening: false, error: "", videoPaused: false, wheelDeg: 0, wheelKey: "C" };
+
+  renderVals() {
+    const s = this.state;
+    const cents = s.cents;
+    const inTune = cents !== null && Math.abs(cents) <= 5;
+    return {
+      grain: this.props.grainOpacity ?? 0.17,
+      videoRef: (el) => { this.video = el; },
+      toggleVideo: () => {
+        if (!this.video) return;
+        if (this.video.paused) { this.video.play(); this.setState({ videoPaused: false }); }
+        else { this.video.pause(); this.setState({ videoPaused: true }); }
+      },
+      videoBtnGlyph: s.videoPaused ? "▶" : "❚❚",
+      videoBtnLabel: s.videoPaused ? "Reanudar el vídeo de la cabecera" : "Pausar el vídeo de la cabecera",
+      note: s.note,
+      centsLabel: cents === null ? "sin señal" : (cents > 0 ? "+" : "") + cents + " cents",
+      freqLabel: s.freq ? s.freq.toFixed(1) + " Hz" : "esperando una cuerda",
+      needleLeft: "calc(50% + " + (cents === null ? 0 : Math.max(-50, Math.min(50, cents)) * 0.9) + "%)",
+      needleColor: cents === null ? "#4A423A" : (inTune ? "#4FB0A5" : "#C9A24A"),
+      tunerBtn: s.listening ? "Parar el micrófono" : "Activar el micrófono",
+      tunerError: s.error,
+      toggleTuner: () => (s.listening ? this.stopTuner() : this.startTuner()),
+      wheelDeg: s.wheelDeg,
+      wheelKey: s.wheelKey
+    };
+  }
+
+  componentDidMount() {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const conn = navigator.connection || {};
+    const slow = conn.saveData || /^[23]g$/.test(conn.effectiveType || "");
+    const v = this.video;
+    if (v) {
+      v.muted = true; v.playsInline = true; v.setAttribute("playsinline", "");
+      if (reduce || slow) {
+        v.removeAttribute("autoplay"); v.style.opacity = "1"; v.preload = "none";
+        this.setState({ videoPaused: true });
+      } else {
+        v.addEventListener("canplay", () => { v.style.opacity = "1"; }, { once: true });
+        v.load(); const p = v.play(); if (p && p.catch) p.catch(() => {});
+        this.vio = new IntersectionObserver(([e]) => {
+          if (!this.state.videoPaused) { e.isIntersecting ? v.play().catch(() => {}) : v.pause(); }
+        }, { threshold: 0.05 });
+        this.vio.observe(v.parentElement);
+      }
+    }
+
+    if (!reduce) {
+      const els = Array.from(document.querySelectorAll("[data-reveal]"));
+      els.forEach((el, i) => { el.setAttribute("data-reveal", "pending"); el.style.transitionDelay = (i % 3) * 70 + "ms"; });
+      this.reveal = () => {
+        const vh = innerHeight || 800;
+        let left = 0;
+        els.forEach((el) => {
+          if (el.getAttribute("data-reveal") !== "pending") return;
+          const r = el.getBoundingClientRect();
+          if (r.top < vh * 0.92 && r.bottom > 0) el.setAttribute("data-reveal", "in"); else left++;
+        });
+        return left;
+      };
+      document.addEventListener("scroll", this.reveal, { passive: true, capture: true });
+      addEventListener("resize", this.reveal, { passive: true });
+      requestAnimationFrame(this.reveal);
+      setTimeout(() => els.forEach((el) => el.setAttribute("data-reveal", "in")), 4000);
+    }
+
+    if (this.props.wheelScroll ?? true) {
+      const keys = ["C","G","D","A","E","B","F#","Db","Ab","Eb","Bb","F"];
+      this.onScroll = () => {
+        const el = document.querySelector("[data-wheel]");
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const vh = innerHeight || 800;
+        const p = Math.max(0, Math.min(1, (vh - r.top) / (vh + r.height)));
+        const step = Math.round(p * 7) % 12;
+        if (step !== this.lastStep) {
+          this.lastStep = step;
+          this.setState({ wheelDeg: -step * 30, wheelKey: keys[step] });
+        }
+      };
+      document.addEventListener("scroll", this.onScroll, { passive: true, capture: true });
+      addEventListener("resize", this.onScroll, { passive: true });
+      this.onScroll();
+    }
+  }
+
+  componentWillUnmount() {
+    this.stopTuner();
+    if (this.vio) this.vio.disconnect();
+    if (this.reveal) { document.removeEventListener("scroll", this.reveal, true); removeEventListener("resize", this.reveal); }
+    if (this.onScroll) { document.removeEventListener("scroll", this.onScroll, true); removeEventListener("resize", this.onScroll); }
+  }
+
+  async startTuner() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      this.stream = stream;
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = this.ctx.createMediaStreamSource(stream);
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 2048;
+      src.connect(this.analyser);
+      this.buf = new Float32Array(this.analyser.fftSize);
+      this.setState({ listening: true, error: "" });
+      this.tick();
+    } catch (e) {
+      this.setState({ error: "No se ha podido usar el micrófono. Revisa los permisos del navegador." });
+    }
+  }
+
+  stopTuner() {
+    cancelAnimationFrame(this.raf);
+    if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+    if (this.ctx) this.ctx.close();
+    this.stream = this.ctx = null;
+    this.setState({ listening: false, note: "—", cents: null, freq: null });
+  }
+
+  tick = () => {
+    if (!this.analyser) return;
+    this.analyser.getFloatTimeDomainData(this.buf);
+    const f = this.detect(this.buf, this.ctx.sampleRate);
+    if (f > 0) {
+      const n = 12 * Math.log2(f / 440) + 69;
+      const rounded = Math.round(n);
+      const cents = Math.round((n - rounded) * 100);
+      const name = NOTES[((rounded % 12) + 12) % 12];
+      if (name !== this.state.note || cents !== this.state.cents) this.setState({ note: name, cents, freq: f });
+    }
+    this.raf = requestAnimationFrame(this.tick);
+  };
+
+  detect(buf, rate) {
+    const n = buf.length;
+    let rms = 0;
+    for (let i = 0; i < n; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / n);
+    if (rms < 0.01) return -1;
+    let r1 = 0, r2 = n - 1;
+    const thr = 0.2;
+    for (let i = 0; i < n / 2; i++) if (Math.abs(buf[i]) < thr) { r1 = i; break; }
+    for (let i = 1; i < n / 2; i++) if (Math.abs(buf[n - i]) < thr) { r2 = n - i; break; }
+    const b = buf.slice(r1, r2);
+    const m = b.length;
+    const c = new Array(m).fill(0);
+    for (let i = 0; i < m; i++) for (let j = 0; j < m - i; j++) c[i] += b[j] * b[j + i];
+    let d = 0;
+    while (c[d] > c[d + 1]) d++;
+    let maxval = -1, maxpos = -1;
+    for (let i = d; i < m; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
+    let T = maxpos;
+    if (T <= 0) return -1;
+    const x1 = c[T - 1], x2 = c[T], x3 = c[T + 1];
+    const a = (x1 + x3 - 2 * x2) / 2, bb = (x3 - x1) / 2;
+    if (a) T = T - bb / (2 * a);
+    const freq = rate / T;
+    return freq > 60 && freq < 1400 ? freq : -1;
+  }
+}
+</script>
+</body>
+</html>
