@@ -14,8 +14,20 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
 
 type ExtraId = 'fretboard' | 'ideas' | 'sessions';
 
-const EXTRAS: ReadonlyArray<{ id: ExtraId; name: string; render: () => React.ReactElement }> = [
-  { id: 'fretboard', name: 'Mástil', render: FretboardPanel },
+interface Extra {
+  readonly id: ExtraId;
+  readonly name: string;
+  readonly render: () => React.ReactElement;
+  /**
+   * Si lo de dentro se ajusta solo al hueco. El mástil sí —se encoge hasta
+   * caber—, así que se lleva un alto fijo y no hace scroll nunca. Lo demás es
+   * texto, y el texto se lee desplazándolo.
+   */
+  readonly fits?: boolean;
+}
+
+const EXTRAS: readonly Extra[] = [
+  { id: 'fretboard', name: 'Mástil', render: FretboardPanel, fits: true },
   { id: 'ideas', name: 'Ideas', render: IdeasPanel },
   { id: 'sessions', name: 'Sesiones', render: SessionsPanel },
 ];
@@ -107,7 +119,11 @@ export function ComposeScreen() {
           {current !== null && (
             <div
               id="herramienta-abierta"
-              className="border-border max-h-[min(52vh,26rem)] overflow-auto border-t p-3"
+              className={`border-border border-t p-3 ${
+                current.fits === true
+                  ? 'h-[min(50vh,30rem)] overflow-hidden'
+                  : 'max-h-[min(52vh,26rem)] overflow-auto'
+              }`}
             >
               <current.render />
             </div>

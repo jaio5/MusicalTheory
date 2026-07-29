@@ -186,8 +186,12 @@ propone mientras escribes. Cada acorde lleva un punto: verde si es seguro, ámba
 si trae una nota de fuera y rojo si trae más. Mástil, ideas y sesiones se abren en una franja
 a lo ancho de toda la parte de abajo: el mástil son seis cuerdas y quince
 trastes, y en una columna estrecha no se lee. La franja crece con lo que haya
-dentro hasta un tope, así que el mástil se estira y las sesiones no dejan medio
-hueco vacío debajo.
+dentro hasta un tope, así que las sesiones no dejan medio hueco vacío debajo.
+
+El mástil no hace scroll nunca: se lleva un alto fijo y el dibujo se encoge
+hasta caber. Un mástil que hay que arrastrar para ver el traste doce no sirve
+con la guitarra en las manos, y perder la mitad de la pantalla mientras está
+abierto es un precio que se paga solo mientras se mira.
 
 Aquí está grabarte tocando: al darle al botón la cámara se pone detrás de todo y
 la interfaz se queda en contorno y letra, así que te ves mientras sigues leyendo

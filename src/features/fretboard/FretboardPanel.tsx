@@ -13,14 +13,14 @@ export function FretboardPanel() {
   const hasSignal = useSessionStore((state) => state.hasSignal);
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       {activeKey === null ? (
-        <p className="text-text-muted mt-6">
+        <p className="text-text-muted mt-6 shrink-0">
           Toca unos compases o elige una tonalidad arriba, y aquí sale la escala sobre el mástil.
         </p>
       ) : (
         <>
-          <p className="text-text-muted mt-2 text-sm">
+          <p className="text-text-muted mt-2 shrink-0 text-sm">
             {SCALES[scaleId].name} de{' '}
             {noteName(activeKey.tonic, accidentalForScale(activeKey.tonic, scaleId))}:{' '}
             <span className="text-text font-mono">
@@ -32,7 +32,10 @@ export function FretboardPanel() {
             </span>
           </p>
 
-          <div className="mt-4 overflow-x-auto">
+          {/* El dibujo se queda con el alto que sobre y se encoge hasta caber:
+              un mástil que hay que arrastrar para ver el traste doce no sirve
+              con la guitarra en las manos. */}
+          <div className="mt-4 min-h-0 grow">
             <Fretboard
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}
@@ -41,7 +44,7 @@ export function FretboardPanel() {
             />
           </div>
 
-          <p className="text-text-muted mt-4 text-sm">{SCALES[scaleId].character}</p>
+          <p className="text-text-muted mt-3 shrink-0 text-sm">{SCALES[scaleId].character}</p>
         </>
       )}
     </div>

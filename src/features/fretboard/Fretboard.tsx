@@ -43,7 +43,8 @@ export function Fretboard({ tonic, scaleId, soundingMidi, accidental = 'sharp' }
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      className="h-auto w-full"
+      preserveAspectRatio="xMidYMid meet"
+      className="h-full max-h-full w-full"
       role="img"
       aria-label={`Mástil de ${DEFAULT_FRET_COUNT} trastes con la escala ${SCALES[
         scaleId
