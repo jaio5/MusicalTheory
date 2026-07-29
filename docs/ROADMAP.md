@@ -154,6 +154,11 @@ El resto no se demuestra en la portada: se cuenta y se enlaza. Meter aquí la
 pantalla de componer sería enseñar una foto de la aplicación en vez de la
 aplicación.
 
+El encabezado ocupa una pantalla justa —ni más, para que se vea que hay algo
+debajo, ni menos— con el vídeo a la vista. El velo va de lado y no plano: por la
+izquierda oscurece lo justo para leer el titular y por la derecha deja la imagen
+entera. Con un velo plano encima, o no se lee el titular o no se ve el vídeo.
+
 El texto sale del diseño que hay en `reference/landing`, adaptado a lo que la
 aplicación hace de verdad hoy.
 

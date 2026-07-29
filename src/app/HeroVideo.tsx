@@ -37,7 +37,7 @@ export function HeroVideo() {
       playsInline
       preload="none"
       aria-hidden="true"
-      className="absolute inset-0 h-full w-full object-cover opacity-40"
+      className="absolute inset-0 h-full w-full object-cover"
     />
   );
 }
