@@ -1,0 +1,37 @@
+# Lo mismo que hay que pasar antes de publicar, en cada empujón.
+#
+# El orden no es casual: primero lo que falla rápido y barato —formato, reglas,
+# tipos— y al final la compilación, que es la que tarda.
+name: Comprobaciones
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Reglas de estilo y de capas
+        run: pnpm lint
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
+
+      - name: Compilación de producción
+        run: pnpm build

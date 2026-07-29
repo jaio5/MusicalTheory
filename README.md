@@ -1,29 +1,27 @@
 # Caos ordenado
 
-Aplicación web que escucha la guitarra por el micro y acompaña al que toca en
-dos modos:
+Aplicación web que escucha la guitarra por el micro y ordena la teoría mientras
+tocas. Tres pantallas, cada una para una cosa:
 
-- **Aprender** — afinador, escalas sobre el mástil y ejercicios que se validan
-  solos cuando la nota suena limpia.
-- **Componer** — detecta la tonalidad de lo que estás tocando, muestra los
-  acordes diatónicos, los caminos habituales desde el acorde actual y pide
-  ideas a un modelo.
+- **Aprender** — teoría a base de preguntas, escritas en la tonalidad en la que
+  estés, con un profesor al que preguntarle lo que sea y la escala para tocarla
+  de verdad, validada por el micro.
+- **Componer** — eliges tonalidad en la rueda, encadenas acordes y ves de cuántas
+  maneras se hacen a lo largo del mástil y a dónde puedes ir desde ahí.
+  Reconoce el acorde que estás tocando, lleva metrónomo y te graba con la cámara
+  detrás de la interfaz.
+- **Afinar** — ocho afinaciones, de la estándar al open D, y nada más en
+  pantalla.
 
-Encima de los dos modos hay una grabación opcional con cámara, con los datos
-detectados quemados en el vídeo.
-
-**Estado**: las siete fases están implementadas — afinador, rueda de quintas,
-mástil, modo aprender, modo componer, ideas de IA, grabación con cámara y
-sesiones guardadas en local. Lo que queda es afinar con instrumento real y la
-deuda anotada en [docs/ROADMAP.md](./docs/ROADMAP.md).
+La portada cuenta qué es y trae el afinador de verdad para probarlo sin entrar.
 
 ## Cómo arrancarlo
 
-Requiere Node 20 o superior y pnpm.
+Requiere Node 22 o superior y pnpm.
 
 ```bash
 pnpm install
-cp .env.example .env.local   # solo hace falta para la fase 5, las ideas de IA
+cp .env.example .env.local   # solo para la IA: el profesor y las ideas
 pnpm dev                     # http://localhost:3000
 ```
 
@@ -37,12 +35,23 @@ pnpm lint        # ESLint, incluidas las reglas de capas
 pnpm build       # build de producción
 ```
 
+Los cinco corren solos en cada empujón: [.github/workflows/ci.yml](./.github/workflows/ci.yml).
+
+## Cómo publicarlo
+
+Hace falta un servidor de Node —hay dos rutas de servidor para que la clave de
+Anthropic no llegue nunca al navegador— y HTTPS, o no hay permiso de micrófono.
+Los tres caminos, con sus comandos, en
+[docs/DESPLIEGUE.md](./docs/DESPLIEGUE.md).
+
 ## Aviso: hace falta señal limpia
 
 La detección de tono es **monofónica** y necesita señal sin distorsión.
 
-- Una sola nota cada vez. Un acorde rasgueado no se identifica: la
-  autocorrelación devuelve un periodo, no varios.
+- Una sola nota cada vez. Un acorde rasgueado no lo identifica el afinador: la
+  autocorrelación devuelve un periodo, no varios. Para acordes hay otro análisis
+  —espectro y plantillas— y solo en componer; acierta con tríadas y séptimas
+  sostenidas en limpio y duda con inversiones.
 - **Sin distorsión.** Un previo saturado genera armónicos que pueden superar a
   la fundamental, y entonces el analizador detecta la octava de arriba. Con
   Guitar Rig, usa el canal limpio antes de los pedales.
@@ -65,6 +74,8 @@ actual. Ver [docs/AI.md](./docs/AI.md) y
   limitaciones tiene.
 - [RECORDING.md](./docs/RECORDING.md) — permisos, composición en canvas,
   formatos y descarga local.
-- [AI.md](./docs/AI.md) — contrato del route handler.
+- [AI.md](./docs/AI.md) — contrato de los route handlers de ideas y profesor.
+- [DESPLIEGUE.md](./docs/DESPLIEGUE.md) — qué hace falta para publicarlo y qué
+  se rompe según dónde.
 - [ROADMAP.md](./docs/ROADMAP.md) — fases y deuda anotada.
 - [adr/](./docs/adr/) — decisiones con sus alternativas descartadas.
