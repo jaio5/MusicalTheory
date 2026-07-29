@@ -67,9 +67,48 @@ function safetyColour(notes: readonly PitchClass[], inKey: ReadonlySet<PitchClas
   return outside === 1 ? 'bg-brass-bright' : 'bg-oxblood-bright';
 }
 
+/** Lo mínimo para dibujar un acorde: da igual si lo elegiste o si lo tocaste. */
+export type ShowableChord = Pick<PathChord, 'symbol' | 'root' | 'notes'>;
+
 /** Los intervalos del acorde respecto a su fundamental, para buscar formas. */
-function relativeIntervals(chord: PathChord): number[] {
+function relativeIntervals(chord: ShowableChord): number[] {
   return chord.notes.map((note) => (note - chord.root + 12) % 12).sort((a, b) => a - b);
+}
+
+/**
+ * Todas las maneras de hacer un acorde a lo largo del mástil.
+ *
+ * Se enseñan a la vez y no de una en una: la gracia es ver que el mismo acorde
+ * vive en cinco sitios distintos, y eso no se ve pasando páginas.
+ */
+export function VoicingList({ chord }: { chord: ShowableChord }) {
+  const voicings = useMemo(
+    () => chordVoicings(chord.root, relativeIntervals(chord), { limit: 6 }),
+    [chord],
+  );
+
+  if (voicings.length === 0) {
+    return (
+      <p className="text-text-muted p-3 text-sm">
+        No cabe en cuatro trastes con la fundamental al bajo. Prueba otra forma del acorde.
+      </p>
+    );
+  }
+
+  return (
+    <ul aria-label={`Formas de hacer ${chord.symbol}`} className="flex flex-wrap gap-3 p-3">
+      {voicings.map((voicing) => (
+        <li key={voicing.frets.join('-')} className="flex flex-col items-center">
+          <ChordDiagram
+            frets={voicing.frets}
+            position={voicing.position}
+            label={`${chord.symbol}, ${voicing.name.toLowerCase()}`}
+          />
+          <span className="text-text-muted mt-1 text-center text-xs">{voicing.name}</span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /**
@@ -155,46 +194,29 @@ export function CurrentChord() {
 }
 
 /**
- * Todas las maneras de hacer el acorde a lo largo del mástil.
+ * Cómo se hace el acorde que has elegido.
  *
- * Se enseñan a la vez y no de una en una: la gracia es ver que el mismo acorde
- * vive en cinco sitios distintos, y eso no se ve pasando páginas.
+ * La zona está siempre, con acorde o sin él. Si apareciera y desapareciera, lo
+ * que va debajo —lo que estás tocando— cambiaría de sitio cada vez que eliges
+ * algo, y se acaba mirando dónde estaba en vez de mirar el mástil.
  */
 export function Voicings() {
   const path = useSessionStore((state) => state.path);
   const current = path.at(-1) ?? null;
 
-  const voicings = useMemo(
-    () =>
-      current === null ? [] : chordVoicings(current.root, relativeIntervals(current), { limit: 6 }),
-    [current],
-  );
-
-  if (current === null) {
-    return null;
-  }
-
-  if (voicings.length === 0) {
-    return (
-      <p className="text-text-muted p-3 text-sm">
-        No cabe en cuatro trastes con la fundamental al bajo. Prueba otra forma del acorde.
-      </p>
-    );
-  }
-
   return (
-    <ul aria-label={`Formas de hacer ${current.symbol}`} className="flex flex-wrap gap-3 p-3">
-      {voicings.map((voicing) => (
-        <li key={voicing.frets.join('-')} className="flex flex-col items-center">
-          <ChordDiagram
-            frets={voicing.frets}
-            position={voicing.position}
-            label={`${current.symbol}, ${voicing.name.toLowerCase()}`}
-          />
-          <span className="text-text-muted mt-1 text-center text-xs">{voicing.name}</span>
-        </li>
-      ))}
-    </ul>
+    <section aria-label="Formas del acorde elegido" className="border-border shrink-0 border-b">
+      <p className="text-text-muted px-3 pt-2 font-mono text-xs tracking-widest uppercase">
+        Elegido
+      </p>
+      {current === null ? (
+        <p className="text-text-muted px-3 py-4 text-sm">
+          Pulsa un acorde de la lista y aquí sale cómo se hace.
+        </p>
+      ) : (
+        <VoicingList chord={current} />
+      )}
+    </section>
   );
 }
 

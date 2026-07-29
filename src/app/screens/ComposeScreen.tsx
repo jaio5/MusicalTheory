@@ -80,9 +80,12 @@ export function ComposeScreen() {
             aria-label="El acorde y sus formas"
             className="flex min-h-0 flex-col overflow-y-auto"
           >
-            <HeardChord />
+            {/* Arriba lo que has elegido tú, abajo lo que estás tocando. Cada
+                cosa tiene su sitio fijo, así que al soltar las cuerdas nada se
+                mueve: solo cambia el rótulo de «Suena» a «Último». */}
             <CurrentChord />
             <Voicings />
+            <HeardChord />
           </section>
 
           <section

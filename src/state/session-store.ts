@@ -152,8 +152,17 @@ export interface SessionState {
   readonly currentDegree: DegreeSymbol | null;
   /** La progresión que se está armando, del primero al último. */
   readonly path: readonly PathChord[];
-  /** Lo último que se ha reconocido por el micro, o null. */
+  /** Lo que se reconoce ahora mismo por el micro, o null si ya no suena. */
   readonly heardChord: HeardChord | null;
+  /**
+   * El último acorde que se reconoció, aunque haya dejado de sonar.
+   *
+   * Existe porque `heardChord` se apaga en cuanto sueltas las cuerdas, y con él
+   * desaparecía de la pantalla lo que acababas de tocar. Para meterlo en el
+   * camino había que tocarlo y darle al botón antes de que se apagara, que con
+   * la guitarra en las manos no se puede.
+   */
+  readonly lastHeardChord: HeardChord | null;
   /**
    * Las acciones viven en un objeto propio que no se reemplaza nunca, para que
    * suscribirse a ellas no provoque renders. Es el equivalente a inyectar un
@@ -181,6 +190,7 @@ const EMPTY = {
   currentDegree: null,
   path: [],
   heardChord: null,
+  lastHeardChord: null,
 } as const satisfies Omit<SessionState, 'actions'>;
 
 /**
@@ -265,7 +275,13 @@ export const useSessionStore = create<SessionState>()((set) => ({
         tuningId: preferences.tuningId,
       });
     },
-    setHeardChord: (heardChord) => set({ heardChord }),
+    // El vivo se apaga al soltar las cuerdas; el último se queda. Así lo que
+    // acabas de tocar sigue en pantalla y da tiempo a meterlo en el camino.
+    setHeardChord: (heardChord) =>
+      set((state) => ({
+        heardChord,
+        lastHeardChord: heardChord ?? state.lastHeardChord,
+      })),
     pushChord: (chord) => set((state) => ({ path: [...state.path, chord] })),
     trimPath: (index) => set((state) => ({ path: state.path.slice(0, index + 1) })),
     clearPath: () => set({ path: [] }),
@@ -284,6 +300,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
         noteHistory: [],
         path: [],
         heardChord: null,
+        lastHeardChord: null,
       }),
   },
 }));
