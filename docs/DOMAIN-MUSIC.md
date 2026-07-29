@@ -247,6 +247,48 @@ Las notas compartidas cuentan **en proporción**, no en número: compartir dos d
 cuatro no es más terreno común que compartir una de tres. Contarlas a secas
 premiaría a los acordes grandes solo por tener más papeletas.
 
+## Qué papel hace cada acorde (`harmonic-function.ts`)
+
+Un grado no es solo un sitio en la escala: es un papel. Tres papeles y uno de
+paso.
+
+- **Tónica (T)** — reposo. Es donde la frase suena terminada. En mayor son el I,
+  el iii y el vi.
+- **Subdominante (S)** — la salida. Se ha ido de casa y todavía no hay tensión.
+  El ii y el IV.
+- **Dominante (D)** — tensión. Lleva el tritono dentro y pide resolver. El V y
+  el vii°.
+- **De paso (→)** — ni reposa ni resuelve. Es el disminuido cromático que une
+  dos acordes por el semitono más cercano.
+
+La agrupación no es arbitraria y se comprueba mirando las notas: **el I y el vi
+comparten dos, el IV y el ii comparten dos, el V y el vii° comparten dos.** De
+ahí sale la sustitución, que no necesita tabla aparte: dos acordes con el mismo
+papel y dos notas en común se pueden cambiar el uno por el otro. El relativo
+menor va donde iba la tónica porque es eso, no porque lo diga un libro.
+
+La séptima menor de VII en modo menor es la única discutible. No tiene sensible,
+así que no aprieta como un V de manual; pero en el idioma modal —el de quien coge
+una guitarra eléctrica— va a i constantemente y hace de cadencia. Se marca como
+dominante y el texto avisa de que llega sin sensible, que es lo que la distingue.
+
+### En qué orden se enseñan
+
+Primero los tres **tonales** —I, IV y V—, que sostienen una canción entera.
+Después los **modales**, que dan el color del modo sin mover el centro. El
+**disminuido, el último**: es el que menos se usa suelto y el que más asusta de
+ver.
+
+Antes esto lo decidía el alfabeto, porque a igualdad de peso el desempate era el
+cifrado. En Do mayor eso proponía «Am, Bdim, C…»: el vi primero, un disminuido
+segundo y la tónica tercera. Ordenado así no se puede aprender nada.
+
+### El cifrado de una cuatríada no es el del acorde con un 7 detrás
+
+`Cmaj7` es **Imaj7**, no «I7» —que es el acorde de dominante sobre la tónica, un
+acorde distinto—. Y un `m7b5` es **ø7**, semidisminuido; escribirlo «°7» lo
+confunde con el disminuido entero, que tiene la séptima disminuida y no la menor.
+
 ## Lo que este dominio todavía no hace
 
 - Tensiones por encima de la séptima: novenas, oncenas, trecenas.

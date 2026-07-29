@@ -3,9 +3,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import type { PitchClass } from '@core/music';
 import { useSessionStore, type PathChord } from '@state/session-store';
 
-import { CurrentChord, Voicings } from './PathPanel';
+import { CurrentChord, NextChords, Voicings } from './PathPanel';
 
 const AM: PathChord = {
   symbol: 'Am',
@@ -64,6 +65,50 @@ describe('El acorde actual', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Limpiar la progresión' }));
 
     expect(useSessionStore.getState().path).toEqual([]);
+  });
+});
+
+describe('Por dónde empezar', () => {
+  function startIn(tonic: PitchClass, mode: 'major' | 'minor'): void {
+    const { actions } = useSessionStore.getState();
+    actions.clearPath();
+    actions.pinKey({ tonic, mode });
+  }
+
+  it('lo primero que propone son los tres tonales, no un disminuido', () => {
+    startIn(0, 'major');
+    render(<NextChords />);
+
+    const options = screen.getAllByRole('button');
+    const first = options.slice(0, 3).map((button) => button.getAttribute('aria-label'));
+    expect(first).toEqual(['C, I', 'F, IV', 'G, V']);
+  });
+
+  it('dice qué papel hace cada acorde', () => {
+    startIn(0, 'major');
+    render(<NextChords />);
+
+    // El nombre entero, no la inicial: la letra sola no enseña nada.
+    expect(screen.getAllByText('Dominante').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Subdominante').length).toBeGreaterThan(0);
+  });
+
+  it('explica por qué un acorde puede sustituir a otro', () => {
+    startIn(0, 'major');
+    render(<NextChords />);
+
+    // El vi y el iii sustituyen los dos al I, así que hay más de uno.
+    expect(screen.getAllByText(/Vale por I\./).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/relativo menor/i).length).toBeGreaterThan(0);
+  });
+
+  it('traduce las letras del papel ahí mismo', () => {
+    startIn(0, 'major');
+    render(<NextChords />);
+
+    expect(screen.getByText('reposo')).toBeInTheDocument();
+    expect(screen.getByText('salida')).toBeInTheDocument();
+    expect(screen.getByText('tensión')).toBeInTheDocument();
   });
 });
 

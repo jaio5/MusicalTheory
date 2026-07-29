@@ -5,10 +5,12 @@ import { useMemo } from 'react';
 import { chordVoicings } from '@core/instrument';
 import {
   accidentalForKey,
+  HARMONIC_ROLES,
   noteName,
   scaleNotes,
   suggestChords,
   suggestTransitions,
+  type HarmonicRole,
   type ParsedChord,
   type PitchClass,
 } from '@core/music';
@@ -16,6 +18,30 @@ import { selectActiveKey, useSessionStore, type PathChord } from '@state/session
 import { ChordDiagram } from '@ui/ChordDiagram';
 
 import { ChordSearch } from './ChordSearch';
+
+/**
+ * La letra del papel que hace el acorde: T, S o D.
+ *
+ * En gris y sin color a propósito. El punto de al lado ya está usando el verde,
+ * el ámbar y el rojo para otra cosa —si el acorde entra en la tonalidad o se
+ * sale— y dos códigos de color en la misma fila no se leen, se adivinan.
+ *
+ * La letra sola no enseña nada a quien empieza, así que el nombre entero y lo
+ * que significa van en el título, y el lector de pantalla lee el nombre, no la
+ * inicial.
+ */
+function RoleBadge({ role }: { role: HarmonicRole }) {
+  const info = HARMONIC_ROLES[role];
+  return (
+    <span
+      title={`${info.name}. ${info.what} ${info.goes}`}
+      className="border-border text-text-muted mt-0.5 shrink-0 rounded border px-1 font-mono text-xs"
+    >
+      <span aria-hidden="true">{info.short}</span>
+      <span className="sr-only">{info.name}</span>
+    </span>
+  );
+}
 
 function fromSearch(chord: ParsedChord): PathChord {
   return {
@@ -228,6 +254,22 @@ export function NextChords() {
             fuera
           </span>
         </p>
+        {/* Lo mismo con las letras: T, S y D no significan nada hasta que
+            alguien te las traduce, y tenerlo delante evita ir a buscarlo. */}
+        <p aria-hidden="true" className="text-text-muted flex items-center gap-2 text-xs">
+          <span className="flex items-center gap-1">
+            <span className="border-border rounded border px-1 font-mono">T</span>
+            reposo
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="border-border rounded border px-1 font-mono">S</span>
+            salida
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="border-border rounded border px-1 font-mono">D</span>
+            tensión
+          </span>
+        </p>
       </div>
 
       <ul className="min-h-0 grow overflow-y-auto p-2">
@@ -250,12 +292,23 @@ export function NextChords() {
               <span className="text-text-muted w-14 shrink-0 font-mono text-xs">
                 {option.label}
               </span>
-              <span className="text-text-muted line-clamp-2 text-sm leading-snug">
-                {'motionWhy' in option &&
-                typeof option.motionWhy === 'string' &&
-                option.motionWhy !== ''
-                  ? option.motionWhy
-                  : option.why}
+              <RoleBadge role={option.role} />
+              <span className="min-w-0 grow">
+                <span className="text-text-muted line-clamp-2 block text-sm leading-snug">
+                  {'motionWhy' in option &&
+                  typeof option.motionWhy === 'string' &&
+                  option.motionWhy !== ''
+                    ? option.motionWhy
+                    : option.why}
+                </span>
+                {/* Por qué se puede cambiar por otro. Va debajo y más pequeño
+                    que el porqué del acorde: primero se entiende qué es, y
+                    después por dónde se puede sustituir. */}
+                {option.substitution !== null ? (
+                  <span className="text-text-muted mt-0.5 block text-xs leading-snug opacity-80">
+                    Vale por {option.substitution.of}. {option.substitution.why}
+                  </span>
+                ) : null}
               </span>
             </button>
           </li>
