@@ -14,17 +14,17 @@ import {
 const C = pitchClassFromName('C');
 const A = pitchClassFromName('A');
 
-describe('cada escala da sus notas desde Do', () => {
+describe('cada escala da sus notas desde C, escritas como se escriben', () => {
   const expected: Readonly<Record<ScaleId, readonly string[]>> = {
     major: ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
-    naturalMinor: ['C', 'D', 'D#', 'F', 'G', 'G#', 'A#'],
+    naturalMinor: ['C', 'D', 'Eb', 'F', 'G', 'Ab', 'Bb'],
     majorPentatonic: ['C', 'D', 'E', 'G', 'A'],
-    minorPentatonic: ['C', 'D#', 'F', 'G', 'A#'],
-    blues: ['C', 'D#', 'F', 'F#', 'G', 'A#'],
-    dorian: ['C', 'D', 'D#', 'F', 'G', 'A', 'A#'],
-    mixolydian: ['C', 'D', 'E', 'F', 'G', 'A', 'A#'],
-    phrygian: ['C', 'C#', 'D#', 'F', 'G', 'G#', 'A#'],
-    harmonicMinor: ['C', 'D', 'D#', 'F', 'G', 'G#', 'B'],
+    minorPentatonic: ['C', 'Eb', 'F', 'G', 'Bb'],
+    blues: ['C', 'Eb', 'F', 'Gb', 'G', 'Bb'],
+    dorian: ['C', 'D', 'Eb', 'F', 'G', 'A', 'Bb'],
+    mixolydian: ['C', 'D', 'E', 'F', 'G', 'A', 'Bb'],
+    phrygian: ['C', 'Db', 'Eb', 'F', 'G', 'Ab', 'Bb'],
+    harmonicMinor: ['C', 'D', 'Eb', 'F', 'G', 'Ab', 'B'],
   };
 
   for (const id of SCALE_IDS) {
@@ -48,7 +48,8 @@ describe('transposición', () => {
   });
 
   it('el blues de La añade la quinta bemol', () => {
-    expect(scaleNoteNames(A, 'blues')).toEqual(['A', 'C', 'D', 'D#', 'E', 'G']);
+    // Eb y no D#: es una quinta rebajada, y un grado rebajado se escribe bemol.
+    expect(scaleNoteNames(A, 'blues')).toEqual(['A', 'C', 'D', 'Eb', 'E', 'G']);
   });
 });
 
@@ -72,5 +73,55 @@ describe('escalas de siete notas', () => {
     }
     expect(isHeptatonic('minorPentatonic')).toBe(false);
     expect(isHeptatonic('blues')).toBe(false);
+  });
+});
+
+describe('Cómo se escribe cada escala', () => {
+  it('la pentatónica menor de C lleva bemoles', () => {
+    expect(scaleNoteNames(pitchClassFromName('C'), 'minorPentatonic')).toEqual([
+      'C',
+      'Eb',
+      'F',
+      'G',
+      'Bb',
+    ]);
+  });
+
+  it('la pentatónica menor de B lleva sostenidos', () => {
+    // Sale de D mayor, que tiene dos sostenidos: la tercera es F#, no Gb.
+    expect(scaleNoteNames(pitchClassFromName('B'), 'minorPentatonic')).toEqual([
+      'B',
+      'D',
+      'E',
+      'F#',
+      'A',
+    ]);
+  });
+
+  it('C mixolidio baja la séptima a Bb, no la sube a A#', () => {
+    expect(scaleNoteNames(pitchClassFromName('C'), 'mixolydian')).toContain('Bb');
+  });
+
+  it('la mayor de C no lleva ninguna alteración', () => {
+    expect(scaleNoteNames(pitchClassFromName('C'), 'major')).toEqual([
+      'C',
+      'D',
+      'E',
+      'F',
+      'G',
+      'A',
+      'B',
+    ]);
+  });
+
+  it('el blues de A escribe la nota de paso como bemol', () => {
+    expect(scaleNoteNames(pitchClassFromName('A'), 'blues')).toEqual([
+      'A',
+      'C',
+      'D',
+      'Eb',
+      'E',
+      'G',
+    ]);
   });
 });

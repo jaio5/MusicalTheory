@@ -34,7 +34,7 @@ export function ComposeScreen() {
 
   return (
     <RecordStage>
-      <div className="grid h-full min-h-0 grid-cols-1 gap-px lg:grid-cols-[20rem_minmax(0,1fr)_23rem]">
+      <div className="grid h-full min-h-0 grid-cols-1 gap-px overflow-y-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
         <section
           aria-label="Tonalidad"
           className="border-border flex min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3"
@@ -46,24 +46,19 @@ export function ComposeScreen() {
               : keyName(activeKey.tonic, activeKey.mode)}
           </p>
           <Settings />
-        </section>
 
-        <section
-          aria-label="El acorde y sus formas"
-          className="flex min-h-0 flex-col overflow-y-auto"
-        >
-          <CurrentChord />
-          <Voicings />
-
-          <div className="border-border mt-auto border-t">
-            <div className="flex gap-1 px-3 py-1.5">
+          {/* Las herramientas van con los ajustes, no colgando del acorde: son
+              de la misma familia —cosas que decides una vez— y así la columna
+              del acorde se queda solo con el acorde. */}
+          <div className="mt-auto w-full">
+            <div className="flex flex-wrap gap-1">
               {EXTRAS.map((candidate) => (
                 <button
                   key={candidate.id}
                   type="button"
                   onClick={() => setExtra(extra === candidate.id ? null : candidate.id)}
                   aria-pressed={extra === candidate.id}
-                  className={`border px-2 py-1 font-mono text-xs ${
+                  className={`grow border px-2 py-1 font-mono text-xs ${
                     extra === candidate.id
                       ? 'border-brass-bright text-brass-bright'
                       : 'border-border text-text-muted hover:text-text'
@@ -75,11 +70,19 @@ export function ComposeScreen() {
             </div>
 
             {current !== null && (
-              <div className="border-border border-t p-3">
+              <div className="border-border mt-2 border-t pt-2">
                 <current.render />
               </div>
             )}
           </div>
+        </section>
+
+        <section
+          aria-label="El acorde y sus formas"
+          className="flex min-h-0 flex-col overflow-y-auto"
+        >
+          <CurrentChord />
+          <Voicings />
         </section>
 
         <section

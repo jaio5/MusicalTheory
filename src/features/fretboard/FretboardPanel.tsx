@@ -1,6 +1,6 @@
 'use client';
 
-import { accidentalForKey, SCALES, scaleNotes, noteName } from '@core/music';
+import { accidentalForScale, SCALES, scaleNotes, noteName } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Panel } from '@ui/Panel';
 
@@ -23,11 +23,11 @@ export function FretboardPanel() {
         <>
           <p className="text-text-muted mt-2 text-sm">
             {SCALES[scaleId].name} de{' '}
-            {noteName(activeKey.tonic, accidentalForKey(activeKey.tonic, activeKey.mode))}:{' '}
+            {noteName(activeKey.tonic, accidentalForScale(activeKey.tonic, scaleId))}:{' '}
             <span className="text-text font-mono">
               {scaleNotes(activeKey.tonic, scaleId)
                 .map((pitchClass) =>
-                  noteName(pitchClass, accidentalForKey(activeKey.tonic, activeKey.mode)),
+                  noteName(pitchClass, accidentalForScale(activeKey.tonic, scaleId)),
                 )
                 .join(' · ')}
             </span>
@@ -36,7 +36,7 @@ export function FretboardPanel() {
           <div className="mt-4 overflow-x-auto">
             <Fretboard
               tonic={activeKey.tonic}
-              accidental={accidentalForKey(activeKey.tonic, activeKey.mode)}
+              accidental={accidentalForScale(activeKey.tonic, scaleId)}
               scaleId={scaleId}
               soundingMidi={hasSignal ? (reading?.midi ?? null) : null}
             />

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { WebAudioReferenceTone, type ReferenceTone } from '@audio/reference-tone';
-import { accidentalForKey, midiToFrequency, SCALES, noteName } from '@core/music';
+import { accidentalForScale, midiToFrequency, SCALES, noteName } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
@@ -71,8 +71,7 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
   }, []);
 
   const step = exercise?.steps[progress.index] ?? null;
-  const accidental =
-    activeKey === null ? 'sharp' : accidentalForKey(activeKey.tonic, activeKey.mode);
+  const accidental = activeKey === null ? 'sharp' : accidentalForScale(activeKey.tonic, scaleId);
 
   async function playReference() {
     if (step === null) {

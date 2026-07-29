@@ -189,6 +189,10 @@ manos ocupadas. De ahí tres reglas:
 - El porqué de cada acorde cabe en dos líneas y no se corta a mitad de palabra.
   Un texto cortado con puntos suspensivos obliga a acercarse, y acercarse
   significa dejar de tocar.
+- Lo que significa un color va al lado del color. El punto verde, el ámbar y el
+  rojo llevan su leyenda encima de la lista, no en una ayuda aparte.
+- Cada columna tiene un tema: la izquierda es lo que decides —tonalidad, estilo,
+  escala, herramientas—, el centro es el acorde y la derecha a dónde vas.
 
 Grabando, la cámara lleva un velo por encima. Sin él hay que pelear el contraste
 letra a letra contra lo que sea que tengas detrás —una ventana, una pared

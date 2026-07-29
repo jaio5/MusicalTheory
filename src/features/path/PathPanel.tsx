@@ -62,14 +62,18 @@ export function CurrentChord() {
     activeKey === null ? 'sharp' : accidentalForKey(activeKey.tonic, activeKey.mode);
 
   if (activeKey === null) {
-    return <p className="text-text-muted p-3 text-sm">Elige una tonalidad en la rueda.</p>;
+    return (
+      <p className="text-text-muted flex h-full items-center justify-center p-6 text-center text-sm">
+        Elige una tonalidad en la rueda y empezamos.
+      </p>
+    );
   }
 
   return (
     <div className="flex flex-col gap-2 p-3">
       {current === null ? (
-        <p className="text-text-muted text-sm">
-          Elige un acorde de la lista y te enseño cómo se hace.
+        <p className="text-text-muted py-10 text-center text-sm">
+          Elige un acorde de la lista y te enseño cómo se hace, traste a traste.
         </p>
       ) : (
         <>
@@ -204,9 +208,27 @@ export function NextChords() {
         <ChordSearch onPick={(chord) => actions.pushChord(fromSearch(chord))} />
       </div>
 
-      <p className="text-text-muted px-3 pt-2 text-xs tracking-widest uppercase">
-        {current === null ? 'Por dónde empezar' : `Desde ${current.symbol}`}
-      </p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2 px-3 pt-2">
+        <p className="text-text-muted text-xs tracking-widest uppercase">
+          {current === null ? 'Por dónde empezar' : `Desde ${current.symbol}`}
+        </p>
+        {/* Lo que significan los puntos, al lado de los puntos: preguntarse qué
+            era el ámbar y no tenerlo delante es perder el hilo de lo que tocas. */}
+        <p aria-hidden="true" className="text-text-muted flex items-center gap-2 text-xs">
+          <span className="flex items-center gap-1">
+            <span className="bg-tube-bright block h-2 w-2 rounded-full" />
+            entra
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="bg-brass-bright block h-2 w-2 rounded-full" />
+            color
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="bg-oxblood-bright block h-2 w-2 rounded-full" />
+            fuera
+          </span>
+        </p>
+      </div>
 
       <ul className="min-h-0 grow overflow-y-auto p-2">
         {options.map((option) => (

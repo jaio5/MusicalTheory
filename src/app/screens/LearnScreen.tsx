@@ -19,7 +19,7 @@ export function LearnScreen() {
   const [topic, setTopic] = useState<string | undefined>(undefined);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-px lg:grid-cols-[minmax(0,1fr)_26rem]">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-px overflow-y-auto lg:grid-cols-[minmax(0,1fr)_22rem] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_26rem]">
       <section aria-label="Teoría" className="border-border flex min-h-0 flex-col border-r">
         <TheoryLessons onTopic={setTopic} />
       </section>

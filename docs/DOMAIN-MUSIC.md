@@ -200,6 +200,20 @@ Que una nota se salga de la tonalidad no lo convierte en un error: la mitad de
 lo que hace interesante a una progresión son notas de fuera. Lo que distingue un
 color de un choque es si el acorde tiene un uso conocido.
 
+## Cómo se escribe cada escala
+
+Una escala se escribe con la armadura de la mayor de la que sale, que es la
+regla de toda la vida. C mixolidio viene de F mayor, así que su séptima es Bb y
+no A#. B menor viene de D mayor, así que su tercera es F# y no Gb. La
+pentatónica menor de C sale de Eb mayor: C Eb F G Bb.
+
+Cuando la mayor de origen es C no hay armadura que mande, y entonces decide la
+escala: si rebaja algún grado, se escribe con bemoles. Por eso el blues de A
+lleva Eb y no D#, que suena igual y no lo escribe nadie.
+
+Suena a detalle y no lo es: leer «D#» donde esperas «Eb» te para un segundo, y
+un segundo mirando la pantalla es un compás perdido.
+
 ## Formas de hacer un acorde
 
 Las digitaciones no están copiadas de una tabla: se buscan. Para cada posición

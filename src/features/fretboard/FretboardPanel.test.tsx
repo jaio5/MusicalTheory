@@ -36,7 +36,7 @@ describe('Panel del mástil', () => {
       useSessionStore.getState().actions.setScale('blues');
     });
 
-    expect(await screen.findByText('A · C · D · D# · E · G')).toBeInTheDocument();
+    expect(await screen.findByText('A · C · D · Eb · E · G')).toBeInTheDocument();
   });
 
   it('describe el mástil para quien no lo ve', async () => {
