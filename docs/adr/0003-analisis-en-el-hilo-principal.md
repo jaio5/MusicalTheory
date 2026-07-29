@@ -2,6 +2,11 @@
 
 Fecha: 2026-07-28 · Estado: aceptada · Revisa: [ADR 0002](./0002-deteccion-de-tono-propia.md)
 
+> Medido el 29 de julio de 2026, ya con el segundo motor de
+> [ADR 0004](./0004-reconocimiento-de-acordes-por-croma.md) sumando carga. El
+> resultado confirma la decisión: se queda en el hilo principal. Los números,
+> abajo en «[Medición](#medición)».
+
 ## Contexto
 
 En la fase 0, `docs/AUDIO-PITCH.md` daba por hecho que el análisis viviría en un
@@ -68,3 +73,43 @@ prefiere gastar CPU en lo que el usuario nota.
 **Cuándo revisar esto**: cuando la fase 2 esté animando la rueda y el mástil, o
 si aparece jitter visible en la aguja. La medida a mirar es el tiempo de cada
 análisis, no la sensación.
+
+## Medición
+
+Hecha el 29 de julio de 2026 con
+[`main-thread-cost.test.ts`](../../src/audio/main-thread-cost.test.ts), que
+queda en la suite para que una regresión del algoritmo salte sola. Señales
+sintéticas de guitarra: E2 para el tono —el periodo más largo es el peor caso—
+y un C mayor en posición abierta para el acorde, también con el espectro sucio
+que deja la distorsión.
+
+| Operación                     | Por pasada | Cadencia | Por segundo                    |
+| ----------------------------- | ---------- | -------- | ------------------------------ |
+| `detectPitch` (2048 muestras) | 0,78 ms    | 20 Hz    | 15,7 ms                        |
+| `signalRms`                   | 0,004 ms   | 20 Hz    | 0,1 ms                         |
+| `chromaFromSpectrum` (limpio) | 0,006 ms   | 10 Hz    | 0,06 ms                        |
+| `chromaFromSpectrum` (sucio)  | 0,015 ms   | 10 Hz    | 0,15 ms                        |
+| `bestChord`                   | 0,041 ms   | 10 Hz    | 0,41 ms                        |
+| **Total**                     |            |          | **16,2 ms/s — 1,6 % del hilo** |
+
+**El segundo motor no duplicó nada.** Era la sospecha razonable al añadirlo, y
+es falsa: el análisis de acordes cuesta 0,5 ms por segundo contra los 15,7 del
+tono, unas treinta veces menos. Trabaja sobre un espectro que el navegador ya ha
+calculado en su propio hilo, mientras que la autocorrelación hace sus 1,2
+millones de multiplicaciones aquí. El 97 % del coste es `detectPitch`, y quien
+quiera optimizar algo tiene que mirar ahí y en ningún otro sitio.
+
+La peor ráfaga —los dos análisis cayendo en el mismo instante— son 0,84 ms, un
+5 % de un fotograma de 16,7 ms.
+
+**Qué no dice esta medida.** Está tomada en Node sobre V8, en un Ryzen 7 5800X
+de sobremesa. No es un navegador ni es un móvil. El cálculo es JavaScript puro y
+el orden de magnitud debería viajar bien, pero un teléfono de gama media anda
+entre cinco y diez veces por detrás: ahí serían 80–160 ms por segundo, hasta un
+16 % del hilo, con ráfagas de medio fotograma. Sigue sin ser un problema, y sí
+es el punto donde volver a medir en el aparato de verdad antes de tocar nada.
+
+**Conclusión.** No se mueve a un `Web Worker`. La alternativa sigue descrita
+arriba como primera opción para cuando haga falta, pero hoy no hace falta: se
+estaría pagando un salto asíncrono y un ciclo de vida más complicado por
+recuperar el 1,6 % de un hilo.

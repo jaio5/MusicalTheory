@@ -1,6 +1,6 @@
 # Roadmap
 
-Estado a 28 de julio de 2026. Las siete fases están implementadas;
+Estado a 29 de julio de 2026. Las siete fases están implementadas;
 lo que queda anotado abajo es deuda y afinado con instrumento real.
 
 ## Fase 0 — Esqueleto y dominio · hecha
@@ -87,8 +87,12 @@ varias cuerdas y exigir una octava concreta sería pelearse con el mástil.
 - [x] Catálogo de progresiones resuelto a acordes de la tonalidad.
 - [x] Historial de notas tocadas, con la misma nota contando otra vez solo si
       vuelve a sonar tras una pausa.
-- [ ] Pendiente: el acorde actual se marca a mano. No se detecta, y no se puede
-      con un analizador monofónico.
+- [x] El acorde actual se detecta: croma con descuento de armónicos y coseno
+      contra plantillas, en un motor aparte del de tono. El porqué y sus límites,
+      en [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
+- [ ] Pendiente de prueba tocando: si las cuatro décimas que tarda en salir el
+      acorde se notan al encadenar, y cuánto estorba que las inversiones se lean
+      como el acorde en estado fundamental.
 
 Si la escala elegida en el mástil es pentatónica o de blues, los acordes se
 arman con la mayor o la menor natural: sobre cinco notas no se pueden apilar
@@ -259,18 +263,29 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   lista de entradas y se puede cambiar sin recargar.
 - ~~**Sin límite de frecuencia en la API.**~~ Diez peticiones por minuto y
   dirección, con `Retry-After`.
+- ~~**Análisis en el hilo principal, sin medir.**~~ Medido: 16,2 ms por segundo
+  con los dos motores en marcha, un 1,6 % del hilo, y la peor ráfaga en un 5 %
+  de un fotograma. El 97 % es la autocorrelación; el motor de acordes cuesta
+  treinta veces menos. Se queda en el hilo principal y el Web Worker se
+  descarta por ahora, con los números en
+  [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md) y un test que vigila
+  la regresión.
+- ~~**Reconocimiento de acordes.**~~ Era el límite del método, no de la
+  implementación: la autocorrelación devuelve un periodo y un acorde tiene
+  varios. Se resuelve con un segundo motor que no usa autocorrelación sino
+  croma, con el ADR que pedía: [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
 
 ### Viva
 
-- **Reconocimiento de acordes.** No es deuda, es el límite del método: la
-  autocorrelación devuelve un periodo, no varios. Un acorde rasgueado no se
-  puede identificar así, y por eso el acorde actual se marca a mano. Cambiarlo
-  significa cambiar de algoritmo, y eso es un ADR nuevo.
+- **Las inversiones se leen como el acorde en estado fundamental.** El croma
+  olvida la octava a propósito, así que C/E y C son el mismo vector. Es el
+  límite que sustituye al anterior, y sale documentado en
+  [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
 - **Umbrales con poco rodaje.** Los cuatro se ajustaron tras una prueba. Ahora
   al menos hay medidor para afinarlos con datos en vez de a ojo.
-- **Análisis en el hilo principal.** Sigue pendiente de medir antes de mover
-  nada, como dice [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md). La
-  salida prevista es un Web Worker.
+- **Sin medir en un aparato de gama media.** Los números de arriba salen de un
+  Ryzen de sobremesa. Un teléfono anda entre cinco y diez veces por detrás, que
+  seguiría cabiendo, pero eso es aritmética y no medición.
 - **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Se
   queda así a propósito: el diagrama se lee mejor.
 - **El contador de frecuencia es por instancia.** En memoria. Si esto se
