@@ -383,8 +383,17 @@ bien hasta el día en que se despliegan dos instancias a la vez.
 
 Los planes, los permisos, los cupos anónimos, el cifrado de contraseñas, la fusión
 de avances, la cola de repaso, el punto de partida, las tarjetas de plan y la ventana
-de pago tienen tests. **Lo que no se ha probado
-todavía es el camino con base de datos de verdad**: registrarse, entrar, cambiar de
-plan y ver el avance aparecer en otro navegador. En la máquina donde se escribió
-esto no había Postgres ni Docker disponible. Lo que falle ahí serán las consultas,
-no la política de planes.
+de pago tienen tests.
+
+**El camino con base de datos de verdad ya está andado**, con el Postgres de
+`compose.yml` (1 de agosto de 2026): se crean las tres tablas, se registra una cuenta
+—y el correo se normaliza, y el repetido da 409—, se entra y se rechaza la contraseña
+equivocada, se cambia el nombre y la contraseña —y con la vieja ya no se entra—, se
+sube de plan, el avance se fusiona sin perder nada al mandar menos del que hay, y el
+contador de `ai_usage` sube al pedirle algo al modelo. Estuvo escrito sin ejecutar
+desde la fase 8 hasta entonces, y lo que salió de ejecutarlo fue una falta de
+concordancia en un mensaje —«Las ideas de la IA _entra_ en el plan Medio»—, no un
+fallo de consulta.
+
+Lo que sigue sin probarse es lo que pide dinero o infraestructura de verdad: la
+pasarela de pago —que no existe— y las respuestas del modelo con una clave puesta.

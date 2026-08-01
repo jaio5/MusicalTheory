@@ -18,6 +18,13 @@ COPY . .
 # La clave no se copia ni se necesita para compilar: se lee en cada petición.
 RUN pnpm build
 
+# Las migraciones necesitan lo contrario que el servidor: drizzle-kit, el esquema
+# en TypeScript y la carpeta `drizzle/`. Todo eso ya está en la etapa de
+# construcción, así que esta se limita a cambiar el comando. No entra en la imagen
+# final: `target: run` no pasa por aquí.
+FROM build AS migraciones
+CMD ["pnpm", "db:migrate"]
+
 FROM node:22-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production

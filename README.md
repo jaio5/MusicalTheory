@@ -68,6 +68,19 @@ hay cuentas—. Si pones la base de datos, aplica las migraciones antes de entra
 pnpm db:migrate
 ```
 
+### Con cuentas, sin montar nada: Docker
+
+```bash
+pnpm docker:up     # Postgres, migraciones y la aplicación, en http://localhost:3000
+pnpm docker:db     # solo Postgres, para usarlo desde `pnpm dev`
+pnpm docker:down   # parar; con -v además borra los datos
+```
+
+`pnpm docker:up` escribe el `.env` que falte con un `AUTH_SECRET` nuevo, así que no
+hay nada que rellenar a mano. Si el 3000 ya lo tiene otro contenedor tuyo, cambia
+`APP_PORT` en ese `.env`. Los detalles, en
+[docs/DESPLIEGUE.md](./docs/DESPLIEGUE.md).
+
 ## Cómo pasar los tests
 
 ```bash

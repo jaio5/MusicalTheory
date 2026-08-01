@@ -99,6 +99,41 @@ El login es interactivo a propósito —abre el navegador— así que este paso 
 tienes que dar tú; no se puede automatizar desde aquí sin darle un token a un
 script.
 
+## En tu equipo: la aplicación entera con Docker
+
+`compose.yml` levanta tres cosas —Postgres, las migraciones y el servidor— y es la
+única forma de probar aquí lo que necesita base de datos: entrar, registrarse,
+cambiar la contraseña, el plan, la fusión del avance y el cupo de la IA.
+
+```bash
+pnpm docker:up          # todo, en http://localhost:3000
+pnpm docker:db          # solo Postgres, para usarlo con `pnpm dev`
+pnpm docker:down        # parar; con -v además borra los datos
+```
+
+`pnpm docker:up` es [`scripts/docker-arriba.sh`](../scripts/docker-arriba.sh), y lo
+que hace además de llamar a compose es lo que se olvida: comprobar que el `docker`
+del `PATH` no es el `.exe` de Windows —la trampa de WSL que ya mordió con `npx` y con
+`mvnw`— y escribir un `.env` con un `AUTH_SECRET` recién generado si no hay ninguno.
+
+Tres cosas que se aprenden la primera vez:
+
+- **Las migraciones van en su propio contenedor**, no en el arranque de la
+  aplicación. Migrar al levantarse funciona muy bien hasta el día en que se
+  despliegan dos instancias a la vez. El servidor espera a que ese contenedor
+  termine bien (`service_completed_successfully`).
+- **Postgres arranca dos veces al crearse**, y por eso hay `healthcheck`: sin
+  esperarlo, las migraciones pegan contra el arranque intermedio y fallan una vez
+  de cada tres.
+- **El puerto de fuera se mueve con `APP_PORT`.** El 3000 es el puerto por defecto
+  de medio mundo, y si otro contenedor tuyo ya lo tiene, esto falla con un error que
+  habla de «endpoint» y no de quién lo ocupa.
+
+Comprobado el 1 de agosto de 2026 con Docker 29.4.2: las tres tablas se crean, se
+registra una cuenta, se entra, se cambia el nombre y la contraseña —y con la vieja ya
+no se entra—, se sube a Pro, el avance se fusiona sin perder nada y el contador de IA
+sube en `ai_usage`.
+
 ## Camino 2: un contenedor
 
 El `Dockerfile` de la raíz construye la salida `standalone` de Next, que trae
@@ -129,11 +164,11 @@ Sirve para cualquier sitio que acepte una imagen: Fly, Railway, Render, una
 máquina propia. Recuerda el HTTPS: detrás de un proxy con certificado, o el
 micrófono no arranca.
 
-Lo que está comprobado y lo que no: la salida `standalone` arranca y sirve
-—portada, pantallas, estáticos y las rutas de API—, y pesa 40 MB. El `Dockerfile`
-que la envuelve está escrito pero no construido: en el equipo donde se preparó
-no había Docker disponible. Si la primera construcción falla, será en las líneas
-de copia, no en la aplicación.
+Lo que está comprobado: la salida `standalone` arranca y sirve —portada,
+pantallas, estáticos y las rutas de API— y pesa 40 MB, y el `Dockerfile` construye
+y corre. Se dijo aquí durante un tiempo que estaba escrito pero sin construir,
+porque en el equipo donde se preparó no había Docker encendido; ya lo hay, y la
+imagen es la misma que usa `compose.yml`.
 
 ## Camino 3: un servidor propio, sin contenedor
 

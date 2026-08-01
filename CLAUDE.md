@@ -24,6 +24,11 @@ pnpm build        # build de producción
 de datos ni claves. Si tocas `src/server/db/schema.ts`: `pnpm db:generate` escribe
 la migración y `pnpm db:migrate` la aplica; no se aplican solas al arrancar.
 
+**Para tocar cualquier cosa de cuentas hace falta base de datos, y la da Docker:**
+`pnpm docker:up` levanta Postgres, aplica las migraciones y arranca la aplicación;
+`pnpm docker:db` levanta solo Postgres para usarlo con `pnpm dev`. El script escribe
+el `.env` que falte con un `AUTH_SECRET` nuevo. Si el 3000 está ocupado, `APP_PORT`.
+
 **Prettier también formatea el markdown.** Después de tocar cualquier `.md` hay
 que pasar `pnpm format`, o `format:check` falla. Es el fallo más tonto y el más
 repetido.

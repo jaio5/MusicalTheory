@@ -16,7 +16,10 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "docker:up": "bash scripts/docker-arriba.sh",
+    "docker:db": "docker compose up -d db",
+    "docker:down": "docker compose down"
   },
   "license": "UNLICENSED",
   "dependencies": {

@@ -1,0 +1,93 @@
+# La aplicación entera en tres contenedores: la base de datos, las migraciones y
+# el servidor.
+#
+# Existe para que las cuentas se puedan probar de verdad. Sin base de datos la
+# aplicación funciona —anónima, con plan gratis y el avance en el navegador—, y eso
+# significa que todo lo que cuelga de una cuenta se escribió sin poder ejecutarlo:
+# entrar, registrarse, el plan, la fusión del avance y el cupo de la IA.
+#
+#   docker compose up --build     todo, en http://localhost:3000
+#   docker compose up db          solo Postgres, para usarlo con `pnpm dev`
+#   docker compose down           parar; con -v además borra los datos
+#
+# Las contraseñas de aquí son para tu portátil. Lo que salga a internet va con
+# `POSTGRES_PASSWORD` y `AUTH_SECRET` puestos de verdad, y eso lo explica
+# docs/DESPLIEGUE.md.
+
+name: caos-ordenado
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-caos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caos}
+      POSTGRES_DB: ${POSTGRES_DB:-caos}
+    ports:
+      # Abierto al equipo para poder apuntar aquí desde `pnpm dev` y desde
+      # `pnpm db:studio` sin entrar en el contenedor.
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - datos:/var/lib/postgresql/data
+    healthcheck:
+      # Postgres arranca dos veces al crearse: la primera para inicializar y la
+      # segunda ya de verdad. Sin esperar a esto, las migraciones se lanzan contra
+      # el arranque intermedio y fallan una vez de cada tres.
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-caos} -d ${POSTGRES_DB:-caos}']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+  # Las migraciones, en su propio contenedor y una sola vez.
+  #
+  # Aparte y no dentro del arranque de la aplicación a propósito: migrar al
+  # levantarse funciona muy bien hasta el día en que se despliegan dos instancias a
+  # la vez y las dos migran. Es la misma decisión que ya explica drizzle.config.ts,
+  # aquí solo se cumple.
+  migraciones:
+    build:
+      context: .
+      target: migraciones
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-caos}:${POSTGRES_PASSWORD:-caos}@db:5432/${POSTGRES_DB:-caos}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  app:
+    build:
+      context: .
+      target: run
+    environment:
+      # Dentro de la red de compose la base de datos se llama `db`. Desde el
+      # equipo es `localhost`, y por eso esta cadena se pone aquí y no en `.env`:
+      # si estuviera allí, `pnpm dev` intentaría resolver `db` y no podría.
+      DATABASE_URL: postgres://${POSTGRES_USER:-caos}:${POSTGRES_PASSWORD:-caos}@db:5432/${POSTGRES_DB:-caos}
+      # Sin secreto no hay cuentas, así que aquí no vale un valor por defecto
+      # silencioso: `docker compose up` avisa si falta y la aplicación arranca en
+      # modo anónimo, que es justo lo que se venía a probar.
+      AUTH_SECRET: ${AUTH_SECRET:?falta AUTH_SECRET, ponlo en .env — mira README}
+      # La IA es opcional: sin clave, el profesor y las ideas contestan que no hay
+      # modelo configurado y todo lo demás funciona igual.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5}
+      # El servidor standalone de Next escucha en la interfaz que se le diga; sin
+      # esto se queda en el bucle local del contenedor y desde fuera no contesta.
+      HOSTNAME: 0.0.0.0
+      PORT: '3000'
+    ports:
+      # El puerto de dentro siempre es el 3000; el de fuera se puede mover con
+      # `APP_PORT` en `.env`. Hace falta poder moverlo porque el 3000 es el puerto
+      # por defecto de medio mundo, y si otro contenedor tuyo ya lo tiene, esto no
+      # arranca con un error que habla de «endpoint» y no de quién lo ocupa.
+      - '${APP_PORT:-3000}:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+      migraciones:
+        condition: service_completed_successfully
+
+volumes:
+  datos:

@@ -1,6 +1,6 @@
 # Roadmap
 
-Estado a 1 de agosto de 2026. Las doce fases están implementadas;
+Estado a 1 de agosto de 2026. Las trece fases están implementadas;
 lo que queda anotado abajo es deuda y afinado con instrumento real.
 
 ## Fase 0 — Esqueleto y dominio · hecha
@@ -166,9 +166,10 @@ de notas ahí bloquearía el hilo que está analizando el audio.
       la pantalla pueda avisarlo.
 - [x] Pantalla `/cuenta`: entrar, registrarse, los tres planes con lo que da cada
       uno, y qué se guarda de ti.
-- [ ] **Sin probar con Postgres de verdad.** En la máquina donde se escribió no
-      había ni base de datos ni Docker disponible. Lo que falle ahí serán las
-      consultas: la política de planes, la fusión y el cifrado tienen tests.
+- [x] **Probado con Postgres de verdad** (1 de agosto de 2026), con el de
+      `compose.yml`: tablas, registro, entrada, cambio de plan, fusión del avance y
+      contador de IA. Estuvo escrito sin ejecutar desde esta fase; lo único que salió
+      al ejecutarlo fue una falta de concordancia en un mensaje, no una consulta mal.
 - [ ] Sin cobro de verdad. Es lo siguiente, y es añadir una implementación del
       puerto, no rediseñar nada.
 
@@ -314,6 +315,30 @@ dentro no se podía cambiar nada.
       guarda recortado, la contraseña actual equivocada devuelve 403 y **no guarda
       tampoco el nombre** que venía en la misma petición, y con la contraseña vieja
       ya no se entra.
+
+## Fase 13 — Docker: la aplicación entera en un comando · hecha
+
+- [x] `compose.yml` con Postgres, un contenedor de migraciones que corre una vez y el
+      servidor, que espera a que las migraciones terminen bien.
+- [x] Etapa `migraciones` en el `Dockerfile`, que hereda de la de construcción porque
+      necesita justo lo contrario que el servidor: drizzle-kit, el esquema en
+      TypeScript y `drizzle/`. No entra en la imagen final.
+- [x] `pnpm docker:up`, que comprueba que el `docker` del `PATH` no es el `.exe` de
+      Windows —la trampa de WSL, que en este proyecto ya mordió con `npx` y con
+      `mvnw`— y escribe el `.env` que falte con un `AUTH_SECRET` recién generado.
+- [x] `APP_PORT` para mover el puerto del anfitrión: el 3000 es el puerto por defecto
+      de medio mundo, y chocar con otro contenedor da un error que habla de
+      «endpoint» y no de quién lo ocupa.
+- [x] Con esto se ejecutó por fin todo lo que dependía de la base de datos. Lo único
+      que apareció fue «Las ideas de la IA **entra** en el plan Medio»: el verbo
+      estaba fijo en singular y la mitad de los sujetos son plurales. Corregido, con
+      su test.
+- [ ] Sin probar: la respuesta del modelo con una clave de verdad puesta, y el
+      arranque de este compose en una máquina que no sea esta.
+- [ ] `elemental-1` como punto de partida se guarda como «ninguno». No abre nada
+      distinto —es el primer curso, así que da igual para el candado—, pero el
+      desplegable no recuerda que lo elegiste. Se arregla guardando la elección
+      aparte del índice que abre camino.
 
 ## El camino
 
