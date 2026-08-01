@@ -113,6 +113,14 @@ function up(tonic: PitchClass, semitones: number): PitchClass {
   return normalizePitchClass(tonic + semitones);
 }
 
+/**
+ * Las opciones de un ejercicio, con la buena escrita primero.
+ *
+ * Primero **al escribirlas**, que es como se leen bien las cien que hay en este
+ * fichero: la respuesta al lado de la pregunta. En qué orden se enseñan lo decide
+ * `lessonNotes` al salir, porque durante un tiempo salieron en este mismo orden y
+ * la buena era siempre la de la izquierda: se aprobaba el temario sin leer.
+ */
 function choices(correct: string, wrong: readonly string[]): readonly Choice[] {
   return [{ text: correct, correct: true }, ...wrong.map((text) => ({ text, correct: false }))];
 }
@@ -569,6 +577,67 @@ const BUILDERS: Readonly<Record<LessonId, (tonic: PitchClass, mode: KeyMode) => 
   cadences: cadencesLesson,
 };
 
+/**
+ * Un número estable sacado de un texto (FNV-1a de 32 bits).
+ *
+ * Cuatro líneas y sin dependencias, que es todo lo que hace falta: no se está
+ * cifrando nada, solo repartiendo. `>>> 0` en cada vuelta porque en JavaScript la
+ * multiplicación se sale de los 32 bits y sin eso el resultado deja de ser el
+ * mismo en máquinas distintas.
+ */
+function seedFrom(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash ^ text.charCodeAt(i)) * 0x01000193) >>> 0;
+  }
+  return hash === 0 ? 1 : hash;
+}
+
+/**
+ * Baraja las opciones **sin azar de verdad**, y eso es lo importante.
+ *
+ * Con `Math.random()` las opciones cambiarían de sitio en cada repintado: bastaría
+ * con que React volviera a pintar la pregunta —al contestar, al cambiar de
+ * tonalidad, al llegar el cupo de la IA— para que el botón se moviera debajo del
+ * dedo. Aquí la misma pregunta con las mismas opciones sale siempre igual, y dos
+ * preguntas distintas salen distintas, que es lo único que se pedía.
+ *
+ * Como la semilla sale del texto de la pregunta y del de sus opciones, y las
+ * opciones se generan en tu tonalidad, la misma pregunta en otra tonalidad reparte
+ * de otra forma. Fisher-Yates con un generador xorshift de 32 bits.
+ */
+function shuffled(choices: readonly Choice[], seed: number): readonly Choice[] {
+  const out = [...choices];
+  let state = seed;
+
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    state >>>= 0;
+
+    const j = state % (i + 1);
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+
+  return out;
+}
+
+function arranged(exercise: Exercise): Exercise {
+  const semilla = seedFrom(
+    `${exercise.prompt}|${exercise.choices.map((choice) => choice.text).join('|')}`,
+  );
+  return { ...exercise, choices: shuffled(exercise.choices, semilla) };
+}
+
+/**
+ * La lección en tu tonalidad, con las opciones ya repartidas.
+ *
+ * El reparto se hace aquí, en la única puerta por la que salen las lecciones, y no
+ * en cada uno de los cien ejercicios: escribirlos con la buena delante es lo que
+ * los hace legibles, y quien lo haga mañana no tiene que acordarse de nada.
+ */
 export function lessonNotes(id: LessonId, tonic: PitchClass, mode: KeyMode): LessonNotes {
-  return BUILDERS[id](tonic, mode);
+  const notes = BUILDERS[id](tonic, mode);
+  return { ...notes, exercises: notes.exercises.map(arranged) };
 }

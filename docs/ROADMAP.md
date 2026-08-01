@@ -451,6 +451,14 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
 
 ### Pagada
 
+- ~~**La respuesta buena era siempre la de la izquierda.**~~ Las opciones se
+  escriben con la correcta delante —así se leen las cien de `lessons.ts`— y salían
+  en ese mismo orden: se aprobaba el temario pulsando el primer botón sin leer la
+  pregunta. Ahora `lessonNotes` las reparte al salir, con un barajado **sin azar
+  de verdad**: la semilla sale del texto de la pregunta y de sus opciones, así que
+  la misma pregunta sale siempre igual —con `Math.random()` el botón se movería
+  debajo del dedo en cada repintado— y en otra tonalidad cae de otra forma. Sobre
+  248 ejercicios el reparto queda en 27 / 28 / 26 / 19 %.
 - ~~**Escritura con bemoles.**~~ Cada tonalidad decide su escritura según su
   posición en la rueda. F mayor escribe Sib.
 - ~~**Cuatríadas y tensiones.**~~ Hay cuatríadas con sus siete especies, y el
