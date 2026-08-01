@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
+import { needsPlanMessage, planOf, quotaMessage, TOKEN_BUDGETS } from '@core/billing';
 import { degreesFor } from '@core/music';
 import {
   parseTeacherRequest,
@@ -8,53 +9,34 @@ import {
   validateTeacherAnswer,
   type TeacherRequest,
 } from '@features/learn/teacher-contract';
-
-import { requesterKey, SlidingWindowRateLimiter } from '../rate-limit';
+import { configuredModel } from '@server/ai-model';
+import { ANSWER_SCHEMA, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
+import { spendAi } from '@server/entitlements';
+import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
  * El profesor. Como el de ideas, es un route handler: el SDK de Anthropic y la
  * clave viven solo aquí, porque importarlos desde un componente los llevaría al
  * navegador.
  *
+ * Tres puertas antes de gastar dinero, y en este orden: el límite por minuto
+ * —memoria, gratis de comprobar—, tener cuenta, y el cupo del plan, que es una
+ * escritura en la base de datos. Al revés se pagaría una consulta por cada
+ * pulsación de más.
+ *
+ * `max_tokens` sale de `TOKEN_BUDGETS`, en el dominio, y no de un número escrito
+ * aquí. Es el mismo número con el que se calculan los cupos, así que el peor caso
+ * que supone la aritmética **es** el tope que impone el servidor. Escritos por
+ * separado se separarían, y entonces los cupos dejarían de cuadrar con el gasto.
+ *
  * El contrato completo está en docs/AI.md.
  */
 
 export const runtime = 'nodejs';
 
-const MODEL = process.env['ANTHROPIC_MODEL'] ?? 'claude-opus-5';
-const MAX_TOKENS = 1024;
+const MAX_TOKENS = TOKEN_BUDGETS.profesor.output;
 
 const limiter = new SlidingWindowRateLimiter();
-
-const SYSTEM_PROMPT = `Eres un guitarrista con años de tablas que le explica teoría a otro
-guitarrista. El que pregunta toca de oído y sabe hacer sonar cosas: no le
-expliques qué es una cuerda, pero tampoco des por sabido el vocabulario.
-
-Responde en español, en dos o tres frases, con verbos activos y sin
-exclamaciones. Nada de listas ni de teoría que no te hayan pedido.
-
-Explica siempre en la tonalidad que te den, con los acordes que esa tonalidad
-tiene, no con un ejemplo en C mayor.
-
-Si un ejemplo tocable ayuda, devuélvelo en example.degrees usando exactamente
-los símbolos de grado válidos que te den. Si no ayuda, no lo incluyas.`;
-
-const ANSWER_SCHEMA = {
-  type: 'object',
-  properties: {
-    answer: { type: 'string' },
-    example: {
-      type: 'object',
-      properties: {
-        degrees: { type: 'array', items: { type: 'string' } },
-      },
-      required: ['degrees'],
-      additionalProperties: false,
-    },
-  },
-  required: ['answer'],
-  additionalProperties: false,
-} as const;
 
 function buildPrompt(request: TeacherRequest, validDegrees: readonly string[]): string {
   const lines = [
@@ -77,10 +59,19 @@ async function askModel(prompt: string): Promise<unknown> {
   const client = new Anthropic();
 
   const response = await client.messages.create({
-    model: MODEL,
+    model: configuredModel(),
     max_tokens: MAX_TOKENS,
-    system: SYSTEM_PROMPT,
-    output_config: { format: { type: 'json_schema', schema: ANSWER_SCHEMA } },
+    system: TEACHER_SYSTEM_PROMPT,
+    // Sin pensar y con esfuerzo bajo. La respuesta son tres frases con una forma
+    // fijada por el esquema: no hay nada que razonar, y en Opus 5 pensar está
+    // encendido por defecto y se cobra como salida. Dejarlo puesto multiplicaba el
+    // coste de cada pregunta y podía comerse el `max_tokens` antes de contestar,
+    // que es la peor combinación: se paga y no se sirve.
+    thinking: { type: 'disabled' },
+    output_config: {
+      effort: 'low',
+      format: { type: 'json_schema', schema: ANSWER_SCHEMA },
+    },
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -122,6 +113,32 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = parseTeacherRequest(body);
   if (parsed === null) {
     return NextResponse.json(teacherError('invalid_request'), { status: 400 });
+  }
+
+  // El cupo del plan. Se gasta aquí, antes de llamar al modelo, y por eso el
+  // reintento de abajo no vuelve a pasar por esta puerta: se cobra un intento,
+  // no dos.
+  const permiso = await spendAi('profesor');
+  if (permiso.kind === 'sin-cuenta') {
+    return NextResponse.json(teacherError('account_required'), { status: 401 });
+  }
+  if (permiso.kind === 'plan') {
+    return NextResponse.json(
+      teacherError('plan_required', needsPlanMessage(permiso.needed, 'Preguntarle al profesor')),
+      { status: 402 },
+    );
+  }
+  if (permiso.kind === 'cupo') {
+    return NextResponse.json(
+      teacherError(
+        'quota_exhausted',
+        quotaMessage(planOf(permiso.account.plan), permiso.account.aiModel, permiso.scope),
+      ),
+      { status: 429 },
+    );
+  }
+  if (permiso.kind === 'sin-contador') {
+    return NextResponse.json(teacherError('model_unavailable'), { status: 503 });
   }
 
   const prompt = buildPrompt(parsed, degreesFor(parsed.key.mode));

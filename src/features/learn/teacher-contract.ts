@@ -20,8 +20,16 @@ import {
   type ScaleId,
 } from '@core/music';
 import { pitchClassFromName } from '@core/music';
+import { MAX_QUESTION_LENGTH } from '@core/billing';
 
-export const MAX_QUESTION_LENGTH = 240;
+/**
+ * Lo más larga que puede ser la pregunta. Se define en `core/billing/cost.ts` porque
+ * es una palanca de gasto —son tokens de entrada, y de ahí salen los cupos— y se
+ * reexporta aquí para que quien lea el contrato no tenga que saberlo.
+ */
+export { MAX_QUESTION_LENGTH };
+
+/** Lo más larga que se acepta la respuesta. Se recorta al validarla. */
 export const MAX_ANSWER_LENGTH = 900;
 
 export interface TeacherRequest {
@@ -42,7 +50,16 @@ export interface TeacherAnswer {
 }
 
 export type TeacherErrorCode =
-  'invalid_request' | 'rate_limited' | 'model_unavailable' | 'unparseable_response';
+  | 'invalid_request'
+  | 'rate_limited'
+  | 'model_unavailable'
+  | 'unparseable_response'
+  /** Sin cuenta no hay a quién contarle el gasto de la IA. */
+  | 'account_required'
+  /** El plan no incluye preguntar. La ruta añade con cuál sí. */
+  | 'plan_required'
+  /** El plan lo incluye, pero hoy ya se gastó el cupo de llamadas al modelo. */
+  | 'quota_exhausted';
 
 export interface TeacherError {
   readonly error: { readonly code: TeacherErrorCode; readonly message: string };
@@ -54,6 +71,13 @@ export const TEACHER_ERROR_MESSAGES: Readonly<Record<TeacherErrorCode, string>> 
   rate_limited: 'Has preguntado muchas veces seguidas. Espera un momento y vuelve a intentarlo.',
   model_unavailable: 'No hemos podido contactar con el profesor. Vuelve a intentarlo en un minuto.',
   unparseable_response: 'La respuesta no ha venido bien formada. Vuelve a preguntar.',
+  // Estos dos los reescribe la ruta con el plan y el número concretos. Lo que
+  // queda aquí es lo que se lee si algún día alguien los emite sin detalle.
+  account_required:
+    'Entra con tu cuenta para preguntarle al profesor. La IA se cuenta por cuenta, no por navegador.',
+  plan_required: 'Preguntarle al profesor no entra en tu plan.',
+  quota_exhausted:
+    'Se te han acabado las preguntas de hoy. Mañana se renuevan, o puedes subir de plan.',
 };
 
 export function teacherError(code: TeacherErrorCode, message?: string): TeacherError {

@@ -1,18 +1,17 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '../AppShell';
-import { LearnScreen } from '../screens';
+import { PathScreen } from '../screens';
 
 export const metadata: Metadata = {
   title: 'Aprender · Caos ordenado',
-  description:
-    'Teoría a base de preguntas en la tonalidad que estás tocando, con un profesor al lado.',
+  description: 'El camino: diez cursos en dos grados, y puedes empezar por el nivel que quieras.',
 };
 
 export default function Aprender() {
   return (
     <AppShell>
-      <LearnScreen />
+      <PathScreen />
     </AppShell>
   );
 }

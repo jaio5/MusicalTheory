@@ -8,6 +8,7 @@
  * El razonamiento del contrato está en docs/AI.md.
  */
 
+import { MAX_IDEAS, MAX_RECENT_CHORDS, MAX_RECENT_NOTES } from '@core/billing';
 import {
   degreesFor,
   NOTE_NAMES,
@@ -24,9 +25,15 @@ import { pitchClassFromName } from '@core/music';
 export const IDEA_KINDS = ['progression', 'twist', 'scale'] as const;
 export type IdeaKind = (typeof IDEA_KINDS)[number];
 
-export const MAX_RECENT_NOTES = 32;
-export const MAX_RECENT_CHORDS = 16;
-export const MAX_IDEAS = 4;
+/**
+ * Los tres topes de tamaño de esta petición.
+ *
+ * Se definen en `core/billing/cost.ts` y se reexportan aquí, porque son palancas de
+ * gasto antes que reglas del contrato: cada nota, cada acorde y cada idea son tokens,
+ * y de los tokens salen los cupos de los planes. Se reexportan para que quien lea
+ * este contrato no tenga que saber eso.
+ */
+export { MAX_IDEAS, MAX_RECENT_CHORDS, MAX_RECENT_NOTES };
 
 export interface IdeasRequest {
   readonly kind: IdeaKind;
@@ -50,7 +57,16 @@ export interface IdeasResponse {
 }
 
 export type IdeasErrorCode =
-  'invalid_request' | 'rate_limited' | 'model_unavailable' | 'unparseable_response';
+  | 'invalid_request'
+  | 'rate_limited'
+  | 'model_unavailable'
+  | 'unparseable_response'
+  /** Sin cuenta no hay a quién contarle el gasto de la IA. */
+  | 'account_required'
+  /** El plan no incluye las ideas. La ruta añade con cuál sí. */
+  | 'plan_required'
+  /** El plan las incluye, pero hoy ya se gastó el cupo de llamadas al modelo. */
+  | 'quota_exhausted';
 
 export interface IdeasError {
   readonly error: { readonly code: IdeasErrorCode; readonly message: string };
@@ -63,6 +79,13 @@ export const ERROR_MESSAGES: Readonly<Record<IdeasErrorCode, string>> = {
   rate_limited: 'Has pedido muchas ideas seguidas. Espera un momento y vuelve a intentarlo.',
   model_unavailable: 'No hemos podido contactar con el modelo. Vuelve a intentarlo en un minuto.',
   unparseable_response: 'La respuesta no ha venido bien formada. Vuelve a pedirlo.',
+  // Estos dos los reescribe la ruta con el plan y el número concretos. Lo que
+  // queda aquí es lo que se lee si algún día alguien los emite sin detalle.
+  account_required:
+    'Entra con tu cuenta para pedir ideas. La IA se cuenta por cuenta, no por navegador.',
+  plan_required: 'Las ideas de la IA no entran en tu plan.',
+  quota_exhausted:
+    'Se te han acabado las peticiones de hoy. Mañana se renuevan, o puedes subir de plan.',
 };
 
 export function ideasError(code: IdeasErrorCode, message?: string): IdeasError {

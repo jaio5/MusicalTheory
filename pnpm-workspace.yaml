@@ -1,4 +1,8 @@
 # Solo estas dependencias pueden ejecutar scripts de instalación.
+#
+# esbuild sí: lo trae drizzle-kit, que es el que genera las migraciones, y sin
+# su script de instalación no se descarga el binario y el comando no arranca.
 allowBuilds:
+  esbuild: true
   sharp: true
   unrs-resolver: true

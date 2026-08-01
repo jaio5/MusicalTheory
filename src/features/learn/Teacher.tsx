@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { noteName } from '@core/music';
+import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 
@@ -32,6 +34,7 @@ export interface TeacherProps {
  * y el vídeo no salen del equipo, y esta pantalla no los toca.
  */
 export function Teacher({ topic }: TeacherProps = {}) {
+  const { account, signedIn, refresh } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
   const [question, setQuestion] = useState('');
@@ -59,6 +62,11 @@ export function Teacher({ topic }: TeacherProps = {}) {
           ...(topic === undefined ? {} : { topic }),
         }),
       });
+
+      // El cupo ha cambiado, se haya contestado o se haya rechazado: la petición
+      // se cobra al intentarla. Se vuelve a pedir la cuenta para que el contador
+      // de arriba diga la verdad sin recargar la página.
+      void refresh();
 
       const payload: unknown = await response.json();
       if (!response.ok) {
@@ -103,6 +111,35 @@ export function Teacher({ topic }: TeacherProps = {}) {
       {activeKey === null && (
         <p className="text-text-muted text-xs">
           Elige una tonalidad primero: el profesor responde con los acordes que tienes delante.
+        </p>
+      )}
+
+      {/* El cupo, como un contador y no como una frase: es un número que se mira
+          de reojo antes de preguntar otra vez. Solo con cuenta, porque sin ella el
+          servidor cuenta por dirección y no puede prometer un número. */}
+      {signedIn && account.aiLeftToday !== null && (
+        <p
+          className={`font-mono text-xs ${
+            account.aiLeftToday === 0 ? 'text-oxblood-bright' : 'text-text-muted'
+          }`}
+        >
+          {account.aiLeftToday === 0
+            ? 'Sin peticiones a la IA hoy'
+            : `Quedan ${account.aiLeftToday} hoy`}
+          {account.aiLeftMonth !== null && (
+            <span className="text-text-muted"> · {account.aiLeftMonth} este mes</span>
+          )}
+        </p>
+      )}
+
+      {/* La IA pide cuenta, y hay que decirlo donde se intenta usar. */}
+      {!signedIn && (
+        <p className="text-text-muted text-xs">
+          El profesor pide cuenta: es lo que permite contar el gasto por persona y no por navegador.{' '}
+          <Link href="/cuenta" className="text-brass-bright hover:text-brass underline">
+            Entrar
+          </Link>
+          .
         </p>
       )}
 

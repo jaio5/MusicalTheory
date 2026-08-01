@@ -29,19 +29,26 @@ const SCREENS: ReadonlyArray<{
     href: '/aprender',
     step: '01',
     name: 'Aprender',
-    headline: 'Teoría con los acordes que tienes debajo de los dedos',
-    body: 'Cinco lecciones que se escriben en la tonalidad en la que estés, no en un C mayor de libro. Cada una pregunta, y al contestar te dice por qué, aciertes o falles. Al lado hay un profesor al que preguntarle lo que sea, y debajo la escala para tocarla de verdad: la aplicación oye si la nota ha sonado limpia antes de pasar a la siguiente.',
+    headline: 'Un camino de diez cursos, y empiezas por donde quieras',
+    body: 'Dos grados y diez cursos de unidades cortas, con su meta del día y su racha. Las preguntas se escriben en la tonalidad en la que estés, no en un C mayor de libro, y al contestar te dicen por qué, aciertes o falles. La mitad de las unidades son de tocar: la aplicación oye si la nota ha sonado limpia antes de pasar a la siguiente. Y si ya sabes teoría, eliges el curso por el que entras y no pasas por lo que ya te sabes.',
+  },
+  {
+    href: '/profesor',
+    step: '02',
+    name: 'Profesor',
+    headline: 'Pregunta lo que no te atreves a preguntar',
+    body: 'Un profesor al que preguntarle cualquier cosa de teoría, que contesta en tres frases y con los acordes de la tonalidad que tengas puesta. Si un ejemplo tocable ayuda, lo da en grados y se resuelve a los acordes de verdad de esa tonalidad; no hay forma de que te enseñe un acorde que ahí no existe.',
   },
   {
     href: '/componer',
-    step: '02',
+    step: '03',
     name: 'Componer',
     headline: 'Guarda la idea antes de que se te olvide',
     body: 'Eliges la tonalidad en la rueda y encadenas acordes. De cada uno ves sus notas, hasta seis formas de hacerlo a lo largo del mástil y a dónde puedes ir desde ahí, con un punto verde, ámbar o rojo según cuánto se salga. Puedes buscar un acorde por su cifrado y te dice si entra, si cabe como color o si se va fuera.',
   },
   {
     href: '/afinar',
-    step: '03',
+    step: '04',
     name: 'Afinar',
     headline: 'Ocho afinaciones y nada más en pantalla',
     body: 'Estándar, drop D, medio tono abajo, un tono abajo, drop C, DADGAD, open G y open D. El afinador compara con la afinación que elijas, no con la de siempre, así que en drop C la sexta al aire está afinada cuando lo está de verdad.',
@@ -59,11 +66,15 @@ const QUESTIONS: ReadonlyArray<{ q: string; a: string }> = [
   },
   {
     q: '¿Reconoce acordes o solo notas sueltas?',
-    a: 'Lo que escucha el micro es una nota cada vez: el análisis busca una sola altura y con un acorde rasgueado se queda con la más clara. Los acordes los llevas tú, marcándolos al pulsarlos, y con eso la aplicación deduce la tonalidad y te propone por dónde seguir.',
+    a: 'Las dos cosas, con dos análisis distintos. El afinador busca una sola altura, así que ahí se toca nota a nota. En componer hay además un reconocedor de acordes que trabaja con el espectro: acierta con tríadas y séptimas tocadas en limpio, y duda con las inversiones, porque olvida en qué octava está cada nota.',
   },
   {
     q: '¿Hace falta saber teoría?',
-    a: 'No. Puedes tocar y leer los nombres que van saliendo; la explicación está ahí cuando la quieras y se calla cuando no.',
+    a: 'No. Puedes tocar y leer los nombres que van saliendo; la explicación está ahí cuando la quieras y se calla cuando no. Y si ya sabes, en el camino eliges por qué curso entras: no hay que pasar por lo que ya te sabes.',
+  },
+  {
+    q: '¿Cuánto cuesta?',
+    a: 'El afinador, la rueda, el mástil, el metrónomo, los acordes y grabarte tocando son gratis y lo van a seguir siendo: pasan enteros en tu navegador, así que servirlos no cuesta nada. Lo que se paga es la IA —el profesor y las ideas son llamadas a un modelo— y el temario del Grado Profesional, en tres planes desde 4,99 € al mes. Sin pagar nada tienes el Grado Elemental completo y unas preguntas al profesor al día.',
   },
 ];
 
@@ -304,11 +315,17 @@ export default function Portada() {
           <Link href="/aprender" className="hover:text-text">
             Aprender
           </Link>
+          <Link href="/profesor" className="hover:text-text">
+            Profesor
+          </Link>
           <Link href="/componer" className="hover:text-text">
             Componer
           </Link>
           <Link href="/afinar" className="hover:text-text">
             Afinar
+          </Link>
+          <Link href="/planes" className="hover:text-text">
+            Planes
           </Link>
           <span className="ml-auto">Hecho para tocar de noche</span>
         </div>

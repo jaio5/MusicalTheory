@@ -1,13 +1,19 @@
 /**
- * Límite de frecuencia para el route handler de ideas.
+ * Límite de frecuencia de las rutas de IA.
  *
- * Cada petición cuesta dinero, y la interfaz tiene tres botones que invitan a
+ * Cada petición cuesta dinero, y la interfaz tiene botones que invitan a
  * pulsarlos seguidos. El contrato ya declaraba `rate_limited`; esto es quien lo
  * emite.
  *
  * Es una ventana deslizante en memoria, con el reloj por parámetro para poder
  * probarla. Va aparte del handler porque así se prueba sin levantar el
  * servidor ni tocar el modelo.
+ *
+ * **Esto es el límite por minuto, no el cupo del plan.** Son dos cosas distintas
+ * y las dos hacen falta: esto defiende de pulsar veinte veces el mismo botón, y
+ * el cupo diario de `ai-usage.ts` defiende de pasarse la tarde gastando. Este no
+ * sabe de planes a propósito: aunque pagues, no hay motivo para hacer diez
+ * peticiones en un segundo.
  */
 
 export interface RateLimitOptions {

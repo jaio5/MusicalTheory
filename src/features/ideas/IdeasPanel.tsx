@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 
+import { can, cheapestPlanWith } from '@core/billing';
 import { noteName, SCALES } from '@core/music';
+import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { PlanLock } from '@ui/PlanLock';
 
 import {
   ERROR_MESSAGES,
@@ -34,10 +37,16 @@ async function defaultFetch(request: IdeasRequest): Promise<Response> {
 }
 
 export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) {
+  const { account, signedIn } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
   const currentDegree = useSessionStore((state) => state.currentDegree);
   const history = useSessionStore((state) => state.noteHistory);
+
+  // El mismo permiso que comprueba la ruta antes de gastar dinero. Preguntando
+  // los dos a `core/billing` no puede pasar que la pantalla enseñe un botón que
+  // el servidor va a rechazar.
+  const puedePedir = can(account.plan, 'ideas');
 
   const [ideas, setIdeas] = useState<readonly Idea[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -64,14 +73,7 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
       const payload: unknown = await response.json();
 
       if (!response.ok) {
-        const code =
-          typeof payload === 'object' &&
-          payload !== null &&
-          'error' in payload &&
-          typeof (payload as { error: { code?: unknown } }).error.code === 'string'
-            ? (payload as { error: { code: IdeasErrorCode } }).error.code
-            : 'model_unavailable';
-        setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.model_unavailable);
+        setError(errorMessage(payload));
         setIdeas([]);
         return;
       }
@@ -92,7 +94,19 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
         de tu equipo.
       </p>
 
-      {activeKey === null ? (
+      {!puedePedir ? (
+        <div className="mt-6">
+          <PlanLock
+            needed={cheapestPlanWith('ideas')}
+            what="Las ideas de la IA"
+            signedIn={signedIn}
+          />
+          <p className="text-text-muted mt-2 text-xs">
+            Es la parte más cara: cada pulsación son varias progresiones razonadas. Todo lo demás de
+            esta pantalla —los acordes, el mástil, a dónde ir, el metrónomo y grabarte— es gratis.
+          </p>
+        </div>
+      ) : activeKey === null ? (
         <p className="text-text-muted mt-6">
           Toca unos compases o elige una tonalidad para poder pedir ideas.
         </p>
@@ -139,4 +153,24 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
       )}
     </div>
   );
+}
+
+/**
+ * El mensaje que se enseña cuando la ruta dice que no.
+ *
+ * Gana el que manda el servidor, si lo manda: los códigos de plan y de cupo se
+ * responden con el plan y el número concretos —«entra en el plan Estudiante:
+ * 4,99 € al mes»— y la frase genérica de aquí no sabe eso. Si no viene ninguno, se
+ * usa el del contrato por su código, y si tampoco, el de siempre.
+ */
+function errorMessage(payload: unknown): string {
+  if (typeof payload !== 'object' || payload === null || !('error' in payload)) {
+    return ERROR_MESSAGES.model_unavailable;
+  }
+  const error = (payload as { error: { code?: unknown; message?: unknown } }).error;
+  if (typeof error?.message === 'string' && error.message !== '') {
+    return error.message;
+  }
+  const code = typeof error?.code === 'string' ? (error.code as IdeasErrorCode) : null;
+  return (code === null ? undefined : ERROR_MESSAGES[code]) ?? ERROR_MESSAGES.model_unavailable;
 }

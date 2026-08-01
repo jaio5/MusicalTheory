@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { WebAudioReferenceTone, type ReferenceTone } from '@audio/reference-tone';
-import { accidentalForScale, midiToFrequency, SCALES, noteName } from '@core/music';
+import { accidentalForScale, midiToFrequency, SCALES, noteName, type ScaleId } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
@@ -18,11 +18,19 @@ import {
 
 export interface LearnPanelProps {
   readonly createTone?: () => ReferenceTone;
+  /**
+   * La escala que pide la unidad del temario. Sin ella se practica la que esté
+   * elegida en los ajustes, que es como funciona el panel suelto.
+   */
+  readonly scaleId?: ScaleId;
+  /** Se avisa una vez, cuando se termina la escala entera. */
+  readonly onDone?: () => void;
 }
 
-export function LearnPanel({ createTone }: LearnPanelProps = {}) {
+export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelProps = {}) {
   const activeKey = useSessionStore(selectActiveKey);
-  const scaleId = useSessionStore((state) => state.scaleId);
+  const chosen = useSessionStore((state) => state.scaleId);
+  const scaleId = asked ?? chosen;
 
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<ExerciseProgress>(INITIAL_PROGRESS);
@@ -62,6 +70,21 @@ export function LearnPanel({ createTone }: LearnPanelProps = {}) {
       );
     });
   }, [running, exercise]);
+
+  // Se avisa desde un efecto y no al detectar la nota: apuntar una unidad como
+  // superada es escribir en el equipo, y eso no se hace dentro de un render.
+  const notified = useRef(false);
+  useEffect(() => {
+    if (!progress.done) {
+      notified.current = false;
+      return;
+    }
+    if (notified.current) {
+      return;
+    }
+    notified.current = true;
+    onDone?.();
+  }, [progress.done, onDone]);
 
   useEffect(() => {
     return () => {

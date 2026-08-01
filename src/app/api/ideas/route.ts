@@ -1,28 +1,33 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
+import { needsPlanMessage, planOf, quotaMessage, TOKEN_BUDGETS } from '@core/billing';
 import { degreesFor } from '@core/music';
 
 import {
   ideasError,
-  MAX_IDEAS,
   parseIdeasRequest,
   validateIdeas,
   type IdeasRequest,
 } from '@features/ideas/contract';
-import { requesterKey, SlidingWindowRateLimiter } from '../rate-limit';
+import { configuredModel } from '@server/ai-model';
+import { IDEAS_SCHEMA, IDEAS_SYSTEM_PROMPT } from '@server/prompts';
+import { spendAi } from '@server/entitlements';
+import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
  * Route handler de ideas. Es el único sitio del proyecto que importa el SDK de
  * Anthropic y el único que lee la clave: si esto se importara desde un
  * componente, el bundler se llevaría la clave al navegador.
  *
+ * Las ideas no entran en el plan gratis: son la parte más cara de la aplicación
+ * —cada pulsación son entre dos y cuatro progresiones razonadas— y es la única
+ * que se puede pedir en cadena sin leer lo anterior.
+ *
  * El contrato completo está en docs/AI.md.
  */
 
 export const runtime = 'nodejs';
-
-const MODEL = process.env['ANTHROPIC_MODEL'] ?? 'claude-opus-5';
 
 /**
  * En memoria y por instancia: si esto llega a correr en varias, cada una tendrá
@@ -30,43 +35,13 @@ const MODEL = process.env['ANTHROPIC_MODEL'] ?? 'claude-opus-5';
  * suficiente; para un abuso de verdad haría falta un contador compartido.
  */
 const limiter = new SlidingWindowRateLimiter();
-const MAX_TOKENS = 2048;
 
-const SYSTEM_PROMPT = `Eres un guitarrista de rock que ayuda a otro a componer.
-
-Criterio: rock, no coral a cuatro voces. El bVII es un grado normal, la
-dominante menor vale tanto como la mayor, y V-IV existe. No expliques teoría
-que no te hayan pedido.
-
-Responde siempre en español, en frases cortas y con verbos activos. Nada de
-exclamaciones. Cada idea lleva un título de menos de sesenta caracteres y una
-sola frase de porqué.
-
-Usa exactamente los símbolos de grado que te den como válidos.`;
-
-const IDEAS_SCHEMA = {
-  type: 'object',
-  properties: {
-    ideas: {
-      type: 'array',
-      minItems: 1,
-      maxItems: MAX_IDEAS,
-      items: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          why: { type: 'string' },
-          degrees: { type: 'array', items: { type: 'string' } },
-          scale: { type: 'string' },
-        },
-        required: ['title', 'why'],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ['ideas'],
-  additionalProperties: false,
-} as const;
+/**
+ * El tope de salida sale del dominio, no de aquí: es el mismo número con el que
+ * `core/billing/cost.ts` calcula los cupos, así que el peor caso que supone la
+ * aritmética es el que impone el servidor.
+ */
+const MAX_TOKENS = TOKEN_BUDGETS.ideas.output;
 
 function buildPrompt(request: IdeasRequest, validDegrees: readonly string[]): string {
   const lines = [
@@ -110,10 +85,16 @@ async function askModel(prompt: string): Promise<unknown> {
   const client = new Anthropic();
 
   const response = await client.messages.create({
-    model: MODEL,
+    model: configuredModel(),
     max_tokens: MAX_TOKENS,
-    system: SYSTEM_PROMPT,
-    output_config: { format: { type: 'json_schema', schema: IDEAS_SCHEMA } },
+    system: IDEAS_SYSTEM_PROMPT,
+    // Sin pensar y con esfuerzo bajo, por lo mismo que en el profesor: la salida
+    // la fija un esquema, pensar se cobra como salida y en Opus 5 viene encendido.
+    thinking: { type: 'disabled' },
+    output_config: {
+      effort: 'low',
+      format: { type: 'json_schema', schema: IDEAS_SCHEMA },
+    },
     messages: [{ role: 'user', content: prompt }],
   });
 
@@ -155,6 +136,31 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = parseIdeasRequest(body);
   if (parsed === null) {
     return NextResponse.json(ideasError('invalid_request'), { status: 400 });
+  }
+
+  // El cupo del plan, después del límite por minuto: comprobar memoria es
+  // gratis y escribir en la base de datos no.
+  const permiso = await spendAi('ideas');
+  if (permiso.kind === 'sin-cuenta') {
+    return NextResponse.json(ideasError('account_required'), { status: 401 });
+  }
+  if (permiso.kind === 'plan') {
+    return NextResponse.json(
+      ideasError('plan_required', needsPlanMessage(permiso.needed, 'Las ideas de la IA')),
+      { status: 402 },
+    );
+  }
+  if (permiso.kind === 'cupo') {
+    return NextResponse.json(
+      ideasError(
+        'quota_exhausted',
+        quotaMessage(planOf(permiso.account.plan), permiso.account.aiModel, permiso.scope),
+      ),
+      { status: 429 },
+    );
+  }
+  if (permiso.kind === 'sin-contador') {
+    return NextResponse.json(ideasError('model_unavailable'), { status: 503 });
   }
 
   const prompt = buildPrompt(parsed, degreesFor(parsed.key.mode));

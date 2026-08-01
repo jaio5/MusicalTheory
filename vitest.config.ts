@@ -9,6 +9,7 @@ export default defineConfig({
       '@core': src('core'),
       '@audio': src('audio'),
       '@media': src('media'),
+      '@server': src('server'),
       '@state': src('state'),
       '@features': src('features'),
       '@ui': src('ui'),

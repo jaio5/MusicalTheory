@@ -1,6 +1,6 @@
 # Roadmap
 
-Estado a 29 de julio de 2026. Las siete fases están implementadas;
+Estado a 30 de julio de 2026. Las once fases están implementadas;
 lo que queda anotado abajo es deuda y afinado con instrumento real.
 
 ## Fase 0 — Esqueleto y dominio · hecha
@@ -140,6 +140,144 @@ Sigue sin haber ni una línea de código de subida, y no la habrá sin un ADR.
 IndexedDB y no localStorage porque localStorage es síncrono, y escribir cientos
 de notas ahí bloquearía el hilo que está analizando el audio.
 
+## Fase 8 — Cuentas y planes · hecha
+
+- [x] Capa `src/server/`, que solo abre `app/`, vigilada por ESLint en los dos
+      sentidos: un import de `@server/` desde un componente se llevaría la cadena
+      de conexión al navegador.
+- [x] Cuentas con Auth.js: correo y contraseña, sesión en cookie firmada y sin
+      tabla de sesiones. El plan **no** viaja en la cookie, para que quien acaba de
+      pagar no siga viendo candados.
+- [x] Contraseñas con `scrypt` de la biblioteca estándar de Node: sin dependencias
+      que se compilen al instalar. Comparación en tiempo constante, y cifrado
+      también cuando el correo no existe, para que no se pueda averiguar quién
+      tiene cuenta midiendo lo que tarda.
+- [x] Tres tablas en Postgres con Drizzle y migraciones en el repositorio:
+      `users`, `progress` y `ai_usage`.
+- [x] Tres planes en el dominio (`core/billing`), con permisos por verbo y cupo
+      diario. La pantalla y la ruta preguntan a la **misma** función.
+- [x] Candado en las dos rutas de IA: `402` con el plan que hace falta y `429` con
+      el cupo gastado, los dos con el precio en la frase.
+- [x] Cupo que sube y comprueba su tope en la misma sentencia, para que dos
+      peticiones a la vez no gasten las dos la última.
+- [x] Avance sincronizado con **la fusión en el servidor**: subir es idempotente y
+      dos aparatos abiertos a la vez no se pisan.
+- [x] Puerto de facturación con un cobrador que no cobra, y que lo declara para que
+      la pantalla pueda avisarlo.
+- [x] Pantalla `/cuenta`: entrar, registrarse, los tres planes con lo que da cada
+      uno, y qué se guarda de ti.
+- [ ] **Sin probar con Postgres de verdad.** En la máquina donde se escribió no
+      había ni base de datos ni Docker disponible. Lo que falle ahí serán las
+      consultas: la política de planes, la fusión y el cifrado tienen tests.
+- [ ] Sin cobro de verdad. Es lo siguiente, y es añadir una implementación del
+      puerto, no rediseñar nada.
+
+El porqué de las dos decisiones grandes está en
+[adr/0005](./adr/0005-cuentas-y-avance-en-servidor.md) —cuentas propias y quién
+fusiona el avance— y [adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md)
+—planes en el dominio y cobro como puerto—. Lo que da cada plan y qué se guarda de
+quien entra, en [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md).
+
+## Fase 9 — Aprender como una aplicación de idiomas · hecha
+
+El dominio ya era medio Duolingo desde la fase 3: XP, racha con su aritmética de
+días, medallas y desbloqueo lineal. Lo que faltaba era la piel, y una parte del
+dominio.
+
+- [x] **Camino con nodos** en vez de lista. La lista pesaba igual en todas sus
+      filas, así que no había un «aquí estoy», y con nueve de cada diez unidades
+      cerradas lo que se veía era un muro de candados. Ahora el que toca es más
+      grande y lleva su cartel, y lo cerrado se atenúa hasta quedar de fondo.
+- [x] **Cuatro estados y no dos**: hecha, abierta, cerrada por temario y cerrada
+      por plan. Los dos candados no se abren igual —uno estudiando y otro
+      pagando—, y con el mismo icono quien va por el cuarto curso cree que le falta
+      estudiar.
+- [x] **Meta diaria** con su anillo, y la racha en grande al lado. Un número que
+      sube durante diez cursos no da la sensación de haber hecho algo hoy; una meta
+      que se llena, se cierra y mañana está vacía, sí.
+- [x] **Pantalla de después**: cuánto has ganado, cómo va la racha, si has cerrado
+      la meta y qué medallas son nuevas. Antes terminar una unidad devolvía a la
+      lista sin decir nada.
+- [x] **Repaso de lo fallado.** Lo que se falla se apunta por su **posición** en la
+      lección, no por su texto, así que se vuelve a generar en la tonalidad de hoy:
+      el repaso pregunta lo mismo con otros acordes, que es lo que distingue haber
+      entendido el V grado de haberse aprendido que la respuesta era Sol.
+- [x] Unidades **agrietadas**: superadas pero con preguntas esperando repaso. Una
+      unidad hecha deja de ser una casilla cerrada para siempre.
+- [x] Dos medallas nuevas —cerrar la meta del día y dejar la cola de repaso
+      vacía— y XP de repaso que **cuenta para la meta y no para el temario**: si
+      contase para el temario, repasar mucho el Elemental diría que llevas medio
+      Profesional hecho.
+- [ ] Pendiente de rodaje: si la meta de 40 XP es la buena, y si dos pasos de
+      repaso —hoy y mañana— bastan para que algo se quede.
+
+**Sin vidas ni corazones**, a propósito y en contra del modelo que imita: fallar no
+bloquea, se dice por qué era la otra y se sigue. Lo que se pierde al fallar es la
+medalla de no fallar y que la pregunta vuelva, no el avance, porque una unidad que
+hay que repetir desde el principio se abandona.
+
+## Fase 10 — Una pantalla por cosa, y empezar donde quieras · hecha
+
+- [x] **Tres planes de pago** —Básico 4,99 €, Medio 9,99 €, Pro 19,99 €— cada uno con
+      algo que el anterior no tiene: el temario entero, las ideas de la IA, y un
+      profesor que sabe por dónde vas. El gratis sigue siendo lo que tiene quien no
+      paga, y no se vende como una cuarta columna.
+- [x] `planOf` traduce los nombres viejos: `estudiante` → Básico, `conservatorio` →
+      Pro. Un renombrado no puede degradar en silencio a quien había pagado.
+- [x] **`/planes` y una ventana de pago por plan** (`/planes/basico`, `/medio`,
+      `/pro`), con el resumen, el precio, lo que se abre **que no tuvieras ya**, y el
+      hueco para entrar sin salir de la pantalla. `/planes/gratis` da 404: el plan
+      gratis no es una compra.
+- [x] Sin campos de tarjeta, y dicho en su sitio: mientras el cobrador no cobre,
+      unos campos que no llevan a ninguna pasarela serían un decorado que se parece
+      demasiado a un cobro de verdad.
+- [x] **Aprender es solo el camino.** La unidad, el repaso y el profesor se han ido a
+      sus propias direcciones: `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`.
+- [x] **Se elige por dónde empezar.** Un desplegable con los diez cursos: lo anterior
+      al punto de partida queda abierto, de ahí en adelante sigue siendo una detrás de
+      otra, y saltar no da por hechas las unidades que se salta.
+- [x] Navegación con iconos abajo en pantalla estrecha, donde llega el pulgar, y
+      arriba en pantalla grande.
+- [ ] Pendiente de rodaje: si el desplegable es la forma buena de elegir el nivel, o
+      si hace falta que la primera vez lo pregunte a pantalla completa.
+
+El comentario de `progress.ts` que defendía el desbloqueo lineal decía lo contrario de
+lo que hace ahora el código, así que se ha reescrito. Las alternativas —abrirlo todo,
+una prueba de nivel, dar por hechas las unidades saltadas— están en
+[adr/0007](./adr/0007-elegir-por-donde-empezar.md).
+
+## Fase 11 — Que los cupos cuadren con el dinero · hecha
+
+Los cupos de IA salieron escritos a mano y **perdían dinero**: cuarenta peticiones al
+día son mil doscientas al mes, y con Opus 5 eso eran entre veintiséis y sesenta euros
+de coste para un plan de 4,99 €. Nadie los había multiplicado.
+
+- [x] `core/billing/cost.ts`: los precios reales de los tres modelos, el peor caso de
+      tokens de cada petición y los cupos como una **división** —presupuesto del plan
+      entre coste del peor caso—. Ya no hay ningún cupo escrito a mano.
+- [x] Un test que comprueba que **ningún plan de pago pierde dinero** aunque se gaste
+      el cupo entero, con los tres modelos y con uno desconocido.
+- [x] El `max_tokens` de las dos rutas sale del mismo sitio que el cálculo: el peor
+      caso que supone la aritmética es el tope que impone el servidor.
+- [x] **Pensar apagado** en las dos rutas. En Opus 5 viene encendido por defecto y se
+      cobra como salida: multiplicaba el coste de cada pregunta y podía gastarse el
+      tope pensando para devolver una respuesta truncada.
+- [x] Dos topes: el del mes protege el dinero y el del día evita fundirse el mes en una
+      tarde. Se comprueban **en la misma sentencia**, y por eso la tabla pasó a tener
+      una fila por cuenta y mes con el día dentro.
+- [x] **La IA pide cuenta.** El contador anónimo por dirección IP se ha borrado, no
+      arreglado: no era un límite por cliente, era un rótulo.
+- [x] `server/prompts.ts` con los dos prompts y los dos esquemas juntos, y un test que
+      mide sus caracteres: si crecen hasta comerse la holgura del presupuesto de
+      tokens, falla. Es lo que evita que el modelo de coste mienta en silencio.
+- [ ] El peor caso de entrada sigue siendo una estimación por longitud, no una medida
+      con `count_tokens`. Confirmarlo con clave de verdad es lo que falta.
+
+Lo que sale con el modelo por defecto: Básico 147 peticiones al mes, Medio 181, Pro 363,
+y quince de regalo sin pagar. Con Haiku 4.5 se multiplican por cinco, y el cálculo ya lo
+hace solo. El porqué y las alternativas, en
+[adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
+
 ## El camino
 
 El panel que hace que esto se juegue: eliges tonalidad, te propone por dónde
@@ -178,11 +316,15 @@ aplicación hace de verdad hoy.
 Cada una está hecha para una cosa y trae lo que hace falta para esa cosa. No hay
 que montarse nada: se elige arriba y ya está.
 
-**Aprender.** Cinco lecciones de teoría —los grados, las especies, la rueda, los
-prestados y las escalas— generadas en la tonalidad en la que estés, cada una con
-sus preguntas. Al contestar dice por qué, se acierte o no. Al lado, el profesor:
-le preguntas lo que quieras y responde con los acordes que tienes delante. Debajo,
-la escala para tocarla de verdad, validada por el micro.
+**Aprender.** El camino y nada más: diez cursos en dos grados, en nodos, con la unidad
+que toca destacada y la meta del día arriba. Se elige por qué curso entrar, así que
+quien ya sabe teoría no tiene once unidades de peaje. Cada unidad se abre en su propia
+pantalla, y el repaso también.
+
+**Profesor.** Su pantalla, con la tonalidad a la vista porque es lo que cambia la
+respuesta. Antes era una columna estrecha dentro de aprender, y ahí no se podía ni
+escribir a gusto ni preguntar mientras componías, que es cuando salen la mitad de las
+dudas.
 
 **Componer.** Arriba, el metrónomo: se pone en marcha y se olvida uno de él,
 como el botón de grabar. El tempo se escribe, se ajusta de dos en dos o se marca
@@ -289,10 +431,26 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
 - **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Se
   queda así a propósito: el diagrama se lee mejor.
 - **El contador de frecuencia es por instancia.** En memoria. Si esto se
-  despliega en varias, cada una llevará su cuenta.
+  despliega en varias, cada una llevará su cuenta. El cupo diario de las cuentas
+  sí es compartido: vive en Postgres.
+- **El cobro no cobra.** Cualquiera con una cuenta puede darse el plan Pro.
+- **Los cupos suponen los tokens de entrada, no los miden.** La estimación sale de la
+  longitud de los prompts, con holgura de sobra y un test que la vigila, pero
+  confirmarla con `count_tokens` pide clave y red.
+- **El plan gratis pierde dinero a propósito**: quince peticiones al mes por cuenta,
+  unos veinte céntimos con el modelo más caro. Es captación, está en una constante con
+  nombre, y con muchas cuentas gratis hay que mirarlo. Es una decisión, no un olvido
+  —[adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md)—, pero es lo primero
+  que hay que cerrar antes de publicar esto en serio.
+- **Nada de las cuentas está probado contra Postgres.** Solo lo puro: planes,
+  permisos, fusión de avances, cola de repaso y cifrado de contraseñas.
+- **El repaso solo alcanza a las preguntas de teoría.** Las unidades de tocar no
+  tienen preguntas que fallar, así que una escala que sale regular no se apunta en
+  ninguna parte.
 - **Sin restaurar la sesión al abrir.** Hay que pulsar «Retomar». Automático
   sería cómodo y también sorprendente.
 - **Sin probar con instrumento y clave reales.** Lo que no puede comprobar un
   test: cómo se siente el afinador, si la tonalidad se asienta rápido, si el
   ejercicio se hace lento, si la grabación sale bien y si el modelo devuelve
-  ideas que valgan.
+  ideas que valgan. Ahora también: si la meta diaria de 40 XP es la buena y si dos
+  pasos de repaso bastan.
