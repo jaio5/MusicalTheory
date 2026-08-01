@@ -7,11 +7,13 @@ import { noteName } from '@core/music';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { PlansLink, seArreglaConPlan } from '@ui/PlansLink';
 
 import {
   MAX_QUESTION_LENGTH,
   TEACHER_ERROR_MESSAGES,
   type TeacherAnswer,
+  type TeacherErrorCode,
 } from './teacher-contract';
 
 /** Preguntas para empezar, para quien no sabe ni cómo se llama lo que no sabe. */
@@ -39,7 +41,13 @@ export function Teacher({ topic }: TeacherProps = {}) {
   const scaleId = useSessionStore((state) => state.scaleId);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<TeacherAnswer | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  // Con su código, no solo la frase: es lo que decide si debajo hay algo que
+  // pulsar. Un «no entra en tu plan» se arregla en la pantalla de planes; un
+  // modelo caído, esperando.
+  const [message, setMessage] = useState<{
+    code: TeacherErrorCode | null;
+    text: string;
+  } | null>(null);
   const [asking, setAsking] = useState(false);
 
   async function ask(text: string): Promise<void> {
@@ -70,14 +78,18 @@ export function Teacher({ topic }: TeacherProps = {}) {
 
       const payload: unknown = await response.json();
       if (!response.ok) {
-        const error = payload as { error?: { message?: string } };
-        setMessage(error.error?.message ?? TEACHER_ERROR_MESSAGES.model_unavailable);
+        const error = (payload as { error?: { code?: string; message?: string } }).error;
+        const code = typeof error?.code === 'string' ? (error.code as TeacherErrorCode) : null;
+        setMessage({
+          code,
+          text: error?.message ?? TEACHER_ERROR_MESSAGES.model_unavailable,
+        });
         return;
       }
 
       setAnswer(payload as TeacherAnswer);
     } catch {
-      setMessage(TEACHER_ERROR_MESSAGES.model_unavailable);
+      setMessage({ code: 'model_unavailable', text: TEACHER_ERROR_MESSAGES.model_unavailable });
     } finally {
       setAsking(false);
     }
@@ -164,9 +176,14 @@ export function Teacher({ topic }: TeacherProps = {}) {
       )}
 
       {message !== null && (
-        <p role="alert" className="text-oxblood-bright text-sm">
-          {message}
-        </p>
+        <div role="alert">
+          <p className="text-oxblood-bright text-sm">{message.text}</p>
+          {/* Si lo que falta es plan, la salida está a un clic y en la pantalla
+              donde se ve qué trae cada uno. */}
+          {seArreglaConPlan(message.code, account.plan) && (
+            <PlansLink className="mt-1 inline-block" />
+          )}
+        </div>
       )}
 
       {answer !== null && (

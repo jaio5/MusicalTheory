@@ -8,6 +8,7 @@ import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { PlanLock } from '@ui/PlanLock';
+import { PlansLink, seArreglaConPlan } from '@ui/PlansLink';
 
 import {
   ERROR_MESSAGES,
@@ -49,7 +50,10 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
   const puedePedir = can(account.plan, 'ideas');
 
   const [ideas, setIdeas] = useState<readonly Idea[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  // El código se guarda con la frase, y no solo la frase: es lo que distingue un
+  // «no entra en tu plan» —que se arregla en la pantalla de planes— de un modelo
+  // caído, que no se arregla en ningún sitio.
+  const [error, setError] = useState<{ code: IdeasErrorCode | null; message: string } | null>(null);
   const [pending, setPending] = useState<IdeaKind | null>(null);
 
   async function ask(kind: IdeaKind) {
@@ -73,14 +77,14 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
       const payload: unknown = await response.json();
 
       if (!response.ok) {
-        setError(errorMessage(payload));
+        setError(errorFrom(payload));
         setIdeas([]);
         return;
       }
 
       setIdeas((payload as { ideas: readonly Idea[] }).ideas);
     } catch {
-      setError(ERROR_MESSAGES.model_unavailable);
+      setError({ code: 'model_unavailable', message: ERROR_MESSAGES.model_unavailable });
       setIdeas([]);
     } finally {
       setPending(null);
@@ -99,6 +103,7 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
           <PlanLock
             needed={cheapestPlanWith('ideas')}
             what="Las ideas de la IA"
+            plural
             signedIn={signedIn}
           />
           <p className="text-text-muted mt-2 text-xs">
@@ -126,9 +131,15 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
           </div>
 
           {error !== null && (
-            <p role="alert" className="text-oxblood-bright mt-4 text-sm">
-              {error}
-            </p>
+            <div role="alert" className="mt-4">
+              <p className="text-oxblood-bright text-sm">{error.message}</p>
+              {/* El candado que salta en marcha lleva al mismo sitio que el que
+                  se enseña de antemano: la frase dice qué plan hace falta y el
+                  enlace lleva a donde se ve qué trae cada uno. */}
+              {seArreglaConPlan(error.code, account.plan) && (
+                <PlansLink className="mt-1 inline-block" />
+              )}
+            </div>
           )}
 
           <ul className="mt-6 space-y-4" aria-live="polite">
@@ -156,21 +167,28 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
 }
 
 /**
- * El mensaje que se enseña cuando la ruta dice que no.
+ * Lo que se enseña cuando la ruta dice que no: la frase y por qué.
  *
- * Gana el que manda el servidor, si lo manda: los códigos de plan y de cupo se
- * responden con el plan y el número concretos —«entra en el plan Estudiante:
- * 4,99 € al mes»— y la frase genérica de aquí no sabe eso. Si no viene ninguno, se
- * usa el del contrato por su código, y si tampoco, el de siempre.
+ * La frase que gana es la que manda el servidor, si la manda: los códigos de plan
+ * y de cupo se responden con el plan y el número concretos —«entra en el plan
+ * Básico: 4,99 € al mes»— y la genérica de aquí no sabe eso. Si no viene ninguna,
+ * se usa la del contrato por su código, y si tampoco, la de siempre.
+ *
+ * El código viaja aparte de la frase porque de él depende si hay algo que pulsar
+ * debajo, y adivinarlo leyendo el texto sería atarse a cómo está escrito.
  */
-function errorMessage(payload: unknown): string {
+function errorFrom(payload: unknown): { code: IdeasErrorCode | null; message: string } {
   if (typeof payload !== 'object' || payload === null || !('error' in payload)) {
-    return ERROR_MESSAGES.model_unavailable;
+    return { code: null, message: ERROR_MESSAGES.model_unavailable };
   }
   const error = (payload as { error: { code?: unknown; message?: unknown } }).error;
-  if (typeof error?.message === 'string' && error.message !== '') {
-    return error.message;
-  }
   const code = typeof error?.code === 'string' ? (error.code as IdeasErrorCode) : null;
-  return (code === null ? undefined : ERROR_MESSAGES[code]) ?? ERROR_MESSAGES.model_unavailable;
+
+  if (typeof error?.message === 'string' && error.message !== '') {
+    return { code, message: error.message };
+  }
+  return {
+    code,
+    message: (code === null ? undefined : ERROR_MESSAGES[code]) ?? ERROR_MESSAGES.model_unavailable,
+  };
 }

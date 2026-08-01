@@ -188,6 +188,56 @@ describe('Panel de ideas', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/las 40 peticiones/i);
   });
+
+  /**
+   * El rechazo que llega en marcha tiene la misma salida que el candado que se
+   * enseña de antemano. Un plan puede caducar entre que se pinta la pantalla y se
+   * pulsa el botón, y entonces el único aviso es este.
+   */
+  it('si lo que falta es plan, deja ir a verlos', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+
+    render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={async () =>
+            respondWith(
+              ideasError(
+                'plan_required',
+                'Las ideas de la IA entran en el plan Medio: 9,99 € al mes.',
+              ),
+              402,
+            )
+          }
+        />,
+      ),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/entran en el plan medio/i);
+    expect(screen.getByRole('link', { name: /ver los tres planes/i })).toHaveAttribute(
+      'href',
+      '/planes',
+    );
+  });
+
+  // Un enlace a los planes debajo de «el modelo no contesta» mandaría a pagar por
+  // algo que no se arregla pagando.
+  it('no manda a los planes cuando el fallo no es de plan', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+
+    render(
+      conCuenta(
+        <IdeasPanel fetchIdeas={async () => respondWith(ideasError('model_unavailable'), 503)} />,
+      ),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+
+    await screen.findByRole('alert');
+    expect(screen.queryByRole('link', { name: /ver los tres planes/i })).not.toBeInTheDocument();
+  });
 });
 
 describe('Sin plan que incluya las ideas', () => {
@@ -206,8 +256,16 @@ describe('Sin plan que incluya las ideas', () => {
 
     expect(screen.queryByRole('button', { name: /progresiones/i })).not.toBeInTheDocument();
     // El plan más barato que las incluye, y con su precio: un candado que no dice
-    // cómo se abre es una pared.
-    expect(screen.getByText(/entra en el plan Medio: 9,99/i)).toBeInTheDocument();
+    // cómo se abre es una pared. En plural, que es lo que son las ideas: esto
+    // decía «Las ideas de la IA entra en el plan Medio» hasta que se leyó.
+    expect(
+      screen.getByText('Las ideas de la IA entran en el plan Medio: 9,99 € al mes.'),
+    ).toBeInTheDocument();
+    // Y se puede ir a verlos: el candado lleva a las tres tarjetas, no a la cuenta.
+    expect(screen.getByRole('link', { name: /ver los tres planes/i })).toHaveAttribute(
+      'href',
+      '/planes',
+    );
   });
 
   // El resto de la pantalla de componer no cuesta nada de servir, y decirlo evita

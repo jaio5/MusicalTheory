@@ -146,7 +146,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   if (permiso.kind === 'plan') {
     return NextResponse.json(
-      ideasError('plan_required', needsPlanMessage(permiso.needed, 'Las ideas de la IA')),
+      ideasError('plan_required', needsPlanMessage(permiso.needed, 'Las ideas de la IA', true)),
       { status: 402 },
     );
   }

@@ -120,6 +120,14 @@ contrato cuando viene uno.
 El 402 no es un código de moda: es literalmente «hace falta pagar», y distinguirlo
 del 429 importa porque uno se arregla cambiando de plan y el otro esperando a mañana.
 
+Por eso el cliente **guarda el código y no solo la frase**: de él depende si debajo
+del aviso aparece el enlace a `/planes`. Sale con `plan_required` siempre, y con
+`quota_exhausted` solo si queda plan por encima —a quien ya está en Pro no hay nada
+que ofrecerle—. Con el modelo caído no sale: mandar a la lista de precios a quien
+tiene un problema que no se arregla pagando es hacerle perder el viaje. La regla está
+escrita una vez, en `ui/PlansLink.tsx`, porque la usan el profesor y las ideas y un
+feature no importa de otro.
+
 ## Qué pasa cuando el modelo devuelve algo que no parsea
 
 Es el caso normal, no el excepcional, y por eso hay tres capas:

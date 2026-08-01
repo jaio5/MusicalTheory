@@ -17,14 +17,20 @@ import { PLANS, priceLabel, type Plan, type PlanId } from './plans';
  * Qué plan hace falta y cuánto cuesta.
  *
  * `what` es el sujeto de la frase y se escribe entero por quien llama —«Las ideas
- * de la IA», «El Grado Profesional»— porque el verbo cambia con el número y una
- * frase armada a trozos suena a formulario.
+ * de la IA», «El Grado Profesional»— porque una frase armada a trozos suena a
+ * formulario.
+ *
+ * Y por eso hay `plural`: el verbo concuerda con ese sujeto, y estuvo fijo en
+ * singular hasta que se leyó en pantalla «Las ideas de la IA **entra** en el plan
+ * Medio». El comentario de aquí ya avisaba de que el verbo cambia con el número;
+ * lo que faltaba era poder cambiarlo.
  */
-export function needsPlanMessage(needed: Plan | null, what: string): string {
+export function needsPlanMessage(needed: Plan | null, what: string, plural = false): string {
   if (needed === null) {
-    return `${what} no está disponible.`;
+    return plural ? `${what} no están disponibles.` : `${what} no está disponible.`;
   }
-  return `${what} entra en el plan ${needed.name}: ${priceLabel(needed.id).toLowerCase()}.`;
+  const entra = plural ? 'entran' : 'entra';
+  return `${what} ${entra} en el plan ${needed.name}: ${priceLabel(needed.id).toLowerCase()}.`;
 }
 
 /** El plan siguiente al que se tiene, o nulo si ya es el último. */

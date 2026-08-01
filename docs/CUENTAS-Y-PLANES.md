@@ -109,6 +109,15 @@ Dos veces, y a la misma tabla:
 - **La pantalla** pregunta a `core/billing` para saber si enseña un botón o un
   candado. El candado dice qué plan hace falta y cuánto cuesta, porque un candado
   que no dice cómo se abre es una pared.
+
+  **Y lleva a `/planes`, siempre**, que es donde están las tres tarjetas con lo que
+  incluye cada una. Llevaba a `/cuenta`, que es la pantalla de quién eres y no tiene
+  ni tarjetas ni precios: el enlace decía «ver los planes» y dejaba a quien lo
+  pulsaba a un salto de lo que había ido a ver. La dirección la decide un solo
+  sitio, `ui/PlansLink.tsx`, para que no vuelva a haber dos respuestas a la misma
+  pregunta. Sin cuenta también se va allí: se entra desde la propia ventana del
+  plan.
+
 - **La ruta** pregunta a `server/entitlements.ts`, que pregunta a `core/billing`,
   antes de gastar un céntimo.
 

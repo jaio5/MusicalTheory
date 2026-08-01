@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-
 import { needsPlanMessage, type Plan } from '@core/billing';
+
+import { PlansLink } from './PlansLink';
 
 /**
  * El candado que dice cómo se abre.
@@ -10,6 +10,10 @@ import { needsPlanMessage, type Plan } from '@core/billing';
  * Un candado que solo dice «no puedes» es una pared. Este dice qué falta, cuánto
  * cuesta y lleva al sitio donde se cambia, que son las tres cosas que se van a
  * preguntar a continuación.
+ *
+ * Lleva a `/planes`, donde están las tres tarjetas con lo que incluye cada una,
+ * y no a `/cuenta`: quien se topa con un candado no viene a mirar quién es,
+ * viene a ver qué tiene que pagar para abrirlo.
  *
  * Está en `ui/` y no dentro de un feature porque lo necesitan tres —aprender,
  * ideas y la cuenta—, y un feature no importa de otro. Es tonto a propósito: no
@@ -21,6 +25,7 @@ export function PlanLock({
   needed,
   what,
   signedIn,
+  plural = false,
   compact = false,
 }: {
   /** El plan más barato que lo incluye, o nulo si no lo incluye ninguno. */
@@ -28,6 +33,8 @@ export function PlanLock({
   /** El sujeto de la frase, escrito entero: «Las ideas de la IA». */
   readonly what: string;
   readonly signedIn: boolean;
+  /** Si ese sujeto es plural, para que el verbo concuerde. */
+  readonly plural?: boolean;
   readonly compact?: boolean;
 }) {
   return (
@@ -36,14 +43,16 @@ export function PlanLock({
       role="note"
     >
       <p className={`text-text ${compact ? 'text-xs' : 'text-sm'}`}>
-        {needsPlanMessage(needed, what)}
+        {needsPlanMessage(needed, what, plural)}
       </p>
-      <Link
-        href="/cuenta"
-        className="text-brass-bright hover:text-brass mt-1 inline-block font-mono text-xs underline"
-      >
-        {signedIn ? 'Ver los planes' : 'Crear una cuenta o entrar'}
-      </Link>
+      <PlansLink className="mt-1 inline-block" />
+      {/* Sin cuenta hace falta una, pero no se manda a otra pantalla a por ella:
+          se entra desde la misma ventana del plan, sin perder por dónde ibas. */}
+      {!signedIn && (
+        <p className="text-text-muted mt-1 text-xs">
+          El plan va con una cuenta, y se entra desde ahí mismo.
+        </p>
+      )}
     </div>
   );
 }
