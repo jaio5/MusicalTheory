@@ -1,6 +1,6 @@
 # Roadmap
 
-Estado a 30 de julio de 2026. Las once fases están implementadas;
+Estado a 1 de agosto de 2026. Las doce fases están implementadas;
 lo que queda anotado abajo es deuda y afinado con instrumento real.
 
 ## Fase 0 — Esqueleto y dominio · hecha
@@ -277,6 +277,43 @@ Lo que sale con el modelo por defecto: Básico 147 peticiones al mes, Medio 181,
 y quince de regalo sin pagar. Con Haiku 4.5 se multiplican por cinco, y el cálculo ya lo
 hace solo. El porqué y las alternativas, en
 [adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
+
+## Fase 12 — El avatar, el registro y los ajustes de tu cuenta · hecha
+
+La cuenta funcionaba entera desde la fase 8, pero se llegaba a ella por un rótulo con
+el correo recortado que en el móvil se comía el sitio de la navegación, y una vez
+dentro no se podía cambiar nada.
+
+- [x] **Avatar redondo** arriba a la derecha, con la inicial de cómo te llamas. Sin
+      cuenta es un enlace a `/registro`, y con cuenta un desplegable: un menú cuya
+      única opción es «entrar» es un clic de más para llegar al mismo sitio.
+- [x] **`/registro`**, pantalla propia. Quien llega no viene a mirar nada, viene a
+      rellenar tres campos, y al lado se cuenta qué le da la cuenta —incluido que sin
+      ella la aplicación funciona entera menos la IA—. Con la sesión abierta no se
+      pinta el formulario: crear una segunda cuenta sin querer es perder el avance de
+      la primera.
+- [x] **`/cuenta` son cuatro secciones con ancla** —perfil, suscripción, contraseña y
+      privacidad—, que son las cuatro entradas del desplegable. Anclas y no cuatro
+      pantallas: se miran de una en una y muy de tarde en tarde.
+- [x] **Cambiar el nombre y la contraseña**, con `PATCH /api/cuenta` y su propio
+      límite de intentos. La contraseña se pide aunque ya haya sesión: una cookie viva
+      en un ordenador prestado no puede bastar para quedarse con la cuenta.
+- [x] El nombre sube hasta el navegador dentro de la cuenta, que es de donde salen el
+      saludo y la letra del círculo. Antes se guardaba al registrarse y no se enseñaba
+      en ningún sitio.
+- [x] Entrar refresca la cuenta **y** vuelve a pintar desde el servidor. Sin lo
+      primero el candado de al lado seguía cerrado un instante; sin lo segundo el
+      avatar de arriba seguía siendo el de nadie.
+- [ ] **Sin «he olvidado mi contraseña» y sin cambiar de correo.** Las dos piden
+      escribir a un buzón para confirmarlo, y aquí no hay envío de correo. Está dicho
+      en la pantalla, no escondido.
+- [ ] Cambiar la contraseña no echa a las demás sesiones: la cookie va firmada con el
+      secreto del servidor, no con la contraseña. Hacerlo pide una versión de sesión en
+      la fila de la cuenta y comprobarla al leer la cookie.
+- [x] Probado contra Postgres de verdad, como el resto de la fase 8: el nombre se
+      guarda recortado, la contraseña actual equivocada devuelve 403 y **no guarda
+      tampoco el nombre** que venía en la misma petición, y con la contraseña vieja
+      ya no se entra.
 
 ## El camino
 

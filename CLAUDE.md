@@ -78,6 +78,7 @@ renombrado no puede degradar a quien había pagado.
 | Meta diaria, racha, medallas, punto de partida      | `core/music/progress.ts`                       |
 | La cola de repaso de lo fallado                     | `core/music/review.ts`                         |
 | Tarjetas de plan y ventana de pago                  | `features/account/`, `src/app/planes/`         |
+| El avatar de arriba y lo que cuelga de él           | `features/account/AccountMenu.tsx`             |
 | Cuentas, contraseñas, base de datos y cupos         | `src/server/`                                  |
 | Si alguien puede pedirle algo al modelo             | `server/entitlements.ts` + `ai-usage.ts`       |
 | Por dónde se cobrará (hoy no se cobra)              | `src/server/billing/`                          |
@@ -85,7 +86,9 @@ renombrado no puede degradar a quien había pagado.
 
 `/aprender` es **solo el camino**, y cada cosa que se hace tiene su dirección:
 `/aprender/[unidad]` y `/aprender/repaso`. Después `/profesor`, `/componer`,
-`/afinar`, `/planes` con `/planes/[plan]` para pagar, `/cuenta` y la portada `/`.
+`/afinar`, `/planes` con `/planes/[plan]` para pagar, `/registro` para crear la
+cuenta, `/cuenta` con sus cuatro anclas —`#perfil`, `#suscripcion`, `#contrasena`
+y `#privacidad`, que son las del desplegable del avatar— y la portada `/`.
 
 ## La documentación, y qué contesta cada fichero
 
@@ -152,6 +155,9 @@ líneas más abajo.
   ([adr/0007](docs/adr/0007-elegir-por-donde-empezar.md)).
 - **No exige cuentas.** Sin `DATABASE_URL` y `AUTH_SECRET` —las dos— nadie entra,
   todo el mundo es anónimo con plan gratis y el avance se queda en su navegador.
+- **No manda correos**, así que no hay «he olvidado mi contraseña» ni cambio de
+  dirección: las dos cosas piden escribir a un buzón para confirmarlo. La
+  contraseña se cambia sabiéndola, en `/cuenta#contrasena`.
 - La detección de tono es **monofónica** y pide señal limpia: con distorsión se
   detecta la octava de arriba. Para acordes hay otro análisis, y solo en
   componer.

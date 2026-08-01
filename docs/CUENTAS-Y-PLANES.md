@@ -83,6 +83,51 @@ le cerraría la puerta a alguien que había pagado, en silencio y sin que nadie 
 enterara hasta que se quejara: un renombrado no puede degradar a nadie. La tabla de
 alias se borra cuando no quede ninguna fila con esos valores, no antes.
 
+## Por dónde se entra: el avatar
+
+Arriba a la derecha hay un círculo, y hace **dos cosas distintas** según quién mire.
+No es un descuido de coherencia: es que las dos situaciones no se parecen en nada.
+
+- **Sin cuenta** es un enlace directo a `/registro`. Un desplegable cuya única
+  opción es «entrar» obliga a dos clics para llegar al mismo sitio.
+- **Con cuenta** es un desplegable con las cuatro cosas que se pueden mirar de la
+  tuya —perfil, suscripción, contraseña y privacidad— y el botón de salir. Llevar
+  siempre al perfil obligaría a rebotar desde allí a las otras tres.
+
+Las cuatro son **anclas de `/cuenta`** (`#perfil`, `#suscripcion`, `#contrasena`,
+`#privacidad`) y no cuatro direcciones. Son cosas que se miran de una en una y muy
+de tarde en tarde, y repartirlas obligaría a volver atrás para pasar de una a otra.
+
+`/registro` es pantalla propia y no un panel dentro de la cuenta: quien llega no
+viene a mirar nada, viene a rellenar tres campos. El interruptor «ya tengo cuenta»
+sigue estando —la mitad de las veces uno no se acuerda—, lo que cambia es cuál
+viene puesto. Y si ya has entrado, no se pinta el formulario: crear una segunda
+cuenta sin querer es perder el avance de la primera.
+
+## Qué se puede cambiar de tu cuenta
+
+`PATCH /api/cuenta`, con la sesión abierta y diez intentos por minuto y dirección.
+Su propio contador y no el de registrarse, porque comprobar contraseñas es
+exactamente lo que hace quien las prueba a lo bruto, y gastar los intentos de una
+cosa no puede dejar sin registrarse a quien comparte salida a internet.
+
+- **El nombre**, o borrarlo. Es lo único que se enseña de ti —el saludo del perfil
+  y la letra del círculo—, y no decirlo es una respuesta válida.
+- **La contraseña**, pidiendo la de ahora. Se pide **aunque ya haya sesión**: una
+  cookie viva en un ordenador prestado no puede bastar para quedarse con la cuenta.
+  Si en la misma petición vienen las dos cosas y la contraseña actual no es la que
+  dice, no se guarda tampoco el nombre.
+- **El correo, no.** Identifica la cuenta, y cambiarlo pide confirmar la dirección
+  nueva antes de mover nada. Sin envío de correo eso se queda a medias y deja
+  cuentas apuntando a buzones que no existen. Por lo mismo **no hay «he olvidado mi
+  contraseña»**: sin buzón al que escribir, cualquier forma de recuperarla sería
+  una puerta trasera. Está dicho en la pantalla, no escondido.
+
+Cambiar la contraseña **no cierra la sesión abierta aquí**: la cookie va firmada
+con el secreto del servidor y no con la contraseña, así que sigue siendo válida.
+El día que haga falta echar a las demás sesiones, eso pide una versión de sesión
+en la fila de la cuenta y comprobarla al leer la cookie.
+
 ## Dónde se paga
 
 Una pantalla por plan: `/planes` los enseña y `/planes/basico`, `/planes/medio` y

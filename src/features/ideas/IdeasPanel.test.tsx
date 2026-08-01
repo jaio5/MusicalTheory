@@ -21,6 +21,7 @@ const A = pitchClassFromName('A');
  */
 const CON_PLAN: Account = {
   email: 'javier@example.com',
+  name: null,
   plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 30,
@@ -243,6 +244,7 @@ describe('Panel de ideas', () => {
 describe('Sin plan que incluya las ideas', () => {
   const SIN_PLAN: Account = {
     email: 'javier@example.com',
+    name: null,
     plan: 'gratis',
     aiModel: 'claude-opus-5',
     aiLeftToday: 3,

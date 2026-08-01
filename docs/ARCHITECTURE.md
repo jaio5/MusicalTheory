@@ -98,7 +98,8 @@ porque la composición es trabajo de la capa de arriba.
 Cada pantalla tiene su dirección, y **cada cosa que se hace también**: `/aprender` es
 el camino, `/aprender/[unidad]` es una unidad, `/aprender/repaso` una sesión de
 repaso, `/profesor`, `/componer`, `/afinar`, `/planes`, `/planes/[plan]` la ventana de
-pago de un plan, `/cuenta`, y `/` la portada.
+pago de un plan, `/registro` para crear la cuenta, `/cuenta` los ajustes de la tuya, y
+`/` la portada.
 
 Fue una pantalla de tres columnas —temario, unidad y profesor— hasta que se vio lo que
 eso hacía: con las tres cosas delante no se está en ninguna. El porqué del desglose y

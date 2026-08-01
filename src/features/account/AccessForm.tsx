@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
@@ -11,16 +12,27 @@ import { Button } from '@ui/Button';
  *
  * En el mismo y con un interruptor arriba, no en dos pantallas: la mitad de las
  * veces uno no se acuerda de si ya tenía cuenta aquí, y mandarle a otra
- * dirección para descubrirlo es perder el sitio donde estaba.
+ * dirección para descubrirlo es perder el sitio donde estaba. Lo que sí cambia
+ * según de dónde vengas es **cuál de los dos viene puesto**: al avatar sin cuenta
+ * se le pulsa para registrarse, y a la ventana de un plan se llega casi siempre
+ * teniendo cuenta ya.
  *
  * Se entra con `type="password"` de verdad y sin autocompletado inventado: los
  * `autoComplete` que están puestos son los que el navegador espera para ofrecer
  * la contraseña guardada, y ponerlos mal es la razón por la que algunos
  * formularios no la ofrecen nunca.
  */
-export function AccessForm({ onDone }: { readonly onDone?: () => void }) {
-  const { accounts } = useAccount();
-  const [nuevo, setNuevo] = useState(false);
+export function AccessForm({
+  onDone,
+  inicial = 'entrar',
+}: {
+  readonly onDone?: () => void;
+  /** Qué pestaña viene puesta. El interruptor sigue estando para cambiarla. */
+  readonly inicial?: 'entrar' | 'crear';
+}) {
+  const { accounts, refresh } = useAccount();
+  const router = useRouter();
+  const [nuevo, setNuevo] = useState(inicial === 'crear');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -45,6 +57,13 @@ export function AccessForm({ onDone }: { readonly onDone?: () => void }) {
         : await signInWithPassword(email, password);
 
       if (result.ok) {
+        // Las dos cosas, y las dos hacen falta: `refresh` trae la cuenta nueva a
+        // esta pantalla sin recargar, y `router.refresh` hace que el servidor
+        // vuelva a pintar el marco, que es quien lee la sesión. Sin la primera,
+        // el candado de al lado seguiría cerrado un instante; sin la segunda, el
+        // avatar de arriba seguiría siendo el de nadie.
+        await refresh();
+        router.refresh();
         onDone?.();
         return;
       }

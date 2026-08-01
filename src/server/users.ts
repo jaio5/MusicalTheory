@@ -10,11 +10,11 @@
 
 import { eq } from 'drizzle-orm';
 
-import { MIN_PASSWORD_LENGTH, planOf, type PlanId } from '@core/billing';
+import { MAX_NAME_LENGTH, MIN_PASSWORD_LENGTH, planOf, type PlanId } from '@core/billing';
 
 import { db } from './db/client';
 import { users } from './db/schema';
-import { hashPassword } from './password';
+import { hashPassword, verifyPassword } from './password';
 
 export interface User {
   readonly id: string;
@@ -46,6 +46,22 @@ export function normalizeEmail(raw: unknown): string | null {
   return bien ? email : null;
 }
 
+/**
+ * El nombre tal y como se guarda, o nulo si no ha dicho ninguno.
+ *
+ * Se recorta al tope del dominio en vez de rechazar lo que se pase: un nombre
+ * demasiado largo no es un intento de nada, es alguien que ha pegado algo. Vacío
+ * y nulo son lo mismo aquí —«no lo he dicho»—, y por eso borrarlo es una
+ * operación válida y no un error.
+ */
+export function normalizeName(raw: unknown): string | null {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const name = raw.trim().slice(0, MAX_NAME_LENGTH);
+  return name === '' ? null : name;
+}
+
 export type CreateUserResult =
   | { readonly kind: 'ok'; readonly user: User }
   | { readonly kind: 'sin-base-de-datos' }
@@ -75,10 +91,7 @@ export async function createUser(input: {
   if (typeof input.password !== 'string' || input.password.length < MIN_PASSWORD_LENGTH) {
     return { kind: 'contrasena-corta' };
   }
-  const name =
-    typeof input.name === 'string' && input.name.trim() !== ''
-      ? input.name.trim().slice(0, 60)
-      : null;
+  const name = normalizeName(input.name);
 
   const passwordHash = await hashPassword(input.password);
 
@@ -126,6 +139,86 @@ export async function findUserById(id: string): Promise<User | null> {
     return row === undefined ? null : toUser(row);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Cambia el nombre. Devuelve la cuenta ya cambiada, o nulo si no se pudo.
+ *
+ * Devuelve la fila y no un booleano porque quien llama tiene que contestarle a
+ * una pantalla que está enseñando ese nombre: con un `true` habría que ir a
+ * buscarlo otra vez para pintarlo.
+ */
+export async function setName(userId: string, rawName: unknown): Promise<User | null> {
+  const database = db();
+  if (database === null) {
+    return null;
+  }
+  try {
+    const [row] = await database
+      .update(users)
+      .set({ name: normalizeName(rawName) })
+      .where(eq(users.id, userId))
+      .returning();
+    return row === undefined ? null : toUser(row);
+  } catch {
+    return null;
+  }
+}
+
+export type ChangePasswordResult =
+  | { readonly kind: 'ok' }
+  | { readonly kind: 'sin-base-de-datos' }
+  | { readonly kind: 'contrasena-corta' }
+  | { readonly kind: 'no-coincide' }
+  | { readonly kind: 'error' };
+
+/**
+ * Cambia la contraseña, pidiendo la de ahora.
+ *
+ * **Se pide la actual aunque ya haya sesión**, y no es burocracia: una sesión
+ * abierta en un ordenador prestado o un enlace malicioso desde otra pestaña
+ * bastarían para quedarse con la cuenta para siempre. Pedirla convierte «tener la
+ * cookie un rato» en «saber la contraseña», que no es lo mismo.
+ *
+ * La nueva se cifra con los parámetros de hoy, así que cambiarla es también la
+ * forma de que una cuenta vieja pase al cifrado nuevo si algún día se sube el
+ * coste.
+ *
+ * No comprueba que la nueva sea distinta de la vieja: es un aviso que no protege
+ * de nada y estorba a quien está reciclando una contraseña a propósito.
+ */
+export async function changePassword(
+  userId: string,
+  actual: unknown,
+  nueva: unknown,
+): Promise<ChangePasswordResult> {
+  const database = db();
+  if (database === null) {
+    return { kind: 'sin-base-de-datos' };
+  }
+  if (typeof nueva !== 'string' || nueva.length < MIN_PASSWORD_LENGTH) {
+    return { kind: 'contrasena-corta' };
+  }
+
+  try {
+    const [row] = await database.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (row === undefined) {
+      return { kind: 'error' };
+    }
+
+    const ok = await verifyPassword(typeof actual === 'string' ? actual : '', row.passwordHash);
+    if (!ok) {
+      return { kind: 'no-coincide' };
+    }
+
+    await database
+      .update(users)
+      .set({ passwordHash: await hashPassword(nueva) })
+      .where(eq(users.id, userId));
+    return { kind: 'ok' };
+  } catch {
+    return { kind: 'error' };
   }
 }
 

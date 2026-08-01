@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 
-import { AccountBadge } from '@features/account';
+import { AccountMenu } from '@features/account';
 import { MicButton } from '@features/workspace';
 import { useSessionStore } from '@state/session-store';
 
@@ -95,7 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <AccountBadge />
+        <AccountMenu />
       </header>
 
       <main className="min-h-0 grow overflow-hidden">{children}</main>

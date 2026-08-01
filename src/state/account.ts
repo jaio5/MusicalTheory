@@ -122,9 +122,11 @@ function readAccount(raw: unknown): Account {
   }
   const record = raw as Record<string, unknown>;
   const email = typeof record['email'] === 'string' ? record['email'] : null;
+  const name = typeof record['name'] === 'string' && record['name'] !== '' ? record['name'] : null;
   const model = record['aiModel'];
   return {
     email,
+    name,
     plan: planOf(record['plan']).id,
     aiModel: typeof model === 'string' && model !== '' ? model : DEFAULT_AI_MODEL,
     aiLeftToday: asCount(record['aiLeftToday']),
@@ -203,6 +205,41 @@ export async function registerAccount(
 
 export async function signOutHere(): Promise<void> {
   await signOut({ redirect: false });
+}
+
+export type ProfileResult =
+  { readonly ok: true } | { readonly ok: false; readonly message: string };
+
+/**
+ * Cambiar lo tuyo: el nombre, la contraseña, o las dos cosas.
+ *
+ * Una sola función porque es una sola petición y un solo sitio donde traducir lo
+ * que conteste. Los campos van sueltos y opcionales: lo que no se manda no se
+ * toca, y por eso mandar `name: ''` sí borra el nombre —vacío es «no lo he
+ * dicho»— mientras que no mandarlo lo deja como estaba.
+ */
+export async function updateAccount(changes: {
+  readonly name?: string;
+  readonly passwordActual?: string;
+  readonly passwordNueva?: string;
+}): Promise<ProfileResult> {
+  try {
+    const response = await fetch('/api/cuenta', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes),
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      return { ok: false, message: body?.error?.message ?? 'No hemos podido guardar el cambio.' };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, message: 'No hemos podido guardar el cambio. Vuelve a intentarlo.' };
+  }
 }
 
 export type ChangePlanResult =

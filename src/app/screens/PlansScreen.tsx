@@ -67,8 +67,8 @@ export function PlansScreen() {
             ) : (
               <>
                 No has entrado, así que estás en el plan gratis.{' '}
-                <Link href="/cuenta" className="text-brass-bright hover:text-brass underline">
-                  Crear una cuenta o entrar
+                <Link href="/registro" className="text-brass-bright hover:text-brass underline">
+                  Crear una cuenta
                 </Link>
                 .
               </>

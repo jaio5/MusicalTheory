@@ -37,7 +37,9 @@ Dos cosas que conviene saber antes de nada:
   datos configurada la aplicación funciona entera —afinador, rueda, mástil, metrónomo,
   acordes, grabación y el Grado Elemental— con el avance en `localStorage`; lo único
   que pide cuenta es el profesor y las ideas, porque sin cliente no hay a quién
-  contarle el gasto del modelo.
+  contarle el gasto del modelo. Se crea en `/registro`, a donde lleva el avatar de
+  arriba a la derecha, y una vez dentro ese mismo avatar abre tu perfil, tu
+  suscripción, tu contraseña y qué se guarda de ti.
 - **Los cupos de IA se calculan, no se escriben.** Salen de dividir lo que se puede
   gastar de cada plan entre lo que cuesta una petición con el modelo configurado, así
   que `ANTHROPIC_MODEL` los cambia sin tocar código. Con el de por defecto son 147

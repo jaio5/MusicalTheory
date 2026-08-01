@@ -15,6 +15,14 @@ import { DEFAULT_PLAN, type PlanId } from './plans';
 export interface Account {
   /** El correo con el que se entró, o nulo si no se ha entrado. */
   readonly email: string | null;
+  /**
+   * Cómo quiere que le llamen, si lo ha dicho.
+   *
+   * Sube hasta el navegador porque de él sale la letra del avatar y el saludo del
+   * perfil. Es lo único que se enseña de quien entra, y por eso se puede cambiar
+   * sin tocar el correo: el correo identifica la cuenta, el nombre no.
+   */
+  readonly name: string | null;
   readonly plan: PlanId;
   /**
    * El modelo que hay configurado en el servidor.
@@ -47,6 +55,7 @@ export const DEFAULT_AI_MODEL = 'claude-opus-5';
 
 export const ANONYMOUS: Account = {
   email: null,
+  name: null,
   plan: DEFAULT_PLAN,
   aiModel: DEFAULT_AI_MODEL,
   aiLeftToday: null,
@@ -69,4 +78,43 @@ export const MIN_PASSWORD_LENGTH = 8;
 
 export function isSignedIn(account: Account): boolean {
   return account.email !== null;
+}
+
+/**
+ * Lo más largo que puede ser el nombre.
+ *
+ * Sesenta caracteres es lo que ya recortaba el servidor al registrar. Está aquí
+ * para que el formulario impida escribir lo que el servidor iba a recortar sin
+ * decirlo: un nombre que se guarda a medias parece un fallo de la aplicación.
+ */
+export const MAX_NAME_LENGTH = 60;
+
+/**
+ * Cómo se le llama a quien entra.
+ *
+ * El nombre si lo ha dicho, y si no la parte del correo antes del arroba. Nunca
+ * el correo entero: no cabe en la barra de arriba y la mitad de detrás no
+ * identifica a nadie.
+ */
+export function displayName(account: Account): string {
+  const name = account.name?.trim() ?? '';
+  if (name !== '') {
+    return name;
+  }
+  return account.email?.split('@')[0] ?? 'tu cuenta';
+}
+
+/**
+ * La letra del avatar.
+ *
+ * Una sola, en mayúscula, y sacada de cómo se le llama. En mayúscula por CSS no:
+ * un `text-transform` no cambia lo que lee un lector de pantalla, y aquí el
+ * botón se anuncia por su nombre completo de todas formas.
+ *
+ * Un nombre que empieza por emoji o por un carácter fuera del plano básico se
+ * parte en dos si se corta por `[0]`, así que se corta por puntos de código.
+ */
+export function avatarInitial(account: Account): string {
+  const [first] = [...displayName(account)];
+  return (first ?? '?').toUpperCase();
 }

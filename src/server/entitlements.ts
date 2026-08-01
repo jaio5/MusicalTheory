@@ -74,6 +74,7 @@ export async function currentSession(): Promise<{ userId: string; account: Accou
     userId,
     account: {
       email: user.email,
+      name: user.name,
       plan: user.plan,
       aiModel: configuredModel(),
       aiLeftToday: remaining(limits.daily, usage.today),

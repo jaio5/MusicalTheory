@@ -20,6 +20,7 @@ const MEDIO = PAID_PLANS.find((plan) => plan.id === 'medio')!;
 
 const ANONIMO: Account = {
   email: null,
+  name: null,
   plan: 'gratis',
   aiModel: 'claude-opus-5',
   aiLeftToday: null,
@@ -27,6 +28,7 @@ const ANONIMO: Account = {
 };
 const EN_BASICO: Account = {
   email: 'javier@example.com',
+  name: null,
   plan: 'basico',
   aiModel: 'claude-opus-5',
   aiLeftToday: 40,

@@ -19,6 +19,7 @@ function pintar(account: Account) {
 
 const ANONIMO: Account = {
   email: null,
+  name: null,
   plan: 'gratis',
   aiModel: 'claude-opus-5',
   aiLeftToday: null,
@@ -26,6 +27,7 @@ const ANONIMO: Account = {
 };
 const EN_MEDIO: Account = {
   email: 'javier@example.com',
+  name: null,
   plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 100,
@@ -115,6 +117,7 @@ describe('Las tarjetas de los planes', () => {
   it('reconoce el nombre viejo del plan que tienes guardado', () => {
     pintar({
       email: 'javier@example.com',
+      name: null,
       plan: 'estudiante' as Account['plan'],
       aiModel: 'claude-opus-5',
       aiLeftToday: 10,
