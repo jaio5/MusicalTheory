@@ -940,11 +940,18 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   debajo de lo que se ve y estiraban la página casi mil píxeles. El arreglo es una
   palabra, `relative` en el marco de la aplicación, y hay un guardián que la
   vigila. Se vio con el navegador delante; ningún test podía verlo.
-- ~~**Abrir una herramienta aplastaba las tres columnas.**~~ La franja era
-  `shrink-0` y las columnas no tenían suelo: en un portátil bajo, abrir «Ideas»
-  dejaba la rueda cortada por la mitad y la lista de acordes a media fila. Ahora
-  los dos tienen mínimo —18rem las columnas, 7rem el panel— y cede el panel, que es
-  lo secundario.
+- ~~**Abrir una herramienta aplastaba las tres columnas.**~~ La franja empujaba y
+  las columnas no tenían suelo: en un portátil, abrir «Ideas» dejaba la rueda
+  cortada por la mitad y la lista de acordes a media fila. Poner suelo a las
+  columnas dio la vuelta al fallo —entonces el que desaparecía era el panel—, y ahí
+  se vio que **no hay reparto bueno**: son cinco franjas peleando por el mismo alto.
+  Ahora la herramienta se abre **como cajón, encima**, y no se encoge nadie. Encaja
+  con lo que es: el mástil se mira un momento mientras tocas, no convive con la
+  rueda.
+- ~~**El título y el metrónomo eran dos franjas fijas.**~~ Unos 110 px juntas, que
+  es justo lo que le faltaba al mástil para verse entero en un portátil. El
+  metrónomo pasa al hueco de acciones que `WorkHeader` ya tenía: la pantalla sigue
+  con su `h1` y su línea, y se va la fila de más.
 - ~~**El micro se quedaba mudo y había que pararlo y arrancarlo.**~~ Apareció
   tocando, en una unidad de tocar. El contexto de audio se reanudaba **una vez al
   crearlo y nunca más**: cuando el sistema lo suspende por su cuenta —pantalla

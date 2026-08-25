@@ -69,17 +69,53 @@ describe('Componer en una pantalla estrecha', () => {
     expect(rejilla?.className, 'en columnas sí se estiran').toContain('lg:auto-rows-auto');
   });
 
-  it('con el mástil abierto, su tope de alto es distinto en móvil que en escritorio', async () => {
+  /**
+   * La herramienta abierta es un **cajón**, no una franja más.
+   *
+   * Empujando, se llevaba una tajada del alto y las tres columnas se apretaban:
+   * en un portátil, la rueda salía cortada por la mitad y la lista de acordes a
+   * media fila. Al ponerles suelo, el que desaparecía era el panel. No hay
+   * reparto bueno cuando son cinco franjas peleando por el mismo alto.
+   */
+  it('la herramienta abierta se superpone en vez de encoger las columnas', async () => {
     const { container } = render(<ComposeScreen />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
 
     const panel = container.querySelector('#herramienta-abierta');
     expect(panel, 'el mástil tendría que haberse abierto').not.toBeNull();
-    // 72vh de un teléfono es la pantalla entera: el mástil empujaba el resto
-    // fuera y lo que quedaba debajo era hueco por el que desplazarse.
-    expect(panel?.className).toContain('max-h-[45vh]');
-    expect(panel?.className).toContain('lg:max-h-');
+    // `absolute` + `bottom-full`: sale hacia arriba desde la barra de pestañas.
+    expect(panel?.className, 'sin absolute vuelve a empujar').toContain('absolute');
+    expect(panel?.className).toContain('bottom-full');
+    // Y con tope, que taparlo todo tampoco vale.
+    expect(panel?.className).toMatch(/max-h-\[min\(\d+vh/);
+  });
+
+  it('el cajón se lee como una capa encima, no como el final de la pantalla', async () => {
+    // Con el mismo fondo que lo de debajo parecía que la pantalla acababa ahí.
+    // Es la regla de profundidad del proyecto: se nota qué está encima de qué.
+    const { container } = render(<ComposeScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ideas' }));
+
+    const panel = container.querySelector('#herramienta-abierta');
+    expect(panel, 'las ideas tendrían que haberse abierto').not.toBeNull();
+    expect(panel?.className).toContain('bg-surface-raised');
+    expect(panel?.className).toContain('shadow-');
+  });
+
+  /**
+   * El título y el metrónomo comparten fila.
+   *
+   * Eran dos franjas fijas de unos 110 px juntas, y en un portátil eso es justo
+   * lo que le falta al mástil para verse entero. La pantalla sigue teniendo su
+   * `h1` y su línea —que es lo que pide la regla—; lo que se fue es la fila.
+   */
+  it('el metrónomo va en el encabezado, no en una franja propia', () => {
+    const { container } = render(<ComposeScreen />);
+
+    const encabezado = container.querySelector('h1')?.parentElement;
+    expect(encabezado?.textContent, 'el metrónomo no está en la fila del título').toContain('bpm');
   });
 
   // Lo que se mira mientras tocas sigue estando en las dos anchuras.

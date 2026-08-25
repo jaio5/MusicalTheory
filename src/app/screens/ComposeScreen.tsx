@@ -66,7 +66,16 @@ export function ComposeScreen() {
   return (
     <RecordStage>
       <div className="flex h-full min-h-0 flex-col">
-        <WorkHeader title="Componer" lead="Tonalidad, progresión, acordes y grabarte tocando." />
+        {/* El metrónomo va **dentro** del encabezado, en el hueco de acciones
+            que `WorkHeader` ya tenía. Eran dos franjas fijas de unos 110 px
+            juntas, y en un portátil eso es justo lo que le falta al mástil para
+            verse entero. La pantalla sigue teniendo su `h1` y su línea, que es
+            lo que pide la regla; lo que se ha ido es la fila de más. */}
+        <WorkHeader
+          title="Componer"
+          lead="Tonalidad, progresión, acordes y grabarte tocando."
+          actions={<Metronome />}
+        />
 
         {/* Se ofrece la última sesión, no se pone. Desaparece sola en cuanto
             eliges tonalidad o tocas algo. */}
@@ -101,13 +110,6 @@ export function ComposeScreen() {
           </Disclosure>
         </div>
 
-        {/* El metrónomo, arriba y siempre a la vista: es un control de los de
-            poner en marcha y olvidarse, como el de grabar, no un ajuste que se
-            busca en una columna. */}
-        <div className="border-border shrink-0 border-b px-3 py-1.5">
-          <Metronome />
-        </div>
-
         {/*
           `auto-rows-min` es lo que arregla las dos cosas a la vez en el móvil.
 
@@ -121,7 +123,7 @@ export function ComposeScreen() {
           En pantalla ancha vuelven a estirarse, que es lo que quieren tres
           columnas de la misma altura.
         */}
-        <div className="grid min-h-0 grow auto-rows-min grid-cols-1 gap-px overflow-y-auto lg:min-h-[18rem] lg:auto-rows-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
+        <div className="grid min-h-0 grow auto-rows-min grid-cols-1 gap-px overflow-y-auto lg:auto-rows-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
           {/* Cada cosa con su tamaño y la columna con scroll: si se dejan
               encoger, con el mástil abierto la rueda se queda en un botón. */}
           <section
@@ -163,17 +165,8 @@ export function ComposeScreen() {
             medio hueco vacío debajo. */}
         <section
           aria-label="Herramientas"
-          // **No es `shrink-0`, y ese era el fallo.** Con la franja rígida y las
-          // columnas sin mínimo, abrir una herramienta en un portátil bajo las
-          // aplastaba: la rueda salía cortada por la mitad y la lista de acordes
-          // a media fila.
-          //
-          // Ahora **los dos tienen suelo**: las columnas no bajan de 18rem y el
-          // panel abierto no baja de 7rem. Solo con el mínimo en las columnas,
-          // el arreglo se daba la vuelta y era el panel el que desaparecía. En
-          // una pantalla donde no quepan los dos suelos, cede este, que es lo
-          // secundario: la pantalla es el acorde y a dónde ir.
-          className="border-border flex min-h-0 flex-col border-t"
+          // `relative`, porque lo que se abre se ancla aquí y sale hacia arriba.
+          className="border-border relative flex shrink-0 flex-col border-t"
         >
           <div className="flex gap-1 px-3 py-1.5">
             {EXTRAS.map((candidate) => (
@@ -204,15 +197,29 @@ export function ComposeScreen() {
           {current !== null && (
             <div
               id="herramienta-abierta"
-              // El tope va en `vh` en el móvil —ahí esto se apila y el viewport
-              // **es** el espacio disponible— y en `lg` manda `min-h-0`: la
-              // franja se queda con lo que sobre después de que las columnas
-              // tengan su mínimo, en vez de morder una fracción fija de la
-              // pantalla que en un portátil bajo se las comía.
-              className={`border-border min-h-0 border-t p-3 ${
+              // **Se abre encima, no empuja.** Antes se llevaba una tajada del
+              // alto y las tres columnas se apretaban: la rueda salía cortada por
+              // la mitad y la lista de acordes a media fila. Al ponerles suelo, el
+              // que desaparecía era el panel. No hay reparto bueno en un portátil:
+              // son cinco franjas peleando por el mismo alto.
+              //
+              // Como cajón, no se encoge nadie. Y encaja con lo que esto es: el
+              // mástil se mira un momento mientras tocas, no convive con la rueda.
+              // «Perder la mitad de la pantalla mientras está abierto es un precio
+              // que se paga solo mientras se mira», que es lo que el proyecto ya
+              // decía del mástil.
+              //
+              // `bottom-full` lo pega justo encima de la barra de pestañas, y la
+              // sombra hacia arriba es lo que dice que hay algo debajo, en vez de
+              // parecer que la pantalla se acaba ahí.
+              // `surface-raised` y no `surface`: lo que está encima se dice con
+              // el tono, no solo con la sombra. Con el mismo fondo que lo de
+              // debajo, el cajón parecía el final de la pantalla en vez de una
+              // capa, que es justo lo que este proyecto pide de la profundidad.
+              className={`bg-surface-raised border-border absolute inset-x-0 bottom-full z-20 border-t p-3 shadow-[0_-16px_32px_rgba(0,0,0,0.5)] ${
                 current.fits === true
-                  ? 'max-h-[45vh] overflow-hidden lg:max-h-[46rem] lg:min-h-[7rem]'
-                  : 'max-h-[45vh] overflow-auto lg:max-h-[26rem] lg:min-h-[7rem]'
+                  ? 'max-h-[min(62vh,44rem)] overflow-hidden'
+                  : 'max-h-[min(58vh,30rem)] overflow-auto'
               }`}
             >
               <current.render />
