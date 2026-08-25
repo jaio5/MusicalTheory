@@ -722,9 +722,27 @@ hechos; los dos que faltan no son código, o no solo.
       camino en [DESPLIEGUE.md](./DESPLIEGUE.md). Lo primero es configuración de donde
       se aloje y lo segundo son dos textos legales: ninguna de las dos se escribe
       adivinando.
-- [ ] **Nada de lo de arriba se ha probado contra Postgres**, como el resto de las
-      cuentas. Lo probado es lo puro: la firma del webhook, el formulario de borrado y
-      la aritmética.
+- [x] **Probado contra Postgres de verdad** (25 de agosto de 2026): registro con el
+      correo normalizado, duplicado rechazado, candado del plan, guardar y renombrar
+      canciones, añadir partes, **una cuenta no ve ni toca las canciones de otra**,
+      borrado en cascada sin dejar huérfanas, y la versión de sesión echando al otro
+      aparato. Salieron **tres fallos que ningún test veía**:
+- [x] «Guardar tus canciones **entran** en el plan Básico». El sujeto es «Guardar»,
+      que es singular. Es el mismo tropiezo de la fase 13 con «Las ideas de la IA
+      entra», así que ahora hay un guardián que lee los sujetos del código y comprueba
+      el número de cada uno.
+- [x] **Cambiar la contraseña te echaba a ti también.** Sube la versión de sesión, y
+      eso invalida todas las cookies firmadas antes: incluida la de la pestaña que
+      acababa de hacer el cambio. La pantalla decía «Cambiada» y un segundo después la
+      aplicación entera decía «entra con tu cuenta». Ahora se vuelve a entrar sola con
+      la nueva.
+- [x] **El límite compartido no compartía nada.** Un `Date` dentro de una plantilla
+      `sql` viaja como su `toString()` —«Tue Aug 25 2026 18:17:18 GMT+0200 (Central
+      European Summer Time)»— y Postgres no sabe leerlo. La sentencia fallaba entera,
+      el `catch` se lo tragaba y caía al contador de memoria: **funcionaba desde fuera**
+      y cada servidor llevaba su cuenta. Ahora va en ISO y casteado, el `catch` avisa
+      en desarrollo —el `catch` mudo es lo que lo escondió una fase entera— y hay un
+      test que lee la sentencia.
 
 ### Fase 20 — Semilla multiinstrumento · hecha, y más pequeña de lo previsto
 
@@ -925,10 +943,12 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
 
 ### Viva
 
-- **Sin cobrar de verdad, sin correo de verdad y sin Postgres de verdad.** Los tres
-  están escritos y probados en lo puro, y ninguno se ha ejecutado nunca contra el
-  servicio al que hablan. Es la deuda más grande que queda y no se paga escribiendo
-  código: se paga con una clave de pruebas y una tarde.
+- **Sin cobrar de verdad y sin correo de verdad.** Los dos están escritos y probados
+  en lo puro, y ninguno se ha ejecutado contra el servicio al que hablan. Se paga con
+  una clave de pruebas, no escribiendo código.
+
+Lo de Postgres **ya no está aquí**: se ejecutó el 25 de agosto de 2026 y salieron tres
+fallos que ningún test veía. Están en la fase 19.
 
 - **Las inversiones se leen como el acorde en estado fundamental.** El croma
   olvida la octava a propósito, así que C/E y C son el mismo vector. Es el

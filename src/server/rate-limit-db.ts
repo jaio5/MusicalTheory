@@ -45,7 +45,14 @@ async function checkRateLimit(
     return null;
   }
 
-  const windowStart = new Date(now.getTime() - options.windowMs);
+  // **En ISO y casteado a mano.** Dentro de una plantilla `sql`, Drizzle no sabe
+  // de qué columna es cada valor, así que un `Date` viaja como lo que devuelve
+  // su `toString()` —«Tue Aug 25 2026 18:17:18 GMT+0200 (Central European Summer
+  // Time)»— y Postgres no sabe leer eso. La sentencia fallaba entera, el `catch`
+  // se lo tragaba y el límite caía al de memoria: funcionaba desde fuera y no
+  // compartía nada. Se descubrió la primera vez que se ejecutó contra Postgres.
+  const ahora = now.toISOString();
+  const desde = new Date(now.getTime() - options.windowMs).toISOString();
 
   try {
     const [row] = await database
@@ -56,8 +63,8 @@ async function checkRateLimit(
         set: {
           // Si la ventana guardada ya ha caducado, esta petición empieza una
           // nueva y el contador vuelve a uno. Si no, suma.
-          count: sql`case when ${rateLimits.windowStart} <= ${windowStart} then 1 else ${rateLimits.count} + 1 end`,
-          windowStart: sql`case when ${rateLimits.windowStart} <= ${windowStart} then ${now} else ${rateLimits.windowStart} end`,
+          count: sql`case when ${rateLimits.windowStart} <= ${desde}::timestamptz then 1 else ${rateLimits.count} + 1 end`,
+          windowStart: sql`case when ${rateLimits.windowStart} <= ${desde}::timestamptz then ${ahora}::timestamptz else ${rateLimits.windowStart} end`,
         },
       })
       .returning({ count: rateLimits.count, windowStart: rateLimits.windowStart });
@@ -77,7 +84,14 @@ async function checkRateLimit(
       remaining: 0,
       retryAfterSeconds: Math.max(1, Math.ceil((acaba - now.getTime()) / 1000)),
     };
-  } catch {
+  } catch (error) {
+    // Se cae al de memoria, que es lo correcto —dejar sin usar la aplicación
+    // porque el contador falla es peor que el abuso del que defiende— pero **en
+    // desarrollo se dice**. Este `catch` mudo escondió durante una fase entera
+    // que la sentencia estaba mal y que aquí no se compartía nada.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[límite de frecuencia] la base de datos no contesta:', error);
+    }
     return null;
   }
 }
@@ -96,7 +110,9 @@ async function pruneRateLimits(before: Date): Promise<void> {
     return;
   }
   try {
-    await database.delete(rateLimits).where(sql`${rateLimits.windowStart} < ${before}`);
+    await database
+      .delete(rateLimits)
+      .where(sql`${rateLimits.windowStart} < ${before.toISOString()}::timestamptz`);
   } catch {
     // Que no se pueda limpiar no puede tumbar la petición que venía a otra cosa.
   }

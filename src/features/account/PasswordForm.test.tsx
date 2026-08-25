@@ -10,6 +10,13 @@ import { AccountProvider } from '@state/account';
 
 import { PasswordForm } from './PasswordForm';
 
+/**
+ * `signInWithPassword` habla con Auth.js, que aquí no existe. Lo que importa de
+ * esta pantalla es **que se vuelva a entrar**, no cómo.
+ */
+const entrar = vi.hoisted(() => vi.fn());
+vi.mock('next-auth/react', () => ({ signIn: entrar, signOut: vi.fn() }));
+
 const DENTRO: Account = {
   email: 'javier@example.com',
   name: null,
@@ -115,5 +122,55 @@ describe('Cambiar la contraseña', () => {
     await userEvent.click(screen.getByRole('button', { name: /cambiar la contraseña/i }));
 
     expect(await screen.findByText(/la contraseña de ahora no es esa/i)).toBeInTheDocument();
+  });
+});
+
+describe('al cambiarla, la sesión de aquí no se cae', () => {
+  /**
+   * Cambiar la contraseña sube la versión de sesión de la cuenta, y eso invalida
+   * todas las cookies firmadas antes: también la de esta pestaña. Sin volver a
+   * entrar, la pantalla decía «Cambiada» y un segundo después la aplicación
+   * entera decía «entra con tu cuenta».
+   *
+   * Se descubrió la primera vez que esto se ejecutó contra Postgres de verdad.
+   * Ningún test podía verlo antes —sin cookie no hay versión que dejar de
+   * cuadrar— y por eso lo que se comprueba aquí es lo único comprobable desde
+   * fuera: que se vuelve a entrar con la nueva.
+   */
+  it('vuelve a entrar con la contraseña nueva', async () => {
+    entrar.mockResolvedValue({ error: null });
+    vi.stubGlobal('fetch', responder({ account: { ...DENTRO } }));
+    pintar();
+
+    await escribir('la-de-siempre', 'una-nueva-larga', 'una-nueva-larga');
+    await userEvent.click(screen.getByRole('button', { name: /cambiar la contraseña/i }));
+
+    expect(entrar).toHaveBeenCalledWith('credentials', {
+      email: DENTRO.email,
+      password: 'una-nueva-larga',
+      redirect: false,
+    });
+  });
+
+  it('avisa de que las demás sesiones se han cerrado', async () => {
+    entrar.mockResolvedValue({ error: null });
+    vi.stubGlobal('fetch', responder({ account: { ...DENTRO } }));
+    pintar();
+
+    await escribir('la-de-siempre', 'una-nueva-larga', 'una-nueva-larga');
+    await userEvent.click(screen.getByRole('button', { name: /cambiar la contraseña/i }));
+
+    expect(await screen.findByText(/otros aparatos se han cerrado/i)).toBeInTheDocument();
+  });
+
+  it('si no se puede volver a entrar, lo dice en vez de fingir que todo va bien', async () => {
+    entrar.mockResolvedValue({ error: 'CredentialsSignin' });
+    vi.stubGlobal('fetch', responder({ account: { ...DENTRO } }));
+    pintar();
+
+    await escribir('la-de-siempre', 'una-nueva-larga', 'una-nueva-larga');
+    await userEvent.click(screen.getByRole('button', { name: /cambiar la contraseña/i }));
+
+    expect(await screen.findByText(/hay que volver a entrar con ella/i)).toBeInTheDocument();
   });
 });

@@ -43,7 +43,11 @@ function sinPlan(): NextResponse {
     {
       error: {
         code: 'plan-necesario',
-        message: needsPlanMessage(cheapestPlanWith('canciones'), 'Guardar tus canciones', true),
+        // Singular: el sujeto es «Guardar», no «las canciones». Salió mal la
+        // primera vez que se ejecutó de verdad —«Guardar tus canciones
+        // entran»— y es el mismo tropiezo que la fase 13 ya había tenido con
+        // «Las ideas de la IA entra».
+        message: needsPlanMessage(cheapestPlanWith('canciones'), 'Guardar tus canciones'),
       },
     },
     { status: 402 },

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
-import { updateAccount, useAccount } from '@state/account';
+import { signInWithPassword, updateAccount, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
 
@@ -21,7 +21,7 @@ import { TextField } from '@ui/TextField';
  * que ha cambiado nada.
  */
 export function PasswordForm() {
-  const { refresh } = useAccount();
+  const { account: cuenta, refresh } = useAccount();
   const [actual, setActual] = useState('');
   const [nueva, setNueva] = useState('');
   const [repetida, setRepetida] = useState('');
@@ -42,11 +42,29 @@ export function PasswordForm() {
         setError(result.message);
         return;
       }
+
+      // **Se vuelve a entrar, con la nueva.** Cambiar la contraseña sube la
+      // versión de sesión de la cuenta, y eso invalida todas las cookies
+      // firmadas antes —incluida la de esta pestaña—. Sin esta línea, cambiar la
+      // contraseña te echaba a ti también: la pantalla decía «hecho» y un
+      // segundo después «entra con tu cuenta».
+      //
+      // Se descubrió la primera vez que esto se ejecutó contra Postgres. Ningún
+      // test podía verlo: sin cookie no hay versión que dejar de cuadrar.
+      const dentro = await signInWithPassword(cuenta.email ?? '', nueva);
+
       setActual('');
       setNueva('');
       setRepetida('');
       setHecho(true);
-      await refresh();
+      if (dentro.ok) {
+        await refresh();
+      } else {
+        // La contraseña se cambió igual: lo que ha fallado es volver a entrar.
+        // Decirlo es mejor que dejar la pantalla diciendo que todo fue bien
+        // mientras la sesión está muerta.
+        setError('La contraseña es la nueva, pero hay que volver a entrar con ella.');
+      }
     } finally {
       setWorking(false);
     }
@@ -102,7 +120,7 @@ export function PasswordForm() {
       )}
       {hecho && (
         <p className="text-tube-bright text-sm" aria-live="polite">
-          Cambiada. La próxima vez que entres, con la nueva.
+          Cambiada. Las sesiones que hubiera abiertas en otros aparatos se han cerrado.
         </p>
       )}
 

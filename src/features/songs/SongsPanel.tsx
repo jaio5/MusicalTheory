@@ -316,7 +316,6 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       <PlanLock
         needed={cheapestPlanWith('canciones')}
         what="Guardar tus canciones"
-        plural
         signedIn={signedIn}
       />
     );
