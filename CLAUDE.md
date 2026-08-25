@@ -83,13 +83,16 @@ renombrado no puede degradar a quien había pagado.
 | Mástil, afinaciones, formas de acorde                | `src/core/instrument/`                         |
 | Estado de sesión y persistencia                      | `src/state/` (IndexedDB)                       |
 | Grabación con cámara                                 | `src/media/`                                   |
-| Rutas de servidor de la IA                           | `src/app/api/ideas`, `src/app/api/teacher`     |
+| Rutas de servidor de la IA                           | `app/api/ideas`, `/teacher`, `/versiones`      |
+| Lo que tocas, convertido en compases                 | `core/music/capture.ts`                        |
+| Con qué se rearmoniza, y cómo se comprueba           | `core/music/reharmonization.ts`                |
 | Una canción guardada: grados, tonalidad y secciones  | `core/music/song.ts` + `server/songs-repo.ts`  |
 | Planes, permisos y si una unidad la abre el plan     | `src/core/billing/` (`plans.ts`, `access.ts`)  |
 | Meta diaria, racha, medallas, punto de partida       | `core/music/progress.ts`                       |
 | La cola de repaso de lo fallado                      | `core/music/review.ts`                         |
 | Tarjetas de plan y ventana de pago                   | `features/account/`, `src/app/planes/`         |
 | Guardar y abrir tus canciones                        | `features/songs/`, `src/app/api/canciones`     |
+| Versiones de tu canción, y su verificación           | `features/versions/`                           |
 | El avatar de arriba y lo que cuelga de él            | `features/account/AccountMenu.tsx`             |
 | Cuentas, contraseñas, base de datos y cupos          | `src/server/`                                  |
 | Si alguien puede pedirle algo al modelo              | `server/entitlements.ts` + `ai-usage.ts`       |
@@ -123,10 +126,11 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                    |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Los diez: dominio puro, tono propio, análisis en el hilo principal,
+descartadas. Los once: dominio puro, tono propio, análisis en el hilo principal,
 acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, punto de
-partida con una pantalla por cosa, cupos calculados desde el precio, y un solo marco
-de pantalla, y los dos temas con el negro de casa.
+partida con una pantalla por cosa, cupos calculados desde el precio, un solo marco
+de pantalla, los dos temas con el negro de casa, y las versiones verificadas contra
+el dominio sin que suba audio.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

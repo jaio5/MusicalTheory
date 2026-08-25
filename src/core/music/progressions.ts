@@ -284,7 +284,17 @@ export function resolveDegree(
     root,
     quality: shape.quality,
     // El grado sabe en qué tonalidad vive, así que puede escribirse solo.
-    symbol: chordSymbol(root, shape.quality, accidentalForKey(tonic, mode)),
+    // Un grado que se llama «b» algo se escribe con bemol, valga lo que valga la
+    // tonalidad. Sin esto, el bIII de Do mayor salía «D#» y el bVII «A#»: suenan
+    // igual y no los reconoce nadie, que es justo lo que este proyecto ya cuida
+    // en las afinaciones —la bajada de medio tono es Eb Ab Db Gb Bb Eb—. El
+    // nombre del grado ya lleva dentro cómo se escribe; solo había que hacerle
+    // caso.
+    symbol: chordSymbol(
+      root,
+      shape.quality,
+      degree.startsWith('b') ? 'flat' : accidentalForKey(tonic, mode),
+    ),
     notes: triadNotes(root, shape.quality),
     role: shape.role,
   };

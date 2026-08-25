@@ -38,6 +38,8 @@ export type Capability =
   | 'repaso'
   /** Guardar tus canciones en la cuenta en vez de en este navegador. */
   | 'canciones'
+  /** Pedirle a la IA versiones de tu canción. Cada tanda es una llamada al modelo. */
+  | 'versiones'
   /** El profesor sabe qué unidades llevas hechas antes de contestar. */
   | 'profesor-con-progreso';
 
@@ -104,7 +106,7 @@ export const PLANS: readonly Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    claim: 'Lo de Medio, con un profesor que ya sabe por dónde vas y el cupo más alto.',
+    claim: 'Lo de Medio, más versiones de tus canciones y un profesor que sabe por dónde vas.',
     monthlyCents: 1999,
     capabilities: [
       'profesor',
@@ -113,6 +115,7 @@ export const PLANS: readonly Plan[] = [
       'sincronizar',
       'repaso',
       'canciones',
+      'versiones',
       'profesor-con-progreso',
     ],
   },

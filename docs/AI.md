@@ -209,7 +209,7 @@ Cuatro detalles del cupo que conviene no olvidar aquí:
 - **El mensaje dice cuál de los dos se agotó**, porque no se arreglan igual: uno se
   espera a mañana y el otro se arregla subiendo de plan.
 
-## Pensar está apagado en las dos rutas
+## Pensar está apagado en las tres rutas
 
 Y es una decisión de coste, no un descuido. La respuesta la fija un esquema JSON: no
 hay nada que razonar. En `claude-opus-5` **el pensamiento viene encendido por
@@ -217,11 +217,11 @@ defecto** y se cobra como tokens de salida, así que dejarlo puesto multiplicaba
 coste de cada pregunta y podía gastarse el `max_tokens` pensando para devolver una
 respuesta truncada —se paga y no se sirve—.
 
-Las dos rutas mandan `thinking: { type: 'disabled' }` con `effort: 'low'`, y sus
+Las tres rutas mandan `thinking: { type: 'disabled' }` con `effort: 'low'`, y sus
 prompts de sistema piden explícitamente que no se cuelen etiquetas XML internas en la
 respuesta: es lo que recomienda la documentación del modelo para ese caso.
 
-Los dos prompts y los dos esquemas viven juntos en `server/prompts.ts`, y no dentro de
+Los tres prompts y los tres esquemas viven juntos en `server/prompts.ts`, y no dentro de
 sus rutas, porque **de su longitud dependen los cupos de todos los planes**. Allí se
 pueden medir: `server/prompts.test.ts` cuenta sus caracteres y falla si crecen hasta
 comerse la holgura del presupuesto de tokens.
@@ -250,3 +250,52 @@ De vuelta viene una respuesta corta y, si viene a cuento, un ejemplo tocable en
 grados. Los cifrados del ejemplo no se creen: se recalculan desde los grados
 contra la tonalidad real, igual que en ideas, que es la única forma de que no
 aparezca en pantalla un acorde que no existe ahí.
+
+## Las versiones de tu canción
+
+Un tercer route handler, `POST /api/versiones`, con el mismo reparto que los otros
+dos. Es **la petición más cara de las tres** y entra solo en el plan Pro.
+
+Entra una progresión en grados con sus pulsos y una tonalidad. Sale una lista de
+hasta tres versiones: los mismos compases, en el mismo orden, con algunos acordes
+cambiados.
+
+**Aunque por delante se llame «grabar un trozo», aquí no sube nada de audio.** La
+aplicación ya sabe qué acorde suena —el motor de croma lo dice y `core/music/capture.ts`
+lo convierte en grados con sus pulsos—, así que grabar es apuntar símbolos. Lo que
+viaja son entre treinta y doscientos caracteres.
+
+### Se verifica el razonamiento, no solo el resultado
+
+Esta es la diferencia con las ideas, y es lo que sostiene la función entera.
+
+Cada compás que una versión cambia **declara qué movimiento se le ha aplicado**, de
+un catálogo cerrado de cinco: relativo, intercambio de especie, préstamo modal,
+cadencia interrumpida y sustitución tritonal. El validador vuelve a aplicar ese
+movimiento al grado que había y comprueba que sale el que propone.
+
+Una versión se descarta entera cuando:
+
+- declara un movimiento que no es el que se ha hecho, aunque el acorde sea
+  razonable;
+- dice no haber tocado un compás que sí cambió, o al revés;
+- cambia el número de compases o su orden: eso ya no es una versión de esa canción;
+- no cambia ni un compás, porque eso es la canción;
+- usa un grado que no existe en ese modo.
+
+Es la misma regla que los cifrados —no se creen, se recalculan— llevada del cifrado
+al porqué. Y hace falta: el porqué es la mitad de lo que se está vendiendo. Sin él,
+una versión son cuatro acordes distintos que cualquiera puede probar a mano.
+
+El catálogo de movimientos que se le ofrece al modelo **se genera desde `MOVES`**, no
+se escribe en el prompt a mano. Así no puede pasar que el prompt ofrezca un
+movimiento que el validador no sepa comprobar, que haría caer todas las versiones que
+lo usaran sin que nadie entendiera por qué.
+
+### Lo que no capta
+
+No hay ritmo dentro del compás, no hay melodía y las inversiones se leen como el
+acorde en estado fundamental, porque el croma olvida la octava
+([adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md)). Lo que sale es la
+armonía y su reparto en el tiempo, que es lo que hace falta para rearmonizar y no
+más.

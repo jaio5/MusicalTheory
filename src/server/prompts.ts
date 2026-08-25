@@ -1,8 +1,8 @@
 /**
  * Lo que se le dice al modelo, y la forma en la que tiene que contestar.
  *
- * Los dos prompts de sistema y los dos esquemas de salida, juntos y en la capa de
- * servidor. Estaban dentro de sus rutas, y salieron de ahí por una razón concreta:
+ * Los tres prompts de sistema y los tres esquemas de salida, juntos y en la capa
+ * de servidor. Estaban dentro de sus rutas, y salieron de ahí por una razón concreta:
  * **de su longitud dependen los cupos de todos los planes.** El presupuesto de
  * tokens de `core/billing/cost.ts` supone un tamaño de entrada, y si un prompt
  * crece, los cupos empiezan a prometer más de lo que hay dinero para pagar.
@@ -11,13 +11,13 @@
  * caracteres y falla si se pasan del presupuesto. Dentro de un route handler eso no
  * se podía hacer, porque importarlo trae la sesión, la base de datos y el SDK.
  *
- * Los dos comparten una instrucción que no estaba antes: que no metan etiquetas XML
+ * Los tres comparten una instrucción que no estaba antes: que no metan etiquetas XML
  * internas en la respuesta. Es lo que recomienda la documentación del modelo cuando
- * se apaga el pensamiento, y en estas dos rutas está apagado porque la respuesta la
+ * se apaga el pensamiento, y en estas tres rutas está apagado porque la respuesta la
  * fija un esquema y pensar se cobra como salida.
  */
 
-import { MAX_IDEAS } from '@core/billing';
+import { MAX_IDEAS, MAX_VERSIONS } from '@core/billing';
 
 export const TEACHER_SYSTEM_PROMPT = `Eres un guitarrista con años de tablas que le explica teoría a otro
 guitarrista. El que pregunta toca de oído y sabe hacer sonar cosas: no le
@@ -64,6 +64,64 @@ sola frase de porqué.
 Usa exactamente los símbolos de grado que te den como válidos.
 
 No incluyas etiquetas XML internas ni de sistema en tu respuesta.`;
+
+export const VERSIONS_SYSTEM_PROMPT = `Eres un guitarrista de rock que rearmoniza la cancion de otro.
+
+Te dan una progresion en grados con sus pulsos, y devuelves versiones de esa
+misma progresion: el mismo numero de compases y en el mismo orden. No anadas ni
+quites compases.
+
+Cada compas que cambies lleva el movimiento que has aplicado, de la lista que te
+dan y con ese nombre exacto. Un compas que dejes igual lleva move nulo. No
+declares un movimiento que no hayas hecho: se comprueba, y la version entera se
+descarta si no cuadra.
+
+Cambia unos compases, no todos: una version que lo cambia todo ya no es la
+misma cancion.
+
+Responde siempre en espanol, en frases cortas y con verbos activos. Nada de
+exclamaciones. Cada version lleva un titulo de menos de sesenta caracteres y una
+sola frase que diga que se gana con ella.
+
+Usa exactamente los simbolos de grado que te den como validos.
+
+No incluyas etiquetas XML internas ni de sistema en tu respuesta.`;
+
+export const VERSIONS_SCHEMA = {
+  type: 'object',
+  properties: {
+    versions: {
+      type: 'array',
+      minItems: 1,
+      maxItems: MAX_VERSIONS,
+      items: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          why: { type: 'string' },
+          steps: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                degree: { type: 'string' },
+                // Nulo cuando el compas no cambia. Sin el nulo explicito, el
+                // modelo se inventa un movimiento para rellenar el hueco.
+                move: { type: ['string', 'null'] },
+              },
+              required: ['degree', 'move'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['title', 'why', 'steps'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['versions'],
+  additionalProperties: false,
+} as const;
 
 export const IDEAS_SCHEMA = {
   type: 'object',

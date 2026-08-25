@@ -33,8 +33,9 @@ coinciden, manda el código y este documento está mal.
 | Repaso de lo que fallaste      | —        | sí     | sí     | sí      |
 | Tus canciones guardadas        | —        | sí     | sí     | sí      |
 | Ideas de progresión            | —        | —      | sí     | sí      |
+| Versiones de tus canciones     | —        | —      | —      | sí      |
 | El profesor sabe por dónde vas | —        | —      | —      | sí      |
-| Peticiones a la IA al mes      | 15       | 147    | 181    | 363     |
+| Peticiones a la IA al mes      | 15       | 147    | 181    | 271     |
 
 **Los cupos de esa última fila no están escritos en ninguna parte: se calculan.**
 Son los que salen con `claude-opus-5`, que es el modelo por defecto; con otro salen
@@ -59,13 +60,18 @@ Todo lo demás —afinador, rueda, mástil, metrónomo, acordes, grabación, el 
 Elemental entero— sigue funcionando sin entrar.
 
 **Cada escalón de pago trae una cosa que el anterior no.** Básico abre el temario
-entero, el repaso y guardar tus canciones; Medio añade las ideas de la IA; Pro, un
-profesor que sabe qué llevas hecho. Un escalón que solo suba el cupo no se entiende: quien lo mira tiene
+entero, el repaso y guardar tus canciones; Medio añade las ideas de la IA; Pro, las
+versiones de tus canciones y un profesor que sabe qué llevas hecho. Un escalón que solo suba el cupo no se entiende: quien lo mira tiene
 que poder decir en una frase por qué pagaría el siguiente.
 
-**Las ideas empiezan en Medio.** Son la parte más cara —cada pulsación son entre
-dos y cuatro progresiones razonadas— y la única que se puede pedir en cadena sin
-leer lo anterior.
+**Las ideas empiezan en Medio.** Cada pulsación son entre dos y cuatro progresiones
+razonadas, y es de las que se pueden pedir en cadena sin leer lo anterior.
+
+**Las versiones empiezan en Pro, y son lo más caro que hay.** Cada tanda manda la
+progresión entera y devuelve tres progresiones enteras con su porqué, así que cuesta
+un tercio más que una tanda de ideas. Es también lo que más trabajo de dominio lleva
+detrás: lo que devuelve el modelo se comprueba movimiento a movimiento antes de
+enseñarse.
 
 **El Grado Profesional va con plan.** Es la parte del temario que explica la teoría
 que la pantalla de componer usa sin explicar, y es la que costó escribir. El
@@ -234,9 +240,16 @@ Con eso, y los precios de la API a 30 de julio de 2026:
 | ------------------------ | ---------------- | ----------------- | ----------------- |
 | Una pregunta al profesor | 1,35 cts         | 0,81 cts          | 0,27 cts          |
 | Una tanda de ideas       | 2,20 cts         | 1,32 cts          | 0,44 cts          |
+| Una tanda de versiones   | 2,95 cts         | 1,77 cts          | 0,59 cts          |
 | Básico                   | 147/mes · 24/día | 246 · 40          | 739 · 120         |
 | Medio                    | 181/mes · 30/día | 302 · 49          | 908 · 147         |
-| Pro                      | 363/mes · 59/día | 605 · 98          | 1817 · 294        |
+| Pro                      | 271/mes · 44/día | 451 · 73          | 1355 · 219        |
+
+**El cupo de Pro baja de 363 a 271 al añadirse las versiones, y eso está bien.** El
+cupo de un plan es su presupuesto dividido entre **su petición más cara**, y desde
+que Pro incluye versiones, su petición más cara ya no son las ideas. Dejar el 363
+sería prometer un número que el dinero no paga: es exactamente el fallo que este
+fichero vino a arreglar, y por eso `worstFeature` no tiene ninguna excepción.
 
 **Cambiar `ANTHROPIC_MODEL` multiplica los cupos sin tocar una línea de código**, y
 la pantalla enseña los del modelo que haya puesto. Es potente y es un cañón: bajar de

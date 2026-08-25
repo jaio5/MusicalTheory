@@ -54,8 +54,8 @@ export function priceOf(modelId: string | undefined): ModelPrice {
   return (modelId === undefined ? undefined : MODEL_PRICES[modelId]) ?? FALLBACK_PRICE;
 }
 
-/** Las dos cosas que llaman al modelo. Cada una cuesta distinto. */
-export type AiFeature = 'profesor' | 'ideas';
+/** Las tres cosas que llaman al modelo. Cada una cuesta distinto. */
+export type AiFeature = 'profesor' | 'ideas' | 'versiones';
 
 /**
  * El peor caso de tokens de cada petición.
@@ -79,6 +79,10 @@ export interface TokenBudget {
 export const TOKEN_BUDGETS: Readonly<Record<AiFeature, TokenBudget>> = {
   profesor: { input: 700, output: 400 },
   ideas: { input: 900, output: 700 },
+  // La más cara de las tres, y con motivo: la entrada lleva la progresión entera
+  // —hasta treinta y dos grados— más el catálogo de movimientos, y la salida son
+  // tres progresiones completas en vez de cuatro frases.
+  versiones: { input: 1400, output: 900 },
 };
 
 /**
@@ -105,6 +109,19 @@ export const MAX_RECENT_NOTES = 32;
 
 /** Cuántos acordes recientes se le mandan como contexto. */
 export const MAX_RECENT_CHORDS = 16;
+
+/**
+ * Cuántas versiones de una canción se piden de una vez.
+ *
+ * Tres y no cinco: cada una es una progresión entera, así que subirlo encarece
+ * la petición mucho más deprisa que subir `MAX_IDEAS`. Y tres es lo que se puede
+ * comparar de un vistazo con la guitarra en las manos; con cinco hay que
+ * desplazarse, y desplazarse es soltar las cuerdas.
+ */
+export const MAX_VERSIONS = 3;
+
+/** Lo más larga que puede ser la progresión que se manda a rearmonizar. */
+export const MAX_VERSION_DEGREES = 32;
 
 /** Lo que cuesta, como máximo, una petición de esa clase con ese modelo. */
 export function requestCostMicros(feature: AiFeature, modelId: string | undefined): number {
@@ -162,6 +179,9 @@ export const FREE_MONTHLY_ALLOWANCE = 15;
  * la diferencia.
  */
 function worstFeature(plan: Plan): AiFeature {
+  if (plan.capabilities.includes('versiones')) {
+    return 'versiones';
+  }
   return plan.capabilities.includes('ideas') ? 'ideas' : 'profesor';
 }
 

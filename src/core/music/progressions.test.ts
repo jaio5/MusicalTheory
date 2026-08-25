@@ -41,7 +41,10 @@ describe('resolución de grados a acordes', () => {
   it('convierte grados de C mayor en cifrado', () => {
     expect(resolveDegree(C, 'major', 'I').symbol).toBe('C');
     expect(resolveDegree(C, 'major', 'vi').symbol).toBe('Am');
-    expect(resolveDegree(C, 'major', 'bVII').symbol).toBe('A#');
+    // Bb y no A#, que es lo que decía antes esta línea. Do mayor no tiene
+    // alteraciones, así que la tonalidad no puede decidir por este grado: lo
+    // decide su propio nombre, que empieza por bemol.
+    expect(resolveDegree(C, 'major', 'bVII').symbol).toBe('Bb');
   });
 
   it('distingue las dos dominantes del menor', () => {
@@ -99,5 +102,26 @@ describe('catálogo de progresiones', () => {
         expect(valid).toContain(degree);
       }
     }
+  });
+});
+
+describe('los grados prestados se escriben con bemol', () => {
+  it('en Do mayor son Db, Eb, Ab y Bb, y no C#, D#, G# y A#', () => {
+    // Suenan igual y no los reconoce nadie. Es la misma regla que ya cuidan las
+    // afinaciones: la bajada de medio tono es Eb Ab Db Gb Bb Eb.
+    expect(resolveDegree(0, 'major', 'bII').symbol).toBe('Db');
+    expect(resolveDegree(0, 'major', 'bIII').symbol).toBe('Eb');
+    expect(resolveDegree(0, 'major', 'bVI').symbol).toBe('Ab');
+    expect(resolveDegree(0, 'major', 'bVII').symbol).toBe('Bb');
+  });
+
+  it('el napolitano de La menor es Bb', () => {
+    expect(resolveDegree(9, 'minor', 'bII').symbol).toBe('Bb');
+  });
+
+  it('los demás grados siguen escribiéndose como pide su tonalidad', () => {
+    // Mi mayor lleva sostenidos, y su IV es La, no Si bemol menor de nada.
+    expect(resolveDegree(4, 'major', 'V').symbol).toBe('B');
+    expect(resolveDegree(4, 'major', 'ii').symbol).toBe('F#m');
   });
 });

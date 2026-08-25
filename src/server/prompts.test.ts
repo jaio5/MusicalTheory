@@ -5,10 +5,20 @@ import {
   MAX_QUESTION_LENGTH,
   MAX_RECENT_CHORDS,
   MAX_RECENT_NOTES,
+  MAX_VERSION_DEGREES,
+  MAX_VERSIONS,
   TOKEN_BUDGETS,
 } from '@core/billing';
+import { MOVES } from '@core/music';
 
-import { ANSWER_SCHEMA, IDEAS_SCHEMA, IDEAS_SYSTEM_PROMPT, TEACHER_SYSTEM_PROMPT } from './prompts';
+import {
+  ANSWER_SCHEMA,
+  IDEAS_SCHEMA,
+  IDEAS_SYSTEM_PROMPT,
+  TEACHER_SYSTEM_PROMPT,
+  VERSIONS_SCHEMA,
+  VERSIONS_SYSTEM_PROMPT,
+} from './prompts';
 
 /**
  * El guardián del modelo de coste.
@@ -112,5 +122,46 @@ describe('los topes de salida', () => {
   // reflejarlo o el cupo del plan con ideas saldría mal.
   it('una tanda de ideas puede ser más larga que una respuesta del profesor', () => {
     expect(TOKEN_BUDGETS.ideas.output).toBeGreaterThan(TOKEN_BUDGETS.profesor.output);
+  });
+});
+
+describe('el presupuesto de tokens de las versiones', () => {
+  it('el prompt, el esquema, la progresión más larga y el catálogo caben', () => {
+    // Lo peor: la progresión entera hasta su tope con sus pulsos, más los cinco
+    // movimientos con su nombre y su porqué, más los grados válidos.
+    const progresion = 'bVII x4, '.repeat(MAX_VERSION_DEGREES);
+    const movimientos = MOVES.map((move) => `${move.id}: ${move.why}`).join('\n');
+    const grados = 'bVII, '.repeat(20);
+    const estimado = estimatedTokens(
+      VERSIONS_SYSTEM_PROMPT,
+      schemaText(VERSIONS_SCHEMA),
+      progresion,
+      movimientos,
+      grados,
+    );
+
+    expect(estimado).toBeLessThanOrEqual(TOKEN_BUDGETS.versiones.input);
+  });
+
+  it('queda holgura', () => {
+    const estimado = estimatedTokens(VERSIONS_SYSTEM_PROMPT, schemaText(VERSIONS_SCHEMA));
+
+    expect(estimado).toBeLessThan(TOKEN_BUDGETS.versiones.input * 0.7);
+  });
+
+  it('hay sitio de salida para tres progresiones enteras y sus porqués', () => {
+    // Cada versión son treinta y dos compases con su grado y su movimiento, más
+    // un título y una frase: unos 280 tokens en el peor caso.
+    expect(TOKEN_BUDGETS.versiones.output).toBeGreaterThanOrEqual(MAX_VERSIONS * 280);
+  });
+
+  it('una tanda de versiones es lo más caro que se puede pedir', () => {
+    // Si dejara de serlo, `worstFeature` estaría calculando el cupo del plan Pro
+    // con la petición equivocada y el margen saldría mal.
+    for (const feature of ['profesor', 'ideas'] as const) {
+      const versiones = TOKEN_BUDGETS.versiones;
+      const otra = TOKEN_BUDGETS[feature];
+      expect(versiones.input + versiones.output).toBeGreaterThan(otra.input + otra.output);
+    }
   });
 });

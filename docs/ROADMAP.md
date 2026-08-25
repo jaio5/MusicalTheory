@@ -563,40 +563,58 @@ El modelo de datos que la fase 17 necesita para guardar lo que devuelva.
 Una canción es una progresión con secciones, **no un archivo**: aquí no entra ni
 audio ni MIDI.
 
-### Fase 17 — Versiones de tu canción · pendiente
+### Fase 17 — Versiones de tu canción · hecha
 
-Grabas un trozo, la aplicación lo escucha con lo que ya sabe hacer, y la IA
-devuelve rearmonizaciones de esos mismos compases. Es la parte que más
-procesamiento pide y la que más se puede equivocar, así que casi todo el trabajo
-es de dominio y no de modelo.
+Grabas un trozo, la aplicación lo escucha con lo que ya sabe hacer, y la IA devuelve
+rearmonizaciones de esos mismos compases. Es la parte que más se puede equivocar, así
+que casi todo el trabajo es de dominio y no de modelo. El porqué y las alternativas
+—incluida subir el audio, que se escribió y se descartó— están en
+[adr/0011](./adr/0011-versiones-verificadas-contra-el-dominio.md).
 
-- [ ] **Captura simbólica** en `core/music/capture.ts`, puro: el motor de croma ya
-      emite acordes con su instante, y falta segmentarlos en compases con el tempo
-      del metrónomo. Se prueba entero sin esperar un milisegundo real, como
-      `exercise.ts`.
-- [ ] **El vocabulario de la rearmonización** en `core/music/reharmonization.ts`:
-      un catálogo cerrado de movimientos que el código sepa **nombrar y
-      verificar** —sustitución tritonal, dominante secundario, préstamo modal,
-      relativo, cadencia interrumpida, intercambio mayor/menor—.
-      `harmonic-function.ts` ya tiene la mitad del camino.
-- [ ] **El contrato** en `features/versions/contract.ts`, con la forma de
-      `ideas/contract.ts`. Los cifrados que devuelva el modelo **no se creen**: se
-      recalculan desde los grados. Y el movimiento que dice haber aplicado se
-      comprueba contra el catálogo; si dice «tritonal» y no lo es, esa versión se
-      cae.
-- [ ] **Coste y plan**: un tercer peor caso en `cost.ts` —la progresión de entrada
-      es más larga que la de una idea— y los cupos se recalculan solos desde ahí
-      ([adr/0008](./adr/0008-los-cupos-salen-del-precio.md)). Permiso nuevo
-      `versiones`, en **Pro**, que hoy solo se distingue por el cupo y por un
-      profesor que sabe por dónde vas.
-- [ ] **La pantalla**: en la franja de abajo de componer, junto a ideas y sesiones,
-      con el porqué de cada versión al lado y un botón que la guarda como canción.
-- [ ] Su ADR, con el límite conocido escrito: sin audio no hay ritmo, ni
-      inversiones, ni melodía.
-
-**Comparar versiones sin oírlas cuesta**, y la reproducción se ha dejado fuera a
-propósito para no doblar la fase. Queda anotado como lo primero que se mira
-después.
+- [x] **Captura simbólica** en `core/music/capture.ts`, pura y con el instante por
+      parámetro. Colapsa dos veces y las dos hacen falta: lo que el motor repite
+      mientras la mano no se mueve, y el cambio de postura que suena a dos acordes y
+      es el mismo grado. Descarta el acorde que se roza al cambiar —medio pulso— y
+      cuenta lo que no cabe en la tonalidad en vez de colarlo.
+- [x] **El vocabulario** en `core/music/reharmonization.ts`: cinco movimientos que el
+      código sabe nombrar y verificar. **Ninguno es una tabla escrita a mano**: cada
+      uno le pregunta al catálogo de grados cuántos semitonos y qué especie, lo
+      transforma y busca qué ha salido, así que un grado nuevo entra solo en los cinco
+      y la tabla no puede contradecir al catálogo.
+- [x] `isMove` es lo que sostiene la fase. Un modelo devuelve acordes razonables casi
+      siempre; lo que no devuelve de forma fiable es una explicación cierta de por qué
+      son esos. Aquí se aplica el movimiento que dice haber hecho y se compara.
+- [x] **El contrato** en `features/versions/contract.ts`. Una versión se cae entera si
+      declara un movimiento falso, si dice no haber tocado un compás que sí cambió, si
+      cambia la forma de la canción o si no cambia nada —eso es la canción—. Los
+      cifrados y los pulsos salen de aquí, no de lo que diga el modelo.
+- [x] El catálogo que se le ofrece al modelo **se genera desde `MOVES`**: un
+      movimiento ofrecido que el validador no supiera comprobar haría caer todas las
+      versiones que lo usaran sin que nadie entendiese por qué.
+- [x] `POST /api/versiones` con las tres puertas de siempre —frecuencia, cuenta y
+      cupo—, pensar apagado y un reintento. Es la petición más cara que hay.
+- [x] **Un tercer peor caso en `cost.ts`**, y el cupo de Pro baja de 363 a 271 al mes.
+      No es un efecto secundario: el cupo es el presupuesto entre la petición más cara,
+      y desde ahora la más cara es esta. `worstFeature` no lleva ninguna excepción.
+- [x] Permiso `versiones` en **Pro**, y su guardián de tamaño del prompt en
+      `prompts.test.ts`, como los otros dos.
+- [x] Panel en la franja de componer, al lado de Ideas porque las dos gastan cupo. Lo
+      que cambia se destaca y lo que se queda se apaga, cada compás dice de dónde
+      viene, y «ponerla en el camino» la deja tocable con los acordes resueltos por el
+      dominio.
+- [x] **`bII` en el catálogo de mayor**, que faltaba: sin él la sustitución tritonal
+      solo existía en menor.
+- [x] Al añadirlo salió un fallo de escritura que ya estaba: en Do mayor `bIII` se
+      escribía «D#» y `bVII` «A#». Un grado que se llama «b» algo se escribe con
+      bemol, y **había un test que fijaba lo equivocado**.
+- [ ] **Sin probar con clave de verdad.** El contrato y el validador están probados
+      con respuestas fabricadas; que el modelo devuelva versiones que pasen la
+      verificación a menudo, no.
+- [ ] **La progresión sale del camino de componer, no de haber grabado.** La captura
+      está escrita y probada, pero todavía no hay un botón que grabe un trozo y la
+      use: por ahora todos los compases valen cuatro pulsos.
+- [ ] **No se pueden oír.** Comparar tres versiones leyéndolas cuesta, y es lo primero
+      que hay que mirar después.
 
 ### Fase 18 — Cobrar de verdad · pendiente
 

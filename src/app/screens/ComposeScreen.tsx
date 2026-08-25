@@ -10,6 +10,7 @@ import { CurrentChord, HeardChord, NextChords, Voicings } from '@features/path';
 import { RecordStage } from '@features/recorder';
 import { SessionsPanel } from '@features/sessions';
 import { SongsPanel } from '@features/songs';
+import { VersionsPanel } from '@features/versions';
 import { KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
@@ -17,7 +18,7 @@ import { Chip } from '@ui/Chip';
 import { Disclosure } from '@ui/Disclosure';
 import { WorkHeader } from '@ui/Screen';
 
-type ExtraId = 'fretboard' | 'ideas' | 'songs' | 'sessions';
+type ExtraId = 'fretboard' | 'ideas' | 'versions' | 'songs' | 'sessions';
 
 interface Extra {
   readonly id: ExtraId;
@@ -39,6 +40,10 @@ interface Extra {
 const EXTRAS: readonly Extra[] = [
   { id: 'fretboard', name: 'Mástil', render: FretboardPanel, fits: true },
   { id: 'ideas', name: 'Ideas', render: IdeasPanel },
+  // Versiones al lado de Ideas porque las dos preguntan al modelo, y las dos
+  // cuestan una petición del cupo: tenerlas juntas dice sin decirlo cuáles son
+  // las que gastan.
+  { id: 'versions', name: 'Versiones', render: VersionsPanel },
   // Canciones antes que Sesiones porque no son lo mismo y se confunden: una
   // canción se guarda a propósito y con nombre, y una sesión es el rastro de lo
   // que se tocó. Lo que se busca a menudo va primero.
