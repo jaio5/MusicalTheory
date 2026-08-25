@@ -13,7 +13,7 @@ import type { KeyMode } from './keys';
 
 /** Grados sobre tonalidad mayor, incluidos los tres prestados de rigor. */
 export type MajorDegreeSymbol =
-  'I' | 'ii' | 'iii' | 'IV' | 'V' | 'vi' | 'vii°' | 'bIII' | 'bVI' | 'bVII';
+  'I' | 'ii' | 'iii' | 'IV' | 'V' | 'vi' | 'vii°' | 'bII' | 'bIII' | 'bVI' | 'bVII';
 
 /** Grados sobre tonalidad menor, con las dos dominantes y el napolitano. */
 export type MinorDegreeSymbol = 'i' | 'ii°' | 'bII' | 'III' | 'iv' | 'v' | 'V' | 'VI' | 'VII';
@@ -39,6 +39,11 @@ const MAJOR_DEGREES: Readonly<Record<MajorDegreeSymbol, DegreeShape>> = {
     offset: 11,
     quality: 'diminished',
     role: 'Poco frecuente en rock; suele sustituirse por V.',
+  },
+  bII: {
+    offset: 1,
+    quality: 'major',
+    role: 'El napolitano. Sustituye al V por el tritono: comparten las dos notas que aprietan.',
   },
   bIII: {
     offset: 3,
@@ -115,6 +120,10 @@ const MAJOR_MOVES: Readonly<Record<MajorDegreeSymbol, readonly DegreeMove[]>> = 
   'vii°': [
     { to: 'I', weight: 0.7, why: 'Resuelve por semitono.' },
     { to: 'V', weight: 0.3, why: 'Se reabsorbe en la dominante.' },
+  ],
+  bII: [
+    { to: 'I', weight: 0.85, why: 'Resuelve por semitono, igual que haría el V.' },
+    { to: 'V', weight: 0.3, why: 'Se deshace la sustitución y vuelve la dominante de siempre.' },
   ],
   bIII: [
     { to: 'bVII', weight: 0.7, why: 'Encadena dos prestados y suena a riff mayor.' },
