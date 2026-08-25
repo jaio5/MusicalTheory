@@ -134,7 +134,20 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
           />
         ) : (
           <div className="p-4">
-            <LearnPanel scaleId={found.unit.scaleId} onDone={() => complete(unitId, true)} />
+            {/* Las notas que costaron entran en la cola igual que una pregunta
+                fallada. Terminar la escala sigue siendo terminarla —aquí no se
+                suspende— pero lo que salió regular vuelve. */}
+            <LearnPanel
+              scaleId={found.unit.scaleId}
+              onDone={(stumbled) => {
+                if (repasa) {
+                  for (const index of stumbled) {
+                    miss(unitId, index);
+                  }
+                }
+                complete(unitId, stumbled.length === 0);
+              }}
+            />
           </div>
         )}
       </div>

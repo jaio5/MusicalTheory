@@ -269,6 +269,25 @@ export async function deleteAccount(password: string): Promise<ProfileResult> {
   }
 }
 
+/**
+ * La dirección del portal de la pasarela, o nulo si no hay ninguna.
+ *
+ * Nulo y no un error: no tener facturas que mirar es lo normal en una cuenta que
+ * nunca ha pagado, y en una copia sin pasarela puesta lo es siempre.
+ */
+export async function billingPortalUrl(): Promise<string | null> {
+  try {
+    const response = await fetch('/api/plan', { method: 'PUT' });
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as { url?: unknown };
+    return typeof body.url === 'string' && body.url !== '' ? body.url : null;
+  } catch {
+    return null;
+  }
+}
+
 export type ChangePlanResult =
   | { readonly kind: 'listo'; readonly plan: PlanId }
   | { readonly kind: 'ir-a-pagar'; readonly url: string }

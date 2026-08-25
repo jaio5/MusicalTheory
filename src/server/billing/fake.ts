@@ -42,4 +42,10 @@ export const FakeBilling: Billing = {
   async cancel({ userId }: { userId: string }): Promise<{ ok: boolean }> {
     return { ok: await setPlan(userId, 'gratis') };
   },
+
+  async portal(): Promise<string | null> {
+    // Aquí no se ha cobrado nunca, así que no hay tarjeta que cambiar ni
+    // facturas que mirar. Nulo, y la pantalla no enseña el enlace.
+    return null;
+  },
 };

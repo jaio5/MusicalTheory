@@ -46,9 +46,47 @@ export interface ExerciseProgress {
   /** Desde cuándo se sostiene la nota correcta, o null si no suena. */
   readonly heldSince: number | null;
   readonly done: boolean;
+  /**
+   * Los pasos que se han soltado antes de conseguir sostenerlos, con cuántas
+   * veces cada uno.
+   *
+   * Existe porque una unidad de tocar no tiene preguntas que fallar: o la haces
+   * o no la haces, y una escala que sale regular no se apuntaba en ninguna
+   * parte. Esto es lo que la apunta. Encontrarla y soltarla tres veces antes de
+   * que cuente es exactamente lo que significa «esa nota no la tengo».
+   *
+   * Se cuenta por paso y no por nota: la misma nota subiendo y bajando son dos
+   * sitios distintos del mástil, y la que se atraganta suele ser una de las dos.
+   */
+  readonly stumbles: Readonly<Record<number, number>>;
 }
 
-export const INITIAL_PROGRESS: ExerciseProgress = { index: 0, heldSince: null, done: false };
+export const INITIAL_PROGRESS: ExerciseProgress = {
+  index: 0,
+  heldSince: null,
+  done: false,
+  stumbles: {},
+};
+
+/**
+ * Cuántas veces hay que soltar una nota para que cuente como que cuesta.
+ *
+ * Dos, no una. Soltarla una vez es normal —se busca el traste, se roza la
+ * cuerda de al lado— y apuntar eso llenaría la cola de repaso con la escala
+ * entera cada vez. A la segunda ya no es buscar: es que no está.
+ */
+export const STUMBLE_THRESHOLD = 2;
+
+/** Los pasos que costaron lo bastante como para volver a verlos. */
+export function stumbledSteps(
+  progress: ExerciseProgress,
+  threshold: number = STUMBLE_THRESHOLD,
+): number[] {
+  return Object.entries(progress.stumbles)
+    .filter(([, veces]) => veces >= threshold)
+    .map(([index]) => Number(index))
+    .sort((a, b) => a - b);
+}
 
 /** La nota más grave con esa clase de altura que cae dentro del mástil. */
 function lowestMidiFor(pitchClass: PitchClass): number {
@@ -119,8 +157,20 @@ export function advanceExercise(
   }
 
   if (!stepMatches(step, reading, tolerance)) {
-    // Soltar la nota reinicia el contador: hay que sostenerla, no rozarla.
-    return progress.heldSince === null ? progress : { ...progress, heldSince: null };
+    // Soltar la nota reinicia el contador: hay que sostenerla, no rozarla. Y se
+    // apunta, porque soltarla varias veces antes de que cuente es la única
+    // señal que da una unidad de tocar de que esa nota no la tienes.
+    if (progress.heldSince === null) {
+      return progress;
+    }
+    return {
+      ...progress,
+      heldSince: null,
+      stumbles: {
+        ...progress.stumbles,
+        [progress.index]: (progress.stumbles[progress.index] ?? 0) + 1,
+      },
+    };
   }
 
   if (progress.heldSince === null) {
@@ -132,7 +182,12 @@ export function advanceExercise(
   }
 
   const index = progress.index + 1;
-  return { index, heldSince: null, done: index >= exercise.steps.length };
+  return {
+    index,
+    heldSince: null,
+    done: index >= exercise.steps.length,
+    stumbles: progress.stumbles,
+  };
 }
 
 /** De 0 a 1, para pintar una barra de avance. */

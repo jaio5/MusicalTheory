@@ -7,12 +7,16 @@ import {
   findUnit,
   lessonNotes,
   type Exercise,
+  type KeyMode,
+  type PitchClass,
   type Progress,
   type ReviewItem,
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 
+import { createExercise, type ExerciseStep } from './exercise';
+import { PlayNote } from './PlayNote';
 import { Question } from './Question';
 import { Tutor } from './Tutor';
 
@@ -28,6 +32,11 @@ import { Tutor } from './Tutor';
  * El precio de esta decisión: si una unidad desaparece del temario, sus preguntas
  * pendientes desaparecen con ella. Es correcto —no hay nada que preguntar— y por
  * eso `parseProgress` las tira al leer.
+ *
+ * **Se repasan las dos cosas.** Una unidad de teoría trae su pregunta; una de
+ * tocar trae la nota que se te atragantó, y esa se contesta con la guitarra. Van
+ * mezcladas en la misma cola y en el mismo orden, porque son lo mismo: cosas de
+ * un día que no se quedaron.
  */
 export function ReviewSession({
   progress,
@@ -62,8 +71,8 @@ export function ReviewSession({
       activeKey === null
         ? []
         : items.flatMap((item) => {
-            const exercise = exerciseFor(item, activeKey.tonic, activeKey.mode);
-            return exercise === null ? [] : [{ item, exercise }];
+            const tarea = taskFor(item, activeKey.tonic, activeKey.mode);
+            return tarea === null ? [] : [tarea];
           }),
     [items, activeKey],
   );
@@ -99,6 +108,30 @@ export function ReviewSession({
   const actual = preguntas[Math.min(at, preguntas.length - 1)]!;
   const last = at >= preguntas.length - 1;
 
+  function contestar(correct: boolean): void {
+    if (correct) {
+      onHit(actual.item.unitId, actual.item.index);
+      return;
+    }
+    setFallos((current) => current + 1);
+    onMiss(actual.item.unitId, actual.item.index);
+    setAviso(
+      actual.kind === 'theory'
+        ? 'Otra vez esa. Pregúntame y lo vemos con los acordes de hoy.'
+        : 'Esa nota se resiste. Pregúntame dónde cae en el mástil.',
+    );
+  }
+
+  function siguiente(): void {
+    if (last) {
+      // «Limpio» es haber acertado todas: lo fallado sigue pendiente para hoy,
+      // así que la cola no se ha quedado vacía.
+      onDone(fallos === 0);
+      return;
+    }
+    setAt(at + 1);
+  }
+
   return (
     <div className="min-h-0 grow overflow-y-auto p-4">
       <div className="flex items-baseline justify-between gap-4">
@@ -114,30 +147,25 @@ export function ReviewSession({
       </div>
 
       <div className="border-border mt-4 max-w-prose border-t pt-4">
-        <Question
-          exercise={actual.exercise}
-          position={at + 1}
-          total={preguntas.length}
-          lastLabel="Terminar el repaso"
-          onAnswered={(correct) => {
-            if (correct) {
-              onHit(actual.item.unitId, actual.item.index);
-              return;
-            }
-            setFallos((current) => current + 1);
-            onMiss(actual.item.unitId, actual.item.index);
-            setAviso('Otra vez esa. Pregúntame y lo vemos con los acordes de hoy.');
-          }}
-          onNext={() => {
-            if (last) {
-              // «Limpio» es haber acertado todas: lo fallado sigue pendiente para
-              // hoy, así que la cola no se ha quedado vacía.
-              onDone(fallos === 0);
-              return;
-            }
-            setAt(at + 1);
-          }}
-        />
+        {actual.kind === 'theory' ? (
+          <Question
+            exercise={actual.exercise}
+            position={at + 1}
+            total={preguntas.length}
+            lastLabel="Terminar el repaso"
+            onAnswered={contestar}
+            onNext={siguiente}
+          />
+        ) : (
+          <PlayNote
+            step={actual.step}
+            position={at + 1}
+            total={preguntas.length}
+            lastLabel="Terminar el repaso"
+            onAnswered={contestar}
+            onNext={siguiente}
+          />
+        )}
       </div>
       <Tutor
         topic={findUnit(actual.item.unitId)?.unit.title}
@@ -148,21 +176,35 @@ export function ReviewSession({
   );
 }
 
+/** Lo que hay que hacer para repasar un apunte de la cola. */
+type ReviewTask =
+  | { readonly kind: 'theory'; readonly item: ReviewItem; readonly exercise: Exercise }
+  | { readonly kind: 'play'; readonly item: ReviewItem; readonly step: ExerciseStep };
+
 /**
- * La pregunta que le toca a un apunte de la cola, en la tonalidad de ahora.
+ * Lo que le toca a un apunte de la cola, en la tonalidad de ahora.
  *
- * Devuelve nulo cuando el sitio ya no existe: la unidad se retiró, dejó de ser de
- * teoría o su lección tiene menos preguntas que antes. Nulo y no una pregunta
- * inventada, porque preguntar otra cosa no es repasar lo que se falló.
+ * De una unidad de teoría, su pregunta, regenerada con los acordes de hoy. De una
+ * de tocar, la nota que se te atragantó, recolocada en la escala de hoy: el
+ * apunte guarda el **paso** dentro del ejercicio, no la nota, así que en otra
+ * tonalidad vuelve a preguntar por el mismo sitio de la escala con otra nota. Es
+ * la misma idea que sostiene el repaso de teoría.
+ *
+ * Devuelve nulo cuando el sitio ya no existe: la unidad se retiró, cambió de tipo
+ * o su lección tiene menos preguntas que antes. Nulo y no algo inventado, porque
+ * preguntar otra cosa no es repasar lo que se falló.
  */
-function exerciseFor(
-  item: ReviewItem,
-  tonic: Parameters<typeof lessonNotes>[1],
-  mode: Parameters<typeof lessonNotes>[2],
-): Exercise | null {
+function taskFor(item: ReviewItem, tonic: PitchClass, mode: KeyMode): ReviewTask | null {
   const found = findUnit(item.unitId);
-  if (found === null || found.unit.kind !== 'theory') {
+  if (found === null) {
     return null;
   }
-  return lessonNotes(found.unit.lesson, tonic, mode).exercises[item.index] ?? null;
+
+  if (found.unit.kind === 'theory') {
+    const exercise = lessonNotes(found.unit.lesson, tonic, mode).exercises[item.index];
+    return exercise === undefined ? null : { kind: 'theory', item, exercise };
+  }
+
+  const step = createExercise(tonic, found.unit.scaleId).steps[item.index];
+  return step === undefined ? null : { kind: 'play', item, step };
 }

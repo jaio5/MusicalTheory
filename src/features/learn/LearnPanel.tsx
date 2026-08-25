@@ -10,6 +10,7 @@ import { Panel } from '@ui/Panel';
 
 import {
   advanceExercise,
+  stumbledSteps,
   createExercise,
   exerciseCompletion,
   INITIAL_PROGRESS,
@@ -23,8 +24,15 @@ export interface LearnPanelProps {
    * elegida en los ajustes, que es como funciona el panel suelto.
    */
   readonly scaleId?: ScaleId;
-  /** Se avisa una vez, cuando se termina la escala entera. */
-  readonly onDone?: () => void;
+  /**
+   * Se avisa una vez, cuando se termina la escala entera.
+   *
+   * `stumbled` son los pasos que costaron —los que se soltaron dos veces o más
+   * antes de contar—, para que puedan volver en el repaso. Hasta ahora una
+   * unidad de tocar no dejaba rastro de qué te había salido regular: o la
+   * hacías o no la hacías.
+   */
+  readonly onDone?: (stumbled: readonly number[]) => void;
 }
 
 export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelProps = {}) {
@@ -83,8 +91,8 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
       return;
     }
     notified.current = true;
-    onDone?.();
-  }, [progress.done, onDone]);
+    onDone?.(stumbledSteps(progress));
+  }, [progress, onDone]);
 
   useEffect(() => {
     return () => {

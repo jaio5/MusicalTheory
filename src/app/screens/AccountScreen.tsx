@@ -7,6 +7,7 @@ import { BADGES, currentStreak } from '@core/music';
 import { estiloBoton } from '@ui/Button';
 import {
   AccessForm,
+  BillingPortalLink,
   DeleteAccountForm,
   NameForm,
   PasswordForm,
@@ -128,10 +129,14 @@ export function AccountScreen() {
 
         <p className="text-text-muted mt-2 text-sm">{plan.claim}</p>
 
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <Link href="/planes" className={estiloBoton('quiet')}>
             {plan.monthlyCents === 0 ? 'Ver los tres planes' : 'Cambiar de plan'}
           </Link>
+          {/* La tarjeta y las facturas se ven en la pasarela, que es quien las
+              tiene. Aquí no pasa un número de tarjeta en ningún momento, y ese
+              es justo el motivo de tener pasarela. */}
+          <BillingPortalLink />
         </div>
       </Section>
 

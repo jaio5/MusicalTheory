@@ -135,8 +135,8 @@ Sigue sin haber ni una línea de código de subida, y no la habrá sin un ADR.
 - [x] Se guardan tonalidad, escala y nombres de notas. Ni audio ni vídeo.
 - [x] Retención de veinte sesiones, con la regla probada aparte de la base.
 - [x] Retomar una sesión devuelve su tonalidad y su escala.
-- [ ] No se restaura sola al abrir: hay que pulsar «Retomar». Automático sería
-      cómodo, pero también sorprendente.
+- [x] ~~No se restaura sola al abrir.~~ Se ofrece, que no es lo mismo: una línea
+      con lo que había dentro y un botón. Automático sorprendía.
 
 IndexedDB y no localStorage porque localStorage es síncrono, y escribir cientos
 de notas ahí bloquearía el hilo que está analizando el audio.
@@ -336,10 +336,10 @@ dentro no se podía cambiar nada.
       su test.
 - [ ] Sin probar: la respuesta del modelo con una clave de verdad puesta, y el
       arranque de este compose en una máquina que no sea esta.
-- [ ] `elemental-1` como punto de partida se guarda como «ninguno». No abre nada
-      distinto —es el primer curso, así que da igual para el candado—, pero el
-      desplegable no recuerda que lo elegiste. Se arregla guardando la elección
-      aparte del índice que abre camino.
+- [x] ~~`elemental-1` como punto de partida se guardaba como «ninguno».~~ No era el
+      guardado: era la fusión. `elemental-1` y «ninguno» tienen el mismo índice, así
+      que empataban y ganaba el primero de los dos, que al subir el avance es el del
+      servidor. En el empate gana ahora el que dice algo.
 
 ## Fase 14 — Que parezca una aplicación y no nueve pantallas · hecha
 
@@ -557,8 +557,14 @@ El modelo de datos que la fase 17 necesita para guardar lo que devuelva.
       menudo va primero.
 - [ ] **Sin probar contra Postgres**, como el resto de las cuentas. Lo probado es lo
       puro: el dominio de la canción y el panel con el servidor fingido.
-- [ ] Sin renombrar una canción ya guardada ni reordenar secciones: hoy se guarda una
-      sección por canción, que es lo que hay en el camino de componer.
+- [x] **Renombrar y varias partes.** Hasta ahora se guardaba una sola sección, así
+      que «estrofa» y «estribillo» eran dos canciones con el mismo nombre y un número
+      detrás. «Añadir parte» mete lo que llevas encadenado como sección nueva, y no
+      deja mezclar tonalidades: meter en una canción en Do una parte tocada en Sol
+      sonaría a otra cosa sin que nadie hubiera hecho nada mal.
+- [x] Las canciones guardan el tempo, ahora que vive en el store.
+- [ ] Sin reordenar ni borrar una parte suelta. Se añaden al final, que es como se
+      escribe una canción.
 
 Una canción es una progresión con secciones, **no un archivo**: aquí no entra ni
 audio ni MIDI.
@@ -618,8 +624,12 @@ que casi todo el trabajo es de dominio y no de modelo. El porqué y las alternat
 - [x] **El tempo sube al store.** Vivía dentro del metrónomo con estado local, así que
       la captura no podía medir nada: un feature no importa de otro. De paso deja de
       perderse al cambiar de pantalla.
-- [ ] **No se pueden oír.** Comparar tres versiones leyéndolas cuesta, y es lo primero
-      que hay que mirar después.
+- [x] **Se pueden oír.** Comparar tres leyéndolas cuesta: para cuando has tocado la
+      tercera se te ha olvidado cómo sonaba la primera. Suenan con osciladores,
+      programadas de una vez contra el reloj del audio —el hilo de JavaScript se
+      atasca y aquí hay dos motores de análisis corriendo— y el compás que suena se
+      enciende. Qué notas y cuándo lo decide `core/music/playback.ts`, que es la parte
+      que se puede probar sin oír nada.
 
 ### Fase 18 — Cobrar de verdad · escrita, sin ejecutar
 
@@ -660,7 +670,10 @@ pantallas no han cambiado una línea por esto.
       las respuestas del webhook están probados con datos fabricados; que la API
       conteste lo que se espera, no. Es lo primero que hay que hacer con una clave de
       pruebas, y hasta entonces esta fase no está cerrada.
-- [ ] Sin portal de cliente: cambiar de tarjeta o ver facturas se hace desde Stripe.
+- [x] **Portal de cliente.** Cambiar la tarjeta y ver las facturas se hace en la
+      pasarela, que es quien las tiene: aquí no pasa un número de tarjeta en ningún
+      momento, y ese es justo el motivo de tener pasarela. Es un botón y no un enlace
+      porque la dirección no existe hasta que se pide y caduca.
 - [ ] Sin IVA ni facturación. Vender a consumidores en la UE lo pide, y no es código:
       es una decisión y una configuración de la pasarela.
 
@@ -869,6 +882,17 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   lista de entradas y se puede cambiar sin recargar.
 - ~~**Sin límite de frecuencia en la API.**~~ Diez peticiones por minuto y
   dirección, con `Retry-After`.
+- ~~**El repaso solo alcanzaba a las preguntas de teoría.**~~ Una unidad de tocar
+  no tiene preguntas que fallar, así que lo que se apunta de ella es **qué nota
+  tuviste que buscar dos veces o más** antes de que contara. Repasarla es
+  buscarla otra vez: no se contesta con botones, se contesta con la guitarra. El
+  apunte guarda el paso dentro del ejercicio, no la nota, así que en otra
+  tonalidad vuelve a preguntar por el mismo sitio de la escala con otra nota, que
+  es la misma idea que sostiene el repaso de teoría.
+- ~~**Sin restaurar la sesión al abrir.**~~ Ni automático ni a mano: se **ofrece**
+  en una línea con lo que había dentro. Automático era cómodo y sorprendente a la
+  vez, y las dos mitades eran ciertas. Desaparece en cuanto eliges tonalidad o
+  tocas algo.
 - ~~**El contador de frecuencia es por instancia.**~~ Vivía solo en memoria, así
   que con dos servidores el límite real era el doble del escrito y quien lo
   desplegaba no se enteraba. Ahora vive en `rate_limits` cuando hay base de
@@ -915,11 +939,6 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   que hay que cerrar antes de publicar esto en serio.
 - **Nada de las cuentas está probado contra Postgres.** Solo lo puro: planes,
   permisos, fusión de avances, cola de repaso y cifrado de contraseñas.
-- **El repaso solo alcanza a las preguntas de teoría.** Las unidades de tocar no
-  tienen preguntas que fallar, así que una escala que sale regular no se apunta en
-  ninguna parte.
-- **Sin restaurar la sesión al abrir.** Hay que pulsar «Retomar». Automático
-  sería cómodo y también sorprendente.
 - **Sin probar con instrumento y clave reales.** Lo que no puede comprobar un
   test: cómo se siente el afinador, si la tonalidad se asienta rápido, si el
   ejercicio se hace lento, si la grabación sale bien y si el modelo devuelve

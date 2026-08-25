@@ -38,4 +38,18 @@ export interface Billing {
   start(input: { userId: string; email: string; plan: PlanId }): Promise<StartResult>;
   /** Deja la cuenta en el plan gratis. */
   cancel(input: { userId: string }): Promise<{ ok: boolean }>;
+  /**
+   * A dónde se va a cambiar la tarjeta o ver las facturas, si esa pasarela lo
+   * ofrece.
+   *
+   * Devuelve nulo cuando no hay adónde ir, y eso son dos casos que desde fuera
+   * son el mismo: el cobrador que no cobra no tiene facturas que enseñar, y una
+   * cuenta que nunca ha pagado tampoco. La pantalla no enseña el enlace en
+   * ninguno de los dos, que es lo correcto en los dos.
+   *
+   * **Esto no se reimplementa aquí, ni se debe.** Cambiar una tarjeta es
+   * recibir un número de tarjeta, y el motivo de tener pasarela es que esos
+   * números no pasen nunca por este servidor.
+   */
+  portal(input: { userId: string; email: string }): Promise<string | null>;
 }

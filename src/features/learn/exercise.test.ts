@@ -9,6 +9,8 @@ import {
   HOLD_MS,
   INITIAL_PROGRESS,
   stepMatches,
+  stumbledSteps,
+  type ExerciseProgress,
 } from './exercise';
 
 const A = pitchClassFromName('A');
@@ -122,14 +124,72 @@ describe('avance del ejercicio', () => {
   });
 
   it('una vez terminado se queda quieto', () => {
-    const done = { index: exercise.steps.length, heldSince: null, done: true };
+    const done = { index: exercise.steps.length, heldSince: null, done: true, stumbles: {} };
     expect(advanceExercise(done, exercise, playing(45), 1000)).toBe(done);
   });
 
   it('mide el avance de cero a uno', () => {
     expect(exerciseCompletion(INITIAL_PROGRESS, exercise)).toBe(0);
     expect(
-      exerciseCompletion({ index: exercise.steps.length, heldSince: null, done: true }, exercise),
+      exerciseCompletion(
+        { index: exercise.steps.length, heldSince: null, done: true, stumbles: {} },
+        exercise,
+      ),
     ).toBe(1);
+  });
+});
+
+describe('las notas que se atragantan', () => {
+  const exercise = createExercise(A, 'minorPentatonic');
+  const primera = exercise.steps[0]!;
+
+  /** Encuentra la nota, la suelta y vuelve, sin llegar a sostenerla. */
+  function tantear(veces: number): ExerciseProgress {
+    let progress = INITIAL_PROGRESS;
+    let at = 0;
+    for (let i = 0; i < veces; i += 1) {
+      progress = advanceExercise(progress, exercise, playing(primera.midi), at);
+      at += 100;
+      progress = advanceExercise(progress, exercise, null, at);
+      at += 100;
+    }
+    return progress;
+  }
+
+  it('soltar la nota antes de que cuente se apunta', () => {
+    expect(tantear(3).stumbles).toEqual({ 0: 3 });
+  });
+
+  it('no apunta nada si la nota nunca llegó a sonar', () => {
+    // Silencio no es tropiezo: es que todavía no has empezado.
+    let progress = INITIAL_PROGRESS;
+    progress = advanceExercise(progress, exercise, null, 0);
+    progress = advanceExercise(progress, exercise, null, 500);
+
+    expect(progress.stumbles).toEqual({});
+  });
+
+  it('los tropiezos sobreviven al pasar de nota', () => {
+    let progress = tantear(2);
+    // Ahora sí la sostiene y avanza.
+    progress = advanceExercise(progress, exercise, playing(primera.midi), 1000);
+    progress = advanceExercise(progress, exercise, playing(primera.midi), 1000 + HOLD_MS);
+
+    expect(progress.index).toBe(1);
+    expect(progress.stumbles).toEqual({ 0: 2 });
+  });
+
+  it('una sola vez no cuenta: buscar el traste es normal', () => {
+    expect(stumbledSteps(tantear(1))).toEqual([]);
+    expect(stumbledSteps(tantear(2))).toEqual([0]);
+  });
+
+  it('devuelve los pasos en orden', () => {
+    const progress: ExerciseProgress = {
+      ...INITIAL_PROGRESS,
+      stumbles: { 5: 3, 1: 2, 9: 1 },
+    };
+
+    expect(stumbledSteps(progress)).toEqual([1, 5]);
   });
 });

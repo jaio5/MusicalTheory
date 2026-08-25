@@ -11,3 +11,4 @@ export * from './UnitDone';
 export * from './exercise';
 export * from './teacher-contract';
 export * from './use-progress';
+export { PlayNote } from './PlayNote';

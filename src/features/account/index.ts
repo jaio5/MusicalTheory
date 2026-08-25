@@ -1,5 +1,6 @@
 export * from './AccessForm';
 export * from './AccountMenu';
+export * from './BillingPortalLink';
 export * from './Checkout';
 export * from './DeleteAccountForm';
 export * from './NameForm';

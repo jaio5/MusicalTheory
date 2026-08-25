@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EMPTY_PROGRESS,
   lessonNotes,
+  midiToFrequency,
   missQuestion,
   pitchClassFromName,
   type NoteName,
@@ -15,6 +16,7 @@ import {
 } from '@core/music';
 import { useSessionStore } from '@state/session-store';
 
+import { HOLD_MS } from './exercise';
 import { ReviewSession } from './ReviewSession';
 
 const HOY = '2026-07-29';
@@ -171,5 +173,83 @@ describe('Sin tonalidad', () => {
     pintar(conUnFallo(0));
 
     expect(screen.getByText(/Elige una tonalidad para repasar/)).toBeInTheDocument();
+  });
+});
+
+describe('el repaso de una unidad de tocar', () => {
+  beforeEach(() => {
+    fijarTonalidad('C');
+  });
+
+  /** La tercera nota de la escala mayor, que se atragantó hoy. */
+  function conNotaAtragantada(index = 2): Progress {
+    return missQuestion(EMPTY_PROGRESS, 'e1-escala', index, HOY);
+  }
+
+  it('no se contesta con botones: se contesta tocando', () => {
+    pintar(conNotaAtragantada());
+
+    expect(screen.getByText(/tócala/i)).toBeInTheDocument();
+    // Es lo que distingue saber dónde está una nota de haberlo leído.
+    expect(screen.getByRole('button', { name: 'No me sale' })).toBeInTheDocument();
+  });
+
+  it('dice qué nota y si era subiendo o bajando', () => {
+    // La misma nota subiendo y bajando son dos sitios del mástil, y la que se
+    // atraganta suele ser una de las dos.
+    pintar(conNotaAtragantada(2));
+
+    expect(screen.getByText(/Subiendo/)).toBeInTheDocument();
+  });
+
+  it('sostener la nota afinada cuenta como acertada', async () => {
+    const { onHit } = pintar(conNotaAtragantada());
+    const { actions } = useSessionStore.getState();
+
+    // La tercera nota de Do mayor subiendo es Mi. Se sostiene el tiempo que
+    // pide el ejercicio, con el mismo criterio: afinada y sin soltarla.
+    const mi = midiToFrequency(52);
+    actions.setPitch(mi, 1, 0);
+    actions.setPitch(mi, 1, HOLD_MS + 10);
+
+    expect(await screen.findByText('Ahí está.')).toBeInTheDocument();
+    expect(onHit).toHaveBeenCalledWith('e1-escala', 2);
+  });
+
+  it('rozarla y soltarla no cuenta', () => {
+    const { onHit } = pintar(conNotaAtragantada());
+    const { actions } = useSessionStore.getState();
+
+    const mi = midiToFrequency(52);
+    actions.setPitch(mi, 1, 0);
+    actions.setPitch(null, 0, 100);
+    actions.setPitch(mi, 1, 200);
+
+    expect(onHit).not.toHaveBeenCalled();
+  });
+
+  it('«no me sale» la deja pendiente y explica dónde buscarla', async () => {
+    const { onMiss } = pintar(conNotaAtragantada());
+
+    await userEvent.click(screen.getByRole('button', { name: 'No me sale' }));
+
+    expect(onMiss).toHaveBeenCalledWith('e1-escala', 2);
+    expect(screen.getByText(/vuelve mañana/i)).toBeInTheDocument();
+  });
+
+  it('una nota que ya no existe en la escala no se pregunta', () => {
+    // El apunte guarda el paso, no la nota: si la escala se acorta, el paso
+    // desaparece. Preguntar otra cosa no sería repasar lo que costó.
+    pintar(missQuestion(EMPTY_PROGRESS, 'e1-escala', 999, HOY));
+
+    expect(screen.getByText('No hay nada que repasar.')).toBeInTheDocument();
+  });
+
+  it('teoría y tocar se mezclan en la misma cola', () => {
+    let progress = missQuestion(EMPTY_PROGRESS, 'e1-grados', 0, HOY);
+    progress = missQuestion(progress, 'e1-escala', 2, HOY);
+    pintar(progress);
+
+    expect(screen.getByText(/1 de 2/)).toBeInTheDocument();
   });
 });

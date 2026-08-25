@@ -97,6 +97,25 @@ async function stripeFetch(
   }
 }
 
+/** Una consulta a la API de Stripe. Los parámetros van en la dirección. */
+async function stripeGet(
+  path: string,
+  query: Record<string, string>,
+): Promise<Record<string, unknown> | null> {
+  const key = process.env['STRIPE_SECRET_KEY'] ?? '';
+  try {
+    const response = await fetch(`${API}${path}?${new URLSearchParams(query).toString()}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export const StripeBilling: Billing = {
   name: 'Stripe',
   charges: true,
@@ -148,5 +167,36 @@ export const StripeBilling: Billing = {
     // deja de tener acceso ya, y si la llamada a Stripe fallara, lo peligroso
     // sería seguir dándole el plan de pago.
     return { ok: await setPlan(userId, 'gratis') };
+  },
+
+  /**
+   * El portal de cliente de Stripe: cambiar la tarjeta, ver las facturas.
+   *
+   * Se busca el cliente **por correo** y no se guarda su identificador en
+   * nuestra base de datos. Es una consulta más por visita a cambio de una
+   * columna menos que mantener sincronizada, y esta pantalla se abre muy de
+   * tarde en tarde. El día que se abra a menudo, la columna se añade.
+   *
+   * Sin cliente en Stripe no hay portal: es alguien que nunca ha pagado, y
+   * mandarlo a una página vacía sería peor que no enseñar el enlace.
+   */
+  async portal({ email }: { userId: string; email: string }): Promise<string | null> {
+    if (email === '') {
+      return null;
+    }
+
+    const clientes = await stripeGet('/customers', { email, limit: '1' });
+    const primero = Array.isArray(clientes?.['data']) ? clientes['data'][0] : undefined;
+    const customer = (primero as { id?: unknown } | undefined)?.id;
+    if (typeof customer !== 'string' || customer === '') {
+      return null;
+    }
+
+    const session = await stripeFetch('/billing_portal/sessions', {
+      customer,
+      return_url: `${siteUrl()}/cuenta`,
+    });
+    const url = session?.['url'];
+    return typeof url === 'string' && url !== '' ? url : null;
   },
 };
