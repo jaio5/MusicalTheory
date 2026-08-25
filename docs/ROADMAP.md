@@ -111,8 +111,8 @@ terceras.
 - [x] Un reintento y errores en español que dicen qué hacer.
 - [ ] Pendiente de probar con clave de verdad: el contrato está probado, la
       llamada al modelo no.
-- [ ] Sin límite de frecuencia todavía: `rate_limited` está en el contrato pero
-      nadie lo emite.
+- [x] ~~Sin límite de frecuencia todavía.~~ Diez por minuto y dirección, y desde la
+      fase 19 compartido entre instancias.
 
 ## Fase 6 — Grabación con cámara · hecha
 
@@ -309,9 +309,9 @@ dentro no se podía cambiar nada.
 - [ ] **Sin «he olvidado mi contraseña» y sin cambiar de correo.** Las dos piden
       escribir a un buzón para confirmarlo, y aquí no hay envío de correo. Está dicho
       en la pantalla, no escondido.
-- [ ] Cambiar la contraseña no echa a las demás sesiones: la cookie va firmada con el
-      secreto del servidor, no con la contraseña. Hacerlo pide una versión de sesión en
-      la fila de la cuenta y comprobarla al leer la cookie.
+- [x] ~~Cambiar la contraseña no echa a las demás sesiones.~~ Hecho en la fase 19, y
+      con la solución que aquí se apuntaba: una versión de sesión en la fila de la
+      cuenta, comprobada al leer la cookie.
 - [x] Probado contra Postgres de verdad, como el resto de la fase 8: el nombre se
       guarda recortado, la contraseña actual equivocada devuelve 403 y **no guarda
       tampoco el nombre** que venía en la misma petición, y con la contraseña vieja
@@ -901,7 +901,10 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   seguiría cabiendo, pero eso es aritmética y no medición.
 - **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Se
   queda así a propósito: el diagrama se lee mejor.
-- **El cobro no cobra.** Cualquiera con una cuenta puede darse el plan Pro.
+- **El cobro está escrito y no se ha ejecutado nunca.** `StripeBilling` existe y
+  `billing()` lo elige si están sus cinco variables; sin ellas sigue el que no cobra,
+  y entonces cualquiera con una cuenta puede darse el plan Pro. Lo que falta es una
+  clave de pruebas y media hora: hasta entonces, esto sigue siendo deuda.
 - **Los cupos suponen los tokens de entrada, no los miden.** La estimación sale de la
   longitud de los prompts, con holgura de sobra y un test que la vigila, pero
   confirmarla con `count_tokens` pide clave y red.
