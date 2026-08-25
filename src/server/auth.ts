@@ -162,8 +162,3 @@ export async function currentCookie(): Promise<{ id: string; sessionVersion: num
     return null;
   }
 }
-
-/** El identificador de quien pide, o nulo si no ha entrado. */
-export async function currentUserId(): Promise<string | null> {
-  return (await currentCookie())?.id ?? null;
-}

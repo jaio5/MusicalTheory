@@ -364,91 +364,137 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       ) : (
         <ul className="mt-6 space-y-2">
           {songs.map((song) => (
-            <li key={song.id} className="border-border border-b pb-2">
-              {renombrando?.id === song.id ? (
-                // Renombrar sustituye la fila en vez de abrir otra cosa: el
-                // nombre se cambia mirándolo, y sacarlo a un sitio aparte obliga
-                // a recordar cuál era el de antes.
-                <form
-                  className="flex flex-wrap items-end gap-2"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void guardarEncima(song, { name: renombrando.nombre }).then((ok) => {
-                      if (ok) {
-                        setRenombrando(null);
-                      }
-                    });
-                  }}
-                >
-                  {/* «Nombre nuevo» y no «Nombre»: el de guardar una canción
-                      está a la vista al mismo tiempo, y dos campos con la misma
-                      etiqueta no los distingue ni un lector de pantalla. */}
-                  <TextField
-                    label="Nombre nuevo"
-                    ancho="crece"
-                    type="text"
-                    autoFocus
-                    maxLength={MAX_SONG_NAME}
-                    value={renombrando.nombre}
-                    onChange={(event) =>
-                      setRenombrando({ id: song.id, nombre: event.target.value })
-                    }
-                  />
-                  <Button type="submit" disabled={busy}>
-                    Guardar
-                  </Button>
-                  <Button variant="quiet" onClick={() => setRenombrando(null)}>
-                    Dejarlo
-                  </Button>
-                </form>
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="min-w-0">
-                    <span className="text-text block truncate text-sm">{song.name}</span>
-                    <span className="text-text-muted block font-mono text-xs">
-                      {keyName(song.tonic, song.mode)} · {describeSong(song)}
-                    </span>
-                  </span>
-                  <span className="flex flex-wrap gap-2">
-                    <Button variant="quiet" onClick={() => open(song)}>
-                      Abrir
-                    </Button>
-                    <Button
-                      variant="quiet"
-                      onClick={() => void anadirParte(song)}
-                      disabled={busy}
-                      title="Añade lo que llevas encadenado como una parte más"
-                    >
-                      Añadir parte
-                    </Button>
-                    <Button
-                      variant="quiet"
-                      onClick={() => setRenombrando({ id: song.id, nombre: song.name })}
-                    >
-                      Renombrar
-                    </Button>
-                    <Button variant="quiet" onClick={() => void remove(song)} disabled={busy}>
-                      Borrar
-                    </Button>
-                  </span>
-                </div>
-              )}
-
-              {/* Las partes, cuando hay más de una. Con una sola no aportan
-                  nada: la canción **es** esa parte. */}
-              {song.sections.length > 1 && (
-                <ol className="text-text-muted mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs">
-                  {song.sections.map((section, index) => (
-                    <li key={`${song.id}-${index}`}>
-                      <span className="text-text">{section.name}:</span> {section.degrees.join(' ')}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </li>
+            <Fila
+              key={song.id}
+              song={song}
+              busy={busy}
+              renombrandoA={renombrando?.id === song.id ? renombrando.nombre : null}
+              onRenombrar={(nombre) => setRenombrando({ id: song.id, nombre })}
+              onDejarlo={() => setRenombrando(null)}
+              onGuardarNombre={(nombre) => {
+                void guardarEncima(song, { name: nombre }).then((ok) => {
+                  if (ok) {
+                    setRenombrando(null);
+                  }
+                });
+              }}
+              onAbrir={() => open(song)}
+              onAnadirParte={() => void anadirParte(song)}
+              onBorrar={() => void remove(song)}
+            />
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * Una canción de la lista.
+ *
+ * Aparte del panel porque tiene **dos modos** —mirándola y renombrándola— y
+ * dentro del `.map` eso eran noventa líneas con tres niveles de anidamiento: el
+ * bloque de renombrar quedaba tan adentro que había que contar llaves para saber
+ * de qué era el `else`.
+ *
+ * No sabe nada del servidor ni de la sesión: recibe la canción y qué hacer con
+ * cada botón. Todo lo que decide sigue decidiéndose en el panel.
+ */
+function Fila({
+  song,
+  busy,
+  renombrandoA,
+  onRenombrar,
+  onDejarlo,
+  onGuardarNombre,
+  onAbrir,
+  onAnadirParte,
+  onBorrar,
+}: {
+  readonly song: Song;
+  readonly busy: boolean;
+  /** El nombre que se está escribiendo, o nulo si no se está renombrando. */
+  readonly renombrandoA: string | null;
+  readonly onRenombrar: (nombre: string) => void;
+  readonly onDejarlo: () => void;
+  readonly onGuardarNombre: (nombre: string) => void;
+  readonly onAbrir: () => void;
+  readonly onAnadirParte: () => void;
+  readonly onBorrar: () => void;
+}) {
+  return (
+    <li className="border-border border-b pb-2">
+      {renombrandoA === null ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="min-w-0">
+            <span className="text-text block truncate text-sm">{song.name}</span>
+            <span className="text-text-muted block font-mono text-xs">
+              {keyName(song.tonic, song.mode)} · {describeSong(song)}
+            </span>
+          </span>
+          <span className="flex flex-wrap gap-2">
+            <Button variant="quiet" onClick={onAbrir}>
+              Abrir
+            </Button>
+            <Button
+              variant="quiet"
+              onClick={onAnadirParte}
+              disabled={busy}
+              title="Añade lo que llevas encadenado como una parte más"
+            >
+              Añadir parte
+            </Button>
+            <Button variant="quiet" onClick={() => onRenombrar(song.name)}>
+              Renombrar
+            </Button>
+            <Button variant="quiet" onClick={onBorrar} disabled={busy}>
+              Borrar
+            </Button>
+          </span>
+        </div>
+      ) : (
+        // Renombrar sustituye la fila en vez de abrir otra cosa: el nombre se
+        // cambia mirándolo, y sacarlo a un sitio aparte obliga a recordar cuál
+        // era el de antes.
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onGuardarNombre(renombrandoA);
+          }}
+        >
+          {/* «Nombre nuevo» y no «Nombre»: el de guardar una canción está a la
+              vista al mismo tiempo, y dos campos con la misma etiqueta no los
+              distingue ni un lector de pantalla. */}
+          <TextField
+            label="Nombre nuevo"
+            ancho="crece"
+            type="text"
+            autoFocus
+            maxLength={MAX_SONG_NAME}
+            value={renombrandoA}
+            onChange={(event) => onRenombrar(event.target.value)}
+          />
+          <Button type="submit" disabled={busy}>
+            Guardar
+          </Button>
+          <Button variant="quiet" onClick={onDejarlo}>
+            Dejarlo
+          </Button>
+        </form>
+      )}
+
+      {/* Las partes, cuando hay más de una. Con una sola no aportan nada: la
+          canción **es** esa parte. */}
+      {song.sections.length > 1 && (
+        <ol className="text-text-muted mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs">
+          {song.sections.map((section, index) => (
+            <li key={`${song.id}-${index}`}>
+              <span className="text-text">{section.name}:</span> {section.degrees.join(' ')}
+            </li>
+          ))}
+        </ol>
+      )}
+    </li>
   );
 }

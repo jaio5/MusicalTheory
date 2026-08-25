@@ -22,7 +22,6 @@ import {
   cheapestPlanWith,
   dailyAiRequests,
   monthlyAiRequests,
-  planOf,
   remaining,
   type Account,
   type AiFeature,
@@ -139,10 +138,4 @@ export async function spendAi(capability: Capability & AiFeature): Promise<AiVer
     case 'sin-contador':
       return { kind: 'sin-contador', account };
   }
-}
-
-/** El plan de quien pide, ya resuelto contra el catálogo. */
-export async function currentPlan(): Promise<Plan> {
-  const account = await currentAccount();
-  return planOf(account.plan);
 }

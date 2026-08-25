@@ -35,7 +35,7 @@ import {
  * y el cupo del plan —que sí vive en Postgres y sí es la puerta del dinero— sigue
  * en pie de todos modos.
  */
-export async function checkRateLimit(
+async function checkRateLimit(
   key: string,
   now: Date,
   options: RateLimitOptions,
@@ -90,7 +90,7 @@ export async function checkRateLimit(
  * desde una tarea programada: una tarea más que desplegar y vigilar para borrar
  * filas de tres columnas no compensa.
  */
-export async function pruneRateLimits(before: Date): Promise<void> {
+async function pruneRateLimits(before: Date): Promise<void> {
   const database = db();
   if (database === null) {
     return;

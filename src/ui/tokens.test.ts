@@ -3,7 +3,16 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { colors, fonts, paletaClara, paletaOscura, radii, tap, VARIABLES_CSS } from './tokens';
+import {
+  colors,
+  fluidSizes,
+  fonts,
+  paletaClara,
+  paletaOscura,
+  radii,
+  tap,
+  VARIABLES_CSS,
+} from './tokens';
 
 /**
  * Los tokens viven dos veces: aquí en TypeScript, que es lo que lee el código,
@@ -67,6 +76,19 @@ describe('los tokens de diseño no se separan del CSS', () => {
 
   // El alto mínimo de lo que se pulsa vive en los dos sitios como todo lo demás:
   // en `tap` para el código y en `--spacing-tap` para las utilidades.
+  /**
+   * Este espejo estuvo **sin guardián**, y era el más fácil de romper: los
+   * `clamp()` llevan tres números cada uno, se retocan a ojo mirando la portada
+   * y nadie iba a acordarse de copiar el retoque a la otra mitad.
+   */
+  it('define cada tamaño que crece con el ancho con el mismo valor', () => {
+    for (const [token, value] of Object.entries(fluidSizes)) {
+      expect(CSS, `--text-fluid-${token} no coincide con fluidSizes.${token}`).toContain(
+        `--text-fluid-${token}: ${value};`,
+      );
+    }
+  });
+
   it('define el alto mínimo de lo que se pulsa con el mismo valor', () => {
     expect(cssValue('spacing-tap')).toBe(tap);
   });

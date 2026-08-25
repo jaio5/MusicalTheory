@@ -122,17 +122,6 @@ export const fonts = {
   mono: "'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
 } as const;
 
-export const fontSizes = {
-  xs: '0.75rem',
-  sm: '0.875rem',
-  base: '1rem',
-  lg: '1.125rem',
-  xl: '1.5rem',
-  display: '2.5rem',
-  /** Para la nota grande del afinador. */
-  hero: '5rem',
-} as const;
-
 /**
  * Tamaños que crecen con el ancho de la pantalla, para la portada.
  *

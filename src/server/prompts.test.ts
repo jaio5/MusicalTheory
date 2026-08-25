@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -162,6 +165,32 @@ describe('el presupuesto de tokens de las versiones', () => {
       const versiones = TOKEN_BUDGETS.versiones;
       const otra = TOKEN_BUDGETS[feature];
       expect(versiones.input + versiones.output).toBeGreaterThan(otra.input + otra.output);
+    }
+  });
+});
+
+describe('la clave del modelo', () => {
+  /**
+   * `hasModelKey` estuvo escrita y sin llamar desde la fase 5, y su ausencia
+   * costaba dinero de verdad: `spendAi` gasta la petición **antes** de hablar
+   * con el modelo, así que sin clave configurada alguien se quedaba sin
+   * peticiones del mes por una variable de entorno que faltaba.
+   *
+   * Esto lee las tres rutas y comprueba que la clave se mira antes del cupo. No
+   * se puede probar ejecutándolas —importarlas trae el SDK, la sesión y la base
+   * de datos— y el orden de dos líneas es justo lo que se pierde al refactorizar.
+   */
+  it('se comprueba antes de gastar cupo en las tres rutas', () => {
+    for (const ruta of ['ideas', 'teacher', 'versiones']) {
+      const codigo = readFileSync(
+        fileURLToPath(new URL(`../app/api/${ruta}/route.ts`, import.meta.url)),
+        'utf8',
+      );
+      const clave = codigo.indexOf('hasModelKey()');
+      const cupo = codigo.indexOf('await spendAi(');
+
+      expect(clave, `${ruta} no comprueba la clave`).toBeGreaterThan(-1);
+      expect(clave, `${ruta} gasta cupo antes de mirar la clave`).toBeLessThan(cupo);
     }
   });
 });

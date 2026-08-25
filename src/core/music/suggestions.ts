@@ -655,9 +655,11 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
   const hasPlayed = playedNotes.length > 0;
 
   const seen = new Set<string>();
-  // El rango viaja con la sugerencia solo para ordenar; fuera de aquí no
-  // significa nada, así que se quita antes de devolverla.
-  const suggestions: (ChordSuggestion & { rank: number })[] = [];
+  // El rango va **al lado** de la sugerencia y no dentro: es un criterio de
+  // orden, no algo que la sugerencia sea. Estuvo dentro y había que quitarlo
+  // antes de devolverla, que es justo la señal de que estaba en el sitio
+  // equivocado.
+  const suggestions: { suggestion: ChordSuggestion; rank: number }[] = [];
 
   for (const candidate of buildCandidates(mode)) {
     const weight = candidate.weights?.[styleId] ?? style.weights[candidate.family];
@@ -681,17 +683,19 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
     const score = hasPlayed ? weight * 0.35 + fit * 0.65 : weight;
 
     suggestions.push({
-      symbol,
-      label: candidate.label,
-      family: candidate.family,
-      root,
-      notes,
-      fit,
-      score,
-      why: candidate.why,
-      role: candidate.role,
-      roleWhy: HARMONIC_ROLES[candidate.role].what,
-      substitution: candidate.substitution ?? null,
+      suggestion: {
+        symbol,
+        label: candidate.label,
+        family: candidate.family,
+        root,
+        notes,
+        fit,
+        score,
+        why: candidate.why,
+        role: candidate.role,
+        roleWhy: HARMONIC_ROLES[candidate.role].what,
+        substitution: candidate.substitution ?? null,
+      },
       rank: candidate.rank,
     });
   }
@@ -700,7 +704,12 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
   // se desempataba por el cifrado, y en Do mayor eso sacaba «Am, Bdim, C…»:
   // el disminuido de segundo y la tónica de tercera.
   return suggestions
-    .sort((a, b) => b.score - a.score || a.rank - b.rank || a.symbol.localeCompare(b.symbol))
+    .sort(
+      (a, b) =>
+        b.suggestion.score - a.suggestion.score ||
+        a.rank - b.rank ||
+        a.suggestion.symbol.localeCompare(b.suggestion.symbol),
+    )
     .slice(0, limit)
-    .map(({ rank: _rank, ...suggestion }) => suggestion);
+    .map((entry) => entry.suggestion);
 }

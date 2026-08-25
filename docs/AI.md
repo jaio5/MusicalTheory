@@ -171,6 +171,18 @@ const response = await client.messages.create({
 - **Prompt de sistema**: fija el criterio —rock, no coral—, exige español, y
   prohíbe explicar teoría que no se haya pedido.
 
+## Antes de las puertas: ¿hay clave?
+
+Las tres rutas comprueban `ANTHROPIC_API_KEY` **antes de tocar el cupo**, y
+contestan 503 si falta. No es una comprobación de cortesía: `spendAi` cuenta la
+petición antes de hablar con el modelo, así que sin clave configurada la llamada
+fallaba igual unas líneas más abajo pero la petición ya estaba gastada. Alguien se
+quedaba sin peticiones del mes por una variable de entorno que faltaba.
+
+`hasModelKey` estaba escrita desde la fase 5 y no la llamaba nadie. Hay un test que
+lee las tres rutas y comprueba que la clave se sigue mirando antes que el cupo:
+el orden de dos líneas es justo lo que se pierde al refactorizar.
+
 ## Las tres puertas: frecuencia, cuenta y cupo
 
 Tres cosas distintas, y las tres hacen falta.

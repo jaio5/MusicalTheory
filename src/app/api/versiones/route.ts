@@ -10,7 +10,7 @@ import {
   versionsError,
   type VersionsRequest,
 } from '@features/versions/contract';
-import { configuredModel } from '@server/ai-model';
+import { configuredModel, hasModelKey } from '@server/ai-model';
 import { spendAi } from '@server/entitlements';
 import { VERSIONS_SCHEMA, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
 import { limitRequest } from '@server/rate-limit-db';
@@ -133,6 +133,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = parseVersionsRequest(body);
   if (parsed === null) {
     return NextResponse.json(versionsError('invalid_request'), { status: 400 });
+  }
+
+  // Sin clave, antes de gastar cupo. `askModel` fallaría igual unas líneas
+  // más abajo, pero para entonces la petición ya está contada: alguien se
+  // quedaría sin peticiones del mes por una variable de entorno que falta.
+  if (!hasModelKey()) {
+    return NextResponse.json(versionsError('model_unavailable'), { status: 503 });
   }
 
   // El cupo del plan después del límite por minuto: comprobar memoria es gratis

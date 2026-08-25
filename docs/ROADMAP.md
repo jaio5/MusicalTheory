@@ -925,6 +925,11 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
 
 ### Viva
 
+- **Sin cobrar de verdad, sin correo de verdad y sin Postgres de verdad.** Los tres
+  están escritos y probados en lo puro, y ninguno se ha ejecutado nunca contra el
+  servicio al que hablan. Es la deuda más grande que queda y no se paga escribiendo
+  código: se paga con una clave de pruebas y una tarde.
+
 - **Las inversiones se leen como el acorde en estado fundamental.** El croma
   olvida la octava a propósito, así que C/E y C son el mismo vector. Es el
   límite que sustituye al anterior, y sale documentado en

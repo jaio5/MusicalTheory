@@ -361,16 +361,19 @@ export const useSessionStore = create<SessionState>()((set) => ({
   },
 }));
 
-export const selectListening = (state: SessionState): ListeningState => state.listening;
-export const selectMessage = (state: SessionState): string | null => state.message;
-export const selectReading = (state: SessionState): PitchReading | null => state.reading;
-export const selectReadingAt = (state: SessionState): number => state.readingAt;
-export const selectHasSignal = (state: SessionState): boolean => state.hasSignal;
-export const selectClarity = (state: SessionState): number => state.clarity;
-export const selectLevel = (state: SessionState): number => state.level;
-export const selectScaleId = (state: SessionState): ScaleId => state.scaleId;
-export const selectStyleId = (state: SessionState): StyleId => state.styleId;
-export const selectNoteHistory = (state: SessionState): readonly PlayedNote[] => state.noteHistory;
+/**
+ * Solo quedan dos selectores con nombre, y no es un olvido.
+ *
+ * Hubo doce, uno por campo, y diez murieron sin que nadie los borrara: el
+ * patrón que se impuso es el selector en línea —`useSessionStore((state) =>
+ * state.scaleId)`—, que se lee donde se usa y no obliga a ir a buscar qué
+ * devuelve. Están en sesenta y un sitios.
+ *
+ * Los dos que quedan **no se pueden escribir en línea**: `selectActions` porque
+ * devuelve el objeto que no se reemplaza nunca, y `selectActiveKey` porque
+ * calcula algo —la elegida a mano o la detectada— y escribirlo en cada
+ * componente sería tener la regla en veintiún sitios.
+ */
 export const selectActions = (state: SessionState): SessionActions => state.actions;
 
 /**

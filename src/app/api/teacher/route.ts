@@ -9,7 +9,7 @@ import {
   validateTeacherAnswer,
   type TeacherRequest,
 } from '@features/learn/teacher-contract';
-import { configuredModel } from '@server/ai-model';
+import { configuredModel, hasModelKey } from '@server/ai-model';
 import { ANSWER_SCHEMA, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
 import { spendAi } from '@server/entitlements';
 import { limitRequest } from '@server/rate-limit-db';
@@ -117,6 +117,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = parseTeacherRequest(body);
   if (parsed === null) {
     return NextResponse.json(teacherError('invalid_request'), { status: 400 });
+  }
+
+  // Sin clave, antes de gastar cupo. `askModel` fallaría igual unas líneas más
+  // abajo, pero para entonces la petición ya está contada: alguien se quedaría
+  // sin preguntas del mes por una variable de entorno que falta.
+  if (!hasModelKey()) {
+    return NextResponse.json(teacherError('model_unavailable'), { status: 503 });
   }
 
   // El cupo del plan. Se gasta aquí, antes de llamar al modelo, y por eso el
