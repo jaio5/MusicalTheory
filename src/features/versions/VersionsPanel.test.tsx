@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -260,5 +260,78 @@ describe('grabar un trozo', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Parar de grabar' }));
 
     expect(screen.getByRole('status')).toHaveTextContent('Del camino que llevas: I · V.');
+  });
+});
+
+describe('escuchar una versión', () => {
+  /** Un reproductor de mentira: jsdom no tiene `AudioContext`. */
+  function reproductor() {
+    const calls: Array<{ steps: unknown; onStep?: (index: number | null) => void }> = [];
+    const player = {
+      calls,
+      stopped: 0,
+      play: vi.fn(async (steps, onStep) => {
+        calls.push({ steps, onStep });
+      }),
+      stop: vi.fn(() => {
+        player.stopped += 1;
+      }),
+      dispose: vi.fn(async () => {}),
+    };
+    return player;
+  }
+
+  async function conVersiones(player: ReturnType<typeof reproductor>) {
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} createPlayer={() => player} />));
+    componiendo(['I', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await screen.findByText('Más oscura');
+  }
+
+  it('suena con las notas y los pulsos que le tocan', async () => {
+    const player = reproductor();
+    await conVersiones(player);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Escuchar' }));
+
+    expect(player.play).toHaveBeenCalledTimes(1);
+    const pasos = player.calls[0]!.steps as Array<{ midis: number[]; durationMs: number }>;
+    // C mayor y Db mayor, colocados desde su fundamental.
+    expect(pasos.map((paso) => paso.midis)).toEqual([
+      [48, 52, 55],
+      [49, 53, 56],
+    ]);
+    expect(pasos.every((paso) => paso.durationMs > 0)).toBe(true);
+  });
+
+  it('el mismo botón la para: escuchando dos seguidas, lo que quieres es cortarla', async () => {
+    const player = reproductor();
+    await conVersiones(player);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Escuchar' }));
+    expect(await screen.findByRole('button', { name: 'Parar' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Parar' }));
+
+    expect(player.stopped).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Escuchar' })).toBeInTheDocument();
+  });
+
+  it('el compás que suena se enciende, y se apaga al terminar', async () => {
+    const player = reproductor();
+    await conVersiones(player);
+    await userEvent.click(screen.getByRole('button', { name: 'Escuchar' }));
+
+    const avisar = player.calls[0]!.onStep!;
+    await act(async () => {
+      avisar(1);
+    });
+    expect(screen.getByText('Db').closest('li')).toHaveAttribute('aria-current', 'true');
+
+    await act(async () => {
+      avisar(null);
+    });
+    expect(screen.getByText('Db').closest('li')).not.toHaveAttribute('aria-current');
   });
 });

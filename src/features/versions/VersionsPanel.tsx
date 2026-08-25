@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { can, cheapestPlanWith, MAX_VERSION_DEGREES } from '@core/billing';
 import {
@@ -9,8 +9,10 @@ import {
   moveById,
   noteName,
   resolveDegree,
+  scheduleProgression,
   type CapturedStep,
 } from '@core/music';
+import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
@@ -28,6 +30,8 @@ export interface VersionsPanelProps {
   readonly fetchVersions?: (request: VersionsRequest) => Promise<Response>;
   /** El reloj, por parámetro, para poder probar la grabación sin esperar. */
   readonly now?: () => number;
+  /** Se inyecta en los tests: jsdom no tiene `AudioContext`. */
+  readonly createPlayer?: () => ProgressionPlayer;
 }
 
 async function defaultFetch(request: VersionsRequest): Promise<Response> {
@@ -61,6 +65,7 @@ function errorFrom(payload: unknown): { code: VersionsErrorCode | null; message:
 export function VersionsPanel({
   fetchVersions = defaultFetch,
   now = () => performance.now(),
+  createPlayer,
 }: VersionsPanelProps = {}) {
   const { account, signedIn } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
@@ -74,7 +79,64 @@ export function VersionsPanel({
   // El mismo permiso que comprueba la ruta antes de gastar dinero.
   const puedePedir = can(account.plan, 'versiones');
 
+  const playerRef = useRef<ProgressionPlayer | null>(null);
+  const factoryRef = useRef(createPlayer);
+  useEffect(() => {
+    factoryRef.current = createPlayer;
+  });
+
+  // Al salir de la pantalla se calla y se suelta el contexto de audio. Sin esto,
+  // cambiar de pantalla en mitad de una versión la deja sonando.
+  useEffect(() => {
+    return () => {
+      void playerRef.current?.dispose();
+      playerRef.current = null;
+    };
+  }, []);
+
+  function player(): ProgressionPlayer {
+    playerRef.current ??= factoryRef.current?.() ?? new WebAudioProgressionPlayer();
+    return playerRef.current;
+  }
+
+  /**
+   * Suena esa versión, o la calla si ya sonaba.
+   *
+   * El mismo botón para las dos cosas: escuchando dos versiones seguidas, lo que
+   * se quiere hacer con la que suena es cortarla, y un botón de parar aparte
+   * obliga a apuntar a otro sitio.
+   */
+  async function escuchar(version: Version) {
+    if (activeKey === null) {
+      return;
+    }
+    if (sonando?.title === version.title) {
+      player().stop();
+      setSonando(null);
+      return;
+    }
+
+    const pasos = scheduleProgression(
+      version.steps.map((step) => {
+        const chord = resolveDegree(activeKey.tonic, activeKey.mode, step.degree);
+        return { root: chord.root, notes: chord.notes, beats: step.beats };
+      }),
+      bpm,
+    );
+
+    setSonando({ title: version.title, step: null });
+    await player().play(pasos, (step) => {
+      if (step === null) {
+        setSonando(null);
+      } else {
+        setSonando({ title: version.title, step });
+      }
+    });
+  }
+
   const [versions, setVersions] = useState<readonly Version[]>([]);
+  /** Qué versión suena y por qué compás va, para encenderlo en pantalla. */
+  const [sonando, setSonando] = useState<{ title: string; step: number | null } | null>(null);
   const [error, setError] = useState<{ code: VersionsErrorCode | null; message: string } | null>(
     null,
   );
@@ -237,25 +299,37 @@ export function VersionsPanel({
             <li key={version.title} className="superficie p-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-text text-base">{version.title}</h3>
-                <Button variant="quiet" onClick={() => use(version)}>
-                  Ponerla en el camino
-                </Button>
+                <span className="flex flex-wrap gap-2">
+                  {/* Escuchar antes que ponerla: comparar tres versiones
+                      leyéndolas cuesta, y para cuando has tocado la tercera se
+                      te ha olvidado cómo sonaba la primera. */}
+                  <Button variant="quiet" onClick={() => void escuchar(version)}>
+                    {sonando?.title === version.title ? 'Parar' : 'Escuchar'}
+                  </Button>
+                  <Button variant="quiet" onClick={() => use(version)}>
+                    Ponerla en el camino
+                  </Button>
+                </span>
               </div>
               <p className="text-text-muted mt-1 text-sm">{version.why}</p>
 
               <ol aria-label={`Acordes de ${version.title}`} className="mt-3 flex flex-wrap gap-2">
                 {version.steps.map((step, index) => {
                   const move = step.move === null ? null : moveById(step.move);
+                  const suena = sonando?.title === version.title && sonando.step === index;
                   return (
                     <li
                       key={`${version.title}-${index}`}
                       // Lo que cambia se destaca y lo que se queda se apaga: es
                       // lo único que hace falta ver de un vistazo con la
-                      // guitarra puesta.
-                      className={`rounded-md px-2 py-1 text-center ${
+                      // guitarra puesta. Y el que suena lleva halo, que es lo
+                      // que deja seguir la progresión con el oído y con la vista
+                      // a la vez.
+                      className={`rounded-md px-2 py-1 text-center transition-shadow ${
                         move === null ? 'text-text-muted' : 'superficie-viva'
-                      }`}
+                      } ${suena ? 'ring-brass-bright ring-2' : ''}`}
                       title={move === null ? 'Se queda como estaba' : move.why}
+                      aria-current={suena ? 'true' : undefined}
                     >
                       <span className="text-text block font-mono text-base">{step.symbol}</span>
                       <span className="text-text-muted block font-mono text-xs">

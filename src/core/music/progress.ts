@@ -514,12 +514,30 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     badges: orderBadges(new Set([...a.badges, ...b.badges])),
     xpToday: lastDay === null ? 0 : Math.max(xpEarnedOn(a, lastDay), xpEarnedOn(b, lastDay)),
     review: mergeReview(a.review, b.review),
-    // Del punto de partida, el que está más adelante: es el que abre más camino,
-    // y este fichero se queda siempre con lo más abierto salvo cuando eso
-    // significaría dar algo por sabido. El precio: quien retroceda su punto de
-    // partida en un aparato tendrá que hacerlo también en el otro.
-    startCourse: startIndex(a) >= startIndex(b) ? a.startCourse : b.startCourse,
+    startCourse: mergeStartCourse(a, b),
   };
+}
+
+/**
+ * De los dos puntos de partida, el que abre más camino.
+ *
+ * Y en caso de empate, **el que dice algo**. Eso segundo era un fallo: elegir el
+ * primer curso no mueve el índice —ya estaba en cero, como el de quien no ha
+ * elegido nada— así que los dos empataban y ganaba el primero de los dos, que al
+ * subir el avance es el del servidor. Resultado: elegir «1.º de Elemental» no
+ * abría nada distinto —es el primer curso— pero el desplegable se olvidaba de que
+ * se lo habías dicho.
+ *
+ * El precio de quedarse con lo más abierto sigue siendo el mismo: quien retroceda
+ * su punto de partida en un aparato tendrá que hacerlo también en el otro.
+ */
+function mergeStartCourse(a: Progress, b: Progress): string | null {
+  const ia = startIndex(a);
+  const ib = startIndex(b);
+  if (ia !== ib) {
+    return ia > ib ? a.startCourse : b.startCourse;
+  }
+  return a.startCourse ?? b.startCourse;
 }
 
 /** `AAAA-MM-DD` y nada más. Cualquier otra cosa se descarta. */

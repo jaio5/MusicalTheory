@@ -8,7 +8,7 @@ import { IdeasPanel } from '@features/ideas';
 import { Metronome } from '@features/metronome';
 import { CurrentChord, HeardChord, NextChords, Voicings } from '@features/path';
 import { RecordStage } from '@features/recorder';
-import { SessionsPanel } from '@features/sessions';
+import { ResumeLast, SessionsPanel } from '@features/sessions';
 import { SongsPanel } from '@features/songs';
 import { VersionsPanel } from '@features/versions';
 import { KeyPanel } from '@features/wheel';
@@ -67,6 +67,10 @@ export function ComposeScreen() {
     <RecordStage>
       <div className="flex h-full min-h-0 flex-col">
         <WorkHeader title="Componer" lead="Tonalidad, progresión, acordes y grabarte tocando." />
+
+        {/* Se ofrece la última sesión, no se pone. Desaparece sola en cuanto
+            eliges tonalidad o tocas algo. */}
+        <ResumeLast />
 
         {/*
           En el móvil, la tonalidad se pliega.

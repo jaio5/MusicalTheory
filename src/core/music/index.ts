@@ -26,3 +26,4 @@ export * from './transitions';
 export * from './progressions';
 export * from './song';
 export * from './capture';
+export * from './playback';

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Account } from '@core/billing';
-import { pitchClassFromName, type Song } from '@core/music';
+import { DEFAULT_BPM, pitchClassFromName, type Song } from '@core/music';
 import { AccountProvider } from '@state/account';
 import { useSessionStore } from '@state/session-store';
 
@@ -108,6 +108,9 @@ describe('guardar', () => {
       name: 'Mi canción',
       tonic: C,
       mode: 'major',
+      // El tempo del metrónomo entra en la canción: es lo que hace que al
+      // abrirla mañana suene a la velocidad a la que la escribiste.
+      bpm: DEFAULT_BPM,
       sections: [{ name: 'Parte 1', degrees: ['I', 'V', 'vi', 'IV'] }],
     });
   });
@@ -206,5 +209,102 @@ describe('borrar', () => {
     });
     // Tres llamadas: la lista al montar, el borrado y la lista de después.
     expect(request.mock.calls.filter(([init]) => init.method === 'GET')).toHaveLength(2);
+  });
+});
+
+describe('renombrar', () => {
+  it('sustituye la fila en vez de abrir otra cosa, y manda la canción entera', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Renombrar' }));
+    const campo = screen.getByLabelText('Nombre nuevo');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'Otro nombre');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    const put = request.mock.calls.find(([init]) => init.method === 'PUT');
+    expect(put).toBeDefined();
+    // Entera y no solo el nombre: el contrato la interpreta con la misma función
+    // que interpreta lo que llega de Postgres, y una a medias no pasaría.
+    expect(JSON.parse(put![0].body as string)).toMatchObject({
+      id: UNA.id,
+      name: 'Otro nombre',
+      tonic: UNA.tonic,
+      sections: UNA.sections,
+    });
+  });
+
+  it('«dejarlo» no manda nada', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Renombrar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Dejarlo' }));
+
+    expect(request.mock.calls.some(([init]) => init.method === 'PUT')).toBe(false);
+    expect(screen.getByText('La mía')).toBeInTheDocument();
+  });
+});
+
+describe('añadir una parte', () => {
+  it('añade lo que llevas encadenado como sección nueva', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['ii', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    const put = request.mock.calls.find(([init]) => init.method === 'PUT');
+    expect(JSON.parse(put![0].body as string).sections).toEqual([
+      ...UNA.sections,
+      { name: 'Parte 2', degrees: ['ii', 'V'] },
+    ]);
+  });
+
+  it('no deja mezclar tonalidades, y dice por qué', async () => {
+    // Meter en una canción en Do una parte que tocaste en Sol guardaría los
+    // grados de Sol dentro de una canción de Do: al abrirla sonaría otra cosa
+    // sin que nadie hubiera hecho nada mal.
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: pitchClassFromName('G'), mode: 'major' });
+    actions.pushChord({ symbol: 'G', label: 'I', root: C, notes: [C], why: 'x' });
+    actions.pushChord({ symbol: 'D', label: 'V', root: C, notes: [C], why: 'x' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/está en C mayor y tú estás en G mayor/);
+    expect(request.mock.calls.some(([init]) => init.method === 'PUT')).toBe(false);
+  });
+
+  it('sin acordes encadenados no añade nada', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo([]);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/Encadena algún acorde/);
+  });
+
+  it('con varias partes se ven todas, con una sola no se enseña la lista', async () => {
+    const dos: Song = {
+      ...UNA,
+      sections: [
+        { name: 'Estrofa', degrees: ['I', 'V'] },
+        { name: 'Estribillo', degrees: ['vi', 'IV'] },
+      ],
+    };
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [dos] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText('Estrofa:')).toBeInTheDocument();
+    expect(screen.getByText('Estribillo:')).toBeInTheDocument();
   });
 });

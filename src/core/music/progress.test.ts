@@ -660,3 +660,31 @@ describe('elegir por dónde empezar', () => {
     expect(mergeProgress(despues, antes).startCourse).toBe('profesional-1');
   });
 });
+
+describe('el punto de partida al fusionar', () => {
+  /** Un avance con solo el curso de partida puesto. */
+  function desde(startCourse: string | null): Progress {
+    return { ...EMPTY_PROGRESS, startCourse };
+  }
+
+  it('gana el que abre más camino', () => {
+    expect(mergeProgress(desde('elemental-1'), desde('profesional-2')).startCourse).toBe(
+      'profesional-2',
+    );
+    expect(mergeProgress(desde('profesional-2'), desde('elemental-1')).startCourse).toBe(
+      'profesional-2',
+    );
+  });
+
+  it('elegir el primer curso no se pierde al subirlo, aunque no abra nada', () => {
+    // El fallo que esto arregla: `elemental-1` y «ninguno» tienen el mismo
+    // índice —cero— así que empataban, y en el empate ganaba el primero, que al
+    // subir el avance es el del servidor. El desplegable olvidaba la elección.
+    expect(mergeProgress(desde(null), desde('elemental-1')).startCourse).toBe('elemental-1');
+    expect(mergeProgress(desde('elemental-1'), desde(null)).startCourse).toBe('elemental-1');
+  });
+
+  it('sin elección en ninguno de los dos, sigue sin haberla', () => {
+    expect(mergeProgress(desde(null), desde(null)).startCourse).toBeNull();
+  });
+});

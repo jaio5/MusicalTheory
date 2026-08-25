@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { can, cheapestPlanWith } from '@core/billing';
 import {
+  defaultSectionName,
   degreesFromPath,
   describeSong,
   keyName,
+  MAX_SECTIONS,
   MAX_SONG_NAME,
   parseSong,
   resolveDegree,
@@ -91,6 +93,9 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
   const { account, signedIn } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
+  // El tempo del metrónomo entra en la canción: es lo que hace que al abrirla
+  // mañana suene a la velocidad a la que la escribiste.
+  const bpm = useSessionStore((state) => state.bpm);
 
   const puedeGuardar = can(account.plan, 'canciones');
 
@@ -99,6 +104,8 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
   const [message, setMessage] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Qué canción se está renombrando, y con qué nombre. Nulo: ninguna. */
+  const [renombrando, setRenombrando] = useState<{ id: string; nombre: string } | null>(null);
 
   // Leer va aparte y **devuelve** lo leído en vez de escribirlo en el estado.
   // Así el único `setState` de este componente que sale de un efecto ocurre
@@ -156,7 +163,8 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
           name,
           tonic: activeKey.tonic,
           mode: activeKey.mode,
-          sections: [{ name: 'Parte 1', degrees }],
+          bpm,
+          sections: [{ name: defaultSectionName(0), degrees }],
         }),
       });
 
@@ -181,6 +189,87 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       setMessage('No hemos podido guardar la canción. Comprueba la conexión.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * Escribe encima de una canción que ya existe.
+   *
+   * Manda la canción entera y no solo lo que cambia: el contrato la interpreta
+   * con la misma función con la que interpreta lo que llega de Postgres, y una
+   * canción a medias no pasaría esa comprobación. Es una petición más grande y
+   * una regla menos que mantener.
+   */
+  async function guardarEncima(song: Song, cambios: Partial<Song>): Promise<boolean> {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await request({
+        method: 'PUT',
+        body: JSON.stringify({ ...song, ...cambios }),
+      });
+      if (!response.ok) {
+        setMessage(await messageOf(response, 'No hemos podido guardar el cambio.'));
+        return false;
+      }
+      await refresh();
+      return true;
+    } catch {
+      setMessage('No hemos podido guardar el cambio. Comprueba la conexión.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Añade lo que llevas encadenado como una parte más de esa canción.
+   *
+   * Es lo que da sentido a que una canción tenga secciones: hasta ahora se
+   * guardaba siempre una sola, así que «estrofa» y «estribillo» eran dos
+   * canciones distintas con el mismo nombre y un número detrás.
+   *
+   * Solo se puede si la tonalidad coincide. Meter en una canción en Do una parte
+   * que tocaste en Sol guardaría los grados de Sol dentro de una canción de Do, y
+   * al abrirla sonaría otra cosa sin que nadie hubiera hecho nada mal.
+   */
+  async function anadirParte(song: Song) {
+    if (activeKey === null) {
+      setMessage('Elige una tonalidad antes de añadir una parte.');
+      return;
+    }
+    if (activeKey.tonic !== song.tonic || activeKey.mode !== song.mode) {
+      setMessage(
+        `«${song.name}» está en ${keyName(song.tonic, song.mode)} y tú estás en ${keyName(
+          activeKey.tonic,
+          activeKey.mode,
+        )}. Cambia de tonalidad o abre la canción antes de añadirle una parte.`,
+      );
+      return;
+    }
+    if (song.sections.length >= MAX_SECTIONS) {
+      setMessage(`«${song.name}» ya tiene ${MAX_SECTIONS} partes, que es el tope.`);
+      return;
+    }
+
+    const { degrees, dropped } = degreesFromPath(
+      path.map((chord) => chord.label),
+      activeKey.mode,
+    );
+    if (degrees.length === 0) {
+      setMessage('Encadena algún acorde antes de añadirlo como parte.');
+      return;
+    }
+
+    const parte = { name: defaultSectionName(song.sections.length), degrees };
+    if (await guardarEncima(song, { sections: [...song.sections, parte] })) {
+      setNote(
+        dropped > 0
+          ? `«${parte.name}» añadida a «${song.name}», sin ${dropped} ${
+              dropped === 1 ? 'acorde que no es un grado' : 'acordes que no son grados'
+            } de esta tonalidad.`
+          : `«${parte.name}» añadida a «${song.name}».`,
+      );
     }
   }
 
@@ -283,24 +372,89 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       ) : (
         <ul className="mt-6 space-y-2">
           {songs.map((song) => (
-            <li
-              key={song.id}
-              className="border-border flex flex-wrap items-center justify-between gap-3 border-b pb-2"
-            >
-              <span className="min-w-0">
-                <span className="text-text block truncate text-sm">{song.name}</span>
-                <span className="text-text-muted block font-mono text-xs">
-                  {keyName(song.tonic, song.mode)} · {describeSong(song)}
-                </span>
-              </span>
-              <span className="flex gap-2">
-                <Button variant="quiet" onClick={() => open(song)}>
-                  Abrir
-                </Button>
-                <Button variant="quiet" onClick={() => void remove(song)} disabled={busy}>
-                  Borrar
-                </Button>
-              </span>
+            <li key={song.id} className="border-border border-b pb-2">
+              {renombrando?.id === song.id ? (
+                // Renombrar sustituye la fila en vez de abrir otra cosa: el
+                // nombre se cambia mirándolo, y sacarlo a un sitio aparte obliga
+                // a recordar cuál era el de antes.
+                <form
+                  className="flex flex-wrap items-end gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void guardarEncima(song, { name: renombrando.nombre }).then((ok) => {
+                      if (ok) {
+                        setRenombrando(null);
+                      }
+                    });
+                  }}
+                >
+                  {/* «Nombre nuevo» y no «Nombre»: el de guardar una canción
+                      está a la vista al mismo tiempo, y dos campos con la misma
+                      etiqueta no los distingue ni un lector de pantalla. */}
+                  <label className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
+                    <span className="text-text-muted text-xs">Nombre nuevo</span>
+                    <input
+                      type="text"
+                      autoFocus
+                      maxLength={MAX_SONG_NAME}
+                      value={renombrando.nombre}
+                      onChange={(event) =>
+                        setRenombrando({ id: song.id, nombre: event.target.value })
+                      }
+                      className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
+                    />
+                  </label>
+                  <Button type="submit" disabled={busy}>
+                    Guardar
+                  </Button>
+                  <Button variant="quiet" onClick={() => setRenombrando(null)}>
+                    Dejarlo
+                  </Button>
+                </form>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="text-text block truncate text-sm">{song.name}</span>
+                    <span className="text-text-muted block font-mono text-xs">
+                      {keyName(song.tonic, song.mode)} · {describeSong(song)}
+                    </span>
+                  </span>
+                  <span className="flex flex-wrap gap-2">
+                    <Button variant="quiet" onClick={() => open(song)}>
+                      Abrir
+                    </Button>
+                    <Button
+                      variant="quiet"
+                      onClick={() => void anadirParte(song)}
+                      disabled={busy}
+                      title="Añade lo que llevas encadenado como una parte más"
+                    >
+                      Añadir parte
+                    </Button>
+                    <Button
+                      variant="quiet"
+                      onClick={() => setRenombrando({ id: song.id, nombre: song.name })}
+                    >
+                      Renombrar
+                    </Button>
+                    <Button variant="quiet" onClick={() => void remove(song)} disabled={busy}>
+                      Borrar
+                    </Button>
+                  </span>
+                </div>
+              )}
+
+              {/* Las partes, cuando hay más de una. Con una sola no aportan
+                  nada: la canción **es** esa parte. */}
+              {song.sections.length > 1 && (
+                <ol className="text-text-muted mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs">
+                  {song.sections.map((section, index) => (
+                    <li key={`${song.id}-${index}`}>
+                      <span className="text-text">{section.name}:</span> {section.degrees.join(' ')}
+                    </li>
+                  ))}
+                </ol>
+              )}
             </li>
           ))}
         </ul>

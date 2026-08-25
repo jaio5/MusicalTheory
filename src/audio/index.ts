@@ -7,3 +7,4 @@ export * from './reference-tone';
 export * from './metronome';
 export * from './chroma';
 export * from './chord-engine';
+export * from './progression-player';
