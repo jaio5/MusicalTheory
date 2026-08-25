@@ -10,6 +10,8 @@ import {
   xpEarnedOn,
   type Progress,
 } from '@core/music';
+import { IconoGrieta, IconoRacha } from '@ui/icons';
+import { ProgressRing } from '@ui/ProgressRing';
 
 /**
  * El marcador del día: la meta, la racha y lo que queda por repasar.
@@ -36,13 +38,16 @@ export function DailyGoal({
   const streak = day === null ? 0 : currentStreak(progress, day);
   const hoy = day === null ? 0 : xpEarnedOn(progress, day);
   const parte = day === null ? 0 : goalCompletion(progress, day);
+  const cerrada = parte >= 1;
   const pendientes = day === null ? 0 : dueReview(progress.review, day).length;
   const medallas = progress.badges.length;
 
   return (
     <div className="border-border shrink-0 border-b px-3 py-3">
       <div className="flex items-center gap-4">
-        <GoalRing part={parte} today={hoy} />
+        <ProgressRing part={parte} label={`${hoy} de ${DAILY_GOAL_XP} XP de la meta de hoy`}>
+          <span className={cerrada ? 'text-tube-bright' : 'text-text'}>{cerrada ? '✓' : hoy}</span>
+        </ProgressRing>
 
         <div className="min-w-0 grow">
           <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
@@ -71,8 +76,7 @@ export function DailyGoal({
             >
               {streak > 0 ? (
                 <>
-                  <span aria-hidden="true">🔥</span> {streak} {streak === 1 ? 'día' : 'días'} de
-                  racha
+                  <IconoRacha /> {streak} {streak === 1 ? 'día' : 'días'} de racha
                 </>
               ) : (
                 'sin racha'
@@ -101,9 +105,9 @@ export function DailyGoal({
         <button
           type="button"
           onClick={onReview}
-          className="border-oxblood-bright text-text hover:bg-surface-raised mt-3 flex w-full items-baseline gap-2 border px-2 py-1.5 text-left text-sm"
+          className="border-oxblood-bright text-text hover:bg-surface-raised min-h-tap mt-3 flex w-full items-center gap-2 rounded-md border px-3 text-left text-sm transition-colors"
         >
-          <span aria-hidden="true">🩹</span>
+          <IconoGrieta />
           <span className="grow">
             {pendientes === 1
               ? 'Tienes una pregunta para repasar'
@@ -112,65 +116,6 @@ export function DailyGoal({
           <span className="text-brass-bright shrink-0 font-mono text-xs">Repasar</span>
         </button>
       )}
-    </div>
-  );
-}
-
-/**
- * El anillo de la meta.
- *
- * SVG a mano y no una librería de gráficos: es un círculo con el trazo cortado, y
- * para eso no hace falta traerse nada. El truco es `strokeDasharray` con la
- * circunferencia entera y `strokeDashoffset` con lo que falta.
- */
-function GoalRing({ part, today }: { readonly part: number; readonly today: number }) {
-  const radio = 26;
-  const vuelta = 2 * Math.PI * radio;
-  const hecho = Math.max(0, Math.min(1, part));
-
-  return (
-    <div className="relative shrink-0">
-      <svg
-        width="64"
-        height="64"
-        viewBox="0 0 64 64"
-        role="img"
-        aria-label={`${today} de ${DAILY_GOAL_XP} XP de la meta de hoy`}
-      >
-        {/* Girado un cuarto de vuelta para que empiece arriba y no a la derecha. */}
-        <g transform="rotate(-90 32 32)">
-          <circle
-            cx="32"
-            cy="32"
-            r={radio}
-            fill="none"
-            stroke="currentColor"
-            className="text-border"
-            strokeWidth="5"
-          />
-          <circle
-            cx="32"
-            cy="32"
-            r={radio}
-            fill="none"
-            stroke="currentColor"
-            className={hecho >= 1 ? 'text-tube-bright' : 'text-brass-bright'}
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeDasharray={vuelta}
-            strokeDashoffset={vuelta * (1 - hecho)}
-            style={{ transition: 'stroke-dashoffset 400ms ease-out' }}
-          />
-        </g>
-      </svg>
-      <span
-        aria-hidden="true"
-        className={`absolute inset-0 flex items-center justify-center font-mono text-sm ${
-          hecho >= 1 ? 'text-tube-bright' : 'text-text'
-        }`}
-      >
-        {hecho >= 1 ? '✓' : today}
-      </span>
     </div>
   );
 }

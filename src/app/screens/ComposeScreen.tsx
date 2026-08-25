@@ -12,6 +12,9 @@ import { SessionsPanel } from '@features/sessions';
 import { KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { Chip } from '@ui/Chip';
+import { Disclosure } from '@ui/Disclosure';
+import { WorkHeader } from '@ui/Screen';
 
 type ExtraId = 'fretboard' | 'ideas' | 'sessions';
 
@@ -53,6 +56,37 @@ export function ComposeScreen() {
   return (
     <RecordStage>
       <div className="flex h-full min-h-0 flex-col">
+        <WorkHeader title="Componer" lead="Tonalidad, progresión, acordes y grabarte tocando." />
+
+        {/*
+          En el móvil, la tonalidad se pliega.
+
+          La rueda de quintas y los ajustes ocupan media pantalla de teléfono y son
+          justo lo que se toca **una vez** al empezar: se elige el tono y ya no se
+          vuelve. Plegada deja a la vista lo que se mira todo el rato —el acorde,
+          sus formas y a dónde ir— y dice en una línea en qué tonalidad estás, que
+          es lo único que hay que saber mientras tanto.
+
+          En pantalla ancha no se pliega nada: ahí la rueda vive en su columna.
+        */}
+        <div className="border-border shrink-0 border-b px-3 lg:hidden">
+          <Disclosure
+            summary={
+              <>
+                Tonalidad:{' '}
+                <span className="text-brass-bright">
+                  {activeKey === null ? 'sin elegir' : keyName(activeKey.tonic, activeKey.mode)}
+                </span>
+              </>
+            }
+          >
+            <div className="flex flex-col items-center gap-2 pt-2 pb-3">
+              <KeyPanel compact />
+              <Settings />
+            </div>
+          </Disclosure>
+        </div>
+
         {/* El metrónomo, arriba y siempre a la vista: es un control de los de
             poner en marcha y olvidarse, como el de grabar, no un ajuste que se
             busca en una columna. */}
@@ -60,12 +94,25 @@ export function ComposeScreen() {
           <Metronome />
         </div>
 
-        <div className="grid min-h-0 grow grid-cols-1 gap-px overflow-y-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
+        {/*
+          `auto-rows-min` es lo que arregla las dos cosas a la vez en el móvil.
+
+          Apiladas, las filas se estiraban hasta repartirse el alto disponible: si
+          el contenido de una crecía —al elegir un acorde salen sus formas— se
+          salía de su fila y **se montaba encima de la siguiente**, y si menguaba
+          quedaba hueco vacío por el que desplazarse. Con las filas medidas por su
+          contenido no hay ni lo uno ni lo otro: cada cosa ocupa lo suyo y quien se
+          desplaza es esta caja.
+
+          En pantalla ancha vuelven a estirarse, que es lo que quieren tres
+          columnas de la misma altura.
+        */}
+        <div className="grid min-h-0 grow auto-rows-min grid-cols-1 gap-px overflow-y-auto lg:auto-rows-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
           {/* Cada cosa con su tamaño y la columna con scroll: si se dejan
               encoger, con el mástil abierto la rueda se queda en un botón. */}
           <section
             aria-label="Tonalidad"
-            className="border-border flex min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3 [&>*]:shrink-0"
+            className="border-border hidden min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3 lg:flex [&>*]:shrink-0"
           >
             <KeyPanel compact />
             <p className="text-text-muted text-center font-mono text-xs">
@@ -78,7 +125,7 @@ export function ComposeScreen() {
 
           <section
             aria-label="El acorde y sus formas"
-            className="flex min-h-0 flex-col overflow-y-auto"
+            className="flex min-h-0 flex-col lg:overflow-y-auto"
           >
             {/* Arriba lo que has elegido tú, abajo lo que estás tocando. Cada
                 cosa tiene su sitio fijo, así que al soltar las cuerdas nada se
@@ -90,7 +137,7 @@ export function ComposeScreen() {
 
           <section
             aria-label="A dónde puedes ir"
-            className="border-border flex min-h-0 flex-col overflow-hidden border-l"
+            className="border-border flex min-h-0 flex-col overflow-hidden border-t lg:border-t-0 lg:border-l"
           >
             <NextChords />
           </section>
@@ -106,20 +153,15 @@ export function ComposeScreen() {
         >
           <div className="flex gap-1 px-3 py-1.5">
             {EXTRAS.map((candidate) => (
-              <button
+              <Chip
                 key={candidate.id}
-                type="button"
                 onClick={() => setExtra(extra === candidate.id ? null : candidate.id)}
-                aria-expanded={extra === candidate.id}
-                aria-controls="herramienta-abierta"
-                className={`border px-3 py-1 font-mono text-xs ${
-                  extra === candidate.id
-                    ? 'border-brass-bright text-brass-bright'
-                    : 'border-border text-text-muted hover:text-text'
-                }`}
+                pressed={extra === candidate.id}
+                tone="quiet"
+                className="text-xs"
               >
                 {candidate.name}
-              </button>
+              </Chip>
             ))}
 
             {current !== null && (
@@ -138,10 +180,13 @@ export function ComposeScreen() {
           {current !== null && (
             <div
               id="herramienta-abierta"
+              // El tope es distinto en el móvil: 72vh de un teléfono es la
+              // pantalla entera, así que el mástil empujaba el resto fuera y lo
+              // que quedaba por debajo era hueco por el que desplazarse.
               className={`border-border border-t p-3 ${
                 current.fits === true
-                  ? 'max-h-[min(72vh,46rem)] overflow-hidden'
-                  : 'max-h-[min(52vh,26rem)] overflow-auto'
+                  ? 'max-h-[45vh] overflow-hidden lg:max-h-[min(72vh,46rem)]'
+                  : 'max-h-[45vh] overflow-auto lg:max-h-[min(52vh,26rem)]'
               }`}
             >
               <current.render />

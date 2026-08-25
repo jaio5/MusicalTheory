@@ -59,6 +59,11 @@ Alias: `@core/*`, `@audio/*`, `@media/*`, `@server/*`, `@state/*`, `@features/*`
 `@ui/*`, `@/*`. Las capas de arriba importan de `@core/music` y `@core/billing`
 —los índices—, no de los ficheros sueltos.
 
+Una más, de las de media hora: **`color-scheme: dark` en `:root`** es lo que hace
+que el navegador pinte en oscuro lo que dibuja él y no nosotros —la lista de un
+`<select>`, la barra de scroll, el cursor—. Sin esa línea aparecen parches blancos
+que no se arreglan con ninguna clase de Tailwind.
+
 Tres trampas al tocar esto: **`no-restricted-imports` no se acumula entre bloques de
 ESLint** —el último gana, y por eso las reglas 2 y 5 van juntas—; **el layout raíz
 lleva `dynamic = 'force-dynamic'`** porque sin eso un build hecho sin base de datos
@@ -68,26 +73,30 @@ renombrado no puede degradar a quien había pagado.
 
 ## Dónde está cada cosa
 
-| Busco...                                            | Está en                                        |
-| --------------------------------------------------- | ---------------------------------------------- |
-| Teoría musical: escalas, acordes, grados, tonalidad | `src/core/music/`                              |
-| Funciones armónicas y sustitución (T/S/D)           | `core/music/harmonic-function.ts`              |
-| Qué acorde proponer y en qué orden                  | `core/music/suggestions.ts` + `styles.ts`      |
-| Detección de tono (autocorrelación)                 | `src/audio/autocorrelation.ts`                 |
-| Detección de acordes (croma + plantillas)           | `audio/chroma.ts`, `audio/chord-engine.ts`     |
-| Mástil, afinaciones, formas de acorde               | `src/core/instrument/`                         |
-| Estado de sesión y persistencia                     | `src/state/` (IndexedDB)                       |
-| Grabación con cámara                                | `src/media/`                                   |
-| Rutas de servidor de la IA                          | `src/app/api/ideas`, `src/app/api/teacher`     |
-| Planes, permisos y si una unidad la abre el plan    | `src/core/billing/` (`plans.ts`, `access.ts`)  |
-| Meta diaria, racha, medallas, punto de partida      | `core/music/progress.ts`                       |
-| La cola de repaso de lo fallado                     | `core/music/review.ts`                         |
-| Tarjetas de plan y ventana de pago                  | `features/account/`, `src/app/planes/`         |
-| El avatar de arriba y lo que cuelga de él           | `features/account/AccountMenu.tsx`             |
-| Cuentas, contraseñas, base de datos y cupos         | `src/server/`                                  |
-| Si alguien puede pedirle algo al modelo             | `server/entitlements.ts` + `ai-usage.ts`       |
-| Por dónde se cobrará (hoy no se cobra)              | `src/server/billing/`                          |
-| Tokens de diseño                                    | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
+| Busco...                                             | Está en                                        |
+| ---------------------------------------------------- | ---------------------------------------------- |
+| Teoría musical: escalas, acordes, grados, tonalidad  | `src/core/music/`                              |
+| Funciones armónicas y sustitución (T/S/D)            | `core/music/harmonic-function.ts`              |
+| Qué acorde proponer y en qué orden                   | `core/music/suggestions.ts` + `styles.ts`      |
+| Detección de tono (autocorrelación)                  | `src/audio/autocorrelation.ts`                 |
+| Detección de acordes (croma + plantillas)            | `audio/chroma.ts`, `audio/chord-engine.ts`     |
+| Mástil, afinaciones, formas de acorde                | `src/core/instrument/`                         |
+| Estado de sesión y persistencia                      | `src/state/` (IndexedDB)                       |
+| Grabación con cámara                                 | `src/media/`                                   |
+| Rutas de servidor de la IA                           | `src/app/api/ideas`, `src/app/api/teacher`     |
+| Planes, permisos y si una unidad la abre el plan     | `src/core/billing/` (`plans.ts`, `access.ts`)  |
+| Meta diaria, racha, medallas, punto de partida       | `core/music/progress.ts`                       |
+| La cola de repaso de lo fallado                      | `core/music/review.ts`                         |
+| Tarjetas de plan y ventana de pago                   | `features/account/`, `src/app/planes/`         |
+| El avatar de arriba y lo que cuelga de él            | `features/account/AccountMenu.tsx`             |
+| Cuentas, contraseñas, base de datos y cupos          | `src/server/`                                  |
+| Si alguien puede pedirle algo al modelo              | `server/entitlements.ts` + `ai-usage.ts`       |
+| Por dónde se cobrará (hoy no se cobra)               | `src/server/billing/`                          |
+| El marco de una pantalla y sus apartados             | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
+| Un desplegable de opciones, y uno que abre un bloque | `src/ui/Field.tsx`, `src/ui/Disclosure.tsx`    |
+| Iconos, y por qué no son emoji                       | `src/ui/icons.tsx`                             |
+| Tokens de diseño y las dos paletas                   | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
+| El tema claro/oscuro y su guion antidestello         | `src/state/theme.ts`, `src/ui/ThemeToggle.tsx` |
 
 `/aprender` es **solo el camino**, y cada cosa que se hace tiene su dirección:
 `/aprender/[unidad]` y `/aprender/repaso`. Después `/profesor`, `/componer`,
@@ -112,9 +121,10 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                    |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Los siete: dominio puro, tono propio, análisis en el hilo principal,
-acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, y punto de
-partida con una pantalla por cosa.
+descartadas. Los diez: dominio puro, tono propio, análisis en el hilo principal,
+acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, punto de
+partida con una pantalla por cosa, cupos calculados desde el precio, y un solo marco
+de pantalla, y los dos temas con el negro de casa.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando
@@ -131,7 +141,28 @@ líneas más abajo.
 - Commits: `tipo(ámbito): frase en minúscula y sin tildes`, contando el efecto que
   se nota. Ejemplo real: `fix(mastil): se ve entero al abrirlo, sin arrastrar nada`.
 - Interfaz para leerse **a un metro y con las dos manos ocupadas**: nada por debajo
-  de 12 px, diagramas grandes, y el significado de un color al lado del color.
+  de 12 px, **44 px de alto en todo lo que se pulsa**, diagramas grandes, y el
+  significado de un color al lado del color.
+- **Los desplegables son dos y solo dos**: `ui/Field` para elegir una opción y
+  `ui/Disclosure` para abrir un bloque. Ninguno se escribe a mano —lo vigila
+  `coherencia.test.ts`—, porque así salieron cinco pintas distintas. El ancho de
+  un `Field` se pide (`completo` o `auto`); heredarlo llenaba una barra de
+  herramientas con un desplegable de un dígito y doce rem.
+- **Dos temas, y el negro es el de casa.** El claro se elige y se guarda; volver al
+  oscuro borra la preferencia. No cuelga de `prefers-color-scheme` a propósito. Los
+  nombres de los tokens no cambian entre uno y otro —`brass` es «el acento» valga
+  lo que valga—, así que ningún componente sabe qué tema hay puesto, pero un color
+  nuevo se comprueba en los dos fondos.
+- **La profundidad se pide por su nombre**: `.superficie`, `.superficie-alta` y
+  `.superficie-viva` en `globals.css` —fondo, borde, radio, filo de luz y sombra en
+  una clase—. Nada de cajas con `border` suelto: un tema oscuro sin relieve se lee
+  plano, y lo que da modernidad es que se note qué está encima de qué.
+- **Los títulos de pantalla van en la serif** (`font-display`), la misma de la
+  portada. Los rótulos de apartado, en versalitas de máquina de escribir.
+- **Toda pantalla entra por `ui/Screen`** —o por `WorkHeader` si es de taller— y
+  ninguna se escribe su propio ancho, relleno ni `h1`. Lo vigilan dos tests que leen
+  los ficheros (`app/screens/coherencia.test.ts`), porque la coherencia solo se ve
+  en conjunto. Los iconos son de `ui/icons.tsx`: **emoji no**, que no se tiñen.
 
 ## Detalles de los tests
 

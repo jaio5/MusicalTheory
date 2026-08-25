@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { Tuner } from '@features/tuner';
+import { Disclosure } from '@ui/Disclosure';
 
 import { HeroVideo } from './HeroVideo';
 import { LandingWheel } from './LandingWheel';
@@ -282,10 +283,14 @@ export default function Portada() {
           <h2 className="font-display text-fluid-title">Preguntas</h2>
           <div className="mt-8 max-w-3xl">
             {QUESTIONS.map((item) => (
-              <details key={item.q} className="border-border border-b py-4">
-                <summary className="text-text text-fluid-subtitle cursor-pointer">{item.q}</summary>
+              <Disclosure
+                key={item.q}
+                summary={item.q}
+                tone="grande"
+                className="border-border border-b py-4"
+              >
                 <p className="text-text-muted text-fluid-body mt-3 leading-relaxed">{item.a}</p>
-              </details>
+              </Disclosure>
             ))}
           </div>
         </div>

@@ -38,10 +38,7 @@ export function PlanLock({
   readonly compact?: boolean;
 }) {
   return (
-    <div
-      className={`border-brass-dim bg-surface-raised border ${compact ? 'px-2 py-1.5' : 'p-3'}`}
-      role="note"
-    >
+    <div className={`superficie-viva ${compact ? 'px-2 py-1.5' : 'p-3'}`} role="note">
       <p className={`text-text ${compact ? 'text-xs' : 'text-sm'}`}>
         {needsPlanMessage(needed, what, plural)}
       </p>

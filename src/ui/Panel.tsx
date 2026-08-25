@@ -17,8 +17,8 @@ export interface PanelProps {
  */
 export function Panel({ title, id, actions, children }: PanelProps) {
   return (
-    <section aria-labelledby={id} className="border-border bg-surface flex flex-col border">
-      <header className="border-border flex min-h-11 items-center justify-between gap-3 border-b px-4">
+    <section aria-labelledby={id} className="superficie flex flex-col overflow-hidden">
+      <header className="border-border bg-surface-raised min-h-tap flex items-center justify-between gap-3 border-b px-4">
         <h2 id={id} className="text-text-muted font-mono text-xs tracking-widest uppercase">
           {title}
         </h2>

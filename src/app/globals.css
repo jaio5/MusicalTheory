@@ -1,28 +1,39 @@
 @import 'tailwindcss';
 
 /*
- * Espejo de src/ui/tokens.ts. Tailwind genera las utilidades a partir de aquí
- * (bg-background, text-brass, font-display...). Si cambias un valor, cámbialo
- * también en tokens.ts, que es lo que lee el código TypeScript.
+ * La paleta, en dos temas.
+ *
+ * **Claro de base y oscuro como opción**, y por eso los colores no viven aquí
+ * dentro: `@theme inline` solo dice qué utilidad usa qué variable, y las
+ * variables se declaran abajo, una vez por tema. Con los valores metidos en
+ * `@theme` no habría forma de cambiarlos en caliente, que es justo lo que pide un
+ * conmutador de tema.
+ *
+ * Los nombres son los de siempre —`brass`, `oxblood`, `tube`— y siguen
+ * significando lo mismo: el acento, lo que va mal y lo que va bien. Lo que cambia
+ * es el valor de cada uno en cada tema, y por eso ningún componente se entera de
+ * esto: piden `text-brass-bright` y les sale lo que toque.
+ *
+ * Espejo de src/ui/tokens.ts, y hay un test que lo vigila.
  */
-@theme {
-  --color-background: #12100e;
-  --color-surface: #1a1714;
-  --color-surface-raised: #241f1a;
-  --color-border: #332c25;
+@theme inline {
+  --color-background: var(--fondo);
+  --color-surface: var(--superficie);
+  --color-surface-raised: var(--superficie-alta);
+  --color-border: var(--borde);
 
-  --color-text: #ede6da;
-  --color-text-muted: #a79c8c;
+  --color-text: var(--texto);
+  --color-text-muted: var(--texto-suave);
 
-  --color-brass: #b08d4f;
-  --color-brass-bright: #d8b76a;
-  --color-brass-dim: #6e5830;
+  --color-brass: var(--laton);
+  --color-brass-bright: var(--laton-vivo);
+  --color-brass-dim: var(--laton-suave);
 
-  --color-oxblood: #6b1f24;
-  --color-oxblood-bright: #8c2b31;
+  --color-oxblood: var(--rojo);
+  --color-oxblood-bright: var(--rojo-vivo);
 
-  --color-tube: #5c8a5a;
-  --color-tube-bright: #7fb07c;
+  --color-tube: var(--verde);
+  --color-tube-bright: var(--verde-vivo);
 
   --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
@@ -34,22 +45,248 @@
   --text-fluid-subtitle: clamp(1.2rem, 2vw, 1.9rem);
   --text-fluid-body: clamp(1rem, 1.15vw, 1.3rem);
 
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 8px;
+  /* Lo mínimo que mide algo que se pulsa. Espejo de `tap` en tokens.ts. */
+  --spacing-tap: 2.75rem;
+
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+}
+
+/*
+ * El tema claro: blanco, gris cálido y un oro.
+ *
+ * Elegante por lo que **no** tiene: un solo acento y tres grises. El oro es el
+ * mismo hilo que la aplicación llevaba en oscuro —era un amplificador de latón—,
+ * pero bajado hasta #a16207, que es lo que hace falta para que un texto de acento
+ * llegue a 4,5:1 sobre blanco. El dorado bonito de las paletas, #d4af37, no lo
+ * cumple ni de lejos.
+ *
+ * Los grises son cálidos, no azules: sobre blanco puro, un gris azulado deja la
+ * pantalla con aire de hospital.
+ */
+:root[data-tema='claro'] {
+  color-scheme: light;
+
+  --fondo: #ffffff;
+  --superficie: #fafaf9;
+  --superficie-alta: #f5f5f4;
+  --borde: #e7e5e4;
+
+  --texto: #1c1917;
+  --texto-suave: #6b625c;
+
+  --laton: #a16207;
+  --laton-vivo: #854d0e;
+  --laton-suave: #e2cfa4;
+
+  --rojo: #b91c1c;
+  --rojo-vivo: #991b1b;
+
+  --verde: #15803d;
+  --verde-vivo: #166534;
+
+  /* El relieve, en claro, es una sombra suave: el filo de luz blanco de un tema
+     oscuro sobre blanco no se ve, y las sombras negras fuertes ensucian. */
+  --sombra-suave: 0 1px 2px rgb(28 25 23 / 0.06);
+  --sombra-alta: 0 6px 20px rgb(28 25 23 / 0.08);
+  --filo: inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+/*
+ * El tema oscuro: **el de la casa y el de partida**.
+ *
+ * No cuelga de `prefers-color-scheme`: esto es negro salvo que se pida claro, y
+ * por eso vive en `:root` a secas. La identidad del proyecto es un amplificador
+ * visto de noche —está escrita desde la fase 0— y lo que se ofrece es una salida
+ * para quien la use de día, no una votación entre dos temas.
+ */
+:root,
+:root[data-tema='oscuro'] {
+  color-scheme: dark;
+
+  --fondo: #12100e;
+  --superficie: #1a1714;
+  --superficie-alta: #241f1a;
+  --borde: #332c25;
+
+  --texto: #ede6da;
+  --texto-suave: #a79c8c;
+
+  --laton: #b08d4f;
+  --laton-vivo: #d8b76a;
+  --laton-suave: #6e5830;
+
+  --rojo: #6b1f24;
+  --rojo-vivo: #8c2b31;
+
+  --verde: #5c8a5a;
+  --verde-vivo: #7fb07c;
+
+  --sombra-suave: 0 1px 2px rgb(0 0 0 / 0.35);
+  --sombra-alta: 0 4px 16px rgb(0 0 0 / 0.35);
+  --filo: inset 0 1px 0 color-mix(in srgb, var(--texto) 8%, transparent);
+}
+
+/*
+ * Los relieves del latón, en un sitio y sacados de la paleta.
+ *
+ * Estaban escritos como `rgba(216,183,106,0.15)` y compañía dentro de cuatro
+ * `shadow-[...]` de Tailwind: el mismo latón transcrito a mano con cuatro alfas.
+ * El test que vigila que los tokens no se separen del CSS no puede ver un número
+ * dentro de una cadena, así que cambiar el latón dejaba los halos del color
+ * viejo. Con `color-mix` sobre la variable, cambian solos.
+ */
+@layer components {
+  /*
+   * La profundidad de la aplicación, en tres piezas.
+   *
+   * Un tema oscuro sin relieve se lee plano y viejo: todo al mismo nivel, todo
+   * separado por una línea de un píxel. Lo que da modernidad no es más color, es
+   * **que se note qué está encima de qué**. Aquí eso se hace con lo mismo que un
+   * aparato de verdad: un filo de luz arriba, una sombra debajo y un fondo un
+   * punto más claro según se sube.
+   *
+   * `color-mix` sobre los tokens en vez de rgba a mano, para que cambiar la
+   * paleta mueva también los relieves.
+   */
+  .superficie {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--filo), var(--sombra-suave);
+  }
+
+  /* La de encima: la que se mira primero en cada pantalla. */
+  .superficie-alta {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--filo), var(--sombra-alta);
+  }
+
+  /* Y la que además está encendida: la unidad de ahora, el plan que tienes. */
+  .superficie-viva {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-brass-dim);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      var(--filo),
+      0 4px 20px color-mix(in srgb, var(--color-brass) 15%, transparent);
+  }
+
+  /* El filo de luz de arriba: es lo que hace que el latón parezca metal. */
+  .filo-luz {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.25),
+      var(--sombra-suave);
+  }
+
+  .filo-luz-alto {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      0 2px 8px color-mix(in srgb, var(--color-brass) 30%, transparent);
+  }
+
+  /* El filo tenue de lo que está marcado: una pastilla, una pestaña abierta. */
+  .filo-latón {
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-brass-bright) 18%, transparent);
+  }
+
+  /* El aro de lo que está seleccionado en el camino. */
+  .halo-latón {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brass-bright) 15%, transparent);
+  }
+
+  /* Y el de la unidad que toca ahora, que además brilla un poco. */
+  .halo-aquí {
+    box-shadow:
+      0 0 0 5px color-mix(in srgb, var(--color-brass-bright) 12%, transparent),
+      0 2px 10px color-mix(in srgb, var(--color-brass-bright) 25%, transparent);
+  }
 }
 
 @layer base {
+  /*
+   * Lo primero, y lo que más se nota: decirle al navegador que esto es oscuro.
+   *
+   * Sin `color-scheme`, todo lo que dibuja el sistema y no nosotros sale en
+   * claro sobre una aplicación negra: la lista que se abre de un desplegable
+   * —el rectángulo blanco del selector de afinación—, la barra de scroll, el
+   * cursor de un campo de texto y los menús de un `<input type="date">`. Con
+   * esto, el propio navegador los pinta en oscuro y dejan de ser un parche
+   * blanco en medio.
+   */
   body {
     background-color: var(--color-background);
     color: var(--color-text);
     font-family: var(--font-sans);
+    /*
+     * Un resplandor de latón arriba a la izquierda, al 4 %. No se ve como una
+     * mancha: se nota como que la pantalla tiene una fuente de luz, que es lo que
+     * separa un fondo negro de un fondo negro *iluminado*. Va fijo para que no se
+     * mueva con el scroll, como la luz de una sala.
+     */
+    background-image: radial-gradient(
+      70rem 40rem at 15% -10%,
+      color-mix(in srgb, var(--color-brass) 5%, transparent),
+      transparent 70%
+    );
+    background-attachment: fixed;
   }
 
   /* El foco siempre se ve, y se ve en latón sobre el negro cálido. */
   :focus-visible {
     outline: 2px solid var(--color-brass-bright);
     outline-offset: 2px;
+  }
+
+  /*
+   * La barra de scroll, del color de la aplicación.
+   *
+   * Dos formas porque no hay una sola: Firefox entiende `scrollbar-*` y los de
+   * WebKit y Chromium el pseudoelemento. Se escriben las dos, no se elige.
+   *
+   * Fina y de latón apagado, y solo se aviva al pasar por encima: en una
+   * pantalla donde lo que importa son las notas y los acordes, la barra dice
+   * dónde estás y no compite con nada. El fondo del canal es la superficie
+   * elevada, no el negro, para que se vea el recorrido entero.
+   */
+  /* `scrollbar-color` se hereda, así que basta con declararla arriba del todo;
+     colgar las dos del selector universal daba dos propiedades no iniciales a
+     cada elemento del documento y rompía la caché de estilos compartidos. */
+  :root {
+    scrollbar-color: var(--color-brass-dim) var(--color-surface);
+  }
+
+  html,
+  .overflow-y-auto,
+  .overflow-auto {
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-brass-dim);
+    border: 2px solid var(--color-surface);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-brass);
+  }
+
+  /* La esquina donde se juntan las dos barras, del mismo color que el canal. */
+  ::-webkit-scrollbar-corner {
+    background: var(--color-surface);
   }
 
   /*
@@ -87,13 +324,23 @@
     fill: transparent !important;
   }
 
-  /* Sobre vídeo, el gris apagado se queda corto aun con velo. */
+  /*
+   * Sobre vídeo, la letra es clara **valga lo que valga el tema**.
+   *
+   * Esto se dibuja encima de la cámara, no encima de la aplicación: en el tema
+   * claro, seguir al token dejaría letra casi negra sobre una imagen cualquiera,
+   * y desaparece en cuanto se toca una pared clara. El velo y la sombra están
+   * calculados para lo contrario.
+   */
+  body.grabando,
+  body.grabando .text-text,
   body.grabando .text-text-muted {
-    color: color-mix(in srgb, var(--color-text) 88%, transparent);
+    color: #ede6da;
   }
 
+  body.grabando .fill-text,
   body.grabando .fill-text-muted {
-    fill: color-mix(in srgb, var(--color-text) 88%, transparent);
+    fill: #ede6da;
   }
 
   /*
@@ -106,6 +353,65 @@
    */
   body.grabando [data-senal] {
     box-shadow: 0 0 0 1px rgb(0 0 0 / 0.65);
+  }
+
+  /*
+   * El profesor que asoma por la esquina al fallar una pregunta.
+   *
+   * Tres animaciones cortas y ninguna en bucle infinito salvo el parpadeo, que
+   * es lo que hace que un muñeco parezca vivo y no una pegatina. La regla de
+   * `prefers-reduced-motion` de abajo las apaga todas de golpe; no hace falta
+   * repetirla aquí.
+   */
+  @keyframes asomar {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes parpadeo {
+    0%,
+    92%,
+    100% {
+      transform: scaleY(1);
+    }
+    96% {
+      transform: scaleY(0.1);
+    }
+  }
+
+  @keyframes hablar {
+    0%,
+    100% {
+      transform: scaleY(0.55);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+
+  .animate-asomar {
+    animation: asomar 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  }
+
+  /* El origen lo pone el propio dibujo con `transform-origin`, porque las
+     coordenadas de los ojos y de la boca son suyas: aquí estaban el 28 y el 43
+     de un SVG que vive en features/, y moverlos allí deformaba la cara desde un
+     fichero que nadie mira. `will-change` fuerza la capa de composición, que en
+     un hijo de SVG no se crea sola y hacía repintar el dibujo entero. */
+  .animate-parpadeo {
+    animation: parpadeo 5.5s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .animate-hablar {
+    animation: hablar 260ms ease-in-out infinite;
+    will-change: transform;
   }
 
   /* Quien pide menos movimiento no recibe ninguno. */

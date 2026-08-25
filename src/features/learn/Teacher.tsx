@@ -7,6 +7,7 @@ import { noteName } from '@core/music';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { Chip } from '@ui/Chip';
 import { PlansLink, seArreglaConPlan } from '@ui/PlansLink';
 
 import {
@@ -27,6 +28,13 @@ const OPENERS: readonly string[] = [
 export interface TeacherProps {
   /** La lección que se está leyendo, para que responda en ese contexto. */
   readonly topic?: string;
+  /**
+   * Dentro del globo del muñeco: sin las preguntas de arranque.
+   *
+   * Ahí ocupan más que el propio formulario y sobran, porque quien abre el
+   * muñeco ya sabe lo que quiere preguntar: acaba de leer la lección.
+   */
+  readonly compact?: boolean;
 }
 
 /**
@@ -35,7 +43,7 @@ export interface TeacherProps {
  * Lo que viaja al modelo es la tonalidad, la escala y lo que escribas. El audio
  * y el vídeo no salen del equipo, y esta pantalla no los toca.
  */
-export function Teacher({ topic }: TeacherProps = {}) {
+export function Teacher({ topic, compact = false }: TeacherProps = {}) {
   const { account, signedIn, refresh } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
@@ -112,7 +120,7 @@ export function Teacher({ topic }: TeacherProps = {}) {
             maxLength={MAX_QUESTION_LENGTH}
             onChange={(event) => setQuestion(event.target.value)}
             placeholder="Pregunta lo que quieras de teoría"
-            className="border-border bg-background text-text placeholder:text-text-muted w-full border px-2 py-1.5 text-sm"
+            className="border-border bg-surface text-text placeholder:text-text-muted focus:border-brass-dim min-h-tap w-full rounded-md border px-3 text-sm transition-colors"
           />
         </label>
         <Button type="submit" disabled={asking || activeKey === null || question.trim() === ''}>
@@ -155,21 +163,21 @@ export function Teacher({ topic }: TeacherProps = {}) {
         </p>
       )}
 
-      {answer === null && message === null && !asking && (
+      {!compact && answer === null && message === null && !asking && (
         <ul className="flex flex-wrap gap-1">
           {OPENERS.map((opener) => (
             <li key={opener}>
-              <button
-                type="button"
+              <Chip
+                tone="quiet"
+                className="text-left text-xs"
+                disabled={activeKey === null}
                 onClick={() => {
                   setQuestion(opener);
                   void ask(opener);
                 }}
-                disabled={activeKey === null}
-                className="border-border text-text-muted hover:text-text border px-2 py-1 text-left text-xs disabled:opacity-40"
               >
                 {opener}
-              </button>
+              </Chip>
             </li>
           ))}
         </ul>

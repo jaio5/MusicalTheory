@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { can, cheapestPlanWith } from '@core/billing';
@@ -10,6 +9,7 @@ import { KeyPanel } from '@features/wheel';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { PlanLock } from '@ui/PlanLock';
+import { Screen, WorkHeader } from '@ui/Screen';
 
 /**
  * El repaso, en su propia pantalla.
@@ -26,9 +26,12 @@ export function ReviewScreen() {
 
   if (!can(account.plan, 'repaso')) {
     return (
-      <Marco>
-        <h1 className="text-text text-2xl">El repaso va con plan</h1>
-        <p className="text-text-muted mt-3 max-w-prose text-sm">
+      <Screen
+        title="El repaso va con plan"
+        back={{ href: '/aprender', label: 'Camino' }}
+        ancho="lectura"
+      >
+        <p className="text-text-muted max-w-prose text-sm">
           Lo que fallas se apunta de todas formas: el día que tengas plan, estará esperándote. Lo
           que hace el repaso es traerte esas preguntas de vuelta, generadas otra vez en la tonalidad
           en la que estés tocando.
@@ -40,7 +43,7 @@ export function ReviewScreen() {
             signedIn={signedIn}
           />
         </div>
-      </Marco>
+      </Screen>
     );
   }
 
@@ -63,18 +66,16 @@ export function ReviewScreen() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="border-border bg-surface flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b px-4 py-2">
-        <Link
-          href="/aprender"
-          className="text-text-muted hover:text-text shrink-0 font-mono text-sm"
-        >
-          ← Camino
-        </Link>
-        <h1 className="text-text grow text-lg">Repaso</h1>
-        <p className="text-text-muted shrink-0 font-mono text-xs">
-          {activeKey === null ? 'sin tonalidad' : keyName(activeKey.tonic, activeKey.mode)}
-        </p>
-      </header>
+      <WorkHeader
+        title="Repaso"
+        lead="Lo que fallaste, otra vez y en la tonalidad de hoy."
+        back={{ href: '/aprender', label: 'Camino' }}
+        actions={
+          <p className="text-text-muted font-mono text-xs">
+            {activeKey === null ? 'sin tonalidad' : keyName(activeKey.tonic, activeKey.mode)}
+          </p>
+        }
+      />
 
       {activeKey === null && (
         <div className="border-border flex shrink-0 flex-col items-center gap-2 border-b p-3">
@@ -96,19 +97,6 @@ export function ReviewScreen() {
             onLeave={() => router.push('/aprender')}
           />
         )}
-      </div>
-    </div>
-  );
-}
-
-function Marco({ children }: { readonly children: React.ReactNode }) {
-  return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto max-w-2xl p-4 md:p-8">
-        <Link href="/aprender" className="text-text-muted hover:text-text font-mono text-sm">
-          ← Camino
-        </Link>
-        <div className="mt-4">{children}</div>
       </div>
     </div>
   );

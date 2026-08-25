@@ -6,6 +6,7 @@ import { lessonNotes, type TheoryUnit as TheoryUnitDef } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 
 import { Question } from './Question';
+import { Tutor } from './Tutor';
 
 /**
  * Una unidad de teoría: lo que hay que saber y luego las preguntas, **de una en
@@ -38,6 +39,9 @@ export function TheoryUnit({
 
   const [at, setAt] = useState(0);
   const [failed, setFailed] = useState(false);
+  // Lo que el muñeco dice por su cuenta. Nulo mientras no haya nada que decir,
+  // que es casi siempre.
+  const [aviso, setAviso] = useState<string | null>(null);
 
   if (activeKey === null || notes === null) {
     return (
@@ -75,6 +79,9 @@ export function TheoryUnit({
               if (!correct) {
                 setFailed(true);
                 onMiss?.(at);
+                setAviso(
+                  'Esa no era. Si quieres te lo explico, y con los acordes que tienes puestos.',
+                );
               }
             }}
             onNext={() => {
@@ -87,6 +94,7 @@ export function TheoryUnit({
           />
         </div>
       )}
+      <Tutor topic={unit.title} aviso={aviso} onAvisoVisto={() => setAviso(null)} />
     </div>
   );
 }

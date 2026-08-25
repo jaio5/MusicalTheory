@@ -1,38 +1,117 @@
 /**
  * Tokens de diseño: la única fuente de verdad de la paleta y la tipografía.
  *
- * La idea es un amplificador de válvulas visto de noche: chasis de latón,
- * tapizado oxblood, resplandor verde de la válvula sobre negro cálido. Nada de
- * gradientes ni de verde ácido: el verde solo aparece como brillo pequeño.
+ * **Dos temas, y el negro es el de casa.** El oscuro es el de siempre —un
+ * amplificador de válvulas visto de noche: chasis de latón, tapizado oxblood y
+ * resplandor verde sobre negro cálido— y sale sin pedir nada. El claro —blanco,
+ * tres grises cálidos y un oro— se elige, para quien estudie de día.
  *
- * Estos valores están espejados como variables CSS en src/app/globals.css, que
- * es lo que consume Tailwind. Si cambias uno, cambia el otro.
+ * Los nombres no cambian entre temas, y eso es lo que hace que ningún componente
+ * sepa de esto: `brass` es «el acento», `oxblood` «lo que va mal» y `tube` «lo que
+ * va bien», valga lo que valga en cada tema.
+ *
+ * Están espejados como variables CSS en src/app/globals.css, que es lo que
+ * consume Tailwind, y un test comprueba que no se separan.
  */
 
-export const colors = {
-  /** Fondos, del más hondo al más cercano. */
+export interface Paleta {
+  readonly background: string;
+  readonly surface: string;
+  readonly surfaceRaised: string;
+  readonly border: string;
+  readonly text: string;
+  readonly textMuted: string;
+  readonly brass: string;
+  readonly brassBright: string;
+  readonly brassDim: string;
+  readonly oxblood: string;
+  readonly oxbloodBright: string;
+  readonly tube: string;
+  readonly tubeBright: string;
+}
+
+/**
+ * El tema claro, el que se ofrece: elegante por lo que **no** tiene.
+ *
+ * Un solo acento y tres grises. El oro es el mismo hilo del latón de antes, pero
+ * bajado a `#A16207`: es lo que hace falta para que un texto de acento llegue a
+ * 4,5:1 sobre blanco, y el dorado bonito de las paletas —`#D4AF37`— no lo cumple
+ * ni de lejos. Los grises son cálidos y no azules: sobre blanco puro, un gris
+ * azulado deja la pantalla con aire de hospital.
+ */
+export const paletaClara: Paleta = {
+  background: '#FFFFFF',
+  surface: '#FAFAF9',
+  surfaceRaised: '#F5F5F4',
+  border: '#E7E5E4',
+
+  text: '#1C1917',
+  textMuted: '#6B625C',
+
+  brass: '#A16207',
+  brassBright: '#854D0E',
+  brassDim: '#E2CFA4',
+
+  oxblood: '#B91C1C',
+  oxbloodBright: '#991B1B',
+
+  tube: '#15803D',
+  tubeBright: '#166534',
+};
+
+/** El tema oscuro: el amplificador de siempre, y el que sale por defecto. */
+export const paletaOscura: Paleta = {
   background: '#12100E',
   surface: '#1A1714',
   surfaceRaised: '#241F1A',
   border: '#332C25',
 
-  /** Texto sobre fondo oscuro. */
   text: '#EDE6DA',
   textMuted: '#A79C8C',
 
-  /** Latón: el color de marca, para bordes, títulos y elementos activos. */
   brass: '#B08D4F',
   brassBright: '#D8B76A',
   brassDim: '#6E5830',
 
-  /** Oxblood: acentos cálidos, estados de grabación y errores. */
   oxblood: '#6B1F24',
   oxbloodBright: '#8C2B31',
 
-  /** Verde tubo: solo para «esto está bien»: nota afinada, ejercicio superado. */
   tube: '#5C8A5A',
   tubeBright: '#7FB07C',
-} as const;
+};
+
+/**
+ * Cómo se llama cada token dentro del CSS.
+ *
+ * Las variables del CSS están en español —`--fondo`, `--laton`— y los tokens en
+ * inglés como el resto del código. La correspondencia se escribe una vez aquí, y
+ * es lo que permite que el test compare los dos temas sin adivinar nombres.
+ */
+export const VARIABLES_CSS: Readonly<Record<keyof Paleta, string>> = {
+  background: 'fondo',
+  surface: 'superficie',
+  surfaceRaised: 'superficie-alta',
+  border: 'borde',
+  text: 'texto',
+  textMuted: 'texto-suave',
+  brass: 'laton',
+  brassBright: 'laton-vivo',
+  brassDim: 'laton-suave',
+  oxblood: 'rojo',
+  oxbloodBright: 'rojo-vivo',
+  tube: 'verde',
+  tubeBright: 'verde-vivo',
+};
+
+/**
+ * Los colores del overlay de grabación.
+ *
+ * Son los del tema oscuro **siempre**, y no es un descuido: ese texto se dibuja
+ * encima del vídeo de la cámara, no encima de la aplicación. Sobre una imagen
+ * cualquiera, la letra clara con sombra se lee y la oscura desaparece en cuanto
+ * se toca una pared clara.
+ */
+export const colors = paletaOscura;
 
 export const fonts = {
   /** Serif de sistema para titulares. Sin descargas: arranca instantáneo. */
@@ -77,11 +156,26 @@ export const spacing = {
   xl: '2.5rem',
 } as const;
 
+/**
+ * Lo mínimo que puede medir algo que se pulsa.
+ *
+ * Estaba escrito como `min-h-tap` en catorce ficheros. No es una cifra de guía de
+ * estilo copiada de nadie: esta aplicación se usa con la guitarra puesta y sin
+ * mirar el botón, así que el dedo tiene que acertar a la primera. Vive aquí —y en
+ * `@theme` como `--spacing-tap`, que es lo que genera `min-h-tap`— para que
+ * subirlo sea cambiar un número y no buscar quince.
+ */
+export const tap = '2.75rem';
+
 export const radii = {
-  sm: '2px',
-  md: '4px',
-  /** El chasis no tiene esquinas muy redondeadas. */
-  lg: '8px',
+  sm: '3px',
+  md: '6px',
+  /**
+   * El chasis se suavizó un punto —de 8 a 12— al repasar la estética: con
+   * esquinas casi rectas, un tema oscuro se lee como un panel de administración
+   * de hace diez años. Doce sigue siendo un aparato y no una burbuja.
+   */
+  lg: '12px',
 } as const;
 
 /**

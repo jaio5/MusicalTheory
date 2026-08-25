@@ -3,6 +3,7 @@
 import { nearestString, semitonesFromString, TUNINGS, type TuningId } from '@core/instrument';
 import { noteName, type PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
+import { Field } from '@ui/Field';
 import { Panel } from '@ui/Panel';
 import { useSessionStore, type ListeningState } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
@@ -65,21 +66,18 @@ export function Tuner(deps: TunerProps = {}) {
 
       <div className="mt-4">
         {listening === 'listening' && devices.length > 1 && (
-          <label className="flex flex-wrap items-center gap-2">
-            <span className="text-text-muted text-sm">Entrada</span>
-            <select
-              className="border-border bg-background text-text rounded-md border px-3 py-2 text-sm"
-              value={deviceId}
-              onChange={(event) => void switchDevice(event.target.value)}
-            >
-              <option value="">La del sistema</option>
-              {devices.map((device) => (
-                <option key={device.deviceId} value={device.deviceId}>
-                  {device.label === '' ? 'Entrada sin nombre' : device.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Field
+            label="Entrada"
+            value={deviceId}
+            onChange={(event) => void switchDevice(event.target.value)}
+          >
+            <option value="">La del sistema</option>
+            {devices.map((device) => (
+              <option key={device.deviceId} value={device.deviceId}>
+                {device.label === '' ? 'Entrada sin nombre' : device.label}
+              </option>
+            ))}
+          </Field>
         )}
       </div>
 

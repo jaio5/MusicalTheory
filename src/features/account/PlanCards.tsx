@@ -13,6 +13,7 @@ import {
   type Plan,
 } from '@core/billing';
 import { useAccount } from '@state/account';
+import { estiloBoton } from '@ui/Button';
 
 /**
  * Los tres planes de pago, uno al lado del otro.
@@ -72,9 +73,7 @@ function PlanCard({
     <article
       aria-labelledby={`plan-${plan.id}`}
       aria-current={current}
-      className={`flex h-full flex-col border p-4 ${
-        current ? 'border-brass-bright bg-surface-raised' : 'border-border bg-surface'
-      }`}
+      className={`flex h-full flex-col p-5 ${current ? 'superficie-viva' : 'superficie'}`}
     >
       <header>
         <h3
@@ -121,10 +120,7 @@ function PlanCard({
         {current ? (
           <p className="text-brass-bright font-mono text-sm">Es el que tienes</p>
         ) : (
-          <Link
-            href={`/planes/${plan.id}`}
-            className="bg-brass text-background hover:bg-brass-bright inline-flex w-full items-center justify-center rounded-md px-5 py-2.5 text-base transition-colors"
-          >
+          <Link href={`/planes/${plan.id}`} className={estiloBoton('primary', 'w-full')}>
             Elegir {plan.name}
           </Link>
         )}

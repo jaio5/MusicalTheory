@@ -7,6 +7,8 @@ import { useEffect, type ReactNode } from 'react';
 import { AccountMenu } from '@features/account';
 import { MicButton } from '@features/workspace';
 import { useSessionStore } from '@state/session-store';
+import { IconoAfinar, IconoCamino, IconoComponer, IconoProfesor } from '@ui/icons';
+import { ThemeToggle } from '@ui/ThemeToggle';
 
 /**
  * Las pantallas, cada una en su dirección.
@@ -16,29 +18,34 @@ import { useSessionStore } from '@state/session-store';
  * —`/aprender/una-unidad`, `/aprender/repaso`, `/planes/pro`— también son direcciones
  * propias, así que el botón de atrás del navegador siempre significa lo que parece.
  */
-const SCREENS: ReadonlyArray<{ href: string; name: string; icon: string; summary: string }> = [
+const SCREENS: ReadonlyArray<{
+  href: string;
+  name: string;
+  Icono: () => React.ReactElement;
+  summary: string;
+}> = [
   {
     href: '/aprender',
     name: 'Aprender',
-    icon: '🗺️',
+    Icono: IconoCamino,
     summary: 'El camino: diez cursos, y empiezas por donde quieras.',
   },
   {
     href: '/profesor',
     name: 'Profesor',
-    icon: '💬',
+    Icono: IconoProfesor,
     summary: 'Pregunta teoría y te la explica con tus acordes.',
   },
   {
     href: '/componer',
     name: 'Componer',
-    icon: '🎛️',
+    Icono: IconoComponer,
     summary: 'Tonalidad, progresión, acordes y grabarte tocando.',
   },
   {
     href: '/afinar',
     name: 'Afinar',
-    icon: '🎚️',
+    Icono: IconoAfinar,
     summary: 'La afinación que elijas, cuerda a cuerda.',
   },
 ];
@@ -65,7 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="bg-background flex h-dvh flex-col overflow-hidden">
-      <header className="border-border bg-surface flex shrink-0 items-center gap-3 border-b px-3 py-1.5">
+      <header className="border-border bg-surface flex shrink-0 items-center gap-3 border-b px-3 py-1.5 shadow-[0_1px_0_rgba(0,0,0,0.5)]">
         {/* Reconocer acordes solo donde sirve: en componer. */}
         <MicButton chords={pathname === '/componer'} />
 
@@ -84,10 +91,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               href={screen.href}
               aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
               title={screen.summary}
-              className={`border px-3 py-1 font-mono text-xs ${
+              className={`rounded-md border px-3 py-1 font-mono text-xs transition-colors ${
                 isHere(pathname, screen.href)
-                  ? 'border-brass-bright text-brass-bright'
-                  : 'border-border text-text-muted hover:text-text'
+                  ? 'border-brass-dim bg-brass-dim/25 text-brass-bright'
+                  : 'text-text-muted hover:bg-surface-raised hover:text-text border-transparent'
               }`}
             >
               {screen.name}
@@ -95,6 +102,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
+        <ThemeToggle />
         <AccountMenu />
       </header>
 
@@ -112,12 +120,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             key={screen.href}
             href={screen.href}
             aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
-            className={`flex grow basis-0 flex-col items-center gap-0.5 py-2 font-mono text-xs ${
+            className={`flex grow basis-0 flex-col items-center gap-1 py-2 font-mono text-xs transition-colors ${
               isHere(pathname, screen.href) ? 'text-brass-bright' : 'text-text-muted'
             }`}
           >
-            <span aria-hidden="true" className="text-lg leading-none">
-              {screen.icon}
+            <span
+              aria-hidden="true"
+              className={`flex min-h-7 items-center rounded-full px-4 transition-colors ${
+                isHere(pathname, screen.href) ? 'bg-brass-dim/25' : ''
+              }`}
+            >
+              <screen.Icono />
             </span>
             {screen.name}
           </Link>

@@ -47,7 +47,7 @@ export function StartPicker({
               return (
                 <option key={course.id} value={course.id} disabled={!incluido}>
                   {course.year}º · {course.title}
-                  {incluido ? '' : ' 🔑'}
+                  {incluido ? '' : ' · va con plan'}
                 </option>
               );
             })}

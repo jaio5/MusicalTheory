@@ -3,6 +3,7 @@
 import { keyName, NOTE_NAMES, pitchClassFromName, noteName } from '@core/music';
 import { selectActiveKey, useSessionStore, type SessionKey } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { Field } from '@ui/Field';
 import { Panel } from '@ui/Panel';
 
 import { WheelOfFifths } from './WheelOfFifths';
@@ -66,10 +67,9 @@ export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
                 : `Fijada a mano: ${keyName(activeKey.tonic, activeKey.mode)}.`}
           </p>
 
-          <label className="mt-4 block">
-            <span className="text-text-muted text-sm">Tonalidad</span>
-            <select
-              className="border-border bg-background text-text mt-1 w-full rounded-md border px-3 py-2"
+          <div className="mt-4">
+            <Field
+              label="Tonalidad"
               value={pinnedKey === null ? AUTOMATIC : keyValue(pinnedKey)}
               onChange={(event) => {
                 const parsed = parseKeyValue(event.target.value);
@@ -94,8 +94,8 @@ export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
                   </optgroup>
                 );
               })}
-            </select>
-          </label>
+            </Field>
+          </div>
 
           {pinnedKey !== null && (
             <Button variant="quiet" className="mt-3" onClick={() => actions.followDetection()}>

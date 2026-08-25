@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { authAvailable } from '@server/auth';
 import { currentAccount } from '@server/entitlements';
 import { AccountProvider } from '@state/account';
+import { GUION_TEMA } from '@state/theme';
 
 import './globals.css';
 
@@ -46,7 +47,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const account = await currentAccount();
 
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        {/*
+          El tema elegido, aplicado **antes de pintar**. Sin esto el navegador
+          pinta el HTML con el tema por defecto y React lo cambia al arrancar: en
+          una aplicación clara, quien había elegido oscuro se come un fogonazo
+          blanco en cada carga.
+
+          `suppressHydrationWarning` en el `<html>` porque este guion le toca el
+          atributo antes de que React compare lo que hay con lo que esperaba.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: GUION_TEMA }} />
+      </head>
       <body className="antialiased">
         <AccountProvider account={account} accounts={authAvailable()}>
           {children}

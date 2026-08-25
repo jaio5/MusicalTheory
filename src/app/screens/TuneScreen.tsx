@@ -1,6 +1,7 @@
 'use client';
 
 import { Tuner, TuningPicker } from '@features/tuner';
+import { WorkHeader } from '@ui/Screen';
 
 /**
  * Afinar y nada más: eliges la afinación y afinas cuerda a cuerda.
@@ -10,9 +11,12 @@ import { Tuner, TuningPicker } from '@features/tuner';
  */
 export function TuneScreen() {
   return (
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col justify-center gap-8 overflow-y-auto p-6">
-      <TuningPicker />
-      <Tuner />
+    <div className="flex h-full min-h-0 flex-col">
+      <WorkHeader title="Afinar" lead="Cuerda a cuerda, con la afinación que elijas." />
+      <div className="mx-auto flex w-full max-w-4xl grow flex-col justify-center gap-8 overflow-y-auto p-6">
+        <TuningPicker />
+        <Tuner />
+      </div>
     </div>
   );
 }

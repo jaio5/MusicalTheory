@@ -251,7 +251,10 @@ export function NextChords() {
   }, [activeKey, styleId, playedNotes, current]);
 
   return (
-    <div className="flex h-full flex-col">
+    // El alto lo pide solo en pantalla ancha, que es donde vive en una columna
+    // con altura propia. Apilado en el móvil, `h-full` dentro de una fila que se
+    // mide por su contenido deja un hueco vacío por el que se puede desplazar.
+    <div className="flex flex-col lg:h-full">
       <div className="border-border border-b p-2">
         <ChordSearch onPick={(chord) => actions.pushChord(fromSearch(chord))} />
       </div>

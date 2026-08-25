@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { can, monthlyAiRequests, planOf, priceLabel, type Plan } from '@core/billing';
 import { changePlan, useAccount } from '@state/account';
-import { Button } from '@ui/Button';
+import { Button, estiloBoton } from '@ui/Button';
 
 import { AccessForm } from './AccessForm';
 import { ETIQUETAS } from './PlanCards';
@@ -77,16 +77,10 @@ export function Checkout({ plan }: { readonly plan: Plan }) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href="/aprender"
-            className="bg-brass text-background hover:bg-brass-bright inline-flex items-center justify-center rounded-md px-5 py-2.5 text-base"
-          >
+          <Link href="/aprender" className={estiloBoton('primary')}>
             Ir al camino
           </Link>
-          <Link
-            href="/cuenta"
-            className="border-border text-text hover:border-brass-dim inline-flex items-center justify-center rounded-md border px-5 py-2.5 text-base"
-          >
+          <Link href="/cuenta" className={estiloBoton('quiet')}>
             Ver mi cuenta
           </Link>
         </div>

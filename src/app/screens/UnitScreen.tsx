@@ -10,6 +10,8 @@ import { KeyPanel } from '@features/wheel';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { PlanLock } from '@ui/PlanLock';
+import { Disclosure } from '@ui/Disclosure';
+import { Screen, WorkHeader } from '@ui/Screen';
 
 /**
  * Una unidad, a pantalla completa y con su propia dirección.
@@ -92,43 +94,36 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="border-border bg-surface flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-2">
-        <Link
-          href="/aprender"
-          className="text-text-muted hover:text-text shrink-0 font-mono text-sm"
-          aria-label="Volver al camino"
-        >
-          ← Camino
-        </Link>
-        <div className="min-w-0 grow">
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            {found.course.year}º de{' '}
-            {found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'}
-            {' · '}
-            {found.course.title}
-          </p>
-          <h1 className="text-text truncate text-lg">{found.unit.title}</h1>
-        </div>
-        <p className="text-text-muted shrink-0 font-mono text-xs">{found.unit.xp} XP</p>
-      </header>
+      <WorkHeader
+        title={found.unit.title}
+        lead={`${found.course.year}º de ${
+          found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'
+        } · ${found.course.title}`}
+        back={{ href: '/aprender', label: 'Camino' }}
+        actions={<p className="text-text-muted font-mono text-xs">{found.unit.xp} XP</p>}
+      />
 
       {/* La tonalidad, en una barra que se abre. Cerrada ocupa una línea y dice en
           qué tonalidad estás, que es lo único que hay que saber mientras contestas. */}
-      <details className="border-border bg-surface shrink-0 border-b">
-        <summary className="text-text-muted hover:text-text cursor-pointer px-4 py-1.5 font-mono text-xs">
-          Tonalidad:{' '}
-          <span className="text-brass-bright">
-            {activeKey === null ? 'sin elegir' : keyName(activeKey.tonic, activeKey.mode)}
-          </span>
-        </summary>
-        <div className="flex flex-col items-center gap-2 px-4 pt-2 pb-4">
+      <Disclosure
+        className="border-border bg-surface shrink-0 border-b px-4"
+        summary={
+          <>
+            Tonalidad:{' '}
+            <span className="text-brass-bright">
+              {activeKey === null ? 'sin elegir' : keyName(activeKey.tonic, activeKey.mode)}
+            </span>
+          </>
+        }
+      >
+        <div className="flex flex-col items-center gap-2 pt-2 pb-4">
           <KeyPanel compact />
           <p className="text-text-muted max-w-prose text-center text-xs">
             Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
             preguntas hablan de otros acordes.
           </p>
         </div>
-      </details>
+      </Disclosure>
 
       <div className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto">
         {found.unit.kind === 'theory' ? (
@@ -147,7 +142,12 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   );
 }
 
-/** El marco de las pantallas que solo explican algo y ofrecen volver. */
+/**
+ * El marco de esta pantalla es el de todas —`ui/Screen`—, con la vuelta al camino
+ * arriba. Antes era un componente local, y el repaso tenía otro casi igual: dos
+ * copias del mismo marco que ya se habían separado en el ancho y en el hueco bajo
+ * el título.
+ */
 function Marco({
   titulo,
   children,
@@ -156,15 +156,9 @@ function Marco({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto max-w-2xl p-4 md:p-8">
-        <Link href="/aprender" className="text-text-muted hover:text-text font-mono text-sm">
-          ← Camino
-        </Link>
-        <h1 className="text-text mt-4 text-2xl">{titulo}</h1>
-        <div className="mt-3">{children}</div>
-      </div>
-    </div>
+    <Screen title={titulo} back={{ href: '/aprender', label: 'Camino' }} ancho="lectura">
+      {children}
+    </Screen>
   );
 }
 

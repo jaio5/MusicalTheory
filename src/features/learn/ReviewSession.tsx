@@ -14,6 +14,7 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 
 import { Question } from './Question';
+import { Tutor } from './Tutor';
 
 /**
  * El repaso: lo que fallaste, otra vez.
@@ -51,6 +52,8 @@ export function ReviewSession({
   // ni final ni cuenta: se contestaría una, la lista se acortaría y no habría
   // forma de saber cuántas quedan.
   const [items] = useState<readonly ReviewItem[]>(() => dueReview(progress.review, day));
+  // Lo que el muñeco dice por su cuenta. Nulo mientras no haya nada que decir.
+  const [aviso, setAviso] = useState<string | null>(null);
   const [at, setAt] = useState(0);
   const [fallos, setFallos] = useState(0);
 
@@ -119,10 +122,11 @@ export function ReviewSession({
           onAnswered={(correct) => {
             if (correct) {
               onHit(actual.item.unitId, actual.item.index);
-            } else {
-              setFallos((current) => current + 1);
-              onMiss(actual.item.unitId, actual.item.index);
+              return;
             }
+            setFallos((current) => current + 1);
+            onMiss(actual.item.unitId, actual.item.index);
+            setAviso('Otra vez esa. Pregúntame y lo vemos con los acordes de hoy.');
           }}
           onNext={() => {
             if (last) {
@@ -135,6 +139,11 @@ export function ReviewSession({
           }}
         />
       </div>
+      <Tutor
+        topic={findUnit(actual.item.unitId)?.unit.title}
+        aviso={aviso}
+        onAvisoVisto={() => setAviso(null)}
+      />
     </div>
   );
 }

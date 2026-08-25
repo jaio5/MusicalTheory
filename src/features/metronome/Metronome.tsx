@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Chip } from '@ui/Chip';
+import { Field } from '@ui/Field';
 
 import { WebAudioMetronome, type Metronome as MetronomeEngine } from '@audio/metronome';
 import {
@@ -85,7 +87,7 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
           onClick={() => void toggle()}
           aria-pressed={running}
           aria-label={running ? 'Parar el metrónomo' : 'Poner el metrónomo'}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
+          className={`size-tap flex shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
             running
               ? 'border-brass-bright text-brass-bright'
               : 'border-border text-text-muted hover:border-brass'
@@ -96,7 +98,7 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
           </span>
         </button>
 
-        <label className="flex items-baseline gap-1">
+        <label className="flex items-center gap-1">
           <span className="sr-only">Pulsos por minuto</span>
           <input
             type="number"
@@ -105,60 +107,45 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
             max={MAX_BPM}
             value={bpm}
             onChange={(event) => change(Number(event.target.value))}
-            className="border-border bg-background text-text w-16 border px-2 py-1 text-center font-mono text-lg tabular-nums"
+            className="border-border bg-surface text-text focus:border-brass-dim min-h-tap w-16 rounded-md border px-2 text-center font-mono text-lg tabular-nums"
           />
           <span className="text-text-muted font-mono text-xs">bpm</span>
         </label>
 
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => change(bpm - 2)}
-            aria-label="Dos pulsos menos"
-            className="border-border text-text-muted hover:text-text border px-2 py-1 font-mono text-xs"
-          >
+          <Chip onClick={() => change(bpm - 2)} ariaLabel="Dos pulsos menos" tone="quiet">
             −
-          </button>
-          <button
-            type="button"
-            onClick={() => change(bpm + 2)}
-            aria-label="Dos pulsos más"
-            className="border-border text-text-muted hover:text-text border px-2 py-1 font-mono text-xs"
-          >
+          </Chip>
+          <Chip onClick={() => change(bpm + 2)} ariaLabel="Dos pulsos más" tone="quiet">
             +
-          </button>
+          </Chip>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={tap}
-          className="border-border text-text-muted hover:text-text border px-2 py-1 font-mono text-xs"
-        >
+      <div className="hidden items-center gap-2 sm:flex">
+        <Chip onClick={tap} tone="quiet">
           Marcar
-        </button>
+        </Chip>
 
-        <label className="flex items-center gap-1">
-          <span className="text-text-muted font-mono text-xs">Compás</span>
-          <select
-            value={beatsPerBar}
-            onChange={(event) => {
-              const value = Number(event.target.value);
-              setBeatsPerBar(value);
-              if (running) {
-                void engine().start({ bpm, beatsPerBar: value, onBeat: setBeat });
-              }
-            }}
-            className="border-border bg-background text-text border px-1 py-1 font-mono text-xs"
-          >
-            {BEATS_PER_BAR.map((beats) => (
-              <option key={beats} value={beats}>
-                {beats}
-              </option>
-            ))}
-          </select>
-        </label>
+        <Field
+          label="Compás"
+          ancho="auto"
+          className="pr-8 pl-2 font-mono"
+          value={beatsPerBar}
+          onChange={(event) => {
+            const value = Number(event.target.value);
+            setBeatsPerBar(value);
+            if (running) {
+              void engine().start({ bpm, beatsPerBar: value, onBeat: setBeat });
+            }
+          }}
+        >
+          {BEATS_PER_BAR.map((beats) => (
+            <option key={beats} value={beats}>
+              {beats}
+            </option>
+          ))}
+        </Field>
 
         {/* La luz del pulso: quien toca con auriculares puestos o con el ampli
             alto necesita verlo además de oírlo. */}

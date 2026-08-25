@@ -11,6 +11,7 @@ import {
   type ChordSuggestion,
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { Disclosure } from '@ui/Disclosure';
 import { Panel } from '@ui/Panel';
 
 /** Cómo de lejos queda cada familia de lo evidente. */
@@ -91,10 +92,7 @@ export function SuggestPanel() {
         ))}
       </ul>
 
-      <details className="mt-4">
-        <summary className="text-text-muted cursor-pointer text-xs">
-          Qué se puede hacer en {style.name.toLowerCase()}
-        </summary>
+      <Disclosure className="mt-4" summary={`Qué se puede hacer en ${style.name.toLowerCase()}`}>
         <ul className="text-text-muted mt-2 space-y-1 text-xs">
           {style.tips.map((tip) => (
             <li key={tip} className="border-brass-dim border-l pl-3">
@@ -102,7 +100,7 @@ export function SuggestPanel() {
             </li>
           ))}
         </ul>
-      </details>
+      </Disclosure>
     </Panel>
   );
 }

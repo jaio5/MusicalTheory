@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import type { Exercise } from '@core/music';
 import { Button } from '@ui/Button';
+import { Chip } from '@ui/Chip';
 
 /**
  * Una pregunta con sus opciones y su porqué.
@@ -75,22 +76,15 @@ export function Question({
         {exercise.choices.map((choice) => {
           const picked = chosen === choice.text;
           return (
-            <button
+            <Chip
               key={choice.text}
-              type="button"
               onClick={() => answer(choice.text)}
-              aria-pressed={picked}
+              pressed={picked}
               disabled={answered}
-              className={`border px-3 py-1.5 font-mono text-sm disabled:cursor-default ${
-                answered && choice.correct
-                  ? 'border-tube-bright text-tube-bright'
-                  : picked
-                    ? 'border-oxblood-bright text-oxblood-bright'
-                    : 'border-border text-text-muted enabled:hover:text-text'
-              }`}
+              tone={answered && choice.correct ? 'acierto' : picked ? 'fallo' : 'quiet'}
             >
               {choice.text}
-            </button>
+            </Chip>
           );
         })}
       </div>

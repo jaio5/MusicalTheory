@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { keyName, noteName } from '@core/music';
+import { Chip } from '@ui/Chip';
 import { BrowserCameraInput } from '@media/browser-camera-input';
 import type { CameraInput } from '@media/camera-input';
 import { CanvasSessionRecorder } from '@media/canvas-session-recorder';
@@ -170,7 +171,19 @@ export function RecordStage({ children, createCamera, createRecorder }: RecordSt
           blanca— y nunca sale bien. Con él se te sigue viendo y se lee todo. */}
       {live && <div aria-hidden="true" data-velo className="fixed inset-0 -z-10 bg-black/55" />}
 
-      <div className="border-border flex shrink-0 items-center gap-3 border-b px-3 py-1.5">
+      {/*
+        La barra de grabar **no sale en el móvil**.
+
+        No es que estorbe un poco: en una pantalla estrecha, componer ya venía
+        apretado —metrónomo, rueda, acorde, formas, a dónde ir y las herramientas,
+        todo en una columna— y esta fila se llevaba otro renglón para algo que casi
+        nadie hace con el móvil en la mano. Grabarse tocando pide un trípode y una
+        pantalla grande; con el teléfono se viene a mirar los acordes.
+
+        Se oculta la barra, no la función: en cuanto hay ancho vuelve entera, y la
+        cámara no se pide nunca desde aquí porque el botón que la pide no existe.
+      */}
+      <div className="border-border hidden shrink-0 items-center gap-3 border-b px-3 py-1.5 sm:flex">
         <button
           type="button"
           onClick={() => void (live ? stop() : start())}
@@ -197,13 +210,9 @@ export function RecordStage({ children, createCamera, createRecorder }: RecordSt
         </span>
 
         {recording !== null && phase === 'done' && (
-          <button
-            type="button"
-            onClick={download}
-            className="border-border text-text-muted hover:text-text ml-auto border px-2 py-1 text-xs"
-          >
+          <Chip onClick={download} tone="quiet" className="ml-auto text-xs">
             Descargar el vídeo
-          </button>
+          </Chip>
         )}
       </div>
 
