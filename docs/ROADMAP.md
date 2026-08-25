@@ -702,18 +702,30 @@ hechos; los dos que faltan no son código, o no solo.
       cuentas. Lo probado es lo puro: la firma del webhook, el formulario de borrado y
       la aritmética.
 
-### Fase 20 — Semilla multiinstrumento · pendiente
+### Fase 20 — Semilla multiinstrumento · hecha, y más pequeña de lo previsto
 
 Que esto valga para más instrumentos está pensado desde el principio, y por eso
-mismo no se construye todavía.
+mismo no se construye todavía. Lo que ha cambiado esta fase es **por qué**.
 
-- [ ] Un descriptor `Instrument` en `core/instrument/` del que cuelguen
-      afinaciones, formas y mástil.
-- [ ] Quitar «guitarra» de los textos donde no toca.
-- [ ] Su ADR, con la alternativa descartada: generalizar ahora.
-
-**Sin construir el segundo instrumento.** Abstraer antes de tener dos casos
-reales es cómo se acaba con una abstracción que no encaja con ninguno de los dos.
+- [x] **Se ha medido en vez de suponer.** Solo seis ficheros de `src/` conocen la
+      guitarra de verdad: los tres de `core/instrument` y el mástil, el afinador y
+      el selector de afinación. Todo lo demás —la teoría entera, el camino, la
+      detección, las tres rutas de IA, las versiones, los planes, las cuentas y las
+      canciones— **ya es agnóstico**, no por previsión sino porque la regla de capas
+      obligó a que `core/music` no supiera de mástiles.
+- [x] **Una línea que mentía, corregida.** `GuitarString.number` era
+      `1 | 2 | 3 | 4 | 5 | 6`, y ese tipo decía que aquí solo caben seis cuerdas
+      cuando `fretboardPositions`, `nearestString` y el buscador de formas siempre
+      recorrieron la afinación que se les pasara. La numeración sale ahora de cuántas
+      cuerdas hay, con su test: con seis da 6-5-4-3-2-1 y con cuatro daría 4-3-2-1.
+- [x] **No se ha escrito el descriptor `Instrument`.** Con seis ficheros acoplados y
+      el resto ya agnóstico, no desbloquea nada y sí añadiría una interfaz que habría
+      que cambiar en cuanto llegue el primero que no tenga trastes. El porqué y las
+      tres alternativas descartadas —incluida escribirlo, que es lo que decía el plan
+      antes de medir— están en
+      [adr/0012](./adr/0012-un-instrumento-por-ahora.md).
+- [x] Los textos siguen diciendo «guitarra» donde lo dicen. Hoy la aplicación es de
+      guitarra, y «tu instrumento» sería más vago y menos cierto.
 
 ### El orden, y cuándo cambiarlo
 

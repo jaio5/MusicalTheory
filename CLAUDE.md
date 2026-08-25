@@ -126,11 +126,11 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                    |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Los once: dominio puro, tono propio, análisis en el hilo principal,
+descartadas. Los doce: dominio puro, tono propio, análisis en el hilo principal,
 acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, punto de
 partida con una pantalla por cosa, cupos calculados desde el precio, un solo marco
-de pantalla, los dos temas con el negro de casa, y las versiones verificadas contra
-el dominio sin que suba audio.
+de pantalla, los dos temas con el negro de casa, las versiones verificadas contra
+el dominio sin que suba audio, y un instrumento por ahora con el mapa del segundo.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

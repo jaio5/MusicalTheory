@@ -9,8 +9,16 @@
 import { midiToFrequency, midiToPitchClass, type PitchClass } from '../music/notes';
 
 export interface GuitarString {
-  /** Numeración de guitarrista: la 1 es la más aguda. */
-  readonly number: 1 | 2 | 3 | 4 | 5 | 6;
+  /**
+   * Numeración de guitarrista: la 1 es la más aguda.
+   *
+   * Un número y no `1 | 2 | 3 | 4 | 5 | 6`. El tipo estrecho decía que aquí solo
+   * caben seis cuerdas, y era mentira: `fretboardPositions`, `voicings` y
+   * `nearestString` recorren la afinación que se les pase y funcionan igual con
+   * cuatro o con siete. Lo único que hacía era impedir que un bajo o un ukelele
+   * entraran por la puerta que ya estaba abierta.
+   */
+  readonly number: number;
   /** Nota al aire, como número MIDI. */
   readonly midi: number;
   /** Nombre en español, tal como se dice al afinar. */

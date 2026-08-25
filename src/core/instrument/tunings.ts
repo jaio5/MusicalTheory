@@ -29,16 +29,20 @@ export interface Tuning {
    * suena exactamente igual— no la reconoce nadie.
    */
   readonly accidental: Accidental;
-  /** Las seis cuerdas, de la sexta a la primera. */
+  /** Las cuerdas, de la más grave a la más aguda. Hoy son seis siempre. */
   readonly strings: readonly GuitarString[];
 }
 
-const NUMBERS: readonly GuitarString['number'][] = [6, 5, 4, 3, 2, 1];
-
 /**
- * Convierte seis notas MIDI en cuerdas con nombre. Las dos Es de la afinación
- * estándar se distinguen por grave y aguda, porque decir «E» dos veces al
- * afinar no ayuda a nadie.
+ * Convierte unas notas MIDI en cuerdas con nombre.
+ *
+ * La numeración sale de cuántas hay y no de una lista escrita: la primera de la
+ * lista es la más grave y se numera con el total, y de ahí hacia abajo. Con seis
+ * da 6, 5, 4, 3, 2, 1, que es lo que había escrito a mano; con cuatro daría 4, 3,
+ * 2, 1, que es lo que quiere un bajo.
+ *
+ * Las dos Es de la afinación estándar se distinguen por grave y aguda, porque
+ * decir «E» dos veces al afinar no ayuda a nadie.
  */
 function stringsFrom(
   midis: readonly number[],
@@ -49,7 +53,7 @@ function stringsFrom(
     const name = names[index]!;
     const repeated = names.filter((other) => other === name).length > 1;
     const suffix = repeated ? (names.indexOf(name) === index ? ' grave' : ' agudo') : '';
-    return { number: NUMBERS[index]!, midi, label: `${name}${suffix}` };
+    return { number: midis.length - index, midi, label: `${name}${suffix}` };
   });
 }
 

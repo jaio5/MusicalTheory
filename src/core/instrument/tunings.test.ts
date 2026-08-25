@@ -115,3 +115,28 @@ describe('Afinaciones', () => {
     expect(semitonesFromString(36, string)).toBe(0);
   });
 });
+
+describe('la numeración de las cuerdas', () => {
+  it('la más grave lleva el número más alto, y la aguda el 1', () => {
+    const estandar = TUNINGS.standard.strings;
+
+    expect(estandar.map((cuerda) => cuerda.number)).toEqual([6, 5, 4, 3, 2, 1]);
+  });
+
+  it('todas las afinaciones numeran igual', () => {
+    for (const id of TUNING_IDS) {
+      expect(TUNINGS[id].strings.map((cuerda) => cuerda.number)).toEqual([6, 5, 4, 3, 2, 1]);
+    }
+  });
+
+  it('la numeración sale de cuántas cuerdas hay, no de una lista de seis', () => {
+    // Hoy todas las afinaciones son de guitarra, pero el tipo ya no dice que
+    // aquí solo caben seis: los algoritmos del mástil nunca lo asumieron.
+    // Ver [adr/0012](../../../docs/adr/0012-un-instrumento-por-ahora.md).
+    for (const id of TUNING_IDS) {
+      const cuerdas = TUNINGS[id].strings;
+      expect(cuerdas[0]?.number).toBe(cuerdas.length);
+      expect(cuerdas.at(-1)?.number).toBe(1);
+    }
+  });
+});
