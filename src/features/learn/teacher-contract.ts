@@ -19,6 +19,7 @@ import {
   type NoteName,
   type ScaleId,
 } from '@core/music';
+import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
 import { isRecord } from '@core/parse';
 import { pitchClassFromName } from '@core/music';
 import { MAX_QUESTION_LENGTH } from '@core/billing';
@@ -50,23 +51,17 @@ export interface TeacherAnswer {
   };
 }
 
-export type TeacherErrorCode =
-  | 'invalid_request'
-  | 'rate_limited'
-  | 'model_unavailable'
-  | 'unparseable_response'
-  /** Sin cuenta no hay a quién contarle el gasto de la IA. */
-  | 'account_required'
-  /** El plan no incluye preguntar. La ruta añade con cuál sí. */
-  | 'plan_required'
-  /** El plan lo incluye, pero hoy ya se gastó el cupo de llamadas al modelo. */
-  | 'quota_exhausted';
+/**
+ * Los siete códigos, compartidos con las otras dos rutas de IA.
+ *
+ * Alias y no una copia: estaban declarados tres veces idénticos, y el día que
+ * haga falta uno nuevo se añade en `core/ai-errors.ts` y lo tienen las tres.
+ */
+export type TeacherErrorCode = AiErrorCode;
 
-export interface TeacherError {
-  readonly error: { readonly code: TeacherErrorCode; readonly message: string };
-}
+export type TeacherError = AiError;
 
-export const TEACHER_ERROR_MESSAGES: Readonly<Record<TeacherErrorCode, string>> = {
+export const TEACHER_ERROR_MESSAGES: Readonly<Record<AiErrorCode, string>> = {
   invalid_request:
     'Falta la tonalidad o la pregunta. Elige una tonalidad, escribe qué quieres saber y vuelve a probar.',
   rate_limited: 'Has preguntado muchas veces seguidas. Espera un momento y vuelve a intentarlo.',
@@ -82,7 +77,7 @@ export const TEACHER_ERROR_MESSAGES: Readonly<Record<TeacherErrorCode, string>> 
 };
 
 export function teacherError(code: TeacherErrorCode, message?: string): TeacherError {
-  return { error: { code, message: message ?? TEACHER_ERROR_MESSAGES[code] } };
+  return aiError(code, TEACHER_ERROR_MESSAGES, message);
 }
 
 /**

@@ -30,6 +30,7 @@ import {
   type NoteName,
   type PitchClass,
 } from '@core/music';
+import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
 import { isRecord } from '@core/parse';
 
 /**
@@ -77,20 +78,17 @@ export interface VersionsResponse {
   readonly versions: readonly Version[];
 }
 
-export type VersionsErrorCode =
-  | 'invalid_request'
-  | 'rate_limited'
-  | 'model_unavailable'
-  | 'unparseable_response'
-  | 'account_required'
-  | 'plan_required'
-  | 'quota_exhausted';
+/**
+ * Los siete códigos, compartidos con las otras dos rutas de IA.
+ *
+ * Alias y no una copia: estaban declarados tres veces idénticos, y el día que
+ * haga falta uno nuevo se añade en `core/ai-errors.ts` y lo tienen las tres.
+ */
+export type VersionsErrorCode = AiErrorCode;
 
-export interface VersionsError {
-  readonly error: { readonly code: VersionsErrorCode; readonly message: string };
-}
+export type VersionsError = AiError;
 
-export const ERROR_MESSAGES: Readonly<Record<VersionsErrorCode, string>> = {
+export const ERROR_MESSAGES: Readonly<Record<AiErrorCode, string>> = {
   invalid_request:
     'Nos falta la progresión. Toca unos compases o abre una canción guardada y vuelve a pedirlo.',
   rate_limited: 'Has pedido muchas versiones seguidas. Espera un momento y vuelve a intentarlo.',
@@ -108,7 +106,7 @@ export const ERROR_MESSAGES: Readonly<Record<VersionsErrorCode, string>> = {
 };
 
 export function versionsError(code: VersionsErrorCode, message?: string): VersionsError {
-  return { error: { code, message: message ?? ERROR_MESSAGES[code] } };
+  return aiError(code, ERROR_MESSAGES, message);
 }
 
 /** Pulsos: entero, al menos uno y con un tope, porque también son tokens. */

@@ -21,6 +21,7 @@ import {
   type PitchClass,
   type ScaleId,
 } from '@core/music';
+import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
 import { isRecord } from '@core/parse';
 
 export const IDEA_KINDS = ['progression', 'twist', 'scale'] as const;
@@ -57,24 +58,18 @@ export interface IdeasResponse {
   readonly ideas: readonly Idea[];
 }
 
-export type IdeasErrorCode =
-  | 'invalid_request'
-  | 'rate_limited'
-  | 'model_unavailable'
-  | 'unparseable_response'
-  /** Sin cuenta no hay a quién contarle el gasto de la IA. */
-  | 'account_required'
-  /** El plan no incluye las ideas. La ruta añade con cuál sí. */
-  | 'plan_required'
-  /** El plan las incluye, pero hoy ya se gastó el cupo de llamadas al modelo. */
-  | 'quota_exhausted';
+/**
+ * Los siete códigos, compartidos con las otras dos rutas de IA.
+ *
+ * Alias y no una copia: estaban declarados tres veces idénticos, y el día que
+ * haga falta uno nuevo se añade en `core/ai-errors.ts` y lo tienen las tres.
+ */
+export type IdeasErrorCode = AiErrorCode;
 
-export interface IdeasError {
-  readonly error: { readonly code: IdeasErrorCode; readonly message: string };
-}
+export type IdeasError = AiError;
 
 /** Mensajes en español: qué ha pasado y qué hacer. */
-export const ERROR_MESSAGES: Readonly<Record<IdeasErrorCode, string>> = {
+export const ERROR_MESSAGES: Readonly<Record<AiErrorCode, string>> = {
   invalid_request:
     'Falta la tonalidad. Toca unos compases para que podamos detectarla y vuelve a pedirlo.',
   rate_limited: 'Has pedido muchas ideas seguidas. Espera un momento y vuelve a intentarlo.',
@@ -90,7 +85,7 @@ export const ERROR_MESSAGES: Readonly<Record<IdeasErrorCode, string>> = {
 };
 
 export function ideasError(code: IdeasErrorCode, message?: string): IdeasError {
-  return { error: { code, message: message ?? ERROR_MESSAGES[code] } };
+  return aiError(code, ERROR_MESSAGES, message);
 }
 
 /**
