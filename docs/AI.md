@@ -176,6 +176,25 @@ const response = await client.messages.create({
 - **Prompt de sistema**: fija el criterio —rock, no coral—, exige español, y
   prohíbe explicar teoría que no se haya pedido.
 
+## Sin clave: contesta el dominio
+
+Fuera de producción, sin `ANTHROPIC_API_KEY`, las tres rutas contestan con
+`server/fake-model.ts` en vez de fallar. Es el tercer puerto con la misma forma
+que el cobrador que no cobra y el correo que no manda, y por la misma razón: sin
+él, media aplicación no se puede probar sin dar de alta un servicio y empezar a
+pagar por tokens.
+
+**Lo que devuelve sale del dominio.** Las versiones se construyen aplicando
+movimientos de verdad de `core/music/reharmonization.ts` a la progresión que se
+manda, así que pasan la misma verificación que pasaría una respuesta del modelo.
+Eso permite probar la pantalla, la reproducción y «ponerla en el camino» sin
+gastar un céntimo.
+
+Lo que **no** prueba: si el modelo de verdad devuelve versiones que valgan la
+pena. Eso no lo puede decir nada que no sea el modelo. Por eso todo lo que sale de
+ahí lo lleva escrito en su propio texto —en pantalla se lee «Sin IA»— y en
+producción sin clave se sigue contestando 503.
+
 ## Antes de las puertas: ¿hay clave?
 
 Las tres rutas comprueban `ANTHROPIC_API_KEY` **antes de tocar el cupo**, y
