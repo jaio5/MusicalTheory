@@ -1,4 +1,6 @@
 import { createHmac } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -124,5 +126,40 @@ describe('verifyStripeSignature', () => {
     expect(
       verifyStripeSignature({ body: BODY, header: `t=${NOW},v1=aabb`, secret: SECRET, now: NOW }),
     ).toBe('no-cuadra');
+  });
+});
+
+describe('qué se le contesta a Stripe', () => {
+  /**
+   * **Stripe reintenta todo lo que no contesta 2xx**, así que el estado del
+   * webhook no es decoración: decide si ese evento vuelve mañana, y pasado, y
+   * durante días.
+   *
+   * Solo se pide reintento cuando reintentar puede arreglarlo. Una cuenta que ya
+   * no está no se arregla nunca, y devolvía 500: se vio al ejecutar el webhook
+   * por primera vez contra Postgres. Esto lee la ruta y comprueba que los tres
+   * casos siguen separados.
+   */
+  const RUTA = readFileSync(
+    fileURLToPath(new URL('../../app/api/pago/webhook/route.ts', import.meta.url)),
+    'utf8',
+  );
+
+  it('distingue «no existe» de «no se ha podido»', () => {
+    expect(RUTA).toContain("case 'no-existe':");
+    // El que no existe se acepta e ignora: sin `status`, o sea 200.
+    const rama = RUTA.slice(RUTA.indexOf("case 'no-existe':"), RUTA.indexOf('default:'));
+    expect(rama).not.toContain('status: 500');
+  });
+
+  it('solo pide reintento cuando reintentar puede arreglarlo', () => {
+    // Un único 500 en toda la ruta, y es el del error de escritura.
+    expect([...RUTA.matchAll(/status: 500/g)]).toHaveLength(1);
+  });
+
+  it('los eventos que no interesan se aceptan', () => {
+    // Contestar error a los que no nos importan los pondría en cola de
+    // reintentos para siempre: Stripe manda decenas de tipos.
+    expect(RUTA).toContain('ignorado: type');
   });
 });

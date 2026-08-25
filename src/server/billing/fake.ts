@@ -33,14 +33,16 @@ export const FakeBilling: Billing = {
     email: string;
     plan: PlanId;
   }): Promise<StartResult> {
-    const ok = await setPlan(userId, plan);
+    // Aquí «no existe» y «no se ha podido» son lo mismo: quien llama está
+    // mirando una pantalla y hay que decirle que no se ha podido.
+    const ok = (await setPlan(userId, plan)) === 'ok';
     return ok
       ? { kind: 'listo', plan }
       : { kind: 'error', reason: 'no se ha podido guardar el plan' };
   },
 
   async cancel({ userId }: { userId: string }): Promise<{ ok: boolean }> {
-    return { ok: await setPlan(userId, 'gratis') };
+    return { ok: (await setPlan(userId, 'gratis')) === 'ok' };
   },
 
   async portal(): Promise<string | null> {

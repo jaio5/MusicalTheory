@@ -21,7 +21,7 @@ import { NextResponse } from 'next/server';
 import type { PlanId } from '@core/billing';
 import { planOfPrice } from '@server/billing';
 import { verifyStripeSignature } from '@server/billing/stripe-signature';
-import { setPlan } from '@server/users';
+import { setPlan, type SetPlanResult } from '@server/users';
 
 export const runtime = 'nodejs';
 
@@ -75,6 +75,29 @@ function planOf(object: unknown): PlanId | null {
     : null;
 }
 
+/**
+ * Qué contestarle a Stripe según lo que pasara al escribir.
+ *
+ * **Stripe reintenta lo que no contesta 2xx**, así que el estado no es
+ * decoración: es lo que decide si ese evento vuelve mañana. Solo se pide
+ * reintento cuando reintentar puede arreglarlo.
+ *
+ * Una cuenta que ya no está es el caso que enseñó esto: devolvía 500 y el evento
+ * se quedaba en la cola de reintentos durante días sin que nunca fuera a salir
+ * bien. Se vio al ejecutar el webhook por primera vez.
+ */
+function respuestaDe(resultado: SetPlanResult, plan: PlanId): NextResponse {
+  switch (resultado) {
+    case 'ok':
+      return NextResponse.json({ ok: true, plan });
+    case 'no-existe':
+      return NextResponse.json({ ignorado: 'esa cuenta ya no está' });
+    default:
+      // Aquí sí: no se ha podido escribir, y el reintento es lo que queremos.
+      return NextResponse.json({ error: 'no guardado' }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   const secret = process.env['STRIPE_WEBHOOK_SECRET'] ?? '';
   const body = await request.text();
@@ -112,11 +135,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       // durante días.
       return NextResponse.json({ ignorado: 'sin cuenta o sin plan' });
     }
-    return (await setPlan(userId, plan))
-      ? NextResponse.json({ ok: true, plan })
-      : // Aquí sí 500: no se ha podido escribir, y el reintento de Stripe es
-        // justo lo que queremos que pase.
-        NextResponse.json({ error: 'no guardado' }, { status: 500 });
+    return respuestaDe(await setPlan(userId, plan), plan);
   }
 
   if (type === CAMBIA_A_GRATIS) {
@@ -124,9 +143,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (userId === null) {
       return NextResponse.json({ ignorado: 'sin cuenta' });
     }
-    return (await setPlan(userId, 'gratis'))
-      ? NextResponse.json({ ok: true, plan: 'gratis' })
-      : NextResponse.json({ error: 'no guardado' }, { status: 500 });
+    return respuestaDe(await setPlan(userId, 'gratis'), 'gratis');
   }
 
   // Todo lo demás se acepta y se ignora. Stripe manda decenas de tipos de

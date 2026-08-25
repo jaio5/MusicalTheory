@@ -161,7 +161,7 @@ export const StripeBilling: Billing = {
     // El plan baja aquí y no se espera al webhook a propósito: quien cancela
     // deja de tener acceso ya, y si la llamada a Stripe fallara, lo peligroso
     // sería seguir dándole el plan de pago.
-    return { ok: await setPlan(userId, 'gratis') };
+    return { ok: (await setPlan(userId, 'gratis')) === 'ok' };
   },
 
   /**

@@ -289,10 +289,26 @@ export async function deleteAccount(
 }
 
 /** Cambia el plan. Devuelve si se cambió algo. */
-export async function setPlan(userId: string, plan: PlanId): Promise<boolean> {
+export type SetPlanResult =
+  /** Cambiado. */
+  | 'ok'
+  /** Esa cuenta ya no está. Reintentarlo no lo va a arreglar. */
+  | 'no-existe'
+  /** No se ha podido escribir. Reintentarlo sí puede arreglarlo. */
+  | 'error';
+
+/**
+ * Cambia el plan.
+ *
+ * **Distingue «no existe» de «no se ha podido»**, y no es un lujo: el webhook de
+ * la pasarela contesta según eso. Con un booleano, una cuenta borrada que tenía
+ * suscripción devolvía 500 y Stripe reintentaba ese evento durante días, para
+ * siempre, sin que nunca fuera a salir bien. Se vio al ejecutarlo de verdad.
+ */
+export async function setPlan(userId: string, plan: PlanId): Promise<SetPlanResult> {
   const database = db();
   if (database === null) {
-    return false;
+    return 'error';
   }
   try {
     const rows = await database
@@ -300,8 +316,8 @@ export async function setPlan(userId: string, plan: PlanId): Promise<boolean> {
       .set({ plan })
       .where(eq(users.id, userId))
       .returning({ id: users.id });
-    return rows.length > 0;
+    return rows.length > 0 ? 'ok' : 'no-existe';
   } catch {
-    return false;
+    return 'error';
   }
 }

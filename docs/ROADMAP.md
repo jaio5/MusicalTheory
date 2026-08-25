@@ -666,10 +666,20 @@ pantallas no han cambiado una línea por esto.
       faltaba era poder tomarla sin multiplicar nada, y ahora la tabla está en
       `cost.ts`. Un test vigila además que al plan gratis no se le cuele algo más caro
       que el profesor.
-- [ ] **Nada de esto se ha ejecutado contra Stripe.** La firma, el mapeo de precios y
-      las respuestas del webhook están probados con datos fabricados; que la API
-      conteste lo que se espera, no. Es lo primero que hay que hacer con una clave de
-      pruebas, y hasta entonces esta fase no está cerrada.
+- [x] **El webhook, ejercitado de verdad** (25 de agosto de 2026) con firmas HMAC
+      hechas a mano: la buena sube el plan, el cuerpo cambiado con una firma válida se
+      rechaza, la caducada se rechaza, la ausencia de firma se rechaza, el mismo evento
+      dos veces deja lo mismo, los tipos que no interesan se aceptan y la cancelación
+      baja a gratis. Salió **un fallo**:
+- [x] **Una cuenta borrada dejaba el evento en bucle de reintentos.** `setPlan`
+      devolvía un booleano y no distinguía «no se ha podido escribir» de «esa cuenta ya
+      no está»; el webhook contestaba 500 a las dos, y Stripe reintenta lo que no
+      contesta 2xx durante días. Ahora son tres resultados y solo se pide reintento
+      cuando reintentar puede arreglarlo.
+- [ ] **Sin ejecutar contra Stripe.** Lo probado es el webhook —que es la mitad que
+      recibe— con firmas propias. Que la API conteste lo que se espera al crear una
+      sesión de pago, no. Es lo que falta para cerrar esta fase, y pide una clave de
+      pruebas.
 - [x] **Portal de cliente.** Cambiar la tarjeta y ver las facturas se hace en la
       pasarela, que es quien las tiene: aquí no pasa un número de tarjeta en ningún
       momento, y ese es justo el motivo de tener pasarela. Es un botón y no un enlace
