@@ -95,6 +95,7 @@ renombrado no puede degradar a quien había pagado.
 | Versiones de tu canción, y su verificación           | `features/versions/`                           |
 | El avatar de arriba y lo que cuelga de él            | `features/account/AccountMenu.tsx`             |
 | Cuentas, contraseñas, base de datos y cupos          | `src/server/`                                  |
+| Recuperar la contraseña, y por dónde sale el correo  | `server/password-reset.ts`, `server/mail/`     |
 | Si alguien puede pedirle algo al modelo              | `server/entitlements.ts` + `ai-usage.ts`       |
 | Por dónde se cobrará (hoy no se cobra)               | `src/server/billing/`                          |
 | El marco de una pantalla y sus apartados             | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
@@ -126,11 +127,12 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                    |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Los doce: dominio puro, tono propio, análisis en el hilo principal,
+descartadas. Los trece: dominio puro, tono propio, análisis en el hilo principal,
 acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, punto de
 partida con una pantalla por cosa, cupos calculados desde el precio, un solo marco
 de pantalla, los dos temas con el negro de casa, las versiones verificadas contra
-el dominio sin que suba audio, y un instrumento por ahora con el mapa del segundo.
+el dominio sin que suba audio, un instrumento por ahora con el mapa del segundo, y
+el correo como puerto con su vale de un solo uso.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando
@@ -197,9 +199,10 @@ líneas más abajo.
   ([adr/0007](docs/adr/0007-elegir-por-donde-empezar.md)).
 - **No exige cuentas.** Sin `DATABASE_URL` y `AUTH_SECRET` —las dos— nadie entra,
   todo el mundo es anónimo con plan gratis y el avance se queda en su navegador.
-- **No manda correos**, así que no hay «he olvidado mi contraseña» ni cambio de
-  dirección: las dos cosas piden escribir a un buzón para confirmarlo. La
-  contraseña se cambia sabiéndola, en `/cuenta#contrasena`.
+- **No manda correos sin configurarlo.** El correo es un puerto como el cobro: con
+  sus dos variables hay «he olvidado mi contraseña» en `/olvidada`, y sin ellas la
+  pantalla lo dice en vez de prometer un correo que no llega. Cambiar de dirección
+  sigue sin poder hacerse: pide dos vales más y no lo ha pedido nadie.
 - La detección de tono es **monofónica** y pide señal limpia: con distorsión se
   detecta la octava de arriba. Para acordes hay otro análisis, y solo en
   componer.

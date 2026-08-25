@@ -3,6 +3,7 @@ export * from './AccountMenu';
 export * from './BillingPortalLink';
 export * from './Checkout';
 export * from './DeleteAccountForm';
+export * from './ForgottenForm';
 export * from './NameForm';
 export * from './PasswordForm';
 export * from './PlanCards';

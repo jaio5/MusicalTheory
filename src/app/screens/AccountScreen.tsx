@@ -110,9 +110,9 @@ export function AccountScreen() {
           <NameForm />
         </div>
         <p className="text-text-muted mt-3 max-w-prose text-xs">
-          El correo no se cambia desde aquí: identifica la cuenta, y cambiarlo pide confirmar la
-          dirección nueva antes de mover nada. Mientras no haya envío de correo, hacerlo a medias
-          dejaría cuentas apuntando a buzones que no existen.
+          El correo no se cambia desde aquí: identifica la cuenta, y cambiarlo pide confirmar
+          primero la dirección nueva y luego avisar a la vieja. Hacerlo a medias deja cuentas
+          apuntando a buzones que no existen, así que no se hace a medias.
         </p>
       </Section>
 

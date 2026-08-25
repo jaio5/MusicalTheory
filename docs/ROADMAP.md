@@ -702,11 +702,22 @@ hechos; los dos que faltan no son código, o no solo.
       el límite real era el doble del escrito. Ahora vive en `rate_limits` cuando hay
       base de datos: ventana fija —una deslizante pediría una fila por petición— y la
       cuenta subiendo y comprobándose en la misma sentencia, como el cupo de la IA.
-- [ ] **Enviar correo, con su ADR.** Es lo que falta para que exista «he olvidado mi
-      contraseña» y para poder cambiar de dirección. Sin gente pagando era una decisión
-      defendible y está dicha en la pantalla; con alguien que paga 19,99 € y olvida la
-      contraseña, es perder la cuenta y el dinero. **Pide elegir un proveedor de envío,
-      así que no se ha hecho a ciegas.**
+- [x] **Enviar correo, como puerto.** Mismo patrón que el cobro: sin sus dos variables,
+      `mailer()` devuelve el que no manda y **lo declara**, así que la pantalla dice que
+      aquí no se puede recuperar la contraseña en vez de prometer un correo que no
+      llega. Cambiar de proveedor es un fichero.
+- [x] **«He olvidado mi contraseña», con un vale de un solo uso.** Se guarda la huella
+      y no el vale —quien se lleve la tabla no entra en ninguna cuenta—, caduca en una
+      hora, pedir uno nuevo gasta los anteriores, y usarlo **cierra las sesiones de
+      otros aparatos**: quien recupera la contraseña suele estar haciéndolo porque
+      alguien más entró. Y la respuesta es la misma exista o no ese correo, que es lo
+      que impide usar esta pantalla como buscador de quién tiene cuenta.
+      [adr/0013](./adr/0013-el-correo-como-puerto.md).
+- [ ] **Cambiar de dirección de correo sigue sin poder hacerse.** Pide confirmar
+      primero la nueva y avisar después a la vieja: dos vales más. Ya se puede hacer;
+      no se ha hecho porque no lo ha pedido nadie.
+- [ ] **Sin probar contra un proveedor de correo de verdad.** El vale está probado; que
+      el proveedor conteste lo que se espera, no.
 - [ ] Copias de seguridad de Postgres, política de privacidad y condiciones, y elegir
       camino en [DESPLIEGUE.md](./DESPLIEGUE.md). Lo primero es configuración de donde
       se aloje y lo segundo son dos textos legales: ninguna de las dos se escribe

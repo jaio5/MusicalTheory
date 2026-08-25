@@ -1,12 +1,13 @@
 /**
- * Las cinco tablas. No hay más.
+ * Las seis tablas. No hay más.
  *
  * Antes de esto la aplicación no tenía base de datos, y sigue sin necesitarla
  * para casi nada: el afinador, la rueda, el mástil, el metrónomo y la grabación
  * no guardan una fila. La base de datos existe para lo que no puede vivir en el
  * navegador: saber quién eres, qué plan tienes, cuántas llamadas al modelo
- * llevas hoy, las canciones que has guardado y —desde que puede haber más de un
- * servidor— cuántas peticiones seguidas lleva una dirección.
+ * llevas hoy, las canciones que has guardado, cuántas peticiones seguidas lleva
+ * una dirección —desde que puede haber más de un servidor— y los vales para
+ * recuperar una contraseña olvidada.
  *
  * **Ni audio ni vídeo, aquí tampoco.** Lo que se guarda del progreso son
  * identificadores de unidad, números y fechas; lo que se guarda de una canción
@@ -115,6 +116,36 @@ export const aiUsage = pgTable(
     dayCount: integer('day_count').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.userId, table.month] })],
+);
+
+/**
+ * Los vales para recuperar la contraseña.
+ *
+ * **Lo que se guarda es la huella del vale, no el vale.** Lo que viaja en el
+ * correo es el vale; aquí está su SHA-256. Si alguien se lleva esta tabla entera
+ * no puede entrar en ninguna cuenta con lo que hay dentro, que es el mismo motivo
+ * por el que las contraseñas tampoco se guardan.
+ *
+ * `usedAt` en vez de borrar la fila al gastarla: un enlace pulsado dos veces —el
+ * correo reenviado, el botón de atrás— tiene que poder distinguirse de uno
+ * inventado mientras la fila exista. Se borran las caducadas.
+ */
+export const passwordResets = pgTable(
+  'password_resets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** SHA-256 del vale, en hexadecimal. Nunca el vale. */
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** Cuándo se gastó, o nulo si sigue sin usar. */
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Se buscan siempre los de una cuenta al invalidar los anteriores.
+  (table) => [index('password_resets_user_idx').on(table.userId)],
 );
 
 /**

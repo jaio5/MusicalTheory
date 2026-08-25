@@ -297,3 +297,23 @@ da un secreto de pruebas que vale para lo mismo.
 - **Nada de esto se ha ejecutado contra Stripe.** La firma, el mapeo de precios y las
   respuestas del webhook están probados con datos fabricados; que la API conteste lo
   que se espera, no. Es lo primero que hay que hacer con una clave de pruebas.
+
+## Recuperar la contraseña
+
+Va con las dos variables de correo. Sin ellas, `/olvidada` dice que esta copia no
+manda correo en vez de enseñar un formulario que no puede terminar en nada, y la
+contraseña solo se cambia sabiéndola desde `/cuenta#contrasena`.
+
+Con ellas puestas, el enlace aparece en la pantalla de entrar. El vale caduca en
+una hora, vale una sola vez, y usarlo **cierra las sesiones abiertas en otros
+aparatos**: quien recupera la contraseña suele estar haciéndolo porque alguien más
+entró.
+
+En la base de datos se guarda la **huella** del vale, no el vale
+([adr/0013](./adr/0013-el-correo-como-puerto.md)). En desarrollo, sin proveedor
+configurado, el correo que se habría mandado se escribe en el registro del
+servidor, así que el flujo entero se puede probar sin dar de alta nada. En
+producción no se escribe: eso sería dejar el vale en los registros.
+
+**Sin probar contra un proveedor de verdad**, como el resto de lo que toca la
+base de datos.

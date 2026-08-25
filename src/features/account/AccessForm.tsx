@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -165,6 +167,16 @@ export function AccessForm({
           {working ? 'Un momento...' : nuevo ? 'Crear la cuenta' : 'Entrar'}
         </Button>
       </div>
+
+      {/* El enlace solo al entrar: en el formulario de crear cuenta no hay
+          contraseña que recuperar todavía, y ofrecerlo ahí despista. */}
+      {!nuevo && (
+        <p className="text-text-muted text-xs">
+          <Link href="/olvidada" className="text-brass-bright hover:text-brass underline">
+            He olvidado mi contraseña
+          </Link>
+        </p>
+      )}
 
       <p className="text-text-muted text-xs">
         La contraseña se guarda cifrada y nunca en claro. Lo único que se guarda de lo que toques
