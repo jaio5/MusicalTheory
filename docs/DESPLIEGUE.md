@@ -33,16 +33,26 @@ equipo de quien toca y las cuentas no han cambiado eso.
 
 ## Variables de entorno
 
-| Variable            | Hace falta        | Para qué                                                                                                               |
-| ------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | Solo para la IA   | Ideas y profesor. Sin ella, esas dos pantallas responden «no hemos podido contactar» y el resto va igual.              |
-| `ANTHROPIC_MODEL`   | No                | Cambiar de modelo sin tocar código. Por defecto, `claude-opus-5`. **Cambia los cupos de todos los planes**: ver abajo. |
-| `DATABASE_URL`      | Solo para cuentas | Postgres. Sin ella no hay cuentas ni planes, y todo lo demás funciona igual.                                           |
-| `AUTH_SECRET`       | Solo para cuentas | Firmar la cookie de sesión. `openssl rand -base64 32`.                                                                 |
+| Variable                                  | Hace falta        | Para qué                                                                                                                      |
+| ----------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Ideas y profesor. Sin ella, esas dos pantallas responden «no hemos podido contactar» y el resto va igual.                     |
+| `ANTHROPIC_MODEL`                         | No                | Cambiar de modelo sin tocar código. Por defecto, `claude-opus-5`. **Cambia los cupos de todos los planes**: ver abajo.        |
+| `DATABASE_URL`                            | Solo para cuentas | Postgres. Sin ella no hay cuentas ni planes, y todo lo demás funciona igual.                                                  |
+| `AUTH_SECRET`                             | Solo para cuentas | Firmar la cookie de sesión. `openssl rand -base64 32`.                                                                        |
+| `APP_URL`                                 | Solo para cobrar  | A dónde vuelve quien paga. Sin ella se supone `http://localhost:3000`, que en producción manda a la gente a su propio equipo. |
+| `STRIPE_SECRET_KEY`                       | Solo para cobrar  | La clave de la pasarela.                                                                                                      |
+| `STRIPE_WEBHOOK_SECRET`                   | Solo para cobrar  | El secreto del endpoint, para comprobar la firma. **Sin él el webhook no acepta nada.**                                       |
+| `STRIPE_PRICE_BASICO` / `_MEDIO` / `_PRO` | Solo para cobrar  | Qué precio de Stripe es cada plan. Son distintos en la cuenta de pruebas y en la de verdad.                                   |
 
-Las dos últimas van **juntas**: hacen falta las dos, y con una sola la aplicación se
-comporta como si no hubiera ninguna. Es a propósito: media configuración de cuentas
-es peor que ninguna, porque falla al entrar en vez de decir que aquí no hay cuentas.
+`DATABASE_URL` y `AUTH_SECRET` van **juntas**: hacen falta las dos, y con una sola la
+aplicación se comporta como si no hubiera ninguna. Es a propósito: media configuración
+de cuentas es peor que ninguna, porque falla al entrar en vez de decir que aquí no hay
+cuentas.
+
+**Las cinco de Stripe también van juntas**, y por lo mismo: `billing()` comprueba que
+estén la clave y los tres precios, y si falta cualquiera devuelve el cobrador que no
+cobra. Media configuración de pasarela sería una ventana de pago que promete cobrar y
+no puede.
 
 Ninguna lleva el prefijo `NEXT_PUBLIC_`, así que Next no las mete en el bundle
 del navegador. Si alguna vez añades una que sí lo lleve, ten claro que eso es
@@ -239,3 +249,51 @@ de escribirlo.
 **El vídeo del encabezado son 2,3 MB.** Se descarga solo si quien mira no ha
 pedido menos movimiento. Si el ancho de banda importa, ahí está el primer
 recorte.
+
+## Cobrar de verdad
+
+Sin las variables de Stripe, `billing()` devuelve el cobrador que no cobra: los tres
+planes funcionan, se pueden activar y la ventana de pago **dice que no se está
+cobrando nada**. Es lo que hace que un clon recién bajado funcione entero sin
+configurar una pasarela.
+
+Con ellas puestas, la misma ventana deja de decirlo sola —el aviso cuelga de
+`billing().charges`, no de una constante— y al confirmar se sale a la página de pago
+de Stripe. Los datos de la tarjeta no pasan por aquí en ningún momento.
+
+### El webhook
+
+```
+POST /api/pago/webhook
+```
+
+Es lo que cambia el plan cuando el dinero ha entrado, y es la parte que hay que
+configurar con cuidado:
+
+1. En Stripe, crea un endpoint apuntando a `https://tu-dominio/api/pago/webhook`.
+2. Suscríbelo a `checkout.session.completed` y `customer.subscription.deleted`.
+3. Copia su secreto de firma en `STRIPE_WEBHOOK_SECRET`.
+
+**Sin ese secreto el webhook no acepta nada**, y eso es a propósito: un webhook sin
+comprobar la firma es un formulario público para darse el plan Pro. La comprobación
+está en `server/billing/stripe-signature.ts`, no usa el SDK y está probada aparte:
+firma buena, cuerpo cambiado, secreto distinto, firma caducada, marca de tiempo en el
+futuro y secreto rotado.
+
+Para probarlo en local, `stripe listen --forward-to localhost:3000/api/pago/webhook`
+da un secreto de pruebas que vale para lo mismo.
+
+### Lo que hay que saber
+
+- **El plan lo cambia el webhook, no la vuelta del pago.** Volver de Stripe a
+  `/cuenta?pago=hecho` no significa que el dinero haya entrado; significa que el
+  navegador ha vuelto. Si el plan tarda unos segundos en aparecer, es esto.
+- **Los reintentos son normales.** Stripe repite los webhooks que no contesta 2xx, y
+  esta ruta es idempotente porque lo único que hace es poner un plan. Los eventos que
+  no le interesan los acepta y los ignora: contestar error los pondría en cola de
+  reintentos para siempre.
+- **Cancelar baja el plan en el momento**, sin esperar al webhook. Si la llamada a
+  Stripe fallara, lo peligroso sería seguir dando el plan de pago.
+- **Nada de esto se ha ejecutado contra Stripe.** La firma, el mapeo de precios y las
+  respuestas del webhook están probados con datos fabricados; que la API conteste lo
+  que se espera, no. Es lo primero que hay que hacer con una clave de pruebas.

@@ -35,10 +35,10 @@ const EN_BASICO: Account = {
   aiLeftMonth: 40,
 };
 
-function pintar(plan = PRO, account: Account = EN_BASICO, accounts = true) {
+function pintar(plan = PRO, account: Account = EN_BASICO, accounts = true, charges = false) {
   render(
     <AccountProvider account={account} accounts={accounts}>
-      <Checkout plan={plan} />
+      <Checkout plan={plan} charges={charges} />
     </AccountProvider>,
   );
 }
@@ -131,5 +131,25 @@ describe('La ventana de pago', () => {
         new RegExp(`${monthlyAiRequests('pro', EN_BASICO.aiModel)} peticiones a la IA al mes`),
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe('cuando el cobrador sí cobra', () => {
+  /**
+   * El aviso cuelga del cobrador y no de una constante. Escrito fijo, el día
+   * que se enchufe la pasarela seguiría diciendo que no se cobra mientras se
+   * cobra, que es la peor de las dos mentiras posibles.
+   */
+  it('deja de decir que no se cobra, y avisa de que se sale a pagar', () => {
+    pintar(PRO, EN_BASICO, true, true);
+
+    expect(screen.queryByText(/todavía no se cobra nada/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/se sale a pagar/i)).toBeInTheDocument();
+  });
+
+  it('sigue sin pedir una tarjeta: eso se escribe en la pasarela', () => {
+    pintar(PRO, EN_BASICO, true, true);
+
+    expect(screen.queryByLabelText(/tarjeta/i)).not.toBeInTheDocument();
   });
 });

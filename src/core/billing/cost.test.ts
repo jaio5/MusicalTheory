@@ -200,3 +200,24 @@ describe('los cupos', () => {
     expect(monthlyAiRequests('basico', 'claude-opus-5')).toBe(esperado);
   });
 });
+
+describe('lo que cuesta el plan gratis, multiplicado', () => {
+  /**
+   * El fallo que este fichero vino a arreglar fue no multiplicar. El plan gratis
+   * es el único sitio que pierde dinero a propósito, así que lo que hay que
+   * vigilar no es que no pierda —pierde— sino que se sepa **cuánto**.
+   */
+  it('mil cuentas gratis cuestan unos doscientos dólares al mes con el modelo caro', () => {
+    const porCuenta = FREE_MONTHLY_ALLOWANCE * requestCostMicros('profesor', 'claude-opus-5');
+    const mil = (porCuenta * 1000) / 1_000_000;
+
+    expect(mil).toBeGreaterThan(180);
+    expect(mil).toBeLessThan(230);
+  });
+
+  it('el plan gratis solo puede gastar en lo más barato que hay', () => {
+    // Si algún día entrara en el plan gratis algo más caro que el profesor, el
+    // coste de captación se multiplicaría sin que nadie tocara este número.
+    expect(planOf('gratis').capabilities).toEqual(['profesor']);
+  });
+});

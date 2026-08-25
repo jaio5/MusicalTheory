@@ -161,12 +161,30 @@ export function monthlyBudgetMicros(planId: PlanId): number {
  * El plan gratis no tiene presupuesto porque no ingresa nada: cada petición suya
  * es dinero perdido a cambio de que pruebe el profesor y decida si le sirve. Es
  * gasto de captación, y es el **único sitio de la aplicación que pierde dinero a
- * propósito**. Por eso es un número fijo y pequeño, y por eso está aquí a la
- * vista en vez de escondido en una tabla.
+ * propósito**.
  *
- * Quince al mes con el modelo más caro son unos veinte céntimos por cuenta. Con
- * cien cuentas gratis al mes, veinte dólares: se sabe lo que se está gastando
- * antes de gastarlo, que es lo que no pasaba antes.
+ * Quince al mes con el modelo más caro son unos veinte céntimos por cuenta.
+ * Multiplicado, que es la operación que este fichero existe para no olvidar:
+ *
+ * | Cuentas gratis | Coste al mes con Opus 5 |
+ * | -------------- | ----------------------- |
+ * | 100            | 20 $                    |
+ * | 1.000          | 203 $                   |
+ * | 10.000         | 2.033 $                 |
+ *
+ * A partir de unos cientos de cuentas deja de ser captación y pasa a ser una
+ * factura, y entonces hay que **decidir**: bajar el número, quitarle la IA al
+ * plan gratis o poner un tope de gasto global. Lo que no se puede es descubrirlo
+ * en la factura, y esa tabla está aquí para que no haya que multiplicar nada
+ * cuando llegue el momento.
+ *
+ * Es una constante del dominio y no una variable de entorno, igual que el precio
+ * de un plan: las dos son decisiones que se toman una vez y se despliegan, no
+ * palancas que se mueven en caliente. Y sobre todo, el navegador la usa para
+ * decir cuántas peticiones te quedan: si el servidor pudiera tener otro número,
+ * la pantalla prometería lo que la ruta niega.
+ *
+ * Cero es un valor válido y significa «sin IA sin pagar».
  */
 export const FREE_MONTHLY_ALLOWANCE = 15;
 

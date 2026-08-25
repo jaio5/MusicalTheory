@@ -621,21 +621,48 @@ que casi todo el trabajo es de dominio y no de modelo. El porqué y las alternat
 - [ ] **No se pueden oír.** Comparar tres versiones leyéndolas cuesta, y es lo primero
       que hay que mirar después.
 
-### Fase 18 — Cobrar de verdad · pendiente
+### Fase 18 — Cobrar de verdad · escrita, sin ejecutar
 
-Es la puerta de publicar, y es mecánico:
-[adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md) dejó el cobro como
-puerto, así que se añade una implementación y no se rediseña nada.
+Es la puerta de publicar, y fue mecánica:
+[adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md) dejó el cobro como puerto, así
+que se ha añadido una implementación y no se ha rediseñado nada. Las rutas y las
+pantallas no han cambiado una línea por esto.
 
-- [ ] Una pasarela implementando `server/billing/port.ts`. El resto de la
-      aplicación no se entera.
-- [ ] Webhook que cambia el plan en `users`, idempotente.
-- [ ] **Cerrar el agujero del plan gratis.** Quince peticiones al mes por cuenta
-      son unos veinte céntimos con el modelo más caro: con cien cuentas son veinte
-      euros al mes de captación y con diez mil son dos mil. El número está en una
-      constante con nombre, así que se decide, no se descubre.
-- [ ] La ventana de pago deja de decir que no cobra, y aparecen los campos que
-      hoy no están porque serían un decorado.
+- [x] `StripeBilling` implementando `server/billing/port.ts`, **sin el SDK de
+      Stripe**: son dos llamadas HTTP y un HMAC. Misma razón que `scrypt` en vez de
+      bcrypt y que la detección de tono propia
+      ([adr/0002](./adr/0002-deteccion-de-tono-propia.md)).
+- [x] `billing()` mira si están las cinco variables, igual que `db()` mira
+      `DATABASE_URL`. Si falta cualquiera devuelve el cobrador que no cobra, así que un
+      clon recién bajado funciona entero sin configurar una pasarela.
+- [x] **La verificación de la firma del webhook**, probada a fondo: firma buena, cuerpo
+      cambiado, secreto distinto, caducada, marca de tiempo en el futuro, secreto
+      rotado, firma no hexadecimal y sin secreto configurado. Es lo único que separa
+      cambiar el plan de quien ha pagado de cambiárselo a cualquiera que sepa la
+      dirección.
+- [x] El cuerpo se lee como **texto crudo**: la firma se calcula sobre los bytes que
+      mandó Stripe, y volver a serializar el JSON la rompe. Es el fallo clásico.
+- [x] Webhook idempotente sin registro de eventos: lo único que hace es poner un plan,
+      y ponerlo dos veces deja lo mismo. Los eventos que no interesan se aceptan y se
+      ignoran, porque contestar error los pondría en cola de reintentos para siempre.
+- [x] **El aviso de que no se cobra cuelga de `billing().charges`**, no de una
+      constante. Estaba escrito fijo, y con la pasarela puesta habría seguido diciendo
+      que no se cobra mientras se cobraba: la peor de las dos mentiras posibles.
+- [x] El plan lo cambia el webhook y no la vuelta del pago: volver de Stripe significa
+      que el navegador ha vuelto, no que el dinero haya entrado.
+- [x] **La aritmética del plan gratis, escrita y con su test.** Mil cuentas gratis son
+      unos doscientos dólares al mes con el modelo caro. No se ha bajado el número
+      porque cuánto regalar es una decisión de negocio, no una corrección: lo que
+      faltaba era poder tomarla sin multiplicar nada, y ahora la tabla está en
+      `cost.ts`. Un test vigila además que al plan gratis no se le cuele algo más caro
+      que el profesor.
+- [ ] **Nada de esto se ha ejecutado contra Stripe.** La firma, el mapeo de precios y
+      las respuestas del webhook están probados con datos fabricados; que la API
+      conteste lo que se espera, no. Es lo primero que hay que hacer con una clave de
+      pruebas, y hasta entonces esta fase no está cerrada.
+- [ ] Sin portal de cliente: cambiar de tarjeta o ver facturas se hace desde Stripe.
+- [ ] Sin IVA ni facturación. Vender a consumidores en la UE lo pide, y no es código:
+      es una decisión y una configuración de la pasarela.
 
 ### Fase 19 — Lo que exige publicar y hoy no existe · pendiente
 

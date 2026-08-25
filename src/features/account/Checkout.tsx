@@ -20,14 +20,23 @@ import { ETIQUETAS } from './PlanCards';
  * hay a quién cobrarle sin cuenta y mandarle a otra dirección a registrarse le hace
  * perder el plan que había elegido.
  *
- * **No hay formulario de tarjeta, y no es un olvido.** Detrás del cambio de plan
- * hay una interfaz de facturación cuya única implementación de hoy no cobra nada
- * (`server/billing/fake.ts`). Pintar aquí unos campos de tarjeta que no llevan a
- * ninguna pasarela sería un decorado que se parece demasiado a un cobro de verdad.
- * Cuando haya pasarela, la respuesta del servidor traerá una dirección y esta
- * pantalla saldrá hacia ella; el hueco está hecho y está probado.
+ * **No hay formulario de tarjeta, y no es un olvido.** Los datos de la tarjeta se
+ * escriben en la pasarela, que es quien puede recibirlos: aquí no pasan nunca, y
+ * eso es media integración de pagos resuelta por no hacer nada. Cuando hay
+ * pasarela, la respuesta del servidor trae una dirección y esta pantalla sale
+ * hacia ella.
+ *
+ * **El aviso de que no se cobra cuelga del cobrador**, no de una constante. Si
+ * estuviera escrito fijo, el día que se enchufe la pasarela seguiría diciendo que
+ * no se cobra mientras se cobra, que es la peor de las dos mentiras posibles.
  */
-export function Checkout({ plan }: { readonly plan: Plan }) {
+export function Checkout({
+  plan,
+  charges = false,
+}: {
+  readonly plan: Plan;
+  readonly charges?: boolean;
+}) {
   const router = useRouter();
   const { account, accounts, signedIn, refresh } = useAccount();
   const [working, setWorking] = useState(false);
@@ -44,7 +53,8 @@ export function Checkout({ plan }: { readonly plan: Plan }) {
     try {
       const result = await changePlan(plan.id);
       if (result.kind === 'ir-a-pagar') {
-        // El día que haya pasarela, aquí se sale a pagar. Hoy no ocurre nunca.
+        // Con pasarela puesta, se sale a pagar a su dominio. `assign` y no
+        // `router.push`: es otra web, no una ruta de esta aplicación.
         window.location.assign(result.url);
         return;
       }
@@ -172,9 +182,20 @@ export function Checkout({ plan }: { readonly plan: Plan }) {
               botón, no debajo en letra pequeña. */}
           <div className="border-brass-dim bg-surface-raised mt-3 border p-3">
             <p className="text-text text-sm">
-              <strong>Aquí todavía no se cobra nada.</strong> No hay pasarela de pago enchufada: al
-              confirmar, tu cuenta pasa al plan {plan.name} sin que se te cargue ningún importe y
-              sin pedirte una tarjeta. El precio de arriba es el que costará cuando la haya.
+              {charges ? (
+                <>
+                  <strong>Al confirmar se sale a pagar.</strong> Los datos de la tarjeta se escriben
+                  en la pasarela y no pasan por aquí. El plan {plan.name} se activa cuando el pago
+                  se confirma, y se cobra {priceLabel(plan.id).toLowerCase()} hasta que lo canceles.
+                </>
+              ) : (
+                <>
+                  <strong>Aquí todavía no se cobra nada.</strong> No hay pasarela de pago enchufada:
+                  al confirmar, tu cuenta pasa al plan {plan.name} sin que se te cargue ningún
+                  importe y sin pedirte una tarjeta. El precio de arriba es el que costará cuando la
+                  haya.
+                </>
+              )}
             </p>
           </div>
 
