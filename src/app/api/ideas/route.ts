@@ -9,8 +9,8 @@ import {
   validateIdeas,
   type IdeasRequest,
 } from '@features/ideas/contract';
-import { hasModelKey } from '@server/ai-model';
-import { askModel } from '@server/ask-model';
+import { askModel, modelAvailable } from '@server/ask-model';
+import { ideasSinIA } from '@server/fake-model';
 import { IDEAS_SCHEMA, IDEAS_SYSTEM_PROMPT } from '@server/prompts';
 import { spendAi } from '@server/entitlements';
 import { limitRequest } from '@server/rate-limit-db';
@@ -112,7 +112,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Sin clave, antes de gastar cupo. `askModel` fallaría igual unas líneas
   // más abajo, pero para entonces la petición ya está contada: alguien se
   // quedaría sin peticiones del mes por una variable de entorno que falta.
-  if (!hasModelKey()) {
+  if (!modelAvailable()) {
     return NextResponse.json(ideasError('model_unavailable'), { status: 503 });
   }
 
@@ -153,6 +153,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         system: IDEAS_SYSTEM_PROMPT,
         schema: IDEAS_SCHEMA,
         maxTokens: MAX_TOKENS,
+        sinClave: () => ideasSinIA(parsed.key.tonic, parsed.key.mode),
       });
     } catch {
       return NextResponse.json(ideasError('model_unavailable'), { status: 502 });

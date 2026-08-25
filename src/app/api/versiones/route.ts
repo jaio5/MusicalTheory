@@ -9,8 +9,8 @@ import {
   versionsError,
   type VersionsRequest,
 } from '@features/versions/contract';
-import { hasModelKey } from '@server/ai-model';
-import { askModel } from '@server/ask-model';
+import { askModel, modelAvailable } from '@server/ask-model';
+import { versionesSinIA } from '@server/fake-model';
 import { spendAi } from '@server/entitlements';
 import { VERSIONS_SCHEMA, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
 import { limitRequest } from '@server/rate-limit-db';
@@ -105,7 +105,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Sin clave, antes de gastar cupo. `askModel` fallaría igual unas líneas
   // más abajo, pero para entonces la petición ya está contada: alguien se
   // quedaría sin peticiones del mes por una variable de entorno que falta.
-  if (!hasModelKey()) {
+  if (!modelAvailable()) {
     return NextResponse.json(versionsError('model_unavailable'), { status: 503 });
   }
 
@@ -149,6 +149,12 @@ export async function POST(request: Request): Promise<NextResponse> {
         system: VERSIONS_SYSTEM_PROMPT,
         schema: VERSIONS_SCHEMA,
         maxTokens: MAX_TOKENS,
+        sinClave: () =>
+          versionesSinIA({
+            tonic: parsed.key.tonic,
+            mode: parsed.key.mode,
+            progression: parsed.progression,
+          }),
       });
     } catch {
       return NextResponse.json(versionsError('model_unavailable'), { status: 502 });

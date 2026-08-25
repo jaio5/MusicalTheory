@@ -176,6 +176,10 @@ describe('la clave del modelo', () => {
    * con el modelo, así que sin clave configurada alguien se quedaba sin
    * peticiones del mes por una variable de entorno que faltaba.
    *
+   * Hoy la comprobación es `modelAvailable`, que además deja pasar en
+   * desarrollo —donde contesta el dominio en vez del modelo— pero el orden
+   * respecto al cupo es el mismo y es lo que se vigila.
+   *
    * Esto lee las tres rutas y comprueba que la clave se mira antes del cupo. No
    * se puede probar ejecutándolas —importarlas trae el SDK, la sesión y la base
    * de datos— y el orden de dos líneas es justo lo que se pierde al refactorizar.
@@ -186,7 +190,7 @@ describe('la clave del modelo', () => {
         fileURLToPath(new URL(`../app/api/${ruta}/route.ts`, import.meta.url)),
         'utf8',
       );
-      const clave = codigo.indexOf('hasModelKey()');
+      const clave = codigo.indexOf('modelAvailable()');
       const cupo = codigo.indexOf('await spendAi(');
 
       expect(clave, `${ruta} no comprueba la clave`).toBeGreaterThan(-1);

@@ -36,6 +36,8 @@ export class WebAudioInput implements AudioInput {
   #stream: MediaStream | null = null;
   #analyser: AnalyserNode | null = null;
   #spectrumAnalyser: AnalyserNode | null = null;
+  /** Lo que hay que soltar al parar: el vigilante del contexto. */
+  #soltarVigilancia: (() => void) | null = null;
 
   constructor(options: AudioInputOptions = {}) {
     this.frameSize = options.frameSize ?? DEFAULT_FRAME_SIZE;
@@ -116,6 +118,8 @@ export class WebAudioInput implements AudioInput {
       const source = this.#context.createMediaStreamSource(this.#stream);
       source.connect(this.#analyser);
       source.connect(this.#spectrumAnalyser);
+
+      this.#vigilarContexto(this.#context);
     } catch {
       await this.stop();
       this.#fail({
@@ -129,7 +133,59 @@ export class WebAudioInput implements AudioInput {
     this.#setState('running');
   }
 
+  /**
+   * Mantiene el contexto despierto mientras dure la escucha.
+   *
+   * **Reanudarlo una vez al crearlo no basta**, y esto es un fallo que llegó a
+   * notarse tocando: el sistema suspende el contexto solo —al bloquear la
+   * pantalla, al cambiar de dispositivo de sonido, al entrar en reposo— y
+   * entonces `getFloatTimeDomainData` sigue contestando, pero escribe ceros. El
+   * motor no detecta nada, la pantalla sigue diciendo «escuchando» y no se oye
+   * nada: había que parar y volver a arrancar, que es lo que crea un contexto
+   * nuevo.
+   *
+   * Se vigila por dos caminos porque avisan en momentos distintos:
+   * `statechange` salta en cuanto el contexto cambia, y `visibilitychange` es el
+   * que hace falta cuando el navegador lo suspendió al perder la pestaña de
+   * vista y no vuelve solo al recuperarla.
+   */
+  #vigilarContexto(context: AudioContext): void {
+    const despertar = () => {
+      // Solo mientras se supone que estamos escuchando: si ya se paró, dejarlo
+      // dormido es lo correcto.
+      if (this.#context !== context || this.#state !== 'running') {
+        return;
+      }
+      if (context.state !== 'suspended') {
+        return;
+      }
+      void context.resume().catch(() => {
+        // No se ha podido despertar. Decirlo, porque lo peor que puede hacer
+        // esta pantalla es seguir diciendo que escucha mientras no oye nada.
+        this.#fail({
+          state: 'error',
+          message:
+            'El sonido se ha quedado dormido y no hemos podido despertarlo. Para la escucha y vuelve a arrancarla.',
+        });
+      });
+    };
+
+    context.addEventListener('statechange', despertar);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', despertar);
+    }
+
+    this.#soltarVigilancia = () => {
+      context.removeEventListener('statechange', despertar);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', despertar);
+      }
+    };
+  }
+
   async stop(): Promise<void> {
+    this.#soltarVigilancia?.();
+    this.#soltarVigilancia = null;
     this.#analyser = null;
     this.#spectrumAnalyser = null;
 
@@ -149,8 +205,20 @@ export class WebAudioInput implements AudioInput {
     }
   }
 
+  /**
+   * Si el contexto está despierto de verdad.
+   *
+   * Se comprueba antes de leer porque un contexto suspendido **no falla**:
+   * escribe ceros en el buffer y devuelve como si nada. Eso llega al motor como
+   * silencio, y silencio es indistinguible de no estar tocando. Devolviendo
+   * `false` el motor sabe que no hay dato, que no es lo mismo.
+   */
+  get #despierto(): boolean {
+    return this.#state === 'running' && this.#context?.state === 'running';
+  }
+
   readTimeDomain(target: Float32Array<ArrayBuffer>): boolean {
-    if (this.#analyser === null || this.#state !== 'running') {
+    if (this.#analyser === null || !this.#despierto) {
       return false;
     }
     this.#analyser.getFloatTimeDomainData(target);
@@ -158,7 +226,7 @@ export class WebAudioInput implements AudioInput {
   }
 
   readSpectrum(target: Float32Array<ArrayBuffer>): boolean {
-    if (this.#spectrumAnalyser === null || this.#state !== 'running') {
+    if (this.#spectrumAnalyser === null || !this.#despierto) {
       return false;
     }
     this.#spectrumAnalyser.getFloatFrequencyData(target);

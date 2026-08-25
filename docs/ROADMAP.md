@@ -497,7 +497,11 @@ Tres decisiones tomadas antes de escribir el plan, porque cambiaban el plan ente
 - **Las canciones se guardan en la cuenta**, atadas al permiso `sincronizar` que
   ya tienen Básico y superiores. Sin cuenta se sigue guardando en el navegador.
 
-### Fase 15 — Rodaje con guitarra y clave reales · pendiente
+### Fase 15 — Rodaje con guitarra y clave reales · empezada
+
+Primera tarde con la guitarra delante (25 de agosto de 2026). Salió **un fallo que
+ningún test podía ver**: el micro se quedaba mudo y había que pararlo y volverlo a
+arrancar. Está arriba, en la deuda pagada. Lo demás sigue pendiente.
 
 Lo más barato y lo que más cambia la aplicación. Las catorce fases de arriba
 terminan todas con la misma frase, y esta fase es esa frase.
@@ -929,6 +933,14 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   anuncia con su nombre completo.
 - ~~**Sin selector de dispositivo.**~~ Con el permiso ya concedido aparece la
   lista de entradas y se puede cambiar sin recargar.
+- ~~**El micro se quedaba mudo y había que pararlo y arrancarlo.**~~ Apareció
+  tocando, en una unidad de tocar. El contexto de audio se reanudaba **una vez al
+  crearlo y nunca más**: cuando el sistema lo suspende por su cuenta —pantalla
+  bloqueada, cambio de dispositivo, reposo— `getFloatTimeDomainData` seguía
+  contestando pero escribía ceros, así que la pantalla decía «escuchando» y no
+  oía nada. Ahora se vigila mientras dure la escucha, por `statechange` y por
+  `visibilitychange`, leer un contexto dormido devuelve `false` en vez de ceros, y
+  si no se puede despertar se dice.
 - ~~**Sin límite de frecuencia en la API.**~~ Diez peticiones por minuto y
   dirección, con `Retry-After`.
 - ~~**El repaso solo alcanzaba a las preguntas de teoría.**~~ Una unidad de tocar

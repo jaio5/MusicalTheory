@@ -8,8 +8,8 @@ import {
   validateTeacherAnswer,
   type TeacherRequest,
 } from '@features/learn/teacher-contract';
-import { hasModelKey } from '@server/ai-model';
-import { askModel } from '@server/ask-model';
+import { askModel, modelAvailable } from '@server/ask-model';
+import { respuestaSinIA } from '@server/fake-model';
 import { ANSWER_SCHEMA, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
 import { spendAi } from '@server/entitlements';
 import { limitRequest } from '@server/rate-limit-db';
@@ -86,7 +86,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Sin clave, antes de gastar cupo. `askModel` fallaría igual unas líneas más
   // abajo, pero para entonces la petición ya está contada: alguien se quedaría
   // sin preguntas del mes por una variable de entorno que falta.
-  if (!hasModelKey()) {
+  if (!modelAvailable()) {
     return NextResponse.json(teacherError('model_unavailable'), { status: 503 });
   }
 
@@ -128,6 +128,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         system: TEACHER_SYSTEM_PROMPT,
         schema: ANSWER_SCHEMA,
         maxTokens: MAX_TOKENS,
+        sinClave: respuestaSinIA,
       });
     } catch {
       return NextResponse.json(teacherError('model_unavailable'), { status: 502 });
