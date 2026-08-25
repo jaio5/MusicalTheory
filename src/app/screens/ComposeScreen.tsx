@@ -121,7 +121,7 @@ export function ComposeScreen() {
           En pantalla ancha vuelven a estirarse, que es lo que quieren tres
           columnas de la misma altura.
         */}
-        <div className="grid min-h-0 grow auto-rows-min grid-cols-1 gap-px overflow-y-auto lg:auto-rows-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
+        <div className="grid min-h-0 grow auto-rows-min grid-cols-1 gap-px overflow-y-auto lg:min-h-[18rem] lg:auto-rows-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
           {/* Cada cosa con su tamaño y la columna con scroll: si se dejan
               encoger, con el mástil abierto la rueda se queda en un botón. */}
           <section
@@ -163,7 +163,17 @@ export function ComposeScreen() {
             medio hueco vacío debajo. */}
         <section
           aria-label="Herramientas"
-          className="border-border flex shrink-0 flex-col border-t"
+          // **No es `shrink-0`, y ese era el fallo.** Con la franja rígida y las
+          // columnas sin mínimo, abrir una herramienta en un portátil bajo las
+          // aplastaba: la rueda salía cortada por la mitad y la lista de acordes
+          // a media fila.
+          //
+          // Ahora **los dos tienen suelo**: las columnas no bajan de 18rem y el
+          // panel abierto no baja de 7rem. Solo con el mínimo en las columnas,
+          // el arreglo se daba la vuelta y era el panel el que desaparecía. En
+          // una pantalla donde no quepan los dos suelos, cede este, que es lo
+          // secundario: la pantalla es el acorde y a dónde ir.
+          className="border-border flex min-h-0 flex-col border-t"
         >
           <div className="flex gap-1 px-3 py-1.5">
             {EXTRAS.map((candidate) => (
@@ -194,13 +204,15 @@ export function ComposeScreen() {
           {current !== null && (
             <div
               id="herramienta-abierta"
-              // El tope es distinto en el móvil: 72vh de un teléfono es la
-              // pantalla entera, así que el mástil empujaba el resto fuera y lo
-              // que quedaba por debajo era hueco por el que desplazarse.
-              className={`border-border border-t p-3 ${
+              // El tope va en `vh` en el móvil —ahí esto se apila y el viewport
+              // **es** el espacio disponible— y en `lg` manda `min-h-0`: la
+              // franja se queda con lo que sobre después de que las columnas
+              // tengan su mínimo, en vez de morder una fracción fija de la
+              // pantalla que en un portátil bajo se las comía.
+              className={`border-border min-h-0 border-t p-3 ${
                 current.fits === true
-                  ? 'max-h-[45vh] overflow-hidden lg:max-h-[min(72vh,46rem)]'
-                  : 'max-h-[45vh] overflow-auto lg:max-h-[min(52vh,26rem)]'
+                  ? 'max-h-[45vh] overflow-hidden lg:max-h-[46rem] lg:min-h-[7rem]'
+                  : 'max-h-[45vh] overflow-auto lg:max-h-[26rem] lg:min-h-[7rem]'
               }`}
             >
               <current.render />

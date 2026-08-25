@@ -145,6 +145,28 @@ describe('Los desplegables', () => {
   });
 });
 
+describe('Lo que no puede escaparse de la pantalla', () => {
+  /**
+   * Las etiquetas `sr-only` de Tailwind son `position: absolute`, y un absoluto
+   * **sin ancestro posicionado se ancla al documento**. Las de la lista de
+   * acordes viven dentro de un contenedor con scroll, así que su posición
+   * estática cae muy por debajo de lo que se ve: se escapaban del
+   * `overflow-hidden` y estiraban la página casi mil píxeles. La aplicación se
+   * iba hacia arriba y debajo quedaba una franja negra vacía.
+   *
+   * Se descubrió mirando la pantalla con el navegador, no con un test: ningún
+   * test de los que hay podía verlo. El arreglo es una palabra —`relative` en el
+   * contenedor de la aplicación— y esto es lo que impide que se caiga sin que
+   * nadie se entere.
+   */
+  it('el marco de la aplicación ancla los absolutos que lleva dentro', () => {
+    const shell = FICHEROS.find(({ ruta }) => ruta.endsWith('app/AppShell.tsx'));
+
+    expect(shell, 'no se encuentra AppShell').toBeTruthy();
+    expect(shell!.codigo).toMatch(/className="[^"]*\brelative\b[^"]*\bh-dvh\b/);
+  });
+});
+
 describe('En toda la interfaz', () => {
   /**
    * Los emoji no se dejan teñir, así que el estado activo se perdía justo donde se

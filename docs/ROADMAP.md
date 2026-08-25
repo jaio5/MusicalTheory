@@ -933,6 +933,18 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   anuncia con su nombre completo.
 - ~~**Sin selector de dispositivo.**~~ Con el permiso ya concedido aparece la
   lista de entradas y se puede cambiar sin recargar.
+- ~~**La pantalla de componer se podía desplazar y debajo quedaba una franja
+  negra.**~~ Los `sr-only` de Tailwind son `position: absolute`, y un absoluto sin
+  ancestro posicionado se ancla al **documento**: los de la lista de acordes viven
+  dentro de un contenedor con scroll, así que su posición estática caía muy por
+  debajo de lo que se ve y estiraban la página casi mil píxeles. El arreglo es una
+  palabra, `relative` en el marco de la aplicación, y hay un guardián que la
+  vigila. Se vio con el navegador delante; ningún test podía verlo.
+- ~~**Abrir una herramienta aplastaba las tres columnas.**~~ La franja era
+  `shrink-0` y las columnas no tenían suelo: en un portátil bajo, abrir «Ideas»
+  dejaba la rueda cortada por la mitad y la lista de acordes a media fila. Ahora
+  los dos tienen mínimo —18rem las columnas, 7rem el panel— y cede el panel, que es
+  lo secundario.
 - ~~**El micro se quedaba mudo y había que pararlo y arrancarlo.**~~ Apareció
   tocando, en una unidad de tocar. El contexto de audio se reanudaba **una vez al
   crearlo y nunca más**: cuando el sistema lo suspende por su cuenta —pantalla

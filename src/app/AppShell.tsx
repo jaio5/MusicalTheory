@@ -71,7 +71,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [actions]);
 
   return (
-    <div className="bg-background flex h-dvh flex-col overflow-hidden">
+    // `relative` no es decoración: es lo que impide que la página crezca por
+    // debajo de la pantalla.
+    //
+    // Las etiquetas `sr-only` de Tailwind son `position: absolute`, y un
+    // absoluto sin ancestro posicionado se ancla al **documento**. Las de la
+    // lista de acordes viven dentro de un contenedor con scroll, así que su
+    // posición estática está muy por debajo de lo que se ve: se escapaban del
+    // `overflow-hidden` y estiraban el documento casi mil píxeles. La aplicación
+    // se iba hacia arriba y debajo quedaba una franja negra vacía.
+    //
+    // Con esto, cualquier absoluto de dentro se ancla aquí, y aquí hay
+    // `overflow-hidden`. Vale para las que hay y para las que se escriban.
+    <div className="bg-background relative flex h-dvh flex-col overflow-hidden">
       <header className="border-border bg-surface flex shrink-0 items-center gap-3 border-b px-3 py-1.5 shadow-[0_1px_0_rgba(0,0,0,0.5)]">
         {/* Reconocer acordes solo donde sirve: en componer. */}
         <MicButton chords={pathname === '/componer'} />
