@@ -18,10 +18,15 @@ Una clave de API en el navegador es una clave pública: está en el bundle, en l
 DevTools y en cualquier proxy. Da igual que se ofusque.
 
 `ANTHROPIC_API_KEY` es una variable de entorno **sin** el prefijo
-`NEXT_PUBLIC_`, así que Next no la incluye en el bundle del cliente. Solo la lee
-el route handler, que se ejecuta en el servidor. El SDK `@anthropic-ai/sdk` se
-importa únicamente desde ese fichero: si apareciese importado desde un
-componente, el propio bundler lo arrastraría al cliente.
+`NEXT_PUBLIC_`, así que Next no la incluye en el bundle del cliente. El SDK
+`@anthropic-ai/sdk` se importa desde **un solo fichero de todo el proyecto**,
+`server/ask-model.ts`: si apareciese importado desde un componente, el propio
+bundler lo arrastraría al cliente.
+
+Fueron tres —una copia por ruta— y solo se diferenciaban en el prompt de
+sistema, el esquema y el tope de tokens. El porqué de apagar el pensamiento
+estaba explicado tres veces con tres redacciones distintas, y no había forma de
+saber si seguían diciendo lo mismo.
 
 Esto además da un sitio donde poner límites de frecuencia, tiempo máximo y
 control de coste, que en el cliente serían imposibles de hacer cumplir.
@@ -229,9 +234,10 @@ defecto** y se cobra como tokens de salida, así que dejarlo puesto multiplicaba
 coste de cada pregunta y podía gastarse el `max_tokens` pensando para devolver una
 respuesta truncada —se paga y no se sirve—.
 
-Las tres rutas mandan `thinking: { type: 'disabled' }` con `effort: 'low'`, y sus
-prompts de sistema piden explícitamente que no se cuelen etiquetas XML internas en la
-respuesta: es lo que recomienda la documentación del modelo para ese caso.
+`server/ask-model.ts` manda `thinking: { type: 'disabled' }` con `effort: 'low'` para
+las tres, y los tres prompts de sistema piden explícitamente que no se cuelen
+etiquetas XML internas en la respuesta: es lo que recomienda la documentación del
+modelo para ese caso.
 
 Los tres prompts y los tres esquemas viven juntos en `server/prompts.ts`, y no dentro de
 sus rutas, porque **de su longitud dependen los cupos de todos los planes**. Allí se

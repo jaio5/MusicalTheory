@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 import { needsPlanMessage, planOf, quotaMessage, TOKEN_BUDGETS } from '@core/billing';
@@ -9,7 +8,8 @@ import {
   validateTeacherAnswer,
   type TeacherRequest,
 } from '@features/learn/teacher-contract';
-import { configuredModel, hasModelKey } from '@server/ai-model';
+import { hasModelKey } from '@server/ai-model';
+import { askModel } from '@server/ask-model';
 import { ANSWER_SCHEMA, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
 import { spendAi } from '@server/entitlements';
 import { limitRequest } from '@server/rate-limit-db';
@@ -54,42 +54,6 @@ function buildPrompt(request: TeacherRequest, validDegrees: readonly string[]): 
 
   lines.push(`Pregunta: ${request.question}`);
   return lines.join('\n');
-}
-
-async function askModel(prompt: string): Promise<unknown> {
-  const client = new Anthropic();
-
-  const response = await client.messages.create({
-    model: configuredModel(),
-    max_tokens: MAX_TOKENS,
-    system: TEACHER_SYSTEM_PROMPT,
-    // Sin pensar y con esfuerzo bajo. La respuesta son tres frases con una forma
-    // fijada por el esquema: no hay nada que razonar, y en Opus 5 pensar está
-    // encendido por defecto y se cobra como salida. Dejarlo puesto multiplicaba el
-    // coste de cada pregunta y podía comerse el `max_tokens` antes de contestar,
-    // que es la peor combinación: se paga y no se sirve.
-    thinking: { type: 'disabled' },
-    output_config: {
-      effort: 'low',
-      format: { type: 'json_schema', schema: ANSWER_SCHEMA },
-    },
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  if (response.stop_reason === 'refusal') {
-    throw new Error('refusal');
-  }
-
-  const text = response.content.find((block) => block.type === 'text');
-  if (text === undefined || text.type !== 'text') {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text.text) as unknown;
-  } catch {
-    return null;
-  }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -159,7 +123,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let payload: unknown;
     try {
-      payload = await askModel(prompt);
+      payload = await askModel({
+        prompt,
+        system: TEACHER_SYSTEM_PROMPT,
+        schema: ANSWER_SCHEMA,
+        maxTokens: MAX_TOKENS,
+      });
     } catch {
       return NextResponse.json(teacherError('model_unavailable'), { status: 502 });
     }

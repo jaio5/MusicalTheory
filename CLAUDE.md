@@ -73,37 +73,39 @@ renombrado no puede degradar a quien había pagado.
 
 ## Dónde está cada cosa
 
-| Busco...                                             | Está en                                        |
-| ---------------------------------------------------- | ---------------------------------------------- |
-| Teoría musical: escalas, acordes, grados, tonalidad  | `src/core/music/`                              |
-| Funciones armónicas y sustitución (T/S/D)            | `core/music/harmonic-function.ts`              |
-| Qué acorde proponer y en qué orden                   | `core/music/suggestions.ts` + `styles.ts`      |
-| Detección de tono (autocorrelación)                  | `src/audio/autocorrelation.ts`                 |
-| Detección de acordes (croma + plantillas)            | `audio/chroma.ts`, `audio/chord-engine.ts`     |
-| Mástil, afinaciones, formas de acorde                | `src/core/instrument/`                         |
-| Estado de sesión y persistencia                      | `src/state/` (IndexedDB)                       |
-| Grabación con cámara                                 | `src/media/`                                   |
-| Rutas de servidor de la IA                           | `app/api/ideas`, `/teacher`, `/versiones`      |
-| Lo que tocas, convertido en compases                 | `core/music/capture.ts`                        |
-| Con qué se rearmoniza, y cómo se comprueba           | `core/music/reharmonization.ts`                |
-| Una canción guardada: grados, tonalidad y secciones  | `core/music/song.ts` + `server/songs-repo.ts`  |
-| Planes, permisos y si una unidad la abre el plan     | `src/core/billing/` (`plans.ts`, `access.ts`)  |
-| Meta diaria, racha, medallas, punto de partida       | `core/music/progress.ts`                       |
-| La cola de repaso de lo fallado                      | `core/music/review.ts`                         |
-| Tarjetas de plan y ventana de pago                   | `features/account/`, `src/app/planes/`         |
-| Guardar y abrir tus canciones                        | `features/songs/`, `src/app/api/canciones`     |
-| Versiones de tu canción, y su verificación           | `features/versions/`                           |
-| El avatar de arriba y lo que cuelga de él            | `features/account/AccountMenu.tsx`             |
-| Cuentas, contraseñas, base de datos y cupos          | `src/server/`                                  |
-| Recuperar la contraseña, y por dónde sale el correo  | `server/password-reset.ts`, `server/mail/`     |
-| Si alguien puede pedirle algo al modelo              | `server/entitlements.ts` + `ai-usage.ts`       |
-| Por dónde se cobrará (hoy no se cobra)               | `src/server/billing/`                          |
-| El marco de una pantalla y sus apartados             | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
-| Leer lo que llega de fuera, y el error que contestó  | `core/parse.ts`, `state/api-error.ts`          |
-| Un desplegable de opciones, y uno que abre un bloque | `src/ui/Field.tsx`, `src/ui/Disclosure.tsx`    |
-| Iconos, y por qué no son emoji                       | `src/ui/icons.tsx`                             |
-| Tokens de diseño y las dos paletas                   | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
-| El tema claro/oscuro y su guion antidestello         | `src/state/theme.ts`, `src/ui/ThemeToggle.tsx` |
+| Busco...                                              | Está en                                        |
+| ----------------------------------------------------- | ---------------------------------------------- |
+| Teoría musical: escalas, acordes, grados, tonalidad   | `src/core/music/`                              |
+| Funciones armónicas y sustitución (T/S/D)             | `core/music/harmonic-function.ts`              |
+| Qué acorde proponer y en qué orden                    | `core/music/suggestions.ts` + `styles.ts`      |
+| Detección de tono (autocorrelación)                   | `src/audio/autocorrelation.ts`                 |
+| Detección de acordes (croma + plantillas)             | `audio/chroma.ts`, `audio/chord-engine.ts`     |
+| Mástil, afinaciones, formas de acorde                 | `src/core/instrument/`                         |
+| Estado de sesión y persistencia                       | `src/state/` (IndexedDB)                       |
+| Grabación con cámara                                  | `src/media/`                                   |
+| Rutas de servidor de la IA                            | `app/api/ideas`, `/teacher`, `/versiones`      |
+| La llamada al modelo, y el único sitio con el SDK     | `server/ask-model.ts`                          |
+| Lo que tocas, convertido en compases                  | `core/music/capture.ts`                        |
+| Con qué se rearmoniza, y cómo se comprueba            | `core/music/reharmonization.ts`                |
+| Una canción guardada: grados, tonalidad y secciones   | `core/music/song.ts` + `server/songs-repo.ts`  |
+| Planes, permisos y si una unidad la abre el plan      | `src/core/billing/` (`plans.ts`, `access.ts`)  |
+| Meta diaria, racha, medallas, punto de partida        | `core/music/progress.ts`                       |
+| La cola de repaso de lo fallado                       | `core/music/review.ts`                         |
+| Tarjetas de plan y ventana de pago                    | `features/account/`, `src/app/planes/`         |
+| Guardar y abrir tus canciones                         | `features/songs/`, `src/app/api/canciones`     |
+| Versiones de tu canción, y su verificación            | `features/versions/`                           |
+| El avatar de arriba y lo que cuelga de él             | `features/account/AccountMenu.tsx`             |
+| Cuentas, contraseñas, base de datos y cupos           | `src/server/`                                  |
+| Recuperar la contraseña, y por dónde sale el correo   | `server/password-reset.ts`, `server/mail/`     |
+| Si alguien puede pedirle algo al modelo               | `server/entitlements.ts` + `ai-usage.ts`       |
+| Por dónde se cobrará (hoy no se cobra)                | `src/server/billing/`                          |
+| El marco de una pantalla y sus apartados              | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
+| Leer lo que llega de fuera, y el error que contestó   | `core/parse.ts`, `state/api-error.ts`          |
+| Contar días sin que el cambio de hora rompa una racha | `core/music/days.ts`                           |
+| Un desplegable de opciones, y uno que abre un bloque  | `src/ui/Field.tsx`, `src/ui/Disclosure.tsx`    |
+| Iconos, y por qué no son emoji                        | `src/ui/icons.tsx`                             |
+| Tokens de diseño y las dos paletas                    | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
+| El tema claro/oscuro y su guion antidestello          | `src/state/theme.ts`, `src/ui/ThemeToggle.tsx` |
 
 `/aprender` es **solo el camino**, y cada cosa que se hace tiene su dirección:
 `/aprender/[unidad]` y `/aprender/repaso`. Después `/profesor`, `/componer`,

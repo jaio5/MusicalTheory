@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 import { needsPlanMessage, planOf, quotaMessage, TOKEN_BUDGETS } from '@core/billing';
@@ -10,7 +9,8 @@ import {
   validateIdeas,
   type IdeasRequest,
 } from '@features/ideas/contract';
-import { configuredModel, hasModelKey } from '@server/ai-model';
+import { hasModelKey } from '@server/ai-model';
+import { askModel } from '@server/ask-model';
 import { IDEAS_SCHEMA, IDEAS_SYSTEM_PROMPT } from '@server/prompts';
 import { spendAi } from '@server/entitlements';
 import { limitRequest } from '@server/rate-limit-db';
@@ -82,39 +82,6 @@ function buildPrompt(request: IdeasRequest, validDegrees: readonly string[]): st
   return lines.join('\n');
 }
 
-async function askModel(prompt: string): Promise<unknown> {
-  const client = new Anthropic();
-
-  const response = await client.messages.create({
-    model: configuredModel(),
-    max_tokens: MAX_TOKENS,
-    system: IDEAS_SYSTEM_PROMPT,
-    // Sin pensar y con esfuerzo bajo, por lo mismo que en el profesor: la salida
-    // la fija un esquema, pensar se cobra como salida y en Opus 5 viene encendido.
-    thinking: { type: 'disabled' },
-    output_config: {
-      effort: 'low',
-      format: { type: 'json_schema', schema: IDEAS_SCHEMA },
-    },
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  if (response.stop_reason === 'refusal') {
-    throw new Error('refusal');
-  }
-
-  const text = response.content.find((block) => block.type === 'text');
-  if (text === undefined || text.type !== 'text') {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text.text) as unknown;
-  } catch {
-    return null;
-  }
-}
-
 export async function POST(request: Request): Promise<NextResponse> {
   const now = Date.now();
   // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
@@ -181,7 +148,12 @@ export async function POST(request: Request): Promise<NextResponse> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let payload: unknown;
     try {
-      payload = await askModel(prompt);
+      payload = await askModel({
+        prompt,
+        system: IDEAS_SYSTEM_PROMPT,
+        schema: IDEAS_SCHEMA,
+        maxTokens: MAX_TOKENS,
+      });
     } catch {
       return NextResponse.json(ideasError('model_unavailable'), { status: 502 });
     }

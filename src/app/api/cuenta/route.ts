@@ -31,6 +31,7 @@ import { isRecordOrEmpty } from '@core/parse';
 import { configuredModel } from '@server/ai-model';
 import { authAvailable } from '@server/auth';
 import { currentAccount, currentSession } from '@server/entitlements';
+import { tooManyRequests } from '@server/api-response';
 import { readJsonBody } from '@server/request-body';
 import { limitRequest } from '@server/rate-limit-db';
 import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
@@ -93,15 +94,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     options: { limit: 5, windowMs: 60_000 },
   });
   if (!allowed) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'rate_limited',
-          message: 'Demasiados intentos seguidos. Espera un momento y vuelve a probar.',
-        },
-      },
-      { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
-    );
+    return tooManyRequests(retryAfterSeconds);
   }
 
   let body: unknown;
@@ -181,15 +174,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     options: { limit: 10, windowMs: 60_000 },
   });
   if (!allowed) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'rate_limited',
-          message: 'Demasiados intentos seguidos. Espera un momento y vuelve a probar.',
-        },
-      },
-      { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
-    );
+    return tooManyRequests(retryAfterSeconds);
   }
 
   const record = await readJsonBody(request);
@@ -262,15 +247,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     options: { limit: 10, windowMs: 60_000 },
   });
   if (!allowed) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'rate_limited',
-          message: 'Demasiados intentos seguidos. Espera un momento y vuelve a probar.',
-        },
-      },
-      { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
-    );
+    return tooManyRequests(retryAfterSeconds);
   }
 
   const record = await readJsonBody(request);

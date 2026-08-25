@@ -59,6 +59,15 @@ function noLeido(): NextResponse {
   );
 }
 
+/**
+ * Que no exista y que no sea tuya se contestan igual, y por eso la frase es una.
+ *
+ * Desde fuera son el mismo caso —esa dirección no lleva a nada tuyo—, y decir
+ * cuál de los dos es confirmaría que ese identificador existe en la cuenta de
+ * otra persona.
+ */
+const NO_ESTA = 'Esa canción ya no está en tu cuenta.';
+
 function noEsUna(): NextResponse {
   return NextResponse.json(
     {
@@ -100,7 +109,7 @@ function respuesta(result: SaveResult): NextResponse {
     case 'no-existe':
       return NextResponse.json(
         {
-          error: { code: 'no-existe', message: 'Esa canción ya no está en tu cuenta.' },
+          error: { code: 'no-existe', message: NO_ESTA },
         },
         { status: 404 },
       );
@@ -159,7 +168,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
   if (!isSongId(id)) {
     return NextResponse.json(
       {
-        error: { code: 'no-existe', message: 'Esa canción ya no está en tu cuenta.' },
+        error: { code: 'no-existe', message: NO_ESTA },
       },
       { status: 404 },
     );
@@ -188,10 +197,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     case 'ok':
       return NextResponse.json({ borrada: true });
     case 'no-existe':
-      return NextResponse.json(
-        { error: { code: 'no-existe', message: 'Esa canción ya no está en tu cuenta.' } },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: { code: 'no-existe', message: NO_ESTA } }, { status: 404 });
     default:
       return NextResponse.json(
         { error: { code: 'no-borrado', message: 'No hemos podido borrar la canción.' } },

@@ -13,6 +13,8 @@
  * vuelve a calcular en la tonalidad de hoy y sigue preguntando por lo mismo.
  */
 
+import { daysBetween } from './days';
+
 /** Una pregunta esperando repaso. */
 export interface ReviewItem {
   readonly unitId: string;
@@ -53,17 +55,6 @@ export const REVIEW_LIMIT = 60;
 
 function isSame(item: ReviewItem, unitId: string, index: number): boolean {
   return item.unitId === unitId && item.index === index;
-}
-
-/** Días entre dos fechas `AAAA-MM-DD`, o `NaN` si alguna no lo es. */
-function daysBetween(from: string, to: string): number {
-  const parse = (day: string): number => Date.parse(`${day}T12:00:00Z`);
-  const start = parse(from);
-  const end = parse(to);
-  if (Number.isNaN(start) || Number.isNaN(end)) {
-    return Number.NaN;
-  }
-  return Math.round((end - start) / 86_400_000);
 }
 
 /**

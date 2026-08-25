@@ -10,6 +10,7 @@ export * from './scales';
 export * from './lessons';
 export * from './curriculum';
 export * from './progress';
+export * from './days';
 export * from './review';
 export * from './tempo';
 export * from './chord-symbols';

@@ -14,6 +14,7 @@
 import { NextResponse } from 'next/server';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
+import { tooManyRequests } from '@server/api-response';
 import { appUrl } from '@server/app-url';
 import { mailer } from '@server/mail';
 import { readJsonBody } from '@server/request-body';
@@ -44,17 +45,7 @@ async function puerta(request: Request): Promise<NextResponse | null> {
     options: { limit: 3, windowMs: 60_000 },
   });
 
-  return allowed
-    ? null
-    : NextResponse.json(
-        {
-          error: {
-            code: 'rate_limited',
-            message: 'Demasiados intentos seguidos. Espera un momento y vuelve a probar.',
-          },
-        },
-        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
-      );
+  return allowed ? null : tooManyRequests(retryAfterSeconds);
 }
 
 export async function POST(request: Request): Promise<NextResponse> {

@@ -17,6 +17,7 @@
  */
 
 import { COURSES, findUnit, TOTAL_XP, UNIT_ORDER, type Course, type GradeId } from './curriculum';
+import { daysBetween, isDay } from './days';
 import {
   EMPTY_REVIEW,
   MASTERED_HITS,
@@ -248,16 +249,6 @@ export function overallCompletion(progress: Progress): number {
  * Se comparan a mediodía UTC y no a medianoche: así un cambio de horario de
  * verano no convierte dos días seguidos en el mismo día ni en tres.
  */
-function daysBetween(from: string, to: string): number {
-  const parse = (day: string): number => Date.parse(`${day}T12:00:00Z`);
-  const start = parse(from);
-  const end = parse(to);
-  if (Number.isNaN(start) || Number.isNaN(end)) {
-    return Number.NaN;
-  }
-  return Math.round((end - start) / 86_400_000);
-}
-
 /**
  * La racha después de practicar en `day`.
  *
@@ -538,11 +529,6 @@ function mergeStartCourse(a: Progress, b: Progress): string | null {
     return ia > ib ? a.startCourse : b.startCourse;
   }
   return a.startCourse ?? b.startCourse;
-}
-
-/** `AAAA-MM-DD` y nada más. Cualquier otra cosa se descarta. */
-function isDay(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 function asStrings(value: unknown): readonly string[] {
