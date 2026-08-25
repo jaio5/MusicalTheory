@@ -3,7 +3,14 @@
 import { useState } from 'react';
 
 import { can, cheapestPlanWith, MAX_VERSION_DEGREES } from '@core/billing';
-import { degreesFromPath, moveById, noteName, resolveDegree } from '@core/music';
+import {
+  captureProgression,
+  degreesFromPath,
+  moveById,
+  noteName,
+  resolveDegree,
+  type CapturedStep,
+} from '@core/music';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
@@ -19,6 +26,8 @@ import {
 export interface VersionsPanelProps {
   /** Se inyecta en los tests para no llamar al servidor de verdad. */
   readonly fetchVersions?: (request: VersionsRequest) => Promise<Response>;
+  /** El reloj, por parámetro, para poder probar la grabación sin esperar. */
+  readonly now?: () => number;
 }
 
 async function defaultFetch(request: VersionsRequest): Promise<Response> {
@@ -49,10 +58,18 @@ function errorFrom(payload: unknown): { code: VersionsErrorCode | null; message:
  * llega hasta aquí. Por eso el porqué se puede enseñar al lado de cada acorde sin
  * miedo: no es lo que dijo el modelo, es lo que se ha verificado.
  */
-export function VersionsPanel({ fetchVersions = defaultFetch }: VersionsPanelProps = {}) {
+export function VersionsPanel({
+  fetchVersions = defaultFetch,
+  now = () => performance.now(),
+}: VersionsPanelProps = {}) {
   const { account, signedIn } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
+  const capturing = useSessionStore((state) => state.capturing);
+  const captured = useSessionStore((state) => state.captured);
+  const captureEndedAt = useSessionStore((state) => state.captureEndedAt);
+  const bpm = useSessionStore((state) => state.bpm);
+  const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
 
   // El mismo permiso que comprueba la ruta antes de gastar dinero.
   const puedePedir = can(account.plan, 'versiones');
@@ -63,13 +80,36 @@ export function VersionsPanel({ fetchVersions = defaultFetch }: VersionsPanelPro
   );
   const [pending, setPending] = useState(false);
 
-  const { degrees } = degreesFromPath(
+  /**
+   * De dónde sale la progresión: de lo grabado si hay algo, y si no del camino.
+   *
+   * Lo grabado manda porque es lo que se acaba de tocar, y además trae los
+   * pulsos de verdad: cuánto duró cada acorde. El camino no tiene duraciones
+   * —es una lista de acordes encadenados a mano— así que ahí todos los compases
+   * valen cuatro. Cuando hay grabación, esa diferencia deja de existir.
+   */
+  const grabado: readonly CapturedStep[] =
+    activeKey === null || captured.length === 0 || captureEndedAt === 0
+      ? []
+      : captureProgression(captured, {
+          tonic: activeKey.tonic,
+          mode: activeKey.mode,
+          bpm,
+          beatsPerBar,
+          endedAt: captureEndedAt,
+        }).steps;
+
+  const delCamino = degreesFromPath(
     path.map((chord) => chord.label),
     activeKey?.mode ?? 'major',
-  );
+  ).degrees.map((degree) => ({ degree, beats: 4 }));
+
+  const progresion = grabado.length > 0 ? grabado : delCamino;
+  const deLoGrabado = grabado.length > 0;
+
   // Con un acorde no hay nada que rearmonizar, y el contrato ya lo rechaza. Se
   // comprueba también aquí para no gastar una petición en que la rechacen.
-  const sePuedePedir = activeKey !== null && degrees.length >= 2;
+  const sePuedePedir = activeKey !== null && progresion.length >= 2;
 
   async function ask() {
     if (activeKey === null || !sePuedePedir) {
@@ -80,11 +120,7 @@ export function VersionsPanel({ fetchVersions = defaultFetch }: VersionsPanelPro
 
     const request: VersionsRequest = {
       key: { tonic: noteName(activeKey.tonic), mode: activeKey.mode },
-      // Cuatro pulsos a cada uno: el camino de componer es una lista de acordes
-      // sin duraciones, así que aquí todos los compases valen lo mismo. Cuando
-      // la progresión venga de haber grabado un trozo, los pulsos serán los que
-      // se tocaron de verdad y esto pasará a ser lo de menos.
-      progression: degrees.slice(0, MAX_VERSION_DEGREES).map((degree) => ({ degree, beats: 4 })),
+      progression: progresion.slice(0, MAX_VERSION_DEGREES),
     };
 
     try {
@@ -147,15 +183,42 @@ export function VersionsPanel({ fetchVersions = defaultFetch }: VersionsPanelPro
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => void ask()} disabled={pending || !sePuedePedir}>
+        <Button
+          onClick={() => {
+            const { actions } = useSessionStore.getState();
+            if (capturing) {
+              actions.stopCapture(now());
+            } else {
+              actions.startCapture(now());
+            }
+          }}
+        >
+          {capturing ? 'Parar de grabar' : 'Grabar un trozo'}
+        </Button>
+
+        <Button onClick={() => void ask()} disabled={pending || !sePuedePedir || capturing}>
           {pending ? 'Buscando versiones…' : 'Versiones de esto'}
         </Button>
-        {!sePuedePedir && (
-          <p className="text-text-muted text-sm">
-            Encadena al menos dos acordes: con uno solo no hay nada que rearmonizar.
-          </p>
+
+        {deLoGrabado && !capturing && (
+          <Button variant="quiet" onClick={() => useSessionStore.getState().actions.clearCapture()}>
+            Olvidar lo grabado
+          </Button>
         )}
       </div>
+
+      {/* Lo que se va a mandar, dicho antes de mandarlo: con la guitarra puesta,
+          pulsar un botón que gasta cupo sin saber sobre qué es lo que hace que
+          no se pulse. */}
+      <p className="text-text-muted mt-2 text-sm" role="status">
+        {capturing
+          ? 'Grabando lo que tocas. Se apuntan los acordes y cuánto dura cada uno, no el sonido.'
+          : !sePuedePedir
+            ? 'Graba un trozo o encadena al menos dos acordes: con uno solo no hay nada que rearmonizar.'
+            : deLoGrabado
+              ? `De lo que has grabado: ${progresion.map((step) => step.degree).join(' · ')}.`
+              : `Del camino que llevas: ${progresion.map((step) => step.degree).join(' · ')}.`}
+      </p>
 
       <p className="text-text-muted mt-2 text-sm">
         Se mandan los grados y sus pulsos, no el sonido. Cada cambio viene con el movimiento que lo

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Account } from '@core/billing';
-import { pitchClassFromName } from '@core/music';
+import { normalizePitchClass, pitchClassFromName, type PitchClass } from '@core/music';
 import { AccountProvider } from '@state/account';
 import { useSessionStore } from '@state/session-store';
 
@@ -14,6 +14,7 @@ import { versionsError, type Version, type VersionsRequest } from './contract';
 import { VersionsPanel } from './VersionsPanel';
 
 const C = pitchClassFromName('C');
+const G = pitchClassFromName('G');
 
 const CON_PLAN: Account = {
   email: 'javier@example.com',
@@ -73,6 +74,12 @@ describe('sin el plan que las incluye', () => {
 });
 
 describe('cuándo se puede pedir', () => {
+  it('sin nada dice que se grabe o se encadene', async () => {
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} />));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/Graba un trozo o encadena/);
+  });
+
   it('con un solo acorde no se pide, y se dice por qué', async () => {
     const fetchVersions = vi.fn();
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
@@ -177,5 +184,81 @@ describe('ponerla en el camino', () => {
     await userEvent.click(poner);
 
     expect(useSessionStore.getState().path).toHaveLength(2);
+  });
+});
+
+describe('grabar un trozo', () => {
+  /** Un acorde mayor, como lo entrega el motor de croma. */
+  function oye(root: PitchClass, at: number) {
+    useSessionStore.getState().actions.setHeardChord({
+      symbol: 'x',
+      root,
+      notes: [0, 4, 7].map((interval) => normalizePitchClass(root + interval)),
+      score: 1,
+      at,
+    });
+  }
+
+  it('mientras graba lo dice, y no deja pedir versiones a medias', async () => {
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} />));
+    componiendo(['I', 'V']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent(/Grabando lo que tocas/);
+    expect(screen.getByRole('button', { name: /Versiones de esto/ })).toBeDisabled();
+  });
+
+  it('lo grabado manda sobre el camino, y trae los pulsos de verdad', async () => {
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    let reloj = 0;
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} now={() => reloj} />));
+
+    // El camino lleva otra cosa: si se mandara eso, la grabación no serviría.
+    componiendo(['vi', 'IV']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    // A 100 bpm un pulso son 600 ms. Do dos pulsos, Sol cuatro.
+    oye(C, 0);
+    oye(G, 1200);
+    reloj = 3600;
+    await userEvent.click(screen.getByRole('button', { name: 'Parar de grabar' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('De lo que has grabado: I · V.');
+
+    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+
+    const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
+    expect(request.progression).toEqual([
+      { degree: 'I', beats: 2 },
+      { degree: 'V', beats: 4 },
+    ]);
+  });
+
+  it('olvidar lo grabado devuelve el camino', async () => {
+    let reloj = 0;
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} now={() => reloj} />));
+    componiendo(['vi', 'IV']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    oye(C, 0);
+    oye(G, 1200);
+    reloj = 3600;
+    await userEvent.click(screen.getByRole('button', { name: 'Parar de grabar' }));
+    await userEvent.click(screen.getByRole('button', { name: /Olvidar lo grabado/ }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Del camino que llevas: vi · IV.');
+  });
+
+  it('grabar sin tocar nada no rompe nada: se sigue pudiendo usar el camino', async () => {
+    let reloj = 0;
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} now={() => reloj} />));
+    componiendo(['I', 'V']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    reloj = 5000;
+    await userEvent.click(screen.getByRole('button', { name: 'Parar de grabar' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Del camino que llevas: I · V.');
   });
 });

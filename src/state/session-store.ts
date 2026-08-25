@@ -10,9 +10,13 @@ import { create } from 'zustand';
 
 import {
   addPitchClass,
+  clampBpm,
   createPitchHistogram,
+  DEFAULT_BEATS_PER_BAR,
+  DEFAULT_BPM,
   describePitch,
   detectKey,
+  type CapturedChord,
   type KeyCandidate,
   type KeyMode,
   type PitchClass,
@@ -117,6 +121,19 @@ export interface SessionActions {
   clearPath(): void;
   /** Marca qué grado está sonando, para sugerir a dónde ir desde ahí. */
   setCurrentDegree(degree: DegreeSymbol | null): void;
+  /** El tempo con el que se mide lo que se graba. Lo pone el metrónomo. */
+  setTempo(bpm: number, beatsPerBar: number): void;
+  /**
+   * Empieza a apuntar los acordes que se oigan, con su instante.
+   *
+   * Apuntar y no grabar: lo que se guarda son símbolos y milisegundos, nunca
+   * sonido. El instante entra por parámetro, como en todo lo demás.
+   */
+  startCapture(at: number): void;
+  /** Deja de apuntar. Lo apuntado se queda para poder usarlo. */
+  stopCapture(at: number): void;
+  /** Tira lo apuntado. */
+  clearCapture(): void;
   clearHistory(): void;
   reset(): void;
 }
@@ -164,6 +181,23 @@ export interface SessionState {
    */
   readonly lastHeardChord: HeardChord | null;
   /**
+   * El tempo, que vivía dentro del metrónomo y por eso no lo veía nadie más.
+   *
+   * Sube aquí porque lo necesitan dos cosas que no se conocen entre sí —el
+   * metrónomo lo pone y la captura lo usa para medir cuánto dura cada acorde— y
+   * un feature no importa de otro. De paso deja de perderse al cambiar de
+   * pantalla.
+   */
+  readonly bpm: number;
+  readonly beatsPerBar: number;
+  /** Si se está apuntando lo que se toca. */
+  readonly capturing: boolean;
+  /** Los acordes apuntados, con su instante. Símbolos, no sonido. */
+  readonly captured: readonly CapturedChord[];
+  /** Cuándo se empezó y cuándo se paró, para medir el último acorde. */
+  readonly captureStartedAt: number;
+  readonly captureEndedAt: number;
+  /**
    * Las acciones viven en un objeto propio que no se reemplaza nunca, para que
    * suscribirse a ellas no provoque renders. Es el equivalente a inyectar un
    * servicio: lo que cambia son los datos, no la forma de tocarlos.
@@ -191,6 +225,12 @@ const EMPTY = {
   path: [],
   heardChord: null,
   lastHeardChord: null,
+  bpm: DEFAULT_BPM,
+  beatsPerBar: DEFAULT_BEATS_PER_BAR,
+  capturing: false,
+  captured: [],
+  captureStartedAt: 0,
+  captureEndedAt: 0,
 } as const satisfies Omit<SessionState, 'actions'>;
 
 /**
@@ -281,11 +321,27 @@ export const useSessionStore = create<SessionState>()((set) => ({
       set((state) => ({
         heardChord,
         lastHeardChord: heardChord ?? state.lastHeardChord,
+        // Mientras se apunta, cada acorde que llega entra en la lista con su
+        // instante. El silencio no se apunta: lo que mide cuánto dura un acorde
+        // es cuándo empieza el siguiente, y un hueco de nulos no aporta nada
+        // que `captureProgression` no sepa deducir.
+        captured:
+          state.capturing && heardChord !== null
+            ? [
+                ...state.captured,
+                { root: heardChord.root, notes: heardChord.notes, at: heardChord.at },
+              ]
+            : state.captured,
       })),
     pushChord: (chord) => set((state) => ({ path: [...state.path, chord] })),
     trimPath: (index) => set((state) => ({ path: state.path.slice(0, index + 1) })),
     clearPath: () => set({ path: [] }),
     setCurrentDegree: (currentDegree) => set({ currentDegree }),
+    setTempo: (bpm, beatsPerBar) => set({ bpm: clampBpm(bpm), beatsPerBar }),
+    startCapture: (at) =>
+      set({ capturing: true, captured: [], captureStartedAt: at, captureEndedAt: 0 }),
+    stopCapture: (at) => set({ capturing: false, captureEndedAt: at }),
+    clearCapture: () => set({ captured: [], captureStartedAt: 0, captureEndedAt: 0 }),
     clearHistory: () =>
       set({
         noteHistory: [],

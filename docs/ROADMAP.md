@@ -610,9 +610,14 @@ que casi todo el trabajo es de dominio y no de modelo. El porqué y las alternat
 - [ ] **Sin probar con clave de verdad.** El contrato y el validador están probados
       con respuestas fabricadas; que el modelo devuelva versiones que pasen la
       verificación a menudo, no.
-- [ ] **La progresión sale del camino de componer, no de haber grabado.** La captura
-      está escrita y probada, pero todavía no hay un botón que grabe un trozo y la
-      use: por ahora todos los compases valen cuatro pulsos.
+- [x] **Grabar un trozo, conectado.** El botón apunta los acordes que se oyen con su
+      instante, y al parar salen los grados con sus pulsos de verdad. Lo grabado manda
+      sobre el camino, y se puede olvidar para volver a él. Antes de gastar cupo, el
+      panel dice de dónde va a salir la progresión y cuál es: pulsar un botón que
+      cuesta dinero sin saber sobre qué es lo que hace que no se pulse.
+- [x] **El tempo sube al store.** Vivía dentro del metrónomo con estado local, así que
+      la captura no podía medir nada: un feature no importa de otro. De paso deja de
+      perderse al cambiar de pantalla.
 - [ ] **No se pueden oír.** Comparar tres versiones leyéndolas cuesta, y es lo primero
       que hay que mirar después.
 

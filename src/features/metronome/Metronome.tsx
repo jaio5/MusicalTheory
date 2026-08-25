@@ -5,15 +5,8 @@ import { Chip } from '@ui/Chip';
 import { Field } from '@ui/Field';
 
 import { WebAudioMetronome, type Metronome as MetronomeEngine } from '@audio/metronome';
-import {
-  BEATS_PER_BAR,
-  bpmFromTaps,
-  clampBpm,
-  DEFAULT_BEATS_PER_BAR,
-  DEFAULT_BPM,
-  MAX_BPM,
-  MIN_BPM,
-} from '@core/music';
+import { BEATS_PER_BAR, bpmFromTaps, clampBpm, MAX_BPM, MIN_BPM } from '@core/music';
+import { selectActions, useSessionStore } from '@state/session-store';
 
 export interface MetronomeProps {
   /** Para poder probarlo sin audio de verdad. */
@@ -27,8 +20,13 @@ export interface MetronomeProps {
  * es como se saca de verdad el tempo de una canción que suena en la cabeza.
  */
 export function Metronome({ createMetronome }: MetronomeProps = {}) {
-  const [bpm, setBpm] = useState(DEFAULT_BPM);
-  const [beatsPerBar, setBeatsPerBar] = useState(DEFAULT_BEATS_PER_BAR);
+  // El tempo vive en el store y no aquí dentro. Lo necesita también la captura
+  // —para medir cuántos pulsos dura cada acorde que se toca— y un feature no
+  // importa de otro, así que sube a `state/`. De paso deja de perderse al
+  // cambiar de pantalla.
+  const bpm = useSessionStore((state) => state.bpm);
+  const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
+  const actions = useSessionStore(selectActions);
   const [running, setRunning] = useState(false);
   const [beat, setBeat] = useState(0);
 
@@ -66,7 +64,7 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
 
   function change(next: number): void {
     const value = clampBpm(next);
-    setBpm(value);
+    actions.setTempo(value, beatsPerBar);
     engineRef.current?.setBpm(value);
   }
 
@@ -134,7 +132,7 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
           value={beatsPerBar}
           onChange={(event) => {
             const value = Number(event.target.value);
-            setBeatsPerBar(value);
+            actions.setTempo(bpm, value);
             if (running) {
               void engine().start({ bpm, beatsPerBar: value, onBeat: setBeat });
             }
