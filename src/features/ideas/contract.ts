@@ -11,7 +11,8 @@
 import { MAX_IDEAS, MAX_RECENT_CHORDS, MAX_RECENT_NOTES } from '@core/billing';
 import {
   degreesFor,
-  NOTE_NAMES,
+  asNoteName,
+  pitchClassFromName,
   resolveProgression,
   SCALE_IDS,
   type DegreeSymbol,
@@ -20,7 +21,7 @@ import {
   type PitchClass,
   type ScaleId,
 } from '@core/music';
-import { pitchClassFromName } from '@core/music';
+import { isRecord } from '@core/parse';
 
 export const IDEA_KINDS = ['progression', 'twist', 'scale'] as const;
 export type IdeaKind = (typeof IDEA_KINDS)[number];
@@ -90,16 +91,6 @@ export const ERROR_MESSAGES: Readonly<Record<IdeasErrorCode, string>> = {
 
 export function ideasError(code: IdeasErrorCode, message?: string): IdeasError {
   return { error: { code, message: message ?? ERROR_MESSAGES[code] } };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function asNoteName(value: unknown): NoteName | null {
-  return typeof value === 'string' && (NOTE_NAMES as readonly string[]).includes(value)
-    ? (value as NoteName)
-    : null;
 }
 
 /**

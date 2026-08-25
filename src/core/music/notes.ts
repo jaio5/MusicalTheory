@@ -166,3 +166,16 @@ export function describePitch(frequency: number): PitchReading {
     cents: (exactMidi - midi) * CENTS_PER_SEMITONE,
   };
 }
+
+/**
+ * Ese valor como nombre de nota, o nulo si no lo es.
+ *
+ * Vive aquí, al lado de `NOTE_NAMES`, y no dentro de un contrato: lo necesitan
+ * los de ideas y los de versiones, y un feature no importa de otro. Estaba
+ * escrito dos veces, letra por letra.
+ */
+export function asNoteName(value: unknown): NoteName | null {
+  return typeof value === 'string' && (NOTE_NAMES as readonly string[]).includes(value)
+    ? (value as NoteName)
+    : null;
+}

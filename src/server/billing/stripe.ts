@@ -15,6 +15,7 @@
 
 import type { PlanId } from '@core/billing';
 
+import { appUrl } from '../app-url';
 import { setPlan } from '../users';
 
 import type { Billing, StartResult } from './port';
@@ -60,12 +61,6 @@ export function stripeConfigured(): boolean {
     key !== '' &&
     (['basico', 'medio', 'pro'] as const).every((plan) => priceIdOf(plan) !== null)
   );
-}
-
-/** El sitio al que Stripe devuelve a quien paga. */
-function siteUrl(): string {
-  const url = process.env['APP_URL'];
-  return typeof url === 'string' && url !== '' ? url.replace(/\/$/, '') : 'http://localhost:3000';
 }
 
 /**
@@ -152,8 +147,8 @@ export const StripeBilling: Billing = {
       client_reference_id: userId,
       'metadata[userId]': userId,
       'metadata[plan]': plan,
-      success_url: `${siteUrl()}/cuenta?pago=hecho`,
-      cancel_url: `${siteUrl()}/planes/${plan}?pago=cancelado`,
+      success_url: `${appUrl()}/cuenta?pago=hecho`,
+      cancel_url: `${appUrl()}/planes/${plan}?pago=cancelado`,
     });
 
     const url = session?.['url'];
@@ -194,7 +189,7 @@ export const StripeBilling: Billing = {
 
     const session = await stripeFetch('/billing_portal/sessions', {
       customer,
-      return_url: `${siteUrl()}/cuenta`,
+      return_url: `${appUrl()}/cuenta`,
     });
     const url = session?.['url'];
     return typeof url === 'string' && url !== '' ? url : null;

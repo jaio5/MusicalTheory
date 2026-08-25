@@ -27,9 +27,11 @@
 import { NextResponse } from 'next/server';
 
 import { ANONYMOUS, MIN_PASSWORD_LENGTH } from '@core/billing';
+import { isRecordOrEmpty } from '@core/parse';
 import { configuredModel } from '@server/ai-model';
 import { authAvailable } from '@server/auth';
 import { currentAccount, currentSession } from '@server/entitlements';
+import { readJsonBody } from '@server/request-body';
 import { limitRequest } from '@server/rate-limit-db';
 import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
 import { changePassword, createUser, deleteAccount, setName } from '@server/users';
@@ -112,7 +114,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const record = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const record = isRecordOrEmpty(body);
   const result = await createUser({
     email: record['email'],
     password: record['password'],
@@ -190,13 +192,7 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = {};
-  }
-  const record = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const record = await readJsonBody(request);
 
   // La contraseña primero: si se piden las dos cosas a la vez y la contraseña
   // actual no es la que dice, no se guarda tampoco el nombre. Quien no sabe la
@@ -277,13 +273,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = {};
-  }
-  const record = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const record = await readJsonBody(request);
 
   const result = await deleteAccount(session.userId, record['password']);
   if (result !== 'ok') {

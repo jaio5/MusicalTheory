@@ -99,6 +99,7 @@ renombrado no puede degradar a quien había pagado.
 | Si alguien puede pedirle algo al modelo              | `server/entitlements.ts` + `ai-usage.ts`       |
 | Por dónde se cobrará (hoy no se cobra)               | `src/server/billing/`                          |
 | El marco de una pantalla y sus apartados             | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
+| Leer lo que llega de fuera, y el error que contestó  | `core/parse.ts`, `state/api-error.ts`          |
 | Un desplegable de opciones, y uno que abre un bloque | `src/ui/Field.tsx`, `src/ui/Disclosure.tsx`    |
 | Iconos, y por qué no son emoji                       | `src/ui/icons.tsx`                             |
 | Tokens de diseño y las dos paletas                   | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
@@ -151,11 +152,13 @@ líneas más abajo.
 - Interfaz para leerse **a un metro y con las dos manos ocupadas**: nada por debajo
   de 12 px, **44 px de alto en todo lo que se pulsa**, diagramas grandes, y el
   significado de un color al lado del color.
-- **Los desplegables son dos y solo dos**: `ui/Field` para elegir una opción y
-  `ui/Disclosure` para abrir un bloque. Ninguno se escribe a mano —lo vigila
-  `coherencia.test.ts`—, porque así salieron cinco pintas distintas. El ancho de
-  un `Field` se pide (`completo` o `auto`); heredarlo llenaba una barra de
-  herramientas con un desplegable de un dígito y doce rem.
+- **Los controles de formulario son tres y solo tres**: `ui/Field` para elegir una
+  opción, `ui/Disclosure` para abrir un bloque y `ui/TextField` para escribir.
+  Ninguno se escribe a mano —lo vigila `coherencia.test.ts`—, porque así salieron
+  cinco pintas distintas. El campo de texto estuvo suelto en catorce sitios y lo
+  que la copia escondía era peor: **ninguno llegaba a los 44 px**. El ancho se pide
+  (`completo`, `auto`, `crece`); heredarlo llenaba una barra de herramientas con un
+  desplegable de un dígito y doce rem.
 - **Dos temas, y el negro es el de casa.** El claro se elige y se guarda; volver al
   oscuro borra la preferencia. No cuelga de `prefers-color-scheme` a propósito. Los
   nombres de los tokens no cambian entre uno y otro —`brass` es «el acento» valga

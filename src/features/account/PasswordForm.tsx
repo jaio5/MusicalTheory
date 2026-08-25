@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { updateAccount, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
+import { TextField } from '@ui/TextField';
 
 /**
  * Cambiar la contraseña.
@@ -59,44 +60,34 @@ export function PasswordForm() {
         void submit();
       }}
     >
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">La de ahora</span>
-        <input
-          type="password"
-          required
-          autoComplete="current-password"
-          value={actual}
-          onChange={(event) => setActual(event.target.value)}
-          className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+      <TextField
+        label="La de ahora"
+        type="password"
+        required
+        autoComplete="current-password"
+        value={actual}
+        onChange={(event) => setActual(event.target.value)}
+      />
 
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">
-          La nueva · mínimo {MIN_PASSWORD_LENGTH} caracteres
-        </span>
-        <input
-          type="password"
-          required
-          minLength={MIN_PASSWORD_LENGTH}
-          autoComplete="new-password"
-          value={nueva}
-          onChange={(event) => setNueva(event.target.value)}
-          className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+      <TextField
+        label="La nueva"
+        extra={<span> · mínimo {MIN_PASSWORD_LENGTH} caracteres</span>}
+        type="password"
+        required
+        minLength={MIN_PASSWORD_LENGTH}
+        autoComplete="new-password"
+        value={nueva}
+        onChange={(event) => setNueva(event.target.value)}
+      />
 
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">Otra vez la nueva</span>
-        <input
-          type="password"
-          required
-          autoComplete="new-password"
-          value={repetida}
-          onChange={(event) => setRepetida(event.target.value)}
-          className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+      <TextField
+        label="Otra vez la nueva"
+        type="password"
+        required
+        autoComplete="new-password"
+        value={repetida}
+        onChange={(event) => setRepetida(event.target.value)}
+      />
 
       {/* Que no coincidan se dice antes de enviar y no después: el servidor no
           puede saberlo, y descubrirlo al volver obligaría a escribirla otra vez. */}

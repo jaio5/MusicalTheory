@@ -35,6 +35,21 @@ export type SaveResult =
   | { readonly kind: 'error' };
 
 /**
+ * Las columnas que hacen falta para reconstruir una canción.
+ *
+ * Escritas una vez y no en cada consulta: estaban en las tres, y una columna
+ * nueva olvidada en una de ellas sale como una canción a la que le falta algo
+ * solo al crearla o solo al renombrarla, que es de los fallos que más tardan en
+ * verse.
+ */
+const COLUMNAS = {
+  id: songsTable.id,
+  name: songsTable.name,
+  data: songsTable.data,
+  updatedAt: songsTable.updatedAt,
+} as const;
+
+/**
  * Si eso puede ser un identificador de canción.
  *
  * Se comprueba la forma antes de preguntar porque Postgres **lanza** con un
@@ -78,12 +93,7 @@ export async function listSongs(userId: string): Promise<Song[] | null> {
   }
   try {
     const rows = await database
-      .select({
-        id: songsTable.id,
-        name: songsTable.name,
-        data: songsTable.data,
-        updatedAt: songsTable.updatedAt,
-      })
+      .select(COLUMNAS)
       .from(songsTable)
       .where(eq(songsTable.userId, userId))
       .orderBy(desc(songsTable.updatedAt))
@@ -116,12 +126,7 @@ export async function createSong(userId: string, song: Song): Promise<SaveResult
     const [row] = await database
       .insert(songsTable)
       .values({ userId, name: song.name, data: documentOf(song) })
-      .returning({
-        id: songsTable.id,
-        name: songsTable.name,
-        data: songsTable.data,
-        updatedAt: songsTable.updatedAt,
-      });
+      .returning(COLUMNAS);
 
     const created = row === undefined ? null : songOfRow(row);
     return created === null ? { kind: 'error' } : { kind: 'ok', song: created };
@@ -151,12 +156,7 @@ export async function updateSong(userId: string, song: Song): Promise<SaveResult
       .update(songsTable)
       .set({ name: song.name, data: documentOf(song), updatedAt: new Date() })
       .where(and(eq(songsTable.id, song.id), eq(songsTable.userId, userId)))
-      .returning({
-        id: songsTable.id,
-        name: songsTable.name,
-        data: songsTable.data,
-        updatedAt: songsTable.updatedAt,
-      });
+      .returning(COLUMNAS);
 
     if (row === undefined) {
       return { kind: 'no-existe' };

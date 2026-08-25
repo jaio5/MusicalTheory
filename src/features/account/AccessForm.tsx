@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { registerAccount, signInWithPassword, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
+import { TextField } from '@ui/TextField';
 
 /**
  * Entrar o crear una cuenta, en el mismo formulario.
@@ -114,45 +115,34 @@ export function AccessForm({
       </div>
 
       {nuevo && (
-        <label className="flex flex-col gap-1">
-          <span className="text-text-muted text-xs">Cómo te llamas (si quieres)</span>
-          <input
-            type="text"
-            autoComplete="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-          />
-        </label>
+        <TextField
+          label="Cómo te llamas (si quieres)"
+          type="text"
+          autoComplete="name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
       )}
 
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">Correo</span>
-        <input
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+      <TextField
+        label="Correo"
+        type="email"
+        required
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
 
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">
-          Contraseña
-          {nuevo && <span className="text-text-muted"> · mínimo {MIN_PASSWORD_LENGTH}</span>}
-        </span>
-        <input
-          type="password"
-          required
-          minLength={nuevo ? MIN_PASSWORD_LENGTH : undefined}
-          autoComplete={nuevo ? 'new-password' : 'current-password'}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+      <TextField
+        label="Contraseña"
+        extra={nuevo && <span> · mínimo {MIN_PASSWORD_LENGTH}</span>}
+        type="password"
+        required
+        minLength={nuevo ? MIN_PASSWORD_LENGTH : undefined}
+        autoComplete={nuevo ? 'new-password' : 'current-password'}
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
 
       {/* `aria-live` para que el lector de pantalla lo anuncie sin tener que
           volver a buscarlo: quien no ve la pantalla no sabe que ha aparecido. */}

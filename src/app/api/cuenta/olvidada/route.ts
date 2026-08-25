@@ -14,7 +14,9 @@
 import { NextResponse } from 'next/server';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
+import { appUrl } from '@server/app-url';
 import { mailer } from '@server/mail';
+import { readJsonBody } from '@server/request-body';
 import { pruneResets, requestReset, resetPassword } from '@server/password-reset';
 import { limitRequest } from '@server/rate-limit-db';
 import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
@@ -33,20 +35,6 @@ const limiter = new SlidingWindowRateLimiter({ limit: 3, windowMs: 60_000 });
 /** La misma frase siempre, se haya mandado algo o no. */
 const MANDADO =
   'Si ese correo tiene cuenta, le hemos mandado un enlace para poner una contraseña nueva. Caduca en una hora.';
-
-function appUrl(): string {
-  const url = process.env['APP_URL'];
-  return typeof url === 'string' && url !== '' ? url.replace(/\/$/, '') : 'http://localhost:3000';
-}
-
-async function cuerpo(request: Request): Promise<Record<string, unknown>> {
-  try {
-    const body: unknown = await request.json();
-    return (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
 
 async function puerta(request: Request): Promise<NextResponse | null> {
   const { allowed, retryAfterSeconds } = await limitRequest({
@@ -92,7 +80,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const now = new Date();
-  const vale = await requestReset((await cuerpo(request))['email'], now);
+  const vale = await requestReset((await readJsonBody(request))['email'], now);
 
   if (vale !== null) {
     const enlace = `${appUrl()}/olvidada?vale=${encodeURIComponent(vale.token)}`;
@@ -140,7 +128,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return cerrada;
   }
 
-  const record = await cuerpo(request);
+  const record = await readJsonBody(request);
   const result = await resetPassword(record['vale'], record['password'], new Date());
 
   if (result !== 'ok') {

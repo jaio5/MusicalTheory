@@ -19,6 +19,7 @@ import { NextResponse } from 'next/server';
 import { can, cheapestPlanWith, needsPlanMessage } from '@core/billing';
 import { MAX_SONGS, parseSong, type Song } from '@core/music';
 import { currentSession } from '@server/entitlements';
+import { readJsonBody } from '@server/request-body';
 import {
   createSong,
   isSongId,
@@ -85,15 +86,6 @@ async function puerta(): Promise<
   return { ok: true, userId: session.userId };
 }
 
-async function cuerpo(request: Request): Promise<Record<string, unknown>> {
-  try {
-    const body: unknown = await request.json();
-    return (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-}
-
 /**
  * Traduce lo que dijo el repositorio.
  *
@@ -148,7 +140,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // El identificador que venga en el cuerpo se ignora: aquí se está creando, y
   // el de verdad lo pone Postgres al insertar.
-  const song = parseSong(await cuerpo(request), 'nueva');
+  const song = parseSong(await readJsonBody(request), 'nueva');
   if (song === null) {
     return noEsUna();
   }
@@ -162,7 +154,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return puerto.res;
   }
 
-  const record = await cuerpo(request);
+  const record = await readJsonBody(request);
   const id = record['id'];
   if (!isSongId(id)) {
     return NextResponse.json(
@@ -187,7 +179,7 @@ export async function DELETE(request: Request): Promise<NextResponse> {
     return puerto.res;
   }
 
-  const record = await cuerpo(request);
+  const record = await readJsonBody(request);
   // `removeSong` recibe lo que llegue y comprueba la forma: un identificador
   // inventado es «no existe», no un fallo del servidor.
   const removed = await removeSong(puerto.userId, record['id']);

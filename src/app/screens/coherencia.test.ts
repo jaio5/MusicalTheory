@@ -122,6 +122,27 @@ describe('Los desplegables', () => {
 
     expect(sueltos).toEqual([]);
   });
+
+  /**
+   * El tercero de la familia, y el que más tardó en tenerlo.
+   *
+   * Los campos de escribir estuvieron a mano en catorce sitios, con la misma
+   * cadena de clases copiada, y ya habían divergido en dos variantes. Lo que la
+   * duplicación escondía era peor que la duplicación: **ninguna de las catorce
+   * llegaba a los 44 px** que esta aplicación exige en todo lo que se pulsa, y
+   * nadie lo vio porque no había un sitio donde mirarlo.
+   *
+   * Se busca la cadena de clases y no `<input`, porque hay entradas que no son
+   * campos de formulario —un buscador dentro de una barra de herramientas, una
+   * casilla— y forzarlas a este molde las estropearía.
+   */
+  it('el de escribir algo es siempre ui/TextField', () => {
+    const sueltos = FICHEROS.filter(({ ruta }) => !ruta.endsWith('ui/TextField.tsx'))
+      .filter(({ codigo }) => codigo.includes('border-border bg-background text-text rounded-md'))
+      .map(({ ruta }) => ruta);
+
+    expect(sueltos).toEqual([]);
+  });
 });
 
 describe('En toda la interfaz', () => {

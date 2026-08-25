@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { can, cheapestPlanWith } from '@core/billing';
 import { noteName, SCALES } from '@core/music';
 import { useAccount } from '@state/account';
+import { apiErrorOf } from '@state/api-error';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { PlanLock } from '@ui/PlanLock';
@@ -178,17 +179,16 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
  * debajo, y adivinarlo leyendo el texto sería atarse a cómo está escrito.
  */
 function errorFrom(payload: unknown): { code: IdeasErrorCode | null; message: string } {
-  if (typeof payload !== 'object' || payload === null || !('error' in payload)) {
-    return { code: null, message: ERROR_MESSAGES.model_unavailable };
+  const leido = apiErrorOf<IdeasErrorCode>(payload, '');
+  if (leido.message !== '') {
+    return leido;
   }
-  const error = (payload as { error: { code?: unknown; message?: unknown } }).error;
-  const code = typeof error?.code === 'string' ? (error.code as IdeasErrorCode) : null;
-
-  if (typeof error?.message === 'string' && error.message !== '') {
-    return { code, message: error.message };
-  }
+  // Sin frase del servidor se usa la del código, y solo entonces la genérica:
+  // «no entra en tu plan» explica más que «no hemos podido contactar».
   return {
-    code,
-    message: (code === null ? undefined : ERROR_MESSAGES[code]) ?? ERROR_MESSAGES.model_unavailable,
+    code: leido.code,
+    message:
+      (leido.code === null ? undefined : ERROR_MESSAGES[leido.code]) ??
+      ERROR_MESSAGES.model_unavailable,
   };
 }

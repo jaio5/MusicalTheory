@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { MAX_NAME_LENGTH } from '@core/billing';
 import { updateAccount, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
+import { TextField } from '@ui/TextField';
 
 /**
  * Cómo quieres que te llamen.
@@ -56,21 +57,18 @@ export function NameForm() {
         void submit();
       }}
     >
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">Cómo te llamas</span>
-        <input
-          type="text"
-          autoComplete="name"
-          maxLength={MAX_NAME_LENGTH}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            setHecho(false);
-          }}
-          placeholder="Sin poner nada, se usa tu correo"
-          className="border-border bg-background text-text placeholder:text-text-muted rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+      <TextField
+        label="Cómo te llamas"
+        type="text"
+        autoComplete="name"
+        maxLength={MAX_NAME_LENGTH}
+        value={name}
+        onChange={(event) => {
+          setName(event.target.value);
+          setHecho(false);
+        }}
+        placeholder="Sin poner nada, se usa tu correo"
+      />
 
       {error !== null && (
         <p className="text-oxblood-bright text-sm" aria-live="polite">

@@ -15,6 +15,7 @@ import { planOf, PLANS } from '@core/billing';
 import { authAvailable } from '@server/auth';
 import { billing } from '@server/billing';
 import { currentSession } from '@server/entitlements';
+import { readJsonBody } from '@server/request-body';
 
 export const runtime = 'nodejs';
 
@@ -81,13 +82,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = {};
-  }
-  const pedido = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const pedido = await readJsonBody(request);
 
   // `planOf` cae a gratis con lo que no reconoce, así que hay que comprobar
   // aparte que el plan pedido existe de verdad: si no, pedir «premium» bajaría a

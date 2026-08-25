@@ -3,18 +3,9 @@
 import { useState } from 'react';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
+import { apiErrorFrom } from '@state/api-error';
 import { Button } from '@ui/Button';
-
-/** Lo que dijo el servidor, o una frase cuando no dijo nada legible. */
-async function messageOf(response: Response, fallback: string): Promise<string> {
-  try {
-    const body = (await response.json()) as { error?: { message?: unknown } };
-    const message = body.error?.message;
-    return typeof message === 'string' && message !== '' ? message : fallback;
-  } catch {
-    return fallback;
-  }
-}
+import { TextField } from '@ui/TextField';
 
 export interface ForgottenFormProps {
   /** El vale del enlace del correo, si se ha llegado por ahí. */
@@ -58,7 +49,7 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
     try {
       const response = await request({ method: 'POST', body: JSON.stringify({ email }) });
       if (!response.ok) {
-        setError(await messageOf(response, 'No hemos podido mandar el correo.'));
+        setError((await apiErrorFrom(response, 'No hemos podido mandar el correo.')).message);
         return;
       }
       const body = (await response.json()) as { message?: unknown };
@@ -83,7 +74,7 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
         body: JSON.stringify({ vale, password }),
       });
       if (!response.ok) {
-        setError(await messageOf(response, 'No hemos podido cambiar la contraseña.'));
+        setError((await apiErrorFrom(response, 'No hemos podido cambiar la contraseña.')).message);
         return;
       }
       setHecho('Contraseña cambiada. Ya puedes entrar con ella.');
@@ -124,41 +115,32 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
     >
       {conVale ? (
         <>
-          <label className="flex flex-col gap-1">
-            <span className="text-text-muted text-xs">Contraseña nueva</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-text-muted text-xs">Otra vez, para comprobarla</span>
-            <input
-              type="password"
-              autoComplete="new-password"
-              value={repetida}
-              onChange={(event) => setRepetida(event.target.value)}
-              className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-            />
-          </label>
+          <TextField
+            label="Contraseña nueva"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <TextField
+            label="Otra vez, para comprobarla"
+            type="password"
+            autoComplete="new-password"
+            value={repetida}
+            onChange={(event) => setRepetida(event.target.value)}
+          />
           {repetida !== '' && !coinciden && (
             <p className="text-text-muted text-xs">Las dos no son la misma.</p>
           )}
         </>
       ) : (
-        <label className="flex flex-col gap-1">
-          <span className="text-text-muted text-xs">Tu correo</span>
-          <input
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-          />
-        </label>
+        <TextField
+          label="Tu correo"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
       )}
 
       {error !== null && (

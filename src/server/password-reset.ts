@@ -20,12 +20,13 @@
  *    recupera la contraseña suele estar haciéndolo porque alguien más entró.
  */
 
-import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 
 import { and, eq, isNull, lt } from 'drizzle-orm';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 
+import { sameHex } from './constant-time';
 import { db } from './db/client';
 import { passwordResets, users } from './db/schema';
 import { hashPassword } from './password';
@@ -62,18 +63,6 @@ export function createResetToken(): string {
  */
 export function hashResetToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
-}
-
-/** Compara dos huellas sin que el tiempo diga cuántos caracteres coinciden. */
-function sameHash(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  try {
-    return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -162,7 +151,7 @@ export async function resetPassword(
     // Se busca por la huella —es la clave— y luego se comparan en tiempo
     // constante. Buscar ya es una comparación, pero la de Postgres no lo es, y
     // esta línea cuesta nada.
-    if (row === undefined || !sameHash(row.tokenHash, hash)) {
+    if (row === undefined || !sameHex(row.tokenHash, hash)) {
       return 'vale-no-vale';
     }
     if (row.usedAt !== null || row.expiresAt.getTime() <= now.getTime()) {

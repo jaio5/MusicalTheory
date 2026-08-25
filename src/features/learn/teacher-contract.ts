@@ -19,6 +19,7 @@ import {
   type NoteName,
   type ScaleId,
 } from '@core/music';
+import { isRecord } from '@core/parse';
 import { pitchClassFromName } from '@core/music';
 import { MAX_QUESTION_LENGTH } from '@core/billing';
 
@@ -82,10 +83,6 @@ export const TEACHER_ERROR_MESSAGES: Readonly<Record<TeacherErrorCode, string>> 
 
 export function teacherError(code: TeacherErrorCode, message?: string): TeacherError {
   return { error: { code, message: message ?? TEACHER_ERROR_MESSAGES[code] } };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

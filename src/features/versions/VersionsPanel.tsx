@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { can, cheapestPlanWith, MAX_VERSION_DEGREES } from '@core/billing';
 import {
@@ -14,6 +14,7 @@ import {
 } from '@core/music';
 import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
 import { useAccount } from '@state/account';
+import { apiErrorOf } from '@state/api-error';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { PlanLock } from '@ui/PlanLock';
@@ -40,17 +41,6 @@ async function defaultFetch(request: VersionsRequest): Promise<Response> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
   });
-}
-
-function errorFrom(payload: unknown): { code: VersionsErrorCode | null; message: string } {
-  const error = (payload as { error?: { code?: unknown; message?: unknown } } | null)?.error;
-  const code = typeof error?.code === 'string' ? (error.code as VersionsErrorCode) : null;
-  const message =
-    typeof error?.message === 'string' && error.message !== ''
-      ? error.message
-      : ERROR_MESSAGES.model_unavailable;
-
-  return { code, message };
 }
 
 /**
@@ -150,21 +140,32 @@ export function VersionsPanel({
    * —es una lista de acordes encadenados a mano— así que ahí todos los compases
    * valen cuatro. Cuando hay grabación, esa diferencia deja de existir.
    */
-  const grabado: readonly CapturedStep[] =
-    activeKey === null || captured.length === 0 || captureEndedAt === 0
-      ? []
-      : captureProgression(captured, {
-          tonic: activeKey.tonic,
-          mode: activeKey.mode,
-          bpm,
-          beatsPerBar,
-          endedAt: captureEndedAt,
-        }).steps;
+  // Los dos con `useMemo`, y no por costumbre: `captureProgression` recorre el
+  // buffer entero de lo grabado, y este panel se repinta con cada compás que
+  // suena al escuchar una versión. Sin esto, oír ocho compases recalcula ocho
+  // veces una grabación de trescientos acordes para llegar al mismo resultado.
+  const grabado: readonly CapturedStep[] = useMemo(
+    () =>
+      activeKey === null || captured.length === 0 || captureEndedAt === 0
+        ? []
+        : captureProgression(captured, {
+            tonic: activeKey.tonic,
+            mode: activeKey.mode,
+            bpm,
+            beatsPerBar,
+            endedAt: captureEndedAt,
+          }).steps,
+    [activeKey, captured, captureEndedAt, bpm, beatsPerBar],
+  );
 
-  const delCamino = degreesFromPath(
-    path.map((chord) => chord.label),
-    activeKey?.mode ?? 'major',
-  ).degrees.map((degree) => ({ degree, beats: 4 }));
+  const delCamino = useMemo(
+    () =>
+      degreesFromPath(
+        path.map((chord) => chord.label),
+        activeKey?.mode ?? 'major',
+      ).degrees.map((degree) => ({ degree, beats: 4 })),
+    [path, activeKey],
+  );
 
   const progresion = grabado.length > 0 ? grabado : delCamino;
   const deLoGrabado = grabado.length > 0;
@@ -190,7 +191,7 @@ export function VersionsPanel({
       const payload: unknown = await response.json();
 
       if (!response.ok) {
-        setError(errorFrom(payload));
+        setError(apiErrorOf<VersionsErrorCode>(payload, ERROR_MESSAGES.model_unavailable));
         setVersions([]);
         return;
       }

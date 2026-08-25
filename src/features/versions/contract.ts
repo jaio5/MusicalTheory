@@ -21,7 +21,8 @@ import {
   degreesFor,
   isMove,
   moveById,
-  NOTE_NAMES,
+  asNoteName,
+  pitchClassFromName,
   resolveProgression,
   type DegreeSymbol,
   type KeyMode,
@@ -29,7 +30,7 @@ import {
   type NoteName,
   type PitchClass,
 } from '@core/music';
-import { pitchClassFromName } from '@core/music';
+import { isRecord } from '@core/parse';
 
 /**
  * Los dos topes de tamaño de esta petición.
@@ -108,16 +109,6 @@ export const ERROR_MESSAGES: Readonly<Record<VersionsErrorCode, string>> = {
 
 export function versionsError(code: VersionsErrorCode, message?: string): VersionsError {
   return { error: { code, message: message ?? ERROR_MESSAGES[code] } };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function asNoteName(value: unknown): NoteName | null {
-  return typeof value === 'string' && (NOTE_NAMES as readonly string[]).includes(value)
-    ? (value as NoteName)
-    : null;
 }
 
 /** Pulsos: entero, al menos uno y con un tope, porque también son tokens. */

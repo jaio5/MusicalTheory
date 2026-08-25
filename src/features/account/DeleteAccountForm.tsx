@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { deleteAccount } from '@state/account';
 import { Button } from '@ui/Button';
+import { TextField } from '@ui/TextField';
 
 /**
  * Borrar la cuenta.
@@ -78,29 +79,21 @@ export function DeleteAccountForm() {
         navegador se queda; lo que está en tu cuenta desaparece.
       </p>
 
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">Tu contraseña</span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+      <TextField
+        label="Tu contraseña"
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
 
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">
-          Escribe <strong className="text-text">borrar</strong> para confirmar
-        </span>
-        <input
-          type="text"
-          autoComplete="off"
-          value={confirmacion}
-          onChange={(event) => setConfirmacion(event.target.value)}
-          className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+      <TextField
+        label="Escribe borrar para confirmar"
+        type="text"
+        autoComplete="off"
+        value={confirmacion}
+        onChange={(event) => setConfirmacion(event.target.value)}
+      />
 
       {error !== null && (
         <p className="text-oxblood-bright text-sm" role="alert">

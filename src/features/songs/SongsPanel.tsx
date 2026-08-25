@@ -15,9 +15,11 @@ import {
   sortSongs,
   type Song,
 } from '@core/music';
+import { apiErrorFrom } from '@state/api-error';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { TextField } from '@ui/TextField';
 import { PlanLock } from '@ui/PlanLock';
 
 export interface SongsPanelProps {
@@ -33,17 +35,6 @@ async function defaultRequest(init: RequestInit & { method: string }): Promise<R
   });
 }
 
-/** Lo que dijo el servidor, o una frase cuando no dijo nada legible. */
-async function messageOf(response: Response, fallback: string): Promise<string> {
-  try {
-    const body = (await response.json()) as { error?: { message?: unknown } };
-    const message = body.error?.message;
-    return typeof message === 'string' && message !== '' ? message : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 /**
  * Pide la lista y la interpreta, sin tocar el estado de React.
  *
@@ -57,7 +48,10 @@ async function leerCanciones(
   try {
     const response = await request({ method: 'GET' });
     if (!response.ok) {
-      return { songs: [], error: await messageOf(response, 'No hemos podido leer tus canciones.') };
+      return {
+        songs: [],
+        error: (await apiErrorFrom(response, 'No hemos podido leer tus canciones.')).message,
+      };
     }
     const body = (await response.json()) as { songs?: unknown };
     const list = Array.isArray(body.songs) ? body.songs : [];
@@ -169,7 +163,7 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       });
 
       if (!response.ok) {
-        setMessage(await messageOf(response, 'No hemos podido guardar la canción.'));
+        setMessage((await apiErrorFrom(response, 'No hemos podido guardar la canción.')).message);
         return;
       }
 
@@ -209,7 +203,7 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
         body: JSON.stringify({ ...song, ...cambios }),
       });
       if (!response.ok) {
-        setMessage(await messageOf(response, 'No hemos podido guardar el cambio.'));
+        setMessage((await apiErrorFrom(response, 'No hemos podido guardar el cambio.')).message);
         return false;
       }
       await refresh();
@@ -306,7 +300,7 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
     try {
       const response = await request({ method: 'DELETE', body: JSON.stringify({ id: song.id }) });
       if (!response.ok) {
-        setMessage(await messageOf(response, 'No hemos podido borrar la canción.'));
+        setMessage((await apiErrorFrom(response, 'No hemos podido borrar la canción.')).message);
         return;
       }
       await refresh();
@@ -334,17 +328,15 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
         {/* Un `<input>` y no `ui/Field`: Field es el desplegable de elegir una
             opción, y aquí se escribe un nombre. El patrón es el mismo que el de
             los formularios de la cuenta. */}
-        <label className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
-          <span className="text-text-muted text-xs">Nombre</span>
-          <input
-            type="text"
-            maxLength={MAX_SONG_NAME}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Sin título"
-            className="border-border bg-background text-text placeholder:text-text-muted rounded-md border px-2 py-2 text-base"
-          />
-        </label>
+        <TextField
+          label="Nombre"
+          ancho="crece"
+          type="text"
+          maxLength={MAX_SONG_NAME}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Sin título"
+        />
         <Button onClick={() => void save()} disabled={busy}>
           Guardar esta progresión
         </Button>
@@ -391,19 +383,17 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
                   {/* «Nombre nuevo» y no «Nombre»: el de guardar una canción
                       está a la vista al mismo tiempo, y dos campos con la misma
                       etiqueta no los distingue ni un lector de pantalla. */}
-                  <label className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
-                    <span className="text-text-muted text-xs">Nombre nuevo</span>
-                    <input
-                      type="text"
-                      autoFocus
-                      maxLength={MAX_SONG_NAME}
-                      value={renombrando.nombre}
-                      onChange={(event) =>
-                        setRenombrando({ id: song.id, nombre: event.target.value })
-                      }
-                      className="border-border bg-background text-text rounded-md border px-2 py-2 text-base"
-                    />
-                  </label>
+                  <TextField
+                    label="Nombre nuevo"
+                    ancho="crece"
+                    type="text"
+                    autoFocus
+                    maxLength={MAX_SONG_NAME}
+                    value={renombrando.nombre}
+                    onChange={(event) =>
+                      setRenombrando({ id: song.id, nombre: event.target.value })
+                    }
+                  />
                   <Button type="submit" disabled={busy}>
                     Guardar
                   </Button>

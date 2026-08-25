@@ -22,7 +22,9 @@
  * Puede venir más de un `v1` mientras se rota el secreto, así que valen todas.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
+
+import { sameHex } from '../constant-time';
 
 /**
  * Cuánto se acepta de diferencia entre el reloj de Stripe y el nuestro.
@@ -78,20 +80,6 @@ export function parseSignatureHeader(header: unknown): ParsedSignature | null {
   return { timestamp, signatures };
 }
 
-/** Compara dos hexadecimales sin que el tiempo diga cuántos caracteres coinciden. */
-function sameSignature(a: string, b: string): boolean {
-  // Distinta longitud no se puede comparar en tiempo constante, y tampoco hace
-  // falta: la longitud de un HMAC-SHA256 no es secreta.
-  if (a.length !== b.length) {
-    return false;
-  }
-  try {
-    return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
-  } catch {
-    return false;
-  }
-}
-
 export type SignatureVerdict = 'ok' | 'sin-firma' | 'caducada' | 'no-cuadra';
 
 /**
@@ -129,7 +117,5 @@ export function verifyStripeSignature(input: {
     .update(`${parsed.timestamp}.${input.body}`)
     .digest('hex');
 
-  return parsed.signatures.some((signature) => sameSignature(signature, expected))
-    ? 'ok'
-    : 'no-cuadra';
+  return parsed.signatures.some((signature) => sameHex(signature, expected)) ? 'ok' : 'no-cuadra';
 }

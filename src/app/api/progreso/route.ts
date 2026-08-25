@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server';
 import { can, cheapestPlanWith, needsPlanMessage } from '@core/billing';
 import { EMPTY_PROGRESS, mergeProgress, parseProgress } from '@core/music';
 import { currentSession } from '@server/entitlements';
+import { readJsonBody } from '@server/request-body';
 import { loadAccountProgress, saveAccountProgress } from '@server/progress-repo';
 
 export const runtime = 'nodejs';
@@ -75,13 +76,7 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return sinPlan();
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
-  }
-  const record = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const record = await readJsonBody(request);
 
   // Lo que llega del navegador se interpreta con la misma función que interpreta
   // lo que se lee de la base de datos. Cualquiera puede abrir la consola y
