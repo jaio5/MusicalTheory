@@ -1,7 +1,8 @@
 # Roadmap
 
-Estado a 1 de agosto de 2026. Las trece fases están implementadas;
-lo que queda anotado abajo es deuda y afinado con instrumento real.
+Estado a 25 de agosto de 2026. Las catorce primeras fases están implementadas; lo
+que queda anotado en cada una es deuda y afinado con instrumento real. Debajo de
+ellas están las seis que vienen, con el destino ya elegido: publicarla de verdad.
 
 ## Fase 0 — Esqueleto y dominio · hecha
 
@@ -339,6 +340,289 @@ dentro no se podía cambiar nada.
       distinto —es el primer curso, así que da igual para el candado—, pero el
       desplegable no recuerda que lo elegiste. Se arregla guardando la elección
       aparte del índice que abre camino.
+
+## Fase 14 — Que parezca una aplicación y no nueve pantallas · hecha
+
+Nueve pantallas escritas en once fases, cada una en su semana: cinco anchos, cuatro
+rellenos, tres sin título ninguno y dos con dos. Ninguna estaba mal por separado, y
+justo por eso no se arreglaba nunca.
+
+- [x] **`ui/Screen`, y todas dentro.** Título siempre `h1` y uno solo, una línea que
+      dice para qué sirve la pantalla, la acción principal arriba a la derecha, la
+      vuelta atrás encima del título y **un solo sitio que hace scroll** —había
+      pantallas con tres—.
+- [x] Tres anchos con nombre —lectura, normal, ancha— en vez de un número por
+      pantalla.
+- [x] **`WorkHeader`** para las tres de taller —componer, afinar y el camino—, que
+      tienen el alto medido y no pueden entrar en el marco entero, pero sí deben
+      decir dónde estás.
+- [x] `Marco`, que estaba copiado en la unidad y en el repaso y ya se había separado
+      en el ancho y en el hueco del título, pasa a ser el marco común.
+- [x] **44 px de alto en todo lo que se pulsa.** Había botones de 26. Esta
+      aplicación se usa con la guitarra puesta, así que el número no es de guía de
+      estilo: es el ancho de un dedo que no apunta.
+- [x] **Diez iconos dibujados** (`ui/icons.tsx`) en lugar de emoji. Los emoji no se
+      tiñen, y por eso el estado activo de la navegación y los dos candados del
+      camino —uno se abre estudiando, el otro pagando— se veían igual.
+- [x] Dos guardianes que **leen los ficheros** (`app/screens/coherencia.test.ts`):
+      ninguna pantalla se escribe su contenedor de página ni su `h1`, y no vuelven
+      los emoji. La coherencia solo se ve en conjunto, así que se prueba en conjunto.
+- [x] **`color-scheme: dark` en la raíz.** Es la línea que arregla de golpe todo lo
+      que dibuja el navegador y no nosotros: la lista que se abre de un `<select>`
+      —el rectángulo blanco del selector de afinación—, la barra de scroll por
+      defecto y el cursor de los campos. Sin ella, la mitad del sistema pinta en
+      claro sobre una aplicación negra.
+- [x] **Barra de scroll propia**, fina y de latón apagado que se aviva al pasarle
+      por encima. Escrita de las dos formas —`scrollbar-*` para Firefox y el
+      pseudoelemento para Chromium y WebKit— porque no hay una sola.
+- [x] **La flecha del desplegable es nuestra** (`appearance: none` y un SVG en
+      línea). El botón que dibujaba el sistema era lo único de la pantalla que no
+      parecía de esta aplicación.
+- [x] Los botones **se hunden al pulsarlos** y llevan un filo de luz arriba: es lo
+      que hace que el latón parezca metal y no un rectángulo de color, y lo que
+      confirma la pulsación a quien está mirando el mástil y no el botón.
+- [x] **El camino, como un camino.** Cada curso es una tarjeta con su anillo de
+      avance —cuánto te queda de este tramo antes de meterte en él—, los nodos van
+      unidos por un sendero que se enciende por donde has pasado y queda de puntos
+      por donde no, el nodo de «aquí» tiene halo y cartel, lo hecho es verde y
+      macizo y lo cerrado se hunde en el fondo.
+- [x] `ProgressRing` sube a `ui/`: lo usan la meta diaria y cada curso, y dos
+      copias de un anillo acaban girando en sentidos distintos.
+- [x] **El ancho se usa entero.** Aprender era una columna de 576 px centrada: en
+      un portátil, media pantalla era fondo vacío y había que desplazarse para ver
+      lo que ya cabía. Ahora son dos columnas —a la izquierda lo que se consulta,
+      la meta y por dónde empiezas; a la derecha el camino, que es lo que se
+      recorre—. Los tres anchos del marco suben un escalón y el afinador estira sus
+      seis cuerdas.
+- [x] **El camino se queda en uno y vertical.** Llegó a partirse en dos columnas
+      para llenar el ancho y dejó de ser un camino: dos rutas paralelas no se
+      recorren, se comparan. El ancho se llena centrando la cinta y dejándola
+      respirar a los lados, con el zigzag un poco más abierto.
+- [x] El único que se queda estrecho es el de **texto seguido**, y no por ahorrar
+      sitio: un renglón de doscientos caracteres obliga a buscar dónde empezaba el
+      siguiente. Lo que llena el ancho ahí es lo que va al lado, no el párrafo.
+- [x] **Un solo tipo de cada desplegable.** Había tres `<select>` escritos a mano
+      —la entrada del micro, el compás del metrónomo y la tonalidad de la rueda—
+      con tres rellenos y tres bordes distintos, y tres `<details>` sin una sola
+      flecha entre los tres. Ahora son `ui/Field` y `ui/Disclosure`, con la misma
+      flecha, el mismo alto de dedo y el mismo giro al abrir. Dos guardianes más en
+      `coherencia.test.ts` para que no vuelvan a escribirse sueltos.
+- [x] **Ajustados a su sitio.** El ancho de un `Field` se pide en vez de heredarse:
+      en la barra del metrónomo, un desplegable de un dígito ocupando doce rem se
+      comía los botones de al lado. La fila del metrónomo queda toda a la misma
+      altura, y la tonalidad de una unidad ya no lleva el relleno dos veces.
+- [x] **Una regla de forma para todo:** los paneles son rectos y **lo que se pulsa
+      va redondeado**. Media interfaz eran rectángulos duros y la otra media no, y
+      eso es lo que hacía que dos controles iguales no parecieran de la misma
+      aplicación.
+- [x] **El profesor tiene muñeco**, y está en la esquina de abajo de las tres
+      pantallas de aprender. Hace dos cosas según quién dé el paso: lo pulsas tú y
+      se abre **con el formulario de preguntar dentro** —preguntar ya no cuesta
+      salirse de la unidad—, o se abre él solo cuando fallas, que es cuando uno
+      piensa «¿y por qué?». Cerrado no dice nada: un ayudante que habla sin motivo
+      se aprende a cerrar sin leerlo.
+- [x] **El muñeco se agarra y se mueve.** Al soltarlo se pega al lado más cercano
+      —solo izquierda o derecha— y se queda a la altura donde lo dejaste. Los dos
+      lados y no donde caiga, porque suelto en mitad de la pantalla acaba tapando
+      lo que estabas leyendo; la altura sí, porque es lo que cambia según lo que
+      estorbe en cada pantalla. El sitio lo guarda `state/tutor-spot` y sobrevive
+      al cambio de pantalla —cada una monta su propio muñeco— y a cerrar el
+      navegador.
+- [x] **Ventana de usuario y registro con cara.** `/cuenta` empieza por una ficha
+      —avatar grande, nombre, correo y plan— y un resumen de lo que llevas: XP,
+      racha, unidades y medallas. Entrar ahí es casi siempre mirar, y solo de vez
+      en cuando cambiar algo, así que los formularios van después. El registro pasa
+      a dos columnas —el formulario en su tarjeta a la izquierda, las tres razones
+      con icono a la derecha— con el muñeco asomando por encima: es la única
+      pantalla donde un desconocido se para a decidir.
+- [x] La mascota sube a `ui/`: la usan el profesor de las unidades y la bienvenida
+      del registro, que no se conocen entre sí, y dibujarla dos veces acabaría con
+      dos muñecos distintos.
+- [x] **Repaso visual entero.** Tres superficies con nombre —normal, alta y viva—
+      que traen fondo, borde, radio, filo de luz y sombra: lo que hace que se note
+      qué está encima de qué, que es lo que separa un tema oscuro moderno de uno
+      plano. El radio del chasis sube de 8 a 12 px, el fondo deja de ser un plano
+      liso —un resplandor de latón al 4 %, fijo, como la luz de una sala—, los
+      títulos de pantalla pasan a la serif de la portada, los rótulos de apartado
+      llevan su marca de latón y la pantalla activa de la navegación se rellena en
+      vez de teñir un borde de un píxel.
+- [x] **Dos temas, y el negro sigue siendo el de casa.** El claro —blanco, tres
+      grises cálidos y un oro corregido a `#A16207` para que el acento llegue a
+      4,5:1 sobre blanco— se elige a un clic, para quien estudie de día.
+      Conmutador en la barra y un guion en el `<head>` que aplica el tema antes de
+      pintar: sin él, quien elige claro se come un cuarto de segundo de pantalla
+      negra en cada carga. No cuelga de `prefers-color-scheme`: la identidad no la
+      decide el ajuste del móvil. El porqué y las alternativas —incluida la de
+      seguir al sistema, que llegué a escribir y se descartó—, en
+      [adr/0010](./adr/0010-tema-claro-por-defecto.md).
+- [x] **Componer, en el móvil.** Lo que se sacrifica está decidido y escrito: la
+      barra de grabar no sale por debajo de tableta —grabarse pide trípode y
+      pantalla, y con el teléfono se viene a mirar acordes—, la rueda de quintas se
+      pliega en un desplegable que dice en qué tonalidad estás, y del metrónomo se
+      quedan la marcha, los bpm y los dos botones, sin «marcar» ni compás. A la
+      vista queda lo que se mira mientras tocas: el acorde, sus formas y a dónde
+      ir. Cinco tests vigilan qué se esconde y qué no.
+- [x] El hueco vacío bajo el mástil y el solape al elegir un acorde eran **el mismo
+      fallo**: las filas apiladas se estiraban para repartirse el alto, así que lo
+      que crecía se montaba encima de lo siguiente y lo que menguaba dejaba hueco.
+      `auto-rows-min` en el móvil —y las columnas estirándose solo a partir de
+      `lg`— resuelve los dos.
+- [ ] El tema claro **no lo ha visto nadie con la guitarra en la mano**: los
+      contrastes cumplen en el papel, pero eso no es haberlo usado.
+- [ ] Pendiente de rodaje: si la franja de `WorkHeader` en componer estorba al
+      mástil en pantallas de portátil bajas, y si el sendero se lee igual de bien en
+      una columna estrecha de móvil.
+
+El porqué y las alternativas —incluida la de adoptar el sistema de diseño que
+propone la skill de UI/UX, que habría cambiado la identidad entera— están en
+[adr/0009](./adr/0009-un-solo-marco-de-pantalla.md).
+
+## Lo que viene: de catorce fases hechas a una aplicación publicada
+
+Las catorce de arriba están construidas. Lo que sigue son seis fases pensadas el
+25 de agosto de 2026, con el destino ya decidido: **publicarla de verdad**, con
+gente que paga. Ese destino es el que ordena lo de abajo, y el que hace aparecer
+una fase entera —la 19— que no existiría si esto se quedara en un proyecto propio.
+
+Tres decisiones tomadas antes de escribir el plan, porque cambiaban el plan entero:
+
+- **A la IA solo viajan símbolos**, también cuando grabas un trozo para pedir
+  versiones. La regla 4 de la arquitectura se sostiene sin ADR y sin
+  almacenamiento. Lo que se pierde —ritmo exacto, inversiones, melodía— es real y
+  se escribe como límite conocido, igual que se hizo en
+  [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
+- **Una versión es una rearmonización**: los mismos compases con otros acordes.
+  Se eligió frente al arreglo con estructura porque el dominio puede
+  **verificarla**, y fiarse del modelo es justo lo que este proyecto no hace.
+- **Las canciones se guardan en la cuenta**, atadas al permiso `sincronizar` que
+  ya tienen Básico y superiores. Sin cuenta se sigue guardando en el navegador.
+
+### Fase 15 — Rodaje con guitarra y clave reales · pendiente
+
+Lo más barato y lo que más cambia la aplicación. Las catorce fases de arriba
+terminan todas con la misma frase, y esta fase es esa frase.
+
+- [ ] Los cuatro umbrales de detección, con el medidor de nivel que ya existe.
+- [ ] Los 350 ms del ejercicio y las cuatro décimas que tarda en salir el acorde:
+      si se hacen lentos, y cuánto estorban al encadenar.
+- [ ] Una clave de verdad en `/api/ideas` y `/api/teacher`. El contrato está
+      probado; la llamada al modelo no lo ha estado nunca.
+- [ ] El peor caso de tokens con `count_tokens` en lugar de estimarlo por
+      longitud, que es lo que hoy sostiene todo el modelo de coste.
+- [ ] Medir en un móvil de gama media: los 16,2 ms de
+      [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md) salen de un Ryzen de
+      sobremesa, y suponer el resto es aritmética, no medición.
+- [ ] El tema claro, de día y con la guitarra puesta. Los contrastes cumplen en el
+      papel y eso no es haberlo usado.
+- [ ] Si la meta de 40 XP es la buena y si dos pasos de repaso bastan.
+
+Publicar catorce fases que no se han probado con una guitarra delante es publicar
+a ciegas: los umbrales son el corazón de tres de las cuatro pantallas y están
+puestos a ojo.
+
+### Fase 16 — Canciones en tu cuenta · pendiente
+
+El modelo de datos que la fase 17 necesita para guardar lo que devuelva.
+
+- [ ] Tabla `songs` con Drizzle: nombre, tonalidad, secciones, progresión con
+      duraciones y fechas. Migración con `pnpm db:generate`, que no se aplica sola.
+- [ ] `POST/GET/PATCH/DELETE /api/canciones`, con el candado preguntando a `can()`
+      como todo lo demás.
+- [ ] Guardar, abrir, renombrar y borrar desde componer.
+- [ ] Las veinte sesiones locales de `session-storage.ts` se quedan como están: son
+      otra cosa —lo que tocaste— y no lo que decidiste guardar.
+
+Una canción es una progresión con secciones, **no un archivo**: aquí no entra ni
+audio ni MIDI.
+
+### Fase 17 — Versiones de tu canción · pendiente
+
+Grabas un trozo, la aplicación lo escucha con lo que ya sabe hacer, y la IA
+devuelve rearmonizaciones de esos mismos compases. Es la parte que más
+procesamiento pide y la que más se puede equivocar, así que casi todo el trabajo
+es de dominio y no de modelo.
+
+- [ ] **Captura simbólica** en `core/music/capture.ts`, puro: el motor de croma ya
+      emite acordes con su instante, y falta segmentarlos en compases con el tempo
+      del metrónomo. Se prueba entero sin esperar un milisegundo real, como
+      `exercise.ts`.
+- [ ] **El vocabulario de la rearmonización** en `core/music/reharmonization.ts`:
+      un catálogo cerrado de movimientos que el código sepa **nombrar y
+      verificar** —sustitución tritonal, dominante secundario, préstamo modal,
+      relativo, cadencia interrumpida, intercambio mayor/menor—.
+      `harmonic-function.ts` ya tiene la mitad del camino.
+- [ ] **El contrato** en `features/versions/contract.ts`, con la forma de
+      `ideas/contract.ts`. Los cifrados que devuelva el modelo **no se creen**: se
+      recalculan desde los grados. Y el movimiento que dice haber aplicado se
+      comprueba contra el catálogo; si dice «tritonal» y no lo es, esa versión se
+      cae.
+- [ ] **Coste y plan**: un tercer peor caso en `cost.ts` —la progresión de entrada
+      es más larga que la de una idea— y los cupos se recalculan solos desde ahí
+      ([adr/0008](./adr/0008-los-cupos-salen-del-precio.md)). Permiso nuevo
+      `versiones`, en **Pro**, que hoy solo se distingue por el cupo y por un
+      profesor que sabe por dónde vas.
+- [ ] **La pantalla**: en la franja de abajo de componer, junto a ideas y sesiones,
+      con el porqué de cada versión al lado y un botón que la guarda como canción.
+- [ ] Su ADR, con el límite conocido escrito: sin audio no hay ritmo, ni
+      inversiones, ni melodía.
+
+**Comparar versiones sin oírlas cuesta**, y la reproducción se ha dejado fuera a
+propósito para no doblar la fase. Queda anotado como lo primero que se mira
+después.
+
+### Fase 18 — Cobrar de verdad · pendiente
+
+Es la puerta de publicar, y es mecánico:
+[adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md) dejó el cobro como
+puerto, así que se añade una implementación y no se rediseña nada.
+
+- [ ] Una pasarela implementando `server/billing/port.ts`. El resto de la
+      aplicación no se entera.
+- [ ] Webhook que cambia el plan en `users`, idempotente.
+- [ ] **Cerrar el agujero del plan gratis.** Quince peticiones al mes por cuenta
+      son unos veinte céntimos con el modelo más caro: con cien cuentas son veinte
+      euros al mes de captación y con diez mil son dos mil. El número está en una
+      constante con nombre, así que se decide, no se descubre.
+- [ ] La ventana de pago deja de decir que no cobra, y aparecen los campos que
+      hoy no están porque serían un decorado.
+
+### Fase 19 — Lo que exige publicar y hoy no existe · pendiente
+
+Esta fase aparece por el destino, no por el código. Lo de arriba no es opcional.
+
+- [ ] **Borrar la cuenta.** No hay ni una ruta que lo haga. Con usuarios reales en
+      Europa es obligación legal, no funcionalidad.
+- [ ] **Enviar correo**, con su ADR. Hoy no hay, y por eso no hay «he olvidado mi
+      contraseña» ni cambio de dirección. Sin gente pagando era una decisión
+      defendible y está dicha en la pantalla; con alguien que paga 19,99 € y
+      olvida la contraseña, es perder la cuenta y el dinero.
+- [ ] **Límite de frecuencia compartido.** Hoy vive en memoria y es por instancia:
+      con dos servidores el límite se dobla solo. El cupo diario sí está en
+      Postgres y ese aguanta.
+- [ ] **Cambiar la contraseña echa a las demás sesiones**, con una versión de
+      sesión en la fila de la cuenta que se comprueba al leer la cookie.
+- [ ] Copias de seguridad de Postgres, política de privacidad y condiciones, y
+      elegir camino en [DESPLIEGUE.md](./DESPLIEGUE.md).
+
+### Fase 20 — Semilla multiinstrumento · pendiente
+
+Que esto valga para más instrumentos está pensado desde el principio, y por eso
+mismo no se construye todavía.
+
+- [ ] Un descriptor `Instrument` en `core/instrument/` del que cuelguen
+      afinaciones, formas y mástil.
+- [ ] Quitar «guitarra» de los textos donde no toca.
+- [ ] Su ADR, con la alternativa descartada: generalizar ahora.
+
+**Sin construir el segundo instrumento.** Abstraer antes de tener dos casos
+reales es cómo se acaba con una abstracción que no encaja con ninguno de los dos.
+
+### El orden, y cuándo cambiarlo
+
+`16 → 17 → 18` supone que quieres vender las versiones. Si lo que quieres es
+publicar antes y cobrar por lo que ya funciona —que es bastante—, las fases 18 y
+19 se adelantan a la 16 y se publica sin versiones. La 15 no se mueve de la
+primera posición en ninguno de los dos órdenes.
 
 ## El camino
 
