@@ -716,8 +716,18 @@ hechos; los dos que faltan no son código, o no solo.
 - [ ] **Cambiar de dirección de correo sigue sin poder hacerse.** Pide confirmar
       primero la nueva y avisar después a la vieja: dos vales más. Ya se puede hacer;
       no se ha hecho porque no lo ha pedido nadie.
-- [ ] **Sin probar contra un proveedor de correo de verdad.** El vale está probado; que
-      el proveedor conteste lo que se espera, no.
+- [x] **El flujo entero, probado contra Postgres** (25 de agosto de 2026): se pide el
+      enlace, la respuesta es la misma exista o no el correo, solo se crea vale para
+      el que existe, la contraseña se cambia, la versión de sesión sube y el mismo
+      enlace ya no sirve la segunda vez.
+- [x] `NoMailer` decía en su comentario que permitía probar el flujo sin proveedor y
+      **era mentira**: la ruta comprueba `sends` antes de crear el vale, así que con
+      `false` no se llamaba nunca y el correo del registro no se escribía jamás. En
+      desarrollo cuenta ahora como que manda —escribir en el registro **es** mandarlo
+      cuando quien lo lee es quien desarrolla— y en producción sigue diciendo que aquí
+      no se puede.
+- [ ] **Sin probar contra un proveedor de correo de verdad.** El vale y el flujo están
+      probados; que el proveedor conteste lo que se espera, no.
 - [ ] Copias de seguridad de Postgres, política de privacidad y condiciones, y elegir
       camino en [DESPLIEGUE.md](./DESPLIEGUE.md). Lo primero es configuración de donde
       se aloje y lo segundo son dos textos legales: ninguna de las dos se escribe

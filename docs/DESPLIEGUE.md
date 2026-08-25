@@ -312,8 +312,10 @@ entró.
 En la base de datos se guarda la **huella** del vale, no el vale
 ([adr/0013](./adr/0013-el-correo-como-puerto.md)). En desarrollo, sin proveedor
 configurado, el correo que se habría mandado se escribe en el registro del
-servidor, así que el flujo entero se puede probar sin dar de alta nada. En
-producción no se escribe: eso sería dejar el vale en los registros.
+servidor y el flujo entero se puede probar sin dar de alta nada: eso es lo que
+significa que `NoMailer.sends` valga `true` fuera de producción. En producción no
+se escribe —sería dejar el vale en los registros— y la pantalla dice que aquí no
+se puede recuperar la contraseña.
 
-**Sin probar contra un proveedor de verdad**, como el resto de lo que toca la
-base de datos.
+**El flujo está probado contra Postgres** (25 de agosto de 2026). Lo que sigue sin
+probarse es que un proveedor de envío de verdad conteste lo que se espera.

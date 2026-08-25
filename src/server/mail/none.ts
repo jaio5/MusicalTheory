@@ -16,7 +16,20 @@ import type { Mail, Mailer } from './port';
 
 export const NoMailer: Mailer = {
   name: 'sin correo',
-  sends: false,
+  /**
+   * **En desarrollo cuenta como que manda**, y en producción no.
+   *
+   * El comentario de arriba prometía poder probar el flujo entero sin dar de
+   * alta un proveedor, y era mentira: la ruta comprueba esto antes de crear el
+   * vale, así que con `false` no llegaba a llamarse nunca y el correo del
+   * registro no se escribía jamás. Se vio al ejecutarlo por primera vez.
+   *
+   * En desarrollo, escribir el correo en el registro **es** mandarlo: quien
+   * desarrolla lo lee ahí. En producción no, y entonces la pantalla dice que
+   * aquí no se puede recuperar la contraseña en vez de prometer un correo que no
+   * va a llegar.
+   */
+  sends: process.env.NODE_ENV !== 'production',
 
   async send(mail: Mail): Promise<boolean> {
     if (process.env.NODE_ENV !== 'production') {
