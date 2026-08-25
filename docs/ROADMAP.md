@@ -520,17 +520,45 @@ Publicar catorce fases que no se han probado con una guitarra delante es publica
 a ciegas: los umbrales son el corazón de tres de las cuatro pantallas y están
 puestos a ojo.
 
-### Fase 16 — Canciones en tu cuenta · pendiente
+### Fase 16 — Canciones en tu cuenta · hecha
 
 El modelo de datos que la fase 17 necesita para guardar lo que devuelva.
 
-- [ ] Tabla `songs` con Drizzle: nombre, tonalidad, secciones, progresión con
-      duraciones y fechas. Migración con `pnpm db:generate`, que no se aplica sola.
-- [ ] `POST/GET/PATCH/DELETE /api/canciones`, con el candado preguntando a `can()`
-      como todo lo demás.
-- [ ] Guardar, abrir, renombrar y borrar desde componer.
-- [ ] Las veinte sesiones locales de `session-storage.ts` se quedan como están: son
-      otra cosa —lo que tocaste— y no lo que decidiste guardar.
+- [x] `core/music/song.ts`, dominio puro: el tipo, sus cuatro topes con nombre y
+      `parseSong`, que interpreta igual lo que llega del navegador y lo que se lee
+      de Postgres. Devuelve **nulo** y no una canción vacía cuando no queda nada
+      aprovechable, que es la diferencia con `parseProgress`: un avance sin nada es
+      el de alguien que empieza, y una canción sin un acorde no es una canción.
+- [x] **Se guardan grados, no cifrados.** Es la misma lección de `/api/ideas` y del
+      repaso: un `Sol` solo significa algo en su tonalidad y un `V` significa lo
+      mismo en las doce. Por eso `transposeSong` es una línea, y por eso al abrir
+      una canción el porqué de cada acorde vuelve a salir del dominio en vez de
+      salir de lo que se guardó hace un mes.
+- [x] `degreesFromPath` cuenta **cuántos acordes se quedan fuera** al guardar. Un
+      dominante secundario se escribe con barra y no es un grado del catálogo, así
+      que no cabe todavía; perderlo callando haría que la canción abierta mañana
+      fuese más corta sin explicación.
+- [x] Tabla `songs` con Drizzle, migración en el repositorio y su índice por cuenta
+      y fecha. **Una fila por canción** y no un documento por cuenta como el avance,
+      porque una canción se abre, se renombra y se borra de una en una: con todas
+      dentro de un documento, renombrar una sería reescribir las cincuenta.
+- [x] `GET/POST/PUT/DELETE /api/canciones`, con el candado preguntando a `can()`
+      como todo lo demás. **Cada consulta filtra por la cuenta**, incluidas las que
+      ya reciben el identificador de la canción, y el dueño se comprueba en la misma
+      sentencia que escribe: comprobar y luego escribir deja una rendija.
+- [x] Un permiso nuevo, `canciones`, y no `sincronizar` reaprovechado. Coinciden hoy
+      en los mismos planes, pero significan cosas distintas, y separarlos mañana
+      sería una migración en vez de una línea.
+- [x] Panel en la franja de componer, con la lista, guardar, abrir y borrar. Abrir
+      deja la tonalidad fijada y el camino puesto, listo para seguir tocando.
+- [x] Las veinte sesiones locales de `session-storage.ts` se quedan como están: son
+      otra cosa —lo que tocaste— y no lo que decidiste guardar. Por eso el botón de
+      Canciones va antes que el de Sesiones: se confunden, y lo que se busca a
+      menudo va primero.
+- [ ] **Sin probar contra Postgres**, como el resto de las cuentas. Lo probado es lo
+      puro: el dominio de la canción y el panel con el servidor fingido.
+- [ ] Sin renombrar una canción ya guardada ni reordenar secciones: hoy se guarda una
+      sección por canción, que es lo que hay en el camino de componer.
 
 Una canción es una progresión con secciones, **no un archivo**: aquí no entra ni
 audio ni MIDI.

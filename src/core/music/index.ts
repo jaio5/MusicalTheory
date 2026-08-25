@@ -23,3 +23,4 @@ export * from './harmonic-function';
 export * from './suggestions';
 export * from './transitions';
 export * from './progressions';
+export * from './song';

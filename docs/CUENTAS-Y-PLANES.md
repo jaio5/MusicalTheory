@@ -31,6 +31,7 @@ coinciden, manda el código y este documento está mal.
 | Grado Profesional (6 cursos)   | —        | sí     | sí     | sí      |
 | Avance guardado en la cuenta   | —        | sí     | sí     | sí      |
 | Repaso de lo que fallaste      | —        | sí     | sí     | sí      |
+| Tus canciones guardadas        | —        | sí     | sí     | sí      |
 | Ideas de progresión            | —        | —      | sí     | sí      |
 | El profesor sabe por dónde vas | —        | —      | —      | sí      |
 | Peticiones a la IA al mes      | 15       | 147    | 181    | 363     |
@@ -58,8 +59,8 @@ Todo lo demás —afinador, rueda, mástil, metrónomo, acordes, grabación, el 
 Elemental entero— sigue funcionando sin entrar.
 
 **Cada escalón de pago trae una cosa que el anterior no.** Básico abre el temario
-entero y el repaso; Medio añade las ideas de la IA; Pro, un profesor que sabe qué
-llevas hecho. Un escalón que solo suba el cupo no se entiende: quien lo mira tiene
+entero, el repaso y guardar tus canciones; Medio añade las ideas de la IA; Pro, un
+profesor que sabe qué llevas hecho. Un escalón que solo suba el cupo no se entiende: quien lo mira tiene
 que poder decir en una frase por qué pagaría el siguiente.
 
 **Las ideas empiezan en Medio.** Son la parte más cara —cada pulsación son entre
@@ -303,17 +304,22 @@ pierde nada, y salir tampoco borra nada: el avance local se queda donde está.
 
 ## Qué se guarda de quien entra
 
-Tres tablas y nada más (`src/server/db/schema.ts`):
+Cuatro tablas y nada más (`src/server/db/schema.ts`):
 
 - **`users`**: correo en minúsculas, nombre si lo ha dicho, la contraseña cifrada y
   el plan.
 - **`progress`**: el avance entero como un documento JSON, uno por cuenta. Incluye
   por qué curso decidió empezar, que es una preferencia y no un logro.
 - **`ai_usage`**: una fila por cuenta y día con cuántas llamadas al modelo lleva.
+- **`songs`**: una fila por canción —no un documento por cuenta como el avance,
+  porque una canción se abre, se renombra y se borra de una en una—. Dentro van la
+  tonalidad, el tempo y **los grados**, nunca los cifrados: por eso una canción
+  guardada se puede abrir en otro tono sin traducir nada.
 
 **Ni una muestra de audio ni un fotograma de vídeo.** Eso no sale del equipo, y las
 cuentas no han cambiado eso: lo que viaja del progreso son identificadores de
-unidad, números y fechas.
+unidad, números y fechas, y lo que viaja de una canción son grados, un número y
+nombres de sección.
 
 ### Las contraseñas
 

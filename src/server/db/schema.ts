@@ -1,18 +1,20 @@
 /**
- * Las tres tablas. No hay más.
+ * Las cuatro tablas. No hay más.
  *
  * Antes de esto la aplicación no tenía base de datos, y sigue sin necesitarla
  * para casi nada: el afinador, la rueda, el mástil, el metrónomo y la grabación
- * no guardan una fila. La base de datos existe para tres cosas que no pueden
- * vivir en el navegador: saber quién eres, qué plan tienes y cuántas llamadas al
- * modelo llevas hoy.
+ * no guardan una fila. La base de datos existe para cuatro cosas que no pueden
+ * vivir en el navegador: saber quién eres, qué plan tienes, cuántas llamadas al
+ * modelo llevas hoy y las canciones que has guardado.
  *
  * **Ni audio ni vídeo, aquí tampoco.** Lo que se guarda del progreso son
- * identificadores de unidad, números y fechas. Ni una muestra de sonido.
+ * identificadores de unidad, números y fechas; lo que se guarda de una canción
+ * son grados, un tempo y nombres de sección. Ni una muestra de sonido.
  */
 
 import {
   date,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -99,4 +101,38 @@ export const aiUsage = pgTable(
     dayCount: integer('day_count').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.userId, table.month] })],
+);
+
+/**
+ * Las canciones de una cuenta. Una fila por canción, y no un documento por
+ * cuenta como el avance.
+ *
+ * La diferencia con `progress` es la pregunta que se hace: el avance se lee y se
+ * escribe siempre entero —la pantalla de aprender necesita el camino completo—,
+ * mientras que una canción se abre, se renombra y se borra **de una en una**. Con
+ * todas dentro de un documento, renombrar una sería reescribir las cincuenta, y
+ * dos pestañas abiertas se pisarían la una a la otra.
+ *
+ * `name` sale del documento y sube a columna porque es lo único que se necesita
+ * para pintar la lista: así listar veinte canciones no abre veinte `jsonb`. No
+ * está duplicado dentro de `data`; el nombre vive aquí y solo aquí.
+ *
+ * Lo que hay en `data` son **grados**, no cifrados, y eso lo decide
+ * `core/music/song.ts`. Ni audio ni vídeo, aquí tampoco.
+ */
+export const songs = pgTable(
+  'songs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    data: jsonb('data').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Se lista siempre lo de una cuenta y por fecha. Sin este índice, cada lista
+  // recorre las canciones de todo el mundo para quedarse con las de uno.
+  (table) => [index('songs_user_updated_idx').on(table.userId, table.updatedAt)],
 );

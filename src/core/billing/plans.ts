@@ -36,6 +36,8 @@ export type Capability =
   | 'sincronizar'
   /** El repaso de lo que se falló, que necesita guardar pregunta por pregunta. */
   | 'repaso'
+  /** Guardar tus canciones en la cuenta en vez de en este navegador. */
+  | 'canciones'
   /** El profesor sabe qué unidades llevas hechas antes de contestar. */
   | 'profesor-con-progreso';
 
@@ -88,16 +90,16 @@ export const PLANS: readonly Plan[] = [
   {
     id: 'basico',
     name: 'Básico',
-    claim: 'Los diez cursos, el repaso de lo que fallas y el avance guardado en tu cuenta.',
+    claim: 'Los diez cursos, el repaso de lo que fallas y tus canciones guardadas en la cuenta.',
     monthlyCents: 499,
-    capabilities: ['profesor', 'grado-profesional', 'sincronizar', 'repaso'],
+    capabilities: ['profesor', 'grado-profesional', 'sincronizar', 'repaso', 'canciones'],
   },
   {
     id: 'medio',
     name: 'Medio',
     claim: 'Lo de Básico y las ideas de progresión de la IA mientras compones.',
     monthlyCents: 999,
-    capabilities: ['profesor', 'ideas', 'grado-profesional', 'sincronizar', 'repaso'],
+    capabilities: ['profesor', 'ideas', 'grado-profesional', 'sincronizar', 'repaso', 'canciones'],
   },
   {
     id: 'pro',
@@ -110,6 +112,7 @@ export const PLANS: readonly Plan[] = [
       'grado-profesional',
       'sincronizar',
       'repaso',
+      'canciones',
       'profesor-con-progreso',
     ],
   },

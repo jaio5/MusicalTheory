@@ -118,3 +118,20 @@ describe('priceLabel', () => {
     expect(priceLabel('pro')).toBe('19,99 € al mes');
   });
 });
+
+describe('guardar canciones', () => {
+  it('lo abre el plan más barato de pago, y sin pagar no', () => {
+    expect(can('gratis', 'canciones')).toBe(false);
+    expect(can('basico', 'canciones')).toBe(true);
+    expect(can('medio', 'canciones')).toBe(true);
+    expect(can('pro', 'canciones')).toBe(true);
+  });
+
+  it('el candado dice cuál es y cuánto cuesta', () => {
+    // Es un permiso propio y no `sincronizar` a pesar de coincidir hoy en los
+    // mismos planes: sincronizar es que el avance viaje entre aparatos, y
+    // guardar canciones es otra cosa. Reutilizarlo haría que separarlos mañana
+    // fuese una migración en vez de una línea.
+    expect(cheapestPlanWith('canciones')?.id).toBe('basico');
+  });
+});

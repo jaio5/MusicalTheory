@@ -84,10 +84,12 @@ renombrado no puede degradar a quien había pagado.
 | Estado de sesión y persistencia                      | `src/state/` (IndexedDB)                       |
 | Grabación con cámara                                 | `src/media/`                                   |
 | Rutas de servidor de la IA                           | `src/app/api/ideas`, `src/app/api/teacher`     |
+| Una canción guardada: grados, tonalidad y secciones  | `core/music/song.ts` + `server/songs-repo.ts`  |
 | Planes, permisos y si una unidad la abre el plan     | `src/core/billing/` (`plans.ts`, `access.ts`)  |
 | Meta diaria, racha, medallas, punto de partida       | `core/music/progress.ts`                       |
 | La cola de repaso de lo fallado                      | `core/music/review.ts`                         |
 | Tarjetas de plan y ventana de pago                   | `features/account/`, `src/app/planes/`         |
+| Guardar y abrir tus canciones                        | `features/songs/`, `src/app/api/canciones`     |
 | El avatar de arriba y lo que cuelga de él            | `features/account/AccountMenu.tsx`             |
 | Cuentas, contraseñas, base de datos y cupos          | `src/server/`                                  |
 | Si alguien puede pedirle algo al modelo              | `server/entitlements.ts` + `ai-usage.ts`       |
