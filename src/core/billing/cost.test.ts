@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -11,7 +14,9 @@ import {
   dailyAiRequests,
   priceOf,
   quotasFor,
+  MAX_MODEL_ATTEMPTS,
   requestCostMicros,
+  TOKEN_BUDGETS,
   worstMonthlyCostMicros,
   worstMonthlyMarginMicros,
 } from './cost';
@@ -20,8 +25,14 @@ import { PAID_PLANS, PLANS, planOf } from './plans';
 const MODELOS = Object.keys(MODEL_PRICES);
 
 describe('el precio del modelo', () => {
-  it('conoce los tres modelos', () => {
-    expect(MODELOS).toEqual(['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5']);
+  it('conoce los cinco modelos, del más caro al más barato', () => {
+    expect(MODELOS).toEqual([
+      'claude-fable-5',
+      'claude-opus-5',
+      'claude-sonnet-5',
+      'claude-sonnet-4-6',
+      'claude-haiku-4-5',
+    ]);
   });
 
   /**
@@ -57,9 +68,12 @@ describe('el coste de una petición', () => {
     }
   });
 
-  it('sale de multiplicar tokens por precio, sin sorpresas', () => {
-    // Profesor con Opus 5: 700 × 5 + 400 × 25.
-    expect(requestCostMicros('profesor', 'claude-opus-5')).toBe(700 * 5 + 400 * 25);
+  it('sale de multiplicar tokens por precio, y por los intentos', () => {
+    // Profesor con Opus 5: (700 × 5 + 400 × 25) por cada intento. El reintento
+    // se paga aunque el cupo solo cuente una petición.
+    expect(requestCostMicros('profesor', 'claude-opus-5')).toBe(
+      (700 * 5 + 400 * 25) * MAX_MODEL_ATTEMPTS,
+    );
   });
 
   it('el mismo trabajo con Haiku cuesta bastante menos', () => {
@@ -207,17 +221,67 @@ describe('lo que cuesta el plan gratis, multiplicado', () => {
    * es el único sitio que pierde dinero a propósito, así que lo que hay que
    * vigilar no es que no pierda —pierde— sino que se sepa **cuánto**.
    */
-  it('mil cuentas gratis cuestan unos doscientos dólares al mes con el modelo caro', () => {
+  it('mil cuentas gratis cuestan unos cuatrocientos dólares al mes con Opus 5', () => {
+    // El doble de lo que decía este test antes, y no porque haya subido el
+    // precio: porque ahora se cuenta el reintento, que siempre se pagó.
     const porCuenta = FREE_MONTHLY_ALLOWANCE * requestCostMicros('profesor', 'claude-opus-5');
     const mil = (porCuenta * 1000) / 1_000_000;
 
-    expect(mil).toBeGreaterThan(180);
-    expect(mil).toBeLessThan(230);
+    expect(mil).toBeGreaterThan(380);
+    expect(mil).toBeLessThan(450);
   });
 
   it('el plan gratis solo puede gastar en lo más barato que hay', () => {
     // Si algún día entrara en el plan gratis algo más caro que el profesor, el
     // coste de captación se multiplicaría sin que nadie tocara este número.
     expect(planOf('gratis').capabilities).toEqual(['profesor']);
+  });
+});
+
+describe('el reintento también se paga', () => {
+  /**
+   * Las tres rutas reintentan una vez cuando lo que vuelve no pasa la
+   * validación, y el cupo se gasta una sola vez. Estuvo sin contar: el 60 % de
+   * margen que promete `MODEL_SPEND_SHARE` se quedaba en la mitad en el peor
+   * caso, que es el mismo fallo de no multiplicar que este fichero vino a
+   * arreglar en la fase 11.
+   */
+  it('el coste de una petición son los dos intentos', () => {
+    const price = MODEL_PRICES['claude-opus-5']!;
+    const budget = TOKEN_BUDGETS.versiones;
+    const unaLlamada = budget.input * price.inputPerToken + budget.output * price.outputPerToken;
+
+    expect(requestCostMicros('versiones', 'claude-opus-5')).toBe(unaLlamada * MAX_MODEL_ATTEMPTS);
+  });
+
+  it('las tres rutas reintentan lo que dice la constante', () => {
+    // Si una ruta reintentara más veces que esto, el cupo estaría calculado con
+    // un peor caso que no es el peor caso.
+    for (const ruta of ['ideas', 'teacher', 'versiones']) {
+      const codigo = readFileSync(
+        fileURLToPath(new URL(`../../app/api/${ruta}/route.ts`, import.meta.url)),
+        'utf8',
+      );
+      expect(codigo, `${ruta} no usa la constante`).toContain('attempt < MAX_MODEL_ATTEMPTS');
+    }
+  });
+});
+
+describe('los precios de los modelos', () => {
+  it('Sonnet 5 cuesta dos y diez, no tres y quince', () => {
+    // Tres y quince es Sonnet 4.6, y estuvo aquí como si fuera Sonnet 5.
+    expect(MODEL_PRICES['claude-sonnet-5']).toEqual({ inputPerToken: 2, outputPerToken: 10 });
+    expect(MODEL_PRICES['claude-sonnet-4-6']).toEqual({ inputPerToken: 3, outputPerToken: 15 });
+  });
+
+  it('cada modelo cuesta menos que el de encima', () => {
+    const orden = ['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'];
+    const costes = orden.map((modelo) => requestCostMicros('versiones', modelo));
+
+    for (let i = 1; i < costes.length; i += 1) {
+      expect(costes[i]!, `${orden[i]} no es más barato que ${orden[i - 1]}`).toBeLessThan(
+        costes[i - 1]!,
+      );
+    }
   });
 });

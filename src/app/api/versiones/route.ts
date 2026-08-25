@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { needsPlanMessage, planOf, quotaMessage, TOKEN_BUDGETS } from '@core/billing';
+import {
+  MAX_MODEL_ATTEMPTS,
+  needsPlanMessage,
+  planOf,
+  quotaMessage,
+  TOKEN_BUDGETS,
+} from '@core/billing';
 import { degreesFor, MOVES } from '@core/music';
 
 import {
@@ -141,7 +147,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // Un reintento y basta, como en las ideas: encadenar más cuesta dinero y
   // tiempo, y aquí además cada intento es la petición más cara que hay.
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < MAX_MODEL_ATTEMPTS; attempt += 1) {
     let payload: unknown;
     try {
       payload = await askModel({

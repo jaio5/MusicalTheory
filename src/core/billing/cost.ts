@@ -27,7 +27,7 @@ import { PLANS, planOf, type Plan, type PlanId } from './plans';
  * flotante multiplicados por miles de peticiones acumulan céntimos de error justo
  * en la cuenta que no puede tenerlos.
  *
- * Comprobado contra la tabla de precios de la API el 30 de julio de 2026. Si
+ * Comprobado contra la tabla de precios de la API el 25 de agosto de 2026. Si
  * cambian, se cambian aquí y los cupos se recalculan solos.
  */
 export interface ModelPrice {
@@ -36,19 +36,32 @@ export interface ModelPrice {
 }
 
 export const MODEL_PRICES: Readonly<Record<string, ModelPrice>> = {
+  'claude-fable-5': { inputPerToken: 10, outputPerToken: 50 },
   'claude-opus-5': { inputPerToken: 5, outputPerToken: 25 },
-  'claude-sonnet-5': { inputPerToken: 3, outputPerToken: 15 },
+  // Dos y diez, no tres y quince. El tres y quince es el de Sonnet 4.6, y estuvo
+  // aquí puesto como si fuera el de Sonnet 5: no perdía dinero —erraba por el
+  // lado caro— pero prometía cupos más pequeños de los que el dinero paga.
+  'claude-sonnet-5': { inputPerToken: 2, outputPerToken: 10 },
+  'claude-sonnet-4-6': { inputPerToken: 3, outputPerToken: 15 },
   'claude-haiku-4-5': { inputPerToken: 1, outputPerToken: 5 },
 };
 
 /**
  * El modelo que se supone cuando el configurado no está en la tabla.
  *
- * El más caro de los tres, a propósito: si mañana alguien pone en el entorno un
- * modelo que aquí no figura, lo seguro es cobrarlo como el peor caso conocido y
- * que los cupos salgan pequeños. Suponer el barato regalaría dinero en silencio.
+ * El más caro de la tabla, **calculado y no escrito**. Estuvo apuntando a Opus 5
+ * a mano, y al entrar un modelo más caro que él ese respaldo pasó a cobrar de
+ * menos sin que nadie lo tocara: exactamente el descuido que se quería evitar.
+ *
+ * Si mañana alguien pone en el entorno un modelo que aquí no figura, lo seguro es
+ * cobrarlo como el peor caso conocido y que los cupos salgan pequeños. Suponer el
+ * barato regalaría dinero en silencio.
  */
-export const FALLBACK_PRICE: ModelPrice = MODEL_PRICES['claude-opus-5']!;
+export const FALLBACK_PRICE: ModelPrice = Object.values(MODEL_PRICES).reduce((caro, precio) =>
+  precio.inputPerToken + precio.outputPerToken > caro.inputPerToken + caro.outputPerToken
+    ? precio
+    : caro,
+);
 
 export function priceOf(modelId: string | undefined): ModelPrice {
   return (modelId === undefined ? undefined : MODEL_PRICES[modelId]) ?? FALLBACK_PRICE;
@@ -123,11 +136,32 @@ export const MAX_VERSIONS = 3;
 /** Lo más larga que puede ser la progresión que se manda a rearmonizar. */
 export const MAX_VERSION_DEGREES = 32;
 
-/** Lo que cuesta, como máximo, una petición de esa clase con ese modelo. */
+/**
+ * Cuántas veces se le puede preguntar al modelo por **una** petición del cupo.
+ *
+ * Las tres rutas reintentan una vez cuando lo que vuelve no pasa la validación
+ * contra el dominio, y el cupo se gasta una sola vez —`spendAi` se llama antes
+ * del bucle—. Así que una petición contada puede costar dos llamadas pagadas.
+ *
+ * Estuvo sin contar, y era el mismo fallo que este fichero vino a arreglar en la
+ * fase 11: no multiplicar. No llegaba a perder dinero, pero el 60 % de margen
+ * que promete `MODEL_SPEND_SHARE` se quedaba en la mitad en el peor caso. Las
+ * rutas leen esta constante, para que el número que reintentan y el número con
+ * el que se calcula el dinero no puedan separarse.
+ */
+export const MAX_MODEL_ATTEMPTS = 2;
+
+/**
+ * Lo que cuesta, como máximo, una petición de esa clase con ese modelo.
+ *
+ * **Incluye el reintento.** Lo que se cobra del cupo es una petición; lo que se
+ * puede llegar a pagar son dos llamadas.
+ */
 export function requestCostMicros(feature: AiFeature, modelId: string | undefined): number {
   const price = priceOf(modelId);
   const budget = TOKEN_BUDGETS[feature];
-  return budget.input * price.inputPerToken + budget.output * price.outputPerToken;
+  const unaLlamada = budget.input * price.inputPerToken + budget.output * price.outputPerToken;
+  return unaLlamada * MAX_MODEL_ATTEMPTS;
 }
 
 /**
