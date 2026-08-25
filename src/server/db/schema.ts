@@ -1,11 +1,12 @@
 /**
- * Las cuatro tablas. No hay más.
+ * Las cinco tablas. No hay más.
  *
  * Antes de esto la aplicación no tenía base de datos, y sigue sin necesitarla
  * para casi nada: el afinador, la rueda, el mástil, el metrónomo y la grabación
- * no guardan una fila. La base de datos existe para cuatro cosas que no pueden
- * vivir en el navegador: saber quién eres, qué plan tienes, cuántas llamadas al
- * modelo llevas hoy y las canciones que has guardado.
+ * no guardan una fila. La base de datos existe para lo que no puede vivir en el
+ * navegador: saber quién eres, qué plan tienes, cuántas llamadas al modelo
+ * llevas hoy, las canciones que has guardado y —desde que puede haber más de un
+ * servidor— cuántas peticiones seguidas lleva una dirección.
  *
  * **Ni audio ni vídeo, aquí tampoco.** Lo que se guarda del progreso son
  * identificadores de unidad, números y fechas; lo que se guarda de una canción
@@ -43,6 +44,19 @@ export const users = pgTable('users', {
    * base de datos no es el sitio donde se defiende esta regla.
    */
   plan: text('plan').notNull().default('gratis'),
+  /**
+   * Sube uno cada vez que se cambia la contraseña, y es lo que echa a las demás
+   * sesiones.
+   *
+   * Hace falta porque la cookie va firmada con el secreto del servidor y no con
+   * la contraseña: cambiarla no invalida nada por sí solo, así que una sesión
+   * abierta en un ordenador prestado seguía viva después de cambiarla, que es
+   * justo lo que se hace para cortarla.
+   *
+   * El número viaja dentro de la cookie y se compara al leer la cuenta, que es
+   * una consulta que ya se hacía. Sigue sin haber tabla de sesiones.
+   */
+  sessionVersion: integer('session_version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -102,6 +116,34 @@ export const aiUsage = pgTable(
   },
   (table) => [primaryKey({ columns: [table.userId, table.month] })],
 );
+
+/**
+ * El límite de frecuencia, compartido entre instancias.
+ *
+ * Vivía solo en memoria, y eso funciona con un servidor y falla con dos: cada
+ * instancia lleva su cuenta, así que el límite real es el escrito multiplicado
+ * por cuántas haya. Con el cupo de la IA no pasaba —vive en `ai_usage` desde el
+ * principio— pero el de por minuto sí, y es el que protege la ruta de
+ * registrarse, que cifra una contraseña y cuesta cien milisegundos de procesador
+ * a propósito.
+ *
+ * **Ventana fija y no deslizante**, a diferencia del de memoria. Una deslizante
+ * necesita guardar cada instante y contarlos, o sea una fila por petición; una
+ * fija son tres columnas y una sentencia atómica, la misma forma que `ai_usage`.
+ * Lo que se paga por ello es que en el cruce de dos ventanas caben hasta el doble
+ * de peticiones seguidas. Para lo que defiende —pulsar veinte veces el mismo
+ * botón— es un precio que se paga solo.
+ *
+ * `key` lleva dentro para qué es el contador («ideas:1.2.3.4»), porque cada ruta
+ * tiene el suyo y compartir una fila entre dos límites distintos haría que gastar
+ * los intentos de uno gastara los del otro.
+ */
+export const rateLimits = pgTable('rate_limits', {
+  key: text('key').primaryKey(),
+  /** Cuándo empezó la ventana en curso. */
+  windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+  count: integer('count').notNull().default(0),
+});
 
 /**
  * Las canciones de una cuenta. Una fila por canción, y no un documento por

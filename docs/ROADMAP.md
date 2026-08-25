@@ -664,23 +664,43 @@ pantallas no han cambiado una línea por esto.
 - [ ] Sin IVA ni facturación. Vender a consumidores en la UE lo pide, y no es código:
       es una decisión y una configuración de la pasarela.
 
-### Fase 19 — Lo que exige publicar y hoy no existe · pendiente
+### Fase 19 — Lo que exige publicar y hoy no existe · a medias
 
-Esta fase aparece por el destino, no por el código. Lo de arriba no es opcional.
+Esta fase apareció por el destino, no por el código. Tres de sus cinco puntos están
+hechos; los dos que faltan no son código, o no solo.
 
-- [ ] **Borrar la cuenta.** No hay ni una ruta que lo haga. Con usuarios reales en
-      Europa es obligación legal, no funcionalidad.
-- [ ] **Enviar correo**, con su ADR. Hoy no hay, y por eso no hay «he olvidado mi
-      contraseña» ni cambio de dirección. Sin gente pagando era una decisión
-      defendible y está dicha en la pantalla; con alguien que paga 19,99 € y
-      olvida la contraseña, es perder la cuenta y el dinero.
-- [ ] **Límite de frecuencia compartido.** Hoy vive en memoria y es por instancia:
-      con dos servidores el límite se dobla solo. El cupo diario sí está en
-      Postgres y ese aguanta.
-- [ ] **Cambiar la contraseña echa a las demás sesiones**, con una versión de
-      sesión en la fila de la cuenta que se comprueba al leer la cookie.
-- [ ] Copias de seguridad de Postgres, política de privacidad y condiciones, y
-      elegir camino en [DESPLIEGUE.md](./DESPLIEGUE.md).
+- [x] **Borrar la cuenta.** No había ni una ruta que lo hiciera, y con usuarios reales
+      en Europa es obligación legal. `DELETE /api/cuenta` pide la contraseña —una
+      cookie viva en un ordenador prestado no puede bastar para borrarle la cuenta a
+      alguien— y se lleva por delante el avance, las canciones y el cupo, porque las
+      tres tablas cuelgan de `users` con `onDelete: cascade`. Es una sola sentencia,
+      así que no puede quedarse a medias.
+- [x] En la pantalla hay que **abrirlo y escribir la palabra**, no solo la contraseña.
+      La contraseña se escribe de memoria y sin leer; escribir «borrar» obliga a haber
+      leído qué se pierde. Y se dice qué se pierde en concreto —avance, canciones,
+      plan— en vez de «todos tus datos», que no dice nada.
+- [x] **Cambiar la contraseña echa a las demás sesiones.** Una columna
+      `session_version` que sube al cambiarla, en la misma sentencia, y que viaja
+      dentro de la cookie. Se compara en `currentSession`, que ya iba a leer la fila
+      para saber el plan: **cero consultas de más y sigue sin haber tabla de
+      sesiones**. Una cookie de antes de que existiera el número lo lee como cero, así
+      que nadie se queda fuera por haber entrado el día anterior al despliegue.
+- [x] **Límite de frecuencia compartido.** Vivía en memoria, así que con dos servidores
+      el límite real era el doble del escrito. Ahora vive en `rate_limits` cuando hay
+      base de datos: ventana fija —una deslizante pediría una fila por petición— y la
+      cuenta subiendo y comprobándose en la misma sentencia, como el cupo de la IA.
+- [ ] **Enviar correo, con su ADR.** Es lo que falta para que exista «he olvidado mi
+      contraseña» y para poder cambiar de dirección. Sin gente pagando era una decisión
+      defendible y está dicha en la pantalla; con alguien que paga 19,99 € y olvida la
+      contraseña, es perder la cuenta y el dinero. **Pide elegir un proveedor de envío,
+      así que no se ha hecho a ciegas.**
+- [ ] Copias de seguridad de Postgres, política de privacidad y condiciones, y elegir
+      camino en [DESPLIEGUE.md](./DESPLIEGUE.md). Lo primero es configuración de donde
+      se aloje y lo segundo son dos textos legales: ninguna de las dos se escribe
+      adivinando.
+- [ ] **Nada de lo de arriba se ha probado contra Postgres**, como el resto de las
+      cuentas. Lo probado es lo puro: la firma del webhook, el formulario de borrado y
+      la aritmética.
 
 ### Fase 20 — Semilla multiinstrumento · pendiente
 
@@ -837,6 +857,13 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   lista de entradas y se puede cambiar sin recargar.
 - ~~**Sin límite de frecuencia en la API.**~~ Diez peticiones por minuto y
   dirección, con `Retry-After`.
+- ~~**El contador de frecuencia es por instancia.**~~ Vivía solo en memoria, así
+  que con dos servidores el límite real era el doble del escrito y quien lo
+  desplegaba no se enteraba. Ahora vive en `rate_limits` cuando hay base de
+  datos, con ventana fija y la cuenta subiendo y comprobándose en la misma
+  sentencia, como el cupo. Sin base de datos sigue el de memoria, y si la base de
+  datos no contesta se cae a él: dejar sin usar la aplicación porque el contador
+  de frecuencia falla es peor que el abuso del que defiende.
 - ~~**Análisis en el hilo principal, sin medir.**~~ Medido: 16,2 ms por segundo
   con los dos motores en marcha, un 1,6 % del hilo, y la peor ráfaga en un 5 %
   de un fotograma. El 97 % es la autocorrelación; el motor de acordes cuesta
@@ -862,9 +889,6 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   seguiría cabiendo, pero eso es aritmética y no medición.
 - **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Se
   queda así a propósito: el diagrama se lee mejor.
-- **El contador de frecuencia es por instancia.** En memoria. Si esto se
-  despliega en varias, cada una llevará su cuenta. El cupo diario de las cuentas
-  sí es compartido: vive en Postgres.
 - **El cobro no cobra.** Cualquiera con una cuenta puede darse el plan Pro.
 - **Los cupos suponen los tokens de entrada, no los miden.** La estimación sale de la
   longitud de los prompts, con holgura de sobra y un test que la vigila, pero

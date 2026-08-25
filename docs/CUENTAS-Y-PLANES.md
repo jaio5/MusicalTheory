@@ -317,13 +317,16 @@ pierde nada, y salir tampoco borra nada: el avance local se queda donde está.
 
 ## Qué se guarda de quien entra
 
-Cuatro tablas y nada más (`src/server/db/schema.ts`):
+Cinco tablas y nada más (`src/server/db/schema.ts`):
 
 - **`users`**: correo en minúsculas, nombre si lo ha dicho, la contraseña cifrada y
   el plan.
 - **`progress`**: el avance entero como un documento JSON, uno por cuenta. Incluye
   por qué curso decidió empezar, que es una preferencia y no un logro.
 - **`ai_usage`**: una fila por cuenta y día con cuántas llamadas al modelo lleva.
+- **`rate_limits`**: cuántas peticiones seguidas lleva una dirección. No es de
+  nadie: la clave es una dirección IP y para qué era el contador, y las filas se
+  borran solas al caducar la ventana.
 - **`songs`**: una fila por canción —no un documento por cuenta como el avance,
   porque una canción se abre, se renombra y se borra de una en una—. Dentro van la
   tonalidad, el tempo y **los grados**, nunca los cifrados: por eso una canción

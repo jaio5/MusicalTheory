@@ -32,7 +32,7 @@ import {
 
 import { aiUsageOf, spendAiRequest } from './ai-usage';
 import { configuredModel } from './ai-model';
-import { authAvailable, currentUserId } from './auth';
+import { authAvailable, currentCookie } from './auth';
 import { findUserById } from './users';
 
 /** Los cupos que da un plan con el modelo que hay puesto ahora mismo. */
@@ -58,12 +58,21 @@ export async function currentSession(): Promise<{ userId: string; account: Accou
   if (!authAvailable()) {
     return null;
   }
-  const userId = await currentUserId();
-  if (userId === null) {
+  const cookie = await currentCookie();
+  if (cookie === null) {
     return null;
   }
+  const userId = cookie.id;
   const user = await findUserById(userId);
   if (user === null) {
+    return null;
+  }
+
+  // La versión de la cookie contra la de la cuenta. Cambiar la contraseña sube
+  // la de la cuenta, así que a partir de ese momento las cookies firmadas antes
+  // dejan de valer: es lo que echa a las demás sesiones sin tabla de sesiones y
+  // sin una consulta de más, porque la fila ya estaba leída.
+  if (cookie.sessionVersion !== user.sessionVersion) {
     return null;
   }
 

@@ -5,7 +5,13 @@ import Link from 'next/link';
 import { avatarInitial, displayName, monthlyAiRequests, planOf, priceLabel } from '@core/billing';
 import { BADGES, currentStreak } from '@core/music';
 import { estiloBoton } from '@ui/Button';
-import { AccessForm, NameForm, PasswordForm, SignOutButton } from '@features/account';
+import {
+  AccessForm,
+  DeleteAccountForm,
+  NameForm,
+  PasswordForm,
+  SignOutButton,
+} from '@features/account';
 import { useProgress } from '@features/learn';
 import { useAccount } from '@state/account';
 import { Screen, Section } from '@ui/Screen';
@@ -146,6 +152,10 @@ export function AccountScreen() {
             Eso no sale de tu equipo, y las cuentas no han cambiado eso.
           </li>
         </ul>
+      </Section>
+
+      <Section title="Borrar la cuenta">
+        <DeleteAccountForm />
       </Section>
 
       <Section title="Salir">

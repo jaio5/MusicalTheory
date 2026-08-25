@@ -21,6 +21,8 @@ export interface User {
   readonly email: string;
   readonly name: string | null;
   readonly plan: PlanId;
+  /** Sube al cambiar la contraseña. Es lo que echa a las demás sesiones. */
+  readonly sessionVersion: number;
 }
 
 /**
@@ -70,8 +72,20 @@ export type CreateUserResult =
   | { readonly kind: 'ya-existe' }
   | { readonly kind: 'error' };
 
-function toUser(row: { id: string; email: string; name: string | null; plan: string }): User {
-  return { id: row.id, email: row.email, name: row.name, plan: planOf(row.plan).id };
+function toUser(row: {
+  id: string;
+  email: string;
+  name: string | null;
+  plan: string;
+  sessionVersion: number;
+}): User {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    plan: planOf(row.plan).id,
+    sessionVersion: row.sessionVersion,
+  };
 }
 
 export async function createUser(input: {
@@ -214,11 +228,63 @@ export async function changePassword(
 
     await database
       .update(users)
-      .set({ passwordHash: await hashPassword(nueva) })
+      .set({
+        passwordHash: await hashPassword(nueva),
+        // Sube la versión, y con eso las demás sesiones dejan de valer. Va en la
+        // misma sentencia que la contraseña: si fueran dos, entre una y otra
+        // habría un instante con la contraseña nueva y las sesiones viejas
+        // todavía buenas.
+        sessionVersion: row.sessionVersion + 1,
+      })
       .where(eq(users.id, userId));
     return { kind: 'ok' };
   } catch {
     return { kind: 'error' };
+  }
+}
+
+export type DeleteAccountResult = 'ok' | 'no-coincide' | 'sin-base-de-datos' | 'error';
+
+/**
+ * Borra la cuenta y todo lo que cuelga de ella.
+ *
+ * **Se pide la contraseña aunque ya haya sesión**, por lo mismo que para
+ * cambiarla: una cookie viva en un ordenador prestado no puede bastar para
+ * borrarle la cuenta a alguien. Y esto no tiene vuelta atrás.
+ *
+ * El avance, las canciones y el contador de IA se van con ella porque las tres
+ * tablas cuelgan de `users` con `onDelete: cascade`. Es una sola sentencia y no
+ * cuatro, así que no puede quedarse a medias: o se borra todo o no se borra
+ * nada.
+ *
+ * Borrar de verdad y no marcar como borrada: lo segundo es más cómodo para
+ * recuperar cuentas y es exactamente lo que alguien que pide que le borren sus
+ * datos no está pidiendo.
+ */
+export async function deleteAccount(
+  userId: string,
+  password: unknown,
+): Promise<DeleteAccountResult> {
+  const database = db();
+  if (database === null) {
+    return 'sin-base-de-datos';
+  }
+
+  try {
+    const [row] = await database.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (row === undefined) {
+      return 'error';
+    }
+
+    const ok = await verifyPassword(typeof password === 'string' ? password : '', row.passwordHash);
+    if (!ok) {
+      return 'no-coincide';
+    }
+
+    await database.delete(users).where(eq(users.id, userId));
+    return 'ok';
+  } catch {
+    return 'error';
   }
 }
 

@@ -15,6 +15,9 @@
  * en la misma ruta porque son el mismo recurso —tu cuenta— y separarlas obligaría
  * a repetir la sesión, el límite de intentos y la traducción de errores.
  *
+ * `DELETE` borra la cuenta y todo lo que cuelga de ella. Pide la contraseña, como
+ * `PATCH`, y no tiene vuelta atrás.
+ *
  * El correo **no se cambia aquí**, y no es un olvido: es el identificador de la
  * cuenta y cambiarlo pide confirmar la dirección nueva antes de mover nada. Sin
  * envío de correo eso no se puede hacer, y hacerlo a medias deja cuentas
@@ -27,8 +30,9 @@ import { ANONYMOUS, MIN_PASSWORD_LENGTH } from '@core/billing';
 import { configuredModel } from '@server/ai-model';
 import { authAvailable } from '@server/auth';
 import { currentAccount, currentSession } from '@server/entitlements';
+import { limitRequest } from '@server/rate-limit-db';
 import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
-import { changePassword, createUser, setName } from '@server/users';
+import { changePassword, createUser, deleteAccount, setName } from '@server/users';
 
 export const runtime = 'nodejs';
 
@@ -77,8 +81,15 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const now = Date.now();
-  limiter.prune(now);
-  const { allowed, retryAfterSeconds } = limiter.check(requesterKey(request.headers), now);
+  // La clave lleva para qué es: registrar y cambiar la cuenta son dos límites
+  // distintos, y con la misma clave gastar los intentos de uno gastaría los del
+  // otro. En memoria eran dos objetos; compartidos, son dos claves.
+  const { allowed, retryAfterSeconds } = await limitRequest({
+    memoria: limiter,
+    key: `registro:${requesterKey(request.headers)}`,
+    now,
+    options: { limit: 5, windowMs: 60_000 },
+  });
   if (!allowed) {
     return NextResponse.json(
       {
@@ -161,8 +172,12 @@ export async function PATCH(request: Request): Promise<NextResponse> {
   }
 
   const now = Date.now();
-  patchLimiter.prune(now);
-  const { allowed, retryAfterSeconds } = patchLimiter.check(requesterKey(request.headers), now);
+  const { allowed, retryAfterSeconds } = await limitRequest({
+    memoria: patchLimiter,
+    key: `cuenta:${requesterKey(request.headers)}`,
+    now,
+    options: { limit: 10, windowMs: 60_000 },
+  });
   if (!allowed) {
     return NextResponse.json(
       {
@@ -213,4 +228,74 @@ export async function PATCH(request: Request): Promise<NextResponse> {
   // La cuenta entera y recién leída, para que la pantalla se pinte con lo que hay
   // guardado y no con lo que acaba de escribir quien la usa.
   return NextResponse.json({ account: await currentAccount() });
+}
+
+const MENSAJES_DELETE = {
+  'sin-base-de-datos': MENSAJES['sin-base-de-datos'],
+  'no-coincide': 'La contraseña no es esa. Sin ella no se borra nada.',
+  error: 'No hemos podido borrar la cuenta. Vuelve a intentarlo en un minuto.',
+} as const;
+
+const ESTADOS_DELETE = { 'sin-base-de-datos': 501, 'no-coincide': 403, error: 500 } as const;
+
+/**
+ * Borrar la cuenta.
+ *
+ * Comparte el contador de `PATCH` a propósito: las dos comprueban la contraseña
+ * actual, y comprobar contraseñas es justo lo que hace quien las prueba a lo
+ * bruto. Dos contadores separados para lo mismo darían el doble de intentos.
+ *
+ * Se va con ella el avance, las canciones y el contador de IA. Lo que no se va es
+ * lo que nunca estuvo aquí: no hay audio ni vídeo que borrar, porque no sale del
+ * equipo.
+ */
+export async function DELETE(request: Request): Promise<NextResponse> {
+  const session = await currentSession();
+  if (session === null) {
+    return NextResponse.json(
+      { error: { code: 'sin-sesion', message: 'Entra con tu cuenta para borrarla.' } },
+      { status: 401 },
+    );
+  }
+
+  const now = Date.now();
+  const { allowed, retryAfterSeconds } = await limitRequest({
+    memoria: patchLimiter,
+    key: `cuenta:${requesterKey(request.headers)}`,
+    now,
+    options: { limit: 10, windowMs: 60_000 },
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'rate_limited',
+          message: 'Demasiados intentos seguidos. Espera un momento y vuelve a probar.',
+        },
+      },
+      { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } },
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+  const record = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+
+  const result = await deleteAccount(session.userId, record['password']);
+  if (result !== 'ok') {
+    return NextResponse.json(
+      { error: { code: result, message: MENSAJES_DELETE[result] } },
+      { status: ESTADOS_DELETE[result] },
+    );
+  }
+
+  // La cookie sigue firmada y viva, así que la pantalla tiene que cerrar sesión
+  // después. Si no, quien acaba de borrarse se queda con una sesión que apunta a
+  // una fila que ya no existe: `currentSession` devuelve nulo y todo parece roto
+  // en vez de parecer cerrado.
+  return NextResponse.json({ borrada: true });
 }

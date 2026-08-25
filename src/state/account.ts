@@ -242,6 +242,33 @@ export async function updateAccount(changes: {
   }
 }
 
+/**
+ * Borra la cuenta. Pide la contraseña, y no tiene vuelta atrás.
+ *
+ * No cierra la sesión: eso lo hace quien llama, porque la cookie sigue firmada y
+ * viva. Sin cerrarla, quien acaba de borrarse se queda con una sesión que apunta
+ * a una fila que ya no existe y todo parece roto en vez de parecer cerrado.
+ */
+export async function deleteAccount(password: string): Promise<ProfileResult> {
+  try {
+    const response = await fetch('/api/cuenta', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as {
+        error?: { message?: string };
+      } | null;
+      return { ok: false, message: body?.error?.message ?? 'No hemos podido borrar la cuenta.' };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, message: 'No hemos podido borrar la cuenta. Vuelve a intentarlo.' };
+  }
+}
+
 export type ChangePlanResult =
   | { readonly kind: 'listo'; readonly plan: PlanId }
   | { readonly kind: 'ir-a-pagar'; readonly url: string }

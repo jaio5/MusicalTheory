@@ -13,6 +13,7 @@ import {
 import { configuredModel } from '@server/ai-model';
 import { spendAi } from '@server/entitlements';
 import { VERSIONS_SCHEMA, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
+import { limitRequest } from '@server/rate-limit-db';
 import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
@@ -109,9 +110,12 @@ async function askModel(prompt: string): Promise<unknown> {
 
 export async function POST(request: Request): Promise<NextResponse> {
   const now = Date.now();
-  limiter.prune(now);
-
-  const { allowed, retryAfterSeconds } = limiter.check(requesterKey(request.headers), now);
+  // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
+  const { allowed, retryAfterSeconds } = await limitRequest({
+    memoria: limiter,
+    key: requesterKey(request.headers),
+    now,
+  });
   if (!allowed) {
     return NextResponse.json(versionsError('rate_limited'), {
       status: 429,

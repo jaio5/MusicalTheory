@@ -26,7 +26,14 @@ import { hasDatabase } from './db/client';
 
 declare module 'next-auth' {
   interface Session {
-    readonly user: { readonly id: string } & DefaultSession['user'];
+    readonly user: {
+      readonly id: string;
+      readonly sessionVersion: number;
+    } & DefaultSession['user'];
+  }
+  interface User {
+    /** La versión que tenía la cuenta al entrar. Ver `sessionVersion` en el esquema. */
+    sessionVersion?: number;
   }
 }
 
@@ -92,7 +99,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        return { id: found.user.id, email: found.user.email, name: found.user.name };
+        return {
+          id: found.user.id,
+          email: found.user.email,
+          name: found.user.name,
+          // Se guarda la versión que tenía la cuenta en este momento. Cuando
+          // alguien cambie la contraseña, la de la fila subirá y esta cookie
+          // dejará de cuadrar: eso es echar a las demás sesiones.
+          sessionVersion: found.user.sessionVersion,
+        };
       },
     }),
   ],
@@ -100,29 +115,55 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     jwt({ token, user }) {
       if (user?.id !== undefined) {
         token.sub = user.id;
+        token['sv'] = user.sessionVersion ?? 0;
       }
       return token;
     },
     session({ session, token }) {
       if (token.sub !== undefined) {
-        return { ...session, user: { ...session.user, id: token.sub } };
+        const sv = token['sv'];
+        return {
+          ...session,
+          user: {
+            ...session.user,
+            id: token.sub,
+            // Una cookie vieja de antes de que existiera este número no lo
+            // lleva. Se trata como cero, que es lo que tienen las cuentas que
+            // nunca han cambiado la contraseña: así nadie se queda fuera por
+            // haber entrado el día anterior al despliegue.
+            sessionVersion: typeof sv === 'number' ? sv : 0,
+          },
+        };
       }
       return session;
     },
   },
 });
 
-/** El identificador de quien pide, o nulo si no ha entrado. */
-export async function currentUserId(): Promise<string | null> {
+/**
+ * Quién pide y con qué versión de sesión, o nulo si no ha entrado.
+ *
+ * La versión sale de la cookie y **no se comprueba aquí**: quien la compara es
+ * `currentSession`, que ya va a leer la fila de la cuenta para saber el plan y el
+ * cupo. Comprobarla aquí añadiría una consulta a cada petición, que es
+ * exactamente lo que se evitó al no tener tabla de sesiones.
+ */
+export async function currentCookie(): Promise<{ id: string; sessionVersion: number } | null> {
   if (!authAvailable()) {
     return null;
   }
   try {
     const session = await auth();
-    return session?.user?.id ?? null;
+    const id = session?.user?.id;
+    return id === undefined ? null : { id, sessionVersion: session?.user?.sessionVersion ?? 0 };
   } catch {
     // Una cookie firmada con otro secreto, o un secreto cambiado: se trata como
     // no haber entrado, que es lo que de hecho pasa.
     return null;
   }
+}
+
+/** El identificador de quien pide, o nulo si no ha entrado. */
+export async function currentUserId(): Promise<string | null> {
+  return (await currentCookie())?.id ?? null;
 }
