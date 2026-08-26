@@ -134,6 +134,15 @@ export interface SessionActions {
   stopCapture(at: number): void;
   /** Tira lo apuntado. */
   clearCapture(): void;
+  /**
+   * Cambia los acordes oídos en vivo por los del análisis de la grabación.
+   *
+   * No se llama `setCapture` a propósito: lo que hace es **sustituir una lectura
+   * peor por una mejor del mismo trozo**, no grabar otra cosa. Los instantes
+   * siguen siendo los de la grabación, así que `captureStartedAt` y
+   * `captureEndedAt` no se tocan.
+   */
+  replaceCapture(chords: readonly CapturedChord[]): void;
   clearHistory(): void;
   reset(): void;
 }
@@ -342,6 +351,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
       set({ capturing: true, captured: [], captureStartedAt: at, captureEndedAt: 0 }),
     stopCapture: (at) => set({ capturing: false, captureEndedAt: at }),
     clearCapture: () => set({ captured: [], captureStartedAt: 0, captureEndedAt: 0 }),
+    replaceCapture: (chords) => set({ captured: [...chords] }),
     clearHistory: () =>
       set({
         noteHistory: [],

@@ -8,3 +8,5 @@ export * from './metronome';
 export * from './chroma';
 export * from './chord-engine';
 export * from './progression-player';
+export * from './fft';
+export * from './offline-chords';

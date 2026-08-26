@@ -5,6 +5,7 @@
  * AudioContext. Todo lo demás habla con la interfaz AudioInput.
  */
 
+import { MAX_RECORDING_SECONDS, type AudioRecorder, type Recording } from './recorder';
 import type {
   AudioInput,
   AudioInputError,
@@ -23,7 +24,7 @@ export const DEFAULT_SPECTRUM_SIZE = 8192;
 
 type StateListener = (state: AudioInputState) => void;
 
-export class WebAudioInput implements AudioInput {
+export class WebAudioInput implements AudioInput, AudioRecorder {
   readonly frameSize: number;
   readonly spectrumSize: number;
 
@@ -38,6 +39,9 @@ export class WebAudioInput implements AudioInput {
   #spectrumAnalyser: AnalyserNode | null = null;
   /** Lo que hay que soltar al parar: el vigilante del contexto. */
   #soltarVigilancia: (() => void) | null = null;
+  /** La grabación en curso, si la hay. */
+  #grabadora: MediaRecorder | null = null;
+  #trozos: Blob[] = [];
 
   constructor(options: AudioInputOptions = {}) {
     this.frameSize = options.frameSize ?? DEFAULT_FRAME_SIZE;
@@ -183,7 +187,94 @@ export class WebAudioInput implements AudioInput {
     };
   }
 
+  /**
+   * Empieza a guardar el sonido crudo.
+   *
+   * Con `MediaRecorder` y no leyendo bloques del analizador, que es lo que
+   * parecía más directo y no vale: el analizador contesta *el último bloque*, y
+   * leerlo cada tanto deja huecos y repeticiones. Un espectro calculado sobre una
+   * señal con costuras se llena de faldas que no existen. `MediaRecorder` da el
+   * flujo entero y seguido, que es lo único que sirve para volver a analizarlo.
+   *
+   * Es además lo que ya usa `media/session-recorder.ts` para grabar la sesión en
+   * vídeo, así que no entra una pieza nueva en el proyecto.
+   */
+  startRecording(): boolean {
+    if (this.#stream === null || typeof MediaRecorder === 'undefined') {
+      return false;
+    }
+    this.stopRecordingSilently();
+
+    try {
+      this.#trozos = [];
+      const grabadora = new MediaRecorder(this.#stream);
+      grabadora.addEventListener('dataavailable', (evento) => {
+        if (evento.data.size > 0) {
+          this.#trozos.push(evento.data);
+        }
+      });
+      grabadora.start();
+      this.#grabadora = grabadora;
+      // El tope no es una regla musical: son 34 MB de memoria por cada tres
+      // minutos a 48 kHz. Se para sola por si alguien deja el botón puesto.
+      setTimeout(() => this.#grabadora?.stop(), MAX_RECORDING_SECONDS * 1000);
+      return true;
+    } catch {
+      this.#grabadora = null;
+      return false;
+    }
+  }
+
+  async stopRecording(): Promise<Recording | null> {
+    const grabadora = this.#grabadora;
+    const context = this.#context;
+    this.#grabadora = null;
+    if (grabadora === null || context === null) {
+      return null;
+    }
+
+    if (grabadora.state !== 'inactive') {
+      await new Promise<void>((listo) => {
+        grabadora.addEventListener('stop', () => listo(), { once: true });
+        grabadora.stop();
+      });
+    }
+
+    const trozos = this.#trozos;
+    this.#trozos = [];
+    if (trozos.length === 0) {
+      return null;
+    }
+
+    try {
+      const datos = await new Blob(trozos).arrayBuffer();
+      const decodificado = await context.decodeAudioData(datos);
+      // Un solo canal: el micro de una guitarra es mono, y si viniera estéreo
+      // los dos canales dicen lo mismo para lo que hace falta aquí.
+      const samples = decodificado.getChannelData(0);
+      return {
+        samples: samples as Float32Array<ArrayBuffer>,
+        sampleRate: decodificado.sampleRate,
+      };
+    } catch {
+      // Un formato que el propio navegador no sabe decodificar, o el contexto
+      // cerrado mientras tanto. No se enseña error: lo que se pierde es la
+      // mejora, y los acordes que el motor oyó en vivo siguen ahí.
+      return null;
+    }
+  }
+
+  /** Corta una grabación anterior sin esperar a nada. */
+  private stopRecordingSilently(): void {
+    if (this.#grabadora !== null && this.#grabadora.state !== 'inactive') {
+      this.#grabadora.stop();
+    }
+    this.#grabadora = null;
+    this.#trozos = [];
+  }
+
   async stop(): Promise<void> {
+    this.stopRecordingSilently();
     this.#soltarVigilancia?.();
     this.#soltarVigilancia = null;
     this.#analyser = null;

@@ -48,6 +48,22 @@ export interface ListeningControls {
   stop(): Promise<void>;
 }
 
+/**
+ * La entrada que está escuchando ahora mismo, si la hay.
+ *
+ * Referencia de módulo y no estado de React porque **el micro es uno**: no hay
+ * dos entradas a la vez ni tendría sentido que las hubiera. La necesita quien
+ * quiere guardar el sonido para estudiarlo después —el panel de salidas— y ese
+ * está en otra rama del árbol, así que pasarla por props sería atravesar media
+ * aplicación con algo que ya es único.
+ */
+let entradaSonando: AudioInput | null = null;
+
+/** La entrada abierta, o nula si el micro está cerrado. */
+export function entradaActiva(): AudioInput | null {
+  return entradaSonando;
+}
+
 export function useListening({
   createInput,
   createEngine,
@@ -87,6 +103,9 @@ export function useListening({
 
     const input = inputRef.current;
     inputRef.current = null;
+    if (entradaSonando === input) {
+      entradaSonando = null;
+    }
     await input?.stop();
 
     actions.setPitch(null);
@@ -103,6 +122,7 @@ export function useListening({
         factories.current.createInput?.(deviceId) ??
         new WebAudioInput(deviceId === undefined ? {} : { deviceId });
       inputRef.current = input;
+      entradaSonando = input;
       unsubscribeRef.current = input.subscribe((state) => {
         actions.setListening(LISTENING_BY_INPUT_STATE[state], input.error?.message ?? null);
       });
@@ -116,6 +136,7 @@ export function useListening({
         unsubscribeRef.current?.();
         unsubscribeRef.current = null;
         inputRef.current = null;
+        entradaSonando = null;
         return;
       }
 

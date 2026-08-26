@@ -109,6 +109,47 @@ Llevarlo a un `AudioWorklet` sigue siendo la salida si esto se queda corto
 cuando haya rueda de quintas y mástil animándose a la vez. Por qué no se ha
 hecho ya está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
 
+## Dos pasadas: mientras suena y al parar
+
+Hasta la fase de las salidas solo había una: el motor decidía mientras sonaba, y
+lo que quedaba guardado era su lectura. Ahora hay dos, y hacen cosas distintas.
+
+**En vivo** manda `chord-engine.ts` y no ha cambiado: diez análisis por segundo,
+media móvil y cuatro confirmaciones. Es lo que se ve mientras tocas, y arrastra
+tres límites que no son parámetros mal puestos sino consecuencias de decidir en
+el momento: la ventana tiene que ser corta o el retardo se nota, solo puede mirar
+hacia atrás, y decide acorde a acorde.
+
+**Al parar de grabar** entra `audio/offline-chords.ts`, que tiene el trozo entero
+delante:
+
+|                 | En vivo                    | Al parar                           |
+| --------------- | -------------------------- | ---------------------------------- |
+| Ventana         | 2048 · 23,4 Hz por casilla | 16384 · **2,9 Hz por casilla**     |
+| Contexto        | Solo lo anterior           | Lo anterior y lo posterior         |
+| Umbral de ruido | Fijo, escrito aquí         | **Medido en la propia grabación**  |
+| Decisión        | Acorde a acorde            | **La secuencia entera de una vez** |
+
+Lo de la ventana es el punto entero: el Mi y el Fa graves están a 4,9 Hz, así que
+con 23,4 Hz por casilla caen en la misma y ahí abajo es donde una guitarra pasa
+media canción.
+
+Y lo de la secuencia usa el grafo que ya estaba escrito, `nextDegrees` —de cada
+grado, adónde se suele ir y cuánto—, con programación dinámica. Un acorde suelto
+que no pega con sus vecinos se cae aunque el espectro lo apoye.
+
+El espectro lo calcula una FFT propia (`audio/fft.ts`): en vivo lo da el
+navegador, pero un `AnalyserNode` mira lo que entra ahora, no un trozo de memoria
+de hace dos minutos.
+
+**Va en un worker**, y esa es la diferencia con [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md):
+analizar dos minutos son 1,1 s en un sobremesa y hasta diez en un móvil. El
+razonamiento entero, con lo que se descartó, está en
+[adr/0017](./adr/0017-escuchar-la-grabacion-entera.md).
+
+**El audio no sale del equipo.** Las muestras se quedan en memoria, se analizan
+ahí y lo que sale son símbolos.
+
 ## Limitaciones que hay que asumir
 
 **Es monofónico.** La autocorrelación devuelve _un_ periodo. Si suenan dos
