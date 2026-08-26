@@ -156,7 +156,7 @@ un acorde imposible, muere en el servidor.
 ## Configuración del modelo
 
 ```ts
-// src/app/api/ideas/route.ts — el único sitio del proyecto que importa el SDK.
+// src/server/ask-model.ts — el único sitio del proyecto que importa el SDK.
 const client = new Anthropic(); // lee ANTHROPIC_API_KEY del entorno
 
 const response = await client.messages.create({
@@ -176,10 +176,71 @@ const response = await client.messages.create({
 - **Prompt de sistema**: fija el criterio —rock, no coral—, exige español, y
   prohíbe explicar teoría que no se haya pedido.
 
-## Sin clave: contesta el dominio
+## Quién contesta: tres proveedores y un orden
 
-Fuera de producción, sin `ANTHROPIC_API_KEY`, las tres rutas contestan con
-`server/fake-model.ts` en vez de fallar. Es el tercer puerto con la misma forma
+`server/ai-model.ts` decide, y las tres rutas no se enteran: le entra la misma
+pregunta a `askModel` y les vuelve la misma forma. El orden es este, y no es
+casual:
+
+| Si hay...                 | Contesta                     | Sirve para                                         |
+| ------------------------- | ---------------------------- | -------------------------------------------------- |
+| `ANTHROPIC_API_KEY`       | La API de Anthropic          | Producción, y probar de verdad la calidad          |
+| `OLLAMA_URL` (y no clave) | El modelo de casa, en Docker | Iterar sobre los prompts sin factura               |
+| Ninguna de las dos        | El dominio (`fake-model.ts`) | Probar pantallas sin descargar ni dar de alta nada |
+
+**La clave gana al modelo local**, y a propósito: `OLLAMA_URL` es una variable que
+se pone para probar y se olvida puesta. Si ganara ella, un despliegue con las dos
+configuradas serviría en silencio respuestas de un modelo pequeño a quien ha
+pagado el plan Pro. Para probar en local se quita la clave, que es lo explícito.
+
+En producción, sin ninguno de los tres, las rutas contestan 503 y no gastan cupo.
+
+## El modelo de casa: Ollama en un contenedor
+
+```bash
+pnpm docker:ia     # Postgres, migraciones, Ollama con su modelo, y la aplicación
+```
+
+Levanta `compose.ia.yml` encima de `compose.yml`. La primera vez descarga unos
+5 GB —`qwen3:8b`, que de su tamaño es el que mejor respeta un esquema JSON
+estricto— y los deja en un volumen, así que solo pasa una vez. Con `OLLAMA_MODEL`
+se cambia sin tocar código.
+
+Está en un fichero de compose aparte porque **pide una gráfica NVIDIA**: sin ella,
+`docker compose up` tiene que seguir funcionando igual. Se puede correr en la CPU
+comentando el bloque `deploy`, pero una respuesta pasa de segundos a un minuto
+largo y deja de servir para probar nada con la guitarra en las manos.
+
+Quien hable con él es `server/local-model.ts`, **sin SDK**: Ollama habla JSON por
+HTTP y `fetch` está en el runtime. Las tres decisiones de coste de la API se
+traducen, no se reinventan:
+
+| En la API                        | En Ollama             | Por qué                                           |
+| -------------------------------- | --------------------- | ------------------------------------------------- |
+| `thinking: { type: 'disabled' }` | `think: false`        | La respuesta la fija un esquema: nada que razonar |
+| `max_tokens`                     | `options.num_predict` | El mismo número del presupuesto de `cost.ts`      |
+| `output_config.format`           | `format`              | El esquema constriñe la generación                |
+
+Tres cosas que conviene saber antes de que muerdan:
+
+- **La primera petición tarda.** Cargar cinco gigas de pesos en la gráfica va
+  antes de generar el primer token. El tope de espera son dos minutos por eso; las
+  siguientes tardan segundos.
+- **Los cupos salen pequeños.** El modelo local no está en la tabla de precios, así
+  que se cobra al precio del más caro conocido. Es incómodo y es lo correcto: el
+  cupo defiende de un gasto, y suponer coste cero sería dividir entre cero.
+- **`/api/versiones` es la que peor va**, y con motivo: es la única que verifica el
+  razonamiento movimiento a movimiento contra el dominio, así que un modelo pequeño
+  que declare mal lo que hizo se queda sin versión. Eso no es un fallo del montaje;
+  es la primera vez que esa verificación tiene algo que rechazar.
+
+Esto es **para probar, no para producción**. El porqué entero, con lo que se
+descartó, está en [adr/0014](./adr/0014-un-modelo-de-casa-para-probar.md).
+
+## Sin ningún proveedor: contesta el dominio
+
+Fuera de producción, sin `ANTHROPIC_API_KEY` y sin `OLLAMA_URL`, las tres rutas
+contestan con `server/fake-model.ts` en vez de fallar. Es el tercer puerto con la misma forma
 que el cobrador que no cobra y el correo que no manda, y por la misma razón: sin
 él, media aplicación no se puede probar sin dar de alta un servicio y empezar a
 pagar por tokens.
@@ -193,18 +254,19 @@ gastar un céntimo.
 Lo que **no** prueba: si el modelo de verdad devuelve versiones que valgan la
 pena. Eso no lo puede decir nada que no sea el modelo. Por eso todo lo que sale de
 ahí lo lleva escrito en su propio texto —en pantalla se lee «Sin IA»— y en
-producción sin clave se sigue contestando 503.
+producción sin proveedor se sigue contestando 503. El modelo de casa **no** se
+marca así: es un modelo generando de verdad, aunque acierte menos.
 
-## Antes de las puertas: ¿hay clave?
+## Antes de las puertas: ¿hay quien conteste?
 
-Las tres rutas comprueban `ANTHROPIC_API_KEY` **antes de tocar el cupo**, y
-contestan 503 si falta. No es una comprobación de cortesía: `spendAi` cuenta la
+Las tres rutas comprueban `modelAvailable()` **antes de tocar el cupo**, y
+contestan 503 si no hay proveedor ninguno. No es una comprobación de cortesía: `spendAi` cuenta la
 petición antes de hablar con el modelo, así que sin clave configurada la llamada
 fallaba igual unas líneas más abajo pero la petición ya estaba gastada. Alguien se
 quedaba sin peticiones del mes por una variable de entorno que faltaba.
 
 `hasModelKey` estaba escrita desde la fase 5 y no la llamaba nadie. Hay un test que
-lee las tres rutas y comprueba que la clave se sigue mirando antes que el cupo:
+lee las tres rutas y comprueba que el proveedor se sigue mirando antes que el cupo:
 el orden de dos líneas es justo lo que se pierde al refactorizar.
 
 ## Las tres puertas: frecuencia, cuenta y cupo

@@ -19,6 +19,7 @@
     "db:studio": "drizzle-kit studio",
     "docker:up": "bash scripts/docker-arriba.sh",
     "docker:db": "docker compose up -d db",
+    "docker:ia": "bash scripts/docker-arriba.sh --ia",
     "docker:down": "docker compose down"
   },
   "license": "UNLICENSED",

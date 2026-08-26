@@ -11,29 +11,42 @@
  * tanto el único que puede leer la clave. Antes eran tres. Si esto se importara
  * desde un componente, el bundler se llevaría la clave al navegador.
  *
+ * Y es donde se reparte entre los tres que pueden contestar —la API, el modelo de
+ * casa y el dominio— porque las rutas no tienen por qué saber cuál hay puesto:
+ * les entra la misma pregunta y les vuelve la misma forma, y la validación contra
+ * el dominio que hacen después es la misma para los tres. Quién es quién lo decide
+ * `ai-model.ts`.
+ *
  * Vive en `server/` junto a los prompts, que es donde ya viven las otras dos
  * cosas de las que depende el modelo de coste.
  */
 
 import Anthropic from '@anthropic-ai/sdk';
 
-import { configuredModel, hasModelKey } from './ai-model';
+import { configuredModel, localModelUrl, modelProvider } from './ai-model';
+import { askLocalModel } from './local-model';
 
 /**
- * Si se puede preguntar algo, aunque no haya clave.
+ * Si se puede preguntar algo, aunque no haya proveedor.
  *
- * Sin clave y **fuera de producción** se contesta con el dominio
+ * Sin proveedor y **fuera de producción** se contesta con el dominio
  * (`fake-model.ts`), que es lo que permite probar las pantallas de IA sin dar de
- * alta un servicio. En producción sin clave no se puede: la ruta contesta 503 y
- * no gasta cupo.
+ * alta un servicio ni descargar nada. En producción sin proveedor no se puede: la
+ * ruta contesta 503 y no gasta cupo.
  */
 export function modelAvailable(): boolean {
-  return hasModelKey() || process.env.NODE_ENV !== 'production';
+  return modelProvider() !== 'ninguno' || process.env.NODE_ENV !== 'production';
 }
 
-/** Si lo que contesta lo ha escrito un modelo de verdad. */
+/**
+ * Si lo que contesta lo ha escrito un modelo de verdad.
+ *
+ * El de casa cuenta: es un modelo generando, aunque sea pequeño y aunque acierte
+ * menos. Lo que no cuenta es el dominio, que se limita a aplicar movimientos que
+ * ya estaban escritos y por eso se marca en pantalla como «Sin IA».
+ */
 export function modelIsReal(): boolean {
-  return hasModelKey();
+  return modelProvider() !== 'ninguno';
 }
 
 export interface AskModelInput {
@@ -84,10 +97,21 @@ export async function askModel({
   maxTokens,
   sinClave,
 }: AskModelInput): Promise<unknown> {
-  if (!hasModelKey()) {
-    // Sin clave, el dominio contesta por él. Solo se llega aquí fuera de
+  const proveedor = modelProvider();
+
+  if (proveedor === 'ninguno') {
+    // Sin proveedor, el dominio contesta por él. Solo se llega aquí fuera de
     // producción: la ruta ya ha comprobado `modelAvailable`.
     return sinClave();
+  }
+
+  if (proveedor === 'local') {
+    // La URL está, porque es justo lo que mira `modelProvider` para decir
+    // «local». El `?? ''` es para el compilador, no para nadie más.
+    return askLocalModel(
+      { prompt, system, schema, maxTokens, model: configuredModel() },
+      localModelUrl() ?? '',
+    );
   }
 
   const client = new Anthropic();

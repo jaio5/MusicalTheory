@@ -2,6 +2,9 @@
 #
 # Levanta Postgres, aplica las migraciones y arranca la aplicación.
 #
+# Con `--ia` levanta además Ollama y descarga el modelo de casa, para poder probar
+# las tres pantallas de IA sin clave de Anthropic y sin pagar tokens.
+#
 # Existe para que sean cero decisiones: comprueba que Docker es el de verdad,
 # escribe el `.env` que falta con un secreto nuevo y llama a compose. Todo lo que
 # hace se puede hacer a mano; lo que no se puede hacer a mano es acordarse.
@@ -67,8 +70,14 @@ DATABASE_URL=postgres://caos:caos@localhost:5432/caos
 # otro contenedor: lo de dentro sigue siendo el 3000.
 APP_PORT=3000
 
-# Opcional: sin ella, el profesor y las ideas dicen que no hay modelo configurado.
+# Opcional: sin ella contesta el modelo de casa si lo hay, y si tampoco lo hay,
+# el dominio. La clave gana a los dos: mira docs/AI.md.
 ANTHROPIC_API_KEY=
+
+# El modelo de casa. Con \`pnpm docker:ia\` esto lo pone compose; descoméntalo solo
+# si levantas Ollama por tu cuenta y quieres usarlo desde \`pnpm dev\`.
+# OLLAMA_URL=http://localhost:11434
+# OLLAMA_MODEL=qwen3:8b
 EOF
   gris 'Escrito .env con un AUTH_SECRET nuevo. No se sube: está en .gitignore.'
 fi
@@ -76,6 +85,23 @@ fi
 # ---------------------------------------------------------------------------
 # Y arriba. `--build` para que un cambio en el código se note sin acordarse de
 # reconstruir, que es el fallo que hace pensar que un arreglo no ha funcionado.
+#
+# `--ia` no se le pasa a compose: se traduce en un fichero más. Va en un fichero
+# aparte porque pide una gráfica NVIDIA, y `docker compose up` tiene que seguir
+# funcionando en un equipo que no la tenga.
 # ---------------------------------------------------------------------------
-gris 'Levantando Postgres, aplicando migraciones y arrancando la aplicación...'
-exec docker compose up --build "$@"
+ficheros=(-f compose.yml)
+resto=()
+mensaje='Levantando Postgres, aplicando migraciones y arrancando la aplicación...'
+
+for arg in "$@"; do
+  if [[ "$arg" == '--ia' ]]; then
+    ficheros+=(-f compose.ia.yml)
+    mensaje='Levantando todo lo de siempre y, ademas, Ollama con su modelo. La primera vez se descargan unos 5 GB.'
+  else
+    resto+=("$arg")
+  fi
+done
+
+gris "$mensaje"
+exec docker compose "${ficheros[@]}" up --build ${resto[@]+"${resto[@]}"}

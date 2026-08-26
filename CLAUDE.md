@@ -26,7 +26,8 @@ la migración y `pnpm db:migrate` la aplica; no se aplican solas al arrancar.
 
 **Para tocar cualquier cosa de cuentas hace falta base de datos, y la da Docker:**
 `pnpm docker:up` levanta Postgres, aplica las migraciones y arranca la aplicación;
-`pnpm docker:db` levanta solo Postgres para usarlo con `pnpm dev`. El script escribe
+`pnpm docker:db` levanta solo Postgres para usarlo con `pnpm dev`; `pnpm docker:ia`
+añade un Ollama al que preguntar sin clave y sin factura. El script escribe
 el `.env` que falte con un `AUTH_SECRET` nuevo. Si el 3000 está ocupado, `APP_PORT`.
 
 **Prettier también formatea el markdown.** Después de tocar cualquier `.md` hay
@@ -85,6 +86,7 @@ renombrado no puede degradar a quien había pagado.
 | Grabación con cámara                                  | `src/media/`                                   |
 | Rutas de servidor de la IA                            | `app/api/ideas`, `/teacher`, `/versiones`      |
 | La llamada al modelo, y el único sitio con el SDK     | `server/ask-model.ts`                          |
+| Quién contesta —API, modelo de casa o dominio—        | `server/ai-model.ts`, `local-model.ts`         |
 | Lo que tocas, convertido en compases                  | `core/music/capture.ts`                        |
 | Con qué se rearmoniza, y cómo se comprueba            | `core/music/reharmonization.ts`                |
 | Una canción guardada: grados, tonalidad y secciones   | `core/music/song.ts` + `server/songs-repo.ts`  |
@@ -130,12 +132,13 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                    |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Los trece: dominio puro, tono propio, análisis en el hilo principal,
+descartadas. Los catorce: dominio puro, tono propio, análisis en el hilo principal,
 acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, punto de
 partida con una pantalla por cosa, cupos calculados desde el precio, un solo marco
 de pantalla, los dos temas con el negro de casa, las versiones verificadas contra
-el dominio sin que suba audio, un instrumento por ahora con el mapa del segundo, y
-el correo como puerto con su vale de un solo uso.
+el dominio sin que suba audio, un instrumento por ahora con el mapa del segundo, el
+correo como puerto con su vale de un solo uso, y un modelo de casa para probar sin
+factura.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

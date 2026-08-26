@@ -61,8 +61,8 @@ pnpm dev                     # http://localhost:3000
 ```
 
 `.env.local` tiene dos partes y las dos son opcionales: la clave de Anthropic —sin
-ella el profesor y las ideas callan— y `DATABASE_URL` con `AUTH_SECRET` —sin ellas no
-hay cuentas—. Si pones la base de datos, aplica las migraciones antes de entrar:
+ella contesta el dominio, o el modelo de casa si lo has levantado— y `DATABASE_URL`
+con `AUTH_SECRET` —sin ellas no hay cuentas—. Si pones la base de datos, aplica las migraciones antes de entrar:
 
 ```bash
 pnpm db:migrate
@@ -73,6 +73,7 @@ pnpm db:migrate
 ```bash
 pnpm docker:up     # Postgres, migraciones y la aplicación, en http://localhost:3000
 pnpm docker:db     # solo Postgres, para usarlo desde `pnpm dev`
+pnpm docker:ia     # además, un modelo en tu equipo para probar la IA sin clave
 pnpm docker:down   # parar; con -v además borra los datos
 ```
 
@@ -80,6 +81,16 @@ pnpm docker:down   # parar; con -v además borra los datos
 hay nada que rellenar a mano. Si el 3000 ya lo tiene otro contenedor tuyo, cambia
 `APP_PORT` en ese `.env`. Los detalles, en
 [docs/DESPLIEGUE.md](./docs/DESPLIEGUE.md).
+
+### Probar la IA sin pagar tokens
+
+`pnpm docker:ia` levanta además un [Ollama](https://ollama.com) con `qwen3:8b`, y
+la aplicación le pregunta a él mientras no haya clave de Anthropic. La primera vez
+descarga unos 5 GB y los guarda; **pide una gráfica NVIDIA**, y sin ella hay que
+comentar el bloque `deploy` de `compose.ia.yml` y armarse de paciencia.
+
+No es lo mismo que la API y no pretende serlo: sirve para ajustar los prompts sin
+factura. Lo que hace y lo que no, en [docs/AI.md](./docs/AI.md).
 
 ## Cómo pasar los tests
 

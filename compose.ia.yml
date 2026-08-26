@@ -1,0 +1,78 @@
+# El modelo de casa, encima de `compose.yml`.
+#
+#   pnpm docker:ia        Postgres, migraciones, Ollama, el modelo y la aplicación
+#   pnpm docker:down      parar; con -v además borra los datos Y los modelos
+#
+# Aparte y no dentro de `compose.yml` porque esto **pide una gráfica NVIDIA**, y
+# `docker compose up` tiene que seguir funcionando en un portátil que no la tenga.
+# Sin gráfica, comenta el bloque `deploy` de abajo: funciona igual en la CPU, pero
+# una respuesta pasa de tres segundos a un minuto largo y deja de servir para
+# probar nada con la guitarra en las manos.
+#
+# Lo que se levanta aquí no sabe nada de la aplicación: es un servidor de modelos
+# genérico al que se le habla por HTTP desde `src/server/local-model.ts`.
+#
+# **Con `ANTHROPIC_API_KEY` puesta, esto no se usa.** La clave gana al modelo
+# local a propósito, y el porqué está en `src/server/ai-model.ts`: una variable de
+# probar que se queda puesta no puede degradar en silencio lo que se sirve.
+
+name: caos-ordenado
+
+services:
+  ollama:
+    # Sin versión fija a propósito: es una herramienta de desarrollo, no algo que
+    # se despliegue, y los modelos nuevos piden Ollama nuevo.
+    image: ollama/ollama:latest
+    volumes:
+      # Los pesos, fuera del contenedor. Son cinco gigas por modelo: volver a
+      # descargarlos en cada `up` sería inaceptable, y es lo que pasa sin esto.
+      - modelos:/root/.ollama
+    ports:
+      # Abierto al equipo para poder apuntar aquí desde `pnpm dev` con
+      # OLLAMA_URL=http://localhost:11434, igual que se hace con Postgres.
+      - '${OLLAMA_PORT:-11434}:11434'
+    healthcheck:
+      # Que el proceso esté arrancado no significa que conteste: `ollama list`
+      # habla con la API por dentro, que es justo lo que va a hacer la aplicación.
+      test: ['CMD-SHELL', 'ollama list >/dev/null 2>&1 || exit 1']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # La descarga del modelo, en su propio contenedor y una sola vez.
+  #
+  # Misma decisión que las migraciones: una tarea que termina no vive dentro del
+  # arranque de otro servicio. Y hace falta que termine antes de que la aplicación
+  # acepte peticiones, porque si no la primera pregunta contesta un 502 mientras se
+  # descargan cinco gigas, y eso no se parece en nada a «está descargando».
+  ia-modelo:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ['/bin/ollama']
+    command: ['pull', '${OLLAMA_MODEL:-qwen3:8b}']
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: 'no'
+
+  app:
+    environment:
+      # Dentro de la red de compose el servidor de modelos se llama `ollama`.
+      # Desde el equipo es `localhost`, por lo mismo que la cadena de Postgres.
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3:8b}
+    depends_on:
+      ia-modelo:
+        condition: service_completed_successfully
+
+volumes:
+  modelos:

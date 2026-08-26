@@ -997,6 +997,23 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
 - **Sin cobrar de verdad y sin correo de verdad.** Los dos están escritos y probados
   en lo puro, y ninguno se ha ejecutado contra el servicio al que hablan. Se paga con
   una clave de pruebas, no escribiendo código.
+- **`pnpm docker:ia` está escrito y sin ejecutar.** El adaptador sí se ha probado
+  contra un Ollama de verdad —nativo, el 26 de agosto de 2026—: `askModel` habla con
+  él, respeta el esquema y va al 100 % en GPU. Lo que no se ha levantado nunca es el
+  camino de compose, porque en este equipo Docker Desktop no tiene encendida la
+  integración con WSL. Si el primer `up` pide un ajuste, será del YAML, no del
+  adaptador —[adr/0014](./adr/0014-un-modelo-de-casa-para-probar.md)—.
+- **`/api/versiones` no la pasa un modelo de ocho mil millones de parámetros.**
+  Medido: 0 de 4 con `qwen3:8b` y 0 de 4 con `gemma4:e4b`, y el mismo fallo en los
+  dos: declaran el movimiento **sin cambiar el grado**, así que devuelven la
+  progresión de entrada intacta y el validador la tira con razón. Es la primera
+  prueba de que la verificación de
+  [adr/0011](./adr/0011-versiones-verificadas-contra-el-dominio.md) defiende de algo
+  real, y también que esa ruta con modelo local no sirve.
+- **El camino con base de datos sigue sin probarse desde aquí.** Las tres rutas de IA
+  exigen cuenta, así que el HTTP completo pide Postgres, y en este equipo no hay ni
+  Docker ni Postgres nativo. Lo medido es todo lo demás: prompts reales, esquemas
+  reales, validadores reales y modelo real.
 
 Lo de Postgres **ya no está aquí**: se ejecutó el 25 de agosto de 2026 y salieron tres
 fallos que ningún test veía. Están en la fase 19.
