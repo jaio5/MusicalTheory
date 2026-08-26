@@ -140,6 +140,23 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
 1. **Salida estructurada.** La petición usa `output_config.format` con un
    esquema JSON, así que la respuesta viene ya constreñida a esa forma. Esto
    elimina la mayoría de los casos, pero no los convierte en imposibles.
+
+   Y tiene una condición que no es obvia: **el esquema garantiza lo que exige, no
+   lo que el validador espera.** Si las dos listas se separan, lo que sale es una
+   respuesta impecable contra el esquema que el validador barre entera, y el
+   modelo no tiene forma de saberlo. Pasó con las ideas: el esquema pedía `title`
+   y `why` y dejaba `degrees` opcional, y `validateIdeas` tira toda idea sin
+   grados. Contra dos modelos locales pasaban 0 de 4 peticiones —cupo gastado,
+   502— y exigiéndolo, 36 de 36.
+
+   Por eso `ideasSchema(kind, mode)` **es una función**: lo que hace falta depende
+   de lo que se pida, y los grados válidos no son los mismos en mayor que en
+   menor. Los enumerados van con ello: la generación constreñida no puede salirse
+   de un `enum`, y `naturalMinor` o `minorPentatonic` no se adivinan —pidiéndolos
+   en prosa salía «Escala natural», que no es ningún identificador—. Lo vigila
+   `app/api/esquema-ideas.test.ts`, que vive en `app/` porque es la única capa que
+   ve el esquema de `server/` y el validador de `features/` a la vez.
+
 2. **Validación en el servidor.** La respuesta se valida contra el mismo
    esquema antes de devolverla: que los grados existan en el modo indicado, que
    los cifrados sean acordes reales, que haya entre una y cuatro ideas. Una

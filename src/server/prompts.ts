@@ -18,6 +18,7 @@
  */
 
 import { MAX_IDEAS, MAX_VERSIONS } from '@core/billing';
+import { degreesFor, SCALE_IDS, type KeyMode } from '@core/music';
 
 export const TEACHER_SYSTEM_PROMPT = `Eres un guitarrista con años de tablas que le explica teoría a otro
 guitarrista. El que pregunta toca de oído y sabe hacer sonar cosas: no le
@@ -123,26 +124,69 @@ export const VERSIONS_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-export const IDEAS_SCHEMA = {
-  type: 'object',
-  properties: {
-    ideas: {
-      type: 'array',
-      minItems: 1,
-      maxItems: MAX_IDEAS,
-      items: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          why: { type: 'string' },
-          degrees: { type: 'array', items: { type: 'string' } },
-          scale: { type: 'string' },
+/**
+ * Las tres clases de idea, otra vez.
+ *
+ * Escritas aquí y no importadas de `features/ideas/contract`: la capa de servidor
+ * no cuelga de un feature. Que las dos listas sigan diciendo lo mismo lo vigila
+ * `prompts.test.ts`, que sí puede mirar las dos.
+ */
+export type IdeasKind = 'progression' | 'twist' | 'scale';
+
+/**
+ * La forma en la que tiene que contestar cuando se le piden ideas.
+ *
+ * **Es una función y no una constante**, y esa es toda la corrección: el esquema
+ * tiene que exigir lo que el validador exige, y lo que el validador exige depende
+ * de lo que se haya pedido. Con `kind: 'scale'` hace falta un identificador de
+ * escala; con los otros dos, grados; y los grados válidos no son los mismos en
+ * mayor que en menor.
+ *
+ * Era una constante que solo pedía `title` y `why`, con `degrees` y `scale`
+ * opcionales, y eso costaba peticiones enteras: el modelo devolvía una respuesta
+ * impecable contra el esquema —título y porqué, sin grados— y `validateIdeas` la
+ * barría entera, porque sin grados no hay nada que tocar. La ruta contestaba
+ * `unparseable_response` **con el cupo ya gastado**, que se descuenta antes de
+ * llamar. Medido contra dos modelos locales: pasaba 0 de 4; exigiéndolo, 4 de 4.
+ *
+ * La salida estructurada garantiza lo que el esquema **exige**, no lo que el
+ * validador **espera**. Cuando esas dos listas se separan, lo que sale es una
+ * respuesta válida que no sirve para nada, y el modelo no tiene forma de saberlo.
+ *
+ * Los dos enumerados no son adorno. La generación constreñida no puede salirse de
+ * un `enum`, así que el modelo no puede escribir un grado que no exista en ese
+ * modo ni inventarse un nombre de escala: `naturalMinor` o `minorPentatonic` no
+ * se adivinan, y pidiéndolos a mano salía «Escala natural» y ninguna idea válida.
+ */
+export function ideasSchema(kind: IdeasKind, mode: KeyMode): Record<string, unknown> {
+  const propia =
+    kind === 'scale'
+      ? { scale: { type: 'string', enum: [...SCALE_IDS] } }
+      : {
+          degrees: {
+            type: 'array',
+            minItems: 1,
+            items: { type: 'string', enum: [...degreesFor(mode)] },
+          },
+        };
+
+  return {
+    type: 'object',
+    properties: {
+      ideas: {
+        type: 'array',
+        minItems: 1,
+        maxItems: MAX_IDEAS,
+        items: {
+          type: 'object',
+          properties: { title: { type: 'string' }, why: { type: 'string' }, ...propia },
+          // Ni uno más ni uno menos que lo que `validateIdeas` mira.
+          required: ['title', 'why', kind === 'scale' ? 'scale' : 'degrees'],
+          additionalProperties: false,
         },
-        required: ['title', 'why'],
-        additionalProperties: false,
       },
     },
-  },
-  required: ['ideas'],
-  additionalProperties: false,
-} as const;
+    required: ['ideas'],
+    additionalProperties: false,
+  };
+}

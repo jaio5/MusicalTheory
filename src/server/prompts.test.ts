@@ -16,8 +16,9 @@ import { MOVES } from '@core/music';
 
 import {
   ANSWER_SCHEMA,
-  IDEAS_SCHEMA,
+  ideasSchema,
   IDEAS_SYSTEM_PROMPT,
+  type IdeasKind,
   TEACHER_SYSTEM_PROMPT,
   VERSIONS_SCHEMA,
   VERSIONS_SYSTEM_PROMPT,
@@ -61,6 +62,20 @@ function schemaText(schema: unknown): string {
   return JSON.stringify(schema);
 }
 
+/**
+ * El esquema de ideas más largo de los que se pueden mandar.
+ *
+ * Desde que depende de lo que se pida hay seis —tres clases por dos modos—, y el
+ * presupuesto lo tiene que aguantar el peor, no el que salga primero. Se calcula
+ * en vez de escribirse: si mañana entra una escala más en el enumerado, este
+ * número sube solo y el test avisa antes que la factura.
+ */
+const CLASES_DE_IDEA: readonly IdeasKind[] = ['progression', 'twist', 'scale'];
+
+const IDEAS_SCHEMA_MAS_LARGO = CLASES_DE_IDEA.flatMap((kind) =>
+  (['major', 'minor'] as const).map((mode) => schemaText(ideasSchema(kind, mode))),
+).reduce((largo, texto) => (texto.length > largo.length ? texto : largo));
+
 describe('el presupuesto de tokens del profesor', () => {
   it('el prompt de sistema, el esquema y la pregunta más larga caben', () => {
     // Lo que la ruta manda como mucho: sistema + esquema + los datos de la
@@ -88,7 +103,7 @@ describe('el presupuesto de tokens de las ideas', () => {
     const grados = 'bVII, '.repeat(20);
     const estimado = estimatedTokens(
       IDEAS_SYSTEM_PROMPT,
-      schemaText(IDEAS_SCHEMA),
+      IDEAS_SCHEMA_MAS_LARGO,
       notas,
       acordes,
       grados,
@@ -98,7 +113,7 @@ describe('el presupuesto de tokens de las ideas', () => {
   });
 
   it('queda holgura', () => {
-    const estimado = estimatedTokens(IDEAS_SYSTEM_PROMPT, schemaText(IDEAS_SCHEMA));
+    const estimado = estimatedTokens(IDEAS_SYSTEM_PROMPT, IDEAS_SCHEMA_MAS_LARGO);
 
     expect(estimado).toBeLessThan(TOKEN_BUDGETS.ideas.input * 0.7);
   });

@@ -17,7 +17,7 @@ import {
 } from '@features/ideas/contract';
 import { askModel, modelAvailable } from '@server/ask-model';
 import { ideasSinIA } from '@server/fake-model';
-import { IDEAS_SCHEMA, IDEAS_SYSTEM_PROMPT } from '@server/prompts';
+import { ideasSchema, IDEAS_SYSTEM_PROMPT } from '@server/prompts';
 import { spendAi } from '@server/entitlements';
 import { limitRequest } from '@server/rate-limit-db';
 import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
@@ -157,7 +157,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       payload = await askModel({
         prompt,
         system: IDEAS_SYSTEM_PROMPT,
-        schema: IDEAS_SCHEMA,
+        // El esquema depende de lo que se haya pedido: con `scale` hace falta un
+        // identificador de escala y con los otros dos, grados del modo. Es lo que
+        // `validateIdeas` mira justo debajo.
+        schema: ideasSchema(parsed.kind, parsed.key.mode),
         maxTokens: MAX_TOKENS,
         sinClave: () => ideasSinIA(parsed.key.tonic, parsed.key.mode),
       });

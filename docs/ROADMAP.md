@@ -1005,11 +1005,17 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   adaptador —[adr/0014](./adr/0014-un-modelo-de-casa-para-probar.md)—.
 - **`/api/versiones` no la pasa un modelo de ocho mil millones de parámetros.**
   Medido: 0 de 4 con `qwen3:8b` y 0 de 4 con `gemma4:e4b`, y el mismo fallo en los
-  dos: declaran el movimiento **sin cambiar el grado**, así que devuelven la
-  progresión de entrada intacta y el validador la tira con razón. Es la primera
-  prueba de que la verificación de
+  dos: declaran el movimiento **sin cambiar el grado**, o sea que devuelven la
+  progresión de entrada intacta con un `move` puesto en cada compás, y el validador
+  la tira con razón. Se probó aparte una variante del esquema con el catálogo de
+  movimientos enumerado —**que no está en el código**, `VERSIONS_SCHEMA` sigue con
+  `move` como cadena libre—: los ids salen válidos y aun así siguen sin cambiar el
+  grado, así que no arregla nada por sí sola. Enumerarlos igualmente evitaría gastar
+  intentos en ids inventados, y está pendiente. Es la primera prueba de que la
+  verificación de
   [adr/0011](./adr/0011-versiones-verificadas-contra-el-dominio.md) defiende de algo
-  real, y también que esa ruta con modelo local no sirve.
+  real, y también que esa ruta con modelo local no sirve: hace falta la API o un
+  modelo bastante mayor.
 - **El camino con base de datos sigue sin probarse desde aquí.** Las tres rutas de IA
   exigen cuenta, así que el HTTP completo pide Postgres, y en este equipo no hay ni
   Docker ni Postgres nativo. Lo medido es todo lo demás: prompts reales, esquemas
@@ -1017,6 +1023,15 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
 
 Lo de Postgres **ya no está aquí**: se ejecutó el 25 de agosto de 2026 y salieron tres
 fallos que ningún test veía. Están en la fase 19.
+
+Y lo del esquema de las ideas tampoco: el 26 de agosto de 2026, la primera vez que se
+le preguntó a un modelo de verdad sin pagar, salió que `IDEAS_SCHEMA` no exigía los
+`degrees` que `validateIdeas` da por hechos. Una respuesta válida contra el esquema se
+barría entera y la ruta contestaba 502 **con el cupo ya gastado**. Afectaba igual a la
+API, y no lo veía ningún test porque el modelo que contesta sin clave construye siempre
+respuestas completas. Ahora `ideasSchema(kind, mode)` exige lo que el validador mira, y
+`app/api/esquema-ideas.test.ts` vigila que las dos listas no se separen: de 0 de 4
+peticiones a 36 de 36, con dos modelos y las seis combinaciones.
 
 - **Las inversiones se leen como el acorde en estado fundamental.** El croma
   olvida la octava a propósito, así que C/E y C son el mismo vector. Es el
