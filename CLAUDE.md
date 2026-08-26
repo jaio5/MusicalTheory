@@ -100,6 +100,7 @@ renombrado no puede degradar a quien había pagado.
 | Cuentas, contraseñas, base de datos y cupos           | `src/server/`                                  |
 | Recuperar la contraseña, y por dónde sale el correo   | `server/password-reset.ts`, `server/mail/`     |
 | Si alguien puede pedirle algo al modelo               | `server/entitlements.ts` + `ai-usage.ts`       |
+| Por dónde entra texto libre, y qué lo acota           | `features/learn/teacher-contract.ts`           |
 | Por dónde se cobrará (hoy no se cobra)                | `src/server/billing/`                          |
 | El marco de una pantalla y sus apartados              | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
 | Leer lo que llega de fuera, y el error que contestó   | `core/parse.ts`, `state/api-error.ts`          |
@@ -132,13 +133,13 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                    |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Los catorce: dominio puro, tono propio, análisis en el hilo principal,
+descartadas. Los quince: dominio puro, tono propio, análisis en el hilo principal,
 acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, punto de
 partida con una pantalla por cosa, cupos calculados desde el precio, un solo marco
 de pantalla, los dos temas con el negro de casa, las versiones verificadas contra
 el dominio sin que suba audio, un instrumento por ahora con el mapa del segundo, el
-correo como puerto con su vale de un solo uso, y un modelo de casa para probar sin
-factura.
+correo como puerto con su vale de un solo uso, un modelo de casa para probar sin
+factura, y un solo canal de texto libre con el tema declarado en el esquema.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

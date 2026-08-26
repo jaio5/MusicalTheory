@@ -9,8 +9,10 @@ import {
 } from '@core/billing';
 import { degreesFor } from '@core/music';
 import {
+  MARCA_PREGUNTA,
   parseTeacherRequest,
   teacherError,
+  topicOf,
   validateTeacherAnswer,
   type TeacherRequest,
 } from '@features/learn/teacher-contract';
@@ -54,11 +56,17 @@ function buildPrompt(request: TeacherRequest, validDegrees: readonly string[]): 
   if (request.scale !== undefined) {
     lines.push(`Escala que está usando: ${request.scale}.`);
   }
-  if (request.topic !== undefined) {
-    lines.push(`Está leyendo sobre: ${request.topic}.`);
+  // El título sale del temario, no de lo que mande el cliente.
+  const topic = topicOf(request);
+  if (topic !== undefined) {
+    lines.push(`Está leyendo sobre: ${topic}.`);
   }
 
-  lines.push(`Pregunta: ${request.question}`);
+  // La pregunta va marcada y al final: es el único texto libre que entra al
+  // modelo en toda la aplicación, y el prompt de sistema dice que lo de dentro
+  // de las marcas es un dato. La marca ya se le ha quitado a la pregunta al
+  // validarla, así que nadie puede cerrar el bloque antes de tiempo.
+  lines.push(`${MARCA_PREGUNTA}\n${request.question}\n${MARCA_PREGUNTA}`);
   return lines.join('\n');
 }
 

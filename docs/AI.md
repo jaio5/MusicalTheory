@@ -342,6 +342,46 @@ sus rutas, porque **de su longitud dependen los cupos de todos los planes**. All
 pueden medir: `server/prompts.test.ts` cuenta sus caracteres y falla si crecen hasta
 comerse la holgura del presupuesto de tokens.
 
+## Por dónde entra texto que no controlamos
+
+Toda la superficie, contada: **un campo y 240 caracteres**, la pregunta del
+profesor. Nada más.
+
+`/api/ideas` no acepta ni un carácter libre —tónica, modo, escala, grados y
+cifrados van contra enumerados, y lo que no encaja se descarta en silencio—. La
+unidad que se lee viaja por su identificador. El nombre de la canción **ya no se
+manda**: solo construía una línea del prompt, no volvía en la respuesta, no se
+guardaba, y el cliente ni siquiera lo enviaba.
+
+Alrededor de ese único canal hay dos cosas, y las dos están en
+[adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md):
+
+1. **La pregunta va entre marcas `###PREGUNTA###`** y el prompt de sistema dice
+   que lo de dentro es un dato y nunca una instrucción. La marca se le borra a la
+   pregunta al validarla: sin eso, quien la escribiera cerraría el bloque y lo de
+   después se leería como instrucciones nuestras.
+2. **El modelo declara `tema: 'musica' | 'fuera'`**, obligatorio, enumerado y
+   primero en el esquema —la generación constreñida rellena en ese orden, así que
+   lo decide antes de contestar—. Con `fuera`, `validateTeacherAnswer` tira su
+   texto y su ejemplo enteros y devuelve una frase nuestra. Su prosa no llega a la
+   pantalla.
+
+**Y lo que de verdad limita el abuso no es ninguna de las dos.** Contra alguien
+decidido, una inyección que funcione hará que el modelo conteste `musica`. Lo que
+sostiene el argumento son los topes: 400 tokens de salida —de ahí no sale un
+ensayo—, cuenta obligatoria, quince peticiones al mes en el plan gratis con sus dos
+cupos, diez por minuto, y una respuesta que solo ve quien preguntó. El abuso no se
+hace imposible; se hace inútil, que es lo alcanzable.
+
+Medido con ocho casos y dos modelos locales: `qwen3:8b` acierta los ocho,
+`gemma4:e4b` tres de ocho. **La puerta vale lo que valga el modelo siguiendo
+instrucciones**; los topes valen lo mismo con cualquiera.
+
+Dos cosas más que ya estaban y conviene no perder: el texto del modelo se pinta
+con `{answer.answer}` dentro de un `<p>`, así que React lo escapa y no hay
+inyección de HTML; y todo lo guardado filtra por `userId`, así que nada de lo que
+escribe el modelo llega a otra persona.
+
 ## Privacidad, en una línea
 
 Lo que sale del equipo son entre diez y cincuenta caracteres de símbolos
@@ -358,8 +398,10 @@ El profesor **sí entra en el plan gratis**, con tres preguntas al día: un plan
 gratis que no deja probar lo que se paga no vende nada. Las ideas no, porque son la
 parte más cara y la única que se puede pedir en cadena sin leer lo anterior.
 
-Lo que viaja es la tonalidad, la escala, la lección que se está leyendo y la
-pregunta escrita, recortada a 240 caracteres. El audio y el vídeo siguen sin
+Lo que viaja es la tonalidad, la escala, **el identificador** de la unidad que se
+está leyendo y la pregunta escrita, recortada a 240 caracteres. El identificador y
+no el título: el título lo resuelve el servidor contra `core/music/curriculum.ts`,
+así que ese campo dejó de ser texto libre entrando a un prompt. El audio y el vídeo siguen sin
 salir del equipo: esta petición no los toca.
 
 De vuelta viene una respuesta corta y, si viene a cuento, un ejemplo tocable en

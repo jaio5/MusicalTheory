@@ -94,7 +94,7 @@ export function TheoryUnit({
           />
         </div>
       )}
-      <Tutor topic={unit.title} aviso={aviso} onAvisoVisto={() => setAviso(null)} />
+      <Tutor unitId={unit.id} aviso={aviso} onAvisoVisto={() => setAviso(null)} />
     </div>
   );
 }

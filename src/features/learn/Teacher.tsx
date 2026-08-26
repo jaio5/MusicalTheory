@@ -26,8 +26,13 @@ const OPENERS: readonly string[] = [
 ];
 
 export interface TeacherProps {
-  /** La lección que se está leyendo, para que responda en ese contexto. */
-  readonly topic?: string;
+  /**
+   * La unidad que se está leyendo, por su identificador.
+   *
+   * El id y no el título: el título lo resuelve el servidor contra el temario, y
+   * así este campo deja de ser texto libre entrando a un prompt.
+   */
+  readonly unitId?: string;
   /**
    * Dentro del globo del muñeco: sin las preguntas de arranque.
    *
@@ -43,7 +48,7 @@ export interface TeacherProps {
  * Lo que viaja al modelo es la tonalidad, la escala y lo que escribas. El audio
  * y el vídeo no salen del equipo, y esta pantalla no los toca.
  */
-export function Teacher({ topic, compact = false }: TeacherProps = {}) {
+export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
   const { account, signedIn, refresh } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
@@ -75,7 +80,7 @@ export function Teacher({ topic, compact = false }: TeacherProps = {}) {
           key: { tonic: noteName(activeKey.tonic), mode: activeKey.mode },
           question: text,
           scale: scaleId,
-          ...(topic === undefined ? {} : { topic }),
+          ...(unitId === undefined ? {} : { unitId }),
         }),
       });
 

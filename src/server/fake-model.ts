@@ -111,6 +111,10 @@ export function ideasSinIA(tonic: NoteName, mode: KeyMode): unknown {
 /** Una respuesta del profesor que dice lo que es. */
 export function respuestaSinIA(): unknown {
   return {
+    // Declara el tema como cualquier respuesta, porque el validador lo exige a
+    // todo el mundo. Un puerto falso que se salte una comprobación deja de servir
+    // para lo que existe: probar el camino de verdad sin pagarlo.
+    tema: 'musica',
     answer:
       'Aquí no hay modelo conectado, así que esto no es una respuesta de verdad: es lo que ' +
       'contesta la aplicación cuando le falta la clave. Pon ANTHROPIC_API_KEY y vuelve a preguntar.',

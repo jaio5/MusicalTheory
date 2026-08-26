@@ -71,9 +71,6 @@ function buildPrompt(request: VersionsRequest): string {
     `Progresión (grado y pulsos): ${progresion}`,
   ];
 
-  if (request.name !== undefined) {
-    lines.push(`La canción se llama «${request.name}».`);
-  }
   lines.push(
     `Devuelve hasta tres versiones de esos ${request.progression.length} compases, en el mismo orden.`,
   );

@@ -42,7 +42,7 @@ describe('El muñeco del profesor', () => {
    * del profesor va dentro del globo, no detrás de un enlace a otra pantalla.
    */
   it('al pulsarlo se abre con el formulario de preguntar dentro', async () => {
-    pintar(<Tutor topic="Los grados" />);
+    pintar(<Tutor unitId="e1-grados" />);
 
     await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
 

@@ -52,8 +52,6 @@ export interface VersionStep {
 export interface VersionsRequest {
   readonly key: { readonly tonic: NoteName; readonly mode: KeyMode };
   readonly progression: readonly VersionStep[];
-  /** Cómo se llama la canción, si tiene nombre. Solo para el rótulo. */
-  readonly name?: string;
 }
 
 /** Un compás de una versión: qué grado va ahora y por qué. */
@@ -165,13 +163,7 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
   const request: {
     key: { tonic: NoteName; mode: KeyMode };
     progression: VersionStep[];
-    name?: string;
   } = { key: { tonic, mode }, progression };
-
-  const name = body['name'];
-  if (typeof name === 'string' && name.trim() !== '') {
-    request.name = name.trim().slice(0, 60);
-  }
 
   return request;
 }

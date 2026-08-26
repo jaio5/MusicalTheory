@@ -46,12 +46,12 @@ import { Teacher } from './Teacher';
  * sesiones: lo guarda `state/tutor-spot`.
  */
 export function Tutor({
-  topic,
+  unitId,
   aviso = null,
   onAvisoVisto,
 }: {
   /** La lección que se está leyendo, para que responda en ese contexto. */
-  readonly topic?: string;
+  readonly unitId?: string;
   /** Lo que el muñeco tiene que decir por su cuenta, si hay algo. */
   readonly aviso?: string | null;
   readonly onAvisoVisto?: () => void;
@@ -248,7 +248,7 @@ export function Tutor({
               salirse de la unidad. Sin las preguntas de arranque, que en un globo
               ocupan más que el propio campo. */}
           <div className="mt-3">
-            <Teacher topic={topic} compact />
+            <Teacher unitId={unitId} compact />
           </div>
 
           <div className="mt-2 text-right">

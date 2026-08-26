@@ -167,11 +167,7 @@ export function ReviewSession({
           />
         )}
       </div>
-      <Tutor
-        topic={findUnit(actual.item.unitId)?.unit.title}
-        aviso={aviso}
-        onAvisoVisto={() => setAviso(null)}
-      />
+      <Tutor unitId={actual.item.unitId} aviso={aviso} onAvisoVisto={() => setAviso(null)} />
     </div>
   );
 }
