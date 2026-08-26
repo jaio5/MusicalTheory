@@ -19,8 +19,10 @@
 import { MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
 import {
   degreesFor,
-  isMove,
+  kindOfPath,
   moveById,
+  motivoDeDescarteDeCancion,
+  pathById,
   asNoteName,
   pitchClassFromName,
   resolveProgression,
@@ -28,7 +30,11 @@ import {
   type KeyMode,
   type MoveId,
   type NoteName,
+  type PathId,
   type PitchClass,
+  type ProposedSection,
+  type SalidaKind,
+  type ProposedStep,
 } from '@core/music';
 import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
 import { isRecord } from '@core/parse';
@@ -52,23 +58,57 @@ export interface VersionStep {
 export interface VersionsRequest {
   readonly key: { readonly tonic: NoteName; readonly mode: KeyMode };
   readonly progression: readonly VersionStep[];
+  /**
+   * Qué se le pide: continuar la canción o retocar estos compases.
+   *
+   * Se elige antes de pedirlo y no lo decide el modelo, y el motivo es técnico
+   * antes que de interfaz: continuar exige al menos dos partes y retocar
+   * exactamente una, y un esquema JSON no puede condicionar eso a un campo que el
+   * propio modelo rellena. Eligiéndolo antes, el esquema exige lo que el
+   * validador comprueba —que es la regla que ya costó una vez, con las ideas—.
+   */
+  readonly kind: SalidaKind;
 }
 
-/** Un compás de una versión: qué grado va ahora y por qué. */
+/** Un compás de una salida: qué grado va ahora y de dónde sale. */
 export interface VersionStepOut {
   readonly degree: DegreeSymbol;
   readonly beats: number;
   /** El cifrado, **recalculado** aquí y no creído al modelo. */
   readonly symbol: string;
-  /** El grado que había antes, para poder enseñar el cambio al lado. */
-  readonly from: DegreeSymbol;
-  /** Qué movimiento se ha aplicado, o nulo si el compás se queda igual. */
+  /**
+   * El grado que había en ese compás, o **nulo si el compás es nuevo**.
+   *
+   * El nulo es lo que la pantalla usa para separar lo que tocaste de lo que se
+   * te propone, que en una salida que alarga es la mitad de la información.
+   */
+  readonly from: DegreeSymbol | null;
+  /** Qué movimiento se ha aplicado. Solo lo llevan las rearmonizaciones. */
   readonly move: MoveId | null;
+}
+
+/** Una parte de la canción propuesta: cómo se llama y qué suena en ella. */
+export interface VersionSection {
+  readonly name: string;
+  /** Si es, tal cual, lo que tocaste. */
+  readonly tuya: boolean;
+  readonly steps: readonly VersionStepOut[];
 }
 
 export interface Version {
   readonly title: string;
   readonly why: string;
+  /** Cuál de las cinco salidas ha tomado. Comprobado contra el dominio. */
+  readonly path: PathId;
+  /**
+   * La canción por partes.
+   *
+   * Las dos salidas que continúan lo que llevas —`seguir` y `contraste`— traen
+   * varias: la tuya primero y lo que sigue después, con su nombre. Las tres que
+   * retocan tus compases traen una sola, porque no hay canción que montar.
+   */
+  readonly sections: readonly VersionSection[];
+  /** Todas las partes seguidas, que es lo que se toca y lo que se guarda. */
   readonly steps: readonly VersionStepOut[];
 }
 
@@ -160,28 +200,75 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
     return null;
   }
 
+  // Sin clase no hay petición: es lo que decide qué esquema se le manda.
+  const kind = body['kind'];
+  if (kind !== 'continuar' && kind !== 'retocar') {
+    return null;
+  }
+
   const request: {
     key: { tonic: NoteName; mode: KeyMode };
     progression: VersionStep[];
-  } = { key: { tonic, mode }, progression };
+    kind: SalidaKind;
+  } = { key: { tonic, mode }, progression, kind };
 
   return request;
+}
+
+interface SeccionCruda {
+  readonly name: string;
+  readonly tuya: boolean;
+  readonly steps: readonly unknown[];
+}
+
+/**
+ * Las partes que trae una salida.
+ *
+ * Siempre `sections`, también cuando es una sola: estuvo aceptando `steps` para
+ * las que retocan y `sections` para las que continúan, y el modelo elegía la que
+ * no tocaba —se descartaban todas—.
+ *
+ * **Y nunca trae la tuya.** Cuando se continúa, lo que vuelve son solo las partes
+ * añadidas; tus compases los pone el contrato, porque ya los tiene. Pedírselos
+ * era la causa de que se cayera todo: «tu parte no es la que tocaste», 3 de 3.
+ */
+function leerSecciones(raw: Record<string, unknown>): SeccionCruda[] | null {
+  const sections = raw['sections'];
+  if (!Array.isArray(sections)) {
+    return null;
+  }
+
+  const salida: SeccionCruda[] = [];
+  for (const seccion of sections) {
+    if (!isRecord(seccion)) {
+      return null;
+    }
+    const name = seccion['name'];
+    const steps = seccion['steps'];
+    if (typeof name !== 'string' || !Array.isArray(steps)) {
+      return null;
+    }
+    salida.push({ name, tuya: false, steps });
+  }
+  return salida;
 }
 
 /**
  * Valida lo que devuelve el modelo contra el dominio.
  *
- * Tres comprobaciones, y las tres tienen que pasar para que una versión llegue a
- * la pantalla:
+ * **La declaración subió del compás al camino**, y esa es toda la diferencia con
+ * lo que había. Antes cada compás cambiado declaraba su movimiento y `isMove` lo
+ * volvía a aplicar; eso funcionaba porque una versión era la misma canción con
+ * otros acordes. Ahora una salida puede alargar, acortar o repartir de otra
+ * manera, así que lo que se declara es **cuál de las cinco salidas ha tomado**, y
+ * `esSalidaValida` lo comprueba contra el dominio: que un `seguir` mantenga de
+ * verdad tus compases y cierre, que un `estirar` no toque un solo acorde, que un
+ * `contraste` sepa volver al principio.
  *
- * 1. **Misma forma**: tantos compases como tenía la canción y con los mismos
- *    pulsos. Una versión que cambie la duración no es una versión de esa canción,
- *    es otra canción.
- * 2. **Grados que existen** en ese modo. Es lo mismo que hacen las ideas.
- * 3. **El movimiento declarado es cierto**: se vuelve a aplicar al grado que
- *    había y tiene que dar el que propone. Un compás que no cambia lleva `null`,
- *    y eso también se comprueba —decir que no se ha tocado algo que sí cambió es
- *    tan falso como lo otro—.
+ * Debajo, la comprobación nueva: **cada salto que no estaba en tu canción tiene
+ * que existir en `nextDegrees`**, el grafo armónico que ya estaba escrito. Y la
+ * vieja sigue viva donde tiene sentido: una salida `rearmonizar` declara su
+ * movimiento compás a compás, exactamente como antes.
  *
  * Los cifrados no se creen: se recalculan desde los grados.
  */
@@ -203,67 +290,104 @@ export function validateVersions(payload: unknown, request: VersionsRequest): Ve
     }
     const title = raw['title'];
     const why = raw['why'];
-    const steps = raw['steps'];
     if (typeof title !== 'string' || title === '' || typeof why !== 'string' || why === '') {
       continue;
     }
-    if (!Array.isArray(steps) || steps.length !== original.length) {
+
+    // Una salida que no dice cuál es no se puede comprobar, así que no vale.
+    const path = pathById(raw['path']);
+    // Y de la clase que se pidió: una salida que retoca cuando se pedía continuar
+    // no es lo que se ha pedido, aunque en sí misma sea válida.
+    if (path === null || kindOfPath(path.id) !== request.kind) {
       continue;
     }
 
-    const salida: VersionStepOut[] = [];
-    let cambiaAlgo = false;
-
-    for (const [index, step] of steps.entries()) {
-      if (!isRecord(step)) {
-        break;
-      }
-      const from = original[index]!;
-      const degree = step['degree'];
-      if (typeof degree !== 'string' || !validDegrees.includes(degree)) {
-        break;
-      }
-
-      const move = step['move'];
-      const igual = degree === from.degree;
-
-      if (igual) {
-        // Un compás que no cambia no lleva movimiento. Si el modelo declara uno,
-        // está describiendo algo que no ha hecho.
-        if (move !== null && move !== undefined) {
-          break;
-        }
-      } else {
-        if (moveById(move) === null || !isMove(mode, from.degree, degree as DegreeSymbol, move)) {
-          break;
-        }
-        cambiaAlgo = true;
-      }
-
-      salida.push({
-        degree: degree as DegreeSymbol,
-        beats: from.beats,
-        symbol: '',
-        from: from.degree,
-        move: igual ? null : (move as MoveId),
-      });
-    }
-
-    // Una versión que no cambia ni un compás no es una versión: es la canción.
-    if (salida.length !== original.length || !cambiaAlgo) {
+    // Siempre por partes, aunque sea una sola: dos formas distintas eran dos
+    // sitios donde el modelo podía equivocarse, y se equivocaba en todos.
+    const crudas = leerSecciones(raw);
+    if (crudas === null) {
       continue;
     }
 
+    const propuesta: ProposedSection[] = [];
+    let rota = false;
+    for (const cruda of crudas) {
+      const pasos: ProposedStep[] = [];
+      for (const step of cruda.steps) {
+        if (!isRecord(step)) {
+          rota = true;
+          break;
+        }
+        const degree = step['degree'];
+        const beats = step['beats'];
+        if (
+          typeof degree !== 'string' ||
+          !validDegrees.includes(degree) ||
+          typeof beats !== 'number'
+        ) {
+          rota = true;
+          break;
+        }
+        // Se reconstruye tal cual lo dijo: los pulsos no se redondean ni el
+        // movimiento se normaliza, porque quien juzga es el dominio y taparle lo
+        // que ha dicho es dejar pasar lo que se quería atrapar.
+        pasos.push({ degree: degree as DegreeSymbol, beats, move: step['move'] });
+      }
+      if (rota) {
+        break;
+      }
+      propuesta.push({ name: cruda.name, tuya: cruda.tuya, steps: pasos });
+    }
+
+    // Tu parte, delante y puesta por nosotros. Así no hay forma de que llegue
+    // cambiada, y el validador la comprueba igual: la regla sigue escrita.
+    const conLaTuya: ProposedSection[] =
+      kindOfPath(path.id) === 'continuar'
+        ? [{ name: 'Lo que llevas', tuya: true, steps: [...original] }, ...propuesta]
+        : propuesta;
+
+    if (rota || motivoDeDescarteDeCancion(mode, path.id, original, conLaTuya) !== null) {
+      continue;
+    }
+
+    const planos = conLaTuya.flatMap((seccion) => seccion.steps);
     const symbols = resolveProgression(
       tonic,
       mode,
-      salida.map((step) => step.degree),
+      planos.map((step) => step.degree),
     ).map((chord) => chord.symbol);
+
+    let cursor = 0;
+    const sections: VersionSection[] = conLaTuya.map((seccion) => ({
+      name: seccion.name.trim(),
+      tuya: seccion.tuya,
+      steps: seccion.steps.map((step) => {
+        const index = cursor;
+        cursor += 1;
+        return {
+          degree: step.degree,
+          beats: step.beats,
+          symbol: symbols[index]!,
+          from: original[index]?.degree ?? null,
+          // **El movimiento solo significa algo en una rearmonización**, que es la
+          // única salida que sustituye acordes; en las otras lo que cambia es la
+          // forma. Y el esquema obliga a que el campo venga en todos los compases,
+          // así que el modelo lo rellena igualmente: se ha visto un `estirar` —que
+          // no toca un solo acorde— declarando «interrumpida» en los cuatro.
+          // Pintarlo sería enseñar una explicación falsa de un compás que no ha
+          // cambiado. No se descarta la salida por eso: el campo es un artefacto
+          // de haberlo hecho obligatorio, y su camino sí se ha comprobado.
+          move: path.id === 'rearmonizar' ? (moveById(step.move)?.id ?? null) : null,
+        };
+      }),
+    }));
 
     versions.push({
       title,
       why,
-      steps: salida.map((step, index) => ({ ...step, symbol: symbols[index]! })),
+      path: path.id,
+      sections,
+      steps: sections.flatMap((seccion) => seccion.steps),
     });
   }
 

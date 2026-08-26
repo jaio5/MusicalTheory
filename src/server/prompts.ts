@@ -18,7 +18,16 @@
  */
 
 import { MAX_IDEAS, MAX_VERSIONS } from '@core/billing';
-import { degreesFor, SCALE_IDS, type KeyMode } from '@core/music';
+import {
+  degreesFor,
+  MAX_PATH_STEPS,
+  MAX_SECCIONES,
+  MOVES,
+  PATHS_BY_KIND,
+  SCALE_IDS,
+  type KeyMode,
+  type SalidaKind,
+} from '@core/music';
 
 export const TEACHER_SYSTEM_PROMPT = `Eres un guitarrista con años de tablas que le explica teoría a otro
 guitarrista. El que pregunta toca de oído y sabe hacer sonar cosas: no le
@@ -91,63 +100,130 @@ Usa exactamente los símbolos de grado que te den como válidos.
 
 No incluyas etiquetas XML internas ni de sistema en tu respuesta.`;
 
-export const VERSIONS_SYSTEM_PROMPT = `Eres un guitarrista de rock que rearmoniza la cancion de otro.
+export const VERSIONS_SYSTEM_PROMPT = `Eres un guitarrista de rock que ayuda a otro a componer.
 
-Te dan una progresion en grados con sus pulsos, y devuelves versiones de esa
-misma progresion: el mismo numero de compases y en el mismo orden. No anadas ni
-quites compases.
+Te dan unos compases en grados con sus pulsos y devuelves salidas: por donde
+podria tirar eso. No son versiones de la misma cancion, son caminos distintos
+para elegir. Que no se parezcan entre si.
 
-Cada compas que cambies lleva el movimiento que has aplicado, de la lista que te
-dan y con ese nombre exacto. Un compas que dejes igual lleva move nulo. No
-declares un movimiento que no hayas hecho: se comprueba, y la version entera se
-descarta si no cuadra.
+Cada salida declara cual de las salidas de la lista ha tomado, con ese nombre
+exacto. Se comprueba contra sus reglas y la que no cuadre se descarta.
 
-Cambia unos compases, no todos: una version que lo cambia todo ya no es la
-misma cancion.
+Toda salida devuelve la cancion en sections. Cuando continuas lo que lleva, devuelves
+SOLO las partes que anades, con su nombre —estribillo, puente, cierre—: sus
+compases ya los tenemos y van delante solos, no los repitas. Cuando retocas sus
+compases va una sola parte con la progresion entera.
+
+Los saltos entre acordes que no estaban en su cancion tienen que estar en el
+mapa de saltos que te dan: de cada grado, a donde se puede ir.
+
+El campo move va nulo siempre salvo en rearmonizar, y ahi solo en los compases
+que cambies.
 
 Responde siempre en espanol, en frases cortas y con verbos activos. Nada de
-exclamaciones. Cada version lleva un titulo de menos de sesenta caracteres y una
+exclamaciones. Cada salida lleva un titulo de menos de sesenta caracteres y una
 sola frase que diga que se gana con ella.
 
 Usa exactamente los simbolos de grado que te den como validos.
 
 No incluyas etiquetas XML internas ni de sistema en tu respuesta.`;
 
-export const VERSIONS_SCHEMA = {
-  type: 'object',
-  properties: {
-    versions: {
-      type: 'array',
-      minItems: 1,
-      maxItems: MAX_VERSIONS,
-      items: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          why: { type: 'string' },
-          steps: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                degree: { type: 'string' },
-                // Nulo cuando el compas no cambia. Sin el nulo explicito, el
-                // modelo se inventa un movimiento para rellenar el hueco.
-                move: { type: ['string', 'null'] },
+/**
+ * La forma de una salida.
+ *
+ * Función y no constante por lo mismo que `ideasSchema`: los grados válidos no
+ * son los mismos en mayor que en menor, y un enumerado es lo único que impide
+ * que el modelo escriba un grado que no existe. Aquí hay tres enumerados —el
+ * camino, el grado y el movimiento— y los tres salen del dominio, no de una lista
+ * escrita a mano.
+ *
+ * `path` va **primero** a propósito, igual que el `tema` del profesor: la
+ * generación constreñida rellena en el orden de `properties`, así que decidir por
+ * dónde tira antes de escribir compases da salidas más coherentes que etiquetar
+ * después lo que salió.
+ *
+ * `move` sigue aquí porque la salida `rearmonizar` lo sigue necesitando —es lo
+ * que había, y ahora es una salida más—. En las otras cuatro va nulo.
+ */
+export function versionsSchema(mode: KeyMode, kind: SalidaKind): Record<string, unknown> {
+  const compas = {
+    type: 'object',
+    properties: {
+      degree: { type: 'string', enum: [...degreesFor(mode)] },
+      beats: { type: 'integer', minimum: 1, maximum: 16 },
+      // Nulo cuando el compas no cambia o la salida no es una rearmonizacion.
+      // Sin el nulo explicito, el modelo se inventa un movimiento para rellenar.
+      move: { type: ['string', 'null'], enum: [...MOVES.map((m) => m.id), null] },
+    },
+    required: ['degree', 'beats', 'move'],
+    additionalProperties: false,
+  };
+
+  return {
+    type: 'object',
+    properties: {
+      versions: {
+        type: 'array',
+        minItems: 1,
+        maxItems: MAX_VERSIONS,
+        items: {
+          type: 'object',
+          properties: {
+            path: { type: 'string', enum: [...PATHS_BY_KIND[kind]] },
+            title: { type: 'string' },
+            why: { type: 'string' },
+            // **Solo las partes nuevas cuando se continúa.** Tus compases no se
+            // le piden: el servidor ya los tiene y los pone él delante. Pedirle
+            // que los copiara era la causa de que se descartara todo —«tu parte
+            // no es la que tocaste», 3 de 3—, y no había ninguna razón para
+            // pedírselos: repetirlos solo gastaba tokens y daba una ocasión más
+            // de equivocarse.
+            //
+            // **Una sola forma, y obligatoria.** Estuvo un rato con `steps` para
+            // las salidas que retocan y `sections` para las que continúan, los
+            // dos opcionales porque no se puede exigir uno u otro según el `path`
+            // sin un `oneOf`. El modelo elegía el que no tocaba y se descartaban
+            // **todas**: 4 de 4 peticiones a cero. Es la misma lección que el
+            // esquema de las ideas —lo que el esquema no exige, el modelo no lo
+            // pone— y se arregla igual: una forma, siempre presente. Las salidas
+            // que retocan tus compases devuelven una sola parte.
+            sections: {
+              type: 'array',
+              // **Aquí está el punto de que se elija antes.** Continuar exige al
+              // menos dos partes —la tuya y lo que sigue— y retocar exactamente
+              // una, y eso el validador lo comprueba. Si el esquema no lo
+              // exigiera, el modelo devolvería una sola parte para todo y se
+              // descartarían todas: medido, cero de cuatro. Exigiéndolo, tres de
+              // tres.
+              minItems: 1,
+              // Al continuar, tu parte va aparte y la pone el servidor: aquí solo
+              // caben las que se añaden.
+              maxItems: kind === 'continuar' ? MAX_SECCIONES - 1 : 1,
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  steps: {
+                    type: 'array',
+                    minItems: 2,
+                    maxItems: MAX_PATH_STEPS,
+                    items: compas,
+                  },
+                },
+                required: ['name', 'steps'],
+                additionalProperties: false,
               },
-              required: ['degree', 'move'],
-              additionalProperties: false,
             },
           },
+          required: ['path', 'title', 'why', 'sections'],
+          additionalProperties: false,
         },
-        required: ['title', 'why', 'steps'],
-        additionalProperties: false,
       },
     },
-  },
-  required: ['versions'],
-  additionalProperties: false,
-} as const;
+    required: ['versions'],
+    additionalProperties: false,
+  };
+}
 
 /**
  * Las tres clases de idea, otra vez.

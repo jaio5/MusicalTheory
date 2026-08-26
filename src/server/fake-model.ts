@@ -23,6 +23,7 @@ import {
   applyMove,
   degreesFor,
   MOVES,
+  nextDegrees,
   pitchClassFromName,
   resolveProgression,
   type DegreeSymbol,
@@ -40,41 +41,98 @@ interface Peticion {
 }
 
 /**
- * Versiones construidas aplicando movimientos de verdad.
+ * Salidas construidas por el dominio, no por un modelo.
  *
- * Una versión por movimiento que sirva para algo en esa progresión, hasta tres.
- * Se cambia **un compás de cada dos como mucho**: una versión que lo cambia todo
- * ya no es la misma canción, y el validador la rechazaría igual que rechaza la
- * del modelo.
+ * Una por camino, hasta tres, y **cada una se construye con las mismas piezas con
+ * las que se valida**: los movimientos de `reharmonization.ts` para rearmonizar y
+ * el grafo de `nextDegrees` para alargar. Por eso pasan la misma verificación que
+ * pasaría una respuesta del modelo, que es lo que hace que sirvan para probar la
+ * pantalla entera sin gastar un céntimo.
+ *
+ * Lo que **no** prueban sigue siendo lo de siempre: si las salidas de un modelo de
+ * verdad valen la pena. Por eso todas llevan «Sin IA» escrito en su título.
  */
 export function versionesSinIA(peticion: Peticion): unknown {
+  const { mode, progression } = peticion;
   const versions: unknown[] = [];
 
+  // 1. Rearmonizar: un compás de cada dos, con su movimiento declarado.
   for (const move of MOVES) {
-    const steps = peticion.progression.map((paso, index) => {
-      // Uno de cada dos, y solo si a ese grado se le puede hacer.
-      const destino = index % 2 === 1 ? applyMove(peticion.mode, paso.degree, move.id) : null;
+    const steps = progression.map((paso, index) => {
+      const destino = index % 2 === 1 ? applyMove(mode, paso.degree, move.id) : null;
       return destino === null || destino === paso.degree
-        ? { degree: paso.degree, move: null }
-        : { degree: destino, move: move.id };
+        ? { degree: paso.degree, beats: paso.beats, move: null }
+        : { degree: destino, beats: paso.beats, move: move.id };
     });
 
-    if (!steps.some((paso) => paso.move !== null)) {
-      continue;
-    }
-
-    versions.push({
-      title: `${SIN_IA} · ${move.name.toLowerCase()}`,
-      why: `${move.why} Esta versión la ha construido el dominio, no un modelo.`,
-      steps,
-    });
-
-    if (versions.length === 3) {
+    if (steps.some((paso) => paso.move !== null)) {
+      versions.push({
+        path: 'rearmonizar',
+        title: `${SIN_IA} · ${move.name.toLowerCase()}`,
+        why: `${move.why} La ha construido el dominio, no un modelo.`,
+        sections: [{ name: 'Lo que llevas', tuya: false, steps }],
+      });
       break;
     }
   }
 
-  return { versions };
+  // 2. Seguir: se alarga por el grafo hasta caer en la tónica, como mucho cuatro
+  //    compases. Si desde el último grado no se llega, no se propone.
+  const tonica = mode === 'minor' ? 'i' : 'I';
+  const cola: { degree: DegreeSymbol; beats: number; move: null }[] = [];
+  let actual = progression[progression.length - 1]?.degree;
+  for (let paso = 0; paso < 4 && actual !== undefined; paso += 1) {
+    const siguiente =
+      nextDegrees(mode, actual).find((m) => m.to === tonica) ?? nextDegrees(mode, actual)[0];
+    if (siguiente === undefined) {
+      break;
+    }
+    cola.push({ degree: siguiente.to, beats: 4, move: null });
+    actual = siguiente.to;
+    // Se para al llegar a casa, pero no con un solo compás: una parte de uno no
+    // es una parte, y el validador la tiraría.
+    if (siguiente.to === tonica && cola.length >= 2) {
+      break;
+    }
+  }
+  // Dos compases al menos, o no es una parte.
+  if (cola.length >= 2 && cola[cola.length - 1]!.degree === tonica) {
+    versions.push({
+      path: 'seguir',
+      title: `${SIN_IA} · cerrar en la tónica`,
+      why: 'Sigue por donde el dominio dice que se suele ir, hasta caer en casa.',
+      sections: [
+        {
+          name: 'Lo que llevas',
+          tuya: true,
+          steps: progression.map((paso) => ({ ...paso, move: null })),
+        },
+        { name: 'Cierre', tuya: false, steps: cola },
+      ],
+    });
+  }
+
+  // 3. Otro reparto: el primer compás dura el doble. No toca un solo acorde.
+  if (progression.length > 0) {
+    versions.push({
+      path: 'estirar',
+      title: `${SIN_IA} · el primero, el doble`,
+      why: 'Los mismos acordes en el mismo orden, con el primero durando el doble.',
+      sections: [
+        {
+          name: 'Lo que llevas',
+          tuya: false,
+          steps: progression.map((paso, index) => ({
+            degree: paso.degree,
+            beats: index === 0 ? Math.min(16, paso.beats * 2) : paso.beats,
+            move: null,
+          })),
+        },
+      ],
+    });
+  }
+
+  return { versions: versions.slice(0, 3) };
 }
 
 /** Ideas construidas con los grados que existen en esa tonalidad. */

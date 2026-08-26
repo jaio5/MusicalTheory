@@ -2,6 +2,12 @@
 
 Fecha: 2026-08-25 · Estado: aceptada · Se apoya en: [ADR 0004](./0004-reconocimiento-de-acordes-por-croma.md), [ADR 0008](./0008-los-cupos-salen-del-precio.md)
 
+> **Enmendada por [ADR 0016](./0016-salidas-en-vez-de-versiones.md).** La regla de
+> «cambia el número de compases o su orden: eso ya no es una versión de esa
+> canción» queda derogada: lo que se pide ya no son versiones sino salidas, y una
+> puede alargar o acortar. Lo demás de este ADR sigue en pie, y `rearmonizar` es
+> ahora una salida más que lo cumple entero.
+
 ## Contexto
 
 La idea original era: grabas un trozo tocando y la IA te propone varias versiones de

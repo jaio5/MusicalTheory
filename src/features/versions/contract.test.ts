@@ -6,6 +6,7 @@ import { parseVersionsRequest, validateVersions, type VersionsRequest } from './
 
 const EN_DO: VersionsRequest = {
   key: { tonic: 'C', mode: 'major' },
+  kind: 'retocar',
   progression: [
     { degree: 'I', beats: 4 },
     { degree: 'V', beats: 4 },
@@ -14,15 +15,59 @@ const EN_DO: VersionsRequest = {
   ],
 };
 
-/** Una versión con la forma que espera el validador. */
+/** Una rearmonización con la forma que espera el validador. */
 function version(steps: ReadonlyArray<{ degree: string; move: string | null }>) {
   return {
+    path: 'rearmonizar',
     title: 'Más oscura',
     why: 'Cambia la dominante por la de al lado.',
-    steps: steps.map((step, index) => ({
-      degree: step.degree,
-      beats: EN_DO.progression[index]!.beats,
-      move: step.move,
+    sections: [
+      {
+        name: 'Lo que llevas',
+        tuya: false,
+        steps: steps.map((step, index) => ({
+          degree: step.degree,
+          beats: EN_DO.progression[index]!.beats,
+          move: step.move,
+        })),
+      },
+    ],
+  };
+}
+
+/** Una salida que retoca tus compases: una sola progresión, sin partes. */
+function salida(path: string, pasos: ReadonlyArray<readonly [string, number]>) {
+  return {
+    path,
+    title: 'Por aquí',
+    why: 'Una salida distinta para lo mismo.',
+    sections: [
+      {
+        name: 'Lo que llevas',
+        tuya: false,
+        steps: pasos.map(([degree, beats]) => ({ degree, beats, move: null })),
+      },
+    ],
+  };
+}
+
+/** Una salida que continúa lo que llevas: tu parte primero, y lo que sigue. */
+function cancion(
+  path: string,
+  partes: ReadonlyArray<{
+    name: string;
+    tuya?: boolean;
+    pasos: ReadonlyArray<readonly [string, number]>;
+  }>,
+) {
+  return {
+    path,
+    title: 'Por aquí',
+    why: 'Una canción distinta para lo mismo.',
+    sections: partes.map((parte) => ({
+      name: parte.name,
+      tuya: parte.tuya === true,
+      steps: parte.pasos.map(([degree, beats]) => ({ degree, beats, move: null })),
     })),
   };
 }
@@ -37,6 +82,7 @@ const IGUAL = [
 describe('parseVersionsRequest', () => {
   it('acepta una progresión con su tonalidad', () => {
     const parsed = parseVersionsRequest({
+      kind: 'retocar',
       key: { tonic: 'C', mode: 'major' },
       progression: [
         { degree: 'I', beats: 4 },
@@ -45,6 +91,7 @@ describe('parseVersionsRequest', () => {
     });
 
     expect(parsed).toEqual({
+      kind: 'retocar',
       key: { tonic: 'C', mode: 'major' },
       progression: [
         { degree: 'I', beats: 4 },
@@ -58,6 +105,7 @@ describe('parseVersionsRequest', () => {
     // no servía para nada: solo construía una línea que ni volvía en la respuesta
     // ni se guardaba. El cliente nunca lo mandó. Se cerró el canal entero.
     const parsed = parseVersionsRequest({
+      kind: 'retocar',
       key: { tonic: 'C', mode: 'major' },
       progression: [
         { degree: 'I', beats: 4 },
@@ -71,6 +119,7 @@ describe('parseVersionsRequest', () => {
 
   it('descarta los grados que no existen en ese modo', () => {
     const parsed = parseVersionsRequest({
+      kind: 'retocar',
       key: { tonic: 'A', mode: 'minor' },
       progression: [
         { degree: 'i', beats: 4 },
@@ -87,6 +136,7 @@ describe('parseVersionsRequest', () => {
     // dinero por nada.
     expect(
       parseVersionsRequest({
+        kind: 'retocar',
         key: { tonic: 'C', mode: 'major' },
         progression: [{ degree: 'I', beats: 4 }],
       }),
@@ -109,13 +159,18 @@ describe('parseVersionsRequest', () => {
       degree: 'I',
       beats: 4,
     }));
-    const parsed = parseVersionsRequest({ key: { tonic: 'C', mode: 'major' }, progression: larga });
+    const parsed = parseVersionsRequest({
+      kind: 'retocar',
+      key: { tonic: 'C', mode: 'major' },
+      progression: larga,
+    });
 
     expect(parsed?.progression).toHaveLength(MAX_VERSION_DEGREES);
   });
 
   it('los pulsos imposibles se acercan al rango en vez de tumbar la petición', () => {
     const parsed = parseVersionsRequest({
+      kind: 'retocar',
       key: { tonic: 'C', mode: 'major' },
       progression: [
         { degree: 'I', beats: 0 },
@@ -224,21 +279,183 @@ describe('validateVersions', () => {
     expect(validateVersions({ versions: [corta] }, EN_DO)).toEqual([]);
   });
 
-  it('los pulsos salen de la canción, no de lo que diga el modelo', () => {
+  it('una rearmonización que toca los pulsos se cae entera', () => {
+    // Antes los pulsos se copiaban de la canción y lo que dijera el modelo se
+    // ignoraba en silencio. Desde que hay salidas ya no se puede: `estirar`
+    // existe precisamente para cambiarlos, así que los pulsos son información y
+    // no ruido. Una rearmonización que los toca está declarando una salida que no
+    // ha tomado, y eso se descarta como cualquier otra declaración falsa.
     const mentirosa = {
+      path: 'rearmonizar',
       title: 'Otra',
       why: 'Cambia la dominante.',
-      steps: [
-        { degree: 'I', beats: 99, move: null },
-        { degree: 'bII', beats: 99, move: 'tritono' },
-        { degree: 'vi', beats: 99, move: null },
-        { degree: 'IV', beats: 99, move: null },
+      sections: [
+        {
+          name: 'Lo que llevas',
+          tuya: false,
+          steps: [
+            { degree: 'I', beats: 99, move: null },
+            { degree: 'bII', beats: 99, move: 'tritono' },
+            { degree: 'vi', beats: 99, move: null },
+            { degree: 'IV', beats: 99, move: null },
+          ],
+        },
       ],
     };
 
-    const versions = validateVersions({ versions: [mentirosa] }, EN_DO);
+    expect(validateVersions({ versions: [mentirosa] }, EN_DO)).toEqual([]);
+  });
 
-    expect(versions[0]!.steps.map((step) => step.beats)).toEqual([4, 4, 4, 4]);
+  it('una salida sin camino declarado no se puede comprobar, así que no vale', () => {
+    const sinCamino = {
+      title: 'Otra',
+      why: 'Cambia la dominante.',
+      sections: [
+        {
+          name: 'Lo que llevas',
+          tuya: false,
+          steps: [
+            { degree: 'I', beats: 4, move: null },
+            { degree: 'V', beats: 4, move: null },
+          ],
+        },
+      ],
+    };
+
+    expect(validateVersions({ versions: [sinCamino] }, EN_DO)).toEqual([]);
+    expect(validateVersions({ versions: [{ ...sinCamino, path: 'lo-que-sea' }] }, EN_DO)).toEqual(
+      [],
+    );
+  });
+
+  describe('las salidas que no son rearmonizar', () => {
+    it('seguir mantiene tus compases, encadena y cierra en la tónica', () => {
+      // I V vi IV son los compases; IV → I está en el grafo y I es la tónica.
+      const versions = validateVersions(
+        {
+          versions: [
+            // Solo lo que añade: tus compases los pone el contrato.
+            cancion('seguir', [
+              {
+                name: 'Estribillo',
+                pasos: [
+                  ['V', 4],
+                  ['I', 4],
+                ],
+              },
+            ]),
+          ],
+        },
+        { ...EN_DO, kind: 'continuar' },
+      );
+
+      expect(versions).toHaveLength(1);
+      expect(versions[0]!.path).toBe('seguir');
+      // Dos partes con su nombre, y la primera es la tuya.
+      expect(versions[0]!.sections.map((s) => s.name)).toEqual(['Lo que llevas', 'Estribillo']);
+      expect(versions[0]!.sections[0]!.tuya).toBe(true);
+      // Los compases nuevos no salen de ninguno tuyo, y la pantalla lo sabe por esto.
+      expect(versions[0]!.steps.map((step) => step.from)).toEqual([
+        'I',
+        'V',
+        'vi',
+        'IV',
+        null,
+        null,
+      ]);
+      expect(versions[0]!.steps[5]!.symbol).toBe('C');
+    });
+
+    it('el movimiento no se pinta fuera de una rearmonización, aunque lo declare', () => {
+      // Visto con un modelo de verdad: un `estirar` que no cambia ni un acorde
+      // declarando «interrumpida» en los cuatro compases. El esquema obliga a que
+      // el campo venga, así que lo rellena; pintarlo sería enseñar el porqué de un
+      // cambio que no existe.
+      const conRuido = {
+        path: 'estirar',
+        title: 'Dos compases en uno',
+        why: 'Alarga la frase.',
+        sections: [
+          {
+            name: 'Lo que llevas',
+            tuya: false,
+            steps: [
+              { degree: 'I', beats: 8, move: 'interrumpida' },
+              { degree: 'V', beats: 8, move: 'interrumpida' },
+              { degree: 'vi', beats: 8, move: 'interrumpida' },
+              { degree: 'IV', beats: 8, move: 'interrumpida' },
+            ],
+          },
+        ],
+      };
+
+      const versions = validateVersions({ versions: [conRuido] }, EN_DO);
+
+      expect(versions).toHaveLength(1);
+      expect(versions[0]!.steps.map((step) => step.move)).toEqual([null, null, null, null]);
+    });
+
+    it('otro reparto cambia los pulsos y no toca un solo acorde', () => {
+      const versions = validateVersions(
+        {
+          versions: [
+            salida('estirar', [
+              ['I', 8],
+              ['V', 4],
+              ['vi', 4],
+              ['IV', 2],
+            ]),
+          ],
+        },
+        EN_DO,
+      );
+
+      expect(versions).toHaveLength(1);
+      expect(versions[0]!.steps.map((step) => step.beats)).toEqual([8, 4, 4, 2]);
+    });
+
+    it('una salida que declara un camino y toma otro se descarta', () => {
+      // Dice «otro reparto» y lo que hace es cambiar un acorde. Es la misma regla
+      // que tumbaba un movimiento falso, subida del compás al camino.
+      const versions = validateVersions(
+        {
+          versions: [
+            salida('estirar', [
+              ['I', 8],
+              ['ii', 4],
+              ['vi', 4],
+              ['IV', 4],
+            ]),
+          ],
+        },
+        EN_DO,
+      );
+
+      expect(versions).toEqual([]);
+    });
+
+    it('un salto que el dominio no conoce tumba la salida', () => {
+      // Desde IV se va a I, V, vi o bVII. A vii° no.
+      const versions = validateVersions(
+        {
+          versions: [
+            // Solo lo que añade: tus compases los pone el contrato.
+            cancion('seguir', [
+              {
+                name: 'Cierre',
+                pasos: [
+                  ['vii°', 4],
+                  ['I', 4],
+                ],
+              },
+            ]),
+          ],
+        },
+        { ...EN_DO, kind: 'continuar' },
+      );
+
+      expect(versions).toEqual([]);
+    });
   });
 
   it('tira la versión con un grado que no existe en ese modo', () => {
@@ -294,5 +511,38 @@ describe('validateVersions', () => {
     expect(validateVersions(null, EN_DO)).toEqual([]);
     expect(validateVersions({ versiones: [] }, EN_DO)).toEqual([]);
     expect(validateVersions({ versions: 'tres' }, EN_DO)).toEqual([]);
+  });
+});
+
+describe('la clase que se pide manda', () => {
+  it('una salida que retoca no vale cuando se pedía continuar, y al revés', () => {
+    // No es quisquillosería: el esquema que se le manda al modelo depende de la
+    // clase, y aceptar la otra dejaría pasar una respuesta que se pidió con otras
+    // reglas. Además es lo que quien toca ha pulsado.
+    const retoque = {
+      versions: [
+        salida('estirar', [
+          ['I', 8],
+          ['V', 4],
+          ['vi', 4],
+          ['IV', 4],
+        ]),
+      ],
+    };
+
+    expect(validateVersions(retoque, { ...EN_DO, kind: 'retocar' })).toHaveLength(1);
+    expect(validateVersions(retoque, { ...EN_DO, kind: 'continuar' })).toEqual([]);
+  });
+
+  it('una petición sin clase no se acepta', () => {
+    expect(
+      parseVersionsRequest({
+        key: { tonic: 'C', mode: 'major' },
+        progression: [
+          { degree: 'I', beats: 4 },
+          { degree: 'V', beats: 4 },
+        ],
+      }),
+    ).toBeNull();
   });
 });

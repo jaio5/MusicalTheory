@@ -22,6 +22,7 @@ export * from './keys';
 export * from './styles';
 export * from './harmonic-function';
 export * from './reharmonization';
+export * from './paths';
 export * from './suggestions';
 export * from './transitions';
 export * from './progressions';

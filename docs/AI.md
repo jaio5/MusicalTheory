@@ -409,51 +409,88 @@ grados. Los cifrados del ejemplo no se creen: se recalculan desde los grados
 contra la tonalidad real, igual que en ideas, que es la única forma de que no
 aparezca en pantalla un acorde que no existe ahí.
 
-## Las versiones de tu canción
+## Las salidas: por dónde puede tirar lo que tocas
 
 Un tercer route handler, `POST /api/versiones`, con el mismo reparto que los otros
 dos. Es **la petición más cara de las tres** y entra solo en el plan Pro.
 
-Entra una progresión en grados con sus pulsos y una tonalidad. Sale una lista de
-hasta tres versiones: los mismos compases, en el mismo orden, con algunos acordes
-cambiados.
+Entra una progresión en grados con sus pulsos, una tonalidad y **qué se pide**.
+Salen hasta tres **salidas**: canciones distintas que arrancan de lo que llevas
+tocado. No son versiones de la misma canción: son caminos para elegir.
+
+Y lo que se pide se elige antes, entre dos cosas:
+
+| `kind`      | Qué hace                                 | Qué devuelve el modelo                    |
+| ----------- | ---------------------------------------- | ----------------------------------------- |
+| `continuar` | Sigue tu canción y le hace sus partes    | **Solo las partes que añade**, con nombre |
+| `retocar`   | Cambia estos compases sin salir de ellos | Una sola parte con la progresión entera   |
+
+**Elegir antes no es cosa de la interfaz.** Es lo que hace que el esquema pueda
+exigir lo que el validador comprueba —continuar necesita al menos una parte nueva
+y retocar exactamente una— y eso un esquema JSON no lo puede condicionar a un
+campo que el propio modelo rellena. Con el camino libre: cero salidas válidas de
+cuatro peticiones. Eligiendo antes: tres de tres.
+
+**Tus compases no se le piden.** Al continuar, el modelo devuelve solo lo que
+añade y el contrato pone tu parte delante. Pedirle que la copiara era la causa de
+que se cayera todo, y repetirla solo gastaba tokens.
 
 **Aunque por delante se llame «grabar un trozo», aquí no sube nada de audio.** La
 aplicación ya sabe qué acorde suena —el motor de croma lo dice y `core/music/capture.ts`
 lo convierte en grados con sus pulsos—, así que grabar es apuntar símbolos. Lo que
 viaja son entre treinta y doscientos caracteres.
 
+### Las cinco salidas, y cómo se comprueba cada una
+
+El catálogo vive en `core/music/paths.ts` y se le enseña al modelo generado desde
+ahí, nunca escrito a mano en el prompt.
+
+| Salida        | Qué hace                                    | Qué se comprueba                                         |
+| ------------- | ------------------------------------------- | -------------------------------------------------------- |
+| `rearmonizar` | Los mismos compases con otros acordes       | Cada compás cambiado declara su movimiento y se reaplica |
+| `seguir`      | Mantiene tus compases y añade hasta cerrar  | El principio intacto y el final en la tónica             |
+| `otro-final`  | Deja la primera mitad y cambia lo que viene | La mitad intacta, y no alarga                            |
+| `estirar`     | Los mismos acordes durando otra cosa        | Ni un grado tocado, y algún pulso distinto               |
+| `contraste`   | Añade una parte que se va y puede volver    | No cierra, y desde su último grado se vuelve al primero  |
+
 ### Se verifica el razonamiento, no solo el resultado
 
-Esta es la diferencia con las ideas, y es lo que sostiene la función entera.
+Es la diferencia con las ideas, y lo que sostiene la función entera. Antes cada
+compás declaraba su movimiento; ahora **la declaración sube al camino**: cada salida
+dice cuál ha tomado y el dominio vuelve a comprobarlo. Un `contraste` que cierra en
+la tónica se descarta —eso es un `seguir`—, y un `estirar` que toca un acorde
+también.
 
-Cada compás que una versión cambia **declara qué movimiento se le ha aplicado**, de
-un catálogo cerrado de cinco: relativo, intercambio de especie, préstamo modal,
-cadencia interrumpida y sustitución tritonal. El validador vuelve a aplicar ese
-movimiento al grado que había y comprueba que sale el que propone.
+Debajo hay una segunda comprobación: **cada salto que no estaba en tu canción tiene
+que existir en `nextDegrees`**, el grafo armónico del dominio. Son unas tres salidas
+por grado, así que una parte nueva de cuatro compases tiene del orden de ochenta
+caminos posibles. **El mapa entero va en el prompt**, generado desde el dominio: es
+lo mismo que hacen los grados enumerados de las ideas, y por la misma razón.
 
-Una versión se descarta entera cuando:
+Una salida se descarta entera cuando declara un camino y toma otro, cuando el
+camino no es de la clase que se pidió, cuando usa un grado que no existe en ese
+modo, cuando encadena un salto que el dominio no conoce, cuando se pasa de 32
+compases, cuando devuelve tu canción tal cual, o cuando **las partes que añade son
+tu parte otra vez** —visto con un modelo de verdad: un «puente» que era tu
+progresión copiada—.
 
-- declara un movimiento que no es el que se ha hecho, aunque el acorde sea
-  razonable;
-- dice no haber tocado un compás que sí cambió, o al revés;
-- cambia el número de compases o su orden: eso ya no es una versión de esa canción;
-- no cambia ni un compás, porque eso es la canción;
-- usa un grado que no existe en ese modo.
-
-Es la misma regla que los cifrados —no se creen, se recalculan— llevada del cifrado
-al porqué. Y hace falta: el porqué es la mitad de lo que se está vendiendo. Sin él,
-una versión son cuatro acordes distintos que cualquiera puede probar a mano.
-
-El catálogo de movimientos que se le ofrece al modelo **se genera desde `MOVES`**, no
-se escribe en el prompt a mano. Así no puede pasar que el prompt ofrezca un
-movimiento que el validador no sepa comprobar, que haría caer todas las versiones que
-lo usaran sin que nadie entendiera por qué.
+Medido con modelos locales de 8B: **continuar sale 4 de 4 con `gemma4:e4b`**, todas
+con partes de verdad —`Lo que llevas(Am F C G) | verso(Am F C G Am)`—, contra 0 de 4
+con las reglas anteriores. Con `qwen3:8b`, 0 de 4: su «parte nueva» es siempre tu
+progresión copiada, y eso se rechaza. Retocar no lo pasa ninguno de los dos. `rearmonizar` sigue siendo
+la que peor se les da —devuelven la canción intacta—, lo que explica aquel 0 de 4
+mejor que ninguna otra cosa. El porqué entero está en
+[adr/0016](./adr/0016-salidas-en-vez-de-versiones.md).
 
 ### Lo que no capta
 
-No hay ritmo dentro del compás, no hay melodía y las inversiones se leen como el
-acorde en estado fundamental, porque el croma olvida la octava
-([adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md)). Lo que sale es la
-armonía y su reparto en el tiempo, que es lo que hace falta para rearmonizar y no
-más.
+No hay ritmo dentro del compás, no hay melodía, no se cambia de tonalidad —eso sería
+un sexto camino, y está descartado por ahora en el ADR— y las inversiones se leen
+como el acorde en estado fundamental, porque el croma olvida la octava
+([adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md)).
+
+### El nombre
+
+En pantalla son **salidas**. Por dentro la ruta, la carpeta y la capacidad del plan
+se siguen llamando `versiones`: renombrarlo toca cuarenta ficheros y habría ahogado
+el cambio de comportamiento en un diff de nombres. Es deuda mecánica y está anotada.

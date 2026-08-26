@@ -81,6 +81,7 @@ renombrado no puede degradar a quien había pagado.
 | Qué acorde proponer y en qué orden                    | `core/music/suggestions.ts` + `styles.ts`      |
 | Detección de tono (autocorrelación)                   | `src/audio/autocorrelation.ts`                 |
 | Detección de acordes (croma + plantillas)             | `audio/chroma.ts`, `audio/chord-engine.ts`     |
+| Volver a escuchar lo grabado, con calma               | `audio/offline-chords.ts`, `audio/fft.ts`      |
 | Mástil, afinaciones, formas de acorde                 | `src/core/instrument/`                         |
 | Estado de sesión y persistencia                       | `src/state/` (IndexedDB)                       |
 | Grabación con cámara                                  | `src/media/`                                   |
@@ -89,13 +90,14 @@ renombrado no puede degradar a quien había pagado.
 | Quién contesta —API, modelo de casa o dominio—        | `server/ai-model.ts`, `local-model.ts`         |
 | Lo que tocas, convertido en compases                  | `core/music/capture.ts`                        |
 | Con qué se rearmoniza, y cómo se comprueba            | `core/music/reharmonization.ts`                |
+| Por dónde puede tirar lo que tocas, y qué lo valida   | `core/music/paths.ts`                          |
 | Una canción guardada: grados, tonalidad y secciones   | `core/music/song.ts` + `server/songs-repo.ts`  |
 | Planes, permisos y si una unidad la abre el plan      | `src/core/billing/` (`plans.ts`, `access.ts`)  |
 | Meta diaria, racha, medallas, punto de partida        | `core/music/progress.ts`                       |
 | La cola de repaso de lo fallado                       | `core/music/review.ts`                         |
 | Tarjetas de plan y ventana de pago                    | `features/account/`, `src/app/planes/`         |
 | Guardar y abrir tus canciones                         | `features/songs/`, `src/app/api/canciones`     |
-| Versiones de tu canción, y su verificación            | `features/versions/`                           |
+| Salidas de lo que tocas, y su verificación            | `features/versions/` (se llamará `salidas/`)   |
 | El avatar de arriba y lo que cuelga de él             | `features/account/AccountMenu.tsx`             |
 | Cuentas, contraseñas, base de datos y cupos           | `src/server/`                                  |
 | Recuperar la contraseña, y por dónde sale el correo   | `server/password-reset.ts`, `server/mail/`     |
@@ -133,13 +135,15 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                    |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Los quince: dominio puro, tono propio, análisis en el hilo principal,
+descartadas. Los diecisiete: dominio puro, tono propio, análisis en el hilo principal,
 acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, punto de
 partida con una pantalla por cosa, cupos calculados desde el precio, un solo marco
 de pantalla, los dos temas con el negro de casa, las versiones verificadas contra
 el dominio sin que suba audio, un instrumento por ahora con el mapa del segundo, el
 correo como puerto con su vale de un solo uso, un modelo de casa para probar sin
-factura, y un solo canal de texto libre con el tema declarado en el esquema.
+factura, un solo canal de texto libre con el tema declarado en el esquema, y salidas
+en vez de versiones con el camino declarado y comprobado, y el sonido grabado para
+volver a escucharlo entero.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

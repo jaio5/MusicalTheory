@@ -7,7 +7,14 @@ import {
   quotaMessage,
   TOKEN_BUDGETS,
 } from '@core/billing';
-import { degreesFor, MOVES } from '@core/music';
+import {
+  degreesFor,
+  MOVES,
+  PATHS,
+  PATHS_BY_KIND,
+  textoDelGrafo,
+  type SalidaKind,
+} from '@core/music';
 
 import {
   parseVersionsRequest,
@@ -18,7 +25,7 @@ import {
 import { askModel, modelAvailable } from '@server/ask-model';
 import { versionesSinIA } from '@server/fake-model';
 import { spendAi } from '@server/entitlements';
-import { VERSIONS_SCHEMA, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
+import { versionsSchema, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
 import { limitRequest } from '@server/rate-limit-db';
 import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
 
@@ -56,6 +63,19 @@ const MAX_TOKENS = TOKEN_BUDGETS.versiones.output;
  * desajuste haría que todas las versiones que lo usaran se cayeran sin que nadie
  * entendiera por qué.
  */
+/**
+ * El catálogo de salidas, generado desde `PATHS`.
+ *
+ * No se escribe a mano por lo mismo que el de movimientos: si el prompt ofreciera
+ * una salida que el validador no sabe comprobar, todas las que la usaran caerían
+ * sin que nadie entendiera por qué.
+ */
+function pathsText(kind: SalidaKind): string {
+  return PATHS.filter((path) => PATHS_BY_KIND[kind].includes(path.id))
+    .map((path) => `- ${path.id}: ${path.why}`)
+    .join('\n');
+}
+
 function movesText(): string {
   return MOVES.map((move) => `- ${move.id}: ${move.why}`).join('\n');
 }
@@ -67,12 +87,21 @@ function buildPrompt(request: VersionsRequest): string {
   const lines = [
     `Tonalidad: ${tonic} ${mode === 'major' ? 'mayor' : 'menor'}.`,
     `Grados válidos: ${degreesFor(mode).join(', ')}.`,
-    `Movimientos que puedes declarar:\n${movesText()}`,
-    `Progresión (grado y pulsos): ${progresion}`,
+    `Salidas que puedes declarar:\n${pathsText(request.kind)}`,
+    `Movimientos, solo para rearmonizar:\n${movesText()}`,
+    // El mapa de saltos es lo que convierte «inventa algo» en «elige por dónde».
+    // Es el mismo truco que llevó las ideas de 0 de 4 a 4 de 4: enseñarle lo que
+    // el validador va a comprobar, en vez de pedírselo en prosa.
+    `Mapa de saltos (de cada grado, a dónde puedes ir):\n${textoDelGrafo(mode, degreesFor(mode))}`,
+    `Lo que lleva tocado (grado y pulsos): ${progresion}`,
   ];
 
   lines.push(
-    `Devuelve hasta tres versiones de esos ${request.progression.length} compases, en el mismo orden.`,
+    request.kind === 'continuar'
+      ? `Continúa esos ${request.progression.length} compases: hasta tres canciones ` +
+          'distintas. De cada una devuelve solo las partes que añades, no las suyas, y ' +
+          'que digan algo que no estuviera ya.'
+      : `Devuelve hasta tres salidas distintas para esos ${request.progression.length} compases.`,
   );
 
   return lines.join('\n');
@@ -150,7 +179,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       payload = await askModel({
         prompt,
         system: VERSIONS_SYSTEM_PROMPT,
-        schema: VERSIONS_SCHEMA,
+        // El esquema depende del modo: los grados válidos no son los mismos
+        // en mayor que en menor, y el enumerado es lo que impide que escriba uno
+        // que no existe.
+        schema: versionsSchema(parsed.key.mode, parsed.kind),
         maxTokens: MAX_TOKENS,
         sinClave: () =>
           versionesSinIA({

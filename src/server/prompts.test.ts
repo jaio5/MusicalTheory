@@ -20,7 +20,7 @@ import {
   IDEAS_SYSTEM_PROMPT,
   type IdeasKind,
   TEACHER_SYSTEM_PROMPT,
-  VERSIONS_SCHEMA,
+  versionsSchema,
   VERSIONS_SYSTEM_PROMPT,
 } from './prompts';
 
@@ -75,6 +75,16 @@ const CLASES_DE_IDEA: readonly IdeasKind[] = ['progression', 'twist', 'scale'];
 const IDEAS_SCHEMA_MAS_LARGO = CLASES_DE_IDEA.flatMap((kind) =>
   (['major', 'minor'] as const).map((mode) => schemaText(ideasSchema(kind, mode))),
 ).reduce((largo, texto) => (texto.length > largo.length ? texto : largo));
+
+/**
+ * El esquema de salidas más largo, por lo mismo: hay cuatro —dos modos por dos
+ * clases de salida— y el presupuesto lo tiene que aguantar el peor.
+ */
+const VERSIONS_SCHEMA_MAS_LARGO = (['major', 'minor'] as const)
+  .flatMap((mode) =>
+    (['continuar', 'retocar'] as const).map((kind) => schemaText(versionsSchema(mode, kind))),
+  )
+  .reduce((largo, texto) => (texto.length > largo.length ? texto : largo));
 
 describe('el presupuesto de tokens del profesor', () => {
   it('el prompt de sistema, el esquema y la pregunta más larga caben', () => {
@@ -152,7 +162,7 @@ describe('el presupuesto de tokens de las versiones', () => {
     const grados = 'bVII, '.repeat(20);
     const estimado = estimatedTokens(
       VERSIONS_SYSTEM_PROMPT,
-      schemaText(VERSIONS_SCHEMA),
+      VERSIONS_SCHEMA_MAS_LARGO,
       progresion,
       movimientos,
       grados,
@@ -162,7 +172,7 @@ describe('el presupuesto de tokens de las versiones', () => {
   });
 
   it('queda holgura', () => {
-    const estimado = estimatedTokens(VERSIONS_SYSTEM_PROMPT, schemaText(VERSIONS_SCHEMA));
+    const estimado = estimatedTokens(VERSIONS_SYSTEM_PROMPT, VERSIONS_SCHEMA_MAS_LARGO);
 
     expect(estimado).toBeLessThan(TOKEN_BUDGETS.versiones.input * 0.7);
   });

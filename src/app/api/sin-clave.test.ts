@@ -16,6 +16,7 @@ import { ideasSinIA, respuestaSinIA, SIN_IA, versionesSinIA } from '@server/fake
 
 const EN_DO: VersionsRequest = {
   key: { tonic: 'C', mode: 'major' },
+  kind: 'retocar',
   progression: [
     { degree: 'I', beats: 4 },
     { degree: 'V', beats: 4 },
@@ -42,10 +43,16 @@ describe('las versiones sin IA', () => {
     );
 
     expect(versiones.length).toBeGreaterThan(0);
+    // Ya no todas tienen el mismo largo ni declaran movimientos: desde que hay
+    // salidas, una puede alargar o repartir los pulsos de otra manera. Lo que sí
+    // tienen todas es un camino declarado que el dominio ha vuelto a comprobar.
     for (const version of versiones) {
-      expect(version.steps).toHaveLength(EN_DO.progression.length);
-      expect(version.steps.some((paso) => paso.move !== null)).toBe(true);
+      expect(version.steps.length).toBeGreaterThan(0);
+      expect(version.path).toBeTruthy();
     }
+    // Y entre ellas hay más de una clase de salida, que es lo que esto viene a
+    // enseñar: sin clave se puede probar la pantalla entera, no solo un caso.
+    expect(new Set(versiones.map((v) => v.path)).size).toBeGreaterThan(1);
   });
 
   it('dicen que no son de un modelo, para que no engañen en pantalla', () => {
@@ -81,6 +88,7 @@ describe('las versiones sin IA', () => {
 
   it('en menor también salen, y también pasan', () => {
     const enLa: VersionsRequest = {
+      kind: 'retocar',
       key: { tonic: 'A', mode: 'minor' },
       progression: [
         { degree: 'i', beats: 4 },
@@ -102,6 +110,7 @@ describe('las versiones sin IA', () => {
     // Sin versiones válidas, la ruta contesta lo mismo que si el modelo no
     // hubiera dado nada aprovechable: no se inventa nada.
     const rara: VersionsRequest = {
+      kind: 'retocar',
       key: { tonic: 'C', mode: 'major' },
       progression: [
         { degree: 'vii°', beats: 4 },

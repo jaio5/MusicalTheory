@@ -1003,6 +1003,14 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   camino de compose, porque en este equipo Docker Desktop no tiene encendida la
   integración con WSL. Si el primer `up` pide un ajuste, será del YAML, no del
   adaptador —[adr/0014](./adr/0014-un-modelo-de-casa-para-probar.md)—.
+- **Renombrar `versiones` a `salidas` por dentro.** La ruta, la carpeta
+  `features/versions/` y la capacidad del plan siguen con el nombre viejo, que ya no
+  es el que se ve en pantalla. Son cuarenta ficheros y es mecánico; se dejó fuera
+  para no ahogar el cambio de comportamiento en un diff de nombres
+  —[adr/0016](./adr/0016-salidas-en-vez-de-versiones.md)—.
+- **Las salidas no se han medido contra la API.** Con modelos locales de 8B pasan 4
+  de 4 peticiones, pero si lo que propone un modelo bueno vale la pena
+  musicalmente no lo puede decir nada que no sea ese modelo.
 - **`/api/versiones` no la pasa un modelo de ocho mil millones de parámetros.**
   Medido: 0 de 4 con `qwen3:8b` y 0 de 4 con `gemma4:e4b`, y el mismo fallo en los
   dos: declaran el movimiento **sin cambiar el grado**, o sea que devuelven la
@@ -1016,6 +1024,14 @@ blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
   [adr/0011](./adr/0011-versiones-verificadas-contra-el-dominio.md) defiende de algo
   real, y también que esa ruta con modelo local no sirve: hace falta la API o un
   modelo bastante mayor.
+
+  **Esto se resolvió el 26 de agosto de 2026, y no apretando el prompt.** La función
+  pedía lo que no era: rearmonizar los mismos compases, cuando lo que hace falta al
+  componer son caminos distintos para elegir. Con las salidas de
+  [adr/0016](./adr/0016-salidas-en-vez-de-versiones.md) los dos modelos pasan 4 de 4.
+  Lo que sigue fallándoles es `rearmonizar`, que ahora es un quinto de la función en
+  vez de toda ella.
+
 - **El camino con base de datos sigue sin probarse desde aquí.** Las tres rutas de IA
   exigen cuenta, así que el HTTP completo pide Postgres, y en este equipo no hay ni
   Docker ni Postgres nativo. Lo medido es todo lo demás: prompts reales, esquemas

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -42,13 +42,17 @@ function respondWith(payload: unknown, status = 200): Response {
   });
 }
 
+const PASOS = [
+  { degree: 'I', beats: 4, symbol: 'C', from: 'I', move: null },
+  { degree: 'bII', beats: 4, symbol: 'Db', from: 'V', move: 'tritono' },
+] as const;
+
 const UNA: Version = {
+  path: 'rearmonizar',
   title: 'Más oscura',
   why: 'Cambia la dominante por la que está a un tritono.',
-  steps: [
-    { degree: 'I', beats: 4, symbol: 'C', from: 'I', move: null },
-    { degree: 'bII', beats: 4, symbol: 'Db', from: 'V', move: 'tritono' },
-  ],
+  sections: [{ name: 'Lo que llevas', tuya: false, steps: [...PASOS] }],
+  steps: [...PASOS],
 };
 
 /** Deja una tonalidad y un camino puestos, como si se hubiera compuesto. */
@@ -86,7 +90,7 @@ describe('cuándo se puede pedir', () => {
     componiendo(['I']);
 
     expect(await screen.findByText(/al menos dos acordes/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
     expect(fetchVersions).not.toHaveBeenCalled();
   });
 
@@ -95,7 +99,7 @@ describe('cuándo se puede pedir', () => {
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V', 'vi', 'IV']);
 
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
 
     expect(fetchVersions).toHaveBeenCalledTimes(1);
     const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
@@ -108,7 +112,7 @@ describe('cuándo se puede pedir', () => {
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V7/vi', 'V']);
 
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
 
     const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
     expect(request.progression.map((step) => step.degree)).toEqual(['I', 'V']);
@@ -121,7 +125,7 @@ describe('lo que se enseña', () => {
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V']);
 
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
 
     expect(await screen.findByText('Más oscura')).toBeInTheDocument();
     expect(screen.getByText('V → bII')).toBeInTheDocument();
@@ -139,7 +143,7 @@ describe('lo que se enseña', () => {
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V']);
 
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Se te han acabado las 12 de hoy.');
   });
@@ -149,7 +153,7 @@ describe('lo que se enseña', () => {
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V']);
 
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/No hemos podido contactar/);
   });
@@ -161,8 +165,8 @@ describe('ponerla en el camino', () => {
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V']);
 
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
-    await userEvent.click(await screen.findByRole('button', { name: /Ponerla en el camino/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Quedarme con esta/ }));
 
     const state = useSessionStore.getState();
     expect(state.path.map((chord) => chord.symbol)).toEqual(['C', 'Db']);
@@ -178,8 +182,8 @@ describe('ponerla en el camino', () => {
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V']);
 
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
-    const poner = await screen.findByRole('button', { name: /Ponerla en el camino/ });
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+    const poner = await screen.findByRole('button', { name: /Quedarme con esta/ });
     await userEvent.click(poner);
     await userEvent.click(poner);
 
@@ -199,14 +203,14 @@ describe('grabar un trozo', () => {
     });
   }
 
-  it('mientras graba lo dice, y no deja pedir versiones a medias', async () => {
+  it('mientras graba lo dice, y no deja pedir salidas a medias', async () => {
     render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} />));
     componiendo(['I', 'V']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
 
     expect(screen.getByRole('status')).toHaveTextContent(/Grabando lo que tocas/);
-    expect(screen.getByRole('button', { name: /Versiones de esto/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Salidas de esto/ })).toBeDisabled();
   });
 
   it('lo grabado manda sobre el camino, y trae los pulsos de verdad', async () => {
@@ -226,7 +230,7 @@ describe('grabar un trozo', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('De lo que has grabado: I · V.');
 
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
 
     const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
     expect(request.progression).toEqual([
@@ -285,7 +289,7 @@ describe('escuchar una versión', () => {
     const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} createPlayer={() => player} />));
     componiendo(['I', 'V']);
-    await userEvent.click(screen.getByRole('button', { name: /Versiones de esto/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
     await screen.findByText('Más oscura');
   }
 
@@ -333,5 +337,94 @@ describe('escuchar una versión', () => {
       avisar(null);
     });
     expect(screen.getByText('Db').closest('li')).not.toHaveAttribute('aria-current');
+  });
+});
+
+describe('grabar y volver a escucharlo', () => {
+  /**
+   * La razón de que exista el análisis de la grabación: lo que el motor oye en
+   * vivo arrastra sus limitaciones —ventana corta, sin mirar hacia delante— y al
+   * parar se puede volver a escuchar el trozo entero y corregirlo.
+   *
+   * Aquí no se prueba el análisis, que tiene los suyos en `audio/`: se prueba la
+   * costura. Que al parar se pida la grabación, y que lo que salga sustituya a lo
+   * que se oyó en vivo.
+   */
+  function entradaQueGraba(muestras: Float32Array) {
+    const llamadas = { arrancada: 0, parada: 0 };
+    return {
+      llamadas,
+      entrada: {
+        startRecording: () => {
+          llamadas.arrancada += 1;
+          return true;
+        },
+        stopRecording: async () => {
+          llamadas.parada += 1;
+          return { samples: muestras, sampleRate: 48_000 };
+        },
+      },
+    };
+  }
+
+  /** Un La menor sostenido, que el análisis de verdad sabe reconocer. */
+  function laMenor(segundos: number): Float32Array {
+    const n = Math.round(segundos * 48_000);
+    const x = new Float32Array(n);
+    for (let i = 0; i < n; i += 1) {
+      const t = i / 48_000;
+      const decae = Math.exp(-t * 0.5);
+      const v =
+        Math.sin(2 * Math.PI * 220 * t) +
+        Math.sin(2 * Math.PI * 261.63 * t) +
+        Math.sin(2 * Math.PI * 329.63 * t);
+      x[i] = (v / 3) * 0.3 * decae;
+    }
+    return x;
+  }
+
+  it('al empezar a grabar le pide a la entrada que guarde el sonido', async () => {
+    const { llamadas, entrada } = entradaQueGraba(new Float32Array(0));
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} getInput={() => entrada} />));
+
+    await userEvent.click(screen.getByRole('button', { name: /Grabar un trozo/ }));
+
+    expect(llamadas.arrancada).toBe(1);
+  });
+
+  it('al parar, lo que salga del análisis sustituye a lo que se oyó en vivo', async () => {
+    const { entrada } = entradaQueGraba(laMenor(3));
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} getInput={() => entrada} />));
+
+    await userEvent.click(screen.getByRole('button', { name: /Grabar un trozo/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Parar de grabar/ }));
+
+    await waitFor(() => {
+      expect(useSessionStore.getState().captured.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('si el análisis no saca nada, no borra lo que se oyó en vivo', async () => {
+    // Silencio: el analizador devuelve una lista vacía, y eso no puede pisar lo
+    // que el motor sí oyó. Perder la mejora es aceptable; perder la grabación no.
+    const { entrada } = entradaQueGraba(new Float32Array(48_000));
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} getInput={() => entrada} />));
+
+    await userEvent.click(screen.getByRole('button', { name: /Grabar un trozo/ }));
+    const antes = useSessionStore.getState().captured;
+    await userEvent.click(screen.getByRole('button', { name: /Parar de grabar/ }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Escuchándolo otra vez/ })).toBeNull();
+    });
+    expect(useSessionStore.getState().captured).toEqual(antes);
+  });
+
+  it('con una entrada que no sabe grabar, todo sigue funcionando', async () => {
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} getInput={() => ({})} />));
+
+    await userEvent.click(screen.getByRole('button', { name: /Grabar un trozo/ }));
+
+    expect(screen.getByRole('button', { name: /Parar de grabar/ })).toBeInTheDocument();
   });
 });
