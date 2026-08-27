@@ -75,6 +75,20 @@ describe('las canciones', () => {
     expect(lista?.[0]?.name).toBe('La mía');
   });
 
+  it('cambiar el nombre de una tuya devuelve la fila ya cambiada', async () => {
+    // La devuelve para que la pantalla se pinte con lo que hay guardado y no
+    // con lo que se acaba de escribir: un recorte del servidor se vería.
+    const userId = await cuenta();
+    const creada = await songs.createSong(userId, CANCION);
+    const id = creada.kind === 'ok' ? creada.song.id : '';
+
+    const cambiada = await songs.updateSong(userId, { ...CANCION, id, name: 'Otro nombre' });
+
+    expect(cambiada.kind).toBe('ok');
+    expect(cambiada.kind === 'ok' && cambiada.song.name).toBe('Otro nombre');
+    expect((await songs.listSongs(userId))?.[0]?.name).toBe('Otro nombre');
+  });
+
   it('cada cual ve las suyas y solo las suyas', async () => {
     // Es la garantía que sostiene la función entera, y la única forma de
     // comprobarla es con dos cuentas y una base de datos.

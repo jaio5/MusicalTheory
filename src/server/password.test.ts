@@ -56,6 +56,11 @@ describe('cifrado de contraseñas', () => {
       'bcrypt$16384$8$1$c2Fs$aGFzaA==',
       'scrypt$muchas$8$1$c2Fs$aGFzaA==',
       'scrypt$16384$8$1$$',
+      // Parámetros que revientan a `scrypt` por dentro: un coste absurdo pide
+      // más memoria de la que hay, y eso lanza en vez de devolver un hash.
+      'scrypt$1073741824$8$1$c2Fs$aGFzaA==',
+      // Y un `n` que no es potencia de dos, que también lanza.
+      'scrypt$3$8$1$c2Fs$aGFzaA==',
     ]) {
       await expect(verifyPassword('cualquiera', raro)).resolves.toBe(false);
     }

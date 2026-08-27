@@ -195,6 +195,19 @@ describe('el portal de cliente', () => {
     expect((fetchFalso.mock.calls[0] as [string])[0]).toContain('email=a%40b.c');
   });
 
+  it('sin correo no se pregunta siquiera', async () => {
+    // Buscar por correo vacío devolvería el primer cliente que hubiera, que no
+    // es el de nadie en concreto.
+    expect(await StripeBilling.portal({ userId: 'u1', email: '' })).toBeNull();
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it('si Stripe rechaza la consulta, tampoco hay portal', async () => {
+    fetchFalso.mockResolvedValue(contesta({ error: 'no' }, 401));
+
+    expect(await StripeBilling.portal({ userId: 'u1', email: 'a@b.c' })).toBeNull();
+  });
+
   it('sin cliente en Stripe no hay portal', async () => {
     // Es alguien que nunca ha pagado: no hay facturas que enseñarle.
     fetchFalso.mockResolvedValue(contesta({ data: [] }));

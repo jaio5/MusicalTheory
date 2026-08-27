@@ -145,6 +145,20 @@ describe('pedirle algo al modelo', () => {
     );
   });
 
+  it('con la cuenta leída pero el contador roto, no se sirve', async () => {
+    // Servir cuando no se puede contar es la forma de que una caída de Postgres
+    // se convierta en una factura. Se esconde solo la tabla del contador: la
+    // sesión se lee bien, así que esto no es «no tienes cuenta».
+    await entrar('gratis');
+    await base.ejecutar('alter table ai_usage rename to ai_usage_escondida');
+
+    try {
+      expect((await entitlements.spendAi('profesor')).kind).toBe('sin-contador');
+    } finally {
+      await base.ejecutar('alter table ai_usage_escondida rename to ai_usage');
+    }
+  });
+
   it('al agotarse el cupo se dice cuál de los dos fue', async () => {
     await entrar('gratis');
     const { daily } = entitlements.limitsFor('gratis');
