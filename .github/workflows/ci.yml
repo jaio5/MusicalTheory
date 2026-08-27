@@ -24,6 +24,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Formato
+        run: pnpm format:check
+
       - name: Reglas de estilo y de capas
         run: pnpm lint
 
