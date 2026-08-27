@@ -12,8 +12,10 @@ import { useSessionStore } from '@state/session-store';
 
 import { UnitScreen } from './UnitScreen';
 
+const empujar = vi.fn();
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+  useRouter: () => ({ refresh: () => {}, push: empujar }),
   usePathname: () => '/aprender/e1-grados',
 }));
 
@@ -52,6 +54,7 @@ const PRIMERA = UNIT_ORDER[0]!;
 
 beforeEach(() => {
   localStorage.clear();
+  empujar.mockReset();
 });
 
 describe('cuando no se puede entrar', () => {
@@ -146,5 +149,11 @@ describe('contestar la unidad entera', () => {
       'href',
       '/aprender',
     );
+
+    // Y «Seguir» lleva a la siguiente que se haya abierto, no de vuelta al
+    // camino: encadenar unidades es la mitad de por qué esto engancha.
+    await userEvent.click(screen.getByRole('button', { name: 'Seguir' }));
+
+    expect(empujar).toHaveBeenCalledWith(`/aprender/${UNIT_ORDER[1]!}`);
   });
 });

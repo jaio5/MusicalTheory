@@ -6,13 +6,15 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
-import { EMPTY_PROGRESS, UNIT_ORDER } from '@core/music';
+import { EMPTY_PROGRESS, findUnit, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
 
 import { PathScreen } from './PathScreen';
 
+const empujar = vi.fn();
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+  useRouter: () => ({ refresh: () => {}, push: empujar }),
   usePathname: () => '/aprender',
 }));
 
@@ -46,6 +48,8 @@ describe('El profesor dentro del camino', () => {
  * —el temario se acabó, o lo que viene va con plan— y solo uno de ellos se
  * arregla pagando.
  */
+
+const UNIDAD = findUnit(UNIT_ORDER[0]!)!;
 
 const PRO: Account = {
   email: 'javier@example.com',
@@ -111,5 +115,59 @@ describe('lo que se pulsa nueve de cada diez veces', () => {
 
     expect(screen.getByRole('heading', { name: /Aprender/ })).toBeInTheDocument();
     expect(screen.getAllByRole('button').length).toBeGreaterThan(UNIT_ORDER.length / 2);
+  });
+});
+
+describe('moverse por el camino', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    empujar.mockReset();
+  });
+
+  it('pulsar una unidad abierta lleva a su direccion', async () => {
+    // Con `router.push` y no con un enlace: así no se recarga la página y no se
+    // pierde la tonalidad detectada ni el micro abierto.
+    pintar();
+
+    // El nombre accesible es el que oye quien no ve el camino, así que es por
+    // donde se busca aquí también.
+    await userEvent.click(screen.getByRole('button', { name: new RegExp(UNIDAD.unit.title, 'i') }));
+
+    expect(empujar).toHaveBeenCalledWith(`/aprender/${UNIT_ORDER[0]!}`);
+  });
+
+  it('con plan y algo pendiente, la meta del dia ofrece repasar', async () => {
+    const hoy = new Date();
+    const dia = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(
+      hoy.getDate(),
+    ).padStart(2, '0')}`;
+    localStorage.setItem(
+      'caos-ordenado:aprender',
+      JSON.stringify({
+        ...EMPTY_PROGRESS,
+        review: [{ unitId: UNIT_ORDER[0]!, index: 0, dueOn: dia, streak: 0 }],
+      }),
+    );
+
+    pintar(PRO);
+
+    const repasar = screen
+      .getAllByRole('button', { name: /repas/i })
+      .find((boton) => boton.tagName === 'BUTTON')!;
+    await userEvent.click(repasar);
+
+    expect(empujar).toHaveBeenCalledWith('/aprender/repaso');
+  });
+
+  it('el punto de partida se puede mover desde aqui', async () => {
+    // Elegirlo no da por hechas las unidades anteriores: es de dónde arrancas,
+    // no lo que ya sabes.
+    pintar(PRO);
+
+    await userEvent.selectOptions(screen.getByRole('combobox'), 'elemental-2');
+
+    expect(JSON.parse(localStorage.getItem('caos-ordenado:aprender')!).startCourse).toBe(
+      'elemental-2',
+    );
   });
 });
