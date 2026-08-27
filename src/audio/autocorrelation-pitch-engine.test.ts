@@ -223,4 +223,80 @@ describe('AutocorrelationPitchEngine', () => {
     advance(200);
     expect(received).toHaveLength(seen);
   });
+
+  it('el nivel se informa siempre, haya nota o no', () => {
+    // Es el dato con el que se ajustan los umbrales: sin él, la barra de señal
+    // se quedaría quieta mientras se busca el sitio del micro.
+    const niveles: number[] = [];
+    engine.subscribeLevel((nivel) => niveles.push(nivel));
+    input.frequency = null;
+
+    return engine.start(input).then(() => {
+      advance(100);
+
+      expect(niveles.length).toBeGreaterThan(0);
+      // Silencio: nivel cero, pero informado.
+      expect(niveles.every((n) => n === 0)).toBe(true);
+    });
+  });
+
+  it('quien deja de escuchar el nivel deja de recibirlo', async () => {
+    const niveles: number[] = [];
+    const dejar = engine.subscribeLevel((nivel) => niveles.push(nivel));
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    const cuantos = niveles.length;
+
+    dejar();
+    advance(100);
+
+    expect(niveles.length).toBe(cuantos);
+  });
+
+  it('quien deja de escuchar las notas, tambien', async () => {
+    const propias: Array<PitchSample | null> = [];
+    const dejar = engine.subscribe((sample) => propias.push(sample));
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    const cuantos = propias.length;
+
+    dejar();
+    advance(100);
+
+    expect(propias.length).toBe(cuantos);
+  });
+
+  it('parado no analiza nada', async () => {
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    const cuantos = samples.length;
+
+    // Al parar se avisa una vez con nulo —la nota deja de sonar— y después ya
+    // no llega nada más.
+    engine.stop();
+    const alParar = samples.length;
+    advance(500);
+
+    expect(alParar).toBeLessThanOrEqual(cuantos + 1);
+    expect(samples.length).toBe(alParar);
+    expect(engine.running).toBe(false);
+  });
+
+  it('arrancarlo dos veces no deja dos bucles analizando', async () => {
+    // Pasaba al cambiar de pantalla y volver: dos temporizadores leyendo el
+    // mismo buffer, y el doble de trabajo en el hilo que dibuja.
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    const unBucle = samples.length;
+
+    samples.length = 0;
+    await engine.start(input);
+    advance(100);
+
+    expect(samples.length).toBeLessThanOrEqual(unBucle + 1);
+  });
 });

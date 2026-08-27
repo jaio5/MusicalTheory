@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
-import { EMPTY_PROGRESS, pitchClassFromName, UNIT_ORDER } from '@core/music';
+import { EMPTY_PROGRESS, findUnit, pitchClassFromName, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
 import { useSessionStore } from '@state/session-store';
 
@@ -155,5 +155,35 @@ describe('contestar la unidad entera', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Seguir' }));
 
     expect(empujar).toHaveBeenCalledWith(`/aprender/${UNIT_ORDER[1]!}`);
+  });
+});
+
+describe('una unidad de tocar', () => {
+  /**
+   * Las de tocar no preguntan: enseñan la escala sobre el mástil y esperan a que
+   * suene. Lo que se comprueba aquí es que **la pantalla las trata como una
+   * unidad más** —mismo marco, misma tonalidad, mismo XP— y que lo que costó
+   * entra en la cola de repaso igual que una pregunta fallada. Terminarla sigue
+   * siendo terminarla: aquí no se suspende.
+   */
+  const DE_TOCAR = UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!;
+
+  it('se abre con su mástil, no con preguntas', () => {
+    // La primera de tocar va después de la primera de teoría, así que hay que
+    // haberla hecho para que esté abierta.
+    const antes = UNIT_ORDER.slice(0, UNIT_ORDER.indexOf(DE_TOCAR));
+    localStorage.setItem(
+      'caos-ordenado:aprender',
+      JSON.stringify({ ...EMPTY_PROGRESS, done: antes }),
+    );
+    useSessionStore.getState().actions.reset();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    pintar(DE_TOCAR, PRO);
+
+    expect(screen.getByText(/XP$/)).toBeInTheDocument();
+    expect(screen.getByText(/Tonalidad:/)).toBeInTheDocument();
+    // Sin preguntas: lo que hay es el mástil esperando a que suene algo.
+    expect(screen.queryAllByRole('group').some((g) => g.tagName === 'FIELDSET')).toBe(false);
   });
 });

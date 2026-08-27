@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { levantarBaseDePrueba, type BaseDePrueba } from './db/para-tests';
 import type * as RateLimitDb from './rate-limit-db';
@@ -125,5 +125,64 @@ describe('vaciar la tabla', () => {
     // Lo que se comprueba es que el barrido corre sin lanzar y sin borrar lo que
     // aún cuenta: la clave de arriba sigue con su ventana viva.
     expect((await pedir('ip:barrido:0', AHORA)).remaining).toBe(1);
+  });
+});
+
+describe('cuando la base contesta un error', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('se cae al de memoria, pero en desarrollo se dice', async () => {
+    // Este `catch` mudo escondió durante una fase entera que la sentencia
+    // estaba mal y que aquí no se compartía nada: funcionaba desde fuera. El
+    // aviso es lo que lo habría enseñado el primer día.
+    const registro = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await base.ejecutar('alter table rate_limits rename to rate_limits_escondida');
+    const mem = memoria();
+
+    try {
+      const primera = await pedir('ip:rota', AHORA, mem);
+      const segunda = await pedir('ip:rota', AHORA, mem);
+
+      // Cuenta el de memoria, así que sigue contando.
+      expect(primera.allowed).toBe(true);
+      expect(segunda.remaining).toBe(1);
+      expect(registro).toHaveBeenCalled();
+    } finally {
+      await base.ejecutar('alter table rate_limits_escondida rename to rate_limits');
+    }
+  });
+
+  it('en produccion se cae igual, pero sin escribir en el registro', async () => {
+    // Un registro lleno de avisos por cada petición no ayuda a nadie, y el
+    // camino de recuperación es el mismo.
+    vi.stubEnv('NODE_ENV', 'production');
+    const registro = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await base.ejecutar('alter table rate_limits rename to rate_limits_escondida');
+
+    try {
+      expect((await pedir('ip:rota-prod', AHORA)).allowed).toBe(true);
+      expect(registro).not.toHaveBeenCalled();
+    } finally {
+      await base.ejecutar('alter table rate_limits_escondida rename to rate_limits');
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('barrer una tabla que no esta no tumba la peticion que venia a otra cosa', async () => {
+    await base.ejecutar('alter table rate_limits rename to rate_limits_escondida');
+
+    try {
+      // Cincuenta peticiones disparan el barrido, y el barrido falla: lo que no
+      // puede es propagarse.
+      for (let i = 0; i < 55; i += 1) {
+        await pedir(`ip:barrido-roto:${i}`, AHORA);
+      }
+    } finally {
+      await base.ejecutar('alter table rate_limits_escondida rename to rate_limits');
+    }
+
+    expect((await pedir('ip:despues', AHORA)).allowed).toBe(true);
   });
 });
