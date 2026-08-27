@@ -361,6 +361,56 @@ describe('el vale de la contraseña olvidada', () => {
     expect(await vales.resetPassword(pedido!.token, 'otraLargaTambien', new Date())).toBe('ok');
   });
 
+  it('un vale que no es una cadena no vale, y no toca la base', async () => {
+    // Llega de la barra de direcciones: puede ser cualquier cosa.
+    for (const raro of [null, undefined, 42, '', {}]) {
+      expect(await vales.resetPassword(raro, 'unaContrasenaLarga', new Date()), String(raro)).toBe(
+        'vale-no-vale',
+      );
+    }
+  });
+
+  it('un vale inventado tampoco', async () => {
+    await cuenta();
+
+    expect(await vales.resetPassword('a'.repeat(64), 'unaContrasenaLarga', new Date())).toBe(
+      'vale-no-vale',
+    );
+  });
+
+  it('sin base de datos se dice que aqui no se puede, no que el vale sea malo', async () => {
+    // Son dos cosas distintas: una se arregla configurando la aplicación y la
+    // otra pidiendo otro correo.
+    const guardada = process.env['DATABASE_URL'];
+    delete process.env['DATABASE_URL'];
+
+    try {
+      expect(await vales.requestReset('a@b.c', new Date())).toBeNull();
+      expect(await vales.resetPassword('x'.repeat(64), 'unaContrasenaLarga', new Date())).toBe(
+        'sin-base-de-datos',
+      );
+      // Barrer sin base de datos no es un error: no hay nada que barrer.
+      await expect(vales.pruneResets(new Date())).resolves.toBeUndefined();
+    } finally {
+      process.env['DATABASE_URL'] = guardada;
+    }
+  });
+
+  it('con la base rota, ni se crea ni se gasta, y barrer no revienta', async () => {
+    await cuenta();
+    await base.ejecutar('alter table password_resets rename to password_resets_escondida');
+
+    try {
+      expect(await vales.requestReset('a@b.c', new Date())).toBeNull();
+      expect(await vales.resetPassword('x'.repeat(64), 'unaContrasenaLarga', new Date())).toBe(
+        'error',
+      );
+      await expect(vales.pruneResets(new Date())).resolves.toBeUndefined();
+    } finally {
+      await base.ejecutar('alter table password_resets_escondida rename to password_resets');
+    }
+  });
+
   it('los caducados se pueden barrer sin tocar los vivos', async () => {
     await cuenta();
     const vivo = await vales.requestReset('a@b.c', new Date());

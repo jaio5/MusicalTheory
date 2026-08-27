@@ -546,3 +546,122 @@ describe('la clase que se pide manda', () => {
     ).toBeNull();
   });
 });
+
+/** Una rearmonización que el validador acepta: el tritono sobre el V. */
+const BUENA = [
+  { degree: 'I', move: null },
+  { degree: 'bII', move: 'tritono' },
+  { degree: 'vi', move: null },
+  { degree: 'ii', move: 'relativo' },
+];
+
+describe('lo que llega mal formado, tanto de fuera como del modelo', () => {
+  /**
+   * Los dos extremos de esta pieza reciben algo que no controla: la petición
+   * viene del navegador y la respuesta, de un modelo. La regla es la misma en
+   * los dos: **lo que no se entiende se descarta, y lo que se descarta no tumba
+   * lo demás**. Una salida mal escrita se cae; las otras dos se sirven.
+   */
+  it('una peticion sin progresion no es una peticion', () => {
+    expect(
+      parseVersionsRequest({ kind: 'retocar', key: { tonic: 'C', mode: 'major' } }),
+    ).toBeNull();
+    expect(
+      parseVersionsRequest({
+        kind: 'retocar',
+        key: { tonic: 'C', mode: 'major' },
+        progression: 'I V',
+      }),
+    ).toBeNull();
+  });
+
+  it('los compases que no son compases se caen, no rompen la peticion', () => {
+    const leida = parseVersionsRequest({
+      kind: 'retocar',
+      key: { tonic: 'C', mode: 'major' },
+      progression: [
+        { degree: 'I', beats: 4 },
+        'esto no es un paso',
+        { degree: 'vii', beats: 4 },
+        { beats: 4 },
+        { degree: 'V', beats: 4 },
+      ],
+    });
+
+    // `vii` no es un grado de Do mayor —es `vii°`— así que tampoco entra.
+    expect(leida?.progression.map((p) => p.degree)).toEqual(['I', 'V']);
+  });
+
+  it('una salida sin partes se descarta, y las buenas se sirven', () => {
+    // Siempre por partes, aunque sea una sola: dos formas distintas eran dos
+    // sitios donde el modelo podía equivocarse, y se equivocaba en todos.
+    const buenas = validateVersions(
+      {
+        versions: [
+          { path: 'rearmonizar', title: 'Sin partes', why: 'x' },
+          { path: 'rearmonizar', title: 'Con partes', why: 'y', sections: 'tampoco' },
+          version(BUENA),
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(buenas.map((v) => v.title)).toEqual(['Más oscura']);
+  });
+
+  it('una parte sin nombre o sin pasos tira esa salida entera', () => {
+    // A medias no vale: media canción es peor que ninguna, porque suena y no se
+    // sabe qué falta.
+    const salidas = validateVersions(
+      {
+        // La buena, primera: solo se miran las tres primeras, que es el tope.
+        versions: [
+          version(BUENA),
+          { path: 'rearmonizar', title: 'x', why: 'y', sections: ['no es un objeto'] },
+          { path: 'rearmonizar', title: 'x', why: 'y', sections: [{ name: 'A' }] },
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(salidas).toHaveLength(1);
+  });
+
+  it('un paso que no es un objeto tira la salida, no solo el paso', () => {
+    // Saltárselo dejaría una progresión más corta que la que el modelo razonó, y
+    // el porqué que la acompaña dejaría de cuadrar.
+    const salidas = validateVersions(
+      {
+        versions: [
+          {
+            path: 'rearmonizar',
+            title: 'x',
+            why: 'y',
+            sections: [{ name: 'A', steps: ['nada'] }],
+          },
+          version(BUENA),
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(salidas).toHaveLength(1);
+  });
+
+  it('sin titulo o sin porque, tampoco vale', () => {
+    // El porqué es la mitad del valor: una progresión sin explicación es una
+    // lista de acordes que nadie sabe por qué mirar.
+    const salidas = validateVersions(
+      {
+        versions: [
+          version(BUENA),
+          { ...version(BUENA), title: '' },
+          { ...version(BUENA), why: '' },
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(salidas).toHaveLength(1);
+  });
+});
