@@ -42,6 +42,8 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
   /** La grabación en curso, si la hay. */
   #grabadora: MediaRecorder | null = null;
   #trozos: Blob[] = [];
+  /** El reloj del tope de duración. Se apaga al parar, o quedaría suelto. */
+  #relojDelTope: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: AudioInputOptions = {}) {
     this.frameSize = options.frameSize ?? DEFAULT_FRAME_SIZE;
@@ -215,9 +217,20 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
       });
       grabadora.start();
       this.#grabadora = grabadora;
+
       // El tope no es una regla musical: son 34 MB de memoria por cada tres
       // minutos a 48 kHz. Se para sola por si alguien deja el botón puesto.
-      setTimeout(() => this.#grabadora?.stop(), MAX_RECORDING_SECONDS * 1000);
+      //
+      // **El reloj para esta grabadora y solo esta.** Estuvo leyendo
+      // `this.#grabadora` al disparar, que es la de entonces y no la de ahora:
+      // grabar diez segundos, parar, y volver a grabar dejaba un reloj vivo que
+      // a los tres minutos del primero cortaba la segunda grabación por la
+      // mitad, sin motivo visible. Se cierra sobre la suya y se apaga al parar.
+      this.#relojDelTope = setTimeout(() => {
+        if (grabadora.state !== 'inactive') {
+          grabadora.stop();
+        }
+      }, MAX_RECORDING_SECONDS * 1000);
       return true;
     } catch {
       this.#grabadora = null;
@@ -229,6 +242,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
     const grabadora = this.#grabadora;
     const context = this.#context;
     this.#grabadora = null;
+    this.#apagarReloj();
     if (grabadora === null || context === null) {
       return null;
     }
@@ -271,6 +285,14 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
     }
     this.#grabadora = null;
     this.#trozos = [];
+    this.#apagarReloj();
+  }
+
+  #apagarReloj(): void {
+    if (this.#relojDelTope !== null) {
+      clearTimeout(this.#relojDelTope);
+      this.#relojDelTope = null;
+    }
   }
 
   async stop(): Promise<void> {

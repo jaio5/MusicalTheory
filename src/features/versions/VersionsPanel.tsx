@@ -8,18 +8,19 @@ import {
   degreesFromPath,
   moveById,
   noteName,
-  pathById,
   resolveDegree,
   scheduleProgression,
   type CapturedStep,
-  type SalidaKind,
+  type PathKind,
 } from '@core/music';
-import { analizarGrabacion } from '@audio/analyze-recording';
+import { analyzeRecording } from '@audio/analyze-recording';
 import { canRecord } from '@audio/recorder';
 import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
 import { useAccount } from '@state/account';
 import { entradaActiva } from '@state/use-listening';
 import { apiErrorOf } from '@state/api-error';
+
+import { Salida } from './Salida';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { PlanLock } from '@ui/PlanLock';
@@ -92,7 +93,7 @@ export function VersionsPanel({
    * esquema que se le manda, y con el esquema exacto pasa de cero salidas
    * válidas a tres de tres. El porqué está en `core/music/paths.ts`.
    */
-  const [kind, setKind] = useState<SalidaKind>('continuar');
+  const [kind, setKind] = useState<PathKind>('continuar');
 
   const playerRef = useRef<ProgressionPlayer | null>(null);
   const factoryRef = useRef(createPlayer);
@@ -234,7 +235,7 @@ export function VersionsPanel({
       if (grabacion === null) {
         return;
       }
-      const acordes = await analizarGrabacion(grabacion, {
+      const acordes = await analyzeRecording(grabacion, {
         key: activeKey === null ? undefined : { tonic: activeKey.tonic, mode: activeKey.mode },
       });
       // Solo se pisa lo oído en vivo si el análisis ha sacado algo. Un análisis
@@ -396,88 +397,14 @@ export function VersionsPanel({
       {versions.length > 0 && (
         <ul className="mt-6 space-y-4">
           {versions.map((version) => (
-            <li key={version.title} className="superficie p-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span>
-                  <h3 className="text-text text-base">{version.title}</h3>
-                  {/* Por dónde ha tirado. Es lo que separa una salida de otra, y
-                      sin ello tres propuestas parecen tres caprichos. */}
-                  <span className="text-text-muted block font-mono text-xs uppercase">
-                    {pathById(version.path)?.name ?? version.path}
-                  </span>
-                </span>
-                <span className="flex flex-wrap gap-2">
-                  {/* Escuchar antes que ponerla: comparar tres versiones
-                      leyéndolas cuesta, y para cuando has tocado la tercera se
-                      te ha olvidado cómo sonaba la primera. */}
-                  <Button variant="quiet" onClick={() => void escuchar(version)}>
-                    {sonando?.title === version.title ? 'Parar' : 'Escuchar'}
-                  </Button>
-                  <Button variant="quiet" onClick={() => use(version)}>
-                    Quedarme con esta
-                  </Button>
-                </span>
-              </div>
-              <p className="text-text-muted mt-1 text-sm">{version.why}</p>
-
-              {version.sections.map((seccion) => (
-                <div key={`${version.title}-${seccion.name}`} className="mt-3">
-                  {/* El nombre de la parte solo se pinta cuando hay más de una:
-                      con una sola sería un rótulo de adorno encima de lo mismo
-                      de siempre. */}
-                  {version.sections.length > 1 && (
-                    <p className="text-text-muted font-mono text-xs uppercase">
-                      {seccion.name}
-                      {seccion.tuya && <span className="text-brass-bright"> · lo que tocaste</span>}
-                    </p>
-                  )}
-                  <ol
-                    aria-label={`${seccion.name} de ${version.title}`}
-                    className="mt-1 flex flex-wrap gap-2"
-                  >
-                    {seccion.steps.map((step, index) => {
-                      const move = step.move === null ? null : moveById(step.move);
-                      const suena = sonando?.title === version.title && sonando.step === index;
-                      // Tres estados y no dos, desde que una salida puede alargar:
-                      // el compás es nuevo, es tuyo y ha cambiado, o es tuyo y sigue
-                      // igual. Lo que no es tuyo es lo que hay que mirar primero.
-                      const nuevo = step.from === null;
-                      const cambia = !nuevo && step.from !== step.degree;
-                      return (
-                        <li
-                          key={`${version.title}-${seccion.name}-${index}`}
-                          // Lo que se propone se destaca y lo que se queda se apaga:
-                          // es lo único que hace falta ver de un vistazo con la
-                          // guitarra puesta. Y el que suena lleva halo, que es lo
-                          // que deja seguir la progresión con el oído y con la vista
-                          // a la vez.
-                          className={`rounded-md px-2 py-1 text-center transition-shadow ${
-                            nuevo || cambia ? 'superficie-viva' : 'text-text-muted'
-                          } ${suena ? 'ring-brass-bright ring-2' : ''}`}
-                          title={
-                            nuevo
-                              ? 'Compás nuevo: no estaba en lo que tocaste'
-                              : cambia
-                                ? (move?.why ?? 'Cambia respecto a lo que tocaste')
-                                : 'Se queda como estaba'
-                          }
-                          aria-current={suena ? 'true' : undefined}
-                        >
-                          <span className="text-text block font-mono text-base">{step.symbol}</span>
-                          <span className="text-text-muted block font-mono text-xs">
-                            {cambia ? `${step.from} → ${step.degree}` : step.degree}
-                          </span>
-                          {nuevo && <span className="text-brass-bright block text-xs">nuevo</span>}
-                          {move !== null && (
-                            <span className="text-brass-bright block text-xs">{move.name}</span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              ))}
-            </li>
+            <Salida
+              key={`${version.path}-${version.title}`}
+              version={version}
+              suena={sonando?.title === version.title}
+              compas={sonando?.step ?? null}
+              onEscuchar={() => void escuchar(version)}
+              onQuedarse={() => use(version)}
+            />
           ))}
         </ul>
       )}

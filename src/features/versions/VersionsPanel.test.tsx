@@ -51,7 +51,7 @@ const UNA: Version = {
   path: 'rearmonizar',
   title: 'Más oscura',
   why: 'Cambia la dominante por la que está a un tritono.',
-  sections: [{ name: 'Lo que llevas', tuya: false, steps: [...PASOS] }],
+  sections: [{ name: 'Lo que llevas', yours: false, steps: [...PASOS] }],
   steps: [...PASOS],
 };
 

@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import {
-  MAX_MODEL_ATTEMPTS,
-  needsPlanMessage,
-  planOf,
-  quotaMessage,
-  TOKEN_BUDGETS,
-} from '@core/billing';
+import { MAX_MODEL_ATTEMPTS, TOKEN_BUDGETS } from '@core/billing';
 import { degreesFor } from '@core/music';
 import {
   MARCA_PREGUNTA,
@@ -16,12 +10,11 @@ import {
   validateTeacherAnswer,
   type TeacherRequest,
 } from '@features/learn/teacher-contract';
-import { askModel, modelAvailable } from '@server/ask-model';
+import { abrirPuertaDeIa, frenarPorFrecuencia } from '@server/ai-gate';
+import { askModel } from '@server/ask-model';
 import { respuestaSinIA } from '@server/fake-model';
 import { ANSWER_SCHEMA, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
-import { spendAi } from '@server/entitlements';
-import { limitRequest } from '@server/rate-limit-db';
-import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
+import { SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
  * El profesor. Como el de ideas, es un route handler: el SDK de Anthropic y la
@@ -73,16 +66,9 @@ function buildPrompt(request: TeacherRequest, validDegrees: readonly string[]): 
 export async function POST(request: Request): Promise<NextResponse> {
   const now = Date.now();
   // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
-  const { allowed, retryAfterSeconds } = await limitRequest({
-    memoria: limiter,
-    key: requesterKey(request.headers),
-    now,
-  });
-  if (!allowed) {
-    return NextResponse.json(teacherError('rate_limited'), {
-      status: 429,
-      headers: { 'Retry-After': String(retryAfterSeconds) },
-    });
+  const frenada = await frenarPorFrecuencia(request, limiter, teacherError, now);
+  if (frenada !== null) {
+    return frenada;
   }
 
   let body: unknown;
@@ -97,37 +83,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(teacherError('invalid_request'), { status: 400 });
   }
 
-  // Sin clave, antes de gastar cupo. `askModel` fallaría igual unas líneas más
-  // abajo, pero para entonces la petición ya está contada: alguien se quedaría
-  // sin preguntas del mes por una variable de entorno que falta.
-  if (!modelAvailable()) {
-    return NextResponse.json(teacherError('model_unavailable'), { status: 503 });
-  }
-
-  // El cupo del plan. Se gasta aquí, antes de llamar al modelo, y por eso el
-  // reintento de abajo no vuelve a pasar por esta puerta: se cobra un intento,
-  // no dos.
-  const permiso = await spendAi('profesor');
-  if (permiso.kind === 'sin-cuenta') {
-    return NextResponse.json(teacherError('account_required'), { status: 401 });
-  }
-  if (permiso.kind === 'plan') {
-    return NextResponse.json(
-      teacherError('plan_required', needsPlanMessage(permiso.needed, 'Preguntarle al profesor')),
-      { status: 402 },
-    );
-  }
-  if (permiso.kind === 'cupo') {
-    return NextResponse.json(
-      teacherError(
-        'quota_exhausted',
-        quotaMessage(planOf(permiso.account.plan), permiso.account.aiModel, permiso.scope),
-      ),
-      { status: 429 },
-    );
-  }
-  if (permiso.kind === 'sin-contador') {
-    return NextResponse.json(teacherError('model_unavailable'), { status: 503 });
+  const cerrada = await abrirPuertaDeIa({
+    feature: 'profesor',
+    error: teacherError,
+    loQueEs: 'Preguntarle al profesor',
+    plural: false,
+  });
+  if (cerrada !== null) {
+    return cerrada;
   }
 
   const prompt = buildPrompt(parsed, degreesFor(parsed.key.mode));

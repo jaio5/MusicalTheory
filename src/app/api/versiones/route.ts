@@ -1,20 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import {
-  MAX_MODEL_ATTEMPTS,
-  needsPlanMessage,
-  planOf,
-  quotaMessage,
-  TOKEN_BUDGETS,
-} from '@core/billing';
-import {
-  degreesFor,
-  MOVES,
-  PATHS,
-  PATHS_BY_KIND,
-  textoDelGrafo,
-  type SalidaKind,
-} from '@core/music';
+import { MAX_MODEL_ATTEMPTS, TOKEN_BUDGETS } from '@core/billing';
+import { degreesFor, MOVES, PATHS, PATHS_BY_KIND, graphText, type PathKind } from '@core/music';
 
 import {
   parseVersionsRequest,
@@ -22,12 +9,11 @@ import {
   versionsError,
   type VersionsRequest,
 } from '@features/versions/contract';
-import { askModel, modelAvailable } from '@server/ask-model';
+import { abrirPuertaDeIa, frenarPorFrecuencia } from '@server/ai-gate';
+import { askModel } from '@server/ask-model';
 import { versionesSinIA } from '@server/fake-model';
-import { spendAi } from '@server/entitlements';
 import { versionsSchema, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
-import { limitRequest } from '@server/rate-limit-db';
-import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
+import { SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
  * Route handler de versiones. Como el de ideas: el SDK y la clave solo se
@@ -70,7 +56,7 @@ const MAX_TOKENS = TOKEN_BUDGETS.versiones.output;
  * una salida que el validador no sabe comprobar, todas las que la usaran caerían
  * sin que nadie entendiera por qué.
  */
-function pathsText(kind: SalidaKind): string {
+function pathsText(kind: PathKind): string {
   return PATHS.filter((path) => PATHS_BY_KIND[kind].includes(path.id))
     .map((path) => `- ${path.id}: ${path.why}`)
     .join('\n');
@@ -92,7 +78,7 @@ function buildPrompt(request: VersionsRequest): string {
     // El mapa de saltos es lo que convierte «inventa algo» en «elige por dónde».
     // Es el mismo truco que llevó las ideas de 0 de 4 a 4 de 4: enseñarle lo que
     // el validador va a comprobar, en vez de pedírselo en prosa.
-    `Mapa de saltos (de cada grado, a dónde puedes ir):\n${textoDelGrafo(mode, degreesFor(mode))}`,
+    `Mapa de saltos (de cada grado, a dónde puedes ir):\n${graphText(mode, degreesFor(mode))}`,
     `Lo que lleva tocado (grado y pulsos): ${progresion}`,
   ];
 
@@ -110,16 +96,9 @@ function buildPrompt(request: VersionsRequest): string {
 export async function POST(request: Request): Promise<NextResponse> {
   const now = Date.now();
   // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
-  const { allowed, retryAfterSeconds } = await limitRequest({
-    memoria: limiter,
-    key: requesterKey(request.headers),
-    now,
-  });
-  if (!allowed) {
-    return NextResponse.json(versionsError('rate_limited'), {
-      status: 429,
-      headers: { 'Retry-After': String(retryAfterSeconds) },
-    });
+  const frenada = await frenarPorFrecuencia(request, limiter, versionsError, now);
+  if (frenada !== null) {
+    return frenada;
   }
 
   let body: unknown;
@@ -134,39 +113,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(versionsError('invalid_request'), { status: 400 });
   }
 
-  // Sin clave, antes de gastar cupo. `askModel` fallaría igual unas líneas
-  // más abajo, pero para entonces la petición ya está contada: alguien se
-  // quedaría sin peticiones del mes por una variable de entorno que falta.
-  if (!modelAvailable()) {
-    return NextResponse.json(versionsError('model_unavailable'), { status: 503 });
-  }
-
-  // El cupo del plan después del límite por minuto: comprobar memoria es gratis
-  // y escribir en la base de datos no.
-  const permiso = await spendAi('versiones');
-  if (permiso.kind === 'sin-cuenta') {
-    return NextResponse.json(versionsError('account_required'), { status: 401 });
-  }
-  if (permiso.kind === 'plan') {
-    return NextResponse.json(
-      versionsError(
-        'plan_required',
-        needsPlanMessage(permiso.needed, 'Las versiones de tus canciones', true),
-      ),
-      { status: 402 },
-    );
-  }
-  if (permiso.kind === 'cupo') {
-    return NextResponse.json(
-      versionsError(
-        'quota_exhausted',
-        quotaMessage(planOf(permiso.account.plan), permiso.account.aiModel, permiso.scope),
-      ),
-      { status: 429 },
-    );
-  }
-  if (permiso.kind === 'sin-contador') {
-    return NextResponse.json(versionsError('model_unavailable'), { status: 503 });
+  const cerrada = await abrirPuertaDeIa({
+    feature: 'versiones',
+    error: versionsError,
+    loQueEs: 'Las salidas de lo que tocas',
+    plural: true,
+  });
+  if (cerrada !== null) {
+    return cerrada;
   }
 
   const prompt = buildPrompt(parsed);

@@ -11,8 +11,8 @@
 
 import {
   degreesFor,
+  parseKey,
   findUnit,
-  NOTE_NAMES,
   resolveProgression,
   SCALE_IDS,
   type DegreeSymbol,
@@ -126,19 +126,11 @@ export function parseTeacherRequest(body: unknown): TeacherRequest | null {
     return null;
   }
 
-  const key = body['key'];
-  if (!isRecord(key)) {
+  const key = parseKey(body['key']);
+  if (key === null) {
     return null;
   }
-  const tonic = key['tonic'];
-  const mode = key['mode'];
-  if (
-    typeof tonic !== 'string' ||
-    !(NOTE_NAMES as readonly string[]).includes(tonic) ||
-    (mode !== 'major' && mode !== 'minor')
-  ) {
-    return null;
-  }
+  const { tonic, mode } = key;
 
   const question = body['question'];
   if (typeof question !== 'string' || question.trim() === '') {

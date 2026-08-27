@@ -24,7 +24,7 @@ function version(steps: ReadonlyArray<{ degree: string; move: string | null }>) 
     sections: [
       {
         name: 'Lo que llevas',
-        tuya: false,
+        yours: false,
         steps: steps.map((step, index) => ({
           degree: step.degree,
           beats: EN_DO.progression[index]!.beats,
@@ -44,7 +44,7 @@ function salida(path: string, pasos: ReadonlyArray<readonly [string, number]>) {
     sections: [
       {
         name: 'Lo que llevas',
-        tuya: false,
+        yours: false,
         steps: pasos.map(([degree, beats]) => ({ degree, beats, move: null })),
       },
     ],
@@ -56,7 +56,7 @@ function cancion(
   path: string,
   partes: ReadonlyArray<{
     name: string;
-    tuya?: boolean;
+    yours?: boolean;
     pasos: ReadonlyArray<readonly [string, number]>;
   }>,
 ) {
@@ -66,7 +66,7 @@ function cancion(
     why: 'Una canción distinta para lo mismo.',
     sections: partes.map((parte) => ({
       name: parte.name,
-      tuya: parte.tuya === true,
+      yours: parte.yours === true,
       steps: parte.pasos.map(([degree, beats]) => ({ degree, beats, move: null })),
     })),
   };
@@ -292,7 +292,7 @@ describe('validateVersions', () => {
       sections: [
         {
           name: 'Lo que llevas',
-          tuya: false,
+          yours: false,
           steps: [
             { degree: 'I', beats: 99, move: null },
             { degree: 'bII', beats: 99, move: 'tritono' },
@@ -313,7 +313,7 @@ describe('validateVersions', () => {
       sections: [
         {
           name: 'Lo que llevas',
-          tuya: false,
+          yours: false,
           steps: [
             { degree: 'I', beats: 4, move: null },
             { degree: 'V', beats: 4, move: null },
@@ -351,9 +351,9 @@ describe('validateVersions', () => {
 
       expect(versions).toHaveLength(1);
       expect(versions[0]!.path).toBe('seguir');
-      // Dos partes con su nombre, y la primera es la tuya.
+      // Dos partes con su nombre, y la primera es la yours.
       expect(versions[0]!.sections.map((s) => s.name)).toEqual(['Lo que llevas', 'Estribillo']);
-      expect(versions[0]!.sections[0]!.tuya).toBe(true);
+      expect(versions[0]!.sections[0]!.yours).toBe(true);
       // Los compases nuevos no salen de ninguno tuyo, y la pantalla lo sabe por esto.
       expect(versions[0]!.steps.map((step) => step.from)).toEqual([
         'I',
@@ -378,7 +378,7 @@ describe('validateVersions', () => {
         sections: [
           {
             name: 'Lo que llevas',
-            tuya: false,
+            yours: false,
             steps: [
               { degree: 'I', beats: 8, move: 'interrumpida' },
               { degree: 'V', beats: 8, move: 'interrumpida' },

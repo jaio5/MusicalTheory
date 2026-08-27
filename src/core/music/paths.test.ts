@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  esSaltoConocido,
-  motivoDeDescarteDeCancion,
-  tienePartes,
-  esSalidaValida,
-  motivoDeDescarte,
+  canFollow,
+  songProblem,
+  hasSections,
+  isValidPath,
+  pathProblem,
   PATHS,
   pathById,
-  textoDelGrafo,
+  graphText,
   type PathStep,
   type ProposedStep,
 } from './paths';
@@ -57,31 +57,21 @@ describe('lo que vale para todas', () => {
   it('devolver tu canción tal cual no es una salida', () => {
     // Es el mismo motivo por el que una rearmonización que no cambia nada se
     // descartaba antes: eso ya lo tienes, y has pagado una petición por ello.
-    expect(motivoDeDescarte('minor', 'seguir', TUYO, [...TUYO])).toBe('es tu canción tal cual');
+    expect(pathProblem('minor', 'seguir', TUYO, [...TUYO])).toBe('es tu canción tal cual');
   });
 
   it('un compás de cero pulsos, o de cuarenta, no es un compás', () => {
     expect(
-      motivoDeDescarte(
-        'minor',
-        'estirar',
-        TUYO,
-        pasos(['i', 0], ['VI', 4], ['III', 4], ['VII', 4]),
-      ),
+      pathProblem('minor', 'estirar', TUYO, pasos(['i', 0], ['VI', 4], ['III', 4], ['VII', 4])),
     ).toBe('pulsos que no son un compás');
     expect(
-      motivoDeDescarte(
-        'minor',
-        'estirar',
-        TUYO,
-        pasos(['i', 40], ['VI', 4], ['III', 4], ['VII', 4]),
-      ),
+      pathProblem('minor', 'estirar', TUYO, pasos(['i', 40], ['VI', 4], ['III', 4], ['VII', 4])),
     ).toBe('pulsos que no son un compás');
   });
 
   it('una salida no puede pasar de treinta y dos compases', () => {
     const larga = Array.from({ length: 33 }, () => ({ degree: 'i' as const, beats: 4 }));
-    expect(motivoDeDescarte('minor', 'seguir', TUYO, larga)).toBe('largo fuera de rango');
+    expect(pathProblem('minor', 'seguir', TUYO, larga)).toBe('largo fuera de rango');
   });
 });
 
@@ -89,36 +79,30 @@ describe('seguir hasta cerrar', () => {
   it('mantiene tus compases, encadena saltos conocidos y cierra en la tónica', () => {
     // VII → i está en el grafo, y termina en la tónica.
     const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['i', 4]);
-    expect(motivoDeDescarte('minor', 'seguir', TUYO, salida)).toBeNull();
+    expect(pathProblem('minor', 'seguir', TUYO, salida)).toBeNull();
   });
 
   it('no vale si toca uno de tus compases', () => {
     const salida = pasos(['i', 4], ['iv', 4], ['III', 4], ['VII', 4], ['i', 4]);
-    expect(motivoDeDescarte('minor', 'seguir', TUYO, salida)).toBe(
-      'seguir no mantiene tus compases',
-    );
+    expect(pathProblem('minor', 'seguir', TUYO, salida)).toBe('seguir no mantiene tus compases');
   });
 
   it('no vale si el salto no está en el grafo', () => {
     // VII → bII no existe en el dominio: VII va a i, III o VI.
     const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['bII', 4], ['i', 4]);
-    expect(motivoDeDescarte('minor', 'seguir', TUYO, salida)).toBe(
-      'un salto que el dominio no conoce',
-    );
+    expect(pathProblem('minor', 'seguir', TUYO, salida)).toBe('un salto que el dominio no conoce');
   });
 
   it('no vale si no cierra', () => {
     const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['VI', 4]);
-    expect(motivoDeDescarte('minor', 'seguir', TUYO, salida)).toBe(
+    expect(pathProblem('minor', 'seguir', TUYO, salida)).toBe(
       'seguir tiene que cerrar en la tónica',
     );
   });
 
   it('no vale si no añade nada', () => {
     const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['i', 4]);
-    expect(motivoDeDescarte('minor', 'seguir', TUYO, salida)).toBe(
-      'seguir tiene que añadir compases',
-    );
+    expect(pathProblem('minor', 'seguir', TUYO, salida)).toBe('seguir tiene que añadir compases');
   });
 });
 
@@ -126,14 +110,14 @@ describe('una parte que contraste', () => {
   it('añade una parte que sabe volver al principio y no cierra', () => {
     // VII → VI (grafo), y desde VI se puede volver a i, que es tu primer compás.
     const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['VI', 4]);
-    expect(motivoDeDescarte('minor', 'contraste', TUYO, salida)).toBeNull();
+    expect(pathProblem('minor', 'contraste', TUYO, salida)).toBeNull();
   });
 
   it('si cierra en la tónica no es contraste: es seguir', () => {
     // La comprobación que hace que la etiqueta signifique algo. Sin ella el
     // modelo declararía la que le apeteciera.
     const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['i', 4]);
-    expect(motivoDeDescarte('minor', 'contraste', TUYO, salida)).toBe(
+    expect(pathProblem('minor', 'contraste', TUYO, salida)).toBe(
       'contraste no cierra: para eso está seguir',
     );
   });
@@ -142,11 +126,11 @@ describe('una parte que contraste', () => {
     // Desde III se va a VII, VI o iv: no hay vuelta a la tónica. Así que una
     // parte que acabe ahí no puede enlazar con tu primer compás, y eso es lo que
     // separa un contraste de una parte que se queda colgada.
-    expect(esSaltoConocido('minor', 'III', 'i')).toBe(false);
+    expect(canFollow('minor', 'III', 'i')).toBe(false);
 
     const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['VI', 4], ['III', 4]);
 
-    expect(motivoDeDescarte('minor', 'contraste', TUYO, salida)).toBe(
+    expect(pathProblem('minor', 'contraste', TUYO, salida)).toBe(
       'la parte nueva no sabe volver al principio',
     );
   });
@@ -156,24 +140,24 @@ describe('otro final', () => {
   it('deja en pie la primera mitad y cambia lo que viene después', () => {
     // VI → VII → i: los dos saltos están en el grafo del dominio.
     const salida = pasos(['i', 4], ['VI', 4], ['VII', 4], ['i', 4]);
-    expect(motivoDeDescarte('minor', 'otro-final', TUYO, salida)).toBeNull();
+    expect(pathProblem('minor', 'otro-final', TUYO, salida)).toBeNull();
   });
 
   it('puede acabar antes', () => {
     const salida = pasos(['i', 4], ['VI', 4], ['VII', 4]);
-    expect(motivoDeDescarte('minor', 'otro-final', TUYO, salida)).toBeNull();
+    expect(pathProblem('minor', 'otro-final', TUYO, salida)).toBeNull();
   });
 
   it('no vale si se carga la primera mitad', () => {
     const salida = pasos(['iv', 4], ['V', 4], ['i', 4], ['i', 4]);
-    expect(motivoDeDescarte('minor', 'otro-final', TUYO, salida)).toBe(
+    expect(pathProblem('minor', 'otro-final', TUYO, salida)).toBe(
       'otro final no deja en pie la primera mitad',
     );
   });
 
   it('no vale si alarga: para eso está seguir', () => {
     const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['i', 4]);
-    expect(motivoDeDescarte('minor', 'otro-final', TUYO, salida)).toBe(
+    expect(pathProblem('minor', 'otro-final', TUYO, salida)).toBe(
       'otro final no alarga: para eso está seguir',
     );
   });
@@ -182,14 +166,12 @@ describe('otro final', () => {
 describe('otro reparto', () => {
   it('los mismos grados en el mismo orden, durando otra cosa', () => {
     const salida = pasos(['i', 8], ['VI', 2], ['III', 4], ['VII', 4]);
-    expect(motivoDeDescarte('minor', 'estirar', TUYO, salida)).toBeNull();
+    expect(pathProblem('minor', 'estirar', TUYO, salida)).toBeNull();
   });
 
   it('no vale si toca un acorde', () => {
     const salida = pasos(['i', 8], ['iv', 2], ['III', 4], ['VII', 4]);
-    expect(motivoDeDescarte('minor', 'estirar', TUYO, salida)).toBe(
-      'estirar no cambia los acordes',
-    );
+    expect(pathProblem('minor', 'estirar', TUYO, salida)).toBe('estirar no cambia los acordes');
   });
 });
 
@@ -203,7 +185,7 @@ describe('rearmonizar, que es lo que ya había', () => {
       { degree: 'VII', beats: 4, move: null },
     ];
 
-    expect(motivoDeDescarte('minor', 'rearmonizar', TUYO, salida)).toBeNull();
+    expect(pathProblem('minor', 'rearmonizar', TUYO, salida)).toBeNull();
   });
 
   it('un movimiento que no es el que se ha hecho tumba la salida', () => {
@@ -216,7 +198,7 @@ describe('rearmonizar, que es lo que ya había', () => {
       { degree: 'VII', beats: 4, move: null },
     ];
 
-    expect(motivoDeDescarte('minor', 'rearmonizar', TUYO, salida)).toBe(
+    expect(pathProblem('minor', 'rearmonizar', TUYO, salida)).toBe(
       'el movimiento declarado no es el que se ha hecho',
     );
   });
@@ -234,22 +216,17 @@ describe('rearmonizar, que es lo que ya había', () => {
       { degree: 'VII', beats: 4, move: null },
     ];
 
-    expect(motivoDeDescarte('minor', 'rearmonizar', TUYO, salida)).toBe(
+    expect(pathProblem('minor', 'rearmonizar', TUYO, salida)).toBe(
       'declara un movimiento en un compás que no cambia',
     );
   });
 
   it('no cambia el largo ni el reparto', () => {
+    expect(pathProblem('minor', 'rearmonizar', TUYO, pasos(['i', 4], ['VI', 4], ['III', 4]))).toBe(
+      'rearmonizar no cambia el largo',
+    );
     expect(
-      motivoDeDescarte('minor', 'rearmonizar', TUYO, pasos(['i', 4], ['VI', 4], ['III', 4])),
-    ).toBe('rearmonizar no cambia el largo');
-    expect(
-      motivoDeDescarte(
-        'minor',
-        'rearmonizar',
-        TUYO,
-        pasos(['i', 8], ['VI', 4], ['III', 4], ['VII', 4]),
-      ),
+      pathProblem('minor', 'rearmonizar', TUYO, pasos(['i', 8], ['VI', 4], ['III', 4], ['VII', 4])),
     ).toBe('rearmonizar no cambia el reparto');
   });
 });
@@ -258,15 +235,14 @@ describe('el grafo que se le enseña al modelo', () => {
   it('sale del dominio y no de una lista escrita a mano', () => {
     // Si el prompt ofreciera un salto que el validador no conoce, todas las
     // salidas que lo usaran caerían sin que nadie entendiera por qué.
-    const texto = textoDelGrafo('minor', degreesFor('minor'));
+    const texto = graphText('minor', degreesFor('minor'));
 
     for (const linea of texto.split('\n')) {
       const [desde, hasta] = linea.split(': ');
       for (const destino of (hasta ?? '').split(' ')) {
-        expect(
-          esSaltoConocido('minor', desde as never, destino as never),
-          `${desde} → ${destino}`,
-        ).toBe(true);
+        expect(canFollow('minor', desde as never, destino as never), `${desde} → ${destino}`).toBe(
+          true,
+        );
       }
     }
   });
@@ -274,23 +250,27 @@ describe('el grafo que se le enseña al modelo', () => {
   it('cubre todos los grados de los dos modos', () => {
     for (const mode of ['minor', 'major'] as const) {
       const grados = degreesFor(mode);
-      expect(textoDelGrafo(mode, grados).split('\n')).toHaveLength(grados.length);
+      expect(graphText(mode, grados).split('\n')).toHaveLength(grados.length);
     }
   });
 });
 
-describe('esSalidaValida', () => {
+describe('isValidPath', () => {
   it('es el motivo, en booleano', () => {
     const buena = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['i', 4]);
-    expect(esSalidaValida('minor', 'seguir', TUYO, buena)).toBe(true);
-    expect(esSalidaValida('minor', 'estirar', TUYO, buena)).toBe(false);
+    expect(isValidPath('minor', 'seguir', TUYO, buena)).toBe(true);
+    expect(isValidPath('minor', 'estirar', TUYO, buena)).toBe(false);
   });
 });
 
 describe('una canción con sus partes', () => {
-  const parte = (name: string, tuya: boolean, pasos: ReadonlyArray<readonly [string, number]>) => ({
+  const parte = (
+    name: string,
+    yours: boolean,
+    pasos: ReadonlyArray<readonly [string, number]>,
+  ) => ({
     name,
-    tuya,
+    yours,
     steps: pasos.map(([degree, beats]) => ({ degree: degree as never, beats })),
   });
 
@@ -302,11 +282,11 @@ describe('una canción con sus partes', () => {
   ]);
 
   it('solo continuar y contrastar traen partes; retocar va en una sola', () => {
-    expect(tienePartes('seguir')).toBe(true);
-    expect(tienePartes('contraste')).toBe(true);
-    expect(tienePartes('rearmonizar')).toBe(false);
-    expect(tienePartes('estirar')).toBe(false);
-    expect(tienePartes('otro-final')).toBe(false);
+    expect(hasSections('seguir')).toBe(true);
+    expect(hasSections('contraste')).toBe(true);
+    expect(hasSections('rearmonizar')).toBe(false);
+    expect(hasSections('estirar')).toBe(false);
+    expect(hasSections('otro-final')).toBe(false);
   });
 
   it('acepta tu parte más un estribillo que cierra', () => {
@@ -318,7 +298,7 @@ describe('una canción con sus partes', () => {
         ['III', 4],
       ]),
     ];
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, sinCerrar)).toBe(
+    expect(songProblem('minor', 'seguir', TUYO, sinCerrar)).toBe(
       'seguir tiene que cerrar en la tónica',
     );
 
@@ -331,7 +311,7 @@ describe('una canción con sus partes', () => {
         ['i', 4],
       ]),
     ];
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, cerrando)).toBeNull();
+    expect(songProblem('minor', 'seguir', TUYO, cerrando)).toBeNull();
   });
 
   it('tu parte va la primera y va intacta', () => {
@@ -342,7 +322,7 @@ describe('una canción con sus partes', () => {
       ]),
       TU_PARTE,
     ];
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, alReves)).toBe(
+    expect(songProblem('minor', 'seguir', TUYO, alReves)).toBe(
       'tu parte va la primera: lo demás es lo que sigue',
     );
 
@@ -359,12 +339,10 @@ describe('una canción con sus partes', () => {
         ['i', 4],
       ]),
     ];
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, retocada)).toBe(
-      'tu parte no es la que tocaste',
-    );
+    expect(songProblem('minor', 'seguir', TUYO, retocada)).toBe('tu parte no es la que tocaste');
   });
 
-  it('hace falta una parte tuya, y solo una', () => {
+  it('hace falta una parte yours, y solo una', () => {
     const ninguna = [
       parte('Estribillo', false, [
         ['i', 4],
@@ -378,13 +356,13 @@ describe('una canción con sus partes', () => {
         ['i', 4],
       ]),
     ];
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, ninguna)).toBe(
-      'hace falta una parte tuya, y solo una',
+    expect(songProblem('minor', 'seguir', TUYO, ninguna)).toBe(
+      'hace falta una parte yours, y solo una',
     );
 
     const dos = [TU_PARTE, { ...TU_PARTE, name: 'Otra vez' }];
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, dos)).toBe(
-      'hace falta una parte tuya, y solo una',
+    expect(songProblem('minor', 'seguir', TUYO, dos)).toBe(
+      'hace falta una parte yours, y solo una',
     );
   });
 
@@ -396,12 +374,12 @@ describe('una canción con sus partes', () => {
         ['i', 4],
       ]),
     ];
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, sinNombre)).toBe(
+    expect(songProblem('minor', 'seguir', TUYO, sinNombre)).toBe(
       'una parte sin nombre, o con un nombre larguísimo',
     );
 
     const cortísima = [TU_PARTE, parte('Cierre', false, [['i', 4]])];
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, cortísima)).toBe(
+    expect(songProblem('minor', 'seguir', TUYO, cortísima)).toBe(
       'una parte de un solo compás no es una parte',
     );
   });
@@ -417,7 +395,7 @@ describe('una canción con sus partes', () => {
         ['VII', 4],
       ]),
     ];
-    expect(motivoDeDescarteDeCancion('minor', 'estirar', TUYO, conPartes)).toBe(
+    expect(songProblem('minor', 'estirar', TUYO, conPartes)).toBe(
       'esta salida retoca tus compases: va en una sola parte',
     );
   });
@@ -433,7 +411,7 @@ describe('una canción con sus partes', () => {
       ]),
     ];
 
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, saltoRaro)).toBe(
+    expect(songProblem('minor', 'seguir', TUYO, saltoRaro)).toBe(
       'un salto que el dominio no conoce',
     );
   });
@@ -459,9 +437,7 @@ describe('una canción con sus partes', () => {
       ]),
     ];
 
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, muchas)).toBe(
-      'número de partes fuera de rango',
-    );
+    expect(songProblem('minor', 'seguir', TUYO, muchas)).toBe('número de partes fuera de rango');
   });
 });
 
@@ -471,7 +447,7 @@ describe('quedarse en el mismo acorde', () => {
     // Sin tratarlo aparte se rechazaba media música: visto con un modelo de
     // verdad, un cierre de dos compases de tónica caía por «salto desconocido».
     expect(nextDegrees('minor', 'i').some((m) => m.to === 'i')).toBe(false);
-    expect(esSaltoConocido('minor', 'i', 'i')).toBe(true);
+    expect(canFollow('minor', 'i', 'i')).toBe(true);
 
     const cierraDosCompases = pasos(
       ['i', 4],
@@ -481,7 +457,7 @@ describe('quedarse en el mismo acorde', () => {
       ['i', 4],
       ['i', 4],
     );
-    expect(motivoDeDescarte('minor', 'seguir', TUYO, cierraDosCompases)).toBeNull();
+    expect(pathProblem('minor', 'seguir', TUYO, cierraDosCompases)).toBeNull();
   });
 });
 
@@ -490,22 +466,22 @@ describe('una parte nueva tiene que aportar algo', () => {
     // Visto con un modelo de verdad: pasaba todas las reglas —los saltos existen,
     // no cierra, sabe volver— y era tu parte con otro nombre.
     const copia = [
-      { name: 'Lo que llevas', tuya: true, steps: [...TUYO] },
-      { name: 'Puente', tuya: false, steps: [...TUYO] },
+      { name: 'Lo que llevas', yours: true, steps: [...TUYO] },
+      { name: 'Puente', yours: false, steps: [...TUYO] },
     ];
 
-    expect(motivoDeDescarteDeCancion('minor', 'contraste', TUYO, copia)).toBe(
+    expect(songProblem('minor', 'contraste', TUYO, copia)).toBe(
       'las partes nuevas son tu parte otra vez',
     );
   });
 
   it('pero repetir vale si alguna otra parte aporta', () => {
     const conAlgoNuevo = [
-      { name: 'Lo que llevas', tuya: true, steps: [...TUYO] },
-      { name: 'Otra vez', tuya: false, steps: [...TUYO] },
+      { name: 'Lo que llevas', yours: true, steps: [...TUYO] },
+      { name: 'Otra vez', yours: false, steps: [...TUYO] },
       {
         name: 'Cierre',
-        tuya: false,
+        yours: false,
         steps: [
           { degree: 'VI' as const, beats: 4 },
           { degree: 'VII' as const, beats: 4 },
@@ -514,6 +490,6 @@ describe('una parte nueva tiene que aportar algo', () => {
       },
     ];
 
-    expect(motivoDeDescarteDeCancion('minor', 'seguir', TUYO, conAlgoNuevo)).toBeNull();
+    expect(songProblem('minor', 'seguir', TUYO, conAlgoNuevo)).toBeNull();
   });
 });

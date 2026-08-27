@@ -12,6 +12,8 @@
  * le sigue en vez de quedarse anclada al principio.
  */
 
+import { isRecord } from '../parse';
+import { asNoteName, type NoteName } from './notes';
 import { accidentalForKey } from './circle-of-fifths';
 import { noteName, SEMITONES_PER_OCTAVE, type PitchClass } from './notes';
 
@@ -191,4 +193,30 @@ export function detectKey(source: PitchHistogram | readonly number[], limit = 3)
 
 export function bestKey(source: PitchHistogram | readonly number[]): KeyCandidate | null {
   return detectKey(source, 1)[0] ?? null;
+}
+
+/**
+ * La tonalidad que venga de fuera, leída y comprobada.
+ *
+ * Las tres rutas de IA reciben la misma forma —`{ tonic, mode }`— y las tres la
+ * leían por su cuenta. Dos con `asNoteName` y la del profesor a mano, con
+ * `NOTE_NAMES.includes`, que resulta ser exactamente lo mismo escrito de otra
+ * manera. No llegaba a ser un fallo, pero eran dos sitios donde la misma regla
+ * podía separarse sin que nada fallara.
+ *
+ * Vive aquí y no en un contrato porque **un feature no importa de otro**: lo
+ * compartido sube a `core/`, y una tonalidad es de las cosas más del dominio que
+ * hay. Devuelve nulo con cualquier cosa que no sea una tonalidad, sin excepciones
+ * ni valores por defecto: quien no manda tonalidad no tiene petición.
+ */
+export function parseKey(value: unknown): { tonic: NoteName; mode: KeyMode } | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const tonic = asNoteName(value['tonic']);
+  const mode = value['mode'];
+  if (tonic === null || (mode !== 'major' && mode !== 'minor')) {
+    return null;
+  }
+  return { tonic, mode };
 }

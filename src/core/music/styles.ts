@@ -201,7 +201,3 @@ export const STYLES: Readonly<Record<StyleId, StyleDefinition>> = {
 };
 
 export const STYLE_IDS: readonly StyleId[] = Object.keys(STYLES) as StyleId[];
-
-export function styleDefinition(id: StyleId): StyleDefinition {
-  return STYLES[id];
-}

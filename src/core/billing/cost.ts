@@ -295,11 +295,6 @@ export function worstMonthlyMarginMicros(planId: PlanId, modelId: string | undef
   return cents * 10_000 - worstMonthlyCostMicros(planId, modelId);
 }
 
-/** El precio en dólares con dos decimales, para escribirlo en un documento. */
-export function microsToDollars(micros: number): string {
-  return (micros / 1_000_000).toFixed(4);
-}
-
 /** Todos los planes con sus cupos para un modelo. Lo usa la pantalla de planes. */
 export function quotasFor(
   modelId: string | undefined,

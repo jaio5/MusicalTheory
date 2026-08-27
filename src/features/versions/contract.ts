@@ -19,11 +19,11 @@
 import { MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
 import {
   degreesFor,
+  parseKey,
   kindOfPath,
   moveById,
-  motivoDeDescarteDeCancion,
+  songProblem,
   pathById,
-  asNoteName,
   pitchClassFromName,
   resolveProgression,
   type DegreeSymbol,
@@ -33,7 +33,7 @@ import {
   type PathId,
   type PitchClass,
   type ProposedSection,
-  type SalidaKind,
+  type PathKind,
   type ProposedStep,
 } from '@core/music';
 import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
@@ -67,7 +67,7 @@ export interface VersionsRequest {
    * propio modelo rellena. Eligiéndolo antes, el esquema exige lo que el
    * validador comprueba —que es la regla que ya costó una vez, con las ideas—.
    */
-  readonly kind: SalidaKind;
+  readonly kind: PathKind;
 }
 
 /** Un compás de una salida: qué grado va ahora y de dónde sale. */
@@ -91,7 +91,7 @@ export interface VersionStepOut {
 export interface VersionSection {
   readonly name: string;
   /** Si es, tal cual, lo que tocaste. */
-  readonly tuya: boolean;
+  readonly yours: boolean;
   readonly steps: readonly VersionStepOut[];
 }
 
@@ -104,7 +104,7 @@ export interface Version {
    * La canción por partes.
    *
    * Las dos salidas que continúan lo que llevas —`seguir` y `contraste`— traen
-   * varias: la tuya primero y lo que sigue después, con su nombre. Las tres que
+   * varias: la yours primero y lo que sigue después, con su nombre. Las tres que
    * retocan tus compases traen una sola, porque no hay canción que montar.
    */
   readonly sections: readonly VersionSection[];
@@ -166,15 +166,11 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
     return null;
   }
 
-  const key = body['key'];
-  if (!isRecord(key)) {
+  const key = parseKey(body['key']);
+  if (key === null) {
     return null;
   }
-  const tonic = asNoteName(key['tonic']);
-  const mode = key['mode'];
-  if (tonic === null || (mode !== 'major' && mode !== 'minor')) {
-    return null;
-  }
+  const { tonic, mode } = key;
 
   const raw = body['progression'];
   if (!Array.isArray(raw)) {
@@ -209,7 +205,7 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
   const request: {
     key: { tonic: NoteName; mode: KeyMode };
     progression: VersionStep[];
-    kind: SalidaKind;
+    kind: PathKind;
   } = { key: { tonic, mode }, progression, kind };
 
   return request;
@@ -217,7 +213,7 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
 
 interface SeccionCruda {
   readonly name: string;
-  readonly tuya: boolean;
+  readonly yours: boolean;
   readonly steps: readonly unknown[];
 }
 
@@ -228,7 +224,7 @@ interface SeccionCruda {
  * las que retocan y `sections` para las que continúan, y el modelo elegía la que
  * no tocaba —se descartaban todas—.
  *
- * **Y nunca trae la tuya.** Cuando se continúa, lo que vuelve son solo las partes
+ * **Y nunca trae la yours.** Cuando se continúa, lo que vuelve son solo las partes
  * añadidas; tus compases los pone el contrato, porque ya los tiene. Pedírselos
  * era la causa de que se cayera todo: «tu parte no es la que tocaste», 3 de 3.
  */
@@ -248,7 +244,7 @@ function leerSecciones(raw: Record<string, unknown>): SeccionCruda[] | null {
     if (typeof name !== 'string' || !Array.isArray(steps)) {
       return null;
     }
-    salida.push({ name, tuya: false, steps });
+    salida.push({ name, yours: false, steps });
   }
   return salida;
 }
@@ -261,7 +257,7 @@ function leerSecciones(raw: Record<string, unknown>): SeccionCruda[] | null {
  * volvía a aplicar; eso funcionaba porque una versión era la misma canción con
  * otros acordes. Ahora una salida puede alargar, acortar o repartir de otra
  * manera, así que lo que se declara es **cuál de las cinco salidas ha tomado**, y
- * `esSalidaValida` lo comprueba contra el dominio: que un `seguir` mantenga de
+ * `isValidPath` lo comprueba contra el dominio: que un `seguir` mantenga de
  * verdad tus compases y cierre, que un `estirar` no toque un solo acorde, que un
  * `contraste` sepa volver al principio.
  *
@@ -336,17 +332,17 @@ export function validateVersions(payload: unknown, request: VersionsRequest): Ve
       if (rota) {
         break;
       }
-      propuesta.push({ name: cruda.name, tuya: cruda.tuya, steps: pasos });
+      propuesta.push({ name: cruda.name, yours: cruda.yours, steps: pasos });
     }
 
     // Tu parte, delante y puesta por nosotros. Así no hay forma de que llegue
     // cambiada, y el validador la comprueba igual: la regla sigue escrita.
     const conLaTuya: ProposedSection[] =
       kindOfPath(path.id) === 'continuar'
-        ? [{ name: 'Lo que llevas', tuya: true, steps: [...original] }, ...propuesta]
+        ? [{ name: 'Lo que llevas', yours: true, steps: [...original] }, ...propuesta]
         : propuesta;
 
-    if (rota || motivoDeDescarteDeCancion(mode, path.id, original, conLaTuya) !== null) {
+    if (rota || songProblem(mode, path.id, original, conLaTuya) !== null) {
       continue;
     }
 
@@ -360,7 +356,7 @@ export function validateVersions(payload: unknown, request: VersionsRequest): Ve
     let cursor = 0;
     const sections: VersionSection[] = conLaTuya.map((seccion) => ({
       name: seccion.name.trim(),
-      tuya: seccion.tuya,
+      yours: seccion.yours,
       steps: seccion.steps.map((step) => {
         const index = cursor;
         cursor += 1;

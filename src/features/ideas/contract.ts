@@ -11,6 +11,7 @@
 import { MAX_IDEAS, MAX_RECENT_CHORDS, MAX_RECENT_NOTES } from '@core/billing';
 import {
   degreesFor,
+  parseKey,
   asNoteName,
   pitchClassFromName,
   resolveProgression,
@@ -102,15 +103,11 @@ export function parseIdeasRequest(body: unknown): IdeasRequest | null {
     return null;
   }
 
-  const key = body['key'];
-  if (!isRecord(key)) {
+  const key = parseKey(body['key']);
+  if (key === null) {
     return null;
   }
-  const tonic = asNoteName(key['tonic']);
-  const mode = key['mode'];
-  if (tonic === null || (mode !== 'major' && mode !== 'minor')) {
-    return null;
-  }
+  const { tonic, mode } = key;
 
   const request: {
     kind: IdeaKind;

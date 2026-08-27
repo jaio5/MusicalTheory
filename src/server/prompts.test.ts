@@ -194,32 +194,44 @@ describe('el presupuesto de tokens de las versiones', () => {
   });
 });
 
-describe('la clave del modelo', () => {
+describe('la puerta del modelo', () => {
   /**
    * `hasModelKey` estuvo escrita y sin llamar desde la fase 5, y su ausencia
-   * costaba dinero de verdad: `spendAi` gasta la petición **antes** de hablar
-   * con el modelo, así que sin clave configurada alguien se quedaba sin
+   * costaba dinero de verdad: `spendAi` gasta la petición **antes** de hablar con
+   * el modelo, así que sin proveedor configurado alguien se quedaba sin
    * peticiones del mes por una variable de entorno que faltaba.
    *
-   * Hoy la comprobación es `modelAvailable`, que además deja pasar en
-   * desarrollo —donde contesta el dominio en vez del modelo— pero el orden
-   * respecto al cupo es el mismo y es lo que se vigila.
+   * Esto lo vigilaba leyendo las tres rutas y comparando en qué línea aparecía
+   * cada llamada. Funcionaba, pero era un test de texto sobre tres ficheros, y
+   * bastaba mover una línea al refactorizar para perderlo. **Ahora la garantía es
+   * estructural**: las rutas no gastan cupo por su cuenta, y quien lo gasta
+   * comprueba el proveedor primero porque es la misma función.
    *
-   * Esto lee las tres rutas y comprueba que la clave se mira antes del cupo. No
-   * se puede probar ejecutándolas —importarlas trae el SDK, la sesión y la base
-   * de datos— y el orden de dos líneas es justo lo que se pierde al refactorizar.
+   * Quedan dos comprobaciones, y las dos son de una línea de código cada una:
+   * que ninguna ruta se salte la puerta, y que dentro de la puerta el orden sea
+   * el que es.
    */
-  it('se comprueba antes de gastar cupo en las tres rutas', () => {
+  it('ninguna ruta gasta cupo por su cuenta', () => {
     for (const ruta of ['ideas', 'teacher', 'versiones']) {
       const codigo = readFileSync(
         fileURLToPath(new URL(`../app/api/${ruta}/route.ts`, import.meta.url)),
         'utf8',
       );
-      const clave = codigo.indexOf('modelAvailable()');
-      const cupo = codigo.indexOf('await spendAi(');
 
-      expect(clave, `${ruta} no comprueba la clave`).toBeGreaterThan(-1);
-      expect(clave, `${ruta} gasta cupo antes de mirar la clave`).toBeLessThan(cupo);
+      expect(codigo, `${ruta} llama a spendAi sin pasar por la puerta`).not.toContain('spendAi');
+      expect(codigo, `${ruta} no pasa por la puerta`).toContain('abrirPuertaDeIa');
     }
+  });
+
+  it('la puerta mira el proveedor antes de gastar', () => {
+    const codigo = readFileSync(fileURLToPath(new URL('./ai-gate.ts', import.meta.url)), 'utf8');
+    const proveedor = codigo.indexOf('modelAvailable()');
+    const cupo = codigo.indexOf('await spendAi(');
+
+    expect(proveedor).toBeGreaterThan(-1);
+    expect(cupo).toBeGreaterThan(-1);
+    expect(proveedor, 'la puerta gasta cupo antes de mirar si hay quien conteste').toBeLessThan(
+      cupo,
+    );
   });
 });

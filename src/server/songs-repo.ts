@@ -24,7 +24,7 @@ import { songs as songsTable } from './db/schema';
  * Qué ha pasado al escribir.
  *
  * Cinco casos y no un booleano porque la pantalla hace algo distinto en cada
- * uno: «no hemos podido» se reintenta, «no es tuya» no, y «no te caben más» se
+ * uno: «no hemos podido» se reintenta, «no es yours» no, y «no te caben más» se
  * arregla borrando alguna. Un `false` para los cinco obligaría a inventarse el
  * mensaje en la ruta.
  */

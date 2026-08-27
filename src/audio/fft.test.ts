@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { chromaFromSpectrum } from './chroma';
-import { espectroDb, fftEnSitio, SUELO_DB } from './fft';
+import { spectrumDb, fftInPlace, FLOOR_DB } from './fft';
 
 const SAMPLE_RATE = 48_000;
 
@@ -31,30 +31,30 @@ function picoDe(espectro: Float32Array, fftSize: number): { hz: number; db: numb
 
 describe('la FFT', () => {
   it('exige potencia de dos', () => {
-    expect(() => fftEnSitio(new Float32Array(3), new Float32Array(3))).toThrow(RangeError);
-    expect(() => fftEnSitio(new Float32Array(8), new Float32Array(4))).toThrow(RangeError);
+    expect(() => fftInPlace(new Float32Array(3), new Float32Array(3))).toThrow(RangeError);
+    expect(() => fftInPlace(new Float32Array(8), new Float32Array(4))).toThrow(RangeError);
   });
 
   it('pone el pico donde está la nota', () => {
     // A4 son 440 Hz. Con 4096 muestras a 48 kHz cada casilla mide 11,7 Hz, así
     // que el pico tiene que caer a menos de una casilla del sitio.
-    const espectro = espectroDb(tono([440], 4096), undefined);
+    const espectro = spectrumDb(tono([440], 4096), undefined);
     const pico = picoDe(espectro, 4096);
 
     expect(Math.abs(pico.hz - 440)).toBeLessThan(SAMPLE_RATE / 4096);
   });
 
   it('el silencio se queda en el suelo', () => {
-    const espectro = espectroDb(new Float32Array(1024));
+    const espectro = spectrumDb(new Float32Array(1024));
 
-    expect(Math.max(...espectro)).toBe(SUELO_DB);
+    expect(Math.max(...espectro)).toBe(FLOOR_DB);
   });
 
   it('el nivel no depende del tamaño de la ventana', () => {
     // Si dependiera, doblar la ventana subiría todo y los umbrales de chroma.ts
     // —que están ajustados en decibelios— dejarían de valer.
-    const corta = picoDe(espectroDb(tono([440], 2048)), 2048);
-    const larga = picoDe(espectroDb(tono([440], 8192)), 8192);
+    const corta = picoDe(spectrumDb(tono([440], 2048)), 2048);
+    const larga = picoDe(spectrumDb(tono([440], 8192)), 8192);
 
     expect(Math.abs(corta.db - larga.db)).toBeLessThan(1.5);
   });
@@ -65,8 +65,8 @@ describe('la FFT', () => {
     // en la misma; con 16384 mide 2,9 Hz y se ven separados.
     const dos = [82.41, 87.31];
 
-    const corta = espectroDb(tono(dos, 2048));
-    const larga = espectroDb(tono(dos, 16_384));
+    const corta = spectrumDb(tono(dos, 2048));
+    const larga = spectrumDb(tono(dos, 16_384));
 
     const casillasSobreUmbral = (espectro: Float32Array, desde: number, hasta: number) => {
       const binDe = (hz: number) => Math.round((hz * espectro.length * 2) / SAMPLE_RATE);
@@ -96,7 +96,7 @@ describe('la FFT y el croma se entienden', () => {
     // A3 220, C4 261,63, E4 329,63. Con sus terceros armónicos, como una
     // guitarra de verdad.
     const señal = tono([220, 261.63, 329.63, 440, 523.25, 659.26], 16_384);
-    const chroma = chromaFromSpectrum(espectroDb(señal), {
+    const chroma = chromaFromSpectrum(spectrumDb(señal), {
       sampleRate: SAMPLE_RATE,
       fftSize: 16_384,
     });

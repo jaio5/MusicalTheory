@@ -38,17 +38,6 @@ export function modelAvailable(): boolean {
   return modelProvider() !== 'ninguno' || process.env.NODE_ENV !== 'production';
 }
 
-/**
- * Si lo que contesta lo ha escrito un modelo de verdad.
- *
- * El de casa cuenta: es un modelo generando, aunque sea pequeño y aunque acierte
- * menos. Lo que no cuenta es el dominio, que se limita a aplicar movimientos que
- * ya estaban escritos y por eso se marca en pantalla como «Sin IA».
- */
-export function modelIsReal(): boolean {
-  return modelProvider() !== 'ninguno';
-}
-
 export interface AskModelInput {
   readonly prompt: string;
   readonly system: string;

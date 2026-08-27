@@ -21,12 +21,12 @@ import { MAX_IDEAS, MAX_VERSIONS } from '@core/billing';
 import {
   degreesFor,
   MAX_PATH_STEPS,
-  MAX_SECCIONES,
+  MAX_PATH_SECTIONS,
   MOVES,
   PATHS_BY_KIND,
   SCALE_IDS,
   type KeyMode,
-  type SalidaKind,
+  type PathKind,
 } from '@core/music';
 
 export const TEACHER_SYSTEM_PROMPT = `Eres un guitarrista con años de tablas que le explica teoría a otro
@@ -145,7 +145,7 @@ No incluyas etiquetas XML internas ni de sistema en tu respuesta.`;
  * `move` sigue aquí porque la salida `rearmonizar` lo sigue necesitando —es lo
  * que había, y ahora es una salida más—. En las otras cuatro va nulo.
  */
-export function versionsSchema(mode: KeyMode, kind: SalidaKind): Record<string, unknown> {
+export function versionsSchema(mode: KeyMode, kind: PathKind): Record<string, unknown> {
   const compas = {
     type: 'object',
     properties: {
@@ -190,7 +190,7 @@ export function versionsSchema(mode: KeyMode, kind: SalidaKind): Record<string, 
             sections: {
               type: 'array',
               // **Aquí está el punto de que se elija antes.** Continuar exige al
-              // menos dos partes —la tuya y lo que sigue— y retocar exactamente
+              // menos dos partes —la yours y lo que sigue— y retocar exactamente
               // una, y eso el validador lo comprueba. Si el esquema no lo
               // exigiera, el modelo devolvería una sola parte para todo y se
               // descartarían todas: medido, cero de cuatro. Exigiéndolo, tres de
@@ -198,7 +198,7 @@ export function versionsSchema(mode: KeyMode, kind: SalidaKind): Record<string, 
               minItems: 1,
               // Al continuar, tu parte va aparte y la pone el servidor: aquí solo
               // caben las que se añaden.
-              maxItems: kind === 'continuar' ? MAX_SECCIONES - 1 : 1,
+              maxItems: kind === 'continuar' ? MAX_PATH_SECTIONS - 1 : 1,
               items: {
                 type: 'object',
                 properties: {

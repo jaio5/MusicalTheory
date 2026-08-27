@@ -49,6 +49,6 @@ export interface SessionRecorder {
   subscribe(listener: (state: RecorderState) => void): () => void;
 }
 
-// TODO (fase 6): implementar CanvasSessionRecorder — componer cámara y overlay
-// en un canvas, sacar el flujo con captureStream() y grabarlo con MediaRecorder
+// Quien lo implementa es `canvas-session-recorder.ts`: compone cámara y overlay en
+// un canvas, saca el flujo con captureStream() y lo graba con MediaRecorder
 // negociando el códec por navegador. Ver docs/RECORDING.md.

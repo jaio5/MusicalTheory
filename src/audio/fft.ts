@@ -23,7 +23,7 @@
  */
 
 /** Radix-2: el tamaño tiene que ser potencia de dos. */
-function esPotenciaDeDos(n: number): boolean {
+function isPowerOfTwo(n: number): boolean {
   return n > 1 && (n & (n - 1)) === 0;
 }
 
@@ -35,9 +35,9 @@ function esPotenciaDeDos(n: number): boolean {
  * una grabación de dos minutos son unas dos mil: reservar dos arrays cada vez es
  * basura que el recolector tiene que barrer mientras la pantalla espera.
  */
-export function fftEnSitio(re: Float32Array, im: Float32Array): void {
+export function fftInPlace(re: Float32Array, im: Float32Array): void {
   const n = re.length;
-  if (!esPotenciaDeDos(n) || im.length !== n) {
+  if (!isPowerOfTwo(n) || im.length !== n) {
     throw new RangeError('La FFT pide dos arrays del mismo tamaño y potencia de dos.');
   }
 
@@ -93,7 +93,7 @@ export function fftEnSitio(re: Float32Array, im: Float32Array): void {
  * porque lo que sale de aquí lo va a leer `chroma.ts`, que está ajustado contra
  * espectros de esa forma. Un suelo distinto movería todos sus umbrales.
  */
-export const SUELO_DB = -120;
+export const FLOOR_DB = -120;
 
 /**
  * Ventana de Hann.
@@ -113,13 +113,13 @@ function hann(n: number): Float32Array {
 }
 
 /** Las ventanas se reusan: una grabación de dos minutos pide dos mil. */
-const ventanas = new Map<number, Float32Array>();
+const windows = new Map<number, Float32Array>();
 
-function ventanaDe(n: number): Float32Array {
-  let w = ventanas.get(n);
+function windowOf(n: number): Float32Array {
+  let w = windows.get(n);
   if (w === undefined) {
     w = hann(n);
-    ventanas.set(n, w);
+    windows.set(n, w);
   }
   return w;
 }
@@ -131,26 +131,26 @@ function ventanaDe(n: number): Float32Array {
  * Devuelve la mitad de casillas que muestras entran: la otra mitad es el espejo
  * de una señal real y no dice nada nuevo. `chroma.ts` cuenta con eso.
  */
-export function espectroDb(muestras: Float32Array, destino?: Float32Array): Float32Array {
-  const n = muestras.length;
-  const ventana = ventanaDe(n);
+export function spectrumDb(samples: Float32Array, target?: Float32Array): Float32Array {
+  const n = samples.length;
+  const window = windowOf(n);
 
   const re = new Float32Array(n);
   const im = new Float32Array(n);
   for (let i = 0; i < n; i += 1) {
-    re[i] = muestras[i]! * ventana[i]!;
+    re[i] = samples[i]! * window[i]!;
   }
 
-  fftEnSitio(re, im);
+  fftInPlace(re, im);
 
-  const casillas = n / 2;
-  const salida = destino ?? new Float32Array(casillas);
-  for (let i = 0; i < casillas; i += 1) {
+  const bins = n / 2;
+  const out = target ?? new Float32Array(bins);
+  for (let i = 0; i < bins; i += 1) {
     // Normalizado por el tamaño para que el nivel no dependa de la ventana
     // elegida: si no, doblar la ventana subiría todo seis decibelios y los
     // umbrales de `chroma.ts` dejarían de valer.
-    const magnitud = Math.hypot(re[i]!, im[i]!) / casillas;
-    salida[i] = magnitud <= 0 ? SUELO_DB : Math.max(SUELO_DB, 20 * Math.log10(magnitud));
+    const magnitude = Math.hypot(re[i]!, im[i]!) / bins;
+    out[i] = magnitude <= 0 ? FLOOR_DB : Math.max(FLOOR_DB, 20 * Math.log10(magnitude));
   }
-  return salida;
+  return out;
 }

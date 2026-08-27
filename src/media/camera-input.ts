@@ -27,6 +27,5 @@ export interface CameraInput {
   subscribe(listener: (state: CameraState) => void): () => void;
 }
 
-// TODO (fase 6): implementar BrowserCameraInput sobre
-// navigator.mediaDevices.getUserMedia({ video: ... }).
-// Ver docs/RECORDING.md.
+// Quien lo implementa es `browser-camera-input.ts`, sobre
+// navigator.mediaDevices.getUserMedia({ video: ... }). Ver docs/RECORDING.md.

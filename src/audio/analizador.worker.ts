@@ -11,25 +11,26 @@
  * y diez veces por detrás, así que en el hilo principal serían hasta diez
  * segundos con la pantalla congelada justo después de soltar la guitarra.
  *
- * Las muestras viajan como transferible, así que no se copian los 34 MB: se le
- * pasa la memoria al worker y el hilo principal se queda sin ella, que es
- * exactamente lo que se quiere porque ya no la necesita.
+ * Las muestras se copian al mandarlas, no se ceden. Ceder el buffer ahorraría
+ * copiar 34 MB —unos veinte milisegundos— pero dejaría vacío el array del hilo
+ * principal, y entonces el respaldo de `analyze-recording.ts` analizaría silencio
+ * si esto fallara después de arrancar.
  */
 
-import { acordesDeGrabacion, type AnalisisOptions } from './offline-chords';
+import { chordsOfRecording, type AnalysisOptions } from './offline-chords';
 
-export interface PeticionDeAnalisis {
+export interface AnalysisRequest {
   readonly samples: Float32Array<ArrayBuffer>;
-  readonly options: AnalisisOptions;
+  readonly options: AnalysisOptions;
 }
 
-self.addEventListener('message', (evento: MessageEvent<PeticionDeAnalisis>) => {
+self.addEventListener('message', (evento: MessageEvent<AnalysisRequest>) => {
   const { samples, options } = evento.data;
   try {
-    self.postMessage({ ok: true, acordes: acordesDeGrabacion(samples, options) });
+    self.postMessage({ ok: true, chords: chordsOfRecording(samples, options) });
   } catch {
     // Que el análisis falle no puede tumbar nada: quien llama se queda con lo
     // que el motor oyó en vivo, que es lo que había antes de todo esto.
-    self.postMessage({ ok: false, acordes: [] });
+    self.postMessage({ ok: false, chords: [] });
   }
 });

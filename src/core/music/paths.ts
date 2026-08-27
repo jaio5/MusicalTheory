@@ -137,30 +137,30 @@ function tonicOf(mode: KeyMode): DegreeSymbol {
  * esta línea se rechazaba media música: un `seguir` que cerraba con dos compases
  * de tónica caía por «un salto que el dominio no conoce».
  */
-export function esSaltoConocido(mode: KeyMode, from: DegreeSymbol, to: DegreeSymbol): boolean {
+export function canFollow(mode: KeyMode, from: DegreeSymbol, to: DegreeSymbol): boolean {
   return from === to || nextDegrees(mode, from).some((move) => move.to === to);
 }
 
 /** Si dos compases son el mismo compás. */
-function mismoCompas(a: PathStep, b: PathStep): boolean {
+function sameBar(a: PathStep, b: PathStep): boolean {
   return a.degree === b.degree && a.beats === b.beats;
 }
 
 /** Si la propuesta empieza exactamente por los `cuantos` primeros compases tuyos. */
-function comparteElPrincipio(
+function sharesTheStart(
   original: readonly PathStep[],
-  propuesta: readonly ProposedStep[],
+  proposed: readonly ProposedStep[],
   cuantos: number,
 ): boolean {
   return original
     .slice(0, cuantos)
-    .every((paso, i) => propuesta[i] !== undefined && mismoCompas(paso, propuesta[i]!));
+    .every((paso, i) => proposed[i] !== undefined && sameBar(paso, proposed[i]!));
 }
 
 /** Si todos los saltos de un tramo están en el grafo. */
-function saltosConocidos(mode: KeyMode, pasos: readonly ProposedStep[], desde: number): boolean {
+function allStepsKnown(mode: KeyMode, pasos: readonly ProposedStep[], desde: number): boolean {
   for (let i = Math.max(desde, 1); i < pasos.length; i += 1) {
-    if (!esSaltoConocido(mode, pasos[i - 1]!.degree, pasos[i]!.degree)) {
+    if (!canFollow(mode, pasos[i - 1]!.degree, pasos[i]!.degree)) {
       return false;
     }
   }
@@ -176,35 +176,35 @@ function saltosConocidos(mode: KeyMode, pasos: readonly ProposedStep[], desde: n
  * quien pregunta es «no ha salido, prueba otra vez»— pero se puede registrar y se
  * puede probar.
  */
-export function motivoDeDescarte(
+export function pathProblem(
   mode: KeyMode,
   path: PathId,
   original: readonly PathStep[],
-  propuesta: readonly ProposedStep[],
+  proposed: readonly ProposedStep[],
 ): string | null {
-  if (propuesta.length === 0 || propuesta.length > MAX_PATH_STEPS) {
+  if (proposed.length === 0 || proposed.length > MAX_PATH_STEPS) {
     return 'largo fuera de rango';
   }
   if (
-    propuesta.some(
+    proposed.some(
       (paso) => !Number.isInteger(paso.beats) || paso.beats < 1 || paso.beats > MAX_BEATS,
     )
   ) {
     return 'pulsos que no son un compás';
   }
   if (
-    propuesta.length === original.length &&
-    original.every((paso, i) => mismoCompas(paso, propuesta[i]!))
+    proposed.length === original.length &&
+    original.every((paso, i) => sameBar(paso, proposed[i]!))
   ) {
     return 'es tu canción tal cual';
   }
 
   switch (path) {
     case 'rearmonizar': {
-      if (propuesta.length !== original.length) {
+      if (proposed.length !== original.length) {
         return 'rearmonizar no cambia el largo';
       }
-      for (const [i, paso] of propuesta.entries()) {
+      for (const [i, paso] of proposed.entries()) {
         const antes = original[i]!;
         if (paso.beats !== antes.beats) {
           return 'rearmonizar no cambia el reparto';
@@ -223,10 +223,10 @@ export function motivoDeDescarte(
     }
 
     case 'estirar': {
-      if (propuesta.length !== original.length) {
+      if (proposed.length !== original.length) {
         return 'estirar no cambia los acordes';
       }
-      if (propuesta.some((paso, i) => paso.degree !== original[i]!.degree)) {
+      if (proposed.some((paso, i) => paso.degree !== original[i]!.degree)) {
         return 'estirar no cambia los acordes';
       }
       // El «es tu canción tal cual» de arriba ya garantiza que algún pulso cambia.
@@ -234,59 +234,59 @@ export function motivoDeDescarte(
     }
 
     case 'seguir': {
-      if (propuesta.length <= original.length) {
+      if (proposed.length <= original.length) {
         return 'seguir tiene que añadir compases';
       }
-      if (!comparteElPrincipio(original, propuesta, original.length)) {
+      if (!sharesTheStart(original, proposed, original.length)) {
         return 'seguir no mantiene tus compases';
       }
-      if (!saltosConocidos(mode, propuesta, original.length)) {
+      if (!allStepsKnown(mode, proposed, original.length)) {
         return 'un salto que el dominio no conoce';
       }
-      if (propuesta[propuesta.length - 1]!.degree !== tonicOf(mode)) {
+      if (proposed[proposed.length - 1]!.degree !== tonicOf(mode)) {
         return 'seguir tiene que cerrar en la tónica';
       }
       return null;
     }
 
     case 'contraste': {
-      if (propuesta.length <= original.length) {
+      if (proposed.length <= original.length) {
         return 'contraste tiene que añadir una parte';
       }
-      if (!comparteElPrincipio(original, propuesta, original.length)) {
+      if (!sharesTheStart(original, proposed, original.length)) {
         return 'contraste no mantiene tus compases';
       }
-      if (!saltosConocidos(mode, propuesta, original.length)) {
+      if (!allStepsKnown(mode, proposed, original.length)) {
         return 'un salto que el dominio no conoce';
       }
-      const ultimo = propuesta[propuesta.length - 1]!.degree;
+      const ultimo = proposed[proposed.length - 1]!.degree;
       if (ultimo === tonicOf(mode)) {
         // Si cierra, es un `seguir`. La diferencia entre las dos salidas es
         // justo esta, y por eso se comprueba: si no, el modelo declararía la que
         // le apeteciera y la etiqueta no querría decir nada.
         return 'contraste no cierra: para eso está seguir';
       }
-      if (!esSaltoConocido(mode, ultimo, original[0]!.degree)) {
+      if (!canFollow(mode, ultimo, original[0]!.degree)) {
         return 'la parte nueva no sabe volver al principio';
       }
       return null;
     }
 
     case 'otro-final': {
-      if (propuesta.length > original.length) {
+      if (proposed.length > original.length) {
         return 'otro final no alarga: para eso está seguir';
       }
-      if (propuesta.length < 2) {
+      if (proposed.length < 2) {
         return 'otro final se queda en nada';
       }
       // La mitad de lo tuyo, redondeando hacia arriba, tiene que seguir ahí. Sin
       // ese suelo, «otro final» se convierte en «otra canción» y la etiqueta
       // dejaría de significar nada.
       const suelo = Math.ceil(original.length / 2);
-      if (propuesta.length < suelo || !comparteElPrincipio(original, propuesta, suelo)) {
+      if (proposed.length < suelo || !sharesTheStart(original, proposed, suelo)) {
         return 'otro final no deja en pie la primera mitad';
       }
-      if (!saltosConocidos(mode, propuesta, suelo)) {
+      if (!allStepsKnown(mode, proposed, suelo)) {
         return 'un salto que el dominio no conoce';
       }
       return null;
@@ -299,7 +299,7 @@ export function motivoDeDescarte(
 export interface ProposedSection {
   readonly name: string;
   /** Si esta parte es, tal cual, la que tocaste. */
-  readonly tuya: boolean;
+  readonly yours: boolean;
   readonly steps: readonly ProposedStep[];
 }
 
@@ -311,13 +311,13 @@ export interface ProposedSection {
  * y son tokens de salida —de los que salen los cupos del plan Pro—. Con cuatro
  * caben entrada, tu parte, un contraste y un cierre, que es una canción entera.
  */
-export const MAX_SECCIONES = 4;
+export const MAX_PATH_SECTIONS = 4;
 
 /** Lo más corta que puede ser una parte. Con un acorde no es una parte. */
-const MIN_COMPASES_POR_SECCION = 2;
+const MIN_BARS_PER_SECTION = 2;
 
 /** Lo más largo que puede ser el nombre de una parte. El de `song.ts`. */
-const MAX_NOMBRE_SECCION = 30;
+const MAX_SECTION_NAME_LENGTH = 30;
 
 /**
  * Las salidas que devuelven una canción con partes, y no una sola progresión.
@@ -327,7 +327,7 @@ const MAX_NOMBRE_SECCION = 30;
  * otras dos **continúan** lo que llevas, y ahí es donde tiene sentido que la
  * respuesta traiga entrada, estribillo o puente con su nombre.
  */
-const CON_PARTES: readonly PathId[] = ['seguir', 'contraste'];
+const WITH_SECTIONS: readonly PathId[] = ['seguir', 'contraste'];
 
 /**
  * Las dos cosas que se le pueden pedir, y por qué se elige antes de pedirlas.
@@ -342,25 +342,25 @@ const CON_PARTES: readonly PathId[] = ['seguir', 'contraste'];
  * Es además lo mismo que ya hacen las ideas con sus tres pestañas, y cuesta lo
  * mismo: una llamada.
  */
-export type SalidaKind = 'continuar' | 'retocar';
+export type PathKind = 'continuar' | 'retocar';
 
-export const PATHS_BY_KIND: Readonly<Record<SalidaKind, readonly PathId[]>> = {
-  continuar: CON_PARTES,
-  retocar: PATHS.map((p) => p.id).filter((id) => !CON_PARTES.includes(id)),
+export const PATHS_BY_KIND: Readonly<Record<PathKind, readonly PathId[]>> = {
+  continuar: WITH_SECTIONS,
+  retocar: PATHS.map((p) => p.id).filter((id) => !WITH_SECTIONS.includes(id)),
 };
 
-export function kindOfPath(id: PathId): SalidaKind {
-  return CON_PARTES.includes(id) ? 'continuar' : 'retocar';
+export function kindOfPath(id: PathId): PathKind {
+  return WITH_SECTIONS.includes(id) ? 'continuar' : 'retocar';
 }
 
-export function tienePartes(path: PathId): boolean {
-  return CON_PARTES.includes(path);
+export function hasSections(path: PathId): boolean {
+  return WITH_SECTIONS.includes(path);
 }
 
 /**
  * Por qué se descarta una canción propuesta, o nulo si vale.
  *
- * Encima de lo que ya comprobaba `motivoDeDescarte` —que no cambia—, esto añade
+ * Encima de lo que ya comprobaba `pathProblem` —que no cambia—, esto añade
  * lo que solo se puede mirar cuando la respuesta viene por partes: que haya una y
  * solo una que sea la tuya, que vaya la primera, y que las demás tengan nombre y
  * tamaño de parte.
@@ -374,43 +374,43 @@ export function tienePartes(path: PathId): boolean {
  * contraste que sabe volver—, así que no hay reglas nuevas que puedan
  * contradecir a las viejas.
  */
-export function motivoDeDescarteDeCancion(
+export function songProblem(
   mode: KeyMode,
   path: PathId,
   original: readonly PathStep[],
-  secciones: readonly ProposedSection[],
+  sections: readonly ProposedSection[],
 ): string | null {
-  if (secciones.length === 0 || secciones.length > MAX_SECCIONES) {
+  if (sections.length === 0 || sections.length > MAX_PATH_SECTIONS) {
     return 'número de partes fuera de rango';
   }
-  for (const seccion of secciones) {
-    if (seccion.name.trim() === '' || seccion.name.length > MAX_NOMBRE_SECCION) {
+  for (const section of sections) {
+    if (section.name.trim() === '' || section.name.length > MAX_SECTION_NAME_LENGTH) {
       return 'una parte sin nombre, o con un nombre larguísimo';
     }
-    if (seccion.steps.length < MIN_COMPASES_POR_SECCION) {
+    if (section.steps.length < MIN_BARS_PER_SECTION) {
       return 'una parte de un solo compás no es una parte';
     }
   }
 
-  if (!tienePartes(path)) {
-    if (secciones.length !== 1) {
+  if (!hasSections(path)) {
+    if (sections.length !== 1) {
       return 'esta salida retoca tus compases: va en una sola parte';
     }
   } else {
-    const tuyas = secciones.filter((s) => s.tuya);
-    if (tuyas.length !== 1) {
-      return 'hace falta una parte tuya, y solo una';
+    const ours = sections.filter((s) => s.yours);
+    if (ours.length !== 1) {
+      return 'hace falta una parte yours, y solo una';
     }
-    if (!secciones[0]!.tuya) {
+    if (!sections[0]!.yours) {
       return 'tu parte va la primera: lo demás es lo que sigue';
     }
-    if (secciones.length < 2) {
-      return 'continuar pide al menos una parte más que la tuya';
+    if (sections.length < 2) {
+      return 'continuar pide al menos una parte más que la yours';
     }
-    const tuya = secciones[0]!;
+    const yours = sections[0]!;
     if (
-      tuya.steps.length !== original.length ||
-      tuya.steps.some(
+      yours.steps.length !== original.length ||
+      yours.steps.some(
         (paso, i) => paso.degree !== original[i]!.degree || paso.beats !== original[i]!.beats,
       )
     ) {
@@ -422,7 +422,7 @@ export function motivoDeDescarteDeCancion(
     // reglas —los saltos existen, no cierra, sabe volver— y no era una parte
     // nueva, era la tuya con otro nombre. Repetir vale en una canción; devolver
     // solo repeticiones no es continuar nada.
-    const aportaAlgo = secciones
+    const addsSomething = sections
       .slice(1)
       .some(
         (parte) =>
@@ -431,26 +431,26 @@ export function motivoDeDescarteDeCancion(
             (paso, i) => paso.degree !== original[i]!.degree || paso.beats !== original[i]!.beats,
           ),
       );
-    if (!aportaAlgo) {
+    if (!addsSomething) {
       return 'las partes nuevas son tu parte otra vez';
     }
   }
 
-  return motivoDeDescarte(
+  return pathProblem(
     mode,
     path,
     original,
-    secciones.flatMap((s) => s.steps),
+    sections.flatMap((s) => s.steps),
   );
 }
 
-export function esSalidaValida(
+export function isValidPath(
   mode: KeyMode,
   path: PathId,
   original: readonly PathStep[],
-  propuesta: readonly ProposedStep[],
+  proposed: readonly ProposedStep[],
 ): boolean {
-  return motivoDeDescarte(mode, path, original, propuesta) === null;
+  return pathProblem(mode, path, original, proposed) === null;
 }
 
 /**
@@ -462,7 +462,7 @@ export function esSalidaValida(
  * qué. Enseñárselo es además lo que hace la diferencia —con las ideas, pasar de
  * pedir los grados en prosa a dárselos enumerados fue de 0 de 4 a 4 de 4—.
  */
-export function textoDelGrafo(mode: KeyMode, grados: readonly DegreeSymbol[]): string {
+export function graphText(mode: KeyMode, grados: readonly DegreeSymbol[]): string {
   return grados
     .map(
       (degree) =>

@@ -70,7 +70,7 @@ export function versionesSinIA(peticion: Peticion): unknown {
         path: 'rearmonizar',
         title: `${SIN_IA} · ${move.name.toLowerCase()}`,
         why: `${move.why} La ha construido el dominio, no un modelo.`,
-        sections: [{ name: 'Lo que llevas', tuya: false, steps }],
+        sections: [{ name: 'Lo que llevas', yours: false, steps }],
       });
       break;
     }
@@ -104,10 +104,10 @@ export function versionesSinIA(peticion: Peticion): unknown {
       sections: [
         {
           name: 'Lo que llevas',
-          tuya: true,
+          yours: true,
           steps: progression.map((paso) => ({ ...paso, move: null })),
         },
-        { name: 'Cierre', tuya: false, steps: cola },
+        { name: 'Cierre', yours: false, steps: cola },
       ],
     });
   }
@@ -121,7 +121,7 @@ export function versionesSinIA(peticion: Peticion): unknown {
       sections: [
         {
           name: 'Lo que llevas',
-          tuya: false,
+          yours: false,
           steps: progression.map((paso, index) => ({
             degree: paso.degree,
             beats: index === 0 ? Math.min(16, paso.beats * 2) : paso.beats,

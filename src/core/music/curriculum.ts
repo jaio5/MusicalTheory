@@ -226,14 +226,6 @@ export const UNIT_ORDER: readonly string[] = COURSES.flatMap((course) =>
   course.units.map((unit) => unit.id),
 );
 
-export function coursesOfGrade(grade: GradeId): readonly Course[] {
-  return COURSES.filter((course) => course.grade === grade);
-}
-
-export function findCourse(id: string): Course | null {
-  return COURSES.find((course) => course.id === id) ?? null;
-}
-
 export function findUnit(id: string): { course: Course; unit: Unit } | null {
   for (const course of COURSES) {
     const unit = course.units.find((candidate) => candidate.id === id);

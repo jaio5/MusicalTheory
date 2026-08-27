@@ -12,12 +12,12 @@
 
 import type { CapturedChord } from '@core/music';
 
-import { acordesDeGrabacion, type AnalisisOptions } from './offline-chords';
+import { chordsOfRecording, type AnalysisOptions } from './offline-chords';
 import type { Recording } from './recorder';
 
-interface RespuestaDelWorker {
+interface WorkerAnswer {
   readonly ok: boolean;
-  readonly acordes: CapturedChord[];
+  readonly chords: CapturedChord[];
 }
 
 /**
@@ -26,24 +26,24 @@ interface RespuestaDelWorker {
  * Generoso: dos minutos de grabación en un móvil lento pueden ser diez segundos.
  * Esto no es un tope de calidad, es la red por si el worker no contesta nunca.
  */
-const ESPERA_MAXIMA_MS = 30_000;
+const MAX_WAIT_MS = 30_000;
 
-export async function analizarGrabacion(
-  grabacion: Recording,
-  options: Omit<AnalisisOptions, 'sampleRate'> = {},
+export async function analyzeRecording(
+  recording: Recording,
+  options: Omit<AnalysisOptions, 'sampleRate'> = {},
 ): Promise<CapturedChord[]> {
-  const opciones: AnalisisOptions = { ...options, sampleRate: grabacion.sampleRate };
+  const settings: AnalysisOptions = { ...options, sampleRate: recording.sampleRate };
 
-  const enWorker = await intentarEnWorker(grabacion.samples, opciones);
-  if (enWorker !== null) {
-    return enWorker;
+  const inWorker = await tryInWorker(recording.samples, settings);
+  if (inWorker !== null) {
+    return inWorker;
   }
-  return acordesDeGrabacion(grabacion.samples, opciones);
+  return chordsOfRecording(recording.samples, settings);
 }
 
-async function intentarEnWorker(
+async function tryInWorker(
   samples: Float32Array<ArrayBuffer>,
-  options: AnalisisOptions,
+  options: AnalysisOptions,
 ): Promise<CapturedChord[] | null> {
   if (typeof Worker === 'undefined') {
     return null;
@@ -58,11 +58,11 @@ async function intentarEnWorker(
 
   try {
     return await new Promise<CapturedChord[] | null>((resolver) => {
-      const reloj = setTimeout(() => resolver(null), ESPERA_MAXIMA_MS);
+      const reloj = setTimeout(() => resolver(null), MAX_WAIT_MS);
 
-      worker.addEventListener('message', (evento: MessageEvent<RespuestaDelWorker>) => {
+      worker.addEventListener('message', (evento: MessageEvent<WorkerAnswer>) => {
         clearTimeout(reloj);
-        resolver(evento.data.ok ? evento.data.acordes : null);
+        resolver(evento.data.ok ? evento.data.chords : null);
       });
       worker.addEventListener('error', () => {
         clearTimeout(reloj);

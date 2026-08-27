@@ -64,7 +64,7 @@ function noLeido(): NextResponse {
 }
 
 /**
- * Que no exista y que no sea tuya se contestan igual, y por eso la frase es una.
+ * Que no exista y que no sea yours se contestan igual, y por eso la frase es una.
  *
  * Desde fuera son el mismo caso —esa dirección no lleva a nada tuyo—, y decir
  * cuál de los dos es confirmaría que ese identificador existe en la cuenta de

@@ -8,7 +8,6 @@
  */
 
 import {
-  COURSES,
   findUnit,
   isUnitDone,
   isUnitUnlocked,
@@ -82,15 +81,4 @@ export function nextAllowedUnit(progress: Progress, planId: PlanId): string | nu
   // no queda nada se ofrece lo que se saltó.
   const desde = startIndex(progress);
   return UNIT_ORDER.slice(desde).find(libre) ?? UNIT_ORDER.find(libre) ?? null;
-}
-
-/**
- * Los cursos por los que se puede elegir empezar con este plan.
- *
- * Ofrecer un curso que el plan no incluye sería vender un punto de partida que se
- * cierra en la cara al elegirlo. Los que quedan fuera se enseñan aparte, con su
- * candado y su precio.
- */
-export function startableCourses(planId: unknown): readonly Course[] {
-  return COURSES.filter((course) => isCourseIncluded(planId, course));
 }

@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import {
-  MAX_MODEL_ATTEMPTS,
-  needsPlanMessage,
-  planOf,
-  quotaMessage,
-  TOKEN_BUDGETS,
-} from '@core/billing';
+import { MAX_MODEL_ATTEMPTS, TOKEN_BUDGETS } from '@core/billing';
 import { degreesFor } from '@core/music';
 
 import {
@@ -15,12 +9,11 @@ import {
   validateIdeas,
   type IdeasRequest,
 } from '@features/ideas/contract';
-import { askModel, modelAvailable } from '@server/ask-model';
+import { abrirPuertaDeIa, frenarPorFrecuencia } from '@server/ai-gate';
+import { askModel } from '@server/ask-model';
 import { ideasSinIA } from '@server/fake-model';
 import { ideasSchema, IDEAS_SYSTEM_PROMPT } from '@server/prompts';
-import { spendAi } from '@server/entitlements';
-import { limitRequest } from '@server/rate-limit-db';
-import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
+import { SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
  * Route handler de ideas. Es el único sitio del proyecto que importa el SDK de
@@ -91,16 +84,9 @@ function buildPrompt(request: IdeasRequest, validDegrees: readonly string[]): st
 export async function POST(request: Request): Promise<NextResponse> {
   const now = Date.now();
   // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
-  const { allowed, retryAfterSeconds } = await limitRequest({
-    memoria: limiter,
-    key: requesterKey(request.headers),
-    now,
-  });
-  if (!allowed) {
-    return NextResponse.json(ideasError('rate_limited'), {
-      status: 429,
-      headers: { 'Retry-After': String(retryAfterSeconds) },
-    });
+  const frenada = await frenarPorFrecuencia(request, limiter, ideasError, now);
+  if (frenada !== null) {
+    return frenada;
   }
 
   let body: unknown;
@@ -115,36 +101,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(ideasError('invalid_request'), { status: 400 });
   }
 
-  // Sin clave, antes de gastar cupo. `askModel` fallaría igual unas líneas
-  // más abajo, pero para entonces la petición ya está contada: alguien se
-  // quedaría sin peticiones del mes por una variable de entorno que falta.
-  if (!modelAvailable()) {
-    return NextResponse.json(ideasError('model_unavailable'), { status: 503 });
-  }
-
-  // El cupo del plan, después del límite por minuto: comprobar memoria es
-  // gratis y escribir en la base de datos no.
-  const permiso = await spendAi('ideas');
-  if (permiso.kind === 'sin-cuenta') {
-    return NextResponse.json(ideasError('account_required'), { status: 401 });
-  }
-  if (permiso.kind === 'plan') {
-    return NextResponse.json(
-      ideasError('plan_required', needsPlanMessage(permiso.needed, 'Las ideas de la IA', true)),
-      { status: 402 },
-    );
-  }
-  if (permiso.kind === 'cupo') {
-    return NextResponse.json(
-      ideasError(
-        'quota_exhausted',
-        quotaMessage(planOf(permiso.account.plan), permiso.account.aiModel, permiso.scope),
-      ),
-      { status: 429 },
-    );
-  }
-  if (permiso.kind === 'sin-contador') {
-    return NextResponse.json(ideasError('model_unavailable'), { status: 503 });
+  const cerrada = await abrirPuertaDeIa({
+    feature: 'ideas',
+    error: ideasError,
+    loQueEs: 'Las ideas de la IA',
+    plural: true,
+  });
+  if (cerrada !== null) {
+    return cerrada;
   }
 
   const prompt = buildPrompt(parsed, degreesFor(parsed.key.mode));

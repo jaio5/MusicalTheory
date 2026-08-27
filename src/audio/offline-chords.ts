@@ -30,19 +30,19 @@
 
 import {
   bestChord,
+  degreeOfChord,
   nextDegrees,
-  normalizePitchClass,
+  triadQuality,
   type Accidental,
   type CapturedChord,
-  type DegreeSymbol,
   type KeyMode,
   type PitchClass,
 } from '@core/music';
 
 import { chromaFromSpectrum } from './chroma';
-import { espectroDb } from './fft';
+import { spectrumDb } from './fft';
 
-export interface AnalisisOptions {
+export interface AnalysisOptions {
   readonly sampleRate: number;
   /**
    * Muestras por ventana. 16384 a 48 kHz son 341 ms.
@@ -82,7 +82,7 @@ export interface AnalisisOptions {
    * además se cuela el primero de la lista. Un acorde que solo aparece en una
    * ventana no es un acorde, es un borde.
    */
-  readonly minVentanas?: number;
+  readonly minFrames?: number;
 }
 
 const DEFAULTS = {
@@ -90,7 +90,7 @@ const DEFAULTS = {
   hop: 4096,
   accidental: 'sharp',
   minScore: 0.7,
-  minVentanas: 2,
+  minFrames: 2,
 } as const;
 
 /**
@@ -101,10 +101,10 @@ const DEFAULTS = {
  * el mismo acorde. Sin este premio, cualquier temblor del espectro parte un
  * acorde en dos, que es exactamente el defecto que se viene a arreglar.
  */
-const PREMIO_POR_QUEDARSE = 1.2;
+const STAY_BONUS = 1.2;
 
 /** Lo que cuesta un cambio que el dominio no conoce, frente a uno que sí. */
-const CASTIGO_POR_SALTO_RARO = 0.5;
+const ODD_STEP_PENALTY = 0.5;
 
 /**
  * El ruido de fondo de esta grabación, medido en ella misma.
@@ -125,92 +125,74 @@ const CASTIGO_POR_SALTO_RARO = 0.5;
  * Pasarse de permisivo no es grave: el reconocedor de acordes es la segunda
  * puerta, y el ruido no se parece a ningún acorde.
  */
-function sueloDeRuido(energias: readonly number[]): number {
-  const ordenadas = [...energias].sort((a, b) => a - b);
-  const p10 = ordenadas[Math.floor(ordenadas.length * 0.1)] ?? 0;
-  const mediana = ordenadas[Math.floor(ordenadas.length * 0.5)] ?? 0;
-  return Math.min(p10 * 2.5, mediana * 0.25);
+function noiseFloor(energies: readonly number[]): number {
+  const sorted = [...energies].sort((a, b) => a - b);
+  const p10 = sorted[Math.floor(sorted.length * 0.1)] ?? 0;
+  const median = sorted[Math.floor(sorted.length * 0.5)] ?? 0;
+  return Math.min(p10 * 2.5, median * 0.25);
 }
 
 /** La energía de un bloque, en RMS. */
-function rms(muestras: Float32Array, desde: number, cuantas: number): number {
-  let suma = 0;
-  for (let i = desde; i < desde + cuantas; i += 1) {
-    const v = muestras[i] ?? 0;
-    suma += v * v;
+function rms(samples: Float32Array, from: number, howMany: number): number {
+  let sum = 0;
+  for (let i = from; i < from + howMany; i += 1) {
+    const v = samples[i] ?? 0;
+    sum += v * v;
   }
-  return Math.sqrt(suma / cuantas);
+  return Math.sqrt(sum / howMany);
 }
 
-/** El grado de un acorde en esa tonalidad, o nulo si no es de la casa. */
-function gradoDe(
-  root: PitchClass,
-  key: { readonly tonic: PitchClass; readonly mode: KeyMode },
-  esMenor: boolean,
-): DegreeSymbol | null {
-  const distancia = normalizePitchClass(root - key.tonic);
-  const MAYOR: Readonly<Record<number, string>> = {
-    0: 'I',
-    2: 'ii',
-    4: 'iii',
-    5: 'IV',
-    7: 'V',
-    9: 'vi',
-    10: 'bVII',
-    11: 'vii°',
-  };
-  const MENOR: Readonly<Record<number, string>> = {
-    0: 'i',
-    2: 'ii°',
-    3: 'III',
-    5: 'iv',
-    7: 'v',
-    8: 'VI',
-    10: 'VII',
-    1: 'bII',
-  };
-  const tabla = key.mode === 'minor' ? MENOR : MAYOR;
-  const grado = tabla[distancia];
-  if (grado === undefined) {
-    return null;
-  }
-  // En menor, el V mayor y el v menor son los dos grados distintos y suenan
-  // distinto: sin esto, una dominante con sensible se leería como la sin ella.
-  if (key.mode === 'minor' && distancia === 7) {
-    return (esMenor ? 'v' : 'V') as DegreeSymbol;
-  }
-  return grado as DegreeSymbol;
-}
-
-/** Lo que vale pasar de un acorde al siguiente, con el grafo del dominio. */
-function pesoDelSalto(
-  de: { root: PitchClass; menor: boolean },
-  a: { root: PitchClass; menor: boolean },
-  key: AnalisisOptions['key'],
-): number {
-  if (de.root === a.root && de.menor === a.menor) {
-    return PREMIO_POR_QUEDARSE;
+/**
+ * Lo que vale pasar de un acorde al siguiente, con el grafo del dominio.
+ *
+ * El grado sale de `triadQuality` y `degreeOfChord`, que es lo que ya usa
+ * `capture.ts` para lo mismo. Aquí hubo un rato una tabla propia de semitonos a
+ * grados, y no solo era teoría musical duplicada fuera de `core/`: deducía «es
+ * menor» de si el cifrado llevaba una eme, y `Cmaj7` lleva una eme.
+ */
+function stepWeight(before: HeardChord, after: HeardChord, key: AnalysisOptions['key']): number {
+  if (sameChord(before, after)) {
+    return STAY_BONUS;
   }
   if (key === undefined) {
     return 1;
   }
-  const desde = gradoDe(de.root, key, de.menor);
-  const hasta = gradoDe(a.root, key, a.menor);
-  if (desde === null || hasta === null) {
+  const from = degreeOfHeard(before, key);
+  const to = degreeOfHeard(after, key);
+  if (from === null || to === null) {
     // Uno de los dos no es de esta tonalidad. Puede pasar y no se castiga a
     // ciegas: un préstamo modal es música, no un error de lectura.
     return 1;
   }
-  const salto = nextDegrees(key.mode, desde).find((m) => m.to === hasta);
+  const step = nextDegrees(key.mode, from).find((move) => move.to === to);
   // El peso del grafo es de 0 a 1 y dice cuánto se usa ese movimiento. Un salto
   // que no está no se prohíbe: se le pone cuesta arriba.
-  return salto === undefined ? CASTIGO_POR_SALTO_RARO : 1 + salto.weight;
+  return step === undefined ? ODD_STEP_PENALTY : 1 + step.weight;
 }
 
-interface Ventana {
+/** Un acorde tal y como se ha oído: su fundamental y las notas que suenan. */
+interface HeardChord {
+  readonly root: PitchClass;
+  readonly notes: readonly PitchClass[];
+}
+
+function sameChord(a: HeardChord, b: HeardChord): boolean {
+  return (
+    a.root === b.root &&
+    a.notes.length === b.notes.length &&
+    a.notes.every((note, i) => note === b.notes[i])
+  );
+}
+
+function degreeOfHeard(chord: HeardChord, key: NonNullable<AnalysisOptions['key']>) {
+  const quality = triadQuality(chord.root, chord.notes);
+  return quality === null ? null : degreeOfChord(key.tonic, key.mode, chord.root, quality);
+}
+
+interface Frame {
   readonly at: number;
-  readonly acorde: { root: PitchClass; notes: readonly PitchClass[]; menor: boolean } | null;
-  readonly puntuacion: number;
+  readonly chord: HeardChord | null;
+  readonly score: number;
 }
 
 /**
@@ -221,9 +203,9 @@ interface Ventana {
  * ha venido. Ese es el punto de la costura: se puede cambiar cómo se oye sin
  * tocar cómo se compone.
  */
-export function acordesDeGrabacion(
-  muestras: Float32Array,
-  options: AnalisisOptions,
+export function chordsOfRecording(
+  samples: Float32Array,
+  options: AnalysisOptions,
 ): CapturedChord[] {
   const { sampleRate } = options;
   const fftSize = options.fftSize ?? DEFAULTS.fftSize;
@@ -231,43 +213,40 @@ export function acordesDeGrabacion(
   const accidental = options.accidental ?? DEFAULTS.accidental;
   const minScore = options.minScore ?? DEFAULTS.minScore;
 
-  if (muestras.length < fftSize) {
+  if (samples.length < fftSize) {
     return [];
   }
 
   // --- 1. Una pasada midiendo, para saber cómo suena el silencio de esta sala.
-  const energias: number[] = [];
-  for (let i = 0; i + fftSize <= muestras.length; i += hop) {
-    energias.push(rms(muestras, i, fftSize));
+  const energies: number[] = [];
+  for (let i = 0; i + fftSize <= samples.length; i += hop) {
+    energies.push(rms(samples, i, fftSize));
   }
-  const suelo = sueloDeRuido(energias);
+  const floor = noiseFloor(energies);
 
   // --- 2. Una ventana por salto: espectro, croma y el acorde que más se parece.
-  const ventanas: Ventana[] = [];
-  const bloque = new Float32Array(fftSize);
-  const espectro = new Float32Array(fftSize / 2);
+  const frames: Frame[] = [];
+  const block = new Float32Array(fftSize);
+  const spectrum = new Float32Array(fftSize / 2);
 
-  for (const [indice, energia] of energias.entries()) {
-    const desde = indice * hop;
-    const at = Math.round(((desde + fftSize / 2) / sampleRate) * 1000);
+  for (const [index, energy] of energies.entries()) {
+    const from = index * hop;
+    const at = Math.round(((from + fftSize / 2) / sampleRate) * 1000);
 
-    if (energia < suelo) {
-      ventanas.push({ at, acorde: null, puntuacion: 0 });
+    if (energy < floor) {
+      frames.push({ at, chord: null, score: 0 });
       continue;
     }
 
-    bloque.set(muestras.subarray(desde, desde + fftSize));
-    espectroDb(bloque, espectro);
-    const chroma = chromaFromSpectrum(espectro, { sampleRate, fftSize });
+    block.set(samples.subarray(from, from + fftSize));
+    spectrumDb(block, spectrum);
+    const chroma = chromaFromSpectrum(spectrum, { sampleRate, fftSize });
     const match = bestChord(chroma, { accidental, minScore });
 
-    ventanas.push({
+    frames.push({
       at,
-      acorde:
-        match === null
-          ? null
-          : { root: match.root, notes: match.notes, menor: match.symbol.includes('m') },
-      puntuacion: match?.score ?? 0,
+      chord: match === null ? null : { root: match.root, notes: match.notes },
+      score: match?.score ?? 0,
     });
   }
 
@@ -277,141 +256,133 @@ export function acordesDeGrabacion(
   // acorde candidato, lo mejor que se puede haber llegado hasta ahí. Al final se
   // deshace el camino. Es lo que permite que una ventana con un acorde raro se
   // corrija con lo que vino después, que en tiempo real es imposible.
-  const elegidos = elegirSecuencia(ventanas, options.key);
+  const chosen = chooseSequence(frames, options.key);
 
   // --- 4. Ventanas seguidas con el mismo acorde son un solo acorde, y las
-  //        rachas demasiado cortas no son ningún acorde.
-  const minVentanas = options.minVentanas ?? DEFAULTS.minVentanas;
-  const rachas: { acorde: NonNullable<Candidato>; desde: number; largo: number }[] = [];
+  //        tramos demasiado cortas no son ningún acorde.
+  const minFrames = options.minFrames ?? DEFAULTS.minFrames;
+  const runs: { chord: NonNullable<Candidate>; from: number; largo: number }[] = [];
 
-  for (const [i, acorde] of elegidos.entries()) {
-    if (acorde === null) {
+  for (const [i, chord] of chosen.entries()) {
+    if (chord === null) {
       continue;
     }
-    const ultima = rachas[rachas.length - 1];
-    const sigue =
-      ultima !== undefined &&
-      ultima.desde + ultima.largo === i &&
-      ultima.acorde.root === acorde.root &&
-      ultima.acorde.menor === acorde.menor;
-    if (sigue) {
-      ultima.largo += 1;
+    const last = runs[runs.length - 1];
+    const continues =
+      last !== undefined && last.from + last.largo === i && sameChord(last.chord, chord);
+    if (continues) {
+      last.largo += 1;
     } else {
-      rachas.push({ acorde, desde: i, largo: 1 });
+      runs.push({ chord, from: i, largo: 1 });
     }
   }
 
-  const salida: CapturedChord[] = [];
-  for (const racha of rachas) {
-    if (racha.largo < minVentanas) {
+  const out: CapturedChord[] = [];
+  for (const run of runs) {
+    if (run.largo < minFrames) {
       continue;
     }
-    // Dos rachas del mismo acorde separadas solo por una que se ha caído son el
+    // Dos tramos del mismo acorde separadas solo por una que se ha caído son el
     // mismo acorde: se pegan en vez de aparecer dos veces.
-    const anterior = salida[salida.length - 1];
+    const previous = out[out.length - 1];
     if (
-      anterior !== undefined &&
-      anterior.root === racha.acorde.root &&
-      anterior.notes.length === racha.acorde.notes.length &&
-      anterior.notes.every((n, j) => n === racha.acorde.notes[j])
+      previous !== undefined &&
+      previous.root === run.chord.root &&
+      previous.notes.length === run.chord.notes.length &&
+      previous.notes.every((n, j) => n === run.chord.notes[j])
     ) {
       continue;
     }
-    salida.push({
-      root: racha.acorde.root,
-      notes: racha.acorde.notes,
-      at: ventanas[racha.desde]!.at,
+    out.push({
+      root: run.chord.root,
+      notes: run.chord.notes,
+      at: frames[run.from]!.at,
     });
   }
 
-  return salida;
+  return out;
 }
 
-type Candidato = Ventana['acorde'];
+type Candidate = Frame['chord'];
 
-function elegirSecuencia(ventanas: readonly Ventana[], key: AnalisisOptions['key']): Candidato[] {
-  const elegidos: Candidato[] = new Array<Candidato>(ventanas.length).fill(null);
+function chooseSequence(frames: readonly Frame[], key: AnalysisOptions['key']): Candidate[] {
+  const chosen: Candidate[] = new Array<Candidate>(frames.length).fill(null);
 
   // Los tramos con sonido se resuelven por separado: un silencio corta la
   // canción, y arrastrar el acorde de antes de un silencio al de después sería
   // inventarse una continuidad que no existe.
   let inicio = 0;
-  while (inicio < ventanas.length) {
-    if (ventanas[inicio]!.acorde === null) {
+  while (inicio < frames.length) {
+    if (frames[inicio]!.chord === null) {
       inicio += 1;
       continue;
     }
     let fin = inicio;
-    while (fin < ventanas.length && ventanas[fin]!.acorde !== null) {
+    while (fin < frames.length && frames[fin]!.chord !== null) {
       fin += 1;
     }
-    for (const [i, acorde] of resolverTramo(ventanas.slice(inicio, fin), key).entries()) {
-      elegidos[inicio + i] = acorde;
+    for (const [i, chord] of solveRun(frames.slice(inicio, fin), key).entries()) {
+      chosen[inicio + i] = chord;
     }
     inicio = fin;
   }
 
-  return elegidos;
+  return chosen;
 }
 
-function resolverTramo(tramo: readonly Ventana[], key: AnalisisOptions['key']): Candidato[] {
-  if (tramo.length === 0) {
+function solveRun(run: readonly Frame[], key: AnalysisOptions['key']): Candidate[] {
+  if (run.length === 0) {
     return [];
   }
 
   // Los candidatos del tramo son los acordes que alguna ventana ha propuesto. No
   // hace falta considerar los doce por doce: si nadie lo ha oído, no está.
-  const candidatos: NonNullable<Candidato>[] = [];
-  for (const ventana of tramo) {
-    const a = ventana.acorde;
-    if (a !== null && !candidatos.some((c) => c.root === a.root && c.menor === a.menor)) {
-      candidatos.push(a);
+  const candidates: NonNullable<Candidate>[] = [];
+  for (const frame of run) {
+    const a = frame.chord;
+    if (a !== null && !candidates.some((c) => sameChord(c, a))) {
+      candidates.push(a);
     }
   }
 
-  const mejor: number[][] = [];
-  const venimosDe: number[][] = [];
+  const best: number[][] = [];
+  const cameFrom: number[][] = [];
 
-  for (const [t, ventana] of tramo.entries()) {
-    mejor.push(new Array<number>(candidatos.length).fill(-Infinity));
-    venimosDe.push(new Array<number>(candidatos.length).fill(0));
+  for (const [t, frame] of run.entries()) {
+    best.push(new Array<number>(candidates.length).fill(-Infinity));
+    cameFrom.push(new Array<number>(candidates.length).fill(0));
 
-    for (const [c, candidato] of candidatos.entries()) {
+    for (const [c, candidate] of candidates.entries()) {
       // Lo bien que ese candidato explica lo que se oye en esta ventana.
-      const encaja =
-        ventana.acorde !== null &&
-        ventana.acorde.root === candidato.root &&
-        ventana.acorde.menor === candidato.menor
-          ? ventana.puntuacion
-          : 0;
+      const fits = frame.chord !== null && sameChord(frame.chord, candidate) ? frame.score : 0;
 
       if (t === 0) {
-        mejor[t]![c] = encaja;
+        best[t]![c] = fits;
         continue;
       }
-      for (const [p, previo] of candidatos.entries()) {
-        const valor = mejor[t - 1]![p]! + pesoDelSalto(previo, candidato, key) * 0.5 + encaja;
-        if (valor > mejor[t]![c]!) {
-          mejor[t]![c] = valor;
-          venimosDe[t]![c] = p;
+      for (const [p, previous] of candidates.entries()) {
+        const value = best[t - 1]![p]! + stepWeight(previous, candidate, key) * 0.5 + fits;
+        if (value > best[t]![c]!) {
+          best[t]![c] = value;
+          cameFrom[t]![c] = p;
         }
       }
     }
   }
 
-  // Deshacer el camino desde el mejor final.
-  const ultimo = tramo.length - 1;
-  let indice = 0;
-  for (let c = 1; c < candidatos.length; c += 1) {
-    if (mejor[ultimo]![c]! > mejor[ultimo]![indice]!) {
-      indice = c;
+  // Deshacer el camino from el mejor final.
+  const lastIndex = run.length - 1;
+  let index = 0;
+  for (let c = 1; c < candidates.length; c += 1) {
+    if (best[lastIndex]![c]! > best[lastIndex]![index]!) {
+      index = c;
     }
   }
 
-  const salida: Candidato[] = new Array<Candidato>(tramo.length).fill(null);
-  for (let t = ultimo; t >= 0; t -= 1) {
-    salida[t] = candidatos[indice] ?? null;
-    indice = venimosDe[t]![indice]!;
+  const out: Candidate[] = new Array<Candidate>(run.length).fill(null);
+  for (let t = lastIndex; t >= 0; t -= 1) {
+    out[t] = candidates[index] ?? null;
+    index = cameFrom[t]![index]!;
   }
-  return salida;
+  return out;
 }

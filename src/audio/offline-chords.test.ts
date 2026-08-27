@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { noteName, type PitchClass } from '@core/music';
 
-import { acordesDeGrabacion } from './offline-chords';
+import { chordsOfRecording } from './offline-chords';
 
 const SAMPLE_RATE = 48_000;
 
@@ -59,15 +59,15 @@ const nombres = (acordes: readonly { root: PitchClass }[]) =>
 
 describe('analizar una grabación entera', () => {
   it('una grabación demasiado corta no da nada', () => {
-    expect(acordesDeGrabacion(new Float32Array(1000), { sampleRate: SAMPLE_RATE })).toEqual([]);
+    expect(chordsOfRecording(new Float32Array(1000), { sampleRate: SAMPLE_RATE })).toEqual([]);
   });
 
   it('el silencio no inventa acordes', () => {
-    expect(acordesDeGrabacion(silencio(3), { sampleRate: SAMPLE_RATE })).toEqual([]);
+    expect(chordsOfRecording(silencio(3), { sampleRate: SAMPLE_RATE })).toEqual([]);
   });
 
   it('saca la fundamental de un acorde sostenido', () => {
-    const acordes = acordesDeGrabacion(rasguear(Am, 2.5), { sampleRate: SAMPLE_RATE });
+    const acordes = chordsOfRecording(rasguear(Am, 2.5), { sampleRate: SAMPLE_RATE });
 
     expect(acordes.length).toBeGreaterThan(0);
     expect(noteName(acordes[0]!.root, 'sharp')).toBe('A');
@@ -76,7 +76,7 @@ describe('analizar una grabación entera', () => {
   it('una progresión sale en orden y sin repetir el mismo acorde', () => {
     const grabacion = pegar(rasguear(Am, 2), rasguear(F, 2), rasguear(C, 2), rasguear(G, 2));
 
-    const acordes = acordesDeGrabacion(grabacion, {
+    const acordes = chordsOfRecording(grabacion, {
       sampleRate: SAMPLE_RATE,
       key: { tonic: 9 as PitchClass, mode: 'minor' },
     });
@@ -92,7 +92,7 @@ describe('analizar una grabación entera', () => {
   it('un silencio en medio corta, y no se arrastra el acorde de antes', () => {
     const grabacion = pegar(rasguear(Am, 2), silencio(1.5), rasguear(G, 2));
 
-    const acordes = acordesDeGrabacion(grabacion, { sampleRate: SAMPLE_RATE });
+    const acordes = chordsOfRecording(grabacion, { sampleRate: SAMPLE_RATE });
     const dosSegundos = 2000;
 
     // Hay acordes a los dos lados del silencio, y ninguno justo en medio.
@@ -103,7 +103,7 @@ describe('analizar una grabación entera', () => {
   it('el instante que devuelve cae dentro del acorde, no al principio de todo', () => {
     const grabacion = pegar(silencio(1), rasguear(Am, 2.5));
 
-    const acordes = acordesDeGrabacion(grabacion, { sampleRate: SAMPLE_RATE });
+    const acordes = chordsOfRecording(grabacion, { sampleRate: SAMPLE_RATE });
 
     expect(acordes[0]!.at).toBeGreaterThan(700);
     expect(acordes[0]!.at).toBeLessThan(2500);
@@ -113,10 +113,10 @@ describe('analizar una grabación entera', () => {
     // La misma grabación con diez veces más ruido de fondo sigue dando el mismo
     // acorde. Con un umbral escrito en un fichero, o se cuela la sala o se pierde
     // la guitarra, según el ampli.
-    const limpia = acordesDeGrabacion(pegar(silencio(1, 0.001), rasguear(Am, 2.5, 0.001)), {
+    const limpia = chordsOfRecording(pegar(silencio(1, 0.001), rasguear(Am, 2.5, 0.001)), {
       sampleRate: SAMPLE_RATE,
     });
-    const sucia = acordesDeGrabacion(pegar(silencio(1, 0.01), rasguear(Am, 2.5, 0.01)), {
+    const sucia = chordsOfRecording(pegar(silencio(1, 0.01), rasguear(Am, 2.5, 0.01)), {
       sampleRate: SAMPLE_RATE,
     });
 
@@ -134,8 +134,8 @@ describe('la tonalidad ayuda a decidir', () => {
   it('con tonalidad no salen más acordes que sin ella', () => {
     const grabacion = pegar(rasguear(Am, 1.5), rasguear(F, 1.5), rasguear(C, 1.5));
 
-    const sinTono = acordesDeGrabacion(grabacion, { sampleRate: SAMPLE_RATE });
-    const conTono = acordesDeGrabacion(grabacion, {
+    const sinTono = chordsOfRecording(grabacion, { sampleRate: SAMPLE_RATE });
+    const conTono = chordsOfRecording(grabacion, {
       sampleRate: SAMPLE_RATE,
       key: { tonic: 9 as PitchClass, mode: 'minor' },
     });
