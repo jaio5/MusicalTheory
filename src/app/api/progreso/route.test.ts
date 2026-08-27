@@ -151,3 +151,17 @@ describe('con cuenta', () => {
     expect((await leer(await PUT(guardar(avance(['e1-grados']))))).status).toBe(502);
   });
 });
+
+describe('una cuenta que todavía no ha guardado nada', () => {
+  it('devuelve el avance vacío, no un error', async () => {
+    // Es lo normal el primer día con cuenta: hay cuenta, hay plan y no hay
+    // ninguna fila. Un error ahí haría que la escalera saliera bloqueada.
+    currentSession.mockResolvedValue({ userId: 'u1', account: { plan: 'pro' } });
+    loadAccountProgress.mockResolvedValue({ kind: 'vacio' });
+
+    const { status, body } = await leer(await GET());
+
+    expect(status).toBe(200);
+    expect(body['progress']).toMatchObject({ done: [] });
+  });
+});

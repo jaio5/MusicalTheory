@@ -248,3 +248,18 @@ describe('lo que no llega al modelo', () => {
     expect(askModel).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('cuando la puerta esta cerrada', () => {
+  it('no se le pregunta al modelo, y se contesta lo que diga la puerta', async () => {
+    // Las cuatro ramas de la puerta —cuenta, plan, cupo, proveedor— se prueban
+    // en `server/ai-gate.test.ts`. Lo que se comprueba aqui es que esta ruta
+    // **se para**: sin esto se gastaria una llamada al modelo que nadie ha
+    // pagado.
+    spendAi.mockResolvedValue({ kind: 'sin-cuenta' } as never);
+
+    const respuesta = await POST(pedir({ ...TOCADO, kind: 'continuar' }));
+
+    expect(respuesta.status).toBe(401);
+    expect(askModel).not.toHaveBeenCalled();
+  });
+});

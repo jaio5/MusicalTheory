@@ -158,3 +158,53 @@ describe('usar el vale', () => {
     expect(status).toBe(501);
   });
 });
+
+describe('probar correos a lo bruto', () => {
+  /**
+   * El límite es más estrecho que el del resto —tres por minuto— porque esto se
+   * puede pedir sin cuenta y cada intento manda un correo. Sin él, la aplicación
+   * es un mandador de correo gratis apuntando a la dirección que quiera quien
+   * llame.
+   */
+  it('se frena, y se dice cuánto esperar', async () => {
+    mailer.mockReturnValue(CORREO_QUE_MANDA);
+    requestReset.mockResolvedValue({ token: 't', email: 'a@b.c' });
+
+    /** Todas desde la misma dirección: es la clave del contador. */
+    function desde(metodo: string, body: unknown): Request {
+      return new Request('http://x/api/cuenta/olvidada', {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.9.9.9' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    let ultima = 200;
+    for (let i = 0; i < 6 && ultima !== 429; i += 1) {
+      ultima = (await POST(desde('POST', { email: 'a@b.c' }))).status;
+    }
+
+    expect(ultima).toBe(429);
+  });
+
+  it('y el mismo contador vale para poner la contraseña nueva', async () => {
+    // Es la misma puerta: contar aparte daría el doble de intentos a quien
+    // prueba vales inventados.
+    resetPassword.mockResolvedValue('vale-no-vale');
+
+    function desde(body: unknown): Request {
+      return new Request('http://x/api/cuenta/olvidada', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.9.9.8' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    let ultima = 200;
+    for (let i = 0; i < 6 && ultima !== 429; i += 1) {
+      ultima = (await PUT(desde({ vale: 'x', password: 'unaContrasenaLarga' }))).status;
+    }
+
+    expect(ultima).toBe(429);
+  });
+});
