@@ -1,11 +1,16 @@
 # Caos ordenado — guía para trabajar aquí
 
-Aplicación web que escucha la guitarra por el micro y ordena la teoría mientras
-tocas. Next.js 16 + React 19 + TypeScript, Tailwind v4, Zustand, Vitest.
+Aplicación web para **aprender música y componer con ayuda**: escucha lo que tocas
+por el micro, te enseña la teoría por unidades y te propone por dónde puede seguir
+lo que llevas. Next.js 16 + React 19 + TypeScript, Tailwind v4, Zustand, Vitest.
 Cuentas con Auth.js y Postgres (Drizzle), opcionales. Node 22+ y pnpm.
 
-**Este fichero es el mapa, no la documentación.** El porqué de cada cosa ya está
-escrito en `docs/`; aquí solo está lo que hace falta para no tener que buscarlo.
+Hoy corre en un equipo y la usa una persona. **Se publicará y se cobrará por
+suscripción**, y todo lo que eso pide está aparte, en `docs/PARA-PUBLICAR.md`: no
+se mezcla con lo que ya funciona.
+
+**Este fichero es el mapa, no la documentación.** El porqué está en `docs/`; aquí
+solo lo que hace falta para no tener que buscarlo.
 
 ## Antes de dar nada por terminado
 
@@ -27,8 +32,8 @@ la migración y `pnpm db:migrate` la aplica; no se aplican solas al arrancar.
 **Para tocar cualquier cosa de cuentas hace falta base de datos, y la da Docker:**
 `pnpm docker:up` levanta Postgres, aplica las migraciones y arranca la aplicación;
 `pnpm docker:db` levanta solo Postgres para usarlo con `pnpm dev`; `pnpm docker:ia`
-añade un Ollama al que preguntar sin clave y sin factura. El script escribe
-el `.env` que falte con un `AUTH_SECRET` nuevo. Si el 3000 está ocupado, `APP_PORT`.
+añade un Ollama al que preguntar sin clave y sin factura. El script escribe el
+`.env` que falte con un `AUTH_SECRET` nuevo. Si el 3000 está ocupado, `APP_PORT`.
 
 **Prettier también formatea el markdown.** Después de tocar cualquier `.md` hay
 que pasar `pnpm format`, o `format:check` falla. Es el fallo más tonto y el más
@@ -60,11 +65,6 @@ Alias: `@core/*`, `@audio/*`, `@media/*`, `@server/*`, `@state/*`, `@features/*`
 `@ui/*`, `@/*`. Las capas de arriba importan de `@core/music` y `@core/billing`
 —los índices—, no de los ficheros sueltos.
 
-Una más, de las de media hora: **`color-scheme: dark` en `:root`** es lo que hace
-que el navegador pinte en oscuro lo que dibuja él y no nosotros —la lista de un
-`<select>`, la barra de scroll, el cursor—. Sin esa línea aparecen parches blancos
-que no se arreglan con ninguna clase de Tailwind.
-
 Tres trampas al tocar esto: **`no-restricted-imports` no se acumula entre bloques de
 ESLint** —el último gana, y por eso las reglas 2 y 5 van juntas—; **el layout raíz
 lleva `dynamic = 'force-dynamic'`** porque sin eso un build hecho sin base de datos
@@ -74,150 +74,86 @@ renombrado no puede degradar a quien había pagado.
 
 ## Dónde está cada cosa
 
-| Busco...                                              | Está en                                        |
-| ----------------------------------------------------- | ---------------------------------------------- |
-| Teoría musical: escalas, acordes, grados, tonalidad   | `src/core/music/`                              |
-| Funciones armónicas y sustitución (T/S/D)             | `core/music/harmonic-function.ts`              |
-| Qué acorde proponer y en qué orden                    | `core/music/suggestions.ts` + `styles.ts`      |
-| Detección de tono (autocorrelación)                   | `src/audio/autocorrelation.ts`                 |
-| Detección de acordes (croma + plantillas)             | `audio/chroma.ts`, `audio/chord-engine.ts`     |
-| Volver a escuchar lo grabado, con calma               | `audio/offline-chords.ts`, `audio/fft.ts`      |
-| Mástil, afinaciones, formas de acorde                 | `src/core/instrument/`                         |
-| Estado de sesión y persistencia                       | `src/state/` (IndexedDB)                       |
-| Grabación con cámara                                  | `src/media/`                                   |
-| Rutas de servidor de la IA                            | `app/api/ideas`, `/teacher`, `/versiones`      |
-| La llamada al modelo, y el único sitio con el SDK     | `server/ask-model.ts`                          |
-| Quién contesta —API, modelo de casa o dominio—        | `server/ai-model.ts`, `local-model.ts`         |
-| Lo que tocas, convertido en compases                  | `core/music/capture.ts`                        |
-| Con qué se rearmoniza, y cómo se comprueba            | `core/music/reharmonization.ts`                |
-| Por dónde puede tirar lo que tocas, y qué lo valida   | `core/music/paths.ts`                          |
-| Una canción guardada: grados, tonalidad y secciones   | `core/music/song.ts` + `server/songs-repo.ts`  |
-| Planes, permisos y si una unidad la abre el plan      | `src/core/billing/` (`plans.ts`, `access.ts`)  |
-| Meta diaria, racha, medallas, punto de partida        | `core/music/progress.ts`                       |
-| La cola de repaso de lo fallado                       | `core/music/review.ts`                         |
-| Tarjetas de plan y ventana de pago                    | `features/account/`, `src/app/planes/`         |
-| Guardar y abrir tus canciones                         | `features/songs/`, `src/app/api/canciones`     |
-| Salidas de lo que tocas, y su verificación            | `features/versions/` (se llamará `salidas/`)   |
-| El avatar de arriba y lo que cuelga de él             | `features/account/AccountMenu.tsx`             |
-| Cuentas, contraseñas, base de datos y cupos           | `src/server/`                                  |
-| Recuperar la contraseña, y por dónde sale el correo   | `server/password-reset.ts`, `server/mail/`     |
-| Si alguien puede pedirle algo al modelo               | `server/entitlements.ts` + `ai-usage.ts`       |
-| Por dónde entra texto libre, y qué lo acota           | `features/learn/teacher-contract.ts`           |
-| Por dónde se cobrará (hoy no se cobra)                | `src/server/billing/`                          |
-| El marco de una pantalla y sus apartados              | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
-| Leer lo que llega de fuera, y el error que contestó   | `core/parse.ts`, `state/api-error.ts`          |
-| Contar días sin que el cambio de hora rompa una racha | `core/music/days.ts`                           |
-| Un desplegable de opciones, y uno que abre un bloque  | `src/ui/Field.tsx`, `src/ui/Disclosure.tsx`    |
-| Iconos, y por qué no son emoji                        | `src/ui/icons.tsx`                             |
-| Tokens de diseño y las dos paletas                    | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
-| El tema claro/oscuro y su guion antidestello          | `src/state/theme.ts`, `src/ui/ThemeToggle.tsx` |
+| Busco...                                            | Está en                                        |
+| --------------------------------------------------- | ---------------------------------------------- |
+| Teoría musical: escalas, acordes, grados, tonalidad | `src/core/music/`                              |
+| Funciones armónicas y sustitución (T/S/D)           | `core/music/harmonic-function.ts`              |
+| Qué acorde proponer y en qué orden                  | `core/music/suggestions.ts` + `styles.ts`      |
+| Detección de tono (autocorrelación)                 | `src/audio/autocorrelation.ts`                 |
+| Detección de acordes en vivo (croma + plantillas)   | `audio/chroma.ts`, `audio/chord-engine.ts`     |
+| Volver a escuchar lo grabado, con calma             | `audio/offline-chords.ts`, `audio/fft.ts`      |
+| Mástil, afinaciones, formas de acorde               | `src/core/instrument/`                         |
+| Estado de sesión y persistencia                     | `src/state/` (IndexedDB)                       |
+| Grabación con cámara                                | `src/media/`                                   |
+| Rutas de servidor de la IA                          | `app/api/ideas`, `/teacher`, `/versiones`      |
+| Las puertas de toda petición a la IA                | `server/ai-gate.ts`                            |
+| La llamada al modelo, y el único sitio con el SDK   | `server/ask-model.ts`                          |
+| Quién contesta —API, modelo de casa o dominio—      | `server/ai-model.ts`, `local-model.ts`         |
+| Lo que tocas, convertido en compases                | `core/music/capture.ts`                        |
+| Con qué se rearmoniza, y cómo se comprueba          | `core/music/reharmonization.ts`                |
+| Por dónde puede tirar lo que tocas, y qué lo valida | `core/music/paths.ts`                          |
+| Una canción guardada: grados, tonalidad y secciones | `core/music/song.ts` + `server/songs-repo.ts`  |
+| Planes, permisos y si una unidad la abre el plan    | `src/core/billing/` (`plans.ts`, `access.ts`)  |
+| Meta diaria, racha, medallas, punto de partida      | `core/music/progress.ts`                       |
+| La cola de repaso de lo fallado                     | `core/music/review.ts`                         |
+| Guardar y abrir tus canciones                       | `features/songs/`, `src/app/api/canciones`     |
+| Salidas de lo que tocas, y su verificación          | `features/versions/` (se llamará `salidas/`)   |
+| Cuentas, contraseñas, base de datos y cupos         | `src/server/`                                  |
+| Por dónde entra texto libre, y qué lo acota         | `features/learn/teacher-contract.ts`           |
+| El marco de una pantalla y sus apartados            | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
+| Leer lo que llega de fuera, y el error que contestó | `core/parse.ts`, `state/api-error.ts`          |
+| Tokens de diseño y las dos paletas                  | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
 
-`/aprender` es **solo el camino**, y cada cosa que se hace tiene su dirección:
+`/aprender` es **solo el camino**, y cada cosa tiene su dirección:
 `/aprender/[unidad]` y `/aprender/repaso`. Después `/profesor`, `/componer`,
-`/afinar`, `/planes` con `/planes/[plan]` para pagar, `/registro` para crear la
-cuenta, `/cuenta` con sus cuatro anclas —`#perfil`, `#suscripcion`, `#contrasena`
-y `#privacidad`, que son las del desplegable del avatar— y la portada `/`.
+`/afinar`, `/planes` con `/planes/[plan]`, `/registro`, `/cuenta` con sus cuatro
+anclas —`#perfil`, `#suscripcion`, `#contrasena`, `#privacidad`— y la portada `/`.
 
 ## La documentación, y qué contesta cada fichero
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                    | Contesta                                                       |
-| -------------------------- | -------------------------------------------------------------- |
-| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular      |
-| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico      |
-| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen |
-| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                     |
-| `docs/AI.md`               | Contrato de los route handlers y las dos puertas del gasto     |
-| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti       |
-| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde        |
-| `docs/ROADMAP.md`          | Fases hechas y deuda, viva y pagada                            |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas                    |
+| Fichero                    | Contesta                                                        |
+| -------------------------- | --------------------------------------------------------------- |
+| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests    |
+| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular       |
+| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico       |
+| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen  |
+| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                      |
+| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto          |
+| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti        |
+| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario          |
+| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha |
+| `docs/HISTORIA.md`         | Las veinte fases hechas, una línea cada una                     |
+| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde         |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas                     |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Los diecisiete: dominio puro, tono propio, análisis en el hilo principal,
-acordes por croma, cuentas y fusión del avance, planes y cobro como puerto, punto de
-partida con una pantalla por cosa, cupos calculados desde el precio, un solo marco
-de pantalla, los dos temas con el negro de casa, las versiones verificadas contra
-el dominio sin que suba audio, un instrumento por ahora con el mapa del segundo, el
-correo como puerto con su vale de un solo uso, un modelo de casa para probar sin
-factura, un solo canal de texto libre con el tema declarado en el esquema, y salidas
-en vez de versiones con el camino declarado y comprobado, y el sonido grabado para
-volver a escucharlo entero.
+descartadas. Van diecisiete.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando
-llevaba dos commits implementado, y AUDIO-PITCH se contradecía a sí mismo treinta
-líneas más abajo.
+llevaba dos commits implementado.
 
-## Cómo se escribe aquí
-
-- **Todo en español**: código comentado, tests, documentación y commits.
-- Los comentarios explican **por qué**, no qué. Lee un fichero vecino antes de
-  escribir uno nuevo: el repositorio es consistente en esto.
-- Notas en cifrado anglosajón —C, D, E—, y cada tonalidad decide sostenidos o
-  bemoles según su sitio en la rueda.
-- Commits: `tipo(ámbito): frase en minúscula y sin tildes`, contando el efecto que
-  se nota. Ejemplo real: `fix(mastil): se ve entero al abrirlo, sin arrastrar nada`.
-- Interfaz para leerse **a un metro y con las dos manos ocupadas**: nada por debajo
-  de 12 px, **44 px de alto en todo lo que se pulsa**, diagramas grandes, y el
-  significado de un color al lado del color.
-- **Los controles de formulario son tres y solo tres**: `ui/Field` para elegir una
-  opción, `ui/Disclosure` para abrir un bloque y `ui/TextField` para escribir.
-  Ninguno se escribe a mano —lo vigila `coherencia.test.ts`—, porque así salieron
-  cinco pintas distintas. El campo de texto estuvo suelto en catorce sitios y lo
-  que la copia escondía era peor: **ninguno llegaba a los 44 px**. El ancho se pide
-  (`completo`, `auto`, `crece`); heredarlo llenaba una barra de herramientas con un
-  desplegable de un dígito y doce rem.
-- **Dos temas, y el negro es el de casa.** El claro se elige y se guarda; volver al
-  oscuro borra la preferencia. No cuelga de `prefers-color-scheme` a propósito. Los
-  nombres de los tokens no cambian entre uno y otro —`brass` es «el acento» valga
-  lo que valga—, así que ningún componente sabe qué tema hay puesto, pero un color
-  nuevo se comprueba en los dos fondos.
-- **La profundidad se pide por su nombre**: `.superficie`, `.superficie-alta` y
-  `.superficie-viva` en `globals.css` —fondo, borde, radio, filo de luz y sombra en
-  una clase—. Nada de cajas con `border` suelto: un tema oscuro sin relieve se lee
-  plano, y lo que da modernidad es que se note qué está encima de qué.
-- **Los títulos de pantalla van en la serif** (`font-display`), la misma de la
-  portada. Los rótulos de apartado, en versalitas de máquina de escribir.
-- **Toda pantalla entra por `ui/Screen`** —o por `WorkHeader` si es de taller— y
-  ninguna se escribe su propio ancho, relleno ni `h1`. Lo vigilan dos tests que leen
-  los ficheros (`app/screens/coherencia.test.ts`), porque la coherencia solo se ve
-  en conjunto. Los iconos son de `ui/icons.tsx`: **emoji no**, que no se tiñen.
-
-## Detalles de los tests
-
-- Vitest corre en **entorno `node` por defecto**. Un test que necesite DOM lleva
-  `// @vitest-environment jsdom` en la primera línea.
-- `include` es `src/**/*.test.ts(x)`: los tests viven al lado del código.
-- `src/audio/main-thread-cost.test.ts` es un guardián de rendimiento con topes
-  holgados a propósito. Si falla, es una regresión algorítmica, no ruido.
-- Nada toca Postgres: lo que se prueba de las cuentas es lo puro —planes, permisos,
-  fusión de avances, cola de repaso, cifrado—. El camino con base de datos de verdad
-  **está sin probar**, y está dicho en el ROADMAP.
+Y una regla de tiempo verbal, que es lo que costó entender el proyecto: **los
+documentos hablan en presente y solo de lo que se puede comprobar.** Lo que no se
+ha ejecutado nunca vive en `PARA-PUBLICAR.md` y se dice que no se ha ejecutado.
 
 ## Lo que este proyecto no hace
 
-- **No sube audio ni vídeo.** Ni una línea de código de subida, y no la habrá sin un
-  ADR. Con cuenta sí sube el avance: identificadores, números y fechas.
-- **No cobra.** Los planes funcionan y el cobrador de hoy los cambia sin cobrar, a
-  propósito y con su ADR. Cualquiera con cuenta puede darse el plan más alto.
-- **No tiene vidas ni corazones**, aunque lo de aprender imite a Duolingo en lo
-  demás: fallar no bloquea, se explica y se sigue.
+- **No sube audio ni vídeo.** Ni una línea de código de subida, y no la habrá sin
+  un ADR. Con cuenta sí sube el avance: identificadores, números y fechas.
+- **No cobra todavía.** El cobrador de hoy cambia el plan sin cobrar, a propósito y
+  con su ADR. Se cobrará al publicar; lo que eso pide está en `PARA-PUBLICAR.md`.
+- **No tiene vidas ni corazones.** Fallar no bloquea: se explica y se sigue.
 - **No pide una tarjeta.** La ventana de pago enseña plan, precio y un aviso de que
-  no se cobra; unos campos de tarjeta que no van a ninguna pasarela serían un
-  decorado que se parece demasiado a un cobro de verdad.
-- **No examina a nadie para colocarle de nivel.** El curso de partida se elige en un
-  desplegable, y elegirlo no da por hechas las unidades anteriores
+  no se cobra.
+- **No examina a nadie** para colocarle de nivel: el curso de partida se elige
   ([adr/0007](docs/adr/0007-elegir-por-donde-empezar.md)).
-- **No exige cuentas.** Sin `DATABASE_URL` y `AUTH_SECRET` —las dos— nadie entra,
-  todo el mundo es anónimo con plan gratis y el avance se queda en su navegador.
-- **No manda correos sin configurarlo.** El correo es un puerto como el cobro: con
-  sus dos variables hay «he olvidado mi contraseña» en `/olvidada`, y sin ellas la
-  pantalla lo dice en vez de prometer un correo que no llega. Cambiar de dirección
-  sigue sin poder hacerse: pide dos vales más y no lo ha pedido nadie.
-- La detección de tono es **monofónica** y pide señal limpia: con distorsión se
-  detecta la octava de arriba. Para acordes hay otro análisis, y solo en
-  componer.
-- El reconocimiento de acordes duda con inversiones: el croma olvida la octava,
-  así que C/E y C son el mismo vector.
+- **No exige cuentas.** Sin `DATABASE_URL` y `AUTH_SECRET` todo el mundo es anónimo
+  con plan gratis y el avance se queda en su navegador.
+- **No manda correos sin configurarlo**, y la pantalla lo dice en vez de prometer
+  un correo que no llega.
+- La detección de tono es **monofónica** y pide señal limpia. Para acordes hay otro
+  análisis, y el reconocimiento **duda con inversiones**: el croma olvida la
+  octava, así que C/E y C son el mismo vector.

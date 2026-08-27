@@ -2,14 +2,24 @@
 
 Qué hace falta para poner esto en internet, y qué se rompe según dónde.
 
+**Esto no se ha desplegado nunca.** Hoy la aplicación corre en un equipo. Lo que
+sigue es lo que pediría hacerlo, comprobado leyendo el código y no ejecutándolo;
+la lista de lo que falta para publicar y cobrar está en
+[PARA-PUBLICAR.md](./PARA-PUBLICAR.md).
+
 ## Lo que la aplicación necesita del sitio donde viva
 
-**Un servidor de Node.** No vale un alojamiento estático. Hay dos rutas que
-corren en el servidor y que existen precisamente para que la clave de Anthropic
-no llegue nunca al navegador:
+**Un servidor de Node.** No vale un alojamiento estático. Hay **tres** rutas que
+corren en el servidor y que existen precisamente para que la clave del modelo no
+llegue nunca al navegador:
 
 - `/api/ideas` — las ideas de progresión.
-- `/api/teacher` — el profesor de la pantalla de aprender.
+- `/api/teacher` — el profesor.
+- `/api/versiones` — las salidas: por dónde puede seguir lo que llevas tocado. Es
+  la más cara de las tres.
+
+Las tres pasan por las mismas puertas —frecuencia, cuenta y cupo— y están en un
+solo sitio, `server/ai-gate.ts`.
 
 Todo lo demás —afinador, rueda, mástil, acordes, metrónomo, grabación— corre en
 el navegador y funcionaría hasta en un servidor de ficheros.
@@ -35,7 +45,8 @@ equipo de quien toca y las cuentas no han cambiado eso.
 
 | Variable                                  | Hace falta        | Para qué                                                                                                                      |
 | ----------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Ideas y profesor. Sin ella, esas dos pantallas responden «no hemos podido contactar» y el resto va igual.                     |
+| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Las tres rutas. Sin ella contesta el modelo de casa si lo hay, y si tampoco, el dominio; en producción se contesta 503.       |
+| `OLLAMA_URL` / `OLLAMA_MODEL`             | No                | Un modelo en tu equipo para probar sin clave y sin factura. **La clave le gana**: con las dos puestas contesta la API.        |
 | `ANTHROPIC_MODEL`                         | No                | Cambiar de modelo sin tocar código. Por defecto, `claude-opus-5`. **Cambia los cupos de todos los planes**: ver abajo.        |
 | `DATABASE_URL`                            | Solo para cuentas | Postgres. Sin ella no hay cuentas ni planes, y todo lo demás funciona igual.                                                  |
 | `AUTH_SECRET`                             | Solo para cuentas | Firmar la cookie de sesión. `openssl rand -base64 32`.                                                                        |
@@ -92,7 +103,7 @@ contraseñas, que son puros.
 ## Camino 1: Vercel
 
 Es la casa de Next y no necesita configuración: detecta el proyecto, compila y
-sirve las dos rutas como funciones.
+sirve las tres rutas como funciones.
 
 ```bash
 npx vercel            # la primera vez pide entrar; abre el navegador
@@ -194,10 +205,10 @@ mismo.
 ## Lo que no vale: alojamiento estático
 
 GitHub Pages y compañía sirven ficheros, no ejecutan Node. Se puede publicar así
-—`output: 'export'`— pero entonces desaparecen las dos rutas de la IA, y con
+—`output: 'export'`— pero entonces desaparecen las tres rutas de la IA, y con
 ellas el profesor y las ideas. El resto de la aplicación seguiría funcionando.
 
-Si algún día interesa esa versión, lo honesto es que las dos pantallas digan que
+Si algún día interesa esa versión, lo honesto es que esas pantallas digan que
 esa parte no está disponible en esta copia, no que fallen con un error de red.
 
 ## Lo que hay que saber una vez publicado
@@ -227,7 +238,7 @@ respuestas, y de lo segundo no avisa nada. Un modelo que no esté en la tabla de
 se cobra como el más caro, así que los cupos salen pequeños en vez de regalarse.
 
 **La IA pide cuenta.** Sin `DATABASE_URL` y `AUTH_SECRET` no hay cuentas, y sin cuentas
-las dos rutas de IA contestan `401`: la aplicación funciona entera menos el profesor y
+las tres rutas de IA contestan `401`: la aplicación funciona entera menos el profesor y
 las ideas. Es a propósito —sin cuenta no hay a quién contarle el gasto— y está razonado
 en [adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
 

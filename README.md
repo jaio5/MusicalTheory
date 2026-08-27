@@ -1,7 +1,18 @@
 # Caos ordenado
 
-Aplicación web que escucha la guitarra por el micro y ordena la teoría mientras
-tocas. Cada pantalla hace una cosa:
+**Aprende música y compón con ayuda.** La aplicación te enseña la teoría por
+unidades cortas y, con lo que llevas tocado, te propone por dónde puede seguir tu
+canción: te la continúa, le hace sus partes y te explica por qué.
+
+El micro es cómo entra lo que tocas —te oye, reconoce el acorde y la tonalidad— y
+no hace falta escribir nada ni saber solfeo para empezar. Nada de lo que suena
+sale de tu equipo.
+
+Hoy corre en un equipo y la usa una persona. La idea es publicarla y cobrar por
+suscripción; lo que eso pide está en
+[docs/PARA-PUBLICAR.md](./docs/PARA-PUBLICAR.md), y **nada de eso está en marcha**.
+
+Cada pantalla hace una cosa:
 
 - **Aprender** — el camino: diez cursos en dos grados, en unidades cortas con su meta
   del día y su racha. **Empiezas por el nivel que quieras**: si ya sabes teoría, eliges
@@ -11,9 +22,11 @@ tocas. Cada pantalla hace una cosa:
 - **Profesor** — pregunta lo que sea de teoría y te lo explica en tres frases con los
   acordes de tu tonalidad.
 - **Componer** — eliges tonalidad en la rueda, encadenas acordes y ves de cuántas
-  maneras se hacen a lo largo del mástil y a dónde puedes ir desde ahí.
-  Reconoce el acorde que estás tocando, lleva metrónomo y te graba con la cámara
-  detrás de la interfaz.
+  maneras se hacen a lo largo del mástil y a dónde puedes ir desde ahí. Reconoce el
+  acorde que estás tocando, lleva metrónomo y te graba con la cámara detrás de la
+  interfaz. Y **graba un trozo**: al parar lo vuelve a escuchar entero con calma y
+  te ofrece salidas —canciones distintas que arrancan de lo que llevas, con sus
+  partes—, comprobadas contra la teoría antes de enseñártelas.
 - **Afinar** — ocho afinaciones, de la estándar al open D, y nada más en
   pantalla.
 

@@ -8,13 +8,13 @@ import { HeroVideo } from './HeroVideo';
 import { LandingWheel } from './LandingWheel';
 
 export const metadata: Metadata = {
-  title: 'Caos ordenado — toca y la teoría se ordena sola',
+  title: 'Caos ordenado — aprende música y compón con ayuda',
   description:
-    'Escucha lo que sale de tu guitarra y te devuelve la nota, el acorde y la tonalidad mientras suenan. En el navegador, sin cuenta y sin mandar tu audio a ninguna parte.',
+    'Aprende teoría en unidades cortas y, con lo que llevas tocado, te propone por dónde puede seguir tu canción. En el navegador, sin cuenta y sin mandar tu audio a ninguna parte.',
 };
 
 const CLAIMS: readonly string[] = [
-  '440 Hz · ±1 cent',
+  'Sin saber solfeo',
   '0 bytes de audio enviados',
   'Sin instalar nada',
 ];
@@ -129,11 +129,12 @@ export default function Portada() {
 
         <div className="relative mx-auto w-full max-w-[min(90rem,92vw)] px-6 py-20">
           <h1 className="font-display text-fluid-hero max-w-[16ch] leading-[1.02] text-balance">
-            Toca. La teoría se ordena sola.
+            Toca. Aprende. Y que la canción siga.
           </h1>
           <p className="text-text-muted text-fluid-subtitle mt-6 max-w-[42ch] leading-relaxed">
-            Escucha lo que sale de tu guitarra y te devuelve la nota, el acorde y la tonalidad
-            mientras suenan. En el navegador, sin cuenta y sin mandar tu audio a ninguna parte.
+            Te enseña la teoría en unidades cortas y, con lo que llevas tocado, te propone por dónde
+            puede seguir tu canción. Te oye por el micro: no hace falta escribir nada, ni que tu
+            audio salga de aquí.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">

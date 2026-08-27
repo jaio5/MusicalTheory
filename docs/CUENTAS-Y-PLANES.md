@@ -273,7 +273,7 @@ mañana y el otro se arregla subiendo de plan o esperando al día uno.
 
 ### Sin pensar, y a propósito
 
-Las dos rutas piden al modelo que **no piense** y trabajan con esfuerzo bajo. La
+Las tres rutas piden al modelo que **no piense** y trabajan con esfuerzo bajo. La
 respuesta la fija un esquema JSON: no hay nada que razonar. En Opus 5 el pensamiento
 viene encendido por defecto y se cobra como salida, así que dejarlo puesto
 multiplicaba el coste de cada pregunta y podía gastarse el `max_tokens` pensando y
