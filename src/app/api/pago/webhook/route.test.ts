@@ -140,3 +140,81 @@ describe('lo que llega dentro', () => {
     expect(setPlan).toHaveBeenCalledWith('u1', 'gratis');
   });
 });
+
+describe('de dónde sale el plan que se ha pagado', () => {
+  it('del precio primero: es lo que Stripe sabe que ha cobrado', async () => {
+    // Los metadatos los escribimos nosotros al crear la sesión; el precio lo
+    // pone la pasarela. Si se contradijeran, manda lo cobrado.
+    planOfPrice.mockReturnValue('medio');
+    const contradictorio = {
+      ...PAGADO,
+      data: {
+        object: {
+          ...PAGADO.data.object,
+          metadata: { userId: 'u1', plan: 'pro' },
+        },
+      },
+    };
+
+    await POST(aviso(contradictorio));
+
+    expect(setPlan).toHaveBeenCalledWith('u1', 'medio');
+  });
+
+  it('y de los metadatos solo como respaldo', async () => {
+    // Pasa cuando el aviso no trae la línea de precio: Stripe la manda expandida
+    // solo si se le pide.
+    planOfPrice.mockReturnValue(null);
+    const sinPrecio = {
+      ...PAGADO,
+      data: { object: { metadata: { userId: 'u1', plan: 'pro' } } },
+    };
+
+    await POST(aviso(sinPrecio));
+
+    expect(setPlan).toHaveBeenCalledWith('u1', 'pro');
+  });
+
+  it('sin plan reconocible se acepta y se ignora, para que no vuelva mañana', async () => {
+    planOfPrice.mockReturnValue(null);
+    const sinPlan = { ...PAGADO, data: { object: { metadata: { userId: 'u1', plan: 'raro' } } } };
+
+    const respuesta = await POST(aviso(sinPlan));
+
+    expect(respuesta.status).toBe(200);
+    expect(setPlan).not.toHaveBeenCalled();
+  });
+});
+
+describe('qué se le contesta a Stripe', () => {
+  it('una cuenta que ya no está se acepta: reintentarlo no lo va a arreglar', async () => {
+    // Es el caso que enseñó esto: devolvía 500 y el evento se quedaba en la cola
+    // de reintentos durante días sin que nunca fuera a salir bien.
+    planOfPrice.mockReturnValue('medio');
+    setPlan.mockResolvedValue('no-existe');
+
+    const respuesta = await POST(aviso(PAGADO));
+
+    expect(respuesta.status).toBe(200);
+    expect(await respuesta.json()).toMatchObject({ ignorado: 'esa cuenta ya no está' });
+  });
+
+  it('cancelar sin poder guardar sí pide reintento', async () => {
+    setPlan.mockResolvedValue('error');
+    const cancelado = {
+      type: 'customer.subscription.deleted',
+      data: { object: { metadata: { userId: 'u1' } } },
+    };
+
+    expect((await POST(aviso(cancelado))).status).toBe(500);
+  });
+
+  it('una cancelación sin cuenta se acepta y se ignora', async () => {
+    const cancelado = { type: 'customer.subscription.deleted', data: { object: {} } };
+
+    const respuesta = await POST(aviso(cancelado));
+
+    expect(respuesta.status).toBe(200);
+    expect(setPlan).not.toHaveBeenCalled();
+  });
+});

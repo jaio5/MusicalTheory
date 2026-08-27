@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import type { PitchClass } from '@core/music';
@@ -125,5 +126,56 @@ describe('Formas del acorde', () => {
     render(<Voicings />);
 
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  });
+});
+
+describe('Buscar un acorde a mano', () => {
+  it('lo añade al camino con su nombre y sus notas', async () => {
+    // Es la puerta para lo que el dominio no propone: un acorde prestado, uno
+    // que has oído en un disco. Entra al camino igual que uno sugerido.
+    const usuario = userEvent.setup();
+    useSessionStore.getState().actions.reset();
+    useSessionStore.getState().actions.pinKey({ tonic: 9, mode: 'minor' });
+    render(<NextChords />);
+
+    await usuario.type(screen.getByRole('combobox'), 'F');
+    await usuario.keyboard('{Enter}');
+
+    expect(useSessionStore.getState().path.at(-1)?.symbol).toBe('F');
+  });
+});
+
+describe('Los colores de la forma', () => {
+  it('un acorde con notas de fuera se marca distinto', () => {
+    // El color va al lado de lo que significa: preguntarse qué era el ámbar y no
+    // tenerlo delante es perder el hilo de lo que tocas.
+    useSessionStore.getState().actions.reset();
+    play(AM);
+    render(<NextChords />);
+
+    // La leyenda de los tres colores está en la pantalla, para poder leerla sin
+    // salir de ella.
+    expect(screen.getByText(/entra/i)).toBeInTheDocument();
+  });
+});
+
+describe('Un acorde que no cabe en el mástil', () => {
+  it('se dice, en vez de dejar el hueco vacío', () => {
+    // Pasa con acordes de cinco notas muy abiertos: no hay forma con la
+    // fundamental al bajo dentro de cuatro trastes.
+    useSessionStore.getState().actions.reset();
+    // Siete notas cromáticas seguidas: no hay forma con la fundamental al bajo
+    // que quepa en cuatro trastes.
+    play({
+      symbol: 'Xraro',
+      label: 'raro',
+      root: 0,
+      notes: [0, 1, 2, 3, 4, 5, 6] as PitchClass[],
+      why: 'x',
+    });
+
+    render(<Voicings />);
+
+    expect(screen.getByText(/No cabe en cuatro trastes/)).toBeInTheDocument();
   });
 });
