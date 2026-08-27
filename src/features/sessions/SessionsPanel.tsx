@@ -82,8 +82,14 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
   }
 
   async function remove(id: string) {
-    await storage().remove(id);
-    await refresh();
+    // Con su aviso, como leer y guardar. Sin él, en modo privado la fila se
+    // quedaba ahí sin decir nada y la promesa se rechazaba sola.
+    try {
+      await storage().remove(id);
+      await refresh();
+    } catch {
+      setMessage('No se ha podido borrar. El navegador puede estar en modo privado.');
+    }
   }
 
   return (

@@ -95,4 +95,36 @@ describe('Panel de sesiones', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/modo privado/i);
   });
+
+  it('si no se puede leer lo guardado, se dice y no se queda en blanco', async () => {
+    // Una lista vacía diría «no tienes ninguna sesión», que en modo privado es
+    // mentira: las hay, lo que no hay es forma de leerlas.
+    const rota = new MemorySessionStorage();
+    rota.list = async () => {
+      throw new Error('modo privado');
+    };
+
+    render(<SessionsPanel createStorage={() => rota} now={() => SAVED_AT} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/modo privado/i);
+  });
+
+  it('si no se puede borrar, tampoco se calla', async () => {
+    await storage.save({
+      id: '1',
+      savedAt: SAVED_AT,
+      key: { tonic: A, mode: 'minor' },
+      scaleId: 'minorPentatonic',
+      notes: ['A'],
+      chords: ['Am'],
+    });
+    storage.remove = async () => {
+      throw new Error('modo privado');
+    };
+
+    renderPanel();
+    await userEvent.click(await screen.findByRole('button', { name: /borrar/i }));
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
 });
