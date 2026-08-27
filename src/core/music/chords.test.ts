@@ -6,7 +6,10 @@ import {
   diatonicSevenths,
   diatonicTriads,
   romanNumeral,
+  seventhRoman,
+  triadNotes,
   triadQualityOf,
+  type Degree,
 } from './chords';
 import { pitchClassFromName } from './notes';
 
@@ -197,5 +200,46 @@ describe('la tríada que hay debajo de una cuatríada', () => {
     for (let index = 0; index < 7; index += 1) {
       expect(triadQualityOf(sevenths[index]!.quality)).toBe(triads[index]!.quality);
     }
+  });
+});
+
+describe('las cuatro tríadas, sueltas', () => {
+  it('cada calidad apila sus terceras', () => {
+    // `diatonicTriads` no llega a la aumentada más que en el menor armónico, y
+    // la disminuida solo en un grado: sueltas se ven las cuatro de golpe.
+    const C = pitchClassFromName('C');
+
+    expect(triadNotes(C, 'major')).toEqual([0, 4, 7]);
+    expect(triadNotes(C, 'minor')).toEqual([0, 3, 7]);
+    expect(triadNotes(C, 'diminished')).toEqual([0, 3, 6]);
+    expect(triadNotes(C, 'augmented')).toEqual([0, 4, 8]);
+  });
+
+  it('la aumentada se escribe con su cruz', () => {
+    expect(romanNumeral(3, 'augmented')).toBe('III+');
+  });
+});
+
+describe('un grado que no es un grado', () => {
+  /**
+   * `Degree` es un tipo de compilación: dice que solo hay del uno al siete y el
+   * compilador lo hace cumplir **dentro** del proyecto. Fuera no hay compilador
+   * —lo que llega de la base de datos, de la IA o de `localStorage` es JSON— así
+   * que estas guardas existen y avisan en vez de devolver `undefined` y
+   * reventar tres funciones más allá con un mensaje que no dice nada.
+   */
+  const fuera = 9 as Degree;
+  const C = pitchClassFromName('C');
+
+  it('el número romano avisa en vez de devolver nada', () => {
+    expect(() => romanNumeral(fuera, 'major')).toThrow(RangeError);
+  });
+
+  it('el de la cuatríada también', () => {
+    expect(() => seventhRoman(fuera, 'major7')).toThrow(RangeError);
+  });
+
+  it('y pedir el acorde de ese grado, igual', () => {
+    expect(() => chordForDegree(C, fuera)).toThrow(RangeError);
   });
 });

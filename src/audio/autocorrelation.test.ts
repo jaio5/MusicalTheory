@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { centsBetween, midiToFrequency } from '@core/music';
 
-import { detectPitch, type PitchDetectionOptions } from './autocorrelation';
+import { detectPitch, signalRms, type PitchDetectionOptions } from './autocorrelation';
 
 const SAMPLE_RATE = 48_000;
 const FRAME = 2048;
@@ -149,5 +149,39 @@ describe('confianza', () => {
     const detection = detectPitch(tone(220, { amplitude: 0.5 }), OPTIONS);
     // Una senoide de amplitud A tiene un valor eficaz de A/raíz(2).
     expect(detection!.rms).toBeCloseTo(0.5 / Math.SQRT2, 2);
+  });
+});
+
+describe('los bloques que no dan para nada', () => {
+  /**
+   * El motor lee lo que le da la tarjeta de sonido, y a veces le da poco: un
+   * bloque vacío al arrancar, o uno demasiado corto para el rango que se le
+   * pide. La regla es la de siempre en esta capa: **nulo antes que una nota
+   * inventada**, porque una nota inventada en pantalla es peor que un guion.
+   */
+  it('un bloque vacío no tiene señal, y no divide entre cero', () => {
+    expect(signalRms(new Float32Array(0))).toBe(0);
+  });
+
+  it('un bloque de una muestra no da para medir un periodo', () => {
+    expect(detectPitch(new Float32Array(1), OPTIONS)).toBeNull();
+  });
+
+  it('una ventana demasiado corta para la nota más grave tampoco', () => {
+    // A 48 kHz, un periodo de 70 Hz son casi setecientas muestras: en un bloque
+    // de dieciséis no cabe ni uno.
+    expect(detectPitch(tone(110, { length: 16 }), OPTIONS)).toBeNull();
+  });
+
+  it('una señal plana no tiene periodo que encontrar', () => {
+    // Continua pura: sale de un micro con la entrada mal acoplada, y su
+    // autocorrelación no tiene pico.
+    expect(detectPitch(new Float32Array(FRAME).fill(0.5), OPTIONS)).toBeNull();
+  });
+
+  it('un rango imposible se rechaza en vez de buscar al revés', () => {
+    const alReves = { ...OPTIONS, minFrequency: 1400, maxFrequency: 70 };
+
+    expect(detectPitch(tone(110), alReves)).toBeNull();
   });
 });

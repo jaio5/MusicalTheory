@@ -493,3 +493,69 @@ describe('una parte nueva tiene que aportar algo', () => {
     expect(songProblem('minor', 'seguir', TUYO, conAlgoNuevo)).toBeNull();
   });
 });
+
+describe('las salidas que se quedan en nada', () => {
+  /**
+   * Cada etiqueta promete algo, y estas comprobaciones son lo único que hace que
+   * la promesa se cumpla. Sin ellas el modelo declararía la que le apeteciera y
+   * «otro final» podría ser una canción entera distinta.
+   */
+  it('un contraste que no añade nada no es un contraste', () => {
+    expect(pathProblem('minor', 'contraste', TUYO, pasos(['i', 4], ['VI', 4]))).toBe(
+      'contraste tiene que añadir una parte',
+    );
+  });
+
+  it('un contraste que se carga tus compases, tampoco', () => {
+    const salida = pasos(['iv', 4], ['V', 4], ['i', 4], ['VII', 4], ['VI', 4]);
+
+    expect(pathProblem('minor', 'contraste', TUYO, salida)).toBe(
+      'contraste no mantiene tus compases',
+    );
+  });
+
+  it('un contraste con un salto que el dominio no conoce, tampoco', () => {
+    // Es lo que separa una parte nueva de una lista de acordes puestos en fila.
+    const salida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['V', 4]);
+
+    expect(pathProblem('minor', 'contraste', TUYO, salida)).toBe(
+      'un salto que el dominio no conoce',
+    );
+  });
+
+  it('un final de un solo compás se queda en nada', () => {
+    expect(pathProblem('minor', 'otro-final', TUYO, pasos(['i', 4]))).toBe(
+      'otro final se queda en nada',
+    );
+  });
+
+  it('y uno con un salto desconocido tampoco vale', () => {
+    // VI → V no está en el grafo del menor.
+    const salida = pasos(['i', 4], ['VI', 4], ['V', 4]);
+
+    expect(pathProblem('minor', 'otro-final', TUYO, salida)).toBe(
+      'un salto que el dominio no conoce',
+    );
+  });
+});
+
+describe('una canción que continúa la tuya', () => {
+  it('tu parte va la primera, y lo demás es lo que sigue', () => {
+    const suyas = [
+      { name: 'Lo que sigue', yours: false, steps: pasos(['VI', 4], ['VII', 4], ['i', 4]) },
+      { name: 'Lo que llevas', yours: true, steps: [...TUYO] },
+    ];
+
+    expect(songProblem('minor', 'seguir', TUYO, suyas)).toBe(
+      'tu parte va la primera: lo demás es lo que sigue',
+    );
+  });
+
+  it('una canción que solo trae tu parte no continúa nada', () => {
+    const suyas = [{ name: 'Lo que llevas', yours: true, steps: [...TUYO] }];
+
+    expect(songProblem('minor', 'seguir', TUYO, suyas)).toBe(
+      'continuar pide al menos una parte más que la yours',
+    );
+  });
+});
