@@ -428,3 +428,38 @@ describe('grabar y volver a escucharlo', () => {
     expect(screen.getByRole('button', { name: /Parar de grabar/ })).toBeInTheDocument();
   });
 });
+
+describe('qué se le pide, elegido antes de pedirlo', () => {
+  /**
+   * No es un adorno: de la clase que se elija depende qué esquema se le manda al
+   * modelo, y el esquema es lo único que le impide declarar un camino que el
+   * validador no sabe comprobar. Se elige aquí y viaja en la petición.
+   */
+  it('viene puesto continuar, y se puede cambiar a retocar', async () => {
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
+    componiendo(['I', 'V', 'vi', 'IV']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retocar estos compases' }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+
+    await waitFor(() => expect(fetchVersions).toHaveBeenCalled());
+    expect((fetchVersions.mock.calls[0]![0] as VersionsRequest).kind).toBe('retocar');
+  });
+
+  it('la elegida se marca, para saber qué se va a pedir sin leer', async () => {
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} />));
+    componiendo(['I', 'V']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retocar estos compases' }));
+
+    expect(screen.getByRole('button', { name: 'Retocar estos compases' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Continuar la canción' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+});

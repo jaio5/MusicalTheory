@@ -278,3 +278,65 @@ describe('Sin plan que incluya las ideas', () => {
     expect(screen.getByText(/es gratis/i)).toBeInTheDocument();
   });
 });
+
+describe('un error sin frase', () => {
+  /**
+   * El servidor casi siempre manda la frase, pero si no la manda **el código
+   * explica más que una genérica**: «no entra en tu plan» dice qué hacer y «no
+   * hemos podido contactar» no dice nada. Solo cuando no hay ni frase ni código
+   * conocido se cae a la de siempre.
+   */
+  it('usa la del codigo antes que la generica', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+
+    render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={async () => respondWith({ error: { code: 'plan_required' } }, 402)}
+        />,
+      ),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+
+    const aviso = await screen.findByRole('alert');
+    expect(aviso).not.toHaveTextContent(/no hemos podido contactar/i);
+    expect(aviso.textContent?.length ?? 0).toBeGreaterThan(10);
+  });
+
+  it('y sin codigo conocido, la generica', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+
+    render(conCuenta(<IdeasPanel fetchIdeas={async () => respondWith({}, 500)} />));
+
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+
+    expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
+  });
+});
+
+describe('mientras piensa', () => {
+  it('el boton que se pulso lo dice, y no se puede pulsar otra vez', async () => {
+    // Cada petición cuesta dinero: dos pulsaciones seguidas son dos tandas de
+    // ideas pagadas para leer una.
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+    let contestar: (r: Response) => void = () => undefined;
+
+    render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={() =>
+            new Promise<Response>((listo) => {
+              contestar = listo;
+            })
+          }
+        />,
+      ),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+
+    expect(screen.getByRole('button', { name: /pensando/i })).toBeDisabled();
+    contestar(respondWith({ ideas: [] }));
+  });
+});
