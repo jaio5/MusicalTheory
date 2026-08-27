@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Account } from '@core/billing';
-import { DEFAULT_BPM, pitchClassFromName, type Song } from '@core/music';
+import { DEFAULT_BPM, MAX_SECTIONS, pitchClassFromName, type Song } from '@core/music';
 import { AccountProvider } from '@state/account';
 import { useSessionStore } from '@state/session-store';
 
@@ -306,5 +306,113 @@ describe('añadir una parte', () => {
 
     expect(await screen.findByText('Estrofa:')).toBeInTheDocument();
     expect(screen.getByText('Estribillo:')).toBeInTheDocument();
+  });
+});
+
+describe('cuando el servidor no coopera', () => {
+  it('no poder leer la lista se dice, en vez de parecer que no tienes ninguna', async () => {
+    // Una lista vacía diría «no tienes ninguna», que es mentira y da un susto de
+    // los que hacen cerrar la aplicación.
+    const request = vi.fn().mockResolvedValue(respondWith({ error: { message: 'No va.' } }, 502));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText('No va.')).toBeInTheDocument();
+  });
+
+  it('sin red, tampoco se queda callado', async () => {
+    const request = vi.fn().mockRejectedValue(new Error('sin red'));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText(/Comprueba la conexión/)).toBeInTheDocument();
+  });
+
+  it('una cancion con el documento a medias se cae de la lista, no la tumba', async () => {
+    // Cada canción pasa por `parseSong` aunque venga del propio servidor.
+    const request = vi
+      .fn()
+      .mockResolvedValue(respondWith({ songs: [UNA, { id: 'rota', name: 'Rota' }] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText('La mía')).toBeInTheDocument();
+    expect(screen.queryByText('Rota')).not.toBeInTheDocument();
+  });
+
+  it('un cuerpo sin lista se lee como lista vacia', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({}));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText(/Todavía no has guardado/)).toBeInTheDocument();
+  });
+
+  it('borrar y no poder se dice', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(respondWith({ songs: [UNA] }))
+      .mockResolvedValueOnce(respondWith({ error: { message: 'No se ha borrado.' } }, 502));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    await userEvent.click(screen.getByRole('button', { name: /borrar/i }));
+
+    expect(await screen.findByText('No se ha borrado.')).toBeInTheDocument();
+  });
+
+  it('borrar sin red, tampoco', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(respondWith({ songs: [UNA] }))
+      .mockRejectedValueOnce(new Error('sin red'));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    await userEvent.click(screen.getByRole('button', { name: /borrar/i }));
+
+    expect(await screen.findByText(/No hemos podido borrar/)).toBeInTheDocument();
+  });
+
+  it('guardar sin red se dice', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(respondWith({ songs: [] }))
+      .mockRejectedValueOnce(new Error('sin red'));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado/);
+
+    componiendo(['I', 'V']);
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Nueva');
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    expect(await screen.findByText(/No hemos podido guardar la canción/)).toBeInTheDocument();
+  });
+});
+
+describe('el tope de partes', () => {
+  it('una canción llena no admite otra, y se dice cuál es el tope', async () => {
+    const llena: Song = {
+      ...UNA,
+      sections: Array.from({ length: MAX_SECTIONS }, (_, i) => ({
+        name: `Parte ${i + 1}`,
+        degrees: ['I', 'V'],
+      })),
+    };
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [llena] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['I', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByText(/que es el tope/)).toBeInTheDocument();
+  });
+
+  it('sin tonalidad no se añade nada, y se dice por qué', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    useSessionStore.getState().actions.reset();
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByText(/Elige una tonalidad/)).toBeInTheDocument();
   });
 });

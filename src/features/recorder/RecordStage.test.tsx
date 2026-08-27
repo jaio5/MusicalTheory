@@ -2,7 +2,7 @@
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CameraInput, CameraState } from '@media/camera-input';
 import type {
@@ -214,4 +214,51 @@ describe('Grabarte tocando', () => {
     expect(await screen.findByRole('button', { name: /descargar el vídeo/i })).toBeInTheDocument();
     expect(camera.stopped).toBe(true);
   });
+
+  it('descargar el vídeo lo baja aquí y suelta la memoria', async () => {
+    // Nada sube a ningún sitio: es un `Blob` que descarga el propio navegador.
+    // Y la URL se libera en cuanto se ha usado, porque un objeto grande retenido
+    // es memoria que no vuelve.
+    const crear = vi.fn(() => 'blob:falsa');
+    const liberar = vi.fn();
+    const pulsar = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: crear, revokeObjectURL: liberar });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(pulsar);
+
+    render(
+      <RecordStage createCamera={() => new FakeCamera()} createRecorder={() => new FakeRecorder()}>
+        <p>contenido</p>
+      </RecordStage>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /parar la grabación/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /descargar el vídeo/i }));
+
+    expect(crear).toHaveBeenCalledTimes(1);
+    expect(pulsar).toHaveBeenCalledTimes(1);
+    expect(liberar).toHaveBeenCalledWith('blob:falsa');
+  });
+
+  it('parar sin haber empezado no hace nada', async () => {
+    // Se llega aquí si el navegador no sabía grabar: la pantalla vuelve a
+    // «idle» y no hay grabador que parar.
+    render(
+      <RecordStage
+        createCamera={() => new FakeCamera()}
+        createRecorder={() => new FakeRecorder(false)}
+      >
+        <p>contenido</p>
+      </RecordStage>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /grabarte tocando/i }));
+
+    expect(await screen.findByRole('button', { name: /grabarte tocando/i })).toBeInTheDocument();
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
