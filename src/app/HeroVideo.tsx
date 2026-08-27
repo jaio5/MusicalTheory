@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 
+import { playQuietly } from '@media/play-quietly';
 import { prefersReducedMotion } from '@ui/motion';
 
 /**
@@ -24,9 +25,11 @@ export function HeroVideo() {
       return;
     }
     video.src = '/hero.mp4';
-    void video.play().catch(() => {
-      // Si el navegador no deja arrancarlo solo, se queda el degradado.
-    });
+    // Por `playQuietly` y no por `play().catch()`: `play()` no devuelve promesa
+    // en los navegadores antiguos ni en jsdom, y encadenarle un `.catch` a
+    // ciegas revienta. Si el navegador no deja arrancarlo solo —la política de
+    // autoreproducción— se queda el degradado, que ya da el mismo aire.
+    void playQuietly(video);
   }, []);
 
   return (
