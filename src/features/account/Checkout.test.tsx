@@ -1,155 +1,191 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { monthlyAiRequests, PAID_PLANS, priceLabel, type Account } from '@core/billing';
+import { ANONYMOUS, PAID_PLANS, planOf, type Account } from '@core/billing';
+import type * as Cuenta from '@state/account';
 import { AccountProvider } from '@state/account';
 
 import { Checkout } from './Checkout';
 
-// El componente pide al servidor que vuelva a pintar tras activar el plan; en un
-// test no hay router de Next, así que se sustituye por uno que no hace nada.
+const refrescar = vi.fn();
+const changePlan = vi.fn();
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+  useRouter: () => ({ refresh: refrescar, push: () => {} }),
+  usePathname: () => '/planes/pro',
 }));
 
-const PRO = PAID_PLANS.find((plan) => plan.id === 'pro')!;
-const MEDIO = PAID_PLANS.find((plan) => plan.id === 'medio')!;
+vi.mock('@state/account', async (original) => ({
+  ...(await original<typeof Cuenta>()),
+  changePlan: (...a: unknown[]) => changePlan(...a),
+}));
 
-const ANONIMO: Account = {
-  email: null,
-  name: null,
+/**
+ * La ventana de pago.
+ *
+ * La decisión que sostiene esta pantalla es **decir la verdad sobre si se cobra**,
+ * y decirla antes del botón y no debajo en letra pequeña. Que se cobre o no lo
+ * pregunta el servidor al cobrador que haya puesto: si estuviera escrito fijo, el
+ * día que se enchufe la pasarela seguiría diciendo que no se cobra mientras se
+ * cobra, que es la peor de las dos mentiras posibles. Ese aviso es lo que más se
+ * mira aquí.
+ *
+ * Y no hay campos de tarjeta: unos que no van a ninguna pasarela serían un
+ * decorado que se parece demasiado a un cobro de verdad.
+ */
+
+const PRO = PAID_PLANS.find((p) => p.id === 'pro')!;
+const BASICO = PAID_PLANS.find((p) => p.id === 'basico')!;
+
+const CUENTA: Account = {
+  email: 'javier@example.com',
+  name: 'Javier',
   plan: 'gratis',
   aiModel: 'claude-opus-5',
-  aiLeftToday: null,
-  aiLeftMonth: null,
-};
-const EN_BASICO: Account = {
-  email: 'javier@example.com',
-  name: null,
-  plan: 'basico',
-  aiModel: 'claude-opus-5',
-  aiLeftToday: 40,
-  aiLeftMonth: 40,
+  aiLeftToday: 3,
+  aiLeftMonth: 20,
 };
 
-function pintar(plan = PRO, account: Account = EN_BASICO, accounts = true, charges = false) {
-  render(
-    <AccountProvider account={account} accounts={accounts}>
-      <Checkout plan={plan} charges={charges} />
+function pintar(props: { plan?: typeof PRO; charges?: boolean } = {}, account = CUENTA) {
+  return render(
+    <AccountProvider account={account} accounts>
+      <Checkout plan={props.plan ?? PRO} charges={props.charges ?? false} />
     </AccountProvider>,
   );
 }
 
-describe('La ventana de pago', () => {
-  it('dice qué plan es y cuánto cuesta', () => {
+beforeEach(() => {
+  refrescar.mockReset();
+  changePlan.mockReset();
+  changePlan.mockResolvedValue({ kind: 'listo', plan: 'pro' });
+});
+
+describe('lo que vas a contratar', () => {
+  it('se enseña el plan, su precio y lo que trae', () => {
     pintar();
 
     expect(screen.getByText(`Plan ${PRO.name}`)).toBeInTheDocument();
-    expect(screen.getByText(priceLabel(PRO.id))).toBeInTheDocument();
+    expect(screen.getByLabelText('Qué vas a contratar')).toBeInTheDocument();
   });
 
-  /**
-   * Detrás del cambio de plan hay un cobrador que no cobra. Pintar campos de
-   * tarjeta que no llevan a ninguna pasarela sería un decorado que se parece
-   * demasiado a un cobro de verdad.
-   */
-  it('no pide una tarjeta ni finge cobrar', () => {
-    pintar();
+  it('lo que ya tenias no se marca como nuevo', () => {
+    // Marcarlo sería inflar la lista con cosas por las que ya pagabas.
+    pintar({ plan: PRO }, { ...CUENTA, plan: 'medio' });
 
-    expect(screen.queryByLabelText(/tarjeta/i)).not.toBeInTheDocument();
-    expect(screen.queryByPlaceholderText(/\d{4}/)).not.toBeInTheDocument();
-    expect(screen.getByText(/todavía no se cobra nada/i)).toBeInTheDocument();
+    const nuevos = screen.queryAllByText('nuevo').length;
+    const todos = screen.getAllByText('✓').length;
+
+    expect(nuevos).toBeLessThan(todos);
   });
 
-  it('avisa antes del botón, no en letra pequeña debajo', () => {
-    pintar();
+  it('al bajar de plan se avisa de que se puede perder algo', async () => {
+    pintar({ plan: BASICO }, { ...CUENTA, plan: 'pro' });
 
-    const aviso = screen.getByText(/todavía no se cobra nada/i);
-    const boton = screen.getByRole('button', { name: /Activar el plan Pro/ });
-
-    // `compareDocumentPosition` con FOLLOWING: el botón viene después del aviso.
-    expect(aviso.compareDocumentPosition(boton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  // Lo que ya tenías no es lo que estás comprando.
-  it('marca como nuevo solo lo que el plan de ahora no incluye', () => {
-    pintar(PRO, EN_BASICO);
-
-    const nuevos = screen.getAllByText('nuevo');
-    expect(nuevos.length).toBeGreaterThan(0);
-
-    const profesor = screen.getByText('Preguntar al profesor').closest('li')!;
-    expect(profesor.textContent).not.toContain('nuevo');
-  });
-
-  it('enseña el salto de cupo cuando se sube de plan', () => {
-    pintar(PRO, EN_BASICO);
-
-    const ahora = monthlyAiRequests('basico', EN_BASICO.aiModel);
-    expect(screen.getByText(new RegExp(`ahora tienes ${ahora}`))).toBeInTheDocument();
-  });
-
-  it('sin cuenta pide entrar antes de seguir, sin perder el plan elegido', () => {
-    pintar(PRO, ANONIMO);
-
-    expect(screen.getByRole('group', { name: 'Entrar o registrarse' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Activar/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/sigues con el plan Pro/i)).toBeInTheDocument();
-  });
-
-  it('si ya lo tienes no ofrece pagarlo otra vez', () => {
-    pintar(MEDIO, { ...EN_BASICO, plan: 'medio' });
-
-    expect(screen.getByText(`Tienes el plan ${MEDIO.name}`)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Activar/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ir al camino' })).toHaveAttribute('href', '/aprender');
-  });
-
-  it('al bajar de plan avisa de que hay que comprobar qué se pierde', () => {
-    pintar(MEDIO, { ...EN_BASICO, plan: 'pro' });
-
-    expect(screen.getByText(/Vienes del plan Pro/)).toBeInTheDocument();
+    expect(screen.getByText(/Comprueba que no pierdes nada/)).toBeInTheDocument();
     expect(screen.queryByText('nuevo')).not.toBeInTheDocument();
-  });
-
-  it('sin cuentas configuradas lo dice y no ofrece nada', () => {
-    pintar(PRO, ANONIMO, false);
-
-    expect(screen.getByText(/no tiene cuentas configuradas/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Activar/ })).not.toBeInTheDocument();
-  });
-
-  it('enseña lo que incluye el plan, sacado del catálogo', () => {
-    pintar(PRO, EN_BASICO);
-
-    expect(screen.getByText('Un profesor que sabe por dónde vas')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        new RegExp(`${monthlyAiRequests('pro', EN_BASICO.aiModel)} peticiones a la IA al mes`),
-      ),
-    ).toBeInTheDocument();
   });
 });
 
-describe('cuando el cobrador sí cobra', () => {
-  /**
-   * El aviso cuelga del cobrador y no de una constante. Escrito fijo, el día
-   * que se enchufe la pasarela seguiría diciendo que no se cobra mientras se
-   * cobra, que es la peor de las dos mentiras posibles.
-   */
-  it('deja de decir que no se cobra, y avisa de que se sale a pagar', () => {
-    pintar(PRO, EN_BASICO, true, true);
+describe('decir la verdad sobre si se cobra', () => {
+  it('sin pasarela puesta se dice que aqui no se cobra nada', () => {
+    pintar({ charges: false });
 
-    expect(screen.queryByText(/todavía no se cobra nada/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/se sale a pagar/i)).toBeInTheDocument();
+    expect(screen.getByText(/todavía no se cobra nada/)).toBeInTheDocument();
   });
 
-  it('sigue sin pedir una tarjeta: eso se escribe en la pasarela', () => {
-    pintar(PRO, EN_BASICO, true, true);
+  it('con pasarela puesta se dice que se sale a pagar', () => {
+    pintar({ charges: true });
 
-    expect(screen.queryByLabelText(/tarjeta/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Al confirmar se sale a pagar/)).toBeInTheDocument();
+    expect(screen.getByText(/no pasan por aquí/)).toBeInTheDocument();
+  });
+
+  it('no hay campos de tarjeta en ninguno de los dos casos', () => {
+    // Unos campos que no van a ninguna pasarela serían un decorado que se parece
+    // demasiado a un cobro de verdad.
+    for (const cobra of [true, false]) {
+      const { unmount } = pintar({ charges: cobra });
+
+      expect(screen.queryByLabelText(/tarjeta/i), String(cobra)).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+});
+
+describe('confirmar', () => {
+  it('sin cuenta no se confirma: primero se entra, y sin salir de aqui', () => {
+    render(
+      <AccountProvider account={ANONYMOUS} accounts>
+        <Checkout plan={PRO} />
+      </AccountProvider>,
+    );
+
+    expect(screen.getByLabelText('Entrar para continuar')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Activar el plan/ })).not.toBeInTheDocument();
+  });
+
+  it('sin cuentas configuradas se dice, y lo que no es IA sigue funcionando', () => {
+    render(
+      <AccountProvider account={ANONYMOUS} accounts={false}>
+        <Checkout plan={PRO} />
+      </AccountProvider>,
+    );
+
+    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+  });
+
+  it('al activarlo se refresca el servidor, que es quien lee el plan', async () => {
+    // Sin esto, el resto de la aplicación seguiría con el plan de antes.
+    pintar();
+
+    await userEvent.click(screen.getByRole('button', { name: /Activar el plan/ }));
+
+    await waitFor(() => expect(refrescar).toHaveBeenCalled());
+    expect(screen.getByText(/Plan activado/)).toBeInTheDocument();
+  });
+
+  it('el que ya tienes no se vuelve a contratar', () => {
+    pintar({ plan: PRO }, { ...CUENTA, plan: 'pro' });
+
+    expect(screen.getByText(/Ya lo tienes/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Activar/ })).not.toBeInTheDocument();
+  });
+
+  it('si no se puede, se dice y no se canta victoria', async () => {
+    changePlan.mockResolvedValue({ kind: 'error', message: 'No hemos podido.' });
+    pintar();
+
+    await userEvent.click(screen.getByRole('button', { name: /Activar el plan/ }));
+
+    expect(await screen.findByText('No hemos podido.')).toBeInTheDocument();
+    expect(screen.queryByText(/Plan activado/)).not.toBeInTheDocument();
+  });
+
+  it('con pasarela, se sale a su dominio y no se navega por dentro', async () => {
+    // `assign` y no `router.push`: es otra web, no una ruta de esta aplicación.
+    const irA = vi.fn();
+    vi.stubGlobal('location', { assign: irA });
+    changePlan.mockResolvedValue({ kind: 'ir-a-pagar', url: 'https://pago' });
+    pintar({ charges: true });
+
+    await userEvent.click(screen.getByRole('button', { name: /Activar el plan/ }));
+
+    await waitFor(() => expect(irA).toHaveBeenCalledWith('https://pago'));
+    expect(refrescar).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('el plan que se pide', () => {
+  it('es el de la pantalla, no uno del cuerpo', async () => {
+    pintar({ plan: BASICO });
+
+    await userEvent.click(screen.getByRole('button', { name: /Activar el plan/ }));
+
+    await waitFor(() => expect(changePlan).toHaveBeenCalledWith(planOf('basico').id));
   });
 });

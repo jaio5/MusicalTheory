@@ -123,7 +123,8 @@ describe('preguntar', () => {
   });
 
   it('mientras piensa, el boton lo dice y no deja pulsar dos veces', async () => {
-    let contestar = (_: Response) => undefined as void;
+    // La respuesta se deja a medias a propósito, para mirar el botón mientras.
+    let contestar: (respuesta: Response) => void = () => undefined;
     fetchFalso.mockReturnValue(
       new Promise<Response>((listo) => {
         contestar = listo;
