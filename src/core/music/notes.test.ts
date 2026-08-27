@@ -11,6 +11,8 @@ import {
   noteName,
   normalizePitchClass,
   pitchClassFromName,
+  type NoteName,
+  type PitchClass,
 } from './notes';
 
 describe('conversión entre frecuencia y MIDI', () => {
@@ -106,5 +108,32 @@ describe('nombres y clases de altura', () => {
     expect(midiToOctave(69)).toBe(4);
     expect(midiToOctave(71)).toBe(4);
     expect(midiToOctave(72)).toBe(5);
+  });
+});
+
+describe('lo que no es una nota', () => {
+  /**
+   * Estas tres guardas existen porque **fuera del compilador lo que llega es
+   * JSON**: una clase de altura de la base de datos, un nombre de nota de la
+   * respuesta de un modelo, una frecuencia de la tarjeta de sonido. Avisar es
+   * mejor que devolver `undefined` y reventar tres funciones más allá con un
+   * mensaje que no dice nada.
+   */
+  it('una clase de altura fuera de rango se dice, no se devuelve vacía', () => {
+    expect(() => noteName(13 as PitchClass)).toThrow(RangeError);
+    expect(() => noteName(-1 as PitchClass)).toThrow(RangeError);
+  });
+
+  it('un nombre de nota que no existe, tampoco', () => {
+    expect(() => pitchClassFromName('H' as NoteName)).toThrow(RangeError);
+  });
+
+  it('una frecuencia de cero o negativa no se convierte en cents', () => {
+    // El logaritmo de cero es infinito: sin esto, la aguja del afinador se iría
+    // fuera de la pantalla en vez de decir que no hay señal.
+    expect(() => centsBetween(0, 440)).toThrow(RangeError);
+    expect(() => centsBetween(440, 0)).toThrow(RangeError);
+    expect(() => centsBetween(-1, 440)).toThrow(RangeError);
+    expect(() => centsBetween(Number.NaN, 440)).toThrow(RangeError);
   });
 });

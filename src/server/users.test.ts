@@ -252,6 +252,36 @@ describe('con la base rota', () => {
   });
 });
 
+describe('cambiar lo tuyo cuando la cuenta ya no está', () => {
+  const NO_EXISTE = '00000000-0000-4000-8000-000000000000';
+
+  it('cambiar el nombre de una cuenta que no existe devuelve nulo', () => {
+    // Devuelve la fila y no un booleano porque quien llama tiene que contestarle
+    // a una pantalla que está enseñando ese nombre.
+    return expect(users.setName(NO_EXISTE, 'Otro')).resolves.toBeNull();
+  });
+
+  it('cambiar la contraseña de una que no existe es un error, no «no coincide»', async () => {
+    // «No coincide» diría que la cuenta está y la contraseña no: dos cosas
+    // distintas, y esa distinción es lo que evita usar esta ruta para saber qué
+    // identificadores existen.
+    expect((await users.changePassword(NO_EXISTE, CONTRASENA, CONTRASENA)).kind).toBe('error');
+  });
+
+  it('una contraseña nueva corta no llega a mirar nada', async () => {
+    expect((await users.changePassword(NO_EXISTE, CONTRASENA, 'corta')).kind).toBe(
+      'contrasena-corta',
+    );
+  });
+
+  it('y una actual que no es ni una cadena no cuela', async () => {
+    const creada = await users.createUser({ email: 'a@b.c', password: CONTRASENA });
+    const id = creada.kind === 'ok' ? creada.user.id : '';
+
+    expect((await users.changePassword(id, 42, CONTRASENA)).kind).toBe('no-coincide');
+  });
+});
+
 describe('lo que llega de fuera sin forma', () => {
   it('un correo que no es un correo no se busca siquiera', async () => {
     // `findUserWithPassword` recibe lo que venga del formulario de entrar, así
