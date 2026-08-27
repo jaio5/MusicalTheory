@@ -71,3 +71,37 @@ describe('La ventana de usuario', () => {
     expect(screen.queryByText('Medallas')).not.toBeInTheDocument();
   });
 });
+
+describe('la suscripción', () => {
+  it('con plan de pago se ofrece cambiarlo, no verlos', () => {
+    pintar(DENTRO);
+
+    expect(screen.getByRole('link', { name: 'Cambiar de plan' })).toHaveAttribute(
+      'href',
+      '/planes',
+    );
+  });
+
+  it('con el gratis se ofrece verlos, que es lo que hay que hacer primero', () => {
+    // «Cambiar de plan» delante de quien no tiene ninguno da a entender que ya
+    // paga algo.
+    pintar({ ...DENTRO, plan: 'gratis' });
+
+    expect(screen.getByRole('link', { name: 'Ver los tres planes' })).toBeInTheDocument();
+  });
+
+  it('el cupo se cuenta desde lo que queda, no desde lo que da el plan', () => {
+    // Lo que hace falta saber antes de pedir otra idea es cuántas quedan.
+    pintar(DENTRO);
+
+    expect(screen.getByText(/90 de \d+ peticiones a la IA este mes/)).toBeInTheDocument();
+  });
+
+  it('sin contador todavía leído se dice lo que da el plan', () => {
+    // Es lo que pasa en la primera carga antes de que el servidor conteste: un
+    // hueco ahí parecería que el plan no incluye nada.
+    pintar({ ...DENTRO, aiLeftMonth: null });
+
+    expect(screen.getByText(/^\d+ peticiones a la IA al mes$/)).toBeInTheDocument();
+  });
+});

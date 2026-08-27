@@ -5,6 +5,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { pitchClassFromName } from '@core/music';
+import { useSessionStore } from '@state/session-store';
+
 import { ComposeScreen } from './ComposeScreen';
 
 vi.mock('next/navigation', () => ({
@@ -124,5 +127,44 @@ describe('Componer en una pantalla estrecha', () => {
 
     expect(screen.getByLabelText('El acorde y sus formas')).toBeInTheDocument();
     expect(screen.getByLabelText('A dónde puedes ir')).toBeInTheDocument();
+  });
+});
+
+describe('La tonalidad que se está usando', () => {
+  it('sin elegir se dice, y se dice qué hacer', () => {
+    useSessionStore.getState().actions.reset();
+
+    render(<ComposeScreen />);
+
+    expect(screen.getByText('sin elegir')).toBeInTheDocument();
+    expect(screen.getByText(/Pulsa una tonalidad para empezar/)).toBeInTheDocument();
+  });
+
+  it('elegida, se lee en las dos: la plegada del móvil y la columna de al lado', () => {
+    // Las dos existen a la vez en el HTML —una se esconde con `lg:`— y las dos
+    // tienen que decir lo mismo: si no, girar el móvil cambiaría la tonalidad a
+    // ojos de quien mira.
+    useSessionStore.getState().actions.reset();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+
+    render(<ComposeScreen />);
+
+    expect(screen.getAllByText(/A menor/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText('sin elegir')).not.toBeInTheDocument();
+  });
+});
+
+describe('Las herramientas del cajón', () => {
+  it('pulsar la que está abierta la cierra', async () => {
+    // El mismo botón para las dos cosas: con el cajón abierto, lo que se quiere
+    // hacer con la pestaña que está puesta es cerrarla.
+    const { container } = render(<ComposeScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
+    expect(container.querySelector('#herramienta-abierta')).not.toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
+
+    expect(container.querySelector('#herramienta-abierta')).toBeNull();
   });
 });

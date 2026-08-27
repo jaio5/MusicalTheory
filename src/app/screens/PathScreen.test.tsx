@@ -171,3 +171,37 @@ describe('moverse por el camino', () => {
     );
   });
 });
+
+describe('el rótulo del botón de seguir', () => {
+  it('dice el curso, el grado y si es de tocar o de teoría', () => {
+    // El icono lo distingue de un vistazo y el rótulo lo dice con palabras: son
+    // dos cosas distintas que se hacen —leer una lección y tocar una escala— y
+    // saber cuál viene cambia si te pones la guitarra.
+    const deTocar = UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!;
+    const antes = UNIT_ORDER.slice(0, UNIT_ORDER.indexOf(deTocar));
+    localStorage.setItem(
+      'caos-ordenado:aprender',
+      JSON.stringify({ ...EMPTY_PROGRESS, done: antes }),
+    );
+
+    pintar();
+
+    const seguir = screen.getAllByRole('link').find((a) => a.textContent?.includes('seguir'));
+    expect(seguir?.textContent).toContain('Elemental');
+    expect(seguir).toHaveAttribute('href', `/aprender/${deTocar}`);
+  });
+
+  it('y en el Profesional lo dice también', () => {
+    const profesional = UNIT_ORDER.find((id) => id.startsWith('p'))!;
+    const antes = UNIT_ORDER.slice(0, UNIT_ORDER.indexOf(profesional));
+    localStorage.setItem(
+      'caos-ordenado:aprender',
+      JSON.stringify({ ...EMPTY_PROGRESS, done: antes }),
+    );
+
+    pintar(PRO);
+
+    const seguir = screen.getAllByRole('link').find((a) => a.textContent?.includes('seguir'));
+    expect(seguir?.textContent).toContain('Profesional');
+  });
+});

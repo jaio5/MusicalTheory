@@ -255,11 +255,34 @@ describe('cuando la puerta esta cerrada', () => {
     // en `server/ai-gate.test.ts`. Lo que se comprueba aqui es que esta ruta
     // **se para**: sin esto se gastaria una llamada al modelo que nadie ha
     // pagado.
-    spendAi.mockResolvedValue({ kind: 'sin-cuenta' } as never);
+    // Se deja como estaba para lo que venga detrás: la puerta abierta es lo
+    // normal en el resto de este fichero.
+    spendAi.mockResolvedValueOnce({ kind: 'sin-cuenta' } as never);
 
     const respuesta = await POST(pedir({ ...TOCADO, kind: 'continuar' }));
 
     expect(respuesta.status).toBe(401);
     expect(askModel).not.toHaveBeenCalled();
+  });
+});
+
+describe('la tonalidad se le dice en español', () => {
+  it('mayor y menor, escritos con todas las letras', async () => {
+    // El prompt está en español entero: mezclar «major» dentro es pedirle al
+    // modelo que traduzca por su cuenta.
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(
+      pedir({
+        key: { tonic: 'C', mode: 'major' },
+        kind: 'retocar',
+        progression: [
+          { degree: 'I', beats: 4 },
+          { degree: 'V', beats: 4 },
+        ],
+      }),
+    );
+
+    expect(llamada().prompt).toContain('C mayor');
   });
 });
