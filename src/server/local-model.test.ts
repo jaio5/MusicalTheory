@@ -8,9 +8,9 @@
  * puesta, que es justo lo que se cae en un refactor sin que falle nada más.
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { cuerpoOllama, leerRespuestaOllama } from './local-model';
+import { askLocalModel, cuerpoOllama, leerRespuestaOllama } from './local-model';
 
 const PETICION = {
   prompt: 'La tonalidad es A menor.',
@@ -72,5 +72,59 @@ describe('lo que se le entiende a Ollama', () => {
     for (const datos of [null, {}, { message: null }, { message: { content: '' } }, 'nada']) {
       expect(leerRespuestaOllama(datos)).toBeNull();
     }
+  });
+});
+
+describe('la llamada al contenedor', () => {
+  const fetchFalso = vi.fn();
+
+  beforeEach(() => {
+    fetchFalso.mockReset();
+    vi.stubGlobal('fetch', fetchFalso);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('va a /api/chat con el cuerpo de arriba', () => {
+    fetchFalso.mockResolvedValue(
+      new Response(JSON.stringify({ message: { content: '{"ideas":[]}' } }), { status: 200 }),
+    );
+
+    return askLocalModel(PETICION, 'http://ollama:11434').then((leido) => {
+      const [url, init] = fetchFalso.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe('http://ollama:11434/api/chat');
+      expect(JSON.parse(init.body as string)).toEqual(cuerpoOllama(PETICION));
+      expect(leido).toEqual({ ideas: [] });
+    });
+  });
+
+  it('se espera, pero no para siempre', () => {
+    // La **primera** petición después de levantar el contenedor carga cinco
+    // gigas de pesos en la gráfica antes de generar un solo token. Un tope de
+    // treinta segundos hacía fallar siempre la primera y funcionar las demás,
+    // que es la clase de fallo que se persigue media hora.
+    fetchFalso.mockResolvedValue(new Response(JSON.stringify({ message: { content: '{}' } })));
+
+    return askLocalModel(PETICION, 'http://ollama:11434').then(() => {
+      const [, init] = fetchFalso.mock.calls[0] as [string, RequestInit];
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
+
+  it('un error de Ollama se lanza, y su texto se queda en el servidor', async () => {
+    // El texto dice cuál es el problema —modelo sin descargar, sin memoria— y no
+    // sale de aquí: al cliente le llega el 502 de siempre, nunca el error crudo
+    // del proveedor.
+    fetchFalso.mockResolvedValue(new Response('model "qwen3:8b" not found', { status: 404 }));
+
+    await expect(askLocalModel(PETICION, 'http://ollama:11434')).rejects.toThrow(/ollama 404/);
+  });
+
+  it('si el contenedor no está, tambien se lanza', async () => {
+    fetchFalso.mockRejectedValue(new Error('ECONNREFUSED'));
+
+    await expect(askLocalModel(PETICION, 'http://ollama:11434')).rejects.toThrow();
   });
 });
