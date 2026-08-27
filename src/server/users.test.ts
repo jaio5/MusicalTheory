@@ -216,3 +216,68 @@ describe('sin base de datos', () => {
     }
   });
 });
+
+describe('con la base rota', () => {
+  /**
+   * No es lo mismo que no tener base de datos.
+   *
+   * Sin `DATABASE_URL` es un clon recién bajado y todo el mundo es anónimo, que
+   * está previsto. Con la base puesta y una consulta que revienta —una migración
+   * a medias, un despliegue en marcha— lo que hay que garantizar es que **nadie
+   * entra por error**: una excepción tragada que devolviera algo con forma de
+   * cuenta sería una puerta abierta.
+   *
+   * Se finge cambiándole el nombre a la tabla: la consulta falla igual que con
+   * la tabla ausente, y se deshace sin rehacer las migraciones.
+   */
+  async function conLaTablaEscondida(hacer: () => Promise<void>): Promise<void> {
+    await base.ejecutar('alter table users rename to users_escondida');
+    try {
+      await hacer();
+    } finally {
+      await base.ejecutar('alter table users_escondida rename to users');
+    }
+  }
+
+  it('nadie entra, nadie se crea y nada se cambia', async () => {
+    await conLaTablaEscondida(async () => {
+      expect((await users.createUser({ email: 'a@b.c', password: CONTRASENA })).kind).toBe('error');
+      expect(await users.findUserById('u1')).toBeNull();
+      expect(await users.findUserWithPassword('a@b.c')).toBeNull();
+      expect(await users.setName('u1', 'Otro')).toBeNull();
+      expect(await users.setPlan('u1', 'pro')).toBe('error');
+      expect((await users.changePassword('u1', CONTRASENA, CONTRASENA)).kind).toBe('error');
+      expect(await users.deleteAccount('u1', CONTRASENA)).toBe('error');
+    });
+  });
+});
+
+describe('lo que llega de fuera sin forma', () => {
+  it('un correo que no es un correo no se busca siquiera', async () => {
+    // `findUserWithPassword` recibe lo que venga del formulario de entrar, así
+    // que le llega cualquier cosa.
+    for (const raro of [null, undefined, 42, {}, '', 'sin arroba']) {
+      expect(await users.findUserWithPassword(raro), JSON.stringify(raro)).toBeNull();
+    }
+  });
+
+  it('borrar con algo que no es una contraseña no borra nada', async () => {
+    const creada = await users.createUser({ email: 'a@b.c', password: CONTRASENA });
+    const id = creada.kind === 'ok' ? creada.user.id : '';
+
+    expect(await users.deleteAccount(id, 42)).toBe('no-coincide');
+    expect(await users.findUserById(id)).not.toBeNull();
+  });
+
+  it('borrar una cuenta que ya no esta es un error, no un ok', async () => {
+    expect(await users.deleteAccount('00000000-0000-4000-8000-000000000000', CONTRASENA)).toBe(
+      'error',
+    );
+  });
+
+  it('cambiarle el plan a una cuenta que no existe se distingue de un fallo', async () => {
+    // Lo que le importa al webhook es distinguir «esa cuenta ya no está» —no
+    // reintentes— de «no se ha podido» —reintenta—.
+    expect(await users.setPlan('00000000-0000-4000-8000-000000000000', 'pro')).toBe('no-existe');
+  });
+});

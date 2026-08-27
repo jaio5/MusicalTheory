@@ -250,6 +250,43 @@ describe('los dos cupos de la IA', () => {
 
     expect(await uso.aiUsageOf(tuya)).toEqual({ month: 0, today: 0 });
   });
+
+  it('un plan con cupo mensual pero sin diario tampoco gasta', async () => {
+    // No es un plan que exista, pero la aritmética de los cupos sale de un
+    // precio y una división: un redondeo a cero en el diario tiene que parar
+    // aquí y no dejar pasar la petición.
+    const userId = await cuenta();
+
+    expect((await uso.spendAiRequest(userId, { monthly: 10, daily: 0 })).kind).toBe(
+      'sin-cupo-diario',
+    );
+  });
+
+  it('sin base de datos no se sirve la llamada, en vez de servirla sin contar', async () => {
+    // Al revés —servir cuando no se puede contar— es la forma de que una caída
+    // de Postgres se convierta en una factura.
+    const guardada = process.env['DATABASE_URL'];
+    delete process.env['DATABASE_URL'];
+
+    try {
+      expect((await uso.spendAiRequest('u1', limites)).kind).toBe('sin-contador');
+      expect(await uso.aiUsageOf('u1')).toEqual({ month: 0, today: 0 });
+    } finally {
+      process.env['DATABASE_URL'] = guardada;
+    }
+  });
+
+  it('y con la base rota, lo mismo', async () => {
+    const userId = await cuenta();
+    await base.ejecutar('alter table ai_usage rename to ai_usage_escondida');
+
+    try {
+      expect((await uso.spendAiRequest(userId, limites)).kind).toBe('sin-contador');
+      expect(await uso.aiUsageOf(userId)).toEqual({ month: 0, today: 0 });
+    } finally {
+      await base.ejecutar('alter table ai_usage_escondida rename to ai_usage');
+    }
+  });
 });
 
 describe('el vale de la contraseña olvidada', () => {
@@ -387,5 +424,88 @@ describe('el límite de frecuencia compartido', () => {
     });
 
     expect(frenada.retryAfterSeconds).toBeGreaterThan(0);
+  });
+});
+
+/** Un identificador con la forma buena, de una canción que no existe. */
+const UN_ID = '00000000-0000-4000-8000-000000000000';
+
+describe('cuando la base no está o no contesta', () => {
+  /**
+   * Las dos formas de no tener base de datos, que no son la misma.
+   *
+   * **Sin `DATABASE_URL`** es un clon recién bajado: la aplicación funciona
+   * entera en modo anónimo y esto no es un fallo. **Con la base puesta pero
+   * rota** sí lo es, y las dos tienen que salir por el mismo sitio: el `catch`
+   * de cada función, que decide qué se le enseña a quien está mirando.
+   *
+   * Lo importante es que ninguna de las dos devuelve algo que parezca un dato
+   * bueno. Una lista vacía de canciones diría «no tienes ninguna», que es
+   * mentira y da un susto de los que hacen cerrar la aplicación.
+   */
+  async function sinBase<T>(hacer: () => Promise<T>): Promise<T> {
+    const guardada = process.env['DATABASE_URL'];
+    delete process.env['DATABASE_URL'];
+    try {
+      return await hacer();
+    } finally {
+      process.env['DATABASE_URL'] = guardada;
+    }
+  }
+
+  it('sin base de datos, ninguna función finge que ha ido bien', async () => {
+    await sinBase(async () => {
+      expect(await songs.listSongs('u1')).toBeNull();
+      expect((await songs.createSong('u1', CANCION)).kind).toBe('error');
+      expect((await songs.updateSong('u1', { ...CANCION, id: UN_ID })).kind).toBe('error');
+      expect(await songs.removeSong('u1', UN_ID)).toBe('error');
+      expect((await progreso.loadAccountProgress('u1')).kind).toBe('error');
+      expect(await progreso.saveAccountProgress('u1', EMPTY_PROGRESS)).toBe(false);
+    });
+  });
+
+  it('con la base rota, tampoco', async () => {
+    // Es lo que pasa con una migración a medias o un despliegue en marcha. Se
+    // finge cambiándoles el nombre a las tablas: la consulta falla igual que
+    // con la tabla ausente, y se deshace sin tener que rehacer nada.
+    const userId = await cuenta();
+    await base.ejecutar(
+      'alter table songs rename to songs_escondida; alter table progress rename to progress_escondida',
+    );
+
+    try {
+      expect(await songs.listSongs(userId)).toBeNull();
+      expect((await songs.createSong(userId, CANCION)).kind).toBe('error');
+      expect((await songs.updateSong(userId, { ...CANCION, id: UN_ID })).kind).toBe('error');
+      expect(await songs.removeSong(userId, UN_ID)).toBe('error');
+      expect((await progreso.loadAccountProgress(userId)).kind).toBe('error');
+      expect(await progreso.saveAccountProgress(userId, EMPTY_PROGRESS)).toBe(false);
+    } finally {
+      await base.ejecutar(
+        'alter table songs_escondida rename to songs; alter table progress_escondida rename to progress',
+      );
+    }
+  });
+});
+
+describe('lo que no existe', () => {
+  it('cambiar o borrar una canción que no es tuya es «no existe»', async () => {
+    // No «no tienes permiso»: decir que existe pero es de otro ya cuenta algo
+    // que no es de nadie.
+    const mio = await cuenta('mio@b.c');
+    const otro = await cuenta('otro@b.c');
+    const creada = await songs.createSong(otro, CANCION);
+    const id = creada.kind === 'ok' ? creada.song.id : '';
+
+    expect((await songs.updateSong(mio, { ...CANCION, id })).kind).toBe('no-existe');
+    expect(await songs.removeSong(mio, id)).toBe('no-existe');
+  });
+
+  it('un identificador que ni siquiera tiene forma tampoco llega a la base', async () => {
+    const userId = await cuenta();
+
+    expect((await songs.updateSong(userId, { ...CANCION, id: '' })).kind).toBe('no-existe');
+    expect(await songs.removeSong(userId, 42)).toBe('no-existe');
+    expect(await songs.removeSong(userId, null)).toBe('no-existe');
   });
 });

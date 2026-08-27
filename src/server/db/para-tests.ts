@@ -43,6 +43,17 @@ export interface BaseDePrueba {
   /** Deja las tablas vacías sin volver a crearlas. Va en un `beforeEach`. */
   readonly limpiar: () => Promise<void>;
   readonly cerrar: () => Promise<void>;
+  /**
+   * Ejecuta SQL a pelo.
+   *
+   * Existe para lo que no se puede provocar de otra forma: **que la base
+   * conteste con un error**. Casi todas las funciones de `server/` tienen un
+   * `catch` que decide qué se le enseña a quien está mirando —«no hemos podido
+   * leer tus canciones» en vez de una lista vacía, que sería mentira— y esa
+   * rama no la recorre ningún camino normal. Se rompe una tabla a propósito y
+   * se mira qué contesta.
+   */
+  readonly ejecutar: (sql: string) => Promise<void>;
 }
 
 /**
@@ -58,18 +69,21 @@ export async function levantarBaseDePrueba(): Promise<BaseDePrueba> {
   const base = drizzle(cliente, { schema });
 
   const carpeta = fileURLToPath(new URL('../../../drizzle', import.meta.url));
-  for (const fichero of readdirSync(carpeta)
-    .filter((f) => f.endsWith('.sql'))
-    .sort()) {
-    const sql = readFileSync(`${carpeta}/${fichero}`, 'utf8');
-    // Drizzle separa las sentencias de una migración con esta marca.
-    for (const sentencia of sql.split('--> statement-breakpoint')) {
-      const limpia = sentencia.trim();
-      if (limpia !== '') {
-        await cliente.exec(limpia);
+  const migrar = async () => {
+    for (const fichero of readdirSync(carpeta)
+      .filter((f) => f.endsWith('.sql'))
+      .sort()) {
+      const sql = readFileSync(`${carpeta}/${fichero}`, 'utf8');
+      // Drizzle separa las sentencias de una migración con esta marca.
+      for (const sentencia of sql.split('--> statement-breakpoint')) {
+        const limpia = sentencia.trim();
+        if (limpia !== '') {
+          await cliente.exec(limpia);
+        }
       }
     }
-  }
+  };
+  await migrar();
 
   const cache = ((globalThis as { __caosDb?: Cache }).__caosDb ??= {});
   cache.db = base;
@@ -90,6 +104,9 @@ export async function levantarBaseDePrueba(): Promise<BaseDePrueba> {
       if (tablas.length > 0) {
         await cliente.exec(`truncate table ${tablas.join(', ')} cascade`);
       }
+    },
+    ejecutar: async (sql: string) => {
+      await cliente.exec(sql);
     },
     cerrar: async () => {
       delete (globalThis as { __caosDb?: Cache }).__caosDb;
