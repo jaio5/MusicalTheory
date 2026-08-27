@@ -23,8 +23,15 @@ vi.mock('next-auth/react', () => ({
   SessionProvider: ({ children }: { children: unknown }) => children,
 }));
 
-const { signInWithPassword, registerAccount, signOutHere, updateAccount } =
-  await import('./account');
+const {
+  signInWithPassword,
+  registerAccount,
+  signOutHere,
+  updateAccount,
+  deleteAccount,
+  billingPortalUrl,
+  changePlan,
+} = await import('./account');
 
 /** Una respuesta de `fetch` como la que da el servidor. */
 function respuesta(status: number, body: unknown): Response {
@@ -192,5 +199,115 @@ describe('cambiar lo tuyo', () => {
     fetchFalso.mockRejectedValue(new Error('sin red'));
 
     expect((await updateAccount({ name: 'Otro' })).ok).toBe(false);
+  });
+});
+
+describe('borrar la cuenta', () => {
+  it('pide la contraseña, y no cierra la sesion por su cuenta', async () => {
+    // Cerrarla es cosa de quien llama: la cookie sigue firmada y viva, y sin
+    // cerrarla quien acaba de borrarse se queda con una sesión que apunta a una
+    // fila que ya no existe.
+    fetchFalso.mockResolvedValue(respuesta(200, {}));
+
+    const result = await deleteAccount('miContrasena');
+
+    const [url, init] = fetchFalso.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/cuenta');
+    expect(init.method).toBe('DELETE');
+    expect(JSON.parse(init.body as string)).toEqual({ password: 'miContrasena' });
+    expect(result.ok).toBe(true);
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('con la contraseña mal, la frase del servidor', async () => {
+    fetchFalso.mockResolvedValue(
+      respuesta(403, { error: { message: 'La contraseña no es esa.' } }),
+    );
+
+    const result = await deleteAccount('mal');
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toBe('La contraseña no es esa.');
+  });
+
+  it('si el servidor no se explica, una de respaldo', async () => {
+    fetchFalso.mockResolvedValue(new Response('', { status: 500 }));
+
+    expect((await deleteAccount('x')).ok).toBe(false);
+  });
+
+  it('sin red, tampoco se queda callado', async () => {
+    fetchFalso.mockRejectedValue(new Error('sin red'));
+
+    expect((await deleteAccount('x')).ok).toBe(false);
+  });
+});
+
+describe('el portal de la pasarela', () => {
+  it('devuelve la direccion cuando la hay', async () => {
+    fetchFalso.mockResolvedValue(respuesta(200, { url: 'https://portal' }));
+
+    expect(await billingPortalUrl()).toBe('https://portal');
+  });
+
+  it('nulo y no un error cuando no la hay', async () => {
+    // No tener facturas que mirar es lo normal en una cuenta que nunca ha
+    // pagado, y en una copia sin pasarela puesta lo es siempre.
+    fetchFalso.mockResolvedValue(respuesta(200, {}));
+
+    expect(await billingPortalUrl()).toBeNull();
+  });
+
+  it('una direccion vacia cuenta como no tenerla', async () => {
+    fetchFalso.mockResolvedValue(respuesta(200, { url: '' }));
+
+    expect(await billingPortalUrl()).toBeNull();
+  });
+
+  it('y si el servidor falla o no hay red, tambien nulo', async () => {
+    fetchFalso.mockResolvedValue(new Response('', { status: 500 }));
+    expect(await billingPortalUrl()).toBeNull();
+
+    fetchFalso.mockRejectedValue(new Error('sin red'));
+    expect(await billingPortalUrl()).toBeNull();
+  });
+});
+
+describe('cambiar de plan', () => {
+  it('con el cobrador de hoy, el plan cambia y ya', async () => {
+    fetchFalso.mockResolvedValue(respuesta(200, { kind: 'listo', plan: 'pro' }));
+
+    expect(await changePlan('pro')).toEqual({ kind: 'listo', plan: 'pro' });
+  });
+
+  it('contempla el «vete a pagar a otro sitio» que hoy no llega nunca', async () => {
+    // Es la forma que tendrá con Stripe, y dejarla escrita ahora cuesta cuatro
+    // líneas y evita tocar esto entonces.
+    fetchFalso.mockResolvedValue(respuesta(200, { kind: 'ir-a-pagar', url: 'https://pago' }));
+
+    expect(await changePlan('pro')).toEqual({ kind: 'ir-a-pagar', url: 'https://pago' });
+  });
+
+  it('un plan que el servidor no reconoce se lee como el de siempre', async () => {
+    // Nunca deja la pantalla sin plan: `planOf` traduce lo que no encaje.
+    fetchFalso.mockResolvedValue(respuesta(200, { kind: 'listo', plan: 'inventado' }));
+
+    expect((await changePlan('pro')).kind).toBe('listo');
+  });
+
+  it('usa la frase del servidor cuando se niega', async () => {
+    fetchFalso.mockResolvedValue(respuesta(403, { error: { message: 'Hace falta una cuenta.' } }));
+
+    const result = await changePlan('pro');
+
+    expect(result).toEqual({ kind: 'error', message: 'Hace falta una cuenta.' });
+  });
+
+  it('y una de respaldo cuando no se explica, o no hay red', async () => {
+    fetchFalso.mockResolvedValue(new Response('', { status: 500 }));
+    expect((await changePlan('pro')).kind).toBe('error');
+
+    fetchFalso.mockRejectedValue(new Error('sin red'));
+    expect((await changePlan('pro')).kind).toBe('error');
   });
 });

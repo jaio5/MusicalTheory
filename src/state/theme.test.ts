@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CLAVE_TEMA, elegirTema, GUION_TEMA, temaElegido, temaEnServidor } from './theme';
+import {
+  CLAVE_TEMA,
+  elegirTema,
+  GUION_TEMA,
+  suscribirseAlTema,
+  temaElegido,
+  temaEnServidor,
+} from './theme';
 
 beforeEach(() => {
   localStorage.clear();
@@ -65,5 +72,66 @@ describe('El guion antidestello', () => {
   it('sin nada guardado no toca el documento', () => {
     new Function(GUION_TEMA)();
     expect(document.documentElement.hasAttribute('data-tema')).toBe(false);
+  });
+});
+
+describe('quien se entera de un cambio', () => {
+  it('el conmutador y el guion no se conocen: se avisa por suscripcion', () => {
+    const avisos: number[] = [];
+    const dejar = suscribirseAlTema(() => avisos.push(1));
+
+    elegirTema('claro');
+    elegirTema('oscuro');
+
+    expect(avisos).toHaveLength(2);
+    dejar();
+  });
+
+  it('quien se da de baja deja de recibir avisos', () => {
+    const avisos: number[] = [];
+    const dejar = suscribirseAlTema(() => avisos.push(1));
+
+    dejar();
+    elegirTema('claro');
+
+    expect(avisos).toHaveLength(0);
+  });
+
+  it('darse de baja dos veces no afecta a los demas', () => {
+    const otros: number[] = [];
+    const dejar = suscribirseAlTema(() => undefined);
+    suscribirseAlTema(() => otros.push(1));
+
+    dejar();
+    dejar();
+    elegirTema('claro');
+
+    expect(otros).toHaveLength(1);
+  });
+});
+
+describe('cuando el navegador no deja guardar', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('se cambia igual, solo que no se recuerda', () => {
+    // Pasa en navegación privada y con las cookies de terceros bloqueadas. Que
+    // reviente por no poder recordar una preferencia sería dejar sin tema a
+    // quien solo quería mirar la rueda.
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+
+    expect(() => elegirTema('claro')).not.toThrow();
+    expect(document.documentElement.getAttribute('data-tema')).toBe('claro');
+  });
+
+  it('y leer lo que no se puede leer devuelve el de la casa', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('SecurityError');
+    });
+
+    expect(temaElegido()).toBe('oscuro');
   });
 });
