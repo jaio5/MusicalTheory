@@ -146,3 +146,83 @@ describe('El muñeco del profesor', () => {
     expect(marco.className).not.toContain('flex-row-reverse');
   });
 });
+
+describe('Arrastrar el muñeco', () => {
+  /**
+   * Se puede mover porque tapa cosas: en una unidad larga cae justo encima del
+   * último ejercicio. Lo que se guarda no es la posición exacta sino **el lado
+   * más cercano y la altura**, para que al cambiar de pantalla o girar el móvil
+   * siga estando donde tiene sentido y no medio fuera.
+   */
+  beforeEach(() => {
+    Element.prototype.setPointerCapture = vi.fn();
+    Element.prototype.releasePointerCapture = vi.fn();
+    Element.prototype.hasPointerCapture = () => true;
+    // El marco no tiene tamaño en jsdom, y de él sale el lado más cercano.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 700,
+      top: 150,
+      width: 60,
+      height: 60,
+    } as DOMRect);
+    window.innerWidth = 1000;
+    window.innerHeight = 600;
+  });
+
+  it('soltarlo a la derecha lo deja en ese lado, y a esa altura', () => {
+    const { container } = pintar(<Tutor />);
+    const marco = container.firstElementChild as HTMLElement;
+
+    fireEvent.pointerDown(marco, { clientX: 20, clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(marco, { clientX: 730, clientY: 180, movementX: 700, pointerId: 1 });
+    fireEvent.pointerUp(marco, { clientX: 730, clientY: 180, pointerId: 1 });
+
+    expect(JSON.parse(localStorage.getItem('caos-ordenado:sitio-del-profesor')!)).toMatchObject({
+      lado: 'derecha',
+    });
+  });
+
+  it('al soltarlo se devuelve el mando a las clases', () => {
+    // Dejar el estilo puesto congelaría al muñeco donde lo soltó el dedo, y al
+    // cambiar de pantalla aparecería en un sitio que ya no significa nada.
+    const { container } = pintar(<Tutor />);
+    const marco = container.firstElementChild as HTMLElement;
+
+    fireEvent.pointerDown(marco, { clientX: 20, clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(marco, { clientX: 730, clientY: 180, movementX: 700, pointerId: 1 });
+    fireEvent.pointerUp(marco, { clientX: 730, clientY: 180, pointerId: 1 });
+
+    // El `top` que queda no es el del dedo: es el del sitio guardado, en tanto
+    // por ciento, que es lo que sobrevive a girar el móvil.
+    expect(marco.style.left).toBe('');
+    expect(marco.style.right).toBe('');
+    expect(marco.style.top).toMatch(/%$/);
+  });
+
+  it('un toque sin arrastre no mueve nada: abre el globo', async () => {
+    // Es lo que separa pulsarlo de moverlo, y por eso el `pointerup` sin
+    // movimiento se deja pasar para que el navegador dispare el `click`.
+    const { container } = pintar(<Tutor />);
+    const marco = container.firstElementChild as HTMLElement;
+    const antes = localStorage.getItem('caos-ordenado:sitio-del-profesor');
+
+    fireEvent.pointerDown(marco, { clientX: 20, clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(marco, { clientX: 21, clientY: 400, movementX: 1, pointerId: 1 });
+    fireEvent.pointerUp(marco, { clientX: 21, clientY: 400, pointerId: 1 });
+    await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
+
+    expect(localStorage.getItem('caos-ordenado:sitio-del-profesor')).toBe(antes);
+    expect(screen.getByRole('button', { name: /cerrar el profesor/i })).toBeInTheDocument();
+  });
+
+  it('cancelar el gesto —una llamada entrante— tampoco lo deja a medias', () => {
+    const { container } = pintar(<Tutor />);
+    const marco = container.firstElementChild as HTMLElement;
+
+    fireEvent.pointerDown(marco, { clientX: 20, clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(marco, { clientX: 730, clientY: 180, movementX: 700, pointerId: 1 });
+    fireEvent.pointerCancel(marco, { clientX: 730, clientY: 180, pointerId: 1 });
+
+    expect(marco.style.left).toBe('');
+  });
+});
