@@ -25,7 +25,17 @@ export default defineConfig({
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     coverage: {
       provider: 'v8',
-      include: ['src/core/**/*.ts'],
+      // Todo `src/`, no solo el dominio. Medir solo `core/` daba un 97 % que no
+      // decía nada: la mitad de lo que puede fallar está en las capas de fuera.
+      include: ['src/**/*.ts', 'src/**/*.tsx'],
+      exclude: [
+        // Reexporta el manejador de Auth.js y no tiene lógica propia.
+        'src/app/api/auth/**',
+        // Los índices son listas de `export *`.
+        '**/index.ts',
+        // Definiciones de tipos y puertos sin implementación.
+        'src/**/*.d.ts',
+      ],
     },
   },
 });
