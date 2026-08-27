@@ -226,3 +226,82 @@ describe('Arrastrar el muñeco', () => {
     expect(marco.style.left).toBe('');
   });
 });
+
+describe('Cómo aparece la frase', () => {
+  /**
+   * La frase se escribe letra a letra, como si el muñeco la estuviera diciendo.
+   * Es adorno, así que **quien ha pedido menos movimiento la ve entera de
+   * golpe**: para alguien con sensibilidad al movimiento, un texto que se
+   * escribe solo es exactamente lo que hace daño.
+   *
+   * Lo que no cambia en ninguno de los dos casos es la copia para lectores de
+   * pantalla, que lleva la frase completa desde el primer momento: leer letra a
+   * letra en voz alta no lo aguanta nadie.
+   */
+  it('con movimiento reducido, entera desde el primer fotograma', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} })),
+    );
+
+    const { container } = pintar(<Tutor aviso="Otra vez esa." />);
+
+    const globo = container.querySelector(
+      '[aria-hidden="true"] + .sr-only',
+    )?.previousElementSibling;
+    expect(globo?.textContent).toBe('Otra vez esa.');
+    vi.unstubAllGlobals();
+  });
+
+  it('sin movimiento reducido, se escribe sola hasta terminar', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })),
+    );
+    // El reloj de la animación es `performance.now`, y los fotogramas los pide
+    // `requestAnimationFrame`: los dos se mueven a mano.
+    let ahora = 0;
+    const reloj = vi.spyOn(performance, 'now').mockImplementation(() => ahora);
+    const pendientes: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      pendientes.push(cb);
+      return pendientes.length;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+
+    const { container } = pintar(<Tutor aviso="Hola." />);
+    const globo = container.querySelector('p > span[aria-hidden="true"]');
+
+    // A los 36 ms van dos letras: uno cada 18.
+    ahora = 36;
+    pendientes.shift()?.(36);
+    expect(globo?.textContent).toBe('Ho');
+
+    // Pasado el tiempo de la frase entera, está completa y deja de pedir cuadros.
+    ahora = 1000;
+    pendientes.shift()?.(1000);
+    expect(globo?.textContent).toBe('Hola.');
+
+    // Y la copia que lee un lector de pantalla la tuvo entera desde el principio.
+    expect(container.querySelector('.sr-only')?.textContent).toBe('Hola.');
+
+    reloj.mockRestore();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('Un aviso nuevo', () => {
+  it('abre al muñeco aunque ya estuviera cerrado', async () => {
+    const { rerender } = pintar(<Tutor />);
+    await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
+    await userEvent.click(screen.getByRole('button', { name: /cerrar el profesor/i }));
+
+    rerender(
+      <AccountProvider account={ANONYMOUS} accounts={false}>
+        <Tutor aviso="Esa nota se resiste." />
+      </AccountProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: /cerrar el profesor/i })).toBeInTheDocument();
+  });
+});

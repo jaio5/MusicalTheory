@@ -688,3 +688,81 @@ describe('el punto de partida al fusionar', () => {
     expect(mergeProgress(desde(null), desde(null)).startCourse).toBeNull();
   });
 });
+
+describe('los bordes que nunca se dan, y por eso hay que fijarlos', () => {
+  /**
+   * Ninguno de estos casos se produce tocando: son las respuestas que el dominio
+   * da cuando le llega algo imposible. Están escritos porque **lo que hacen no
+   * es obvio** —una unidad desconocida podría abrirse en vez de cerrarse, una
+   * fecha corrida hacia atrás podría poner la racha a cero— y porque un
+   * `parseProgress` que deje pasar basura las convierte en casos reales.
+   */
+  it('una unidad que no existe no está abierta', () => {
+    // Pasa con un enlace guardado a algo que se renombró.
+    expect(isUnitUnlocked(EMPTY_PROGRESS, 'inventada')).toBe(false);
+    expect(isUnitDone(EMPTY_PROGRESS, 'inventada')).toBe(false);
+  });
+
+  it('un curso sin unidades cuenta como terminado, no como dividir entre cero', () => {
+    const vacio = { ...COURSES[0]!, units: [] };
+
+    expect(courseCompletion(EMPTY_PROGRESS, vacio)).toBe(1);
+    expect(isCourseDone(EMPTY_PROGRESS, vacio)).toBe(true);
+  });
+
+  it('una meta de cero está cumplida, no rota', () => {
+    expect(goalCompletion(EMPTY_PROGRESS, '2026-08-27', 0)).toBe(1);
+  });
+
+  it('un día que no se puede leer deja la racha como estaba', () => {
+    // Lo que hay guardado lo escribió el navegador de alguien, así que la fecha
+    // puede ser cualquier cosa. Ponerla a cero castigaría por un dato corrupto.
+    const conRacha: Progress = { ...EMPTY_PROGRESS, streak: 5, lastDay: '2026-08-20' };
+
+    expect(streakAfter(conRacha, 'no-es-un-dia')).toBe(5);
+    expect(currentStreak(conRacha, 'no-es-un-dia')).toBe(5);
+  });
+
+  it('un día anterior al último tampoco la rompe', () => {
+    // Pasa al juntar dos aparatos con la hora descuadrada.
+    const conRacha: Progress = { ...EMPTY_PROGRESS, streak: 5, lastDay: '2026-08-20' };
+
+    expect(streakAfter(conRacha, '2026-08-18')).toBe(5);
+    expect(currentStreak(conRacha, '2026-08-18')).toBe(5);
+  });
+
+  it('sin haber practicado nunca no hay racha que llevar', () => {
+    expect(currentStreak(EMPTY_PROGRESS, '2026-08-27')).toBe(0);
+  });
+});
+
+describe('las medallas que da un repaso', () => {
+  it('siete días seguidos dan la de la racha', () => {
+    const seguido: Progress = {
+      ...EMPTY_PROGRESS,
+      streak: 6,
+      bestStreak: 6,
+      lastDay: '2026-08-26',
+    };
+
+    const despues = practiceReview(seguido, '2026-08-27', { cleared: false });
+
+    expect(despues.badges).toContain('racha-siete');
+  });
+
+  it('y llegar a la meta del día da la suya, repasando', () => {
+    // El repaso suma a la meta como una unidad: si no, quien solo repasa un día
+    // pierde la racha por haber hecho justo lo que hay que hacer.
+    const casi: Progress = {
+      ...EMPTY_PROGRESS,
+      lastDay: '2026-08-27',
+      xpToday: DAILY_GOAL_XP - 1,
+      streak: 1,
+    };
+
+    const despues = practiceReview(casi, '2026-08-27', { cleared: true });
+
+    expect(despues.badges).toContain('meta-diaria');
+    expect(despues.badges).toContain('repaso-al-dia');
+  });
+});

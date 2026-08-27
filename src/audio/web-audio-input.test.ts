@@ -403,3 +403,68 @@ describe('las entradas que hay', () => {
     expect(await listAudioInputDevices()).toEqual([]);
   });
 });
+
+describe('lo que se puede preguntar sin haber arrancado', () => {
+  it('la frecuencia de muestreo la decide el navegador, y hasta arrancar no se sabe', async () => {
+    const input = new WebAudioInput();
+
+    expect(input.sampleRate).toBe(0);
+
+    await input.start();
+
+    expect(input.sampleRate).toBe(48_000);
+  });
+
+  it('leer sin haber arrancado no devuelve ceros: devuelve falso', async () => {
+    // Ceros llegarían al motor como silencio, y silencio es indistinguible de no
+    // estar tocando.
+    const input = new WebAudioInput();
+
+    expect(input.readTimeDomain(new Float32Array(input.frameSize))).toBe(false);
+    expect(input.readSpectrum(new Float32Array(input.spectrumSize))).toBe(false);
+  });
+
+  it('el espectro se lee con su propia ventana, mas larga que la del tono', async () => {
+    // El tono quiere responder rápido y el acorde quiere ver fino, y no hay una
+    // ventana que haga las dos cosas.
+    const input = await escuchando();
+    const espectro = new Float32Array(input.spectrumSize);
+
+    expect(input.spectrumSize).toBeGreaterThan(input.frameSize);
+    expect(input.readSpectrum(espectro)).toBe(true);
+    expect(espectro[0]).toBe(-30);
+  });
+
+  it('quien deja de escuchar los cambios deja de recibirlos', async () => {
+    const estados: string[] = [];
+    const input = new WebAudioInput();
+    const dejar = input.subscribe((estado) => estados.push(estado));
+
+    await input.start();
+    dejar();
+    await input.stop();
+
+    expect(estados).toEqual(['requesting', 'running']);
+  });
+
+  it('el contexto ya despierto no se reanuda por gusto', async () => {
+    // Reanudar uno que ya corre es una llamada de más en cada arranque.
+    const input = await escuchando();
+    const antes = contexto.resume.mock.calls.length;
+
+    await input.stop();
+
+    expect(contexto.resume.mock.calls.length).toBe(antes);
+  });
+
+  it('el contexto dormido al arrancar se despierta', async () => {
+    // Chrome puede entregarlo suspendido aunque la llamada venga de un gesto.
+    contexto.state = 'suspended';
+    const input = new WebAudioInput();
+
+    await input.start();
+
+    expect(contexto.resume).toHaveBeenCalled();
+    expect(input.state).toBe('running');
+  });
+});
