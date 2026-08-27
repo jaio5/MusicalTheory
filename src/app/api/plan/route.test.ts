@@ -20,7 +20,7 @@ vi.mock('@server/users', () => ({
 }));
 vi.mock('@server/auth', () => ({ authAvailable: () => true }));
 
-const { GET, POST } = await import('./route');
+const { GET, POST, PUT } = await import('./route');
 
 const SESION = { userId: 'u1', account: { plan: 'gratis' } };
 
@@ -30,7 +30,7 @@ const COBRADOR_FALSO = {
   charges: false,
   start: vi.fn<(datos: { userId: string; email: string; plan: string }) => Promise<unknown>>(),
   cancel: vi.fn<(datos: { userId: string }) => Promise<{ ok: boolean }>>(),
-  portal: vi.fn(async () => null),
+  portal: vi.fn<(datos: { userId: string; email: string }) => Promise<string | null>>(),
 };
 
 function pedir(body: unknown): Request {
@@ -56,6 +56,8 @@ beforeEach(() => {
   COBRADOR_FALSO.start.mockResolvedValue({ kind: 'listo', plan: 'medio' });
   COBRADOR_FALSO.cancel.mockReset();
   COBRADOR_FALSO.cancel.mockResolvedValue({ ok: true });
+  COBRADOR_FALSO.portal.mockReset();
+  COBRADOR_FALSO.portal.mockResolvedValue(null);
 });
 
 describe('quién puede cambiar de plan', () => {
@@ -131,5 +133,70 @@ describe('lo que dice el cobrador', () => {
     expect(COBRADOR_FALSO.start).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'u1', plan: 'medio' }),
     );
+  });
+});
+
+describe('el portal de la pasarela', () => {
+  it('es PUT y no GET, porque abrirlo crea una sesion en la pasarela', async () => {
+    // No es una consulta, aunque lo parezca desde fuera: un `GET` que crea algo
+    // lo acaba creando un rastreador de enlaces.
+    COBRADOR_FALSO.portal.mockResolvedValue('https://portal');
+
+    const { status, body } = await leer(await PUT());
+
+    expect(status).toBe(200);
+    expect(body['url']).toBe('https://portal');
+  });
+
+  it('sin cuenta no hay portal que abrir', async () => {
+    currentSession.mockResolvedValue(null);
+
+    expect((await leer(await PUT())).status).toBe(401);
+  });
+
+  it('sin adonde ir se contesta 404, que es la verdad', async () => {
+    // Pasa sin pasarela puesta y también con una cuenta que nunca ha pagado. La
+    // pantalla no enseña el enlace en ninguno de los dos casos: esto es la red
+    // de debajo.
+    COBRADOR_FALSO.portal.mockResolvedValue(null);
+
+    const { status, body } = await leer(await PUT());
+
+    expect(status).toBe(404);
+    expect((body['error'] as { code: string }).code).toBe('sin-portal');
+  });
+});
+
+describe('cuando el cobrador falla', () => {
+  it('cancelar sin exito no baja el plan a medias', async () => {
+    // Desde un plan de pago: pedir el que ya se tiene no llega al cobrador.
+    currentSession.mockResolvedValue({ userId: 'u1', account: { plan: 'pro' } });
+    COBRADOR_FALSO.cancel.mockResolvedValue({ ok: false });
+
+    const { status, body } = await leer(await POST(pedir({ plan: 'gratis' })));
+
+    expect(status).toBe(502);
+    expect((body['error'] as { code: string }).code).toBe('no-guardado');
+  });
+
+  it('un error de la pasarela se cuenta sin repetir lo que dijo', async () => {
+    // Lo que conteste la pasarela se queda en el servidor: al cliente le llega
+    // siempre la misma frase.
+    COBRADOR_FALSO.start.mockResolvedValue({ kind: 'error', reason: 'card_declined' });
+
+    const { status, body } = await leer(await POST(pedir({ plan: 'pro' })));
+
+    expect(status).toBe(502);
+    expect(JSON.stringify(body)).not.toContain('card_declined');
+  });
+
+  it('el «vete a pagar a otro sitio» se pasa tal cual', async () => {
+    // Hoy no llega nunca, pero es la forma que tendra con Stripe.
+    COBRADOR_FALSO.start.mockResolvedValue({ kind: 'ir-a-pagar', url: 'https://pago' });
+
+    const { status, body } = await leer(await POST(pedir({ plan: 'pro' })));
+
+    expect(status).toBe(200);
+    expect(body).toEqual({ kind: 'ir-a-pagar', url: 'https://pago' });
   });
 });

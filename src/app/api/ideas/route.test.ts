@@ -186,3 +186,73 @@ describe('el esquema que se le manda depende de lo que se pida', () => {
     expect(grados).not.toContain('vii°');
   });
 });
+
+describe('lo que se le cuenta al modelo', () => {
+  it('lo que se esta tocando entra en la pregunta, y solo como simbolos', () => {
+    // A la IA solo viajan símbolos: la tonalidad, la escala, notas y cifrados.
+    // Ni audio ni nada de lo que suene.
+    askModel.mockResolvedValue({ ideas: [{ title: 'x', why: 'y', degrees: ['i'] }] });
+
+    return POST(
+      pedir(
+        {
+          ...CUERPO,
+          scale: 'minorPentatonic',
+          recentNotes: ['A', 'C', 'E'],
+          recentChords: ['Am', 'F'],
+        },
+        nueva(),
+      ),
+    ).then(() => {
+      const prompt = (askModel.mock.calls[0]?.[0] as { prompt: string }).prompt;
+
+      expect(prompt).toContain('minorPentatonic');
+      expect(prompt).toContain('A C E');
+      expect(prompt).toContain('Am F');
+    });
+  });
+
+  it('cada tipo de idea pide una cosa distinta', async () => {
+    askModel.mockResolvedValue({ ideas: [{ title: 'x', why: 'y', degrees: ['i'] }] });
+
+    await POST(pedir({ ...CUERPO, kind: 'twist' }, nueva()));
+    const giro = (askModel.mock.calls[0]?.[0] as { prompt: string }).prompt;
+
+    askModel.mockResolvedValue({ ideas: [{ title: 'x', why: 'y', scale: 'dorian' }] });
+    await POST(pedir({ ...CUERPO, kind: 'scale' }, nueva()));
+    const escala = (askModel.mock.calls[1]?.[0] as { prompt: string }).prompt;
+
+    expect(giro).toMatch(/romper el bucle/);
+    expect(escala).toMatch(/escalas para tocar encima/);
+  });
+});
+
+describe('cuando el modelo no contesta', () => {
+  it('un fallo del proveedor es un 502, y no se reintenta', async () => {
+    // Encadenar reintentos sobre un proveedor caído cuesta dinero y tiempo, y
+    // quien mira prefiere un «no ha salido» rápido.
+    askModel.mockRejectedValue(new Error('sin red'));
+
+    const respuesta = await POST(pedir(CUERPO, nueva()));
+
+    expect(respuesta.status).toBe(502);
+    expect(askModel).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('pulsar el boton veinte veces seguidas', () => {
+  it('se frena, y se dice cuanto hay que esperar', async () => {
+    // El límite es por dirección: diez por minuto. Defiende del botón repetido,
+    // no de un abuso de verdad —para eso haría falta el contador compartido—.
+    askModel.mockResolvedValue({ ideas: [{ title: 'x', why: 'y', degrees: ['i'] }] });
+    const misma = nueva();
+
+    let ultima = await POST(pedir(CUERPO, misma));
+    for (let i = 0; i < 12 && ultima.status !== 429; i += 1) {
+      ultima = await POST(pedir(CUERPO, misma));
+    }
+
+    expect(ultima.status).toBe(429);
+    expect(ultima.headers.get('Retry-After')).not.toBeNull();
+  });
+});

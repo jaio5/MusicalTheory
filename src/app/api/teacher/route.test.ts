@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { UNIT_ORDER } from '@core/music';
 import { FUERA_DE_TEMA, MARCA_PREGUNTA } from '@features/learn/teacher-contract';
 
 /**
@@ -158,5 +159,61 @@ describe('lo que contesta', () => {
     const { body } = await leer(await POST(pedir(PREGUNTA)));
 
     expect((body['example'] as { chords: string[] }).chords).toEqual(['Am', 'G']);
+  });
+});
+
+describe('el contexto que se le da', () => {
+  it('la escala que se esta usando entra en la pregunta', async () => {
+    askModel.mockResolvedValue({ answer: 'Porque sí.', degrees: [] });
+
+    await POST(pedir({ ...PREGUNTA, scale: 'minorPentatonic' }));
+
+    expect(promptMandado()).toContain('minorPentatonic');
+  });
+
+  it('el titulo de la unidad sale del temario, no de lo que mande el cliente', async () => {
+    // Es texto que va sin marcar dentro del prompt: si lo pusiera quien llama,
+    // sería un segundo canal de texto libre y el proyecto solo admite uno.
+    askModel.mockResolvedValue({ answer: 'Porque sí.', degrees: [] });
+
+    await POST(pedir({ ...PREGUNTA, unitId: UNIT_ORDER[0]! }));
+
+    expect(promptMandado()).toMatch(/Está leyendo sobre: .+\./);
+  });
+
+  it('una unidad que no existe no mete nada en el prompt', async () => {
+    askModel.mockResolvedValue({ answer: 'Porque sí.', degrees: [] });
+
+    await POST(pedir({ ...PREGUNTA, unitId: 'inventada' }));
+
+    expect(promptMandado()).not.toMatch(/Está leyendo sobre/);
+  });
+});
+
+describe('cuando el modelo no contesta', () => {
+  it('un cuerpo que no es JSON es un 400, no un 500', async () => {
+    const respuesta = await POST(pedir('{esto no es json'));
+
+    expect(respuesta.status).toBe(400);
+  });
+
+  it('un fallo del proveedor es un 502 y no se reintenta', async () => {
+    askModel.mockRejectedValue(new Error('sin red'));
+
+    const respuesta = await POST(pedir(PREGUNTA));
+
+    expect(respuesta.status).toBe(502);
+    expect(askModel).toHaveBeenCalledTimes(1);
+  });
+
+  it('si contesta algo que no vale dos veces, se rinde con un 502', async () => {
+    // Un reintento y basta: un «no ha salido» rápido vale más que treinta
+    // segundos de espera.
+    askModel.mockResolvedValue({ nada: 'que ver' });
+
+    const respuesta = await POST(pedir(PREGUNTA));
+
+    expect(respuesta.status).toBe(502);
+    expect(askModel).toHaveBeenCalledTimes(2);
   });
 });

@@ -162,3 +162,56 @@ describe('lo que entra', () => {
     expect(removeSong).toHaveBeenCalledWith('u1', undefined);
   });
 });
+
+describe('cuando la base de datos no contesta', () => {
+  it('leer la lista y no poder es un 502, no una lista vacia', async () => {
+    // Una lista vacía diría «no tienes ninguna», que es mentira y da un susto
+    // de los que hacen cerrar la aplicación.
+    listSongs.mockResolvedValue(null);
+
+    const respuesta = await GET();
+
+    expect(respuesta.status).toBe(502);
+    expect(((await respuesta.json()) as { error: { code: string } }).error.code).toBe('no-leido');
+  });
+
+  it('borrar y no poder tambien se distingue de que no existiera', async () => {
+    removeSong.mockResolvedValue('error');
+
+    const respuesta = await DELETE(pedir('DELETE', { id: 's1' }));
+
+    expect(respuesta.status).toBe(502);
+    expect(((await respuesta.json()) as { error: { code: string } }).error.code).toBe('no-borrado');
+  });
+
+  it('borrar una que no esta es un 404', async () => {
+    removeSong.mockResolvedValue('no-existe');
+
+    expect((await DELETE(pedir('DELETE', { id: 'inventada' }))).status).toBe(404);
+  });
+
+  it('borrar una que si esta lo dice', async () => {
+    removeSong.mockResolvedValue('ok');
+
+    const respuesta = await DELETE(pedir('DELETE', { id: 's1' }));
+
+    expect(respuesta.status).toBe(200);
+    expect(await respuesta.json()).toEqual({ borrada: true });
+  });
+});
+
+describe('cambiar una guardada', () => {
+  it('sin identificador no se toca nada: es «no existe», no un 500', async () => {
+    const respuesta = await PUT(pedir('PUT', CANCION));
+
+    expect(respuesta.status).toBe(404);
+    expect(updateSong).not.toHaveBeenCalled();
+  });
+
+  it('con identificador pero sin canción tampoco', async () => {
+    const respuesta = await PUT(pedir('PUT', { id: 's1', name: 'solo el nombre' }));
+
+    expect(respuesta.status).toBe(400);
+    expect(updateSong).not.toHaveBeenCalled();
+  });
+});

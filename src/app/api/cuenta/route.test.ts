@@ -219,3 +219,88 @@ describe('borrar la cuenta', () => {
     }
   });
 });
+
+describe('cambiar el nombre', () => {
+  it('si no se puede guardar, se dice y no se contesta una cuenta a medias', async () => {
+    setName.mockResolvedValue(null);
+
+    const { status, body } = await leer(await PATCH(pedir('PATCH', { name: 'Otro' })));
+
+    expect(status).toBe(500);
+    expect(body).not.toHaveProperty('account');
+  });
+
+  it('al guardarlo se contesta la cuenta recien leida, no lo que se acaba de escribir', async () => {
+    // Si la pantalla se pintara con lo enviado, un recorte del servidor —un
+    // nombre demasiado largo— no se vería hasta recargar.
+    setName.mockResolvedValue({ id: 'u1' });
+
+    const { status, body } = await leer(await PATCH(pedir('PATCH', { name: 'Otro' })));
+
+    expect(status).toBe(200);
+    expect(body['account']).toMatchObject({ name: 'Javi' });
+  });
+
+  it('sin nada que cambiar, se devuelve la cuenta tal cual', async () => {
+    const { status, body } = await leer(await PATCH(pedir('PATCH', {})));
+
+    expect(status).toBe(200);
+    expect(body['account']).toBeDefined();
+    expect(setName).not.toHaveBeenCalled();
+    expect(changePassword).not.toHaveBeenCalled();
+  });
+});
+
+describe('probar contraseñas a lo bruto', () => {
+  it('cambiar y borrar comparten contador: son la misma comprobacion', async () => {
+    // Dos contadores separados para lo mismo darían el doble de intentos, y lo
+    // que hace quien las prueba a lo bruto es justamente comprobar contraseñas.
+    deleteAccount.mockResolvedValue('no-coincide');
+    changePassword.mockResolvedValue('no-coincide');
+    const misma = '10.8.9.9';
+
+    /** Todas desde la misma dirección: es la clave del contador. */
+    function desde(metodo: string, body: unknown): Request {
+      return new Request('http://x/api/cuenta', {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': misma },
+        body: JSON.stringify(body),
+      });
+    }
+
+    let ultima = 200;
+    for (let i = 0; i < 14 && ultima !== 429; i += 1) {
+      // Se alternan a propósito: si tuvieran contadores distintos, ninguno de
+      // los dos llegaría al tope en catorce intentos.
+      const respuesta =
+        i % 2 === 0
+          ? await PATCH(desde('PATCH', { passwordActual: 'x', passwordNueva: 'yyyyyyyy' }))
+          : await DELETE(desde('DELETE', { password: 'x' }));
+      ultima = respuesta.status;
+    }
+
+    expect(ultima).toBe(429);
+  });
+});
+
+describe('borrar la cuenta', () => {
+  it('con la contraseña buena se borra, y se dice', async () => {
+    deleteAccount.mockResolvedValue('ok');
+
+    const { status } = await leer(await DELETE(pedir('DELETE', { password: 'la buena' })));
+
+    expect(status).toBe(200);
+  });
+
+  it('sin base de datos se dice que aqui no se puede, no que haya fallado algo', async () => {
+    deleteAccount.mockResolvedValue('sin-base-de-datos');
+
+    expect((await leer(await DELETE(pedir('DELETE', { password: 'x' })))).status).toBe(501);
+  });
+
+  it('y si falla al borrar, es un 500', async () => {
+    deleteAccount.mockResolvedValue('error');
+
+    expect((await leer(await DELETE(pedir('DELETE', { password: 'x' })))).status).toBe(500);
+  });
+});

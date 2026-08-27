@@ -215,3 +215,36 @@ describe('lo que sale', () => {
     expect(spendAi).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('lo que no llega al modelo', () => {
+  it('un cuerpo que no es JSON es un 400, no un 500', async () => {
+    const peticion = new Request('http://x/api/versiones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.3.9.1' },
+      body: '{esto no es json',
+    });
+
+    const respuesta = await POST(peticion);
+
+    expect(respuesta.status).toBe(400);
+    expect(askModel).not.toHaveBeenCalled();
+  });
+
+  it('sin nada tocado no hay de donde salir', async () => {
+    const { status } = await leer(await POST(pedir({ ...TOCADO, progression: [] })));
+
+    expect(status).toBe(400);
+    expect(askModel).not.toHaveBeenCalled();
+  });
+
+  it('un fallo del proveedor es un 502, y no se reintenta', async () => {
+    // Cada intento es la petición más cara que hay: reintentar sobre un
+    // proveedor caído es gastar dos veces para no servir nada.
+    askModel.mockRejectedValue(new Error('sin red'));
+
+    const { status } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
+
+    expect(status).toBe(502);
+    expect(askModel).toHaveBeenCalledTimes(1);
+  });
+});
