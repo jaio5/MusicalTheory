@@ -3,9 +3,10 @@ import '@testing-library/jest-dom/vitest';
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ANONYMOUS } from '@core/billing';
+import { ANONYMOUS, type Account } from '@core/billing';
+import { EMPTY_PROGRESS, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
 
 import { PathScreen } from './PathScreen';
@@ -33,5 +34,82 @@ describe('El profesor dentro del camino', () => {
 
     expect(screen.getByRole('button', { name: /cerrar el profesor/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/pregunta lo que quieras/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Lo que se lee al abrir el camino.
+ *
+ * El botón grande de seguir va arriba y siempre a la misma altura: es lo que se
+ * pulsa nueve de cada diez veces que se abre esta pantalla. Y cuando no queda
+ * nada abierto por delante hay que decir por qué, que son dos motivos distintos
+ * —el temario se acabó, o lo que viene va con plan— y solo uno de ellos se
+ * arregla pagando.
+ */
+
+const PRO: Account = {
+  email: 'javier@example.com',
+  name: 'Javier',
+  plan: 'pro',
+  aiModel: 'claude-opus-5',
+  aiLeftToday: 20,
+  aiLeftMonth: 300,
+};
+
+function pintar(account: Account = ANONYMOUS) {
+  return render(
+    <AccountProvider account={account} accounts>
+      <PathScreen />
+    </AccountProvider>,
+  );
+}
+
+describe('lo que se pulsa nueve de cada diez veces', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('el boton de seguir lleva a la siguiente unidad abierta', () => {
+    pintar();
+
+    const seguir = screen.getAllByRole('link').find((a) => a.textContent?.includes('seguir'));
+
+    expect(seguir).toHaveAttribute('href', `/aprender/${UNIT_ORDER[0]!}`);
+  });
+
+  it('sin plan, al acabar el Elemental lo siguiente es el Profesional', () => {
+    // Y se ofrece: aquí sí se arregla pagando.
+    const elemental = UNIT_ORDER.filter((id) => id.startsWith('e'));
+    localStorage.setItem(
+      'caos-ordenado:aprender',
+      JSON.stringify({ ...EMPTY_PROGRESS, done: elemental }),
+    );
+
+    pintar();
+
+    expect(screen.getByText(/No queda nada abierto por delante/)).toBeInTheDocument();
+    expect(screen.getByText(/Lo siguiente es el Grado Profesional/)).toBeInTheDocument();
+  });
+
+  it('con el temario entero hecho no se ofrece nada que comprar', () => {
+    // Ya está todo pagado: enseñar un candado ahí sería vender lo que ya tiene.
+    localStorage.setItem(
+      'caos-ordenado:aprender',
+      JSON.stringify({ ...EMPTY_PROGRESS, done: [...UNIT_ORDER] }),
+    );
+
+    pintar(PRO);
+
+    expect(screen.getByText(/Has terminado el temario/)).toBeInTheDocument();
+    expect(screen.queryByText(/Lo siguiente es el Grado Profesional/)).not.toBeInTheDocument();
+  });
+
+  it('el camino entero esta a la vista, no solo la siguiente', () => {
+    // Las unidades del camino se pulsan, no se enlazan: la navegación la lleva
+    // el router para no perder la tonalidad ni el micro abierto.
+    pintar();
+
+    expect(screen.getByRole('heading', { name: /Aprender/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('button').length).toBeGreaterThan(UNIT_ORDER.length / 2);
   });
 });
