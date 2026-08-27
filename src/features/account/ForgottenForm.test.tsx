@@ -128,3 +128,32 @@ describe('poner la contraseña nueva', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/ya no sirve/);
   });
 });
+
+describe('sin red', () => {
+  /**
+   * Las dos mitades del trámite tienen su propia frase, y las dos hacen falta:
+   * una red caída al pedir el enlace y una al ponerlo se arreglan igual
+   * —reintentar— pero decir «no hemos podido cambiar la contraseña» cuando lo
+   * que falló fue pedir el correo manda a buscar el problema donde no está.
+   */
+  it('pedir el enlace y no poder se dice', async () => {
+    const request = vi.fn().mockRejectedValue(new Error('sin red'));
+    render(<ForgottenForm request={request} />);
+
+    await userEvent.type(screen.getByLabelText('Tu correo'), 'javier@example.com');
+    await userEvent.click(screen.getByRole('button', { name: /Mandarme el enlace/ }));
+
+    expect(await screen.findByText(/No hemos podido mandar el correo/)).toBeInTheDocument();
+  });
+
+  it('poner la contraseña nueva y no poder, también', async () => {
+    const request = vi.fn().mockRejectedValue(new Error('sin red'));
+    render(<ForgottenForm vale="unvale" request={request} />);
+
+    await userEvent.type(screen.getByLabelText('Contraseña nueva'), 'contraseñalarga');
+    await userEvent.type(screen.getByLabelText(/Otra vez/), 'contraseñalarga');
+    await userEvent.click(screen.getByRole('button', { name: /Poner esta contraseña/ }));
+
+    expect(await screen.findByText(/No hemos podido cambiar la contraseña/)).toBeInTheDocument();
+  });
+});

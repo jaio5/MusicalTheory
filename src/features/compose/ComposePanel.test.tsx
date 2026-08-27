@@ -192,4 +192,30 @@ describe('escritura y cuatríadas', () => {
     // El grado sigue siendo i, así que las salidas son las del menor.
     expect(await screen.findByText(/desde Am, lo habitual/i)).toBeInTheDocument();
   });
+
+  it('las cuatríadas se piden con una casilla, y cambian los acordes', async () => {
+    // Es lo que se enciende cuando la tríada se queda sosa. Casilla y no otra
+    // pantalla: se prueba y se apaga sin perder el sitio.
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+    render(<ComposePanel />);
+
+    const casilla = screen.getByLabelText('Cuatríadas');
+    expect(casilla).not.toBeChecked();
+
+    await userEvent.click(casilla);
+
+    expect(casilla).toBeChecked();
+    // En La menor, el primer grado con cuatríada es Am7 y no Am.
+    expect(await screen.findByText('Am7')).toBeInTheDocument();
+  });
+
+  it('sin tonalidad la casilla también está, para poder dejarla puesta', async () => {
+    useSessionStore.getState().actions.reset();
+
+    render(<ComposePanel />);
+
+    await userEvent.click(screen.getByLabelText('Cuatríadas'));
+
+    expect(screen.getByLabelText('Cuatríadas')).toBeChecked();
+  });
 });

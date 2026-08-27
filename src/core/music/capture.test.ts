@@ -172,4 +172,23 @@ describe('captureProgression', () => {
 
     expect(capturedDegrees(capture)).toEqual(['i', 'VI', 'III']);
   });
+
+  it('el mismo grado dos veces seguidas suma pulsos en vez de repetirse', () => {
+    // Do y Do con la cejilla en otro sitio son el mismo grado: es un cambio de
+    // postura, no un acorde nuevo. Repetirlo daría «I I V» donde hay «I V», y
+    // esa progresión no es la que se tocó.
+    //
+    // El primer colapso no lo pilla, porque entre los dos Do hay un acorde con
+    // otra inversión que el motor lee distinto pero cae en el mismo grado.
+    const heard = [mayor(C, 0), mayor(C, 4 * PULSO), mayor(G, 8 * PULSO)];
+    // Se separan con un acorde de otro tipo para que `esElMismo` no los junte.
+    heard.splice(1, 0, { ...mayor(C, 2 * PULSO), notes: [E, G, C] });
+
+    const capture = captureProgression(heard, { ...EN_DO, endedAt: 12 * PULSO });
+
+    expect(capture.steps).toEqual([
+      { degree: 'I', beats: 8 },
+      { degree: 'V', beats: 4 },
+    ]);
+  });
 });
