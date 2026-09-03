@@ -42,6 +42,23 @@ diagramas grandes, y el significado de un color al lado del color.
   ninguna se escribe su propio ancho, relleno ni `h1`. Lo vigilan dos tests que
   leen los ficheros (`app/screens/coherencia.test.ts`), porque la coherencia solo
   se ve en conjunto.
+- **Los 44 px valen también para lo redondo.** Los tres controles de formulario los
+  cumplían desde que existen, pero los botones sin texto no pasan por ellos y nadie
+  los miraba: el conmutador de tema y los dos de la cuenta medían 36 px y el de
+  grabar 32, los tres al lado de uno de 44 en la misma barra, y los enlaces de la
+  barra de pantallas se quedaban en 26 a partir de los 640 px, que es donde entran
+  las tabletas. Se piden con `size-tap`, que es el mismo `--spacing-tap` que
+  `min-h-tap`, y lo vigila `coherencia.test.ts` leyendo la clase **propia** de cada
+  `<button>` y cada `<Link>` —la de dentro no, que un icono de `size-5` está bien—.
+- **Se puede saltar a lo que importa.** La primera parada del tabulador es un enlace
+  al contenido, oculto hasta que se enfoca. Sin él costaba ocho paradas llegar a
+  `<main>`, y se repetían en cada página.
+- **La pantalla llega a los cantos, así que hay que apartarse del hueco.** El
+  `viewportFit: 'cover'` de `app/layout.tsx` es lo que hace que el tapizado de la
+  barra de abajo no muera en una franja del color del sistema; a cambio,
+  `env(safe-area-inset-*)` deja de valer cero y `AppShell` lo usa dos veces: abajo
+  en la barra de pantallas y a los lados en el marco, para el hueco de la cámara
+  con el teléfono tumbado.
 - Los iconos son de `ui/icons.tsx`: **emoji no**, que no se tiñen.
 - **Los títulos de pantalla van en la serif** (`font-display`), la misma de la
   portada. Los rótulos de apartado, en versalitas de máquina de escribir.

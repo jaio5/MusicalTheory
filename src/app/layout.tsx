@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 import { authAvailable } from '@server/auth';
 import { currentAccount } from '@server/entitlements';
@@ -24,6 +24,24 @@ import './globals.css';
  * lo que hay dentro son componentes de cliente que arrancan pidiendo el micrófono.
  */
 export const dynamic = 'force-dynamic';
+
+/**
+ * De borde a borde, y por eso hay que apartarse del hueco de la pantalla.
+ *
+ * Sin `viewportFit: 'cover'` el navegador encoge la ventana hasta el área segura:
+ * no se recorta nada, pero la barra de abajo termina en una franja que pinta el
+ * sistema y del color del sistema, y entonces esto vuelve a parecer una web con
+ * un menú. Con `cover` el tapizado llega al canto de la pantalla.
+ *
+ * Lo que se paga es que `env(safe-area-inset-*)` deja de valer cero y hay que
+ * usarlo: el relleno de abajo en la barra de pantallas, para que los iconos no
+ * caigan bajo el indicador de inicio, y el de los lados en el marco, para el
+ * hueco de la cámara cuando el teléfono se pone tumbado. Están los dos en
+ * `AppShell`.
+ */
+export const viewport: Viewport = {
+  viewportFit: 'cover',
+};
 
 export const metadata: Metadata = {
   title: 'Caos ordenado',

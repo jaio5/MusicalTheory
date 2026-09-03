@@ -190,7 +190,7 @@ export function RecordStage({ children, createCamera, createRecorder }: RecordSt
           disabled={phase === 'preparing'}
           aria-pressed={live}
           aria-label={live ? 'Parar la grabación' : 'Grabarte tocando'}
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
+          className={`size-tap flex shrink-0 items-center justify-center rounded-full border-2 ${
             live ? 'border-oxblood-bright' : 'border-border hover:border-oxblood-bright'
           } disabled:opacity-50`}
         >

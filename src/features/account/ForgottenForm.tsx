@@ -151,7 +151,7 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
 
       <div className="w-fit">
         <Button type="submit" disabled={!puede}>
-          {conVale ? 'Poner esta contraseña' : 'Mandarme el enlace'}
+          {working ? 'Un momento...' : conVale ? 'Poner esta contraseña' : 'Mandarme el enlace'}
         </Button>
       </div>
     </form>

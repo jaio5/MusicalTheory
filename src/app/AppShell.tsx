@@ -87,7 +87,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     //
     // Con esto, cualquier absoluto de dentro se ancla aquí, y aquí hay
     // `overflow-hidden`. Vale para las que hay y para las que se escriban.
-    <div className="bg-background relative flex h-dvh flex-col overflow-hidden">
+    <div className="bg-background relative flex h-dvh flex-col overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+      {/* Lo primero que se tabula, y no se ve hasta que hace falta.
+
+          Antes de esto, llegar al contenido con el teclado costaba ocho paradas
+          —el micro, la portada, las cuatro pantallas, el tema y la cuenta—, y se
+          repetían en cada página. El destino es `<main>`, que lleva `tabIndex`
+          de -1 porque sin eso el foco no se mueve de verdad: salta el scroll y
+          la siguiente pulsación sigue en la cabecera. */}
+      <a
+        href="#contenido"
+        className="bg-brass text-background sr-only rounded-md px-4 py-2 font-mono text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
+      >
+        Saltar al contenido
+      </a>
+
       <header className="border-border bg-surface flex shrink-0 items-center gap-3 border-b px-3 py-1.5 shadow-[0_1px_0_rgba(0,0,0,0.5)]">
         {/* Reconocer acordes solo donde sirve: en componer. */}
         <MicButton chords={pathname === '/componer'} />
@@ -107,7 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               href={screen.href}
               aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
               title={screen.summary}
-              className={`rounded-md border px-3 py-1 font-mono text-xs transition-colors ${
+              className={`min-h-tap inline-flex items-center rounded-md border px-3 font-mono text-xs transition-colors ${
                 isHere(pathname, screen.href)
                   ? 'border-brass-dim bg-brass-dim/25 text-brass-bright'
                   : 'text-text-muted hover:bg-surface-raised hover:text-text border-transparent'
@@ -122,14 +136,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         <AccountMenu />
       </header>
 
-      <main className="min-h-0 grow overflow-hidden">{children}</main>
+      <main id="contenido" tabIndex={-1} className="min-h-0 grow overflow-hidden">
+        {children}
+      </main>
 
       {/* La misma navegación, abajo y con icono, solo en pantalla estrecha. Va en un
           `nav` distinto con su propio nombre para que un lector de pantalla no
           anuncie dos veces la misma lista. */}
       <nav
         aria-label="Pantallas, abajo"
-        className="border-border bg-surface flex shrink-0 border-t sm:hidden"
+        className="border-border bg-surface flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
       >
         {SCREENS.map((screen) => (
           <Link

@@ -55,6 +55,41 @@ const FICHEROS: ReadonlyArray<{ ruta: string; codigo: string }> = (() => {
   return salida;
 })();
 
+/**
+ * La clase de cada `<button>` y cada `<Link>`, sin las de lo que llevan dentro.
+ *
+ * El `className` propio es el primero que aparece tras la etiqueta. No se busca
+ * el cierre del `>` porque no sirve: un `onClick={() => ...}` mete un `>` en
+ * medio y cortaría la etiqueta por donde no es.
+ */
+function clasesDeControles(codigo: string): ReadonlyArray<string> {
+  const salida: string[] = [];
+  const apertura = /<(?:button|Link)\b/g;
+  let encontrado: RegExpExecArray | null;
+
+  while ((encontrado = apertura.exec(codigo)) !== null) {
+    const trozo = codigo.slice(encontrado.index, encontrado.index + 600);
+    const comillas = /className="([^"]*)"/.exec(trozo);
+    const plantilla = /className=\{`([^`]*)`/.exec(trozo);
+
+    const primero =
+      comillas === null
+        ? plantilla
+        : plantilla === null
+          ? comillas
+          : comillas.index < plantilla.index
+            ? comillas
+            : plantilla;
+
+    const clases = primero?.[1];
+    if (clases !== undefined) {
+      salida.push(clases);
+    }
+  }
+
+  return salida;
+}
+
 function pantallas(): ReadonlyArray<{ nombre: string; codigo: string }> {
   return FICHEROS.filter(
     ({ ruta }) => ruta.includes('/screens/') && ruta.endsWith('Screen.tsx'),
@@ -195,6 +230,44 @@ describe('En toda la interfaz', () => {
     const pendientes = FICHEROS.filter(({ codigo }) => prohibidos.test(codigo)).map(
       ({ ruta }) => ruta,
     );
+
+    expect(pendientes).toEqual([]);
+  });
+
+  /**
+   * Cuarenta y cuatro píxeles, y no solo donde ya se miraba.
+   *
+   * `ESTILO.md` lo dice desde el principio —«44 px de alto en todo lo que se
+   * pulsa»— y `ui/Button`, `ui/Chip` y `ui/TextField` lo cumplen desde que
+   * existen. Lo que nadie vigilaba eran los controles **redondos**, que no pasan
+   * por esos tres componentes porque no tienen texto: el conmutador de tema y los
+   * dos botones de la cuenta medían 36 px y el de grabar 32, los tres al lado de
+   * uno de 44 en la misma barra. Y los enlaces de la barra de pantallas se
+   * quedaban en 26 desde los 640 px de ancho, que es donde entran las tabletas.
+   *
+   * Se lee la clase **propia** del control y no la de lo que lleva dentro: un
+   * icono de `size-5` dentro de un botón de `size-tap` está bien, y mirar el
+   * bloque entero lo daría por malo. De ahí que se busque el primer `className`
+   * después de la etiqueta y se pare ahí.
+   *
+   * Fuera quedan los tamaños entre corchetes y los que no son un número —`h-full`,
+   * `size-tap`—: el primero es una excepción escrita a mano que quien la escribe
+   * está viendo, y el segundo es justo lo que se pide.
+   */
+  it('nada de lo que se pulsa mide menos de 44 px', () => {
+    // 11 en la escala de Tailwind son los 44 px de `--spacing-tap`.
+    const MINIMO = 11;
+    const pendientes: string[] = [];
+
+    for (const { ruta, codigo } of FICHEROS) {
+      for (const clases of clasesDeControles(codigo)) {
+        for (const [, medida] of clases.matchAll(/\b(?:size|h)-(\d+)\b/g)) {
+          if (Number(medida) < MINIMO) {
+            pendientes.push(`${ruta}: ${clases.trim().slice(0, 60)}`);
+          }
+        }
+      }
+    }
 
     expect(pendientes).toEqual([]);
   });

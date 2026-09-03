@@ -80,7 +80,7 @@ export function AccountMenu() {
         href="/registro"
         title="Crear tu cuenta para llevarte el avance a otro aparato"
         aria-label="Crear tu cuenta"
-        className="border-border text-text-muted hover:border-brass-dim hover:text-text flex size-9 shrink-0 items-center justify-center rounded-full border"
+        className="border-border text-text-muted hover:border-brass-dim hover:text-text size-tap flex shrink-0 items-center justify-center rounded-full border"
       >
         {/* La silueta de siempre. Es un adorno: quien no ve la pantalla lee el
             nombre del enlace, que dice lo mismo con palabras. */}
@@ -108,7 +108,7 @@ export function AccountMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Tu cuenta: ${nombre}, plan ${planName}`}
-        className="border-brass-dim text-brass-bright hover:border-brass-bright bg-surface-raised flex size-9 items-center justify-center rounded-full border font-mono text-sm"
+        className="border-brass-dim text-brass-bright hover:border-brass-bright bg-surface-raised size-tap flex items-center justify-center rounded-full border font-mono text-sm"
       >
         <span aria-hidden="true">{avatarInitial(account)}</span>
       </button>

@@ -31,7 +31,7 @@ export function MicButton(deps: MicButtonProps = {}) {
         aria-pressed={isListening}
         aria-label={isListening ? 'Dejar de escuchar la guitarra' : 'Escuchar la guitarra'}
         title={isListening ? 'Dejar de escuchar' : 'Escuchar la guitarra'}
-        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+        className={`size-tap relative flex shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
           isListening
             ? 'border-oxblood-bright bg-oxblood'
             : 'border-border bg-surface hover:border-brass'
