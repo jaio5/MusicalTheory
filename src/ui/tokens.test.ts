@@ -117,3 +117,104 @@ describe('el tema oscuro cumple lo que dice el proyecto', () => {
     expect(red).toBeGreaterThan(blue);
   });
 });
+
+/**
+ * El guardián que faltaba: que un color con el que se escribe se pueda leer.
+ *
+ * Esto no se me ocurrió antes de tiempo, se descubrió tarde. El tema claro se
+ * hizo con la regla delante —el dorado bonito de las paletas se descartó por no
+ * llegar a 4,5:1 sobre blanco, y está escrito en `tokens.ts`— y al tema oscuro,
+ * que es el que sale por defecto, no se le pasó la misma vara: su rojo daba
+ * **2,26:1** y era el color de veinticuatro mensajes de error.
+ *
+ * Un color se mira contra los tres fondos sobre los que puede caer, y no solo
+ * contra el de la página: la superficie alta es más clara que el fondo en el
+ * tema oscuro y más oscura en el claro, así que siempre hay uno de los tres que
+ * es el peor caso, y ninguno se libra.
+ *
+ * La cuenta es la de WCAG 2.1: luminancia relativa de cada color y `(claro +
+ * 0,05) / (oscuro + 0,05)`. Se escribe aquí y no se importa de ningún sitio
+ * porque el código de la aplicación no necesita medir contrastes: esto es una
+ * regla sobre la paleta, y su sitio es el test que vigila la paleta.
+ */
+function luminancia(hex: string): number {
+  const canal = (entero: number) => {
+    const c = entero / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const n = Number.parseInt(hex.slice(1), 16);
+  // Los desplazamientos separan los tres canales del hexadecimal de un tirón.
+  return 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
+}
+
+function contraste(uno: string, otro: string): number {
+  const [claro, oscuro] = [luminancia(uno), luminancia(otro)].sort((a, b) => b - a);
+  return (claro! + 0.05) / (oscuro! + 0.05);
+}
+
+/**
+ * Los colores con los que se escribe, y que por tanto se leen.
+ *
+ * Los que faltan no es que se libren: es que **no se escribe con ellos**, y de
+ * ahí sale la regla que el sistema ya seguía sin tenerla dicha. Los colores van
+ * en pares, y dentro de cada par el papel está repartido: `oxblood` y `tube`
+ * rellenan —el tapizado del botón de escuchar, la barra de lo que llevas
+ * hecho— y `oxbloodBright` y `tubeBright` son los que se leen. Se ve en el
+ * recuento: veinticinco `text-tube-bright` y ni un solo `text-tube`.
+ *
+ * `brassDim` no está por otra razón, y es adorno: bordes suaves y fondos
+ * tenues.
+ *
+ * Que ninguno de los tres se cuele en un texto no lo puede comprobar este
+ * fichero, que solo ve la paleta, y por eso lo vigila
+ * `app/screens/coherencia.test.ts`, que lee los componentes. Los dos tests son
+ * la misma regla por sus dos mitades: aquí que el color valga, allí que se use
+ * donde vale.
+ */
+const TOKENS_DE_TEXTO = [
+  'text',
+  'textMuted',
+  'brass',
+  'brassBright',
+  'oxbloodBright',
+  'tubeBright',
+] as const;
+
+/** Los tres fondos sobre los que puede caer un texto. */
+const FONDOS = ['background', 'surface', 'surfaceRaised'] as const;
+
+describe('lo que se escribe se puede leer', () => {
+  it.each([
+    ['claro', paletaClara],
+    ['oscuro', paletaOscura],
+  ])(
+    'en el tema %s, cada color de texto llega a 4,5:1 sobre los tres fondos',
+    (_nombre, paleta) => {
+      for (const token of TOKENS_DE_TEXTO) {
+        for (const fondo of FONDOS) {
+          const ratio = contraste(paleta[token], paleta[fondo]);
+          expect(
+            Number(ratio.toFixed(2)),
+            `${token} sobre ${fondo} se queda en ${ratio.toFixed(2)}:1`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    },
+  );
+
+  /**
+   * Los bordes y las marcas que dan información no se leen, se distinguen, y
+   * eso lo cumplen con 3:1. Aquí sí entra `tube`, que es el relleno de lo que
+   * ya está hecho, junto a los dos tonos vivos que dibujan el punto de
+   * grabación y el borde del botón de escuchar.
+   */
+  it.each([
+    ['claro', paletaClara],
+    ['oscuro', paletaOscura],
+  ])('en el tema %s, lo que se dibuja llega a 3:1 sobre el fondo', (_nombre, paleta) => {
+    for (const token of ['brass', 'brassBright', 'oxbloodBright', 'tube', 'tubeBright'] as const) {
+      const ratio = contraste(paleta[token], paleta.background);
+      expect(Number(ratio.toFixed(2)), `${token} sobre el fondo`).toBeGreaterThanOrEqual(3);
+    }
+  });
+});

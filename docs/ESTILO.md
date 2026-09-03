@@ -55,6 +55,22 @@ Los nombres de los tokens no cambian entre uno y otro —`brass` es «el acento�
 valga lo que valga—, así que ningún componente sabe qué tema hay puesto. Pero un
 color nuevo se comprueba en los dos fondos.
 
+**Un color con el que se escribe tiene que llegar a 4,5:1** sobre los tres fondos
+—`background`, `surface` y `surface-alta`—, y lo comprueba `ui/tokens.test.ts` en
+los dos temas. La regla se escribió tarde: el tema claro se hizo con ella delante
+—el dorado bonito de las paletas se descartó por no llegar sobre blanco— y al
+oscuro, que es el que sale por defecto, no se le pasó la misma vara. Su rojo daba
+**2,26:1** y era el color de veinticuatro mensajes de error.
+
+De ahí sale la otra mitad, que el sistema ya seguía sin tenerla dicha: **los
+colores van en pares y el papel está repartido**. `oxblood` y `tube` rellenan
+—el tapizado del botón de escuchar, la barra de lo que llevas hecho— y
+`oxblood-bright` y `tube-bright` son los que se leen; `brass-dim` es adorno y no
+es ninguna de las dos cosas. Que no se escriba con los tres primeros lo vigila
+`app/screens/coherencia.test.ts`, porque si no la excepción sería una puerta
+abierta: un `text-tube` y ya hay un texto por debajo del mínimo con los dos
+guardianes en verde.
+
 **La profundidad se pide por su nombre**: `.superficie`, `.superficie-alta` y
 `.superficie-viva` en `globals.css` —fondo, borde, radio, filo de luz y sombra en
 una clase—. Nada de cajas con `border` suelto: un tema oscuro sin relieve se lee

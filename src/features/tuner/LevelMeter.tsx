@@ -48,9 +48,7 @@ export function LevelMeter({ rms }: LevelMeterProps) {
         aria-label="Nivel de la señal que entra"
       >
         <div
-          className={`h-full transition-[width] duration-100 ${
-            enough ? 'bg-tube' : 'bg-brass-dim'
-          }`}
+          className={`h-full transition-[width] duration-100 ${enough ? 'bg-tube' : 'bg-brass'}`}
           style={{ width: `${percent}%` }}
         />
         <span

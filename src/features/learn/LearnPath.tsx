@@ -131,7 +131,7 @@ export function LearnPath({
                                   acceso === 'hecha'
                                     ? 'bg-tube'
                                     : acceso === 'abierta'
-                                      ? 'bg-brass-dim'
+                                      ? 'bg-brass'
                                       : 'bg-border'
                                 }`}
                               />

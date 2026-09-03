@@ -23,6 +23,16 @@ export interface Paleta {
   readonly textMuted: string;
   readonly brass: string;
   readonly brassBright: string;
+  /**
+   * El latón apagado, que es **adorno y no información**: bordes suaves, el
+   * fondo tenue de lo que está activo y el trazo de la mascota.
+   *
+   * Nunca un relleno que diga algo ni un texto. Estuvo rellenando la barra del
+   * temario, el medidor de señal y el tramo de camino de la unidad abierta, y
+   * en el tema claro eso son 1,4:1 contra su propio carril: una barra que no se
+   * distingue del hueco por el que corre. Esos tres piden `brass`. Lo vigila
+   * `app/screens/coherencia.test.ts`.
+   */
   readonly brassDim: string;
   readonly oxblood: string;
   readonly oxbloodBright: string;
@@ -59,7 +69,18 @@ export const paletaClara: Paleta = {
   tubeBright: '#166534',
 };
 
-/** El tema oscuro: el amplificador de siempre, y el que sale por defecto. */
+/**
+ * El tema oscuro: el amplificador de siempre, y el que sale por defecto.
+ *
+ * **`oxblood` es el tapizado y `oxbloodBright` es lo que se lee.** No son dos
+ * tonos del mismo rojo para elegir a gusto: el primero solo vale de relleno
+ * —el fondo del botón de escuchar— y el segundo es el que llevan los mensajes
+ * de error, que aquí son veinticuatro. Estuvo en `#8C2B31`, que sobre este
+ * negro da 2,26:1: menos de la mitad del 4,5:1 que pide un texto, y justo en
+ * lo más importante que hay que poder leer. El de ahora conserva el matiz del
+ * tapizado —el mismo rojo con algo de tierra— subido hasta 5,3:1 sobre la
+ * superficie más clara, que es el peor fondo donde cae.
+ */
 export const paletaOscura: Paleta = {
   background: '#12100E',
   surface: '#1A1714',
@@ -74,7 +95,7 @@ export const paletaOscura: Paleta = {
   brassDim: '#6E5830',
 
   oxblood: '#6B1F24',
-  oxbloodBright: '#8C2B31',
+  oxbloodBright: '#D07C7F',
 
   tube: '#5C8A5A',
   tubeBright: '#7FB07C',

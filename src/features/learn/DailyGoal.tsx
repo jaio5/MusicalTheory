@@ -96,7 +96,7 @@ export function DailyGoal({
           de aquí a terminar, y no compite con el anillo del día. */}
       <div className="border-border mt-2 h-1 w-full border" aria-hidden="true">
         <div
-          className="bg-brass-dim h-full"
+          className="bg-brass h-full"
           style={{ width: `${TOTAL_XP === 0 ? 0 : (progress.xp / TOTAL_XP) * 100}%` }}
         />
       </div>

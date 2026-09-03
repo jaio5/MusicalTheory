@@ -13,10 +13,14 @@ import { ThemeToggle } from '@ui/ThemeToggle';
 /**
  * Las pantallas, cada una en su dirección.
  *
- * Cinco y no tres desde que aprender se desglosó: el camino, el profesor, componer,
- * afinar y los planes. Cada una hace una cosa, y las que tienen partes dentro
- * —`/aprender/una-unidad`, `/aprender/repaso`, `/planes/pro`— también son direcciones
- * propias, así que el botón de atrás del navegador siempre significa lo que parece.
+ * Cuatro en esta barra desde que aprender se desglosó: el camino, el profesor,
+ * componer y afinar. Los planes no están, y no es un olvido: se llega a ellos desde
+ * el menú de la cuenta y desde cada candado, que es donde se piensa en pagar, y no
+ * es una pantalla en la que se trabaje.
+ *
+ * Las que tienen partes dentro —`/aprender/una-unidad`, `/aprender/repaso`,
+ * `/planes/pro`— también son direcciones propias, así que el botón de atrás del
+ * navegador siempre significa lo que parece.
  */
 const SCREENS: ReadonlyArray<{
   href: string;

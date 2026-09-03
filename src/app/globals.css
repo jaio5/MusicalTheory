@@ -117,8 +117,11 @@
   --laton-vivo: #d8b76a;
   --laton-suave: #6e5830;
 
+  /* El tapizado se queda oscuro porque es relleno —el fondo del botón de
+     escuchar— y el vivo sube, porque es el que llevan los mensajes de error.
+     `#8c2b31` daba 2,26:1 sobre este negro: la mitad de lo que pide un texto. */
   --rojo: #6b1f24;
-  --rojo-vivo: #8c2b31;
+  --rojo-vivo: #d07c7f;
 
   --verde: #5c8a5a;
   --verde-vivo: #7fb07c;

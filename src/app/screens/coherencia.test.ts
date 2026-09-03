@@ -169,6 +169,37 @@ describe('Lo que no puede escaparse de la pantalla', () => {
 
 describe('En toda la interfaz', () => {
   /**
+   * La mitad que le falta a `ui/tokens.test.ts`.
+   *
+   * Allí se comprueba que todo color con el que se escribe llega a 4,5:1 sobre
+   * los tres fondos, y tres tokens quedan fuera de esa lista porque no son para
+   * escribir: `oxblood` y `tube` son relleno —el tapizado del botón de escuchar,
+   * la barra de lo que llevas hecho— y `brassDim` es adorno. Sobre el negro del
+   * tema de casa, el más legible de los tres se queda en 2,8:1.
+   *
+   * Sin este test, esa exclusión sería una puerta abierta: bastaría escribir
+   * `text-tube` una vez para tener un texto por debajo del mínimo con los dos
+   * guardianes en verde. Aquí se cierra por el otro lado —que no se usen donde
+   * no valen— y las dos mitades juntas son la regla entera.
+   *
+   * Se mira `text-` y nada más. `fill-` y `stroke-` quedan fuera a propósito:
+   * en un SVG pintan las letras con el mismo prefijo con el que pintan las
+   * formas, y las formas sí pueden llevar estos colores —el trazo de la
+   * mascota y el contorno de las notas del mástil son adorno de pleno
+   * derecho—. Meterlos aquí daría dos incumplimientos falsos y acabaría con el
+   * test desactivado, que es peor que no tenerlo.
+   */
+  it('no se escribe con los colores que son relleno o adorno', () => {
+    const prohibidos = /\btext-(?:tube|oxblood|brass-dim)\b(?!-)/;
+
+    const pendientes = FICHEROS.filter(({ codigo }) => prohibidos.test(codigo)).map(
+      ({ ruta }) => ruta,
+    );
+
+    expect(pendientes).toEqual([]);
+  });
+
+  /**
    * Los emoji no se dejan teñir, así que el estado activo se perdía justo donde se
    * mira para saber dónde estás, y cada sistema los dibuja a su manera.
    */
