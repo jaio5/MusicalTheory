@@ -94,10 +94,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           —el micro, la portada, las cuatro pantallas, el tema y la cuenta—, y se
           repetían en cada página. El destino es `<main>`, que lleva `tabIndex`
           de -1 porque sin eso el foco no se mueve de verdad: salta el scroll y
-          la siguiente pulsación sigue en la cabecera. */}
+          la siguiente pulsación sigue en la cabecera.
+
+          Se aparta subiéndolo y no con `sr-only`: el `not-sr-only` que lo trae
+          de vuelta al enfocarlo pone `padding: 0`, se comía el relleno y dejaba
+          un rótulo de 20 px de alto. Aquí el alto es el de todo lo demás, y lo
+          que lo esconde es el `overflow-hidden` del marco. */}
       <a
         href="#contenido"
-        className="bg-brass text-background sr-only rounded-md px-4 py-2 font-mono text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
+        className="bg-brass text-background min-h-tap absolute top-2 left-2 z-50 inline-flex -translate-y-20 items-center rounded-md px-4 font-mono text-sm focus:translate-y-0"
       >
         Saltar al contenido
       </a>
@@ -108,7 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <Link
           href="/"
-          className="text-text-muted hover:text-text ml-auto font-mono text-xs"
+          className="text-text-muted hover:text-text min-h-tap ml-auto inline-flex items-center font-mono text-xs whitespace-nowrap"
           title="Volver a la portada"
         >
           Caos ordenado
