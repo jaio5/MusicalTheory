@@ -4,6 +4,7 @@ import { can, cheapestPlanWith, dailyAiRequests, monthlyAiRequests, planOf } fro
 import { keyName } from '@core/music';
 import { Teacher } from '@features/learn';
 import { KeyPanel } from '@features/wheel';
+import { Disclosure } from '@ui/Disclosure';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { PlanLock } from '@ui/PlanLock';
@@ -31,26 +32,41 @@ export function TeacherScreen() {
       title="Profesor"
       lead="Pregunta lo que quieras de teoría: responde en la tonalidad que tengas puesta y con sus acordes, en tres frases."
     >
-      <section
-        aria-label="Tonalidad"
-        className="border-border flex flex-wrap items-center gap-4 border p-4"
-      >
-        <KeyPanel compact />
-        <div className="min-w-0">
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            Está explicando en
-          </p>
-          <p className="text-brass-bright text-lg">
-            {activeKey === null
-              ? 'ninguna tonalidad todavía'
-              : keyName(activeKey.tonic, activeKey.mode)}
-          </p>
-          <p className="text-text-muted mt-1 text-xs">
-            {activeKey === null
-              ? 'Elige una en la rueda, o toca unos compases con el micro abierto y se detecta sola.'
-              : 'Cámbiala y la misma pregunta se contesta con otros acordes.'}
-          </p>
-        </div>
+      {/*
+        La rueda está abierta mientras no haya tonalidad y plegada en cuanto la
+        hay.
+
+        Sin tonalidad el profesor no contesta, así que la rueda es lo que hay que
+        hacer y tiene que estar delante. Con tonalidad puesta se elige una vez y
+        no se vuelve: abierta se quedaba ocupando trescientos veinte píxeles de
+        alto y media pantalla de ancho vacía a su derecha, empujando la pregunta
+        —que es a lo que se viene— por debajo del pliegue.
+
+        Es el mismo patrón que usan la unidad y el afinador, y por lo mismo.
+      */}
+      <section aria-label="Tonalidad" className="border-border border p-4">
+        <Disclosure
+          abierto={activeKey === null}
+          summary={
+            <>
+              Está explicando en{' '}
+              <span className="text-brass-bright">
+                {activeKey === null
+                  ? 'ninguna tonalidad todavía'
+                  : keyName(activeKey.tonic, activeKey.mode)}
+              </span>
+            </>
+          }
+        >
+          <div className="flex flex-wrap items-center gap-4 pt-3">
+            <KeyPanel compact />
+            <p className="text-text-muted max-w-prose min-w-0 text-sm">
+              {activeKey === null
+                ? 'Elige una en la rueda, o toca unos compases con el micro abierto y se detecta sola.'
+                : 'Cámbiala y la misma pregunta se contesta con otros acordes.'}
+            </p>
+          </div>
+        </Disclosure>
       </section>
 
       <Section title="La pregunta">

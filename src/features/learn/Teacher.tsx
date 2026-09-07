@@ -172,13 +172,22 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
         <ul className="flex flex-wrap gap-1">
           {OPENERS.map((opener) => (
             <li key={opener}>
+              {/*
+                Sin tonalidad rellenan el campo en vez de estar muertos.
+
+                Deshabilitados y en gris parecían rotos, y encima eran lo único
+                que decía qué clase de cosas se le pueden preguntar. Ahora el
+                ejemplo entra escrito y se pregunta en cuanto haya tonalidad:
+                sirve de algo antes de poder usarse.
+              */}
               <Chip
                 tone="quiet"
                 className="text-left text-xs"
-                disabled={activeKey === null}
                 onClick={() => {
                   setQuestion(opener);
-                  void ask(opener);
+                  if (activeKey !== null) {
+                    void ask(opener);
+                  }
                 }}
               >
                 {opener}

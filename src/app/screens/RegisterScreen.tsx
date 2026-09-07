@@ -61,7 +61,14 @@ export function RegisterScreen() {
       title="Crear tu cuenta"
       lead="Tu avance deja de vivir en este navegador y te lo llevas al móvil, al portátil o a donde estudies."
     >
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:gap-10">
+      {/* Dos columnas solo cuando hay algo que poner en la segunda. Sin cuentas
+          configuradas, «Qué te da» no existe y la rejilla dejaba el aviso pegado
+          a la izquierda con el resto de la pantalla en blanco. */}
+      <div
+        className={`grid gap-6 lg:gap-10 ${
+          accounts ? 'lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]' : 'max-w-md'
+        }`}
+      >
         {/* El formulario, en su tarjeta y con el muñeco asomando por arriba: es lo
             único que hay que hacer en esta pantalla y tiene que verse como tal. */}
         <section aria-label="Crear la cuenta" className="superficie-viva relative p-5 pt-10">

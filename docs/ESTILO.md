@@ -110,6 +110,13 @@ razón es buena: notas claras sobre fondo oscuro es lo bastante poco tradicional
 como para que haya que pedirlo. Aquí el negro sigue siendo el tema de casa; lo que
 no se tiñe es el papel. El diagrama de acorde ya funcionaba así.
 
+**Lo que se elige una vez se pliega en cuanto está elegido.** La tonalidad y la
+afinación se tocan al empezar y no se vuelven, así que abiertas se comen la parte
+alta de la pantalla —que es donde tiene que estar lo que se mira mientras se
+toca—. Se abren solas mientras falten, con `abierto` de `ui/Disclosure`, y se
+cierran a una línea que dice cuál está puesta. Lo usan componer, la unidad, el
+afinador y el profesor.
+
 **La profundidad se pide por su nombre**: `.superficie`, `.superficie-alta` y
 `.superficie-viva` en `globals.css` —fondo, borde, radio, filo de luz y sombra en
 una clase—. Nada de cajas con `border` suelto: un tema oscuro sin relieve se lee

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 
 import { can, cheapestPlanWith } from '@core/billing';
-import { keyName } from '@core/music';
+import { dueReview, keyName } from '@core/music';
 import { ReviewSession, UnitDone, useProgress } from '@features/learn';
 import { KeyPanel } from '@features/wheel';
 import { useAccount } from '@state/account';
@@ -23,6 +23,9 @@ export function ReviewScreen() {
   const activeKey = useSessionStore(selectActiveKey);
   const { account, signedIn } = useAccount();
   const { progress, day, celebration, dismissCelebration, hit, miss, finishReview } = useProgress();
+  // `day` es nulo hasta que el avance se ha leído del navegador: sin él no hay
+  // día con el que comparar y la cola no se puede contar todavía.
+  const esperando = day === null ? 0 : dueReview(progress.review, day).length;
 
   if (!can(account.plan, 'repaso')) {
     return (
@@ -36,6 +39,19 @@ export function ReviewScreen() {
           que hace el repaso es traerte esas preguntas de vuelta, generadas otra vez en la tonalidad
           en la que estés tocando.
         </p>
+
+        {/* Cuántas hay esperando. «Se apunta de todas formas» era una promesa
+            abstracta; el número la hace comprobable, y es un dato que ya estaba
+            calculado y no se enseñaba en ninguna parte. */}
+        {esperando > 0 && (
+          <p className="text-text mt-3 max-w-prose">
+            Ahora mismo{' '}
+            <span className="text-brass-bright font-mono">
+              {esperando === 1 ? 'hay 1 pregunta' : `hay ${esperando} preguntas`}
+            </span>{' '}
+            esperando en tu cola.
+          </p>
+        )}
         <div className="mt-4 max-w-prose">
           <PlanLock
             needed={cheapestPlanWith('repaso')}

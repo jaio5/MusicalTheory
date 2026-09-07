@@ -11,6 +11,13 @@ export function FretboardPanel() {
   const scaleId = useSessionStore((state) => state.scaleId);
   const reading = useSessionStore((state) => state.reading);
   const hasSignal = useSessionStore((state) => state.hasSignal);
+  /**
+   * El acorde que hay elegido en el camino, para marcar sus notas en el mástil.
+   *
+   * El último del camino y no el que se está oyendo: el mástil se mira **antes**
+   * de tocar, para ver dónde caen las notas del acorde que se va a hacer.
+   */
+  const elegido = useSessionStore((state) => state.path.at(-1) ?? null);
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -32,7 +39,14 @@ export function FretboardPanel() {
                   .join(' · ')}
               </span>
             </p>
-            <p className="text-text-muted text-sm">{SCALES[scaleId].character}</p>
+            {/* Con un acorde elegido, lo que dice el mástil ya no es la escala:
+                es qué notas de la escala caen de pie sobre ese acorde. Se dice,
+                porque el relleno solo no lo explica. */}
+            <p className="text-text-muted text-sm">
+              {elegido === null
+                ? SCALES[scaleId].character
+                : `Rellenas, las notas de ${elegido.symbol}: caen de pie. Las huecas entran de paso.`}
+            </p>
           </div>
 
           {/* El alto lo pone el propio dibujo a partir de su proporción, no el
@@ -45,6 +59,7 @@ export function FretboardPanel() {
               accidental={accidentalForScale(activeKey.tonic, scaleId)}
               scaleId={scaleId}
               soundingMidi={hasSignal ? (reading?.midi ?? null) : null}
+              chordNotes={elegido?.notes}
             />
           </div>
         </>
