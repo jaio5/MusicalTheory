@@ -74,35 +74,42 @@ renombrado no puede degradar a quien había pagado.
 
 ## Dónde está cada cosa
 
-| Busco...                                            | Está en                                        |
-| --------------------------------------------------- | ---------------------------------------------- |
-| Teoría musical: escalas, acordes, grados, tonalidad | `src/core/music/`                              |
-| Funciones armónicas y sustitución (T/S/D)           | `core/music/harmonic-function.ts`              |
-| Qué acorde proponer y en qué orden                  | `core/music/suggestions.ts` + `styles.ts`      |
-| Detección de tono (autocorrelación)                 | `src/audio/autocorrelation.ts`                 |
-| Detección de acordes en vivo (croma + plantillas)   | `audio/chroma.ts`, `audio/chord-engine.ts`     |
-| Volver a escuchar lo grabado, con calma             | `audio/offline-chords.ts`, `audio/fft.ts`      |
-| Mástil, afinaciones, formas de acorde               | `src/core/instrument/`                         |
-| Estado de sesión y persistencia                     | `src/state/` (IndexedDB)                       |
-| Grabación con cámara                                | `src/media/`                                   |
-| Rutas de servidor de la IA                          | `app/api/ideas`, `/teacher`, `/versiones`      |
-| Las puertas de toda petición a la IA                | `server/ai-gate.ts`                            |
-| La llamada al modelo, y el único sitio con el SDK   | `server/ask-model.ts`                          |
-| Quién contesta —API, modelo de casa o dominio—      | `server/ai-model.ts`, `local-model.ts`         |
-| Lo que tocas, convertido en compases                | `core/music/capture.ts`                        |
-| Con qué se rearmoniza, y cómo se comprueba          | `core/music/reharmonization.ts`                |
-| Por dónde puede tirar lo que tocas, y qué lo valida | `core/music/paths.ts`                          |
-| Una canción guardada: grados, tonalidad y secciones | `core/music/song.ts` + `server/songs-repo.ts`  |
-| Planes, permisos y si una unidad la abre el plan    | `src/core/billing/` (`plans.ts`, `access.ts`)  |
-| Meta diaria, racha, medallas, punto de partida      | `core/music/progress.ts`                       |
-| La cola de repaso de lo fallado                     | `core/music/review.ts`                         |
-| Guardar y abrir tus canciones                       | `features/songs/`, `src/app/api/canciones`     |
-| Salidas de lo que tocas, y su verificación          | `features/versions/` (se llamará `salidas/`)   |
-| Cuentas, contraseñas, base de datos y cupos         | `src/server/`                                  |
-| Por dónde entra texto libre, y qué lo acota         | `features/learn/teacher-contract.ts`           |
-| El marco de una pantalla y sus apartados            | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
-| Leer lo que llega de fuera, y el error que contestó | `core/parse.ts`, `state/api-error.ts`          |
-| Tokens de diseño y las dos paletas                  | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
+| Busco...                                              | Está en                                        |
+| ----------------------------------------------------- | ---------------------------------------------- |
+| Teoría musical: escalas, acordes, grados, tonalidad   | `src/core/music/`                              |
+| Funciones armónicas y sustitución (T/S/D)             | `core/music/harmonic-function.ts`              |
+| Qué acorde proponer y en qué orden                    | `core/music/suggestions.ts` + `styles.ts`      |
+| Detección de tono (autocorrelación)                   | `src/audio/autocorrelation.ts`                 |
+| Detección de acordes en vivo (croma + plantillas)     | `audio/chroma.ts`, `audio/chord-engine.ts`     |
+| Volver a escuchar lo grabado, con calma               | `audio/offline-chords.ts`, `audio/fft.ts`      |
+| Mástil, afinaciones, formas de acorde                 | `src/core/instrument/`                         |
+| Estado de sesión y persistencia                       | `src/state/` (IndexedDB)                       |
+| Grabación con cámara                                  | `src/media/`                                   |
+| Rutas de servidor de la IA                            | `app/api/ideas`, `/teacher`, `/versiones`      |
+| Las puertas de toda petición a la IA                  | `server/ai-gate.ts`                            |
+| La llamada al modelo, y el único sitio con el SDK     | `server/ask-model.ts`                          |
+| Quién contesta —API, modelo de casa o dominio—        | `server/ai-model.ts`, `local-model.ts`         |
+| Lo que tocas, convertido en compases                  | `core/music/capture.ts`                        |
+| Con qué se rearmoniza, y cómo se comprueba            | `core/music/reharmonization.ts`                |
+| Por dónde puede tirar lo que tocas, y qué lo valida   | `core/music/paths.ts`                          |
+| Una canción guardada: grados, tonalidad y secciones   | `core/music/song.ts` + `server/songs-repo.ts`  |
+| El montaje por bloques, y lo que dura cada acorde     | `core/music/arrangement.ts` + `state/`         |
+| El lienzo: arrastrar bloques, estirarlos, escucharlos | `features/arrange/`                            |
+| Planes, permisos y si una unidad la abre el plan      | `src/core/billing/` (`plans.ts`, `access.ts`)  |
+| Meta diaria, racha, medallas, punto de partida        | `core/music/progress.ts`                       |
+| La cola de repaso de lo fallado                       | `core/music/review.ts`                         |
+| Guardar y abrir tus canciones                         | `features/songs/`, `src/app/api/canciones`     |
+| Salidas de lo que tocas, y su verificación            | `features/versions/` (se llamará `salidas/`)   |
+| Cuentas, contraseñas, base de datos y cupos           | `src/server/`                                  |
+| Por dónde entra texto libre, y qué lo acota           | `features/learn/teacher-contract.ts`           |
+| El marco de una pantalla y sus apartados              | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
+| Leer lo que llega de fuera, y el error que contestó   | `core/parse.ts`, `state/api-error.ts`          |
+| Tokens de diseño y las dos paletas                    | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
+
+**`/componer` tiene dos caras y un conmutador**: `Tocar` —la rueda, el acorde y sus
+formas— y `Montar`, el lienzo de bloques que se arrastran y suenan
+([adr/0018](docs/adr/0018-el-lienzo-de-montar.md)). Nunca las dos a la vez: la
+línea de tiempo necesita el ancho entero.
 
 `/aprender` es **solo el camino**, y cada cosa tiene su dirección:
 `/aprender/[unidad]` y `/aprender/repaso`. Después `/profesor`, `/componer`,
@@ -129,7 +136,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                     |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Van diecisiete.
+descartadas. Van dieciocho.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

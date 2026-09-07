@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { keyName } from '@core/music';
+import { ArrangeCanvas } from '@features/arrange';
 import { FretboardPanel } from '@features/fretboard';
 import { IdeasPanel } from '@features/ideas';
 import { Metronome } from '@features/metronome';
@@ -17,6 +18,22 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Chip } from '@ui/Chip';
 import { Disclosure } from '@ui/Disclosure';
 import { WorkHeader } from '@ui/Screen';
+
+/**
+ * Las dos caras de componer.
+ *
+ * `tocar` responde a «qué acorde tengo delante» —la rueda, sus formas, a dónde
+ * ir— y `montar` a «cómo va mi canción», que es una pregunta horizontal y en el
+ * tiempo. Son dos caras y no dos zonas de la misma pantalla a propósito: metida
+ * entre las tres columnas, la línea de tiempo habría dejado seis franjas
+ * peleando por el alto de un portátil, y este fichero ya explicaba más abajo que
+ * con cinco no hay reparto bueno.
+ *
+ * Lo que no se duplica es nada: las dos caras leen la misma tonalidad, el mismo
+ * tempo y el mismo estado de sesión, y la barra de herramientas de abajo es la
+ * de siempre en las dos.
+ */
+type Cara = 'tocar' | 'montar';
 
 type ExtraId = 'fretboard' | 'ideas' | 'versions' | 'songs' | 'sessions';
 
@@ -60,6 +77,7 @@ const EXTRAS: readonly Extra[] = [
  */
 export function ComposeScreen() {
   const activeKey = useSessionStore(selectActiveKey);
+  const [cara, setCara] = useState<Cara>('tocar');
   const [extra, setExtra] = useState<ExtraId | null>(null);
   const current = EXTRAS.find((candidate) => candidate.id === extra) ?? null;
 
@@ -73,8 +91,40 @@ export function ComposeScreen() {
             lo que pide la regla; lo que se ha ido es la fila de más. */}
         <WorkHeader
           title="Componer"
-          lead="Tonalidad, progresión, acordes y grabarte tocando."
-          actions={<Metronome />}
+          lead={
+            cara === 'tocar'
+              ? 'Tonalidad, progresión, acordes y grabarte tocando.'
+              : 'La canción por bloques: arrástralos, estíralos y escúchala.'
+          }
+          actions={
+            // El hueco de acciones de `WorkHeader` es un bloque, no una fila: sin
+            // esta caja, el conmutador y el metrónomo se apilaban y la cabecera
+            // crecía cincuenta píxeles, que es justo lo que este fichero se
+            // esforzó en ahorrarle al mástil.
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              {/* El conmutador antes que el metrónomo: es lo que cambia la
+                  pantalla entera, y lo que cambia más cosas va primero. */}
+              <span className="flex gap-1" role="group" aria-label="Cómo componer">
+                <Chip
+                  onClick={() => setCara('tocar')}
+                  pressed={cara === 'tocar'}
+                  tone="quiet"
+                  className="px-3 text-xs"
+                >
+                  Tocar
+                </Chip>
+                <Chip
+                  onClick={() => setCara('montar')}
+                  pressed={cara === 'montar'}
+                  tone="quiet"
+                  className="px-3 text-xs"
+                >
+                  Montar
+                </Chip>
+              </span>
+              <Metronome />
+            </div>
+          }
         />
 
         {/* Se ofrece la última sesión, no se pone. Desaparece sola en cuanto
@@ -92,7 +142,9 @@ export function ComposeScreen() {
 
           En pantalla ancha no se pliega nada: ahí la rueda vive en su columna.
         */}
-        <div className="border-border shrink-0 border-b px-3 lg:hidden">
+        <div
+          className={`border-border shrink-0 border-b px-3 ${cara === 'montar' ? '' : 'lg:hidden'}`}
+        >
           <Disclosure
             summary={
               <>
@@ -110,54 +162,63 @@ export function ComposeScreen() {
           </Disclosure>
         </div>
 
-        {/*
-          `auto-rows-min` es lo que arregla las dos cosas a la vez en el móvil.
+        {/* Una cara o la otra, nunca las dos: lo que se gana montando es
+            que la canción ocupe la pantalla, y eso no cabe si al lado sigue
+            estando el inspector de un acorde. */}
+        {cara === 'montar' ? (
+          <ArrangeCanvas />
+        ) : (
+          <>
+            {/*
+            `auto-rows-min` es lo que arregla las dos cosas a la vez en el móvil.
 
-          Apiladas, las filas se estiraban hasta repartirse el alto disponible: si
-          el contenido de una crecía —al elegir un acorde salen sus formas— se
-          salía de su fila y **se montaba encima de la siguiente**, y si menguaba
-          quedaba hueco vacío por el que desplazarse. Con las filas medidas por su
-          contenido no hay ni lo uno ni lo otro: cada cosa ocupa lo suyo y quien se
-          desplaza es esta caja.
+            Apiladas, las filas se estiraban hasta repartirse el alto disponible: si
+            el contenido de una crecía —al elegir un acorde salen sus formas— se
+            salía de su fila y **se montaba encima de la siguiente**, y si menguaba
+            quedaba hueco vacío por el que desplazarse. Con las filas medidas por su
+            contenido no hay ni lo uno ni lo otro: cada cosa ocupa lo suyo y quien se
+            desplaza es esta caja.
 
-          En pantalla ancha vuelven a estirarse, que es lo que quieren tres
-          columnas de la misma altura.
-        */}
-        <div className="grid min-h-0 grow auto-rows-min grid-cols-1 gap-px overflow-y-auto lg:auto-rows-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
-          {/* Cada cosa con su tamaño y la columna con scroll: si se dejan
-              encoger, con el mástil abierto la rueda se queda en un botón. */}
-          <section
-            aria-label="Tonalidad"
-            className="border-border hidden min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3 lg:flex [&>*]:shrink-0"
-          >
-            <KeyPanel compact />
-            <p className="text-text-muted text-center font-mono text-xs">
-              {activeKey === null
-                ? 'Pulsa una tonalidad para empezar'
-                : keyName(activeKey.tonic, activeKey.mode)}
-            </p>
-            <Settings />
-          </section>
+            En pantalla ancha vuelven a estirarse, que es lo que quieren tres
+            columnas de la misma altura.
+          */}
+            <div className="grid min-h-0 grow auto-rows-min grid-cols-1 gap-px overflow-y-auto lg:auto-rows-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
+              {/* Cada cosa con su tamaño y la columna con scroll: si se dejan
+                encoger, con el mástil abierto la rueda se queda en un botón. */}
+              <section
+                aria-label="Tonalidad"
+                className="border-border hidden min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3 lg:flex [&>*]:shrink-0"
+              >
+                <KeyPanel compact />
+                <p className="text-text-muted text-center font-mono text-xs">
+                  {activeKey === null
+                    ? 'Pulsa una tonalidad para empezar'
+                    : keyName(activeKey.tonic, activeKey.mode)}
+                </p>
+                <Settings />
+              </section>
 
-          <section
-            aria-label="El acorde y sus formas"
-            className="flex min-h-0 flex-col lg:overflow-y-auto"
-          >
-            {/* Arriba lo que has elegido tú, abajo lo que estás tocando. Cada
-                cosa tiene su sitio fijo, así que al soltar las cuerdas nada se
-                mueve: solo cambia el rótulo de «Suena» a «Último». */}
-            <CurrentChord />
-            <Voicings />
-            <HeardChord />
-          </section>
+              <section
+                aria-label="El acorde y sus formas"
+                className="flex min-h-0 flex-col lg:overflow-y-auto"
+              >
+                {/* Arriba lo que has elegido tú, abajo lo que estás tocando. Cada
+                  cosa tiene su sitio fijo, así que al soltar las cuerdas nada se
+                  mueve: solo cambia el rótulo de «Suena» a «Último». */}
+                <CurrentChord />
+                <Voicings />
+                <HeardChord />
+              </section>
 
-          <section
-            aria-label="A dónde puedes ir"
-            className="border-border flex min-h-0 flex-col overflow-hidden border-t lg:border-t-0 lg:border-l"
-          >
-            <NextChords />
-          </section>
-        </div>
+              <section
+                aria-label="A dónde puedes ir"
+                className="border-border flex min-h-0 flex-col overflow-hidden border-t lg:border-t-0 lg:border-l"
+              >
+                <NextChords />
+              </section>
+            </div>
+          </>
+        )}
 
         {/* Abajo y a todo lo ancho: el mástil son seis cuerdas y quince trastes,
             y en una columna estrecha no se lee. La altura la pone el contenido

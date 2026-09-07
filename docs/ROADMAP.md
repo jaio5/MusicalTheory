@@ -44,7 +44,28 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
   comprobar que la vecina es vecina y que el pivote existe en las dos. Descartado
   por ahora, no para siempre.
 
-## 3. Que aprender y componer sean lo mismo
+## 3. Que el lienzo llegue hasta donde se compone de verdad
+
+El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
+([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
+la manera normal de componer aquí.
+
+- **Los punteos.** Una canción hoy es armonía y su reparto en el tiempo: no hay
+  melodía en el modelo, y `capture.ts` lo dice de su propia captura. Un carril de
+  escala bajo cada parte —solo las notas de la escala activa, guardadas por su
+  grado y no por su altura, para que transportar la canción transporte también el
+  solo— pide ampliar `song.ts`, el esquema y el contrato de dos rutas. Va con su
+  ADR.
+- **Que la IA ordene las partes.** Sería el sexto camino de `paths.ts`,
+  `estructura`: el modelo recibe las partes que hay y devuelve un orden con
+  nombres, y el dominio comprueba que solo ha reordenado y repetido lo que había,
+  sin inventar acordes. El validador es más fácil que los cinco que ya hay.
+- **El lienzo no se guarda solo.** Se guarda como canción desde la pestaña de
+  Canciones, y ahí la duración de los bloques se convierte en compases repetidos.
+  Es a propósito y está razonado, pero significa que reabrir una canción da los
+  bloques desagrupados.
+
+## 4. Que aprender y componer sean lo mismo
 
 Las dos mitades del corazón funcionan por separado y todavía no se hablan.
 
@@ -54,7 +75,7 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
 - **Lo que compones no cuenta como avance.** El XP, la racha y las medallas solo
   se ganan haciendo unidades; componer una canción entera con ayuda no suma nada.
 
-## 4. Que no estorbe
+## 5. Que no estorbe
 
 - **Renombrar `versiones` a `salidas` por dentro.** La ruta, la carpeta y la
   capacidad del plan siguen con el nombre viejo, que ya no es el que se ve en
