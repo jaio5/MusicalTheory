@@ -56,6 +56,13 @@ Tres cosas que el montaje **no** tiene, y las tres a propósito:
   instante en `song.ts` y en `exercise.ts`.
 - **No sabe guardar.** Guardar es de `song.ts`, y sigue siéndolo.
 
+**Lo que se elige se puede quitar, y sin teclado.** Cuando hay un acorde o una
+nota elegidos, el panel enseña cuál es y un botón de quitar. Se borraba solo con
+`Supr` sobre el elemento enfocado, y en un teléfono no hay teclado que valga: lo
+que se ponía no se podía quitar, que es medio editor. Elegir es de uno en uno
+—un acorde **o** una nota, nunca los dos— porque si no «quitar lo elegido» no
+tiene respuesta.
+
 **Lo que no cambia devuelve el mismo objeto.** Todas las operaciones del montaje
 comparan por referencia: soltar un bloque donde ya estaba, estirarlo hasta el ancho
 que ya tenía o cambiar de modo sin perder ningún grado devuelven el montaje de

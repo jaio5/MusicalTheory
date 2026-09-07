@@ -16,6 +16,7 @@ import {
   findBlock,
   findNote,
   isDoubtful,
+  writeNote,
   melodyEnd,
   nextNotes,
   lastDegreeOf,
@@ -176,8 +177,28 @@ export function ArrangeCanvas() {
   const puedeDeshacer = useArrangementStore(selectCanUndo);
   const acciones = useArrangementStore((state) => state.actions);
 
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  /**
+   * Lo elegido, que es **uno y solo uno**: un acorde o una nota, nunca los dos.
+   *
+   * Eran dos estados sueltos y podían estar los dos puestos a la vez, así que
+   * «quitar lo elegido» no tenía respuesta. Elegir una cosa suelta la otra.
+   */
+  const [selectedBlockId, setSelectedBlockIdCrudo] = useState<string | null>(null);
+  const [selectedNoteId, setSelectedNoteIdCrudo] = useState<string | null>(null);
+
+  const setSelectedBlockId = useCallback((id: string | null) => {
+    setSelectedBlockIdCrudo(id);
+    if (id !== null) {
+      setSelectedNoteIdCrudo(null);
+    }
+  }, []);
+
+  const setSelectedNoteId = useCallback((id: string | null) => {
+    setSelectedNoteIdCrudo(id);
+    if (id !== null) {
+      setSelectedBlockIdCrudo(null);
+    }
+  }, []);
   const [activePartId, setActivePartId] = useState<string | null>(null);
   /**
    * La partitura es lo primero que se ve.
@@ -223,7 +244,7 @@ export function ArrangeCanvas() {
       setSelectedNoteId(acciones.addNote(partId, offset, start, 1));
       setActivePartId(partId);
     },
-    [acciones],
+    [acciones, setSelectedNoteId],
   );
 
   /**
@@ -261,7 +282,7 @@ export function ArrangeCanvas() {
         }
       }
     },
-    [acciones, arrangement, selectedNoteId],
+    [acciones, arrangement, selectedNoteId, setSelectedNoteId],
   );
 
   /**
@@ -380,7 +401,7 @@ export function ArrangeCanvas() {
         acciones.moveBlock(blockId, sitio.part.id, sitio.index + paso);
       }
     },
-    [acciones, arrangement],
+    [acciones, arrangement, setSelectedBlockId],
   );
 
   /**
@@ -489,7 +510,7 @@ export function ArrangeCanvas() {
         },
       });
     },
-    [acciones, beatsPerBar],
+    [acciones, beatsPerBar, setSelectedBlockId],
   );
 
   /**
@@ -541,19 +562,67 @@ export function ArrangeCanvas() {
       }
       setSelectedNoteId(acciones.addNote(parteDestino.id, offset, notaSiguiente.start, 1));
     },
-    [acciones, notaSiguiente, parteDestino],
+    [acciones, notaSiguiente, parteDestino, setSelectedNoteId],
   );
+
+  /**
+   * Lo que hay elegido ahora mismo, para poder enseñarlo y quitarlo.
+   *
+   * Borrar se podía **solo con el teclado** —`Supr` sobre el bloque o la nota
+   * enfocada— y en un teléfono no hay teclado que valga: lo que se ponía no se
+   * podía quitar. Es medio editor.
+   */
+  const elegido = useMemo(() => {
+    if (selectedBlockId !== null) {
+      const sitio = findBlock(arrangement, selectedBlockId);
+      if (sitio !== null && tonic !== null) {
+        const chord = resolveDegree(tonic, mode, sitio.block.degree);
+        return {
+          que: 'acorde' as const,
+          id: selectedBlockId,
+          nombre: chord.symbol,
+          detalle: `${sitio.block.degree} · ${barsLabel(sitio.block.beats, beatsPerBar)}`,
+        };
+      }
+    }
+    if (selectedNoteId !== null) {
+      const sitio = findNote(arrangement, selectedNoteId);
+      if (sitio !== null && tonic !== null) {
+        const escrita = writeNote(sitio.note, tonic, mode);
+        return {
+          que: 'nota' as const,
+          id: selectedNoteId,
+          nombre: `${escrita.letter}${escrita.accidental}${escrita.octave}`,
+          detalle: `${sitio.note.length === 1 ? '1 pulso' : `${sitio.note.length} pulsos`}`,
+        };
+      }
+    }
+    return null;
+  }, [arrangement, beatsPerBar, mode, selectedBlockId, selectedNoteId, tonic]);
+
+  const quitarElegido = useCallback(() => {
+    if (elegido === null) {
+      return;
+    }
+    if (elegido.que === 'acorde') {
+      acciones.removeBlock(elegido.id);
+      setSelectedBlockId(null);
+    } else {
+      acciones.removeNote(elegido.id);
+      setSelectedNoteId(null);
+    }
+  }, [acciones, elegido, setSelectedBlockId, setSelectedNoteId]);
 
   const ponerAcorde = useCallback(
     (degree: DegreeSymbol) => {
-      const elegido = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
-      const partId = elegido?.part.id ?? parteDestino?.id ?? acciones.addPart('Estrofa');
-      const at = elegido === null ? null : elegido.index + 1;
+      const donde = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
+      const partId = donde?.part.id ?? parteDestino?.id ?? acciones.addPart('Estrofa');
+      const at = donde === null ? null : donde.index + 1;
 
       setSelectedBlockId(acciones.addBlock(partId, degree, beatsPerBar, at));
       setActivePartId(partId);
     },
-    [acciones, arrangement, beatsPerBar, parteDestino, selectedBlockId],
+    [acciones, arrangement, beatsPerBar, parteDestino, selectedBlockId, setSelectedBlockId],
   );
 
   /**
@@ -636,10 +705,12 @@ export function ArrangeCanvas() {
    * hay algo que mirar, y abrir la corrección de todos a la vez llenaría la
    * columna de preguntas sobre compases que a lo mejor ni importan.
    */
-  const elegido = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
+  const bloqueElegido = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
   const enDuda =
-    elegido !== null && isDoubtful(elegido.block) && elegido.block.alternatives.length > 0
-      ? elegido.block
+    bloqueElegido !== null &&
+    isDoubtful(bloqueElegido.block) &&
+    bloqueElegido.block.alternatives.length > 0
+      ? bloqueElegido.block
       : null;
 
   const pulsos = arrangementBeats(arrangement);
@@ -841,6 +912,36 @@ export function ArrangeCanvas() {
           className="border-border shrink-0 border-t p-3 lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l"
         >
           {/*
+            Lo elegido, con su botón de quitar.
+
+            Borrar se podía solo con `Supr` sobre el elemento enfocado, y en un
+            teléfono no hay teclado: lo que se ponía no se podía quitar. Va
+            arriba del todo porque, cuando hay algo elegido, lo que se quiere
+            hacer es con eso.
+          */}
+          {elegido !== null && (
+            <section
+              aria-label="Lo elegido"
+              className="border-border mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border p-3"
+            >
+              <span className="min-w-0">
+                <span className="text-brass-bright block font-mono text-base">
+                  {elegido.nombre}
+                </span>
+                <span className="text-text-muted block font-mono text-xs">{elegido.detalle}</span>
+              </span>
+              <Chip
+                onClick={quitarElegido}
+                tone="quiet"
+                className="ml-auto px-3 text-xs"
+                ariaLabel={`Quitar ${elegido.nombre}`}
+              >
+                Quitar
+              </Chip>
+            </section>
+          )}
+
+          {/*
             Corregir va lo primero, y solo cuando hay algo que corregir.
 
             Si hay un acorde elegido del que el motor dudó, lo que hace falta
@@ -898,7 +999,7 @@ export function ArrangeCanvas() {
           <p className="text-text-muted mt-1 text-xs">
             Pulsa uno, o arrástralo hasta la parte donde lo quieras.
           </p>
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul aria-label="Acordes que pueden seguir" className="mt-3 flex flex-col gap-2">
             {sugerencias.map((sugerencia) => {
               const chord = resolveDegree(tonic, mode, sugerencia.degree);
               return (

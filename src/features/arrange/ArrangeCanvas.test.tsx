@@ -18,6 +18,20 @@ beforeEach(() => {
   useSessionStore.getState().actions.reset();
 });
 
+/**
+ * Las propuestas de acorde, por su lista y no por su sitio en el panel.
+ *
+ * Se pedían con `getAllByRole('button')` sobre el panel entero y el índice, así
+ * que en cuanto el panel gana algo arriba —la barra de lo elegido, por ejemplo—
+ * el `[0]` pasa a ser otro botón y media docena de pruebas se rompen sin que
+ * nada esté mal.
+ */
+function propuestas() {
+  return within(screen.getByRole('list', { name: 'Acordes que pueden seguir' })).getAllByRole(
+    'button',
+  );
+}
+
 function conTonalidad() {
   useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
 }
@@ -67,7 +81,7 @@ describe('montar', () => {
     render(<ArrangeCanvas />);
 
     expect(screen.getByText(/empieza la primera parte/)).toBeInTheDocument();
-    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
 
     expect(acordesDe('Estrofa')).toEqual(['C']);
   });
@@ -78,7 +92,7 @@ describe('montar', () => {
     render(<ArrangeCanvas />);
 
     for (let i = 0; i < 3; i += 1) {
-      await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+      await userEvent.click(propuestas()[0]!);
     }
     expect(acordesDe('Estrofa')).toHaveLength(3);
   });
@@ -89,9 +103,9 @@ describe('montar', () => {
     conTonalidad();
     render(<ArrangeCanvas />);
 
-    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
     await userEvent.click(screen.getByRole('button', { name: '+ Parte' }));
-    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
 
     expect(acordesDe('Estrofa')).toHaveLength(1);
     expect(acordesDe('Parte 2')).toHaveLength(1);
@@ -102,7 +116,7 @@ describe('montar', () => {
     render(<ArrangeCanvas />);
 
     expect(screen.getByRole('heading', { name: /Para empezar/ })).toBeInTheDocument();
-    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
     expect(screen.getByRole('heading', { name: /Después de Estrofa/ })).toBeInTheDocument();
   });
 });
@@ -111,9 +125,8 @@ describe('el teclado, que es lo que un arrastre no da', () => {
   async function conDosAcordes() {
     conTonalidad();
     render(<ArrangeCanvas />);
-    const panel = screen.getByRole('complementary');
-    await userEvent.click(within(panel).getAllByRole('button')[0]!);
-    await userEvent.click(within(panel).getAllByRole('button')[1]!);
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(propuestas()[1]!);
     await enBloques();
   }
 
@@ -153,16 +166,15 @@ describe('deshacer', () => {
     render(<ArrangeCanvas />);
 
     expect(screen.getByRole('button', { name: 'Deshacer' })).toBeDisabled();
-    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
     expect(screen.getByRole('button', { name: 'Deshacer' })).toBeEnabled();
   });
 
   it('quita el último acorde puesto', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
-    const panel = screen.getByRole('complementary');
-    await userEvent.click(within(panel).getAllByRole('button')[0]!);
-    await userEvent.click(within(panel).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(propuestas()[0]!);
 
     await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
     expect(acordesDe('Estrofa')).toHaveLength(1);
@@ -262,7 +274,7 @@ describe('el punteo', () => {
   async function conAcordes() {
     conTonalidad();
     render(<ArrangeCanvas />);
-    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
   }
 
   // La partitura es lo que se ve al entrar: es donde se escribe, y esconderla
@@ -321,7 +333,7 @@ describe('las dos vistas del punteo enseñan lo mismo', () => {
   it('avisa de las notas que no caben en la rejilla', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
-    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
 
     // Una nota de la escala y otra alterada, escritas por debajo de la interfaz.
     const parte = useArrangementStore.getState().arrangement.parts[0]!;
@@ -490,10 +502,9 @@ describe('escribir un acorde donde estás', () => {
   it('el acorde entra detrás del que esté elegido', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
-    const panel = screen.getByRole('complementary');
 
-    await userEvent.click(within(panel).getAllByRole('button')[0]!); // C
-    await userEvent.click(within(panel).getAllByRole('button')[0]!); // el siguiente
+    await userEvent.click(propuestas()[0]!); // C
+    await userEvent.click(propuestas()[0]!); // el siguiente
     const dos = acordesDe('Estrofa');
 
     // Se elige el primero y se escribe: tiene que quedar en medio.
@@ -511,10 +522,9 @@ describe('escribir un acorde donde estás', () => {
   it('escribiendo seguido, se encadenan en orden', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
-    const panel = screen.getByRole('complementary');
 
     for (let i = 0; i < 3; i += 1) {
-      await userEvent.click(within(panel).getAllByRole('button')[0]!);
+      await userEvent.click(propuestas()[0]!);
     }
     expect(acordesDe('Estrofa')).toHaveLength(3);
   });
@@ -524,7 +534,7 @@ describe('el refuerzo de qué nota puede seguir', () => {
   async function conUnAcorde() {
     conTonalidad();
     render(<ArrangeCanvas />);
-    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+    await userEvent.click(propuestas()[0]!);
   }
 
   it('se ofrece siempre que hay una parte, sin cambiar de vista', async () => {
@@ -646,14 +656,89 @@ describe('la longitud de la partitura', () => {
   it('el menos se apaga al llegar a lo que hay escrito, y dice por qué', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
-    const panel = screen.getByRole('complementary');
     // Cinco acordes de un compás: la parte ocupa cinco y no se puede bajar.
     for (let i = 0; i < 5; i += 1) {
-      await userEvent.click(within(panel).getAllByRole('button')[0]!);
+      await userEvent.click(propuestas()[0]!);
     }
 
     const menos = screen.getByRole('button', { name: 'Acortar Estrofa' });
     expect(menos).toBeDisabled();
     expect(menos).toHaveAttribute('title', expect.stringContaining('sin borrar'));
+  });
+});
+
+describe('quitar lo que has puesto', () => {
+  async function conAcordeYNota() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'Qué nota puede seguir' })).getAllByRole(
+        'button',
+      )[0]!,
+    );
+  }
+
+  const quitar = async () =>
+    userEvent.click(
+      within(screen.getByRole('region', { name: 'Lo elegido' })).getByRole('button', {
+        name: /^Quitar/,
+      }),
+    );
+
+  const notasDe = (parte: string) =>
+    within(screen.getByRole('region', { name: parte })).queryAllByLabelText(/en el pulso/);
+
+  /**
+   * Borrar se podía **solo con el teclado** —`Supr` sobre el elemento enfocado—
+   * y en un teléfono no hay teclado que valga: lo que se ponía no se podía
+   * quitar. Es medio editor.
+   */
+  it('una nota se quita pulsando, sin teclado', async () => {
+    await conAcordeYNota();
+    expect(notasDe('Estrofa')).toHaveLength(1);
+
+    await quitar();
+    expect(notasDe('Estrofa')).toHaveLength(0);
+  });
+
+  it('un acorde también', async () => {
+    await conAcordeYNota();
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'Estrofa' })).getAllByLabelText(/, grado /)[0]!,
+    );
+
+    await quitar();
+    expect(acordesDe('Estrofa')).toHaveLength(0);
+  });
+
+  /**
+   * Uno y solo uno. Eran dos estados sueltos y podían estar los dos puestos a la
+   * vez, así que «quitar lo elegido» no tenía respuesta.
+   */
+  it('elegir un acorde suelta la nota que hubiera elegida', async () => {
+    await conAcordeYNota();
+    // Con la nota recién puesta, lo elegido es la nota.
+    expect(screen.getByRole('region', { name: 'Lo elegido' }).textContent).toMatch(/pulso/);
+
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'Estrofa' })).getAllByLabelText(/, grado /)[0]!,
+    );
+    expect(screen.getByRole('region', { name: 'Lo elegido' }).textContent).toMatch(/compás/);
+  });
+
+  it('sin nada elegido no hay nada que quitar', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    expect(screen.queryByRole('region', { name: 'Lo elegido' })).not.toBeInTheDocument();
+  });
+
+  // Quitar es un cambio como otro cualquiera: se deshace.
+  it('lo quitado se puede deshacer', async () => {
+    await conAcordeYNota();
+    await quitar();
+    await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+
+    expect(notasDe('Estrofa')).toHaveLength(1);
   });
 });
