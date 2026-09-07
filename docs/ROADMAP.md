@@ -81,6 +81,14 @@ la manera normal de componer aquí.
 
 ## 4. Que aprender y componer sean lo mismo
 
+- **Solo hay tres unidades de oído en diez cursos**
+  ([adr/0022](./adr/0022-aprender-de-oido.md)). Falta reconocer especies de
+  séptima, modos y préstamos, que son justo la teoría del Grado Profesional y la
+  que la pantalla de componer usa sin explicar.
+- **No se puede practicar el oído sin avanzar en el camino.** Una pantalla de
+  entrenamiento suelto se descartó para no duplicar la meta diaria y la racha; si
+  se hace, lo que tiene que compartir con el camino es exactamente esa racha.
+
 Las dos mitades del corazón funcionan por separado y todavía no se hablan.
 
 - **Las lecciones no explican lo que propone la IA.** Cuando una salida declara

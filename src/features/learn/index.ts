@@ -5,6 +5,7 @@ export * from './Question';
 export * from './ReviewSession';
 export * from './StartPicker';
 export * from './Teacher';
+export * from './EarUnit';
 export * from './TheoryUnit';
 export * from './Tutor';
 export * from './UnitDone';

@@ -17,6 +17,7 @@
  * se puede hablar de dominante sin saber qué es el quinto.
  */
 
+import type { EarKind } from './ear';
 import type { LessonId } from './lessons';
 import type { ScaleId } from './scales';
 
@@ -45,11 +46,18 @@ export const GRADES: readonly Grade[] = [
 /**
  * De qué tipo es una unidad.
  *
- * `theory` se contesta con el ratón y `play` con la guitarra. Un curso mezcla
- * las dos a propósito: saber que el quinto grado es dominante y encontrarlo en
- * el mástil son dos cosas distintas, y esta aplicación existe por la segunda.
+ * `theory` se contesta con el ratón, `ear` con el oído y `play` con la guitarra.
+ * Un curso mezcla las tres a propósito: saber que el quinto grado es dominante,
+ * reconocerlo cuando suena y encontrarlo en el mástil son tres cosas distintas,
+ * y esta aplicación existe por las dos últimas.
+ *
+ * El oído se añadió el último y es el que faltaba: sin él, todo lo que se
+ * aprendía aquí daba por hecho que ya sabías cómo suena lo que estabas
+ * estudiando. Y es lo que hace falta para lo que la aplicación hace de verdad:
+ * si el motor de croma dice «Am» y no sabes si suena a Am, no puedes corregirlo
+ * cuando se equivoca.
  */
-export type UnitKind = 'theory' | 'play';
+export type UnitKind = 'theory' | 'ear' | 'play';
 
 interface BaseUnit {
   readonly id: string;
@@ -64,13 +72,19 @@ export interface TheoryUnit extends BaseUnit {
   readonly lesson: LessonId;
 }
 
+export interface EarUnit extends BaseUnit {
+  readonly kind: 'ear';
+  /** Qué se pregunta: la especie, el grado o la cadencia. */
+  readonly ear: EarKind;
+}
+
 export interface PlayUnit extends BaseUnit {
   readonly kind: 'play';
   /** Qué escala hay que tocar, subiendo y bajando, validada por el micro. */
   readonly scaleId: ScaleId;
 }
 
-export type Unit = TheoryUnit | PlayUnit;
+export type Unit = TheoryUnit | EarUnit | PlayUnit;
 
 export interface Course {
   readonly id: string;
@@ -82,12 +96,23 @@ export interface Course {
   readonly units: readonly Unit[];
 }
 
-/** Lo que suma una unidad. Tocar da más que contestar: cuesta más. */
+/**
+ * Lo que suma una unidad, y por qué no valen lo mismo.
+ *
+ * Contestar leyendo es lo más barato. Reconocer de oído cuesta más —hay que
+ * haberlo oído antes, no basta con haberlo entendido— y tocarlo es lo que más,
+ * porque además hay que encontrarlo en el mástil.
+ */
 const THEORY_XP = 20;
+const EAR_XP = 25;
 const PLAY_XP = 35;
 
 function theory(id: string, title: string, lesson: LessonId): TheoryUnit {
   return { id, title, kind: 'theory', lesson, xp: THEORY_XP };
+}
+
+function ear(id: string, title: string, kind: EarKind): EarUnit {
+  return { id, title, kind: 'ear', ear: kind, xp: EAR_XP };
 }
 
 function play(id: string, title: string, scaleId: ScaleId): PlayUnit {
@@ -112,6 +137,9 @@ export const COURSES: readonly Course[] = [
     units: [
       theory('e1-grados', 'Qué es un grado', 'degrees'),
       play('e1-escala', 'La escala mayor, entera', 'major'),
+      // Saber que el V es el que tira a casa y reconocerlo cuando suena son dos
+      // cosas, y la segunda es la que sirve con la guitarra puesta.
+      ear('e1-oido', 'Reconocer el I, el IV y el V', 'degree'),
       theory('e1-repaso', 'Repaso de los grados', 'degrees'),
     ],
   },
@@ -124,7 +152,9 @@ export const COURSES: readonly Course[] = [
     units: [
       theory('e2-calidades', 'Las calidades', 'qualities'),
       play('e2-menor', 'La menor natural', 'naturalMinor'),
-      theory('e2-repaso', 'Distinguirlas de oído', 'qualities'),
+      // Se llamaba «Distinguirlas de oído» y se contestaba leyendo: prometía una
+      // cosa y hacía otra. Ahora suena el acorde.
+      ear('e2-repaso', 'Distinguirlas de oído', 'quality'),
     ],
   },
   {
@@ -216,6 +246,7 @@ export const COURSES: readonly Course[] = [
     units: [
       theory('p6-cadencias', 'Las cadencias que se usan', 'cadences'),
       play('p6-armonica', 'La menor armónica, la de la sensible', 'harmonicMinor'),
+      ear('p6-oido', 'Si cierra o se queda colgada', 'cadence'),
       theory('p6-repaso', 'Reconocerlas por el camino', 'cadences'),
     ],
   },

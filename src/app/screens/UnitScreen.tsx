@@ -5,7 +5,14 @@ import { useRouter } from 'next/navigation';
 
 import { can, cheapestPlanWith, nextAllowedUnit, unitAccess } from '@core/billing';
 import { findUnit, keyName } from '@core/music';
-import { LearnPanel, TheoryUnit, UnitDone, useProgress, type Celebration } from '@features/learn';
+import {
+  EarUnit,
+  LearnPanel,
+  TheoryUnit,
+  UnitDone,
+  useProgress,
+  type Celebration,
+} from '@features/learn';
 import { KeyPanel } from '@features/wheel';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
@@ -128,6 +135,12 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
       <div className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto">
         {found.unit.kind === 'theory' ? (
           <TheoryUnit
+            unit={found.unit}
+            onDone={(flawless) => complete(unitId, flawless)}
+            {...(repasa ? { onMiss: (index: number) => miss(unitId, index) } : {})}
+          />
+        ) : found.unit.kind === 'ear' ? (
+          <EarUnit
             unit={found.unit}
             onDone={(flawless) => complete(unitId, flawless)}
             {...(repasa ? { onMiss: (index: number) => miss(unitId, index) } : {})}

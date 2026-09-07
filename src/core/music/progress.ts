@@ -16,7 +16,15 @@
  * [adr/0007](../../../docs/adr/0007-elegir-por-donde-empezar.md).
  */
 
-import { COURSES, findUnit, TOTAL_XP, UNIT_ORDER, type Course, type GradeId } from './curriculum';
+import {
+  COURSES,
+  findUnit,
+  TOTAL_XP,
+  UNIT_ORDER,
+  type Course,
+  type GradeId,
+  type UnitKind,
+} from './curriculum';
 import { daysBetween, isDay } from './days';
 import {
   EMPTY_REVIEW,
@@ -58,7 +66,7 @@ export const BADGES: readonly Badge[] = [
   {
     id: 'sin-fallar',
     name: 'Sin un fallo',
-    how: 'Termina una unidad de teoría acertando todas a la primera.',
+    how: 'Termina una unidad de teoría o de oído acertando todas a la primera.',
   },
   { id: 'curso-completo', name: 'Curso cerrado', how: 'Termina todas las unidades de un curso.' },
   {
@@ -315,7 +323,7 @@ export function completeUnit(
 function awardBadges(
   progress: Progress,
   course: Course,
-  kind: 'theory' | 'play',
+  kind: UnitKind,
   flawless: boolean,
 ): readonly BadgeId[] {
   const badges = new Set<BadgeId>(progress.badges);
@@ -329,7 +337,9 @@ function awardBadges(
       badges.add('cinco-escalas');
     }
   }
-  if (flawless && kind === 'theory') {
+  // «Sin un fallo» la dan también las de oído: es contestar sin errar, y
+  // reconocer tres acordes seguidos cuesta más que contestar tres preguntas.
+  if (flawless && kind !== 'play') {
     badges.add('sin-fallar');
   }
   if (isCourseDone(progress, course)) {

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import {
+  earExercises,
   dueReview,
   findUnit,
   lessonNotes,
@@ -198,6 +199,22 @@ function taskFor(item: ReviewItem, tonic: PitchClass, mode: KeyMode): ReviewTask
 
   if (found.unit.kind === 'theory') {
     const exercise = lessonNotes(found.unit.lesson, tonic, mode).exercises[item.index];
+    return exercise === undefined ? null : { kind: 'theory', item, exercise };
+  }
+
+  /**
+   * Lo fallado de oído vuelve **como pregunta escrita**, no volviendo a sonar.
+   *
+   * Es a propósito y es la mitad del valor de repasarlo: si al oírlo dijiste que
+   * era un IV y era un V, lo que hay que refrescar no es el sonido —eso se
+   * entrena en la unidad— sino qué hace cada uno. El repaso pregunta lo otro.
+   *
+   * Y hay una razón práctica detrás: la cola de repaso apunta posiciones, no
+   * ejercicios, y las posiciones de una unidad de oído y las de su lección no
+   * son las mismas. Se reaprovecha el porqué, que es lo que se olvida.
+   */
+  if (found.unit.kind === 'ear') {
+    const exercise = earExercises(found.unit.ear, tonic, mode)[item.index];
     return exercise === undefined ? null : { kind: 'theory', item, exercise };
   }
 

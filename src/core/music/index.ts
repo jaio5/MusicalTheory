@@ -8,6 +8,7 @@
 export * from './notes';
 export * from './scales';
 export * from './lessons';
+export * from './ear';
 export * from './curriculum';
 export * from './progress';
 export * from './days';
