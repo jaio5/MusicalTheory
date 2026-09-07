@@ -53,6 +53,29 @@ export interface LeadNote {
   readonly start: number;
   /** Pulsos que suena. */
   readonly length: number;
+  /**
+   * Lo limpia que llegó al oírla, de 0 a 1. Ausente en lo escrito a mano.
+   *
+   * Es la hermana del margen de los acordes, y sirve para lo mismo: marcar en la
+   * partitura de qué notas no se estuvo seguro para poder mirarlas. Una cuerda
+   * que roza, dos que suenan a la vez o una nota apagada dan claridad baja, y
+   * ahí es donde el motor monofónico se inventa alturas.
+   */
+  readonly clarity?: number;
+}
+
+/**
+ * Por debajo de esto, una nota oída se marca como dudosa.
+ *
+ * El motor de tono ya descarta lo que no llega a `MIN_CLARITY` —ahí decide si
+ * hay nota o no—. Esto es otra cosa: hay nota, pero llegó sucia. Medio camino
+ * entre ese suelo y la señal limpia.
+ */
+export const NOTA_DUDOSA = 0.75;
+
+/** Si de esta nota conviene dudar. Lo escrito a mano nunca lo es. */
+export function isDoubtfulNote(note: LeadNote): boolean {
+  return note.clarity !== undefined && note.clarity < NOTA_DUDOSA;
 }
 
 /**
@@ -322,6 +345,9 @@ export function captureMelody(
       offset,
       start: clampStart((nota.at - desde) / porPulso),
       length: snapLength(pulsos),
+      // La claridad viaja con la nota. Se calculaba en cada análisis, se
+      // guardaba en el historial y no llegaba a ninguna parte.
+      ...(nota.clarity === undefined ? {} : { clarity: nota.clarity }),
     });
   }
 

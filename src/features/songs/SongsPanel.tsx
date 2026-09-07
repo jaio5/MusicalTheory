@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { can, cheapestPlanWith } from '@core/billing';
 import {
+  arrangementFromSong,
   defaultSectionName,
   degreesFromPath,
+  sectionsFromArrangement,
   describeSong,
   keyName,
   MAX_SECTIONS,
@@ -17,6 +19,7 @@ import {
 } from '@core/music';
 import { apiErrorFrom } from '@state/api-error';
 import { useAccount } from '@state/account';
+import { useArrangementStore } from '@state/arrangement-store';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
@@ -90,6 +93,17 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
   // El tempo del metrónomo entra en la canción: es lo que hace que al abrirla
   // mañana suene a la velocidad a la que la escribiste.
   const bpm = useSessionStore((state) => state.bpm);
+  const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
+  /**
+   * El montaje manda sobre el camino cuando tiene algo dentro.
+   *
+   * Son las dos caras de componer y las dos hacen canciones, pero no dicen lo
+   * mismo: el camino es la progresión que llevas encadenada de una tirada y el
+   * montaje son partes con nombre, con lo que dura cada acorde y con el punteo.
+   * Si hay montaje, guardar el camino sería guardar la mitad pequeña.
+   */
+  const arrangement = useArrangementStore((state) => state.arrangement);
+  const accionesMontaje = useArrangementStore((state) => state.actions);
 
   const puedeGuardar = can(account.plan, 'canciones');
 
@@ -136,12 +150,16 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       return;
     }
 
+    const delMontaje = sectionsFromArrangement(arrangement, beatsPerBar);
     const { degrees, dropped } = degreesFromPath(
       path.map((chord) => chord.label),
       activeKey.mode,
     );
 
-    if (degrees.length === 0) {
+    const sections =
+      delMontaje.length > 0 ? delMontaje : [{ name: defaultSectionName(0), degrees }];
+
+    if (sections.every((section) => section.degrees.length === 0)) {
       setMessage('Encadena algún acorde antes de guardar: una canción necesita al menos uno.');
       return;
     }
@@ -158,7 +176,7 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
           tonic: activeKey.tonic,
           mode: activeKey.mode,
           bpm,
-          sections: [{ name: defaultSectionName(0), degrees }],
+          sections,
         }),
       });
 
@@ -171,7 +189,10 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       // Lo que se ha quedado fuera se dice **después** de guardar y como aviso,
       // no como error: la canción está guardada, y callarlo haría que al abrirla
       // apareciera una progresión más corta sin explicación.
-      if (dropped > 0) {
+      //
+      // Solo pasa guardando el camino: los acordes del montaje ya son grados, así
+      // que de allí no se cae ninguno.
+      if (delMontaje.length === 0 && dropped > 0) {
         setNote(
           dropped === 1
             ? 'Un acorde no es un grado de esta tonalidad y no se ha guardado.'
@@ -292,6 +313,12 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       });
     }
     actions.setCurrentDegree(degrees.at(-1) ?? null);
+
+    // Y en el lienzo, con sus partes, su punteo y de dónde salió cada acorde.
+    // Abrir una canción tiene que dejarla puesta en las dos caras: son la misma
+    // canción vista de dos maneras, no dos sitios distintos.
+    accionesMontaje.replace(arrangementFromSong(song, beatsPerBar));
+
     setNote(`«${song.name}» puesta en ${keyName(song.tonic, song.mode)}.`);
   }
 
@@ -336,14 +363,18 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
           onChange={(event) => setName(event.target.value)}
           placeholder="Sin título"
         />
+        {/* El botón dice qué se va a guardar, porque no siempre es lo mismo: el
+            montaje si lo hay y el camino si no. Enterarse después, con la
+            canción guardada a medias, sería peor. */}
         <Button onClick={() => void save()} disabled={busy}>
-          Guardar esta progresión
+          {arrangement.parts.length > 0 ? 'Guardar el montaje' : 'Guardar esta progresión'}
         </Button>
       </div>
 
       <p className="text-text-muted mt-2 text-sm">
         Se guardan en tu cuenta: la tonalidad y los grados, no los cifrados. Por eso una canción
-        guardada se puede abrir en otro tono. Ni audio ni vídeo, aquí tampoco.
+        guardada se puede abrir en otro tono. Con el montaje van también sus partes, el punteo y de
+        dónde salió cada acorde. Ni audio ni vídeo, aquí tampoco.
       </p>
 
       {message !== null && (

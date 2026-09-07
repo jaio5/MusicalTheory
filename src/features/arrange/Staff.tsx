@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
+  isDoubtfulNote,
   keySignature,
   offsetOfStep,
   resolveDegree,
@@ -121,6 +122,8 @@ export interface StaffProps {
   readonly onSelectBlock: (blockId: string) => void;
   readonly onRemoveBlock: (blockId: string) => void;
   readonly onResizeBlock: (blockId: string, beats: number) => void;
+  /** Lleva un acorde a otro sitio de la parte. */
+  readonly onMoveBlock: (blockId: string, to: number) => void;
   /**
    * Escribe una nota a esa altura y en ese pulso.
    *
@@ -150,6 +153,7 @@ export function Staff({
   onSelectBlock,
   onRemoveBlock,
   onResizeBlock,
+  onMoveBlock,
   onAdd,
   onSelect,
   onMove,
@@ -215,6 +219,47 @@ export function Staff({
       };
     },
     [porPulso],
+  );
+
+  /**
+   * Arrastrar un cifrado para cambiarlo de sitio.
+   *
+   * Era lo único que había que ir a hacer a la otra vista, y no tenía sentido:
+   * en una partitura los acordes están ahí escritos y moverlos es el gesto
+   * evidente. Se mueve **por compases**, contando cuántos acordes caben antes de
+   * donde se suelta, que es lo que en esta vista significa «antes».
+   */
+  const moverAcorde = useCallback(
+    (event: ReactPointerEvent<SVGGElement>, blockId: string) => {
+      if (event.button !== 0) {
+        return;
+      }
+      event.stopPropagation();
+      onGestureStart();
+
+      arrastrar({
+        mover: (x, y) => {
+          arrastradaRef.current = true;
+          const sitio = sitioEn(x, y);
+          if (sitio === null) {
+            return;
+          }
+          // Cuántos acordes empiezan antes del pulso donde está el puntero.
+          let desde = 0;
+          let destino = 0;
+          for (const block of blocks) {
+            if (sitio.start < desde + block.beats / 2) {
+              break;
+            }
+            desde += block.beats;
+            destino += 1;
+          }
+          onMoveBlock(blockId, destino);
+        },
+        soltar: onGestureEnd,
+      });
+    },
+    [blocks, onGestureEnd, onGestureStart, onMoveBlock, sitioEn],
   );
 
   /**
@@ -406,9 +451,11 @@ export function Staff({
                   data-indice={acumulado.x === 0 ? 0 : indice}
                   aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
                   aria-pressed={elegido}
-                  className={`focus-visible:outline-brass-bright cursor-pointer focus-visible:outline-2 ${
+                  style={{ touchAction: 'none' }}
+                  className={`focus-visible:outline-brass-bright cursor-grab focus-visible:outline-2 ${
                     elegido ? 'text-brass-bright' : ''
                   }`}
+                  onPointerDown={(event) => moverAcorde(event, block.id)}
                   onClick={(event) => {
                     event.stopPropagation();
                     onSelectBlock(block.id);
@@ -493,13 +540,14 @@ export function Staff({
           const { hueca, plica, corchete, punto } = figura(note.length);
           const arriba = escrita.step < 6;
           const seleccionada = selectedNoteId === note.id;
+          const dudosa = isDoubtfulNote(note);
 
           return (
             <g
               key={note.id}
               role="button"
               tabIndex={0}
-              aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}`}
+              aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}${dudosa ? ', dudosa' : ''}`}
               className="focus-visible:outline-brass-bright cursor-grab rounded focus-visible:outline-2"
               style={{ touchAction: 'none' }}
               onPointerDown={(event) => cogerNota(event, note)}
@@ -565,6 +613,22 @@ export function Staff({
                 className={seleccionada ? 'text-brass-bright' : ''}
               />
               {punto && <circle cx={x + 9} cy={y - 2} r={1.4} fill="currentColor" />}
+
+              {/* Una nota que llegó sucia se marca con un interrogante pequeño
+                  encima, igual que un acorde dudoso lo lleva al lado. No con
+                  color: los colores de esta pantalla ya dicen otra cosa. */}
+              {dudosa && (
+                <text
+                  x={x - 3}
+                  y={arriba ? y + 16 : y - 12}
+                  fontSize={11}
+                  fill="currentColor"
+                  fillOpacity={0.6}
+                  aria-hidden
+                >
+                  ?
+                </text>
+              )}
 
               {plica && (
                 <line

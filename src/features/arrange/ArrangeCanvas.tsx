@@ -815,6 +815,11 @@ export function ArrangeCanvas() {
                   setSelectedBlockId(null);
                 }}
                 onResizeBlock={acciones.resizeBlock}
+                // Con lambda y no pasando `acciones.moveBlock` a pelo: la
+                // acción del estado recibe `(bloque, parte, sitio)` y aquí llega
+                // `(parte, bloque, sitio)`. Los tres son del mismo tipo, así que
+                // cambiarlos de orden compila y no mueve nada.
+                onMoveBlock={(partId, blockId, to) => acciones.moveBlock(blockId, partId, to)}
                 onAddNote={escribirNota}
                 onSelectNote={setSelectedNoteId}
                 onMoveNote={acciones.moveNote}

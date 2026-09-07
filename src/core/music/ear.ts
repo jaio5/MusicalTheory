@@ -40,7 +40,7 @@ import type { PitchClass } from './notes';
 import { resolveDegree, type DegreeSymbol } from './progressions';
 
 /** De qué va una unidad de oído. */
-export type EarKind = 'quality' | 'degree' | 'cadence';
+export type EarKind = 'quality' | 'degree' | 'cadence' | 'sevenths' | 'borrowed' | 'modes';
 
 export interface EarExercise {
   /**
@@ -201,12 +201,138 @@ function cadence(tonic: PitchClass, mode: KeyMode): EarExercise[] {
   ];
 }
 
+/**
+ * Qué añade la séptima, y qué cambia según la especie.
+ *
+ * La tríada suena antes en cada pregunta, y no es adorno: lo que hay que oír no
+ * es el acorde entero sino **la nota que se le ha añadido**. Sin la tríada
+ * delante habría que reconocer dos cosas a la vez, y esta unidad va de una.
+ */
+function sevenths(tonic: PitchClass, mode: KeyMode): EarExercise[] {
+  const uno: DegreeSymbol = mode === 'major' ? 'I' : 'i';
+  const cinco: DegreeSymbol = 'V';
+
+  return [
+    {
+      degrees: [uno, uno],
+      beats: 3,
+      reference: 1,
+      prompt: 'El mismo acorde, y luego con una nota más. ¿Cómo suena la de más?',
+      choices: opciones('Suave, casi dulce', ['Áspera, pide resolver']),
+      why: `Es la séptima mayor: ${cifrado(tonic, mode, uno)}maj7. Está a medio tono de la fundamental y roza sin empujar. De ahí que suene a calma y no a tensión.`,
+    },
+    {
+      degrees: [cinco, cinco],
+      beats: 3,
+      reference: 1,
+      prompt: '¿Y esta otra?',
+      choices: opciones('Áspera, pide resolver', ['Suave, casi dulce']),
+      why: `Es la séptima menor sobre el V: ${cifrado(tonic, mode, cinco)}7. Con la sensible dentro forma un tritono, y eso es lo que empuja hacia la tónica.`,
+    },
+    {
+      degrees: [uno, cinco],
+      beats: 3,
+      reference: 0,
+      prompt: 'De estos dos, ¿cuál pide seguir?',
+      choices: opciones('El segundo', ['El primero', 'Ninguno de los dos']),
+      why: 'La séptima del V es la que tensa. La misma nota añadida cambia de papel según sobre qué grado caiga: no es la séptima, es dónde está.',
+    },
+  ];
+}
+
+/**
+ * Reconocer un acorde que no es de la tonalidad.
+ *
+ * Con la casa delante, como los grados: un préstamo solo suena a préstamo si hay
+ * un sitio del que salirse. La pregunta no es cuál es, sino **si pertenece**, que
+ * es lo primero que hay que oír y lo que avisa de que la tonalidad detectada
+ * puede estar mal.
+ */
+function borrowed(tonic: PitchClass, mode: KeyMode): EarExercise[] {
+  const uno: DegreeSymbol = mode === 'major' ? 'I' : 'i';
+  const cuatro: DegreeSymbol = mode === 'major' ? 'IV' : 'iv';
+  const prestado: DegreeSymbol = mode === 'major' ? 'bVII' : 'VII';
+  const oscuro: DegreeSymbol = mode === 'major' ? 'bVI' : 'VI';
+
+  return [
+    {
+      degrees: [uno, cuatro],
+      beats: 3,
+      reference: 1,
+      prompt: '¿El segundo es de la tonalidad o viene de fuera?',
+      choices: opciones('De la tonalidad', ['De fuera']),
+      why: `${cifrado(tonic, mode, cuatro)} es el IV, uno de los siete de casa. No hay ninguna nota que no estuviera ya.`,
+    },
+    {
+      degrees: [uno, prestado],
+      beats: 3,
+      reference: 1,
+      prompt: '¿Y este?',
+      choices: opciones('De fuera', ['De la tonalidad']),
+      why: `${cifrado(tonic, mode, prestado)} trae una nota que no está en la escala. Suena a riff justo por eso: se sale y vuelve.`,
+    },
+    {
+      degrees: [uno, oscuro],
+      beats: 3,
+      reference: 1,
+      prompt: 'Este también se sale. ¿Aclara o oscurece?',
+      choices: opciones('Oscurece', ['Aclara']),
+      why: `${cifrado(tonic, mode, oscuro)} viene del modo menor. Baja media escala de golpe y por eso ensombrece sin cambiar de centro.`,
+    },
+  ];
+}
+
+/**
+ * Distinguir dos modos por lo que los separa.
+ *
+ * Se comparan sobre la misma tónica y no en abstracto: dos modos se parecen
+ * mucho, y lo que los distingue es **una nota**. Se oye el acorde que la lleva.
+ */
+function modes(tonic: PitchClass, mode: KeyMode): EarExercise[] {
+  const uno: DegreeSymbol = mode === 'major' ? 'I' : 'i';
+  const quinto: DegreeSymbol = 'V';
+  const prestado: DegreeSymbol = mode === 'major' ? 'bVII' : 'VII';
+  const cuatro: DegreeSymbol = mode === 'major' ? 'IV' : 'iv';
+
+  return [
+    {
+      degrees: [uno, quinto, uno],
+      beats: 2,
+      reference: 0,
+      prompt: '¿El de en medio tiene sensible, esa nota que empuja al final?',
+      choices: opciones('Sí', ['No']),
+      why: `Con el V mayor hay sensible, y eso es lo que hace que el cierre suene clásico. Es lo que distingue el modo jónico de los demás.`,
+    },
+    {
+      degrees: [uno, prestado, uno],
+      beats: 2,
+      reference: 0,
+      prompt: 'Aquí en medio hay otro. ¿Empuja igual?',
+      choices: opciones('No, llega más plano', ['Sí, igual de fuerte']),
+      why: `${cifrado(tonic, mode, prestado)} está un tono entero por debajo, no medio: no hay sensible. Es el sonido del mixolidio, y de medio repertorio de rock.`,
+    },
+    {
+      degrees: [uno, cuatro, uno],
+      beats: 2,
+      reference: 0,
+      prompt: 'Y este, ¿suena más brillante o más apagado que el anterior?',
+      choices: opciones('Más apagado', ['Más brillante']),
+      why: 'El cuarto grado no tensa: aleja. Sin sensible y sin tritono, el cierre llega por descanso y no por resolución.',
+    },
+  ];
+}
+
 /** Los ejercicios de oído de esa clase, en esa tonalidad. */
 export function earExercises(kind: EarKind, tonic: PitchClass, mode: KeyMode): EarExercise[] {
-  if (kind === 'quality') {
-    return quality(tonic, mode);
-  }
-  return kind === 'degree' ? degree(tonic, mode) : cadence(tonic, mode);
+  const catalogo: Readonly<Record<EarKind, (t: PitchClass, m: KeyMode) => EarExercise[]>> = {
+    quality,
+    degree,
+    cadence,
+    sevenths,
+    borrowed,
+    modes,
+  };
+  return catalogo[kind](tonic, mode);
 }
 
 /** De qué va cada clase, para el rótulo de la unidad. */
@@ -222,5 +348,17 @@ export const EAR_KINDS: Readonly<Record<EarKind, { name: string; lead: string }>
   cadence: {
     name: 'Si cierra o se queda colgada',
     lead: 'Cuatro acordes. Lo que se oye no es uno: es qué pasa entre el penúltimo y el último.',
+  },
+  sevenths: {
+    name: 'Qué añade la séptima',
+    lead: 'Primero la tríada y luego la misma con una nota más. Lo que hay que oír es la de más.',
+  },
+  borrowed: {
+    name: 'Si el acorde es de casa o viene de fuera',
+    lead: 'La casa y luego otro acorde. Di si pertenece a la tonalidad o se ha traído de otro sitio.',
+  },
+  modes: {
+    name: 'Con sensible y sin ella',
+    lead: 'Tres acordes que vuelven a casa por caminos distintos. Lo que cambia es una sola nota.',
   },
 };

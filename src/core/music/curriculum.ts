@@ -201,6 +201,7 @@ export const COURSES: readonly Course[] = [
     units: [
       theory('p2-cuatriadas', 'Las siete especies', 'sevenths'),
       theory('p2-cifrado', 'Escribirlas sin confundirlas', 'sevenths'),
+      ear('p2-oido', 'Qué añade la séptima', 'sevenths'),
     ],
   },
   {
@@ -211,6 +212,7 @@ export const COURSES: readonly Course[] = [
     summary: 'Los acordes de fuera que llevan usándose toda la vida.',
     units: [
       theory('p3-prestados', 'Prestar del modo paralelo', 'borrowed'),
+      ear('p3-oido', 'Si el acorde es de casa o viene de fuera', 'borrowed'),
       play('p3-mixolidio', 'El mixolidio, de donde sale el bVII', 'mixolydian'),
     ],
   },
@@ -233,6 +235,7 @@ export const COURSES: readonly Course[] = [
     summary: 'Las mismas notas empezando por otro sitio, y lo que eso cambia.',
     units: [
       theory('p5-modos', 'Qué es un modo', 'modes'),
+      ear('p5-oido', 'Con sensible y sin ella', 'modes'),
       play('p5-dorico', 'El dórico, el menor menos triste', 'dorian'),
       play('p5-frigio', 'El frigio, con el semitono de arriba', 'phrygian'),
     ],

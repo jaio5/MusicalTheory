@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { can, cheapestPlanWith, MAX_VERSION_DEGREES } from '@core/billing';
 import {
   captureProgression,
+  DUDOSO,
   degreesFromPath,
   moveById,
   noteName,
@@ -258,7 +259,18 @@ export function VersionsPanel({
 
     const request: VersionsRequest = {
       key: { tonic: noteName(activeKey.tonic), mode: activeKey.mode },
-      progression: progresion.slice(0, MAX_VERSION_DEGREES),
+      /**
+       * Cada compás dice si lo leyó el micro y nadie lo confirmó.
+       *
+       * Un compás escrito a mano es lo que alguien quiso poner; uno oído es una
+       * lectura que puede estar mal, y el motor lo sabe —tiene su margen y sus
+       * alternativas—. Sin la marca, los dos llegaban iguales al modelo.
+       */
+      progression: progresion.slice(0, MAX_VERSION_DEGREES).map((paso) => ({
+        degree: paso.degree,
+        beats: paso.beats,
+        ...(deLoGrabado && 'confidence' in paso && paso.confidence < DUDOSO ? { heard: true } : {}),
+      })),
       kind,
     };
 

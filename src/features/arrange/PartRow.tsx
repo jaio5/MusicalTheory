@@ -71,6 +71,7 @@ export interface PartRowProps {
   readonly onResizeNote: (noteId: string, length: number) => void;
   readonly onRemoveBlock: (blockId: string) => void;
   readonly onResizeBlock: (blockId: string, beats: number) => void;
+  readonly onMoveBlock: (partId: string, blockId: string, to: number) => void;
   readonly onGestureStart: () => void;
   readonly onGestureEnd: () => void;
 }
@@ -104,6 +105,7 @@ export function PartRow({
   onResizeNote,
   onRemoveBlock,
   onResizeBlock,
+  onMoveBlock,
   onGestureStart,
   onGestureEnd,
 }: PartRowProps) {
@@ -313,6 +315,7 @@ export function PartRow({
           onSelectBlock={onBlockClick}
           onRemoveBlock={onRemoveBlock}
           onResizeBlock={onResizeBlock}
+          onMoveBlock={(blockId, to) => onMoveBlock(part.id, blockId, to)}
           onAdd={(offset, start) => onAddNote(part.id, offset, start)}
           onSelect={onSelectNote}
           onMove={onMoveNote}

@@ -669,7 +669,18 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
 
     const root = normalizePitchClass(tonic + candidate.rootOffset);
     const notes = chordNotesFor(root, candidate.shape);
-    const symbol = `${noteName(root, accidental)}${SHAPES[candidate.shape].suffix}`;
+    // **La alteración la manda el nombre del grado, no la tonalidad.**
+    //
+    // Un grado que se llama «b» algo se escribe con bemol valga lo que valga la
+    // tonalidad: el bVII de Do es Bb y nunca A#, que suena igual y no lo escribe
+    // nadie. Aquí se usaba la de la tonalidad —que en Do es de sostenidos— y el
+    // panel proponía «A#, bVII» contradiciendo la etiqueta de al lado.
+    //
+    // `resolveDegree` ya lo hacía bien y lo tenía escrito; esta rama nunca pasó
+    // por ahí, así que se le pasó por alto.
+    const symbol = `${noteName(root, candidate.label.startsWith('b') ? 'flat' : accidental)}${
+      SHAPES[candidate.shape].suffix
+    }`;
 
     if (seen.has(symbol)) {
       continue;

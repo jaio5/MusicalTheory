@@ -4,9 +4,11 @@ import {
   captureMelody,
   clampOffset,
   clampStart,
+  isDoubtfulNote,
   isInScaleOffset,
   MAX_OFFSET,
   midiOf,
+  NOTA_DUDOSA,
   MIN_OFFSET,
   offsetOfStep,
   NOTE_LENGTHS,
@@ -278,5 +280,32 @@ describe('captureMelody', () => {
       skipped: 0,
       outOfRange: 0,
     });
+  });
+});
+
+describe('las notas dudosas', () => {
+  /**
+   * La hermana del margen de los acordes. Una cuerda que roza, dos que suenan a
+   * la vez o una nota apagada dan claridad baja, y ahí es donde el motor
+   * monofónico se inventa alturas.
+   */
+  it('lo escrito a mano nunca está en duda', () => {
+    expect(isDoubtfulNote(nota())).toBe(false);
+  });
+
+  it('lo oído sucio sí, y lo oído limpio no', () => {
+    expect(isDoubtfulNote(nota({ clarity: NOTA_DUDOSA - 0.1 }))).toBe(true);
+    expect(isDoubtfulNote(nota({ clarity: 0.95 }))).toBe(false);
+  });
+
+  it('la claridad llega desde lo que se tocó hasta la nota escrita', () => {
+    const capture = captureMelody(
+      [
+        { midi: 60, at: 0, clarity: 0.4 },
+        { midi: 64, at: 500, clarity: 0.98 },
+      ],
+      { tonic: C, bpm: 120, endedAt: 1000 },
+    );
+    expect(capture.notes.map(isDoubtfulNote)).toEqual([true, false]);
   });
 });

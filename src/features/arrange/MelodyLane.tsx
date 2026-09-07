@@ -6,6 +6,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
   GRID,
   clampOffset,
+  isDoubtfulNote,
   isInScaleOffset,
   accidentalForScale,
   normalizePitchClass,
@@ -279,11 +280,15 @@ export function MelodyLane({
                 type="button"
                 onPointerDown={(event) => cogerNota(event, note)}
                 onClick={() => onSelect(note.id)}
-                aria-label={`${nombre}, ${note.length} pulsos, en el pulso ${note.start}`}
-                aria-pressed={selectedNoteId === note.id}
-                className={`bg-brass absolute rounded-sm ${
-                  selectedNoteId === note.id ? 'ring-brass-bright ring-2' : ''
+                aria-label={`${nombre}, ${note.length} pulsos, en el pulso ${note.start}${
+                  isDoubtfulNote(note) ? ', dudosa' : ''
                 }`}
+                aria-pressed={selectedNoteId === note.id}
+                // La dudosa va translúcida: en una rejilla de cajitas no cabe un
+                // interrogante, y lo que hay que ver es cuál mirar.
+                className={`bg-brass absolute rounded-sm ${
+                  isDoubtfulNote(note) ? 'opacity-50' : ''
+                } ${selectedNoteId === note.id ? 'ring-brass-bright ring-2' : ''}`}
                 style={{
                   left: note.start * PX_POR_PULSO,
                   top: fila * ALTO_FILA + 3,

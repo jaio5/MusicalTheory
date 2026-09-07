@@ -50,17 +50,13 @@ El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
 ([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
 la manera normal de componer aquí.
 
-- **Guardar desde el lienzo.** El punteo y de dónde salió cada acorde ya caben en
-  una canción ([adr/0020](./adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md)), pero la
-  pestaña de Canciones sigue guardando el camino de la otra cara y no el montaje.
-  Es lo que falta para que el lienzo sobreviva a cerrar la pestaña.
-- **Nada usa todavía la procedencia.** Se guarda de dónde salió cada acorde, y ni
-  la IA ni las lecciones lo leen aún: un `vi` oído con dudas y otro escrito a mano
-  siguen valiendo lo mismo cuando se pide una salida.
-- **Las notas grabadas no se marcan como dudosas.** `PlayedNote` ya lleva la
-  claridad con la que llegó cada una ([adr/0021](./adr/0021-la-nota-siguiente-y-el-punteo-grabado.md)),
-  y el punteo no la enseña: los acordes sí marcan de cuáles no se está seguro y
-  las notas todavía no.
+- **Que la marca de «oído» sirva de algo medible.** Los compases que leyó el micro
+  y nadie confirmó viajan al modelo marcados, y el prompt le dice que no se fíe de
+  ellos. **No está medido**: no se sabe si cambia lo que devuelve, y no se sabrá
+  hasta que las salidas se midan contra la API, que es lo primero de esta lista.
+- **Las lecciones siguen sin leer la procedencia.** Un `vi` que leyó el micro y
+  otro escrito a mano valen lo mismo cuando el profesor o una unidad hablan de tu
+  canción.
 - **Dos notas iguales seguidas se transcriben como una sola larga.** El motor mide
   altura y no ataques, así que no las distingue. Hace falta detección de onsets
   para que la transcripción sea fiel.
@@ -75,16 +71,16 @@ la manera normal de componer aquí.
   Canciones, y ahí la duración de los bloques se convierte en compases repetidos.
   Es a propósito y está razonado, pero significa que reabrir una canción da los
   bloques desagrupados.
-- **En la partitura no se reordenan los acordes.** Se ponen —pulsando,
-  arrastrando hasta el compás o escribiendo—, se quitan y se estiran; para mover
-  uno que ya está puesto hay que pasar a la vista de bloques.
+- **En la partitura no se mueven acordes de una parte a otra.** Dentro de una
+  parte se reordenan arrastrando el cifrado; para llevárselo al estribillo hay que
+  pasar a la vista de bloques, que es donde se ven las dos partes a la vez.
 
 ## 4. Que aprender y componer sean lo mismo
 
-- **Solo hay tres unidades de oído en diez cursos**
-  ([adr/0022](./adr/0022-aprender-de-oido.md)). Falta reconocer especies de
-  séptima, modos y préstamos, que son justo la teoría del Grado Profesional y la
-  que la pantalla de componer usa sin explicar.
+- **Las seis unidades de oído no se han probado con oídos ajenos**
+  ([adr/0022](./adr/0022-aprender-de-oido.md)). Los ejercicios suenan con
+  osciladores, no con una guitarra, y no se sabe si distinguir un `IVmaj7` de un
+  `V7` con ese timbre es más fácil o más difícil que con el instrumento de verdad.
 - **No se puede practicar el oído sin avanzar en el camino.** Una pantalla de
   entrenamiento suelto se descartó para no duplicar la meta diaria y la racha; si
   se hace, lo que tiene que compartir con el camino es exactamente esa racha.

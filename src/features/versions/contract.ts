@@ -53,6 +53,18 @@ export interface VersionStep {
   readonly degree: DegreeSymbol;
   /** Pulsos. Se manda para que la versión respete la forma de la canción. */
   readonly beats: number;
+  /**
+   * Si ese compás lo leyó el micro y nadie lo ha confirmado.
+   *
+   * Va porque **no todos los compases valen lo mismo**: uno escrito a mano es lo
+   * que alguien quiso poner, y uno oído es la lectura de un croma en una
+   * habitación, que puede estar mal —el motor lo dice, con su margen y sus
+   * alternativas—. Sin esta marca los dos llegaban iguales al modelo.
+   *
+   * Ausente cuando se escribió o se confirmó, que es lo normal: solo se manda lo
+   * que hay que decir.
+   */
+  readonly heard?: boolean;
 }
 
 export interface VersionsRequest {
@@ -187,7 +199,13 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
     if (typeof degree !== 'string' || !validDegrees.includes(degree)) {
       continue;
     }
-    progression.push({ degree: degree as DegreeSymbol, beats: asBeats(step['beats']) });
+    progression.push({
+      degree: degree as DegreeSymbol,
+      beats: asBeats(step['beats']),
+      // Solo se apunta lo que hay que decir: la ausencia de la marca es «esto lo
+      // escribió una persona», que es el caso normal.
+      ...(step['heard'] === true ? { heard: true } : {}),
+    });
   }
 
   // Con un solo acorde no hay nada que rearmonizar: la versión sería el mismo

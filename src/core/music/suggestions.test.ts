@@ -329,3 +329,42 @@ describe('función armónica', () => {
     expect(tonic?.substitution).toBeNull();
   });
 });
+
+describe('cómo se escriben los grados prestados', () => {
+  /**
+   * Un grado que se llama «b» algo se escribe con bemol valga lo que valga la
+   * tonalidad. Se proponía «A#, bVII» en Do mayor: la etiqueta decía bemol y el
+   * cifrado de al lado un sostenido. `resolveDegree` ya lo hacía bien —lo tiene
+   * escrito en un comentario— y esta rama no pasaba por ahí.
+   */
+  it.each([
+    ['bVII', 'Bb'],
+    ['bVI', 'Ab'],
+    ['bIII', 'Eb'],
+    // El bII no está entre los prestados que se proponen: el napolitano es de
+    // otro repertorio y no cabe en los estilos que hay.
+  ])('el %s de Do mayor se escribe %s', (label, symbol) => {
+    const propuestas = suggestChords({
+      tonic: pitchClassFromName('C'),
+      mode: 'major',
+      styleId: 'rock',
+      playedNotes: [],
+      limit: 60,
+    });
+    const prestado = propuestas.find((propuesta) => propuesta.label === label);
+
+    expect(prestado?.symbol, `${label} no se propone`).toBe(symbol);
+  });
+
+  // Los diatónicos siguen escribiéndose con la alteración de su tonalidad.
+  it('en una tonalidad de sostenidos, lo diatónico lleva sostenidos', () => {
+    const propuestas = suggestChords({
+      tonic: pitchClassFromName('G'),
+      mode: 'major',
+      styleId: 'rock',
+      playedNotes: [],
+      limit: 60,
+    });
+    expect(propuestas.find((p) => p.label === 'vii°')?.symbol).toBe('F#dim');
+  });
+});

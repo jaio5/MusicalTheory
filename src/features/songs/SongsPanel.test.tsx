@@ -6,8 +6,15 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Account } from '@core/billing';
-import { DEFAULT_BPM, MAX_SECTIONS, pitchClassFromName, type Song } from '@core/music';
+import {
+  DEFAULT_BPM,
+  EMPTY_ARRANGEMENT,
+  MAX_SECTIONS,
+  pitchClassFromName,
+  type Song,
+} from '@core/music';
 import { AccountProvider } from '@state/account';
+import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
 import { SongsPanel } from './SongsPanel';
@@ -60,7 +67,28 @@ function componiendo(labels: readonly string[]) {
   }
 }
 
+/**
+ * El cuerpo del `POST` que guardó, no el de la última llamada.
+ *
+ * Después de guardar se vuelve a pedir la lista, así que la última llamada es un
+ * `GET` y no lleva cuerpo.
+ */
+function cuerpoDelPost(request: { mock: { calls: unknown[][] } }): {
+  sections: { name: string; degrees: string[] }[];
+} {
+  const posts = request.mock.calls
+    .map(([init]: unknown[]) => init as { method?: string; body?: string })
+    .filter((init: { method?: string }) => init.method === 'POST');
+  return JSON.parse(String(posts.at(-1)?.body));
+}
+
+/** Deja una tonalidad puesta: sin ella no se guarda nada. */
+function conTonalidad() {
+  useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+}
+
 beforeEach(() => {
+  useArrangementStore.setState({ arrangement: EMPTY_ARRANGEMENT, past: [] });
   useSessionStore.getState().actions.reset();
 });
 
@@ -414,5 +442,45 @@ describe('el tope de partes', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
 
     expect(await screen.findByText(/Elige una tonalidad/)).toBeInTheDocument();
+  });
+});
+
+describe('guardar el montaje', () => {
+  /**
+   * Son las dos caras de componer y las dos hacen canciones, pero no dicen lo
+   * mismo: el camino es la progresión encadenada de una tirada y el montaje son
+   * partes con nombre, con lo que dura cada acorde y con el punteo. Con montaje
+   * delante, guardar el camino sería guardar la mitad pequeña.
+   */
+  it('el montaje manda sobre el camino', async () => {
+    const enviado = vi.fn(async () => new Response('{}', { status: 200 }));
+    conTonalidad();
+
+    const acciones = useArrangementStore.getState().actions;
+    const parte = acciones.addPart('Estribillo');
+    acciones.addBlock(parte, 'I', 4);
+    acciones.addBlock(parte, 'V', 4);
+
+    render(conCuenta(<SongsPanel request={enviado} />));
+    await userEvent.click(await screen.findByRole('button', { name: 'Guardar el montaje' }));
+
+    expect(cuerpoDelPost(enviado).sections).toEqual([{ name: 'Estribillo', degrees: ['I', 'V'] }]);
+  });
+
+  it('sin montaje se sigue guardando el camino', async () => {
+    const enviado = vi.fn(async () => new Response('{}', { status: 200 }));
+    conTonalidad();
+    useSessionStore.getState().actions.pushChord({
+      symbol: 'C',
+      label: 'I',
+      root: 0,
+      notes: [0, 4, 7],
+      why: 'Casa.',
+    });
+
+    render(conCuenta(<SongsPanel request={enviado} />));
+    await userEvent.click(await screen.findByRole('button', { name: 'Guardar esta progresión' }));
+
+    expect(cuerpoDelPost(enviado).sections[0]?.degrees).toEqual(['I']);
   });
 });

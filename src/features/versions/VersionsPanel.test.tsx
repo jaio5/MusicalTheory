@@ -235,11 +235,35 @@ describe('grabar un trozo', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
 
+    /**
+     * Grado y pulsos, y nada más. Antes se mandaba el paso capturado entero, así
+     * que la confianza y la lista de alternativas del motor viajaban al modelo
+     * gastando tokens sin que nadie las leyera. De todo eso, lo único que le sirve
+     * es si el compás lo oyó un micro, y eso va como `heard`.
+     */
     const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
     expect(request.progression).toEqual([
-      { degree: 'I', beats: 2, confidence: 0.2, alternatives: [] },
-      { degree: 'V', beats: 4, confidence: 0.2, alternatives: [] },
+      { degree: 'I', beats: 2 },
+      { degree: 'V', beats: 4 },
     ]);
+  });
+
+  // Estos se oyeron con margen de sobra: no hay nada que avisar.
+  it('lo oído sin dudas no se marca', async () => {
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    let reloj = 0;
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} now={() => reloj} />));
+    componiendo(['vi', 'IV']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    oye(C, 0);
+    oye(G, 1200);
+    reloj = 3600;
+    await userEvent.click(screen.getByRole('button', { name: 'Parar de grabar' }));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+
+    const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
+    expect(request.progression.every((paso) => paso.heard === undefined)).toBe(true);
   });
 
   it('olvidar lo grabado devuelve el camino', async () => {

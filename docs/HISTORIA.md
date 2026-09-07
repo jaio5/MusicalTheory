@@ -47,6 +47,7 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.           |
 | Qué nota puede seguir, siempre a la vista, y el punteo que tocas cae en la partitura.       |
 | Aprender gana unidades de oído: suena un acorde en tu tonalidad y dices qué era.            |
+| Remate: el lienzo se guarda, los acordes se reordenan escritos y el bVII deja de ser A#.    |
 
 ## Los fallos que enseñaron algo
 

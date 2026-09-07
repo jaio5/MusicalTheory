@@ -117,6 +117,10 @@ compases va una sola parte con la progresion entera.
 Los saltos entre acordes que no estaban en su cancion tienen que estar en el
 mapa de saltos que te dan: de cada grado, a donde se puede ir.
 
+Un compas marcado con heard lo leyo un microfono y nadie lo ha confirmado: puede
+estar mal oido. No los des por seguros al decidir la tonalidad ni al explicar lo
+que hace su cancion. El resto los escribio una persona a proposito.
+
 El campo move va nulo siempre salvo en rearmonizar, y ahi solo en los compases
 que cambies.
 

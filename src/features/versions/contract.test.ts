@@ -665,3 +665,37 @@ describe('lo que llega mal formado, tanto de fuera como del modelo', () => {
     expect(salidas).toHaveLength(1);
   });
 });
+
+describe('de dónde salió cada compás', () => {
+  /**
+   * Un compás escrito a mano es lo que alguien quiso poner; uno oído es la
+   * lectura de un croma en una habitación, y puede estar mal. Sin la marca los
+   * dos llegaban iguales al modelo.
+   */
+  it('la marca de oído sobrevive al viaje, y la ausencia también significa algo', () => {
+    const peticion = parseVersionsRequest({
+      key: { tonic: 'C', mode: 'major' },
+      progression: [
+        { degree: 'I', beats: 4, heard: true },
+        { degree: 'V', beats: 4 },
+      ],
+      kind: 'continuar',
+    });
+
+    expect(peticion?.progression[0]?.heard).toBe(true);
+    expect(peticion?.progression[1]).not.toHaveProperty('heard');
+  });
+
+  // Lo que llega de fuera no se cree: solo un `true` de verdad marca el compás.
+  it('cualquier otra cosa no marca nada', () => {
+    const peticion = parseVersionsRequest({
+      key: { tonic: 'C', mode: 'major' },
+      progression: [
+        { degree: 'I', beats: 4, heard: 'sí' },
+        { degree: 'V', beats: 4, heard: 1 },
+      ],
+      kind: 'continuar',
+    });
+    expect(peticion?.progression.every((paso) => paso.heard === undefined)).toBe(true);
+  });
+});
