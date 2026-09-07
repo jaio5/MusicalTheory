@@ -198,6 +198,9 @@ describe('grabar un trozo', () => {
       symbol: 'x',
       root,
       notes: [0, 4, 7].map((interval) => normalizePitchClass(root + interval)),
+      // Oído sin dudar: el segundo candidato quedaba lejos.
+      margin: 0.2,
+      alternatives: [],
       score: 1,
       at,
     });
@@ -234,8 +237,8 @@ describe('grabar un trozo', () => {
 
     const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
     expect(request.progression).toEqual([
-      { degree: 'I', beats: 2 },
-      { degree: 'V', beats: 4 },
+      { degree: 'I', beats: 2, confidence: 0.2, alternatives: [] },
+      { degree: 'V', beats: 4, confidence: 0.2, alternatives: [] },
     ]);
   });
 

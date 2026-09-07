@@ -226,3 +226,27 @@ basura y falla. Es un detector de plantillas, no una red entrenada.
 
 Por qué este método y no otro, con lo que se descartó por el camino, en
 [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
+
+## Lo que se apunta lleva su duda
+
+`readChord` no devuelve solo el acorde: devuelve también los candidatos que
+compitieron y **el margen**, que es cuánto se despega el elegido del segundo.
+
+El margen es lo que dice si había duda, y no la puntuación. Un 0,90 con el
+segundo en 0,89 es un empate resuelto casi a cara o cruz; un 0,85 con el segundo
+en 0,60 es una certeza. La puntuación mide cuánto se parece el croma a una
+plantilla —y eso depende del instrumento, de la sala y de la pastilla—; el margen
+mide la ambigüedad, que es otra cosa y la que decide si hay que preguntar.
+
+Esa duda **sobrevive a los dos colapsos** de `captureProgression`: al fundir
+fotogramas repetidos y al fundir grados iguales seguidos se conserva el peor
+margen, no la media. Si en alguno de esos análisis el motor estuvo a punto de
+decir otra cosa, el acorde entero es dudoso.
+
+Y lo que no se pudo leer deja de ser un contador: `Capture.unread` dice cuándo
+sonó, cuánto duró, qué se oyó y por qué se cayó. Varios acordes que no caben en la
+tonalidad son casi siempre la misma cosa —que la tonalidad detectada no es la que
+se estaba tocando—, y eso solo se ve si se enseña.
+
+El razonamiento entero está en
+[adr/0020](./adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md).

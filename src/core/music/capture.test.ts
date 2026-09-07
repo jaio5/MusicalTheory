@@ -65,10 +65,10 @@ describe('captureProgression', () => {
     const capture = captureProgression(heard, { ...EN_DO, endedAt: 16 * PULSO });
 
     expect(capture.steps).toEqual([
-      { degree: 'I', beats: 4 },
-      { degree: 'V', beats: 4 },
-      { degree: 'vi', beats: 4 },
-      { degree: 'IV', beats: 4 },
+      { degree: 'I', beats: 4, confidence: 1, alternatives: [] },
+      { degree: 'V', beats: 4, confidence: 1, alternatives: [] },
+      { degree: 'vi', beats: 4, confidence: 1, alternatives: [] },
+      { degree: 'IV', beats: 4, confidence: 1, alternatives: [] },
     ]);
     expect(capturedDegrees(capture)).toEqual(['I', 'V', 'vi', 'IV']);
     expect(capture.bars).toBe(4);
@@ -80,8 +80,8 @@ describe('captureProgression', () => {
     const capture = captureProgression(heard, { ...EN_DO, endedAt: 4 * PULSO });
 
     expect(capture.steps).toEqual([
-      { degree: 'I', beats: 2 },
-      { degree: 'V', beats: 2 },
+      { degree: 'I', beats: 2, confidence: 1, alternatives: [] },
+      { degree: 'V', beats: 2, confidence: 1, alternatives: [] },
     ]);
   });
 
@@ -97,8 +97,8 @@ describe('captureProgression', () => {
     const capture = captureProgression(heard, { ...EN_DO, endedAt: 6 * PULSO });
 
     expect(capture.steps).toEqual([
-      { degree: 'I', beats: 4 },
-      { degree: 'V', beats: 2 },
+      { degree: 'I', beats: 4, confidence: 1, alternatives: [] },
+      { degree: 'V', beats: 2, confidence: 1, alternatives: [] },
     ]);
   });
 
@@ -109,8 +109,8 @@ describe('captureProgression', () => {
     const capture = captureProgression(heard, { ...EN_DO, endedAt: 8 * PULSO });
 
     expect(capture.steps).toEqual([
-      { degree: 'I', beats: 4 },
-      { degree: 'V', beats: 4 },
+      { degree: 'I', beats: 4, confidence: 1, alternatives: [] },
+      { degree: 'V', beats: 4, confidence: 1, alternatives: [] },
     ]);
     expect(capture.skipped).toBe(1);
   });
@@ -132,8 +132,8 @@ describe('captureProgression', () => {
     const capture = captureProgression(heard, { ...EN_DO, endedAt: 600 });
 
     expect(capture.steps).toEqual([
-      { degree: 'I', beats: 1 },
-      { degree: 'V', beats: 1 },
+      { degree: 'I', beats: 1, confidence: 1, alternatives: [] },
+      { degree: 'V', beats: 1, confidence: 1, alternatives: [] },
     ]);
   });
 
@@ -141,14 +141,15 @@ describe('captureProgression', () => {
     const heard = [mayor(C, 0), mayor(G, 2 * PULSO)];
 
     expect(captureProgression(heard, { ...EN_DO, endedAt: 10 * PULSO }).steps).toEqual([
-      { degree: 'I', beats: 2 },
-      { degree: 'V', beats: 8 },
+      { degree: 'I', beats: 2, confidence: 1, alternatives: [] },
+      { degree: 'V', beats: 8, confidence: 1, alternatives: [] },
     ]);
   });
 
   it('sin nada tocado devuelve una progresión vacía y no un error', () => {
     expect(captureProgression([], { ...EN_DO, endedAt: 1000 })).toEqual({
       steps: [],
+      unread: [],
       dropped: 0,
       skipped: 0,
       bars: 0,
@@ -193,8 +194,8 @@ describe('captureProgression', () => {
     const capture = captureProgression(heard, { ...EN_DO, endedAt: 12 * PULSO });
 
     expect(capture.steps).toEqual([
-      { degree: 'I', beats: 8 },
-      { degree: 'V', beats: 4 },
+      { degree: 'I', beats: 8, confidence: 1, alternatives: [] },
+      { degree: 'V', beats: 4, confidence: 1, alternatives: [] },
     ]);
   });
 });
@@ -223,5 +224,87 @@ describe('triadInside', () => {
   it('lo que no tiene tercera no tiene especie', () => {
     expect(triadInside(0, [0, 7])).toBeNull();
     expect(triadInside(0, [0, 5, 7])).toBeNull();
+  });
+});
+
+describe('lo que se apunta lleva su duda', () => {
+  /** Un acorde oído con margen y candidatos, tal y como lo entrega el motor. */
+  function conDuda(root: PitchClass, at: number, margin: number, otras: PitchClass[] = []) {
+    return {
+      root,
+      notes: [0, 4, 7].map((i) => normalizePitchClass(root + i)),
+      at,
+      margin,
+      alternatives: otras.map((otra) => ({
+        root: otra,
+        notes: [0, 3, 7].map((i) => normalizePitchClass(otra + i)),
+      })),
+    };
+  }
+
+  it('el margen del motor llega hasta el paso', () => {
+    const capture = captureProgression([conDuda(C, 0, 0.03)], { ...EN_DO, endedAt: 2000 });
+    expect(capture.steps[0]?.confidence).toBeCloseTo(0.03);
+  });
+
+  // Los candidatos se traducen a grados de la tonalidad y se cae el elegido: al
+  // corregir hay que ofrecer lo que cambia algo.
+  it('las alternativas llegan como grados, sin el que ganó', () => {
+    const capture = captureProgression([conDuda(C, 0, 0.02, [A])], { ...EN_DO, endedAt: 2000 });
+    expect(capture.steps[0]?.alternatives).toEqual(['vi']);
+  });
+
+  /**
+   * Si de los que se funden uno era dudoso, el paso entero lo es. Promediar
+   * escondería la duda justo donde hay que preguntar.
+   */
+  it('al fundir dos iguales manda el más dudoso', () => {
+    const capture = captureProgression([conDuda(C, 0, 0.5), conDuda(C, 1000, 0.02)], {
+      ...EN_DO,
+      endedAt: 2000,
+    });
+    expect(capture.steps).toHaveLength(1);
+    expect(capture.steps[0]?.confidence).toBeCloseTo(0.02);
+  });
+
+  // Sin margen —una captura escrita a mano o de un test viejo— se da por cierta:
+  // lo contrario sería marcar como dudoso todo lo que no venga del micro.
+  it('lo que no trae margen se da por cierto', () => {
+    const capture = captureProgression([{ root: C, notes: [0, 4, 7], at: 0 }], {
+      ...EN_DO,
+      endedAt: 2000,
+    });
+    expect(capture.steps[0]?.confidence).toBe(1);
+  });
+});
+
+describe('lo que no se pudo leer', () => {
+  /**
+   * Antes esto era un contador, y con un número no se puede hacer nada: ni saber
+   * dónde estaba, ni preguntar qué era. Un F#m en una canción en Do es casi
+   * siempre que la tonalidad detectada está mal, y eso solo se ve si se enseña.
+   */
+  it('un acorde de fuera de la tonalidad se apunta con su sitio y su cifrado', () => {
+    const Fs = pitchClassFromName('F#');
+    const capture = captureProgression(
+      [
+        { root: C, notes: [0, 4, 7], at: 0 },
+        { root: Fs, notes: [6, 9, 1], at: 2000 },
+      ],
+      { ...EN_DO, endedAt: 4000 },
+    );
+
+    expect(capture.dropped).toBe(1);
+    expect(capture.unread).toHaveLength(1);
+    expect(capture.unread[0]).toMatchObject({ symbol: 'F#m', reason: 'fuera' });
+    expect(capture.unread[0]?.at).toBeGreaterThan(0);
+  });
+
+  it('lo que no se parece a nada se apunta como ilegible', () => {
+    const capture = captureProgression([{ root: C, notes: [0, 1, 2], at: 0 }], {
+      ...EN_DO,
+      endedAt: 2000,
+    });
+    expect(capture.unread[0]).toMatchObject({ symbol: null, reason: 'ilegible' });
   });
 });

@@ -5,6 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
   barsLabel,
+  isDoubtful,
   partBeats,
   partLength,
   resolveDegree,
@@ -203,6 +204,7 @@ export function PartRow({
                   <span aria-hidden className="bg-brass-bright mr-1 w-1 shrink-0 rounded-full" />
                 )}
                 <BlockButton
+                  doubtful={isDoubtful(block)}
                   symbol={chord.symbol}
                   degree={block.degree}
                   beats={block.beats}

@@ -46,7 +46,26 @@ export interface HeardChord {
   readonly notes: readonly PitchClass[];
   /** Cuánto se parece, de 0 a 1. */
   readonly score: number;
+  /**
+   * Cuánto se despega del siguiente candidato, de 0 a 1.
+   *
+   * Es lo que dice si había duda, y no la puntuación: un 0,90 con el segundo en
+   * 0,89 es un empate que el motor resolvió casi a cara o cruz, y un 0,85 con el
+   * segundo en 0,60 es una certeza. De aquí sale si un acorde apuntado hay que
+   * preguntarlo o darlo por bueno.
+   */
+  readonly margin: number;
+  /** Lo que también pudo ser, de más a menos parecido. */
+  readonly alternatives: readonly HeardAlternative[];
   readonly at: number;
+}
+
+/** Un candidato que no ganó, con lo justo para poder elegirlo al corregir. */
+export interface HeardAlternative {
+  readonly symbol: string;
+  readonly root: PitchClass;
+  readonly notes: readonly PitchClass[];
+  readonly score: number;
 }
 
 /** Un acorde del camino, ya listo para enseñar. */
@@ -338,7 +357,19 @@ export const useSessionStore = create<SessionState>()((set) => ({
           state.capturing && heardChord !== null
             ? [
                 ...state.captured,
-                { root: heardChord.root, notes: heardChord.notes, at: heardChord.at },
+                {
+                  root: heardChord.root,
+                  notes: heardChord.notes,
+                  at: heardChord.at,
+                  // La confianza y los candidatos viajan con el acorde. Se
+                  // quedaban aquí, y sin ellos lo apuntado no sabe de qué dudó.
+                  score: heardChord.score,
+                  margin: heardChord.margin,
+                  alternatives: heardChord.alternatives.map((otra) => ({
+                    root: otra.root,
+                    notes: otra.notes,
+                  })),
+                },
               ]
             : state.captured,
       })),

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ChordMatch } from '@core/music';
+import type { ChordReading } from '@core/music';
 
 import type { AudioInput, AudioInputState } from './audio-input';
 import { ChromaChordEngine } from './chord-engine';
@@ -48,7 +48,7 @@ const C_MAJOR = [261.6, 329.6, 392.0];
 const A_MINOR = [220.0, 261.6, 329.6];
 
 async function listen(input: FakeInput, engine: ChromaChordEngine, ticks: number) {
-  const heard: (ChordMatch | null)[] = [];
+  const heard: (ChordReading | null)[] = [];
   engine.subscribe((chord) => heard.push(chord));
   await engine.start(input);
   await vi.advanceTimersByTimeAsync((1000 / engine.options.rate) * ticks);
@@ -66,7 +66,7 @@ describe('Motor de acordes', () => {
     engine.stop();
     vi.useRealTimers();
 
-    expect(heard.at(-1)?.symbol).toBe('C');
+    expect(heard.at(-1)?.best.symbol).toBe('C');
   });
 
   it('no canta un acorde por un fotograma suelto', async () => {
@@ -74,7 +74,7 @@ describe('Motor de acordes', () => {
     const input = new FakeInput();
     input.peaks = C_MAJOR;
     const engine = new ChromaChordEngine({ confirmations: 5 });
-    const heard: (ChordMatch | null)[] = [];
+    const heard: (ChordReading | null)[] = [];
     engine.subscribe((chord) => heard.push(chord));
 
     await engine.start(input);
@@ -103,7 +103,7 @@ describe('Motor de acordes', () => {
     const input = new FakeInput();
     input.peaks = C_MAJOR;
     const engine = new ChromaChordEngine();
-    const heard: (ChordMatch | null)[] = [];
+    const heard: (ChordReading | null)[] = [];
     engine.subscribe((chord) => heard.push(chord));
 
     await engine.start(input);
@@ -113,7 +113,7 @@ describe('Motor de acordes', () => {
     engine.stop();
     vi.useRealTimers();
 
-    expect(heard.map((chord) => chord?.symbol)).toEqual(['C', 'Am']);
+    expect(heard.map((chord) => chord?.best.symbol)).toEqual(['C', 'Am']);
   });
 
   it('con la entrada parada no analiza nada', async () => {

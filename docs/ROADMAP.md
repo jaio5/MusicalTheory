@@ -50,11 +50,13 @@ El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
 ([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
 la manera normal de componer aquí.
 
-- **El punteo no se guarda.** Las notas ya se escriben, se arrastran y suenan
-  ([adr/0019](./adr/0019-punteos-y-partitura.md)), pero una canción de `song.ts`
-  son grados: al guardar se pierde la melodía, igual que se pierde la duración de
-  un bloque. Es lo que más falta hace y toca el esquema y el contrato de dos
-  rutas.
+- **Guardar desde el lienzo.** El punteo y de dónde salió cada acorde ya caben en
+  una canción ([adr/0020](./adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md)), pero la
+  pestaña de Canciones sigue guardando el camino de la otra cara y no el montaje.
+  Es lo que falta para que el lienzo sobreviva a cerrar la pestaña.
+- **Nada usa todavía la procedencia.** Se guarda de dónde salió cada acorde, y ni
+  la IA ni las lecciones lo leen aún: un `vi` oído con dudas y otro escrito a mano
+  siguen valiendo lo mismo cuando se pide una salida.
 - **La partitura no tiene ligaduras ni silencios escritos.** Tampoco tresillos ni
   dos voces. No es que falte dibujarlos: es que el modelo no los tiene, y una nota
   que cruza la barra de compás se dibuja donde empieza y ya.

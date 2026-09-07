@@ -141,7 +141,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                     |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Van diecinueve.
+descartadas. Van veinte.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando
@@ -168,4 +168,6 @@ ha ejecutado nunca vive en `PARA-PUBLICAR.md` y se dice que no se ha ejecutado.
   un correo que no llega.
 - La detección de tono es **monofónica** y pide señal limpia. Para acordes hay otro
   análisis, y el reconocimiento **duda con inversiones**: el croma olvida la
-  octava, así que C/E y C son el mismo vector.
+  octava, así que C/E y C son el mismo vector. Lo que sí hace es **decir cuándo
+  duda**: un acorde oído por poco margen sale marcado y se corrige pulsándolo
+  ([adr/0020](docs/adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md)).

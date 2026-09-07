@@ -5,15 +5,19 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
   GRID,
+  DUDOSO,
   arrangementBeats,
   barsLabel,
   captureProgression,
   degreesFor,
   findBlock,
   findNote,
+  isDoubtful,
   lastDegreeOf,
   nextDegrees,
+  keyName,
   resolveDegree,
+  type Capture,
   type DegreeSymbol,
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
@@ -52,6 +56,57 @@ import { useBlockDrag, type Medida } from './use-block-drag';
  * tocar el montaje, porque lo que hay guardado son grados.
  */
 
+/**
+ * Qué contar de una grabación recién traída.
+ *
+ * **Lo que no se pudo leer importa más que lo que sí.** Un compás que se cayó es
+ * un agujero en la canción que nadie va a notar mirando el lienzo, porque lo que
+ * falta no se ve; y cuando lo que se cae son varios acordes con la misma pinta,
+ * casi siempre significa lo mismo: la tonalidad que se detectó no es la que se
+ * estaba tocando. Decirlo aquí ahorra volver a grabar sin saber por qué salió
+ * mal.
+ *
+ * Lo dudoso se cuenta aparte y sin alarmar: esos sí están en el lienzo, marcados
+ * y con su corrección a un toque.
+ */
+function avisoDeLaCaptura(capture: Capture, tonalidad: string): string | null {
+  const partes: string[] = [];
+
+  if (capture.unread.length > 0) {
+    const fuera = capture.unread.filter((tramo) => tramo.reason === 'fuera');
+    const cifrados = [...new Set(fuera.map((tramo) => tramo.symbol))].filter(
+      (symbol): symbol is string => symbol !== null,
+    );
+
+    if (cifrados.length > 0) {
+      partes.push(
+        `${fuera.length === 1 ? 'Un acorde no cabe' : `${fuera.length} acordes no caben`} en ` +
+          `${tonalidad}: ${cifrados.join(', ')}. Si ${fuera.length === 1 ? 'lo tocaste' : 'los tocaste'} ` +
+          'a propósito, prueba a cambiar la tonalidad y a traerlo otra vez.',
+      );
+    }
+
+    const ilegibles = capture.unread.length - fuera.length;
+    if (ilegibles > 0) {
+      partes.push(
+        ilegibles === 1
+          ? 'Hubo un momento que no se parecía a ningún acorde y se ha quedado fuera.'
+          : `Hubo ${ilegibles} momentos que no se parecían a ningún acorde y se han quedado fuera.`,
+      );
+    }
+  }
+
+  const dudosos = capture.steps.filter((step) => step.confidence < DUDOSO).length;
+  if (dudosos > 0) {
+    partes.push(
+      `${dudosos === 1 ? 'Hay 1 acorde' : `Hay ${dudosos} acordes`} de los que no estoy seguro: ` +
+        'salen marcados con «?» y se corrigen pulsándolos.',
+    );
+  }
+
+  return partes.length === 0 ? null : partes.join(' ');
+}
+
 /** Cuántos acordes se proponen. Más de seis dejan de mirarse. */
 const CUANTAS_SUGERENCIAS = 6;
 
@@ -86,6 +141,7 @@ export function ArrangeCanvas() {
   const scaleId = useSessionStore((state) => state.scaleId);
   const captureEndedAt = useSessionStore((state) => state.captureEndedAt);
   const capturing = useSessionStore((state) => state.capturing);
+  const listening = useSessionStore((state) => state.listening);
 
   const arrangement = useArrangementStore((state) => state.arrangement);
   const puedeDeshacer = useArrangementStore(selectCanUndo);
@@ -95,6 +151,8 @@ export function ArrangeCanvas() {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [activePartId, setActivePartId] = useState<string | null>(null);
   const [punteo, setPunteo] = useState<Punteo>('oculto');
+  /** Lo que hay que contar de la última grabación traída. */
+  const [aviso, setAviso] = useState<string | null>(null);
   /** Qué propuesta se está arrastrando y sobre qué parte va, mientras dura. */
   const [soltando, setSoltando] = useState<{
     degree: DegreeSymbol;
@@ -382,6 +440,25 @@ export function ArrangeCanvas() {
   );
 
   /**
+   * Empieza o para de apuntar lo que suena.
+   *
+   * **Vive aquí y no solo en Salidas, que es donde estaba.** Apuntar acordes no
+   * cuesta IA ni gasta cupo: lo hace el motor de croma en el propio equipo. El
+   * muro de plan es para pedirle salidas a un modelo, no para escribir en tu
+   * canción lo que acabas de tocar, y tenerlo solo allí dejaba «Traer lo
+   * grabado» sin nada que traer para quien no paga.
+   */
+  const apuntar = useCallback(() => {
+    const acciones = useSessionStore.getState().actions;
+    if (capturing) {
+      acciones.stopCapture(Date.now());
+    } else {
+      setAviso(null);
+      acciones.startCapture(Date.now());
+    }
+  }, [capturing]);
+
+  /**
    * Trae al lienzo lo que se acaba de tocar, con las duraciones que se midieron.
    *
    * Es el puente que faltaba: el motor de croma ya decía qué acorde sonaba y
@@ -401,10 +478,25 @@ export function ArrangeCanvas() {
       beatsPerBar,
     });
     if (capture.steps.length === 0) {
+      setAviso('No he podido leer ni un acorde de lo que has tocado.');
       return;
     }
     setActivePartId(acciones.addRecorded(capture.steps, 'Lo que has tocado'));
+    setAviso(avisoDeLaCaptura(capture, keyName(tonic, mode)));
   }, [acciones, beatsPerBar, bpm, captureEndedAt, captured, mode, tonic]);
+
+  /**
+   * El bloque elegido, si es uno del que hay que preguntar.
+   *
+   * Solo cuando está elegido: marcar los dudosos en el lienzo ya avisa de que
+   * hay algo que mirar, y abrir la corrección de todos a la vez llenaría la
+   * columna de preguntas sobre compases que a lo mejor ni importan.
+   */
+  const elegido = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
+  const enDuda =
+    elegido !== null && isDoubtful(elegido.block) && elegido.block.alternatives.length > 0
+      ? elegido.block
+      : null;
 
   const pulsos = arrangementBeats(arrangement);
   const hayGrabado = !capturing && captured.length > 0 && captureEndedAt > 0;
@@ -434,6 +526,19 @@ export function ArrangeCanvas() {
         </span>
 
         <span className="ml-auto flex flex-wrap gap-1">
+          {/* Apuntar solo tiene sentido con el micro abierto: sin él no llega
+              un acorde y el botón sería una promesa que no se cumple. */}
+          {listening === 'listening' && (
+            <Chip
+              onClick={apuntar}
+              pressed={capturing}
+              tone="quiet"
+              className="px-3 text-xs"
+              title="Apunta los acordes que vayas tocando"
+            >
+              {capturing ? 'Parar de apuntar' : 'Apuntar lo que toco'}
+            </Chip>
+          )}
           {hayGrabado && (
             <Chip onClick={traerGrabado} tone="quiet" className="px-3 text-xs">
               Traer lo grabado
@@ -485,6 +590,15 @@ export function ArrangeCanvas() {
           </Chip>
         </span>
       </div>
+
+      {aviso !== null && (
+        <p className="border-border text-text-muted flex items-start gap-3 border-b px-3 py-2 text-xs">
+          <span className="min-w-0 grow">{aviso}</span>
+          <Chip onClick={() => setAviso(null)} tone="quiet" className="shrink-0 px-3 text-xs">
+            Vale
+          </Chip>
+        </p>
+      )}
 
       <div className="flex min-h-0 grow flex-col overflow-hidden lg:flex-row">
         {/* Las teclas del punteo se escuchan en la caja entera y no en cada nota:
@@ -550,6 +664,53 @@ export function ArrangeCanvas() {
           aria-label="Qué poner ahora"
           className="border-border shrink-0 overflow-y-auto border-t p-3 lg:w-72 lg:border-t-0 lg:border-l"
         >
+          {/*
+            Corregir va lo primero, y solo cuando hay algo que corregir.
+
+            Si hay un acorde elegido del que el motor dudó, lo que hace falta
+            ahora no es poner otro: es arreglar ese. Aparece encima de todo y
+            desaparece en cuanto se resuelve.
+          */}
+          {enDuda !== null && (
+            <section
+              aria-label="Corregir el acorde"
+              className="border-brass-dim mb-4 rounded-md border border-dashed p-3"
+            >
+              <h3 className="text-text-muted text-xs tracking-widest uppercase">
+                No lo oí claro. ¿Era esto?
+              </h3>
+              <p className="text-text-muted mt-1 text-xs">
+                Apunté {resolveDegree(tonic, mode, enDuda.degree).symbol} y estuve a punto de decir
+                otra cosa.
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-1">
+                {enDuda.alternatives.map((otro) => (
+                  <li key={otro}>
+                    <button
+                      type="button"
+                      onClick={() => acciones.fixBlock(enDuda.id, otro)}
+                      className="border-border text-text hover:border-brass-dim hover:bg-surface-raised min-h-tap inline-flex items-center gap-2 rounded-md border px-3 font-mono text-sm"
+                    >
+                      {resolveDegree(tonic, mode, otro).symbol}
+                      <span className="text-text-muted text-xs">{otro}</span>
+                    </button>
+                  </li>
+                ))}
+                <li>
+                  {/* Dar por bueno lo que se oyó también es corregir: deja de
+                      preguntar y el acorde pasa a valer como escrito. */}
+                  <button
+                    type="button"
+                    onClick={() => acciones.confirmBlock(enDuda.id)}
+                    className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex items-center rounded-md border px-3 text-sm"
+                  >
+                    Estaba bien
+                  </button>
+                </li>
+              </ul>
+            </section>
+          )}
+
           {/* Escribir va antes que elegir: quien sabe cómo se llama el acorde no
               tiene por qué buscarlo en una lista, y quien no lo sabe pasa de
               largo hasta las propuestas de abajo. */}

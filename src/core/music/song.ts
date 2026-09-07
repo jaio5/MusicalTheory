@@ -18,7 +18,16 @@
  * por parámetro, como en `exercise.ts`.
  */
 
+import type { BlockSource } from './arrangement';
 import type { KeyMode } from './keys';
+import {
+  clampOffset,
+  clampStart,
+  snapLength,
+  MAX_LEAD_NOTES,
+  MAX_OFFSET,
+  MIN_OFFSET,
+} from './melody';
 import { normalizePitchClass, type PitchClass } from './notes';
 import {
   degreesFor,
@@ -32,7 +41,33 @@ import { clampBpm } from './tempo';
 export interface SongSection {
   readonly name: string;
   readonly degrees: readonly DegreeSymbol[];
+  /**
+   * El punteo, como ternas `[semitonos sobre la tónica, pulso de entrada, pulsos
+   * que dura]`.
+   *
+   * **Ternas y no objetos con claves**, que es lo mismo que ya hace `degrees`
+   * con los grados: una nota son doce bytes en vez de treinta, y una canción
+   * llena baja de veintitrés kilobytes a nueve. El identificador no se guarda:
+   * al abrir se regenera por posición, como los bloques.
+   *
+   * Opcional porque las canciones de antes no lo tienen, y una canción sin
+   * punteo es una canción, no una rota.
+   */
+  readonly lead?: readonly LeadTriple[];
+  /**
+   * De dónde salió cada grado, en el mismo orden que `degrees`.
+   *
+   * Es lo que hace que la observación no se construya sobre arena: un `vi` que
+   * escribió una persona y un `vi` que salió de un micro en una habitación no
+   * valen lo mismo, y quien lea esta canción —la IA, una lección, o alguien
+   * dentro de seis meses— tiene que poder distinguirlos. Sin esto, al guardar se
+   * perdía y todo pasaba a valer igual.
+   */
+  readonly sources?: readonly BlockSource[];
 }
+
+/** Una nota del punteo, como se guarda: altura, entrada y duración. */
+export type LeadTriple = readonly [offset: number, start: number, length: number];
 
 export interface Song {
   readonly id: string;
@@ -130,6 +165,53 @@ function asDegrees(value: unknown, mode: KeyMode): DegreeSymbol[] {
     .slice(0, MAX_SECTION_DEGREES);
 }
 
+/**
+ * El punteo de una sección, leído sin creerse nada.
+ *
+ * Cada nota pasa por la misma rejilla y los mismos topes que si se acabara de
+ * escribir en el lienzo: lo que hay en la base de datos lo escribió el navegador
+ * de alguien, y se interpreta igual al leer que al recibir. Es la misma regla
+ * que sigue el resto de este fichero.
+ *
+ * Una terna con algo que no es un número se cae entera. Redondear un `null` a
+ * cero pondría una nota en la tónica que nadie tocó.
+ */
+function asLead(value: unknown): LeadTriple[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const salida: LeadTriple[] = [];
+  for (const nota of value.slice(0, MAX_LEAD_NOTES)) {
+    if (!Array.isArray(nota) || nota.length < 3) {
+      continue;
+    }
+    const [offset, start, length] = nota;
+    if (
+      typeof offset !== 'number' ||
+      typeof start !== 'number' ||
+      typeof length !== 'number' ||
+      !Number.isFinite(offset) ||
+      !Number.isFinite(start) ||
+      !Number.isFinite(length) ||
+      offset < MIN_OFFSET ||
+      offset > MAX_OFFSET
+    ) {
+      continue;
+    }
+    salida.push([clampOffset(offset), clampStart(start), snapLength(length)]);
+  }
+  return salida;
+}
+
+/** De dónde salió cada grado. Lo que no se reconoce se lee como escrito a mano. */
+function asSources(value: unknown, cuantos: number): BlockSource[] {
+  const crudas = Array.isArray(value) ? value : [];
+  return Array.from({ length: cuantos }, (_, indice) => {
+    const source = crudas[indice];
+    return source === 'heard' || source === 'fixed' ? source : 'written';
+  });
+}
+
 function asSections(value: unknown, mode: KeyMode): SongSection[] {
   if (!Array.isArray(value)) {
     return [];
@@ -143,9 +225,18 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
           unknown
         >;
         const name = trimTo(record['name'], MAX_SECTION_NAME);
+        const degrees = asDegrees(record['degrees'], mode);
+        const lead = asLead(record['lead']);
+        const sources = asSources(record['sources'], degrees.length);
+
+        // Se omite lo que no dice nada, igual que al escribir. Leer y guardar
+        // tienen que dar lo mismo, o una canción crecería sola cada vez que se
+        // abre y se vuelve a guardar sin tocarla.
         return {
           name: name === '' ? defaultSectionName(index) : name,
-          degrees: asDegrees(record['degrees'], mode),
+          degrees,
+          ...(lead.length > 0 ? { lead } : {}),
+          ...(sources.some((source) => source !== 'written') ? { sources } : {}),
         };
       })
       // Una sección sin un solo acorde no es una sección: es una fila vacía que

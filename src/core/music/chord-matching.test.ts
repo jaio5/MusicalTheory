@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bestChord, matchChords } from './chord-matching';
+import { bestChord, matchChords, readChord } from './chord-matching';
 import { pitchClassFromName } from './notes';
 
 /** Un croma limpio: las notas que se dan suenan, el resto no. */
@@ -76,5 +76,39 @@ describe('Reconocer el acorde', () => {
 
     expect(candidatos).toHaveLength(3);
     expect(candidatos[0]!.score).toBeGreaterThanOrEqual(candidatos[1]!.score);
+  });
+});
+
+describe('readChord', () => {
+  /**
+   * El margen es lo que dice si había duda, no la puntuación. Un croma con dos
+   * acordes casi igual de parecidos deja margen pequeño; uno con un acorde claro
+   * lo deja grande, y son los dos casos que hay que distinguir: uno se pregunta y
+   * el otro no.
+   */
+  it('un acorde limpio se despega de su alternativa', () => {
+    const lectura = readChord(chromaOf(C, E, G));
+
+    expect(lectura?.best.symbol).toBe('C');
+    expect(lectura?.margin).toBeGreaterThan(0);
+    expect(lectura?.alternatives.length).toBeGreaterThan(0);
+  });
+
+  it('las alternativas no repiten al elegido', () => {
+    const lectura = readChord(chromaOf(C, E, G));
+    expect(lectura?.alternatives.map((m) => m.symbol)).not.toContain(lectura?.best.symbol);
+  });
+
+  it('sin nada que se parezca, no hay lectura', () => {
+    expect(readChord(new Array(12).fill(0))).toBeNull();
+  });
+
+  // Las que se ofrecen al corregir son las que de verdad compitieron: el mismo
+  // acorde con otra especie, o el relativo, que comparte dos notas.
+  it('lo que compite con un Do mayor es de su familia', () => {
+    const lectura = readChord(chromaOf(C, E, G));
+    const raices = lectura?.alternatives.map((m) => m.root) ?? [];
+    // Do, La menor y Mi menor comparten notas con Do mayor.
+    expect(raices.some((root) => [0, 9, 4, 5].includes(root))).toBe(true);
   });
 });

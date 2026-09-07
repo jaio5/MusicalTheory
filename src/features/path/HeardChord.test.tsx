@@ -16,8 +16,24 @@ function silencio(): void {
   useSessionStore.getState().actions.setHeardChord(null);
 }
 
-const AM = { symbol: 'Am', root: 9 as const, notes: [9, 0, 4] as const, score: 0.93, at: 0 };
-const F = { symbol: 'F', root: 5 as const, notes: [5, 9, 0] as const, score: 0.88, at: 1 };
+/** Sin alternativas y con margen amplio: acordes que se oyeron sin dudar. */
+const SIN_DUDA = { margin: 0.2, alternatives: [] };
+const AM = {
+  symbol: 'Am',
+  root: 9 as const,
+  notes: [9, 0, 4] as const,
+  score: 0.93,
+  at: 0,
+  ...SIN_DUDA,
+};
+const F = {
+  symbol: 'F',
+  root: 5 as const,
+  notes: [5, 9, 0] as const,
+  score: 0.88,
+  at: 1,
+  ...SIN_DUDA,
+};
 
 describe('El acorde que suena', () => {
   beforeEach(() => {

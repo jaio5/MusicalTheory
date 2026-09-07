@@ -23,8 +23,12 @@ import {
   partFromCapture,
   partLength,
   playbackStepsOf,
+  DUDOSO,
+  fixBlock,
+  isDoubtful,
   removeBlock,
   removeNote,
+  writtenBlock,
   soundOf,
   removePart,
   renamePart,
@@ -38,7 +42,17 @@ import type { LeadNote } from './melody';
 import type { Song } from './song';
 
 function bloque(id: string, degree: Block['degree'], beats = 4): Block {
-  return { id, degree, beats };
+  return writtenBlock(id, degree, beats);
+}
+
+/** Un bloque como lo deja el micro: oído, y con la duda que traía. */
+function oido(
+  id: string,
+  degree: Block['degree'],
+  confidence: number,
+  alternatives: Block['alternatives'] = [],
+): Block {
+  return { ...writtenBlock(id, degree, 4), source: 'heard', confidence, alternatives };
 }
 
 /** Un montaje de dos partes, que es lo mínimo para probar mover entre ellas. */
@@ -113,7 +127,7 @@ describe('bloques', () => {
   });
 
   it('un bloque nuevo pasa por los topes de duración', () => {
-    const a = addBlock(montaje(), 'estrofa', { id: 'e', degree: 'V', beats: 0 });
+    const a = addBlock(montaje(), 'estrofa', bloque('e', 'V', 0));
     expect(a.parts[0]?.blocks.at(-1)?.beats).toBe(1);
   });
 
@@ -227,9 +241,13 @@ describe('montaje y canción', () => {
     expect(a.parts[0]?.blocks.every((b) => b.beats === 4)).toBe(true);
   });
 
-  // Es la garantía que hace que el lienzo se pueda usar sobre lo ya guardado:
-  // abrir y volver a guardar sin tocar nada no puede cambiar la canción.
-  it('abrir y guardar no cambia una canción', () => {
+  /**
+   * Es la garantía que hace que el lienzo se pueda usar sobre lo ya guardado:
+   * abrir y volver a guardar sin tocar nada no puede cambiar la canción, **ni
+   * siquiera añadiéndole campos**. Una canción sin punteo y escrita a mano se
+   * guarda igual que antes de que el punteo existiera.
+   */
+  it('abrir y guardar no cambia una canción, ni le añade nada', () => {
     expect(sectionsFromArrangement(arrangementFromSong(cancion, 4), 4)).toEqual(cancion.sections);
   });
 
@@ -257,8 +275,8 @@ describe('partFromCapture', () => {
   it('conserva los pulsos que se midieron al tocar', () => {
     const part = partFromCapture(
       [
-        { degree: 'I', beats: 8 },
-        { degree: 'V', beats: 4 },
+        { degree: 'I', beats: 8, confidence: 1, alternatives: [] },
+        { degree: 'V', beats: 4, confidence: 1, alternatives: [] },
       ],
       'grabado',
       'Lo que has tocado',
@@ -271,6 +289,8 @@ describe('partFromCapture', () => {
     const muchos = Array.from({ length: MAX_PART_BLOCKS + 10 }, () => ({
       degree: 'I' as const,
       beats: 4,
+      confidence: 1,
+      alternatives: [],
     }));
     expect(partFromCapture(muchos, 'g', 'G').blocks).toHaveLength(MAX_PART_BLOCKS);
   });
@@ -435,5 +455,135 @@ describe('soundOf', () => {
     const { events, owners } = soundOf(conPunteo(), 0, 'major', 'estrofa');
     const notas = events.filter((_, i) => owners[i] === null);
     expect(notas[1]!.midis[0]! - notas[0]!.midis[0]!).toBe(7);
+  });
+});
+
+describe('de dónde salió cada acorde', () => {
+  /**
+   * Lo escrito a mano es la intención de quien compone y no se discute. Lo oído
+   * es la lectura de un micro en una habitación, y puede estar mal: solo eso se
+   * marca, y solo cuando el motor eligió por poco.
+   */
+  it('solo lo oído y con poco margen está en duda', () => {
+    expect(isDoubtful(oido('a', 'I', DUDOSO / 2))).toBe(true);
+    expect(isDoubtful(oido('b', 'I', 0.5))).toBe(false);
+    expect(isDoubtful(writtenBlock('c', 'I', 4))).toBe(false);
+  });
+
+  it('lo que se escribe no lleva duda ni alternativas', () => {
+    expect(writtenBlock('a', 'I', 4)).toMatchObject({
+      source: 'written',
+      confidence: 1,
+      alternatives: [],
+    });
+  });
+
+  it('lo grabado llega oído y con lo que dudó', () => {
+    const part = partFromCapture(
+      [{ degree: 'I', beats: 4, confidence: 0.02, alternatives: ['vi'] }],
+      'g',
+      'Grabado',
+    );
+    expect(part.blocks[0]).toMatchObject({
+      source: 'heard',
+      confidence: 0.02,
+      alternatives: ['vi'],
+    });
+    expect(isDoubtful(part.blocks[0]!)).toBe(true);
+  });
+});
+
+describe('fixBlock', () => {
+  const dudoso: Arrangement = {
+    parts: [{ id: 'p', name: 'P', blocks: [oido('b', 'I', 0.01, ['vi', 'IV'])], notes: [] }],
+  };
+
+  // Quien tocó dice qué era de verdad, y eso vale más que cualquier puntuación.
+  it('corregir da el acorde por bueno y le quita la duda', () => {
+    const a = fixBlock(dudoso, 'b', 'vi');
+    expect(findBlock(a, 'b')?.block).toMatchObject({
+      degree: 'vi',
+      source: 'fixed',
+      confidence: 1,
+    });
+    expect(isDoubtful(findBlock(a, 'b')!.block)).toBe(false);
+  });
+
+  /**
+   * La lectura que había pasa a ser la primera alternativa. Es lo que permite
+   * volver atrás cuando la corrección fue el error, y sin ella corregir sería un
+   * camino de ida.
+   */
+  it('lo que decía antes se guarda como la primera alternativa', () => {
+    expect(findBlock(fixBlock(dudoso, 'b', 'vi'), 'b')?.block.alternatives).toEqual(['I', 'IV']);
+  });
+
+  it.each([
+    ['corregir al mismo acorde', () => fixBlock(dudoso, 'b', 'I')],
+    ['corregir uno que no existe', () => fixBlock(dudoso, 'nada', 'vi')],
+  ])('%s no cambia nada', (_, operacion) => {
+    expect(operacion()).toBe(dudoso);
+  });
+});
+
+describe('lo que sobrevive al guardar', () => {
+  /**
+   * La garantía que hace útil todo lo demás: si al guardar se perdiera de dónde
+   * salió cada acorde, guardar y reabrir sería una manera de dar por buena una
+   * lectura que nadie ha mirado.
+   */
+  it('abrir y guardar conserva el punteo y la procedencia', () => {
+    let a: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'Estrofa',
+          blocks: [oido('b1', 'I', 0.01, ['vi']), bloque('b2', 'V')],
+          notes: [],
+        },
+      ],
+    };
+    a = addNote(a, 'p', { id: 'n', offset: 7, start: 1.5, length: 2 });
+
+    const secciones = sectionsFromArrangement(a, 4);
+    expect(secciones[0]?.sources).toEqual(['heard', 'written']);
+    expect(secciones[0]).not.toHaveProperty('lead', []);
+    expect(secciones[0]?.lead).toEqual([[7, 1.5, 2]]);
+
+    const vuelta = arrangementFromSong(
+      { id: 'x', name: 'P', tonic: 0, mode: 'major', bpm: 100, sections: secciones, updatedAt: 1 },
+      4,
+    );
+    expect(vuelta.parts[0]?.blocks.map((b) => b.source)).toEqual(['heard', 'written']);
+    expect(vuelta.parts[0]?.notes[0]).toMatchObject({ offset: 7, start: 1.5, length: 2 });
+  });
+
+  // La procedencia se repite con el grado: los dos compases de un bloque de dos
+  // salieron del mismo sitio, y las dos listas tienen que ir a la par.
+  it('un bloque largo reparte su procedencia por sus compases', () => {
+    const a: Arrangement = {
+      parts: [{ id: 'p', name: 'P', blocks: [oido('b', 'I', 0.5)], notes: [] }],
+    };
+    const seccion = sectionsFromArrangement(resizeBlock(a, 'b', 8), 4)[0];
+
+    expect(seccion?.degrees).toEqual(['I', 'I']);
+    expect(seccion?.sources).toEqual(['heard', 'heard']);
+  });
+
+  // La confianza en sí no se guarda: lo que hace falta después es si aquello se
+  // oyó o se escribió, y un número de un análisis de hace un mes no dice nada.
+  it('lo oído sigue en duda al reabrirlo, y lo corregido no', () => {
+    const a: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'P',
+          blocks: [oido('b1', 'I', 0.01), oido('b2', 'V', 0.01)],
+          notes: [],
+        },
+      ],
+    };
+    const secciones = sectionsFromArrangement(fixBlock(a, 'b2', 'IV'), 4);
+    expect(secciones[0]?.sources).toEqual(['heard', 'fixed']);
   });
 });

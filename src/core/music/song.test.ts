@@ -238,3 +238,63 @@ describe('degreesFromPath', () => {
     });
   });
 });
+
+describe('el punteo y la procedencia, guardados', () => {
+  /**
+   * Lo que hay en la base de datos lo escribió el navegador de alguien, así que
+   * una nota se interpreta igual al leer que al recibir: la misma rejilla y los
+   * mismos topes que si se acabara de escribir en el lienzo.
+   */
+  it('las notas pasan por la rejilla y por los topes', () => {
+    const song = parseSong(
+      {
+        mode: 'major',
+        sections: [{ name: 'A', degrees: ['I'], lead: [[7, 1.3, 1.9]] }],
+      },
+      'x',
+    );
+    expect(song?.sections[0]?.lead).toEqual([[7, 1.5, 2]]);
+  });
+
+  // Redondear un dato roto a cero pondría una nota en la tónica que nadie tocó.
+  it('una nota con algo que no es un número se cae entera', () => {
+    const song = parseSong(
+      {
+        mode: 'major',
+        sections: [
+          {
+            name: 'A',
+            degrees: ['I'],
+            lead: [
+              [7, 0, 1],
+              ['x', 0, 1],
+              [999, 0, 1],
+            ],
+          },
+        ],
+      },
+      'x',
+    );
+    expect(song?.sections[0]?.lead).toEqual([[7, 0, 1]]);
+  });
+
+  it('la procedencia vuelve tal cual, y lo que no se reconoce es escrito a mano', () => {
+    const song = parseSong(
+      {
+        mode: 'major',
+        sections: [{ name: 'A', degrees: ['I', 'V', 'vi'], sources: ['heard', 'fixed', 'ruido'] }],
+      },
+      'x',
+    );
+    expect(song?.sections[0]?.sources).toEqual(['heard', 'fixed', 'written']);
+  });
+
+  /**
+   * Leer y guardar tienen que dar lo mismo. Sin esto, una canción de antes del
+   * punteo crecería sola cada vez que alguien la abre y la vuelve a guardar.
+   */
+  it('una canción sin punteo ni procedencia se lee sin añadirle nada', () => {
+    const song = parseSong({ mode: 'major', sections: [{ name: 'A', degrees: ['I'] }] }, 'x');
+    expect(song?.sections[0]).toEqual({ name: 'A', degrees: ['I'] });
+  });
+});

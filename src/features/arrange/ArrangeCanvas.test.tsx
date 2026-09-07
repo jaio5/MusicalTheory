@@ -5,7 +5,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { EMPTY_ARRANGEMENT, pitchClassFromName } from '@core/music';
+import { EMPTY_ARRANGEMENT, pitchClassFromName, type CapturedChord } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
@@ -323,5 +323,151 @@ describe('las dos vistas del punteo enseñan lo mismo', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Solo la escala' }));
     expect(screen.queryByText(/no es de la escala/)).not.toBeInTheDocument();
+  });
+});
+
+describe('lo que se oyó, y lo que no', () => {
+  /** Deja en el estado una grabación con un acorde dudoso y otro de fuera. */
+  function grabacion(chords: readonly CapturedChord[]) {
+    const acciones = useSessionStore.getState().actions;
+    acciones.setTempo(120, 4);
+    acciones.startCapture(0);
+    acciones.replaceCapture(chords);
+    acciones.stopCapture(8000);
+  }
+
+  const triada = (root: number, tercera: number) =>
+    [root, (root + tercera) % 12, (root + 7) % 12] as never;
+
+  /**
+   * Lo dudoso llega marcado hasta el bloque, que es lo que permite preguntarlo.
+   * Antes el margen se calculaba, se emitía y se tiraba en el estado de sesión.
+   */
+  it('un acorde oído con poco margen sale marcado', async () => {
+    conTonalidad();
+    grabacion([
+      { root: 0, notes: triada(0, 4), at: 0, margin: 0.01, alternatives: [] },
+      { root: 7, notes: triada(7, 4), at: 4000, margin: 0.5, alternatives: [] },
+    ]);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+
+    const bloques = within(
+      screen.getByRole('list', { name: 'Acordes de Lo que has tocado' }),
+    ).getAllByRole('button');
+
+    expect(bloques[0]).toHaveAttribute('aria-label', expect.stringContaining('dudoso'));
+    expect(bloques[1]).not.toHaveAttribute('aria-label', expect.stringContaining('dudoso'));
+  });
+
+  /**
+   * Un acorde que no cabe en la tonalidad es casi siempre que la tonalidad
+   * detectada está mal. Antes era un contador que nadie veía y el compás
+   * desaparecía sin más.
+   */
+  it('lo que no cabe en la tonalidad se cuenta, con su cifrado', async () => {
+    conTonalidad();
+    grabacion([
+      { root: 0, notes: triada(0, 4), at: 0, margin: 0.5, alternatives: [] },
+      // Fa sostenido menor: no es ningún grado de Do mayor.
+      { root: 6, notes: triada(6, 3), at: 4000, margin: 0.5, alternatives: [] },
+    ]);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+
+    expect(screen.getByText(/no cabe en C mayor: F#m/)).toBeInTheDocument();
+    expect(screen.getByText(/cambiar la tonalidad/)).toBeInTheDocument();
+  });
+
+  // Corregir es elegir entre lo que el motor de verdad consideró, no entre los
+  // doce acordes de la tonalidad.
+  it('un bloque dudoso ofrece lo que también pudo ser', async () => {
+    conTonalidad();
+    grabacion([
+      {
+        root: 0,
+        notes: triada(0, 4),
+        at: 0,
+        margin: 0.01,
+        alternatives: [{ root: 9, notes: triada(9, 3) }],
+      },
+    ]);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(
+      within(screen.getByRole('list', { name: 'Acordes de Lo que has tocado' })).getAllByRole(
+        'button',
+      )[0]!,
+    );
+
+    expect(screen.getByRole('heading', { name: /No lo oí claro/ })).toBeInTheDocument();
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'Corregir el acorde' })).getByRole('button', {
+        name: /^Am/,
+      }),
+    );
+
+    expect(acordesDe('Lo que has tocado')).toEqual(['Am']);
+    expect(screen.queryByRole('heading', { name: /No lo oí claro/ })).not.toBeInTheDocument();
+  });
+
+  // Si el motor dudó y acertó, decírselo tiene que dejar de preguntar.
+  it('se puede dar por bueno lo que se oyó', async () => {
+    conTonalidad();
+    grabacion([
+      {
+        root: 0,
+        notes: triada(0, 4),
+        at: 0,
+        margin: 0.01,
+        alternatives: [{ root: 9, notes: triada(9, 3) }],
+      },
+    ]);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(
+      within(screen.getByRole('list', { name: 'Acordes de Lo que has tocado' })).getAllByRole(
+        'button',
+      )[0]!,
+    );
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'Corregir el acorde' })).getByRole('button', {
+        name: 'Estaba bien',
+      }),
+    );
+
+    expect(acordesDe('Lo que has tocado')).toEqual(['C']);
+    expect(screen.queryByRole('heading', { name: /No lo oí claro/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('apuntar lo que se toca', () => {
+  /**
+   * Apuntar acordes lo hace el motor de croma en el propio equipo: no cuesta IA
+   * ni gasta cupo. Estaba solo en el panel de Salidas, que va con plan Pro, y eso
+   * dejaba «Traer lo grabado» sin nada que traer para quien no paga.
+   */
+  it('se puede apuntar sin cuenta y sin plan', async () => {
+    conTonalidad();
+    useSessionStore.getState().actions.setListening('listening');
+    render(<ArrangeCanvas />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Apuntar lo que toco' }));
+    expect(useSessionStore.getState().capturing).toBe(true);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Parar de apuntar' }));
+    expect(useSessionStore.getState().capturing).toBe(false);
+  });
+
+  // Sin el micro abierto no llega un acorde, y el botón sería una promesa que no
+  // se puede cumplir.
+  it('no se ofrece con el micro cerrado', () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    expect(screen.queryByRole('button', { name: /Apuntar lo que toco/ })).not.toBeInTheDocument();
   });
 });

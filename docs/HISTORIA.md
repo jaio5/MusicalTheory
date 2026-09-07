@@ -44,6 +44,7 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Repaso de toda la aplicación: código muerto fuera, tres fallos reales arreglados.           |
 | Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.           |
 | El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.             |
+| Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.           |
 
 ## Los fallos que enseñaron algo
 

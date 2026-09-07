@@ -161,10 +161,17 @@ export function useListening({
             chord === null
               ? null
               : {
-                  symbol: chord.symbol,
-                  root: chord.root,
-                  notes: chord.notes,
-                  score: chord.score,
+                  symbol: chord.best.symbol,
+                  root: chord.best.root,
+                  notes: chord.best.notes,
+                  score: chord.best.score,
+                  margin: chord.margin,
+                  alternatives: chord.alternatives.map((otra) => ({
+                    symbol: otra.symbol,
+                    root: otra.root,
+                    notes: otra.notes,
+                    score: otra.score,
+                  })),
                   at: performance.now(),
                 },
           );

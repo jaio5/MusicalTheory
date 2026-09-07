@@ -43,12 +43,63 @@ import {
 import { MAX_SECTIONS, MAX_SECTION_DEGREES, type Song, type SongSection } from './song';
 import { DEFAULT_BEATS_PER_BAR } from './tempo';
 
-/** Un bloque del lienzo: un acorde y lo que ocupa. */
+/**
+ * De dónde salió un acorde del lienzo.
+ *
+ * No es una etiqueta informativa: es lo que decide de qué se puede fiar quien
+ * mire esta canción. Lo escrito a mano es la intención de quien compone y no se
+ * discute; lo oído es una lectura de un micro en una habitación, y puede estar
+ * mal. Lo corregido es lo oído que ya pasó por delante de quien tocó, así que
+ * vale tanto como lo escrito.
+ */
+export type BlockSource = 'heard' | 'written' | 'fixed';
+
+/** Un bloque del lienzo: un acorde, lo que ocupa y de dónde salió. */
 export interface Block {
   readonly id: string;
   readonly degree: DegreeSymbol;
   /** Pulsos. Siempre uno o más. */
   readonly beats: number;
+  readonly source: BlockSource;
+  /**
+   * Cuánto se despegaba del siguiente candidato al oírlo, de 0 a 1.
+   *
+   * Uno para lo escrito y lo corregido: ahí no hay duda que valga. Por debajo de
+   * `DUDOSO` el bloque se marca en pantalla y se ofrece cambiarlo.
+   */
+  readonly confidence: number;
+  /** Los grados que también pudo ser. Es lo que se ofrece al corregir. */
+  readonly alternatives: readonly DegreeSymbol[];
+}
+
+/**
+ * Por debajo de esto, un acorde oído se marca como dudoso.
+ *
+ * Sale de lo que significa el margen: el segundo candidato se quedó a menos de
+ * seis centésimas del elegido. Con dos acordes tan pegados, el motor eligió por
+ * poco y **preguntar cuesta menos que arrastrar el error por toda la canción**.
+ *
+ * No es un umbral de calidad del sonido —de eso ya se encarga `minScore` en el
+ * motor, que decide si hay acorde o no—: es un umbral de *ambigüedad*, que es
+ * otra cosa y la que importa aquí.
+ */
+export const DUDOSO = 0.06;
+
+/** Un bloque escrito a mano: sin duda y sin alternativas que ofrecer. */
+export function writtenBlock(id: string, degree: DegreeSymbol, beats: number): Block {
+  return {
+    id,
+    degree,
+    beats: clampBeats(beats),
+    source: 'written',
+    confidence: 1,
+    alternatives: [],
+  };
+}
+
+/** Si de este acorde conviene preguntar. */
+export function isDoubtful(block: Block): boolean {
+  return block.source === 'heard' && block.confidence < DUDOSO;
 }
 
 /**
@@ -300,6 +351,45 @@ export function resizeBlock(arrangement: Arrangement, blockId: string, beats: nu
     mapBlocks(part, (block) =>
       block.id === blockId && block.beats !== pulsos ? { ...block, beats: pulsos } : block,
     ),
+  );
+}
+
+/**
+ * Cambia el acorde de un bloque, y lo da por bueno.
+ *
+ * Es la corrección: quien tocó dice qué era de verdad. El bloque pasa a
+ * `fixed` y deja de estar en duda, porque ya ha pasado por delante de quien lo
+ * tocó y eso vale más que cualquier puntuación. **Las alternativas se conservan**
+ * —incluida la lectura que había— para poder volver atrás si la corrección fue
+ * un error.
+ */
+export function fixBlock(
+  arrangement: Arrangement,
+  blockId: string,
+  degree: DegreeSymbol,
+  /**
+   * Dar por bueno lo que ya decía, sin cambiar el acorde.
+   *
+   * Es media corrección y hace la misma falta que la otra: si el motor dudó y
+   * acertó, decírselo tiene que dejar de preguntar. Sin esto, un acorde bien
+   * leído se quedaría marcado como dudoso para siempre.
+   */
+  confirmar = false,
+): Arrangement {
+  return mapParts(arrangement, (part) =>
+    mapBlocks(part, (block) => {
+      if (block.id !== blockId || (block.degree === degree && !confirmar)) {
+        return block;
+      }
+      if (confirmar && block.source !== 'heard') {
+        return block;
+      }
+      const alternatives = [
+        block.degree,
+        ...block.alternatives.filter((otro) => otro !== degree && otro !== block.degree),
+      ];
+      return { ...block, degree, source: 'fixed', confidence: 1, alternatives };
+    }),
   );
 }
 
@@ -615,13 +705,18 @@ export function arrangementFromSong(
       id: idDePosicion(prefijo, parte),
       name: section.name,
       blocks: section.degrees.map((degree, bloque) => ({
-        id: idDePosicion(prefijo, parte, bloque),
-        degree,
-        beats: porCompas,
+        ...writtenBlock(idDePosicion(prefijo, parte, bloque), degree, porCompas),
+        // De dónde salió cada acorde vuelve tal cual. Lo que se guardó como
+        // oído sigue siendo oído al reabrirlo: si no, guardar y volver a abrir
+        // sería una manera de dar por buena una lectura que nadie miró.
+        source: section.sources?.[bloque] ?? 'written',
       })),
-      // Una canción guardada no tiene punteo: `song.ts` guarda grados y nada más.
-      // Abrirla da el acompañamiento, y la melodía se escribe encima.
-      notes: [],
+      notes: (section.lead ?? []).map(([offset, start, length], nota) => ({
+        id: `${idDePosicion(prefijo, parte)}n${nota}`,
+        offset,
+        start,
+        length,
+      })),
     })),
   };
 }
@@ -651,15 +746,31 @@ export function sectionsFromArrangement(
     .slice(0, MAX_PARTS)
     .map((part) => {
       const degrees: DegreeSymbol[] = [];
+      const sources: BlockSource[] = [];
       for (const block of part.blocks) {
         // Al menos una vez: un bloque más corto que el compás sigue siendo un
         // acorde de la canción, y redondear a cero lo borraría sin decirlo.
         const compases = Math.max(1, Math.round(block.beats / porCompas));
         for (let i = 0; i < compases && degrees.length < MAX_PART_BLOCKS; i += 1) {
           degrees.push(block.degree);
+          // La procedencia va en paralelo y se repite con el grado: los dos
+          // compases de un bloque de dos salieron del mismo sitio.
+          sources.push(block.source);
         }
       }
-      return { name: part.name, degrees };
+      const lead = part.notes.map((note) => [note.offset, note.start, note.length] as const);
+
+      // **Lo que no dice nada no se escribe.** Una canción sin punteo y toda
+      // escrita a mano se guarda exactamente igual que antes de que existieran
+      // estos dos campos: sin ellos. Si no, cada canción cargaría con una lista
+      // de «written» repetido y un `lead` vacío, y el documento crecería para no
+      // decir nada.
+      return {
+        name: part.name,
+        degrees,
+        ...(lead.length > 0 ? { lead } : {}),
+        ...(sources.some((source) => source !== 'written') ? { sources } : {}),
+      };
     })
     .filter((section) => section.degrees.length > 0);
 }
@@ -685,6 +796,11 @@ export function partFromCapture(
       id: `${prefijo}b${indice}`,
       degree: step.degree,
       beats: clampBeats(step.beats),
+      // Oído, con la duda que traía. Es lo que permite marcar en el lienzo los
+      // compases de los que el motor no estaba seguro.
+      source: 'heard' as const,
+      confidence: step.confidence,
+      alternatives: step.alternatives,
     })),
     // El croma oye acordes, no melodías: lo que se graba tocando entra como
     // acompañamiento y el punteo se escribe encima.

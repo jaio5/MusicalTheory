@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { AudioInput, AudioInputState } from '@audio/audio-input';
 import type { ChordEngine } from '@audio/chord-engine';
 import type { PitchEngine } from '@audio/pitch-engine';
-import type { ChordMatch } from '@core/music';
+import type { ChordMatch, ChordReading } from '@core/music';
 
 import { useSessionStore } from './session-store';
 import { useListening, type ListeningDeps } from './use-listening';
@@ -56,7 +56,7 @@ class SilentPitchEngine implements PitchEngine {
 class FakeChordEngine implements ChordEngine {
   running = false;
   started = false;
-  #listeners = new Set<(chord: ChordMatch | null) => void>();
+  #listeners = new Set<(chord: ChordReading | null) => void>();
 
   async start(): Promise<void> {
     this.running = true;
@@ -66,24 +66,39 @@ class FakeChordEngine implements ChordEngine {
     this.running = false;
   }
   setAccidental(): void {}
-  subscribe(listener: (chord: ChordMatch | null) => void): () => void {
+  subscribe(listener: (chord: ChordReading | null) => void): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   }
   /** Simula que el motor ha reconocido un acorde. */
-  announce(chord: ChordMatch): void {
+  announce(chord: ChordReading): void {
     for (const listener of this.#listeners) {
       listener(chord);
     }
   }
 }
 
-const AM: ChordMatch = {
+const AM_MATCH: ChordMatch = {
   root: 9,
   shape: { intervals: [0, 3, 7], name: 'menor', suffix: 'm' },
   symbol: 'Am',
   notes: [9, 0, 4],
   score: 0.91,
+};
+
+/** Un La menor claro: el segundo candidato se queda lejos. */
+const AM: ChordReading = {
+  best: AM_MATCH,
+  alternatives: [
+    {
+      root: 0,
+      shape: { intervals: [0, 4, 7, 9], name: 'con sexta', suffix: '6' },
+      symbol: 'C6',
+      notes: [0, 4, 7, 9],
+      score: 0.72,
+    },
+  ],
+  margin: 0.19,
 };
 
 function Escucha(deps: ListeningDeps) {

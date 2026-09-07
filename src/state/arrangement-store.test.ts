@@ -42,8 +42,8 @@ describe('montar', () => {
   it('lo grabado entra con sus duraciones y en una sola parte', () => {
     acciones().addRecorded(
       [
-        { degree: 'I', beats: 8 },
-        { degree: 'IV', beats: 4 },
+        { degree: 'I', beats: 8, confidence: 1, alternatives: [] },
+        { degree: 'IV', beats: 4, confidence: 1, alternatives: [] },
       ],
       'Lo que has tocado',
     );
@@ -92,8 +92,8 @@ describe('deshacer', () => {
   it('lo grabado se deshace de una vez', () => {
     acciones().addRecorded(
       [
-        { degree: 'I', beats: 4 },
-        { degree: 'V', beats: 4 },
+        { degree: 'I', beats: 4, confidence: 1, alternatives: [] },
+        { degree: 'V', beats: 4, confidence: 1, alternatives: [] },
       ],
       'Grabado',
     );

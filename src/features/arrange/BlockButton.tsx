@@ -67,6 +67,14 @@ export interface BlockButtonProps {
   readonly symbol: string;
   readonly degree: string;
   readonly beats: number;
+  /**
+   * Si el motor eligió este acorde por poco.
+   *
+   * Se marca con el filo punteado y un interrogante, y no con un color nuevo:
+   * los tres colores de aquí ya están diciendo qué papel tiene el acorde, y un
+   * cuarto encima haría que ninguno de los dos se leyera.
+   */
+  readonly doubtful?: boolean;
   /** Para decir cuántos compases ocupa: en 3/4 no son los mismos que en 4/4. */
   readonly beatsPerBar: number;
   /** Encendido mientras suena, para que se vea por dónde va. */
@@ -84,6 +92,7 @@ export function BlockButton({
   degree,
   beats,
   beatsPerBar,
+  doubtful = false,
   playing = false,
   selected = false,
   dragging = false,
@@ -110,7 +119,9 @@ export function BlockButton({
               : 'hover:border-brass-dim'
       }`}
       style={{ width: anchoDeBloque(beats), touchAction: 'none' }}
-      aria-label={`${symbol}, grado ${degree}, ${info.name.toLowerCase()}, ${beats} pulsos`}
+      aria-label={`${symbol}, grado ${degree}, ${info.name.toLowerCase()}, ${beats} pulsos${
+        doubtful ? ', dudoso' : ''
+      }`}
       aria-pressed={selected}
       onPointerDown={onPointerDown}
       onClick={onClick}
@@ -119,10 +130,28 @@ export function BlockButton({
       {/* El filo de color va pegado al borde de abajo y mide dos píxeles: dice
           el papel del acorde sin teñir el bloque, que a treinta bloques seguidos
           sería una bandera y no una canción. */}
-      <span aria-hidden className={`absolute inset-x-0 bottom-0 h-0.5 ${FILO[role]}`} />
+      {/* El filo del papel armónico. Punteado cuando el acorde está en duda: es
+          la misma franja diciendo dos cosas, y no dos franjas peleándose. */}
+      {doubtful ? (
+        <span
+          aria-hidden
+          className={`absolute inset-x-0 bottom-0 h-0.5 ${FILO[role]}`}
+          style={{
+            maskImage: 'repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 6px)',
+            WebkitMaskImage: 'repeating-linear-gradient(90deg, #000 0 3px, transparent 3px 6px)',
+          }}
+        />
+      ) : (
+        <span aria-hidden className={`absolute inset-x-0 bottom-0 h-0.5 ${FILO[role]}`} />
+      )}
 
       <span className={`font-mono text-lg ${playing ? 'text-brass-bright' : 'text-text'}`}>
         {symbol}
+        {doubtful && (
+          <span className="text-text-muted ml-1 text-sm" title="No lo oí claro: puedes corregirlo">
+            ?
+          </span>
+        )}
       </span>
       <span className="text-text-muted flex items-baseline gap-1.5 font-mono text-xs">
         <span>{degree}</span>

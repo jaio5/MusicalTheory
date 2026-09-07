@@ -11,7 +11,7 @@
  * enseñarlos todos sería un cartel parpadeando.
  */
 
-import { bestChord, type Accidental, type ChordMatch } from '@core/music';
+import { readChord, type Accidental, type ChordReading } from '@core/music';
 
 import type { AudioInput } from './audio-input';
 import { chromaFromSpectrum } from './chroma';
@@ -52,13 +52,18 @@ export interface ChordEngine {
   stop(): void;
   /** Cambia cómo se escriben los cifrados sin cortar el análisis. */
   setAccidental(accidental: Accidental): void;
-  subscribe(listener: (chord: ChordMatch | null) => void): () => void;
+  /**
+   * Lo que se oye, **con su duda**: el acorde, lo que también pudo ser y cuánto
+   * se despega del segundo. Antes se emitía solo el elegido, y todo lo que venía
+   * después —apuntar, corregir, saber de qué fiarse— se quedaba sin esa mitad.
+   */
+  subscribe(listener: (chord: ChordReading | null) => void): () => void;
 }
 
 export class ChromaChordEngine implements ChordEngine {
   readonly options: ChordEngineOptions;
 
-  readonly #listeners = new Set<(chord: ChordMatch | null) => void>();
+  readonly #listeners = new Set<(chord: ChordReading | null) => void>();
   #input: AudioInput | null = null;
   #spectrum: Float32Array<ArrayBuffer> | null = null;
   #timer: ReturnType<typeof setInterval> | null = null;
@@ -105,7 +110,7 @@ export class ChromaChordEngine implements ChordEngine {
     this.#accidental = accidental;
   }
 
-  subscribe(listener: (chord: ChordMatch | null) => void): () => void {
+  subscribe(listener: (chord: ChordReading | null) => void): () => void {
     this.#listeners.add(listener);
     return () => {
       this.#listeners.delete(listener);
@@ -131,11 +136,11 @@ export class ChromaChordEngine implements ChordEngine {
       (value, note) => value * (1 - smoothing) + chroma[note]! * smoothing,
     );
 
-    const match = bestChord(this.#smoothed, {
+    const reading = readChord(this.#smoothed, {
       accidental: this.#accidental,
       minScore: this.options.minScore,
     });
-    const symbol = match?.symbol ?? null;
+    const symbol = reading?.best.symbol ?? null;
 
     if (symbol !== this.#candidate) {
       this.#candidate = symbol;
@@ -150,7 +155,7 @@ export class ChromaChordEngine implements ChordEngine {
 
     this.#announced = symbol;
     for (const listener of this.#listeners) {
-      listener(match);
+      listener(reading);
     }
   }
 }

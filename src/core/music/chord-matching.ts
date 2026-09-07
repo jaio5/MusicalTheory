@@ -110,6 +110,63 @@ export function matchChords(
   return matches.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+/**
+ * Lo que se ha oído, con lo seguro que se está y lo que también pudo ser.
+ *
+ * `bestChord` contesta «Am» y se queda tan ancho. Eso vale para enseñar un
+ * cifrado en pantalla mientras alguien toca, y no vale para nada de lo que viene
+ * después: ni para saber si fiarse de lo que se ha apuntado, ni para ofrecer una
+ * corrección, ni para que quien mire una progresión sepa de qué partes dudar.
+ *
+ * **El margen es lo que dice si había duda, y no la puntuación.** Un 0,90 con el
+ * segundo en 0,89 es un empate y el motor eligió casi a cara o cruz; un 0,85 con
+ * el segundo en 0,60 es una certeza. La puntuación sola no distingue esos dos
+ * casos, y son justo los dos que hay que distinguir: el primero hay que
+ * preguntarlo y el segundo no.
+ *
+ * Los candidatos que acompañan no son ruido: al oír una guitarra, el segundo
+ * suele ser el mismo acorde con otra especie —un `C` contra un `Cmaj7` porque la
+ * séptima está sonando por simpatía— o su relativo, que comparte dos notas. Son
+ * exactamente las dos correcciones que alguien querría hacer a mano.
+ */
+export interface ChordReading {
+  readonly best: ChordMatch;
+  /** Lo que también pudo ser, de más a menos parecido y sin repetir el mejor. */
+  readonly alternatives: readonly ChordMatch[];
+  /**
+   * Cuánto se despega el mejor del siguiente, de 0 a 1.
+   *
+   * Cero es un empate. Sin segundo candidato es 1: no había con qué confundirlo.
+   */
+  readonly margin: number;
+}
+
+/**
+ * El acorde que suena, con su duda.
+ *
+ * Se piden cuatro candidatos y no uno: tres alternativas es lo que cabe ofrecer
+ * en una corrección sin que se convierta en un catálogo, y el cuarto ya nunca es
+ * el que era.
+ */
+export function readChord(
+  chroma: readonly number[],
+  options: MatchOptions & { readonly minScore?: number } = {},
+): ChordReading | null {
+  const { minScore = 0.78 } = options;
+  const matches = matchChords(chroma, { ...options, limit: options.limit ?? 4 });
+  const [best, segundo] = matches;
+
+  if (best === undefined || best.score < minScore) {
+    return null;
+  }
+
+  return {
+    best,
+    alternatives: matches.slice(1),
+    margin: segundo === undefined ? 1 : Math.max(0, Math.min(1, best.score - segundo.score)),
+  };
+}
+
 /** El acorde que suena, o null si nada se parece lo bastante. */
 export function bestChord(
   chroma: readonly number[],

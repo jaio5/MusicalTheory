@@ -24,8 +24,9 @@ import {
   addBlock,
   addNote,
   addPart,
-  clampBeats,
   EMPTY_ARRANGEMENT,
+  findBlock,
+  fixBlock,
   keepDegreesOfMode,
   moveBlock,
   moveNote,
@@ -33,11 +34,12 @@ import {
   removeBlock,
   removeNote,
   removePart,
+  writtenBlock,
   renamePart,
   resizeBlock,
   resizeNote,
   type Arrangement,
-  type Block,
+  type CapturedStep,
   type DegreeSymbol,
   type LeadNote,
   type KeyMode,
@@ -61,6 +63,10 @@ export interface ArrangementActions {
   /** Un bloque al final de esa parte, o en `at` si se dice. */
   addBlock(partId: string, degree: DegreeSymbol, beats: number, at?: number | null): string;
   removeBlock(blockId: string): void;
+  /** Cambia el acorde de un bloque y lo da por bueno: es la corrección. */
+  fixBlock(blockId: string, degree: DegreeSymbol): void;
+  /** Deja el acorde como está y deja de preguntar por él. */
+  confirmBlock(blockId: string): void;
   resizeBlock(blockId: string, beats: number): void;
   moveBlock(blockId: string, toPartId: string, to: number): void;
 
@@ -72,7 +78,7 @@ export interface ArrangementActions {
   resizeNote(noteId: string, length: number): void;
 
   /** Mete de una vez lo que se acaba de grabar, con sus duraciones. */
-  addRecorded(steps: readonly { degree: DegreeSymbol; beats: number }[], name: string): string;
+  addRecorded(steps: readonly CapturedStep[], name: string): string;
 
   /** Abre un montaje entero: al cargar una canción, o al deshacerlo todo. */
   replace(arrangement: Arrangement): void;
@@ -175,12 +181,20 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
 
       addBlock(partId, degree, beats, at = null) {
         const id = nuevoId('bloque');
-        const block: Block = { id, degree, beats: clampBeats(beats) };
-        cambiar((actual) => addBlock(actual, partId, block, at));
+        cambiar((actual) => addBlock(actual, partId, writtenBlock(id, degree, beats), at));
         return id;
       },
       removeBlock(blockId) {
         cambiar((actual) => removeBlock(actual, blockId));
+      },
+      fixBlock(blockId, degree) {
+        cambiar((actual) => fixBlock(actual, blockId, degree));
+      },
+      confirmBlock(blockId) {
+        const actual = findBlock(get().arrangement, blockId);
+        if (actual !== null) {
+          cambiar((montaje) => fixBlock(montaje, blockId, actual.block.degree, true));
+        }
       },
       resizeBlock(blockId, beats) {
         cambiar((actual) => resizeBlock(actual, blockId, beats));
@@ -212,10 +226,15 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
           // de tocar ocho compases quiere quitarlos de una vez, no uno a uno.
           let siguiente = addPart(actual, partId, name);
           for (const step of steps) {
+            // Oído, con la duda que traía: es lo que permite marcar en el
+            // lienzo los compases de los que el motor no estaba seguro.
             siguiente = addBlock(siguiente, partId, {
               id: nuevoId('bloque'),
               degree: step.degree,
               beats: step.beats,
+              source: 'heard',
+              confidence: step.confidence,
+              alternatives: step.alternatives,
             });
           }
           return siguiente;
