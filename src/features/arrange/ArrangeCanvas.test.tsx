@@ -519,3 +519,96 @@ describe('escribir un acorde donde estás', () => {
     expect(acordesDe('Estrofa')).toHaveLength(3);
   });
 });
+
+describe('el refuerzo de qué nota puede seguir', () => {
+  async function conUnAcorde() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+  }
+
+  it('se ofrece siempre que hay una parte, sin cambiar de vista', async () => {
+    await conUnAcorde();
+    expect(screen.getByRole('region', { name: 'Qué nota puede seguir' })).toBeInTheDocument();
+  });
+
+  it('pulsar una nota la escribe en la partitura', async () => {
+    await conUnAcorde();
+    const notas = within(screen.getByRole('region', { name: 'Qué nota puede seguir' }));
+    await userEvent.click(notas.getAllByRole('button')[0]!);
+
+    expect(
+      within(screen.getByRole('region', { name: 'Estrofa' })).getAllByLabelText(/en el pulso/),
+    ).toHaveLength(1);
+  });
+
+  /**
+   * Lo que puede seguir no depende solo de la escala, sino sobre todo del acorde
+   * que hay debajo. Sin eso, la propuesta sería la misma en toda la canción.
+   */
+  it('lo que se ofrece cambia con la nota anterior', async () => {
+    await conUnAcorde();
+    const region = () => within(screen.getByRole('region', { name: 'Qué nota puede seguir' }));
+
+    const antes = region()
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    await userEvent.click(region().getAllByRole('button')[0]!);
+    const despues = region()
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+
+    expect(despues).not.toEqual(antes);
+  });
+
+  // El vocabulario de la aplicación, también aquí: cada nota dice qué hace.
+  it('cada nota lleva su porqué', async () => {
+    await conUnAcorde();
+    const primera = within(
+      screen.getByRole('region', { name: 'Qué nota puede seguir' }),
+    ).getAllByRole('button')[0]!;
+    expect(primera.getAttribute('aria-label')).toMatch(/acorde|paso|escala/i);
+  });
+});
+
+describe('el punteo grabado', () => {
+  /**
+   * La otra mitad de grabar: los acordes ya caían en el lienzo y las notas
+   * sueltas no, aunque el motor de tono las viniera midiendo desde el principio.
+   */
+  it('lo punteado entra en la partitura como notas', async () => {
+    conTonalidad();
+    const acciones = useSessionStore.getState().actions;
+    acciones.setTempo(120, 4);
+    acciones.setListening('listening');
+    acciones.startCapture(0);
+    // Do, re y mi, una negra cada una a 120 bpm.
+    for (const [i, midi] of [60, 62, 64].entries()) {
+      acciones.setPitch(440 * 2 ** ((midi - 69) / 12), 0.9, i * 500);
+    }
+    acciones.stopCapture(1500);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+
+    const notas = within(
+      screen.getByRole('region', { name: 'Lo que has tocado' }),
+    ).getAllByLabelText(/en el pulso/);
+    expect(notas).toHaveLength(3);
+    expect(notas[0]?.getAttribute('aria-label')).toMatch(/^C4/);
+    expect(notas[2]?.getAttribute('aria-label')).toMatch(/^E4/);
+  });
+
+  it('lo dice al traerlo', async () => {
+    conTonalidad();
+    const acciones = useSessionStore.getState().actions;
+    acciones.setTempo(120, 4);
+    acciones.startCapture(0);
+    acciones.setPitch(440, 0.9, 0);
+    acciones.stopCapture(1000);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    expect(screen.getByText(/He apuntado 1 nota de punteo/)).toBeInTheDocument();
+  });
+});

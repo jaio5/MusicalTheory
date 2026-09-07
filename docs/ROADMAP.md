@@ -57,6 +57,13 @@ la manera normal de componer aquí.
 - **Nada usa todavía la procedencia.** Se guarda de dónde salió cada acorde, y ni
   la IA ni las lecciones lo leen aún: un `vi` oído con dudas y otro escrito a mano
   siguen valiendo lo mismo cuando se pide una salida.
+- **Las notas grabadas no se marcan como dudosas.** `PlayedNote` ya lleva la
+  claridad con la que llegó cada una ([adr/0021](./adr/0021-la-nota-siguiente-y-el-punteo-grabado.md)),
+  y el punteo no la enseña: los acordes sí marcan de cuáles no se está seguro y
+  las notas todavía no.
+- **Dos notas iguales seguidas se transcriben como una sola larga.** El motor mide
+  altura y no ataques, así que no las distingue. Hace falta detección de onsets
+  para que la transcripción sea fiel.
 - **La partitura no tiene ligaduras ni silencios escritos.** Tampoco tresillos ni
   dos voces. No es que falte dibujarlos: es que el modelo no los tiene, y una nota
   que cruza la barra de compás se dibuja donde empieza y ya.

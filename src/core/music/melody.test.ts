@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  captureMelody,
   clampOffset,
   clampStart,
   isInScaleOffset,
@@ -161,5 +162,121 @@ describe('offsetOfStep', () => {
       midiOf(nota({ offset: offsetOfStep(step, Fs, 'major') }), Fs),
     );
     expect(new Set(alturas.map((m) => m % 12)).size).toBe(7);
+  });
+});
+
+describe('captureMelody', () => {
+  /** Una nota oída, a 120 bpm: medio segundo el pulso. */
+  const EN_DO = { tonic: C, bpm: 120 };
+
+  it('convierte lo punteado en notas con su sitio y su figura', () => {
+    // Do central y la quinta encima, un pulso cada una.
+    const capture = captureMelody(
+      [
+        { midi: 60, at: 0 },
+        { midi: 67, at: 500 },
+      ],
+      { ...EN_DO, endedAt: 1000 },
+    );
+
+    expect(capture.notes).toHaveLength(2);
+    expect(capture.notes[0]).toMatchObject({ offset: 0, start: 0, length: 1 });
+    expect(capture.notes[1]).toMatchObject({ offset: 7, start: 1, length: 1 });
+  });
+
+  /**
+   * El historial de la sesión reapunta la misma altura cada cuarto de segundo
+   * mientras suena, así que una negra llega partida en trozos iguales. Sin
+   * fundirlos, un punteo de seis notas salía como quince —se vio grabando uno de
+   * verdad—.
+   *
+   * Lo que se acepta con ello: dos notas iguales repetidas se escriben como una
+   * sola larga. Este motor no las distingue, porque mide altura y no ataques.
+   */
+  it('las iguales seguidas se funden en una sola nota larga', () => {
+    const capture = captureMelody(
+      [
+        { midi: 60, at: 0 },
+        { midi: 60, at: 250 },
+        { midi: 60, at: 500 },
+        { midi: 64, at: 750 },
+      ],
+      { ...EN_DO, endedAt: 1000 },
+    );
+    expect(capture.notes).toHaveLength(2);
+    expect(capture.notes[0]).toMatchObject({ offset: 0, start: 0, length: 1.5 });
+    expect(capture.notes[1]).toMatchObject({ offset: 4, start: 1.5 });
+  });
+
+  // La peor claridad de las que se funden, por lo mismo que el peor margen en los
+  // acordes: si en algún trozo la señal llegó sucia, la nota entera es dudosa.
+  it('al fundir, se queda la peor claridad', () => {
+    const capture = captureMelody(
+      [
+        { midi: 60, at: 0, clarity: 0.9 },
+        { midi: 60, at: 500, clarity: 0.3 },
+        { midi: 64, at: 1000, clarity: 0.9 },
+      ],
+      { ...EN_DO, endedAt: 1500 },
+    );
+    expect(capture.notes).toHaveLength(2);
+  });
+
+  // Por debajo de una semicorchea, en una guitarra, es casi siempre un roce de
+  // púa o el ataque de la siguiente.
+  it('lo que dura menos de una semicorchea no cuenta', () => {
+    const capture = captureMelody(
+      [
+        { midi: 60, at: 0 },
+        { midi: 62, at: 50 },
+        { midi: 64, at: 500 },
+      ],
+      { ...EN_DO, endedAt: 1000 },
+    );
+    expect(capture.notes).toHaveLength(2);
+    expect(capture.skipped).toBe(1);
+  });
+
+  it('el mismo punteo en otra tonalidad da otros semitonos', () => {
+    const enDo = captureMelody([{ midi: 60, at: 0 }], { ...EN_DO, endedAt: 1000 });
+    const enSol = captureMelody([{ midi: 60, at: 0 }], { ...EN_DO, tonic: G, endedAt: 1000 });
+    expect(enSol.notes[0]!.offset - enDo.notes[0]!.offset).toBe(-7);
+  });
+
+  /**
+   * Una nota arrastrada hasta el techo es una nota que no se tocó, y recortarla
+   * mentiría sobre lo que sonó. Se cuenta y se deja fuera.
+   */
+  it('lo que no cabe en el rango se cuenta, no se recorta', () => {
+    const capture = captureMelody(
+      [
+        { midi: 60, at: 0 },
+        { midi: 120, at: 500 },
+      ],
+      { ...EN_DO, endedAt: 1000 },
+    );
+    expect(capture.notes).toHaveLength(1);
+    expect(capture.outOfRange).toBe(1);
+  });
+
+  // Lo tocado antes de darle a apuntar no es parte del punteo.
+  it('no apunta lo que sonó antes de empezar', () => {
+    const capture = captureMelody(
+      [
+        { midi: 60, at: 0 },
+        { midi: 64, at: 2000 },
+      ],
+      { ...EN_DO, startedAt: 1000, endedAt: 3000 },
+    );
+    expect(capture.notes).toHaveLength(1);
+    expect(capture.notes[0]).toMatchObject({ offset: 4, start: 2 });
+  });
+
+  it('sin nada tocado no devuelve nada, y no revienta', () => {
+    expect(captureMelody([], { ...EN_DO, endedAt: 1000 })).toEqual({
+      notes: [],
+      skipped: 0,
+      outOfRange: 0,
+    });
   });
 });

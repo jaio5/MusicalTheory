@@ -45,6 +45,7 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.           |
 | El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.             |
 | Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.           |
+| Qué nota puede seguir, siempre a la vista, y el punteo que tocas cae en la partitura.       |
 
 ## Los fallos que enseñaron algo
 

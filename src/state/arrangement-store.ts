@@ -77,8 +77,13 @@ export interface ArrangementActions {
   moveNote(noteId: string, start: number, offset: number): void;
   resizeNote(noteId: string, length: number): void;
 
-  /** Mete de una vez lo que se acaba de grabar, con sus duraciones. */
-  addRecorded(steps: readonly CapturedStep[], name: string): string;
+  /**
+   * Mete de una vez lo que se acaba de grabar: los acordes y el punteo.
+   *
+   * Una sola entrada en el deshacer para toda la grabación, acordes y notas
+   * juntos: quien acaba de tocar ocho compases quiere quitarlos de una vez.
+   */
+  addRecorded(steps: readonly CapturedStep[], name: string, notes?: readonly LeadNote[]): string;
 
   /** Abre un montaje entero: al cargar una canción, o al deshacerlo todo. */
   replace(arrangement: Arrangement): void;
@@ -219,7 +224,7 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
         cambiar((actual) => resizeNote(actual, noteId, length));
       },
 
-      addRecorded(steps, name) {
+      addRecorded(steps, name, notes = []) {
         const partId = nuevoId('parte');
         cambiar((actual) => {
           // Una sola entrada en el deshacer para toda la grabación: quien acaba
@@ -236,6 +241,9 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
               confidence: step.confidence,
               alternatives: step.alternatives,
             });
+          }
+          for (const note of notes) {
+            siguiente = addNote(siguiente, partId, { ...note, id: nuevoId('nota') });
           }
           return siguiente;
         });

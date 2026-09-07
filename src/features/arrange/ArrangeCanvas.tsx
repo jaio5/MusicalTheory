@@ -8,17 +8,23 @@ import {
   DUDOSO,
   arrangementBeats,
   barsLabel,
+  captureMelody,
   captureProgression,
   degreesFor,
+  SCALES,
+  chordAt,
   findBlock,
   findNote,
   isDoubtful,
+  melodyEnd,
+  nextNotes,
   lastDegreeOf,
   nextDegrees,
   keyName,
   resolveDegree,
   type Capture,
   type DegreeSymbol,
+  type MelodyCapture,
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
@@ -69,8 +75,20 @@ import { useBlockDrag, type Medida } from './use-block-drag';
  * Lo dudoso se cuenta aparte y sin alarmar: esos sí están en el lienzo, marcados
  * y con su corrección a un toque.
  */
-function avisoDeLaCaptura(capture: Capture, tonalidad: string): string | null {
+function avisoDeLaCaptura(
+  capture: Capture,
+  punteo: MelodyCapture,
+  tonalidad: string,
+): string | null {
   const partes: string[] = [];
+
+  if (punteo.notes.length > 0) {
+    partes.push(
+      punteo.notes.length === 1
+        ? 'He apuntado 1 nota de punteo.'
+        : `He apuntado ${punteo.notes.length} notas de punteo.`,
+    );
+  }
 
   if (capture.unread.length > 0) {
     const fuera = capture.unread.filter((tramo) => tramo.reason === 'fuera');
@@ -94,6 +112,13 @@ function avisoDeLaCaptura(capture: Capture, tonalidad: string): string | null {
           : `Hubo ${ilegibles} momentos que no se parecían a ningún acorde y se han quedado fuera.`,
       );
     }
+  }
+
+  if (punteo.outOfRange > 0) {
+    partes.push(
+      `${punteo.outOfRange === 1 ? 'Una nota se salía' : `${punteo.outOfRange} notas se salían`} ` +
+        'de lo que cabe en el pentagrama y no se ha escrito.',
+    );
   }
 
   const dudosos = capture.steps.filter((step) => step.confidence < DUDOSO).length;
@@ -138,6 +163,8 @@ export function ArrangeCanvas() {
   const bpm = useSessionStore((state) => state.bpm);
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
   const captured = useSessionStore((state) => state.captured);
+  const noteHistory = useSessionStore((state) => state.noteHistory);
+  const captureStartedAt = useSessionStore((state) => state.captureStartedAt);
   const scaleId = useSessionStore((state) => state.scaleId);
   const captureEndedAt = useSessionStore((state) => state.captureEndedAt);
   const capturing = useSessionStore((state) => state.capturing);
@@ -473,6 +500,48 @@ export function ArrangeCanvas() {
    * Escribiendo seguido, cada acorde queda elegido y el siguiente entra detrás:
    * se encadena sin tener que apuntar a nada.
    */
+  /**
+   * Qué nota puede seguir, y dónde caería.
+   *
+   * Se calcula sobre el acorde que suena **en ese punto** y no sobre el de la
+   * parte entera: es lo que hace que la propuesta cambie al avanzar por la
+   * canción en vez de repetir siempre la misma lista.
+   *
+   * El sitio es el final del punteo, o justo detrás de la nota elegida si hay
+   * una: es la misma regla que siguen los acordes, y así seleccionar y escribir
+   * significa «aquí» en las dos mitades.
+   */
+  const notaSiguiente = useMemo(() => {
+    if (tonic === null || parteDestino === null) {
+      return null;
+    }
+    const elegida = selectedNoteId === null ? null : findNote(arrangement, selectedNoteId);
+    const en =
+      elegida === null ? melodyEnd(parteDestino) : elegida.note.start + elegida.note.length;
+
+    return {
+      start: en,
+      from: elegida?.note.offset ?? parteDestino.notes.at(-1)?.offset ?? null,
+      notes: nextNotes({
+        tonic,
+        mode,
+        scaleId,
+        chord: chordAt(parteDestino, en),
+        from: elegida?.note.offset ?? parteDestino.notes.at(-1)?.offset ?? null,
+      }),
+    };
+  }, [arrangement, mode, parteDestino, scaleId, selectedNoteId, tonic]);
+
+  const ponerNota = useCallback(
+    (offset: number) => {
+      if (parteDestino === null || notaSiguiente === null) {
+        return;
+      }
+      setSelectedNoteId(acciones.addNote(parteDestino.id, offset, notaSiguiente.start, 1));
+    },
+    [acciones, notaSiguiente, parteDestino],
+  );
+
   const ponerAcorde = useCallback(
     (degree: DegreeSymbol) => {
       const elegido = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
@@ -496,11 +565,15 @@ export function ArrangeCanvas() {
    */
   const apuntar = useCallback(() => {
     const acciones = useSessionStore.getState().actions;
+    // **`performance.now` y no `Date.now`.** Es el reloj con el que se apuntan
+    // los acordes que llegan del motor y las notas del historial, y mezclarlos
+    // deja los instantes a mil millones de distancia: el punteo se quedaba
+    // entero fuera del tramo grabado y no aparecía ni una nota.
     if (capturing) {
-      acciones.stopCapture(Date.now());
+      acciones.stopCapture(performance.now());
     } else {
       setAviso(null);
-      acciones.startCapture(Date.now());
+      acciones.startCapture(performance.now());
     }
   }, [capturing]);
 
@@ -523,13 +596,36 @@ export function ArrangeCanvas() {
       endedAt: captureEndedAt,
       beatsPerBar,
     });
-    if (capture.steps.length === 0) {
-      setAviso('No he podido leer ni un acorde de lo que has tocado.');
+    /**
+     * El punteo se lee del historial de notas, que el motor de tono viene
+     * llenando desde que se abre el micro. Se recorta al tramo apuntado: lo que
+     * sonó antes de darle a apuntar no es parte de esta grabación.
+     */
+    const punteo = captureMelody(noteHistory, {
+      tonic,
+      bpm,
+      startedAt: captureStartedAt,
+      endedAt: captureEndedAt,
+    });
+
+    if (capture.steps.length === 0 && punteo.notes.length === 0) {
+      setAviso('No he podido leer ni un acorde ni una nota de lo que has tocado.');
       return;
     }
-    setActivePartId(acciones.addRecorded(capture.steps, 'Lo que has tocado'));
-    setAviso(avisoDeLaCaptura(capture, keyName(tonic, mode)));
-  }, [acciones, beatsPerBar, bpm, captureEndedAt, captured, mode, tonic]);
+
+    setActivePartId(acciones.addRecorded(capture.steps, 'Lo que has tocado', punteo.notes));
+    setAviso(avisoDeLaCaptura(capture, punteo, keyName(tonic, mode)));
+  }, [
+    acciones,
+    beatsPerBar,
+    bpm,
+    captureEndedAt,
+    captureStartedAt,
+    captured,
+    mode,
+    noteHistory,
+    tonic,
+  ]);
 
   /**
    * El bloque elegido, si es uno del que hay que preguntar.
@@ -545,7 +641,18 @@ export function ArrangeCanvas() {
       : null;
 
   const pulsos = arrangementBeats(arrangement);
-  const hayGrabado = !capturing && captured.length > 0 && captureEndedAt > 0;
+  /**
+   * Si hay algo que traer: acordes **o** punteo.
+   *
+   * Miraba solo los acordes, y eso dejaba fuera el caso de puntear sin rasguear
+   * —que es la mitad de lo que se hace con una guitarra—: se apuntaban las notas
+   * y el botón no aparecía, así que no había manera de sacarlas.
+   */
+  const hayGrabado =
+    !capturing &&
+    captureEndedAt > 0 &&
+    (captured.length > 0 ||
+      noteHistory.some((nota) => nota.at >= captureStartedAt && nota.at <= captureEndedAt));
   const arrastrado = drag === null ? null : findBlock(arrangement, drag.blockId);
 
   if (tonic === null) {
@@ -806,6 +913,62 @@ export function ArrangeCanvas() {
               );
             })}
           </ul>
+
+          {/*
+            El refuerzo de la nota siguiente, siempre a la vista.
+
+            En una fila de píldoras y no en una lista como los acordes: son siete
+            y con el porqué de cada una debajo ocuparían la columna entera,
+            dejando los acordes fuera de pantalla. El porqué se enseña el de la
+            primera —que es la más segura— y el de cada una al pasar por encima.
+          */}
+          {notaSiguiente !== null && (
+            <section aria-label="Qué nota puede seguir" className="mt-5">
+              {/* La escala va en el rótulo, y no es un adorno: con la
+                  pentatónica menor puesta sobre una tonalidad mayor salen un Mi
+                  bemol y un Si bemol encima de un Do mayor, que suena a blues y
+                  es correcto pero desconcierta si no se dice de dónde vienen. */}
+              <h3 className="text-text-muted text-xs tracking-widest uppercase">
+                Y de nota, sobre {SCALES[scaleId].name.toLowerCase()}
+              </h3>
+              <ul className="mt-2 flex flex-wrap gap-1">
+                {notaSiguiente.notes.map((nota) => (
+                  <li key={nota.offset}>
+                    <button
+                      type="button"
+                      onClick={() => ponerNota(nota.offset)}
+                      title={nota.why}
+                      aria-label={`${nota.name}: ${nota.why}`}
+                      className={`min-h-tap inline-flex items-center gap-1.5 rounded-md border px-3 font-mono text-sm ${
+                        nota.role === 'acorde'
+                          ? 'border-brass-dim text-text hover:bg-surface-raised'
+                          : 'border-border text-text-muted hover:border-brass-dim hover:text-text'
+                      }`}
+                    >
+                      {/* El mismo código de tres colores que los bloques: verde
+                          lo que cae de pie, latón lo que entra, rojo lo que roza
+                          y sigue. Con la letra al lado, que un color solo no se
+                          lee. */}
+                      <span
+                        aria-hidden
+                        className={`inline-block size-1.5 rounded-full ${
+                          nota.role === 'acorde'
+                            ? 'bg-tube'
+                            : nota.role === 'escala'
+                              ? 'bg-brass'
+                              : 'bg-oxblood'
+                        }`}
+                      />
+                      {nota.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {notaSiguiente.notes[0] !== undefined && (
+                <p className="text-text-muted mt-2 text-xs">{notaSiguiente.notes[0].why}</p>
+              )}
+            </section>
+          )}
         </aside>
       </div>
 

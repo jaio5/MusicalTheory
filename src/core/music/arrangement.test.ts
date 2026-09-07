@@ -8,12 +8,14 @@ import {
   arrangementFromSong,
   arrangementLength,
   blocksInOrder,
+  chordAt,
   clampBeats,
   EMPTY_ARRANGEMENT,
   findBlock,
   findNote,
   keepDegreesOfMode,
   lastDegreeOf,
+  melodyEnd,
   MAX_BLOCK_BEATS,
   MAX_PART_BLOCKS,
   MAX_PARTS,
@@ -585,5 +587,38 @@ describe('lo que sobrevive al guardar', () => {
     };
     const secciones = sectionsFromArrangement(fixBlock(a, 'b2', 'IV'), 4);
     expect(secciones[0]?.sources).toEqual(['heard', 'fixed']);
+  });
+});
+
+describe('chordAt', () => {
+  // Lo que puede ir después no depende solo de la escala, sino sobre todo de qué
+  // acorde hay debajo. Sin esto, la sugerencia sería la misma en toda la canción.
+  it('dice qué acorde suena en cada pulso', () => {
+    const part = montaje().parts[0]!;
+    expect(chordAt(part, 0)).toBe('I');
+    expect(chordAt(part, 3.5)).toBe('I');
+    expect(chordAt(part, 4)).toBe('vi');
+    expect(chordAt(part, 11)).toBe('IV');
+  });
+
+  // Una nota que se sale por el final es una frase que se estira sobre lo que ya
+  // sonaba, no sobre el silencio.
+  it('pasado el final, sigue mandando el último acorde', () => {
+    expect(chordAt(montaje().parts[0]!, 99)).toBe('IV');
+  });
+
+  it('una parte sin acordes no tiene ninguno', () => {
+    expect(chordAt({ id: 'v', name: 'V', blocks: [], notes: [] }, 0)).toBeNull();
+  });
+});
+
+describe('melodyEnd', () => {
+  it('es donde acaba la última nota, que es donde entra la siguiente', () => {
+    const a = addNote(montaje(), 'estrofa', { id: 'n', offset: 0, start: 2, length: 2 });
+    expect(melodyEnd(a.parts[0]!)).toBe(4);
+  });
+
+  it('sin punteo empieza en cero', () => {
+    expect(melodyEnd(montaje().parts[0]!)).toBe(0);
   });
 });

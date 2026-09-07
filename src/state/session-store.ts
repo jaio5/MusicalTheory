@@ -107,6 +107,14 @@ export interface PlayedNote {
   readonly pitchClass: PitchClass;
   readonly midi: number;
   readonly at: number;
+  /**
+   * Lo limpia que llegó la señal, de 0 a 1.
+   *
+   * Viaja con la nota por lo mismo que el margen viaja con el acorde: al pasar
+   * un punteo a la partitura hay que poder decir de cuáles no se estaba seguro.
+   * Se calculaba en cada análisis y se quedaba en el estado sin llegar a nada.
+   */
+  readonly clarity: number;
 }
 
 export interface SessionActions {
@@ -298,7 +306,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
         const noteHistory = isNew
           ? [
               ...state.noteHistory,
-              { pitchClass: reading.pitchClass, midi: reading.midi, at },
+              { pitchClass: reading.pitchClass, midi: reading.midi, at, clarity },
             ].slice(-NOTE_HISTORY_LIMIT)
           : state.noteHistory;
 

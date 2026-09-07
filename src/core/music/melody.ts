@@ -42,6 +42,7 @@ import type { KeyMode } from './keys';
 import { accidentalForKey, keySignature, pitchOfLetter } from './circle-of-fifths';
 import { normalizePitchClass, noteName, type PitchClass } from './notes';
 import { scaleNotes, type ScaleId } from './scales';
+import { clampBpm, msPerBeat } from './tempo';
 
 /** Una nota del punteo. */
 export interface LeadNote {
@@ -197,6 +198,134 @@ export function offsetOfStep(
   const pitch = pitchOfLetter(letter, keySignature(tonic, mode));
   const midi = (octave + 1) * 12 + pitch;
   return midi - (baseMidi - (baseMidi % 12) + tonic);
+}
+
+/** Una nota que se ha oído, con su instante y lo limpia que llegó. */
+export interface HeardNote {
+  readonly midi: number;
+  /** Milisegundos, del reloj que sea. Solo se usan las diferencias. */
+  readonly at: number;
+  /** Lo clara que llegó la señal, de 0 a 1. Sin ella se da por buena. */
+  readonly clarity?: number;
+}
+
+export interface CaptureMelodyOptions {
+  readonly tonic: PitchClass;
+  readonly bpm: number;
+  /** Cuándo se paró. Es lo que mide la última nota. */
+  readonly endedAt: number;
+  /** El instante en que empieza el punteo. Antes de esto no se apunta nada. */
+  readonly startedAt?: number;
+  /**
+   * Lo que tiene que durar una nota para contar, en pulsos.
+   *
+   * Un cuarto de pulso: la semicorchea. Por debajo de eso, en una guitarra, es
+   * casi siempre un roce de púa o el ataque de la siguiente, no una nota. Es más
+   * fino que el filtro de los acordes —medio pulso— porque una melodía se mueve
+   * el doble de rápido que una progresión.
+   */
+  readonly minBeats?: number;
+}
+
+export interface MelodyCapture {
+  readonly notes: readonly LeadNote[];
+  /** Notas que sonaron menos de lo que pide `minBeats`. */
+  readonly skipped: number;
+  /** Notas que se salen de lo que se puede escribir, por arriba o por abajo. */
+  readonly outOfRange: number;
+}
+
+/**
+ * Lo que has punteado, convertido en notas de la partitura.
+ *
+ * Es el hermano de `captureProgression`, y lo que le faltaba a la otra mitad:
+ * los acordes que tocas ya caían en el lienzo y las notas sueltas no, aunque el
+ * motor de tono las viniera midiendo desde el principio.
+ *
+ * ## Las iguales seguidas se funden, y hay que saber por qué
+ *
+ * El historial de la sesión vuelve a apuntar la misma altura cada cuarto de
+ * segundo mientras suena —`NOTE_REPEAT_MS`—, porque para lo que se hizo eso
+ * bastaba: saber qué notas han sonado para adivinar la tonalidad. Al transcribir
+ * eso convierte **una negra en dos corcheas iguales**, y un punteo de seis notas
+ * en quince.
+ *
+ * Así que se funden, y con ello se acepta una pérdida que conviene decir:
+ * **dos notas iguales repetidas seguidas se escriben como una sola larga.** No es
+ * que se prefiera; es que este motor no las distingue —no hay detección de
+ * ataque, solo altura— y entre escribir una redonda donde había dos negras o
+ * escribir quince notas donde había seis, lo primero se parece más a lo que
+ * sonó. Es hermana de la limitación del croma con las inversiones: se asume y se
+ * dice.
+ *
+ * Lo demás que se pierde: no hay dinámica, no hay ligaduras, los silencios no se
+ * escriben —salen del hueco entre dos notas— y la altura viene de un motor
+ * monofónico, así que dos cuerdas a la vez dan una nota o ninguna.
+ */
+export function captureMelody(
+  heard: readonly HeardNote[],
+  options: CaptureMelodyOptions,
+): MelodyCapture {
+  const porPulso = msPerBeat(clampBpm(options.bpm));
+  const minBeats = options.minBeats ?? 0.25;
+  const desde = options.startedAt ?? heard[0]?.at ?? 0;
+  const base = MELODY_BASE_MIDI - (MELODY_BASE_MIDI % 12) + options.tonic;
+
+  // Se funden las iguales seguidas: el historial reapunta la misma altura
+  // mientras suena, y sin esto cada nota sostenida sale partida en trozos.
+  const dentro: HeardNote[] = [];
+  for (const nota of heard) {
+    if (nota.at < desde) {
+      continue;
+    }
+    const ultima = dentro.at(-1);
+    if (ultima !== undefined && Math.round(ultima.midi) === Math.round(nota.midi)) {
+      // La peor claridad de las que se funden, por lo mismo que el peor margen
+      // en los acordes: si en algún trozo la señal llegó sucia, la nota entera
+      // es dudosa.
+      if ((nota.clarity ?? 1) < (ultima.clarity ?? 1)) {
+        dentro[dentro.length - 1] = { ...ultima, clarity: nota.clarity };
+      }
+      continue;
+    }
+    dentro.push(nota);
+  }
+
+  const notes: LeadNote[] = [];
+  let skipped = 0;
+  let outOfRange = 0;
+
+  for (const [indice, nota] of dentro.entries()) {
+    const hasta = dentro[indice + 1]?.at ?? options.endedAt;
+    const pulsos = (hasta - nota.at) / porPulso;
+
+    if (!Number.isFinite(pulsos) || pulsos < minBeats) {
+      skipped += 1;
+      continue;
+    }
+
+    const offset = Math.round(nota.midi) - base;
+    if (offset < MIN_OFFSET || offset > MAX_OFFSET) {
+      // Fuera del rango escribible. Se cuenta en vez de recortarla: una nota
+      // arrastrada dos octavas hasta el techo es una nota que no tocaste, y
+      // meterla mentiría sobre lo que sonó.
+      outOfRange += 1;
+      continue;
+    }
+
+    if (notes.length >= MAX_LEAD_NOTES) {
+      break;
+    }
+
+    notes.push({
+      id: `p${notes.length}`,
+      offset,
+      start: clampStart((nota.at - desde) / porPulso),
+      length: snapLength(pulsos),
+    });
+  }
+
+  return { notes, skipped, outOfRange };
 }
 
 export function writeNote(

@@ -28,6 +28,7 @@ export * from './transitions';
 export * from './progressions';
 export * from './song';
 export * from './melody';
+export * from './melody-suggestions';
 export * from './arrangement';
 export * from './capture';
 export * from './playback';

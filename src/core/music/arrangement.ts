@@ -208,6 +208,33 @@ export function findBlock(
   return null;
 }
 
+/**
+ * Qué acorde suena en ese pulso de la parte.
+ *
+ * Hace falta para sugerir notas: lo que puede ir después no depende solo de la
+ * escala, sino sobre todo de qué acorde hay debajo —una nota del acorde cae de
+ * pie y una de la escala pide seguir andando—. Sin esto, la sugerencia sería la
+ * misma en toda la canción.
+ *
+ * Pasado el último compás devuelve el último acorde: una nota que se sale por el
+ * final es una frase que se estira sobre lo que ya sonaba, no sobre el silencio.
+ */
+export function chordAt(part: Part, beat: number): DegreeSymbol | null {
+  let desde = 0;
+  for (const block of part.blocks) {
+    if (beat < desde + block.beats) {
+      return block.degree;
+    }
+    desde += block.beats;
+  }
+  return part.blocks.at(-1)?.degree ?? null;
+}
+
+/** Dónde acaba el punteo de una parte: es donde entra la nota siguiente. */
+export function melodyEnd(part: Part): number {
+  return part.notes.reduce((mayor, note) => Math.max(mayor, note.start + note.length), 0);
+}
+
 /** El último grado de una parte, que es desde donde se sugiere el siguiente. */
 export function lastDegreeOf(part: Part): DegreeSymbol | null {
   return part.blocks.at(-1)?.degree ?? null;
