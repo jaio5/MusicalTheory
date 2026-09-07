@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -216,5 +217,51 @@ describe('lo que se escribe se puede leer', () => {
       const ratio = contraste(paleta[token], paleta.background);
       expect(Number(ratio.toFixed(2)), `${token} sobre el fondo`).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+describe('el código de tres estados no se apoya solo en el color', () => {
+  /**
+   * Verde contra rojo es la pareja que no distingue la deficiencia de color más
+   * común, y le pasa a uno de cada doce hombres. Este proyecto usa ese par en dos
+   * códigos —si un acorde entra en la tonalidad, y qué papel armónico tiene— así
+   * que la marca lleva **forma además de color**: círculo, anillo y rombo.
+   *
+   * Las aplicaciones que se apoyan en el color para esto lo resuelven enviando
+   * paletas alternativas —Hooktheory manda cinco, dos de ellas para daltonismo—.
+   * Con forma sale más barato y no hay nada que configurar.
+   *
+   * Se lee el fichero porque lo que se defiende es que **nadie vuelva a dibujar
+   * el punto a mano**: en cuanto alguien escriba su `rounded-full` con
+   * `bg-tube-bright`, el código vuelve a ser solo color y ningún test unitario lo
+   * vería.
+   */
+  it('nadie dibuja el punto de colores a mano', () => {
+    const raiz = join(process.cwd(), 'src');
+    const pendientes: string[] = [];
+
+    const recorrer = (dir: string) => {
+      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+        const ruta = join(dir, entrada.name);
+        if (entrada.isDirectory()) {
+          recorrer(ruta);
+          continue;
+        }
+        if (!entrada.name.endsWith('.tsx') || entrada.name.includes('.test.')) {
+          continue;
+        }
+        if (ruta.endsWith('ui/Marca.tsx')) {
+          continue;
+        }
+        const codigo = readFileSync(ruta, 'utf8');
+        // Un punto redondo pintado con uno de los tres tonos del código.
+        if (/rounded-full[^`"']*\b(bg|border)-(tube|oxblood)(-bright)?\b/.test(codigo)) {
+          pendientes.push(ruta.replace(raiz, 'src'));
+        }
+      }
+    };
+    recorrer(raiz);
+
+    expect(pendientes).toEqual([]);
   });
 });

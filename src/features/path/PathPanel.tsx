@@ -16,6 +16,7 @@ import {
 } from '@core/music';
 import { selectActiveKey, useSessionStore, type PathChord } from '@state/session-store';
 import { ChordDiagram } from '@ui/ChordDiagram';
+import { Marca, type MarcaTono } from '@ui/Marca';
 
 import { ChordSearch } from './ChordSearch';
 
@@ -54,17 +55,22 @@ function fromSearch(chord: ParsedChord): PathChord {
 }
 
 /**
- * Verde si es seguro, ámbar si trae una nota de fuera y rojo si trae más.
+ * Entra si es seguro, color si trae una nota de fuera y fuera si trae más.
  *
  * Es la lectura rápida que hace falta mientras tocas: no da tiempo a leer el
- * porqué de cada acorde, pero sí a ver de qué color es el que vas a pisar.
+ * porqué de cada acorde, pero sí a ver la marca del que vas a pisar.
+ *
+ * Devuelve un tono y no una clase porque **la marca también tiene forma**: el
+ * verde y el rojo de este código son la pareja que no distingue la deficiencia
+ * de color más común, así que el círculo, el anillo y el rombo dicen lo mismo
+ * que los tres colores. Lo dibuja `ui/Marca`.
  */
-function safetyColour(notes: readonly PitchClass[], inKey: ReadonlySet<PitchClass>): string {
+function safetyTone(notes: readonly PitchClass[], inKey: ReadonlySet<PitchClass>): MarcaTono {
   const outside = notes.filter((note) => !inKey.has(note)).length;
   if (outside === 0) {
-    return 'bg-tube-bright';
+    return 'entra';
   }
-  return outside === 1 ? 'bg-brass-bright' : 'bg-oxblood-bright';
+  return outside === 1 ? 'color' : 'fuera';
 }
 
 /** Lo mínimo para dibujar un acorde: da igual si lo elegiste o si lo tocaste. */
@@ -266,16 +272,18 @@ export function NextChords() {
         {/* Lo que significan los puntos, al lado de los puntos: preguntarse qué
             era el ámbar y no tenerlo delante es perder el hilo de lo que tocas. */}
         <p aria-hidden="true" className="text-text-muted flex items-center gap-2 text-xs">
+          {/* La leyenda lleva las mismas formas que la lista, o dejaría de
+              explicarla: un punto redondo aquí y un rombo allí es otra cosa. */}
           <span className="flex items-center gap-1">
-            <span className="bg-tube-bright block h-2 w-2 rounded-full" />
+            <Marca tono="entra" />
             entra
           </span>
           <span className="flex items-center gap-1">
-            <span className="bg-brass-bright block h-2 w-2 rounded-full" />
+            <Marca tono="color" />
             color
           </span>
           <span className="flex items-center gap-1">
-            <span className="bg-oxblood-bright block h-2 w-2 rounded-full" />
+            <Marca tono="fuera" />
             fuera
           </span>
         </p>
@@ -334,13 +342,9 @@ export function NextChords() {
                 aria-label={`${option.symbol}, ${option.label}`}
                 className="hover:bg-surface-raised flex w-full items-baseline gap-3 px-3 py-2 text-left"
               >
-                {/* Marcado como señal para que el verde y el rojo sigan ahí
-                  mientras grabas: es lo único que da tiempo a mirar tocando. */}
-                <span
-                  aria-hidden="true"
-                  data-senal
-                  className={`mt-1 block h-2 w-2 shrink-0 rounded-full ${safetyColour(option.notes, inKey)}`}
-                />
+                {/* Marcado como señal para que la marca siga ahí mientras
+                  grabas: es lo único que da tiempo a mirar tocando. */}
+                <Marca tono={safetyTone(option.notes, inKey)} senal className="mt-1" />
                 <span className="text-text w-16 shrink-0 font-mono text-base">{option.symbol}</span>
                 <span className="text-text-muted w-14 shrink-0 font-mono text-xs">
                   {option.label}

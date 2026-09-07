@@ -33,6 +33,8 @@ import { Chip } from '@ui/Chip';
 
 import { arrastrar } from './arrastrar';
 import { PX_POR_PULSO, ZONA_ESTIRAR_PX, anchoDeBloque } from './BlockButton';
+import { Marca } from '@ui/Marca';
+
 import { ChordEntry } from './ChordEntry';
 import { PartRow, type Punteo } from './PartRow';
 import { useArrangementPlayer } from './use-arrangement-player';
@@ -959,19 +961,19 @@ export function ArrangeCanvas() {
                           : 'border-border text-text-muted hover:border-brass-dim hover:text-text'
                       }`}
                     >
-                      {/* El mismo código de tres colores que los bloques: verde
-                          lo que cae de pie, latón lo que entra, rojo lo que roza
-                          y sigue. Con la letra al lado, que un color solo no se
-                          lee. */}
-                      <span
-                        aria-hidden
-                        className={`inline-block size-1.5 rounded-full ${
+                      {/* La misma marca que el panel de acordes: círculo lo que
+                          cae de pie, anillo lo que entra pero pide seguir, rombo
+                          lo que se sale. Con forma y no solo con color, que el
+                          verde contra el rojo es la pareja que no distingue uno
+                          de cada doce hombres. */}
+                      <Marca
+                        tono={
                           nota.role === 'acorde'
-                            ? 'bg-tube'
+                            ? 'entra'
                             : nota.role === 'escala'
-                              ? 'bg-brass'
-                              : 'bg-oxblood'
-                        }`}
+                              ? 'color'
+                              : 'fuera'
+                        }
                       />
                       {nota.name}
                     </button>

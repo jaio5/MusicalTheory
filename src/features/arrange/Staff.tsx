@@ -337,7 +337,22 @@ export function Staff({
         viewBox={`0 0 ${ancho} ${ALTO}`}
         role="img"
         aria-label={`Partitura de ${partName}: ${notes.length} notas`}
-        className="text-text block"
+        // **El papel no se pone oscuro con el resto.**
+        //
+        // Soundslice, que lleva años enseñando partituras, tiene un tema que se
+        // llama «auto / player light» y es el que trae de fábrica: el marco de la
+        // aplicación sigue al sistema y la música se queda sobre fondo claro.
+        // Su razón, dicha por ellos: notas claras sobre fondo oscuro es lo
+        // bastante poco tradicional como para que haya que **pedirlo**, no para
+        // que se imponga.
+        //
+        // Aquí el negro es el tema de casa y no se va a discutir, pero el
+        // pentagrama es papel: lleva su propio fondo y su propia tinta, siempre
+        // los mismos, y así la partitura se lee igual en los dos temas. Es la
+        // misma pieza que el diagrama de acorde, que también se dibuja igual
+        // valga lo que valga `--color-text`.
+        className="block rounded-md"
+        style={{ backgroundColor: '#f7f4ec', color: '#1a1712' }}
         onClick={(event) => {
           if (arrastradaRef.current) {
             arrastradaRef.current = false;

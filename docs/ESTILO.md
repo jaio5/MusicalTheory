@@ -88,6 +88,28 @@ es ninguna de las dos cosas. Que no se escriba con los tres primeros lo vigila
 abierta: un `text-tube` y ya hay un texto por debajo del mínimo con los dos
 guardianes en verde.
 
+**El código de tres estados lleva forma, no solo color.** Aquí hay dos códigos que
+usan verde, ámbar y rojo —si un acorde entra en la tonalidad, y qué papel armónico
+tiene— y verde contra rojo es justo la pareja que no distingue la deficiencia de
+color más común, que le pasa a uno de cada doce hombres. Se dibuja con `ui/Marca`:
+**círculo lleno, anillo y rombo**, y así la marca se lee sin ver el color. Que
+nadie vuelva a pintar el punto a mano lo vigila `ui/tokens.test.ts` leyendo los
+ficheros.
+
+Las aplicaciones que se apoyan en el color para esto lo resuelven por el otro
+lado: [Hooktheory](https://www.hooktheory.com/support/hookpad) envía cinco
+paletas, dos de ellas pensadas para daltonismo, y Yousician tiene un interruptor
+en ajustes. Con forma sale más barato y no hay nada que configurar ni una paleta
+más que mantener en dos temas.
+
+**El papel no se pone oscuro con el resto.** El pentagrama lleva su propio fondo
+claro y su propia tinta, siempre los mismos, valga lo que valga el tema. Es lo que
+hace [Soundslice](https://www.soundslice.com/help/en/player/advanced/301/theme/)
+de fábrica —el marco sigue al sistema y la música se queda sobre blanco— y su
+razón es buena: notas claras sobre fondo oscuro es lo bastante poco tradicional
+como para que haya que pedirlo. Aquí el negro sigue siendo el tema de casa; lo que
+no se tiñe es el papel. El diagrama de acorde ya funcionaba así.
+
 **La profundidad se pide por su nombre**: `.superficie`, `.superficie-alta` y
 `.superficie-viva` en `globals.css` —fondo, borde, radio, filo de luz y sombra en
 una clase—. Nada de cajas con `border` suelto: un tema oscuro sin relieve se lee
