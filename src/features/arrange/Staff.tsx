@@ -71,18 +71,53 @@ const MARGEN = 52;
 
 const ALTO = 130;
 
+/**
+ * Cuánto se encoge la caja de la clave para caber en el pentagrama.
+ *
+ * La caja mide 152 de alto y una clave de sol ocupa algo más que el pentagrama:
+ * sobresale por arriba con la voluta y por abajo con la cola. Con esto son unos
+ * noventa píxeles contra los cuarenta y ocho de las cinco líneas, que es la
+ * proporción de cualquier partitura.
+ */
+const ESCALA_CLAVE = 0.59;
+
 /** El `step` de la línea de abajo del pentagrama en clave de sol: el Mi de la 4.ª. */
 const STEP_BASE = 2;
 
-/** Los escalones en los que van las alteraciones de la armadura, por su letra. */
-const ALTURA_ARMADURA: Readonly<Record<string, number>> = {
-  F: 9,
-  C: 6,
-  G: 10,
-  D: 7,
-  A: 4,
-  E: 8,
-  B: 5,
+/**
+ * En qué escalón va cada alteración de la armadura, y **son dos tablas**.
+ *
+ * Los sostenidos y los bemoles no se escriben en las mismas alturas: es una
+ * convención de cuatro siglos, no una consecuencia de nada. El primer sostenido
+ * —el Fa— va en la **línea de arriba** del pentagrama, y el primer bemol —el
+ * Si— en la tercera línea. De ahí sale el dibujo de sierra que tienen todas las
+ * armaduras.
+ *
+ * Estaba con una sola tabla, y además desplazada un escalón: el sostenido del Fa
+ * caía en el espacio de debajo de su línea. Se ve en cuanto se pone una
+ * tonalidad con alteraciones al lado de cualquier partitura impresa.
+ *
+ * Los `step` cuentan desde el Do de la cuarta octava, así que la línea inferior
+ * del pentagrama —el Mi— es 2 y la superior —el Fa— es 10.
+ */
+const ALTURA_SOSTENIDOS: Readonly<Record<string, number>> = {
+  F: 10,
+  C: 7,
+  G: 11,
+  D: 8,
+  A: 5,
+  E: 9,
+  B: 6,
+};
+
+const ALTURA_BEMOLES: Readonly<Record<string, number>> = {
+  B: 6,
+  E: 9,
+  A: 5,
+  D: 8,
+  G: 4,
+  C: 7,
+  F: 3,
 };
 
 function yDeStep(step: number): number {
@@ -375,31 +410,78 @@ export function Staff({
           Se probó primero con el carácter de siempre —`U+1D11E`— y salía **un
           cuadro vacío**: los símbolos musicales de Unicode no están en las
           fuentes de sistema, y una partitura que empieza con un cuadro no es una
-          partitura. Se dibuja, como ya se dibujan aquí los diagramas de acorde.
+          partitura. Así que se dibuja, como ya se dibujan aquí los diagramas de
+          acorde.
 
-          No es tipografía musical y no lo pretende: es la espiral cerrada sobre
-          la segunda línea —que es lo que la clave significa—, el tallo y el
-          gancho de arriba. Con eso se lee «clave de sol» de un vistazo, que es
-          para lo único que está.
+          Va en su propio sistema de coordenadas —una caja de 24 × 100— y se
+          coloca con un `transform`, para poder dibujar la forma sin arrastrar en
+          cada curva la aritmética del pentagrama. La caja se escala para que la
+          espiral caiga sobre la segunda línea, que es lo que la clave significa
+          y lo único que **tiene** que cuadrar.
+
+          Se dibuja como una silueta rellena y no como un trazo: una clave de sol
+          tiene la línea gruesa en las curvas y fina en las puntas, y con un
+          `stroke` de ancho constante sale un alambre.
         */}
         <g
           aria-hidden
-          stroke="currentColor"
-          strokeOpacity={0.85}
-          strokeWidth={1.6}
-          strokeLinecap="round"
-          fill="none"
+          // La escala y el sitio salen de una sola condición: **el centro de la
+          // espiral tiene que caer en la segunda línea**, que es la del Sol y es
+          // lo que la clave significa. En la caja de dibujo ese centro está en
+          // y=101, así que el desplazamiento es la línea menos 101 por la escala.
+          transform={`translate(8 ${BASE - 2 * PASO - 101 * ESCALA_CLAVE}) scale(${ESCALA_CLAVE})`}
+          fill="currentColor"
+          fillOpacity={0.85}
         >
           <path
             d={
-              `M 22 ${BASE - 9 * PASO} ` +
-              `C 13 ${BASE - 7 * PASO} 11 ${BASE - 4 * PASO} 16 ${BASE - 2 * PASO} ` +
-              `C 21 ${BASE - PASO} 26 ${BASE - 2 * PASO} 25 ${BASE - 4 * PASO} ` +
-              `C 24 ${BASE - 6 * PASO} 15 ${BASE - 6 * PASO} 12 ${BASE - 3 * PASO} ` +
-              `C 9 ${BASE} 12 ${BASE + 2 * PASO} 18 ${BASE + 2 * PASO}`
+              // La voluta de arriba, el tallo que baja y la espiral que se
+              // cierra sobre la línea del sol; luego el mismo camino de vuelta
+              // por el otro lado, un poco desplazado, que es lo que le da el
+              // grosor variable.
+              'M 42 4 ' +
+              'C 26 18 18 34 22 50 ' +
+              'C 24 58 30 66 34 74 ' +
+              'C 39 84 41 92 39 100 ' +
+              'C 37 110 30 116 22 116 ' +
+              'C 12 116 5 109 5 100 ' +
+              'C 5 92 11 86 19 86 ' +
+              'C 26 86 31 91 31 98 ' +
+              'C 31 103 28 106 24 107 ' +
+              'C 27 108 31 106 33 102 ' +
+              'C 36 96 34 88 30 80 ' +
+              'C 26 72 20 63 17 54 ' +
+              'C 12 36 21 16 40 0 ' +
+              'Z ' +
+              // El hueco de la espiral: dibujado al revés para que el relleno lo
+              // vacíe, que es lo que hace que se vea el bucle y no un borrón.
+              'M 22 92 ' +
+              'C 16 92 11 96 11 101 ' +
+              'C 11 106 16 110 22 110 ' +
+              'C 27 110 31 106 31 101 ' +
+              'C 31 96 27 92 22 92 ' +
+              'Z'
+            }
+            fillRule="evenodd"
+          />
+          {/* El tallo, que baja recto desde la voluta y acaba en la colita. */}
+          <path
+            d={
+              'M 40 2 ' +
+              'C 44 10 47 24 47 40 ' +
+              'C 47 70 45 100 44 122 ' +
+              'C 43 138 38 148 28 150 ' +
+              'C 20 152 13 148 11 141 ' +
+              'C 9 135 12 129 18 128 ' +
+              'C 23 127 27 130 28 135 ' +
+              'C 29 139 26 142 22 142 ' +
+              'C 25 144 30 143 33 139 ' +
+              'C 37 133 39 122 40 108 ' +
+              'C 41 84 42 56 42 38 ' +
+              'C 42 24 41 12 38 4 ' +
+              'Z'
             }
           />
-          <line x1={22} y1={BASE - 9 * PASO} x2={19} y2={BASE + PASO} />
         </g>
 
         {/* La armadura, en el orden en que se escribe. */}
@@ -407,7 +489,11 @@ export function Staff({
           <text
             key={letra}
             x={34 + indice * 7}
-            y={yDeStep(ALTURA_ARMADURA[letra] ?? 6) + 4}
+            y={
+              yDeStep(
+                (armadura.accidental === 'sharp' ? ALTURA_SOSTENIDOS : ALTURA_BEMOLES)[letra] ?? 6,
+              ) + 4
+            }
             fontSize={14}
             fill="currentColor"
             fillOpacity={0.75}
