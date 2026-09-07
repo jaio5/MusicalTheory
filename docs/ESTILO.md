@@ -102,14 +102,6 @@ paletas, dos de ellas pensadas para daltonismo, y Yousician tiene un interruptor
 en ajustes. Con forma sale más barato y no hay nada que configurar ni una paleta
 más que mantener en dos temas.
 
-**El papel no se pone oscuro con el resto.** El pentagrama lleva su propio fondo
-claro y su propia tinta, siempre los mismos, valga lo que valga el tema. Es lo que
-hace [Soundslice](https://www.soundslice.com/help/en/player/advanced/301/theme/)
-de fábrica —el marco sigue al sistema y la música se queda sobre blanco— y su
-razón es buena: notas claras sobre fondo oscuro es lo bastante poco tradicional
-como para que haya que pedirlo. Aquí el negro sigue siendo el tema de casa; lo que
-no se tiñe es el papel. El diagrama de acorde ya funcionaba así.
-
 **Lo que se elige una vez se pliega en cuanto está elegido.** La tonalidad y la
 afinación se tocan al empezar y no se vuelven, así que abiertas se comen la parte
 alta de la pantalla —que es donde tiene que estar lo que se mira mientras se

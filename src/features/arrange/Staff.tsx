@@ -337,22 +337,7 @@ export function Staff({
         viewBox={`0 0 ${ancho} ${ALTO}`}
         role="img"
         aria-label={`Partitura de ${partName}: ${notes.length} notas`}
-        // **El papel no se pone oscuro con el resto.**
-        //
-        // Soundslice, que lleva años enseñando partituras, tiene un tema que se
-        // llama «auto / player light» y es el que trae de fábrica: el marco de la
-        // aplicación sigue al sistema y la música se queda sobre fondo claro.
-        // Su razón, dicha por ellos: notas claras sobre fondo oscuro es lo
-        // bastante poco tradicional como para que haya que **pedirlo**, no para
-        // que se imponga.
-        //
-        // Aquí el negro es el tema de casa y no se va a discutir, pero el
-        // pentagrama es papel: lleva su propio fondo y su propia tinta, siempre
-        // los mismos, y así la partitura se lee igual en los dos temas. Es la
-        // misma pieza que el diagrama de acorde, que también se dibuja igual
-        // valga lo que valga `--color-text`.
-        className="block rounded-md"
-        style={{ backgroundColor: '#f7f4ec', color: '#1a1712' }}
+        className="text-text block"
         onClick={(event) => {
           if (arrastradaRef.current) {
             arrastradaRef.current = false;
@@ -373,7 +358,13 @@ export function Staff({
             y1={BASE - linea * 2 * PASO}
             y2={BASE - linea * 2 * PASO}
             stroke="currentColor"
-            strokeOpacity={0.45}
+            // Las cinco líneas son la referencia contra la que se lee todo lo
+            // demás: apagadas al 45 % se veían como una sugerencia de
+            // pentagrama. Se probó a ponerle fondo claro al dibujo, como hace
+            // Soundslice con su papel, y en una aplicación oscura con identidad
+            // propia el rectángulo blanco canta más de lo que ayuda: lo que le
+            // faltaba a la partitura era contraste, no papel.
+            strokeOpacity={0.7}
             strokeWidth={1}
           />
         ))}
@@ -394,7 +385,7 @@ export function Staff({
         <g
           aria-hidden
           stroke="currentColor"
-          strokeOpacity={0.8}
+          strokeOpacity={0.85}
           strokeWidth={1.6}
           strokeLinecap="round"
           fill="none"
@@ -435,7 +426,7 @@ export function Staff({
             y1={BASE - 8 * PASO}
             y2={BASE}
             stroke="currentColor"
-            strokeOpacity={0.3}
+            strokeOpacity={0.5}
           />
         ))}
 
@@ -581,7 +572,7 @@ export function Staff({
                     y1={yDeStep(12 + i * 2)}
                     y2={yDeStep(12 + i * 2)}
                     stroke="currentColor"
-                    strokeOpacity={0.45}
+                    strokeOpacity={0.7}
                   />
                 ))}
               {escrita.step < 2 &&
@@ -593,7 +584,7 @@ export function Staff({
                     y1={yDeStep(0 - i * 2)}
                     y2={yDeStep(0 - i * 2)}
                     stroke="currentColor"
-                    strokeOpacity={0.45}
+                    strokeOpacity={0.7}
                   />
                 ))}
 
