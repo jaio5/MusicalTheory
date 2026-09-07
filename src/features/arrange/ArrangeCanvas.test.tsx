@@ -90,7 +90,7 @@ describe('montar', () => {
     render(<ArrangeCanvas />);
 
     await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
-    await userEvent.click(screen.getByRole('button', { name: 'Parte nueva' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Parte' }));
     await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
 
     expect(acordesDe('Estrofa')).toHaveLength(1);
@@ -610,5 +610,50 @@ describe('el punteo grabado', () => {
     render(<ArrangeCanvas />);
     await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
     expect(screen.getByText(/He apuntado 1 nota de punteo/)).toBeInTheDocument();
+  });
+});
+
+describe('la longitud de la partitura', () => {
+  async function conUnaParte() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: '+ Parte' }));
+  }
+
+  /**
+   * Antes, la única manera de hacer sitio para escribir en el compás cuatro era
+   * rellenar antes los tres primeros: al revés de como se escribe música, donde
+   * primero hay papel y luego se llena.
+   */
+  it('una parte nueva ya trae compases donde escribir', async () => {
+    await conUnaParte();
+    expect(screen.getByRole('img', { name: /Partitura de Parte 1/ })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('group', { name: /Compases de Parte 1/ })).getByText('4'),
+    ).toBeInTheDocument();
+  });
+
+  it('el más la alarga sin tocar lo que hay dentro', async () => {
+    await conUnaParte();
+    await userEvent.click(screen.getByRole('button', { name: 'Alargar Parte 1' }));
+
+    expect(
+      within(screen.getByRole('group', { name: /Compases de Parte 1/ })).getByText('6'),
+    ).toBeInTheDocument();
+  });
+
+  // Un botón que borra compases con acordes dentro borra trabajo sin decirlo.
+  it('el menos se apaga al llegar a lo que hay escrito, y dice por qué', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    const panel = screen.getByRole('complementary');
+    // Cinco acordes de un compás: la parte ocupa cinco y no se puede bajar.
+    for (let i = 0; i < 5; i += 1) {
+      await userEvent.click(within(panel).getAllByRole('button')[0]!);
+    }
+
+    const menos = screen.getByRole('button', { name: 'Acortar Estrofa' });
+    expect(menos).toBeDisabled();
+    expect(menos).toHaveAttribute('title', expect.stringContaining('sin borrar'));
   });
 });

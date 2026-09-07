@@ -4,9 +4,10 @@ import { useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
-  barsLabel,
+  BARS_QUE_AÑADE,
+  MAX_BARS,
+  drawnBars,
   isDoubtful,
-  partBeats,
   partLength,
   resolveDegree,
   type KeyMode,
@@ -57,6 +58,7 @@ export interface PartRowProps {
   readonly onPlay: () => void;
   readonly onRename: (name: string) => void;
   readonly onRemove: () => void;
+  readonly onSetBars: (bars: number) => void;
   readonly onBlockPointerDown: (
     event: ReactPointerEvent<HTMLButtonElement>,
     blockId: string,
@@ -92,6 +94,7 @@ export function PartRow({
   onPlay,
   onRename,
   onRemove,
+  onSetBars,
   onBlockPointerDown,
   onBlockClick,
   onBlockKeyDown,
@@ -105,6 +108,10 @@ export function PartRow({
   onGestureEnd,
 }: PartRowProps) {
   const [editando, setEditando] = useState(false);
+  const compases = drawnBars(part, beatsPerBar);
+  // No se puede acortar por debajo de lo que hay dentro: un botón que borra
+  // compases con acordes borra trabajo sin decirlo.
+  const minimoBars = Math.max(1, Math.ceil(partLength(part) / Math.max(1, beatsPerBar)));
 
   return (
     <section
@@ -145,8 +152,49 @@ export function PartRow({
           </Chip>
         )}
 
-        <span className="text-text-muted font-mono text-xs">
-          {part.blocks.length === 0 ? 'vacía' : barsLabel(partBeats(part), beatsPerBar)}
+        {/*
+          Los compases, con el número **entre** los dos botones.
+          
+          «4 compases» al lado de un menos y un más decía lo mismo dos veces y en
+          un teléfono partía la fila en dos líneas. Con el número en medio se lee
+          igual de claro, ocupa un tercio y se entiende sin instrucciones qué
+          hacen los botones de al lado.
+        */}
+        <span
+          className="flex items-center gap-1"
+          role="group"
+          aria-label={`Compases de ${part.name}`}
+        >
+          <Chip
+            onClick={() => onSetBars(compases - BARS_QUE_AÑADE)}
+            tone="quiet"
+            disabled={compases <= minimoBars}
+            ariaLabel={`Acortar ${part.name}`}
+            // Deshabilitado sin decir por qué se lee como estropeado. Y el
+            // porqué es una regla, no un fallo: no se borran compases con cosas
+            // dentro.
+            title={
+              compases <= minimoBars
+                ? 'No se puede acortar más sin borrar lo que hay escrito'
+                : `Quitar ${BARS_QUE_AÑADE} compases`
+            }
+            className="px-3"
+          >
+            −
+          </Chip>
+          <span className="text-text-muted w-6 text-center font-mono text-xs tabular-nums">
+            {compases}
+          </span>
+          <Chip
+            onClick={() => onSetBars(compases + BARS_QUE_AÑADE)}
+            tone="quiet"
+            disabled={compases >= MAX_BARS}
+            ariaLabel={`Alargar ${part.name}`}
+            title={`Añadir ${BARS_QUE_AÑADE} compases`}
+            className="px-3"
+          >
+            +
+          </Chip>
         </span>
 
         <span className="ml-auto flex gap-1">
@@ -234,7 +282,7 @@ export function PartRow({
       {punteo === 'bloques' && (
         <MelodyLane
           notes={part.notes}
-          beats={partLength(part)}
+          beats={compases * beatsPerBar}
           beatsPerBar={beatsPerBar}
           tonic={tonic}
           scaleId={scaleId}
@@ -253,7 +301,7 @@ export function PartRow({
         <Staff
           notes={part.notes}
           blocks={part.blocks}
-          beats={partLength(part)}
+          bars={compases}
           beatsPerBar={beatsPerBar}
           tonic={tonic}
           mode={mode}

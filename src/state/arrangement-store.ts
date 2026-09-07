@@ -38,6 +38,7 @@ import {
   renamePart,
   resizeBlock,
   resizeNote,
+  setBars,
   type Arrangement,
   type CapturedStep,
   type DegreeSymbol,
@@ -59,6 +60,8 @@ export interface ArrangementActions {
   removePart(partId: string): void;
   renamePart(partId: string, name: string): void;
   movePart(partId: string, to: number): void;
+  /** Alarga o acorta una parte, en compases. Nunca por debajo de lo que hay. */
+  setBars(partId: string, bars: number, beatsPerBar: number): void;
 
   /** Un bloque al final de esa parte, o en `at` si se dice. */
   addBlock(partId: string, degree: DegreeSymbol, beats: number, at?: number | null): string;
@@ -182,6 +185,9 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
       },
       movePart(partId, to) {
         cambiar((actual) => movePart(actual, partId, to));
+      },
+      setBars(partId, bars, beatsPerBar) {
+        cambiar((actual) => setBars(actual, partId, bars, beatsPerBar));
       },
 
       addBlock(partId, degree, beats, at = null) {

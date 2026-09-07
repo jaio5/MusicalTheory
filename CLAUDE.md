@@ -65,8 +65,11 @@ Alias: `@core/*`, `@audio/*`, `@media/*`, `@server/*`, `@state/*`, `@features/*`
 `@ui/*`, `@/*`. Las capas de arriba importan de `@core/music` y `@core/billing`
 —los índices—, no de los ficheros sueltos.
 
-Tres trampas al tocar esto: **`no-restricted-imports` no se acumula entre bloques de
-ESLint** —el último gana, y por eso las reglas 2 y 5 van juntas—; **el layout raíz
+Cuatro trampas al tocar esto: **`core/music/song.ts` no puede importar valores de
+`arrangement.ts`** —solo tipos—, porque `arrangement` importa los topes de `song`
+y el ciclo revienta en tiempo de ejecución con un `Cannot access antes de
+initialization` que **ningún test ve**, solo el navegador; los topes de lo que se
+guarda van todos en `song.ts`; **`no-restricted-imports` no se acumula entre bloques de ESLint** —el último gana, y por eso las reglas 2 y 5 van juntas—; **el layout raíz
 lleva `dynamic = 'force-dynamic'`** porque sin eso un build hecho sin base de datos
 prerenderiza la cuenta anónima dentro del HTML; y **`planOf` traduce los nombres
 viejos de los planes** (`estudiante` → Básico, `conservatorio` → Pro), porque un

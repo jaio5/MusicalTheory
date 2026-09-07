@@ -679,6 +679,20 @@ export function ArrangeCanvas() {
         </span>
 
         <span className="ml-auto flex flex-wrap gap-1">
+          <span className="flex gap-1" role="group" aria-label="Cómo llevar el punteo">
+            {PUNTEOS.map((candidato) => (
+              <Chip
+                key={candidato.id}
+                onClick={() => setPunteo(candidato.id)}
+                pressed={punteo === candidato.id}
+                tone="quiet"
+                className="px-3 text-xs"
+              >
+                {candidato.name}
+              </Chip>
+            ))}
+          </span>
+
           {/* Apuntar solo tiene sentido con el micro abierto: sin él no llega
               un acorde y el botón sería una promesa que no se cumple. */}
           {listening === 'listening' && (
@@ -711,22 +725,8 @@ export function ArrangeCanvas() {
             tone="quiet"
             className="px-3 text-xs"
           >
-            Parte nueva
+            + Parte
           </Chip>
-          <span className="flex gap-1" role="group" aria-label="Cómo llevar el punteo">
-            {PUNTEOS.map((candidato) => (
-              <Chip
-                key={candidato.id}
-                onClick={() => setPunteo(candidato.id)}
-                pressed={punteo === candidato.id}
-                tone="quiet"
-                className="px-3 text-xs"
-              >
-                {candidato.name}
-              </Chip>
-            ))}
-          </span>
-
           {punteo === 'bloques' && (
             <Chip
               onClick={() => setOnlyScale(!onlyScale)}
@@ -759,13 +759,21 @@ export function ArrangeCanvas() {
         </p>
       )}
 
-      <div className="flex min-h-0 grow flex-col overflow-hidden lg:flex-row">
+      {/*
+        En pantalla estrecha se desplaza la caja entera; en ancha, cada columna.
+
+        Apilado, la columna de propuestas es larga y no se deja encoger, así que
+        se comía el alto y **la partitura no llegaba a dibujarse**: quedaba la
+        barra de botones y debajo la lista de acordes, sin canción en medio. Con
+        el desplazamiento en esta caja, cada cosa ocupa lo suyo y se baja.
+      */}
+      <div className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
         {/* Las teclas del punteo se escuchan en la caja entera y no en cada nota:
             en el pentagrama la nota es un `<g>` de SVG, y un grupo de SVG no
             recibe el foco igual en todos los navegadores. */}
         <div
           ref={listaRef}
-          className="min-h-0 grow overflow-y-auto"
+          className="min-h-0 shrink-0 grow lg:shrink lg:overflow-y-auto"
           onKeyDown={teclaEnPunteo}
           role="presentation"
         >
@@ -795,6 +803,7 @@ export function ArrangeCanvas() {
                 onPlay={() => player.toggle(part.id)}
                 onRename={(name) => acciones.renamePart(part.id, name)}
                 onRemove={() => acciones.removePart(part.id)}
+                onSetBars={(bars) => acciones.setBars(part.id, bars, beatsPerBar)}
                 onBlockPointerDown={cogerBloque}
                 onBlockClick={(blockId) => {
                   setSelectedBlockId(blockId);
@@ -822,7 +831,7 @@ export function ArrangeCanvas() {
             arriba, porque lo que se mira todo el rato es la canción. */}
         <aside
           aria-label="Qué poner ahora"
-          className="border-border shrink-0 overflow-y-auto border-t p-3 lg:w-72 lg:border-t-0 lg:border-l"
+          className="border-border shrink-0 border-t p-3 lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l"
         >
           {/*
             Corregir va lo primero, y solo cuando hay algo que corregir.

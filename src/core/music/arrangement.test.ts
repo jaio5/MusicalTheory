@@ -25,7 +25,11 @@ import {
   partFromCapture,
   partLength,
   playbackStepsOf,
+  BARS_POR_DEFECTO,
+  BARS_QUE_AÑADE,
   DUDOSO,
+  drawnBars,
+  setBars,
   fixBlock,
   isDoubtful,
   removeBlock,
@@ -41,7 +45,7 @@ import {
   type Block,
 } from './arrangement';
 import type { LeadNote } from './melody';
-import type { Song } from './song';
+import { MAX_BARS, type Song } from './song';
 
 function bloque(id: string, degree: Block['degree'], beats = 4): Block {
   return writtenBlock(id, degree, beats);
@@ -66,8 +70,10 @@ function montaje(): Arrangement {
         name: 'Estrofa',
         blocks: [bloque('a', 'I'), bloque('b', 'vi'), bloque('c', 'IV')],
         notes: [],
+
+        bars: 4,
       },
-      { id: 'estribillo', name: 'Estribillo', blocks: [bloque('d', 'V')], notes: [] },
+      { id: 'estribillo', name: 'Estribillo', blocks: [bloque('d', 'V')], notes: [], bars: 4 },
     ],
   };
 }
@@ -145,7 +151,7 @@ describe('bloques', () => {
   });
 
   it('no entran más bloques de los que caben', () => {
-    let a: Arrangement = { parts: [{ id: 'p', name: 'P', blocks: [], notes: [] }] };
+    let a: Arrangement = { parts: [{ id: 'p', name: 'P', blocks: [], notes: [], bars: 4 }] };
     for (let i = 0; i < MAX_PART_BLOCKS + 3; i += 1) {
       a = addBlock(a, 'p', bloque(`b${i}`, 'I'));
     }
@@ -183,8 +189,8 @@ describe('moveBlock', () => {
     const llena = Array.from({ length: MAX_PART_BLOCKS }, (_, i) => bloque(`x${i}`, 'I'));
     const a: Arrangement = {
       parts: [
-        { id: 'origen', name: 'O', blocks: [bloque('viajero', 'V')], notes: [] },
-        { id: 'destino', name: 'D', blocks: llena, notes: [] },
+        { id: 'origen', name: 'O', blocks: [bloque('viajero', 'V')], notes: [], bars: 4 },
+        { id: 'destino', name: 'D', blocks: llena, notes: [], bars: 4 },
       ],
     };
     expect(moveBlock(a, 'viajero', 'destino', 0)).toEqual(a);
@@ -199,7 +205,7 @@ describe('cuentas', () => {
 
   it('el último grado de una parte es desde donde se sugiere', () => {
     expect(lastDegreeOf(montaje().parts[0] as never)).toBe('IV');
-    expect(lastDegreeOf({ id: 'v', name: 'V', blocks: [], notes: [] })).toBeNull();
+    expect(lastDegreeOf({ id: 'v', name: 'V', blocks: [], notes: [], bars: 4 })).toBeNull();
   });
 });
 
@@ -260,7 +266,7 @@ describe('montaje y canción', () => {
 
   it('un bloque más corto que el compás sigue contando una vez', () => {
     const a: Arrangement = {
-      parts: [{ id: 'p', name: 'P', blocks: [bloque('b', 'I', 1)], notes: [] }],
+      parts: [{ id: 'p', name: 'P', blocks: [bloque('b', 'I', 1)], notes: [], bars: 4 }],
     };
     expect(sectionsFromArrangement(a, 4)[0]?.degrees).toEqual(['I']);
   });
@@ -497,7 +503,9 @@ describe('de dónde salió cada acorde', () => {
 
 describe('fixBlock', () => {
   const dudoso: Arrangement = {
-    parts: [{ id: 'p', name: 'P', blocks: [oido('b', 'I', 0.01, ['vi', 'IV'])], notes: [] }],
+    parts: [
+      { id: 'p', name: 'P', blocks: [oido('b', 'I', 0.01, ['vi', 'IV'])], notes: [], bars: 4 },
+    ],
   };
 
   // Quien tocó dice qué era de verdad, y eso vale más que cualquier puntuación.
@@ -542,6 +550,8 @@ describe('lo que sobrevive al guardar', () => {
           name: 'Estrofa',
           blocks: [oido('b1', 'I', 0.01, ['vi']), bloque('b2', 'V')],
           notes: [],
+
+          bars: 4,
         },
       ],
     };
@@ -564,7 +574,7 @@ describe('lo que sobrevive al guardar', () => {
   // salieron del mismo sitio, y las dos listas tienen que ir a la par.
   it('un bloque largo reparte su procedencia por sus compases', () => {
     const a: Arrangement = {
-      parts: [{ id: 'p', name: 'P', blocks: [oido('b', 'I', 0.5)], notes: [] }],
+      parts: [{ id: 'p', name: 'P', blocks: [oido('b', 'I', 0.5)], notes: [], bars: 4 }],
     };
     const seccion = sectionsFromArrangement(resizeBlock(a, 'b', 8), 4)[0];
 
@@ -582,6 +592,8 @@ describe('lo que sobrevive al guardar', () => {
           name: 'P',
           blocks: [oido('b1', 'I', 0.01), oido('b2', 'V', 0.01)],
           notes: [],
+
+          bars: 4,
         },
       ],
     };
@@ -608,7 +620,7 @@ describe('chordAt', () => {
   });
 
   it('una parte sin acordes no tiene ninguno', () => {
-    expect(chordAt({ id: 'v', name: 'V', blocks: [], notes: [] }, 0)).toBeNull();
+    expect(chordAt({ id: 'v', name: 'V', blocks: [], notes: [], bars: 4 }, 0)).toBeNull();
   });
 });
 
@@ -620,5 +632,77 @@ describe('melodyEnd', () => {
 
   it('sin punteo empieza en cero', () => {
     expect(melodyEnd(montaje().parts[0]!)).toBe(0);
+  });
+});
+
+describe('los compases de una parte', () => {
+  /**
+   * Una parte tiene sitio antes de tener contenido. Sin esto, la única manera de
+   * alargar una partitura era meterle notas: para escribir en el compás cuatro
+   * había que rellenar antes los tres primeros, al revés de como se escribe
+   * música.
+   */
+  it('una parte nueva trae cuatro compases vacíos', () => {
+    const a = addPart(EMPTY_ARRANGEMENT, 'p');
+    expect(a.parts[0]?.bars).toBe(BARS_POR_DEFECTO);
+    expect(drawnBars(a.parts[0]!, 4)).toBe(BARS_POR_DEFECTO);
+  });
+
+  it('se alarga y se acorta de dos en dos', () => {
+    let a = addPart(EMPTY_ARRANGEMENT, 'p');
+    a = setBars(a, 'p', BARS_POR_DEFECTO + BARS_QUE_AÑADE, 4);
+    expect(a.parts[0]?.bars).toBe(6);
+  });
+
+  // Un botón que borra compases con acordes dentro borra trabajo sin decirlo.
+  it('no se acorta por debajo de lo que hay dentro', () => {
+    // Cuatro acordes de un compás: ocupan cuatro y no se puede bajar de ahí.
+    const a = setBars({ parts: [montaje().parts[0]!] }, 'estrofa', 1, 4);
+    expect(a.parts[0]?.bars).toBe(3);
+  });
+
+  it('ni por encima del tope', () => {
+    const a = setBars(addPart(EMPTY_ARRANGEMENT, 'p'), 'p', 999, 4);
+    expect(a.parts[0]?.bars).toBe(MAX_BARS);
+  });
+
+  // Al traer una grabación larga nadie ha pulsado el botón, y los compases están
+  // ahí igual.
+  it('se dibujan los que hagan falta si el contenido es más largo', () => {
+    // Tres bloques de un compás; el primero pasa a cuatro, así que la parte
+    // ocupa seis y se dibujan seis aunque tenga cuatro reservados.
+    const larga = resizeBlock({ parts: [montaje().parts[0]!] }, 'a', 16);
+    expect(drawnBars(larga.parts[0]!, 4)).toBe(6);
+  });
+
+  it('no cambiar la longitud devuelve el mismo montaje', () => {
+    const a = addPart(EMPTY_ARRANGEMENT, 'p');
+    expect(setBars(a, 'p', BARS_POR_DEFECTO, 4)).toBe(a);
+  });
+
+  /**
+   * Es sitio para escribir, no sonido: una parte de ocho compases con dos
+   * acordes suena lo que suenan los dos acordes.
+   */
+  it('alargar no añade silencio al final', () => {
+    const antes = soundOf({ parts: [montaje().parts[0]!] }, 0, 'major').events.length;
+    const a = setBars({ parts: [montaje().parts[0]!] }, 'estrofa', 12, 4);
+    expect(soundOf(a, 0, 'major').events).toHaveLength(antes);
+  });
+
+  // Perderlo al reabrir dejaría la partitura encogida a lo que hay dentro.
+  it('la longitud sobrevive al guardar, y solo si no es la de fábrica', () => {
+    const corta = sectionsFromArrangement(addPart(EMPTY_ARRANGEMENT, 'p'), 4);
+    expect(corta).toHaveLength(0);
+
+    const a = setBars({ parts: [montaje().parts[0]!] }, 'estrofa', 8, 4);
+    const seccion = sectionsFromArrangement(a, 4)[0];
+    expect(seccion?.bars).toBe(8);
+
+    const vuelta = arrangementFromSong(
+      { id: 'x', name: 'P', tonic: 0, mode: 'major', bpm: 100, sections: [seccion!], updatedAt: 1 },
+      4,
+    );
+    expect(vuelta.parts[0]?.bars).toBe(8);
   });
 });

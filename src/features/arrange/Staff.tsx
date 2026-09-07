@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
@@ -15,7 +15,6 @@ import {
 } from '@core/music';
 
 import { arrastrar } from './arrastrar';
-import { PX_POR_PULSO } from './BlockButton';
 
 /**
  * La partitura: el mismo punteo, escrito.
@@ -44,6 +43,21 @@ import { PX_POR_PULSO } from './BlockButton';
  * cromatismos no se escriben moviendo la nota, sino alterándola, y para eso están
  * las teclas de más y menos.
  */
+
+/**
+ * Lo que mide un pulso en la partitura, y por qué no es fijo.
+ *
+ * En la tira de bloques el píxel por pulso es constante, porque ahí la anchura de
+ * una caja **es** su duración y hay que poder compararlas de un vistazo. Una
+ * partitura no funciona así: un sistema se justifica al ancho del papel, y cuatro
+ * compases ocupan la línea entera igual que ocho. Con la medida fija, una parte
+ * corta salía como un sello en la esquina de una pantalla vacía.
+ *
+ * Entre los dos topes: por debajo del mínimo las notas se pisan, y por encima del
+ * máximo cuatro compases se estiran hasta parecer una pancarta.
+ */
+const PULSO_MINIMO = 20;
+const PULSO_MAXIMO = 46;
 
 /** Medio espacio del pentagrama: lo que sube una nota al pasar de línea a espacio. */
 const PASO = 6;
@@ -93,7 +107,8 @@ function figura(length: number): {
 export interface StaffProps {
   readonly notes: readonly LeadNote[];
   readonly blocks: readonly Block[];
-  readonly beats: number;
+  /** Compases que se dibujan, estén llenos o no. */
+  readonly bars: number;
   readonly beatsPerBar: number;
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
@@ -123,7 +138,7 @@ export interface StaffProps {
 export function Staff({
   notes,
   blocks,
-  beats,
+  bars,
   beatsPerBar,
   tonic,
   mode,
@@ -152,8 +167,35 @@ export function Staff({
    */
   const arrastradaRef = useRef(false);
   const armadura = keySignature(tonic, mode);
-  const compases = Math.max(1, Math.ceil(Math.max(beats, beatsPerBar) / beatsPerBar));
-  const ancho = MARGEN + compases * beatsPerBar * PX_POR_PULSO + 8;
+  const compases = Math.max(1, bars);
+  const pulsos = compases * beatsPerBar;
+
+  /**
+   * El ancho de la caja, medido.
+   *
+   * Un `ResizeObserver` y no un porcentaje de CSS: hace falta el número para
+   * repartir los pulsos, y un SVG escalado con `width: 100%` estiraría también
+   * las notas y la clave hasta deformarlas.
+   */
+  const cajaRef = useRef<HTMLDivElement | null>(null);
+  const [disponible, setDisponible] = useState(0);
+  useEffect(() => {
+    const caja = cajaRef.current;
+    if (caja === null || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observador = new ResizeObserver(([entrada]) => {
+      setDisponible(entrada?.contentRect.width ?? 0);
+    });
+    observador.observe(caja);
+    return () => observador.disconnect();
+  }, []);
+
+  const porPulso = Math.min(
+    PULSO_MAXIMO,
+    Math.max(PULSO_MINIMO, (disponible - MARGEN - 12) / Math.max(1, pulsos)),
+  );
+  const ancho = MARGEN + pulsos * porPulso + 8;
 
   /** Qué escalón y qué pulso hay bajo un punto de la pantalla. */
   const sitioEn = useCallback(
@@ -169,10 +211,10 @@ export function Staff({
       const y = clientY - caja.top;
       return {
         step: Math.round((BASE - y) / PASO) + STEP_BASE,
-        start: Math.max(0, Math.round((x - MARGEN) / PX_POR_PULSO / 0.5) * 0.5),
+        start: Math.max(0, Math.round((x - MARGEN) / porPulso / 0.5) * 0.5),
       };
     },
-    [],
+    [porPulso],
   );
 
   /**
@@ -194,12 +236,12 @@ export function Staff({
       arrastrar({
         mover: (x) => {
           arrastradaRef.current = true;
-          onResizeBlock(blockId, beats + (x - inicioX) / PX_POR_PULSO);
+          onResizeBlock(blockId, beats + (x - inicioX) / porPulso);
         },
         soltar: onGestureEnd,
       });
     },
-    [onGestureEnd, onGestureStart, onResizeBlock],
+    [onGestureEnd, onGestureStart, onResizeBlock, porPulso],
   );
 
   /**
@@ -242,7 +284,7 @@ export function Staff({
   );
 
   return (
-    <div className="mt-1 overflow-x-auto">
+    <div ref={cajaRef} className="mt-1 overflow-x-auto">
       <svg
         ref={svgRef}
         width={ancho}
@@ -328,8 +370,8 @@ export function Staff({
         {Array.from({ length: compases + 1 }, (_, i) => (
           <line
             key={i}
-            x1={MARGEN + i * beatsPerBar * PX_POR_PULSO}
-            x2={MARGEN + i * beatsPerBar * PX_POR_PULSO}
+            x1={MARGEN + i * beatsPerBar * porPulso}
+            x2={MARGEN + i * beatsPerBar * porPulso}
             y1={BASE - 8 * PASO}
             y2={BASE}
             stroke="currentColor"
@@ -350,7 +392,7 @@ export function Staff({
             (acumulado, block) => {
               const indice = acumulado.i;
               const chord = resolveDegree(tonic, mode, block.degree);
-              const x = MARGEN + acumulado.x * PX_POR_PULSO;
+              const x = MARGEN + acumulado.x * porPulso;
               const elegido = selectedBlockId === block.id;
 
               acumulado.nodos.push(
@@ -390,7 +432,7 @@ export function Staff({
                   </text>
                   <line
                     x1={x}
-                    x2={x + block.beats * PX_POR_PULSO - 4}
+                    x2={x + block.beats * porPulso - 4}
                     y1={22}
                     y2={22}
                     stroke="currentColor"
@@ -400,13 +442,13 @@ export function Staff({
                   <rect
                     x={x - 2}
                     y={4}
-                    width={Math.max(24, block.beats * PX_POR_PULSO - 14)}
+                    width={Math.max(24, block.beats * porPulso - 14)}
                     height={22}
                     fill="transparent"
                   />
                   {/* La punta de la línea: de aquí se tira para estirar. */}
                   <rect
-                    x={x + block.beats * PX_POR_PULSO - 16}
+                    x={x + block.beats * porPulso - 16}
                     y={4}
                     width={16}
                     height={22}
@@ -432,14 +474,10 @@ export function Staff({
           <line
             aria-hidden
             x1={
-              MARGEN +
-              blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * PX_POR_PULSO -
-              3
+              MARGEN + blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * porPulso - 3
             }
             x2={
-              MARGEN +
-              blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * PX_POR_PULSO -
-              3
+              MARGEN + blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * porPulso - 3
             }
             y1={2}
             y2={BASE + 4}
@@ -450,7 +488,7 @@ export function Staff({
 
         {notes.map((note) => {
           const escrita = writeNote(note, tonic, mode);
-          const x = MARGEN + note.start * PX_POR_PULSO + 6;
+          const x = MARGEN + note.start * porPulso + 6;
           const y = yDeStep(escrita.step);
           const { hueca, plica, corchete, punto } = figura(note.length);
           const arriba = escrita.step < 6;
@@ -561,7 +599,7 @@ export function Staff({
               <rect
                 x={x - 10}
                 y={y - 9}
-                width={Math.max(20, note.length * PX_POR_PULSO)}
+                width={Math.max(20, note.length * porPulso)}
                 height={18}
                 fill="transparent"
               />

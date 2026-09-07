@@ -40,7 +40,7 @@ import {
   MAX_LEAD_NOTES,
   type LeadNote,
 } from './melody';
-import { MAX_SECTIONS, MAX_SECTION_DEGREES, type Song, type SongSection } from './song';
+import { MAX_BARS, MAX_SECTIONS, MAX_SECTION_DEGREES, type Song, type SongSection } from './song';
 import { DEFAULT_BEATS_PER_BAR } from './tempo';
 
 /**
@@ -116,6 +116,20 @@ export interface Part {
   readonly name: string;
   readonly blocks: readonly Block[];
   readonly notes: readonly LeadNote[];
+  /**
+   * Cuántos compases ocupa la parte, tenga dentro lo que tenga.
+   *
+   * **Una parte tiene sitio antes de tener contenido.** Sin esto, la única
+   * manera de alargar una partitura era meterle notas: el pentagrama medía lo
+   * que había dentro, así que para escribir en el compás cuatro había que
+   * rellenar antes los tres primeros. Al revés de como se escribe música, donde
+   * primero hay papel y luego se llena.
+   *
+   * Es una medida de **papel**, no de sonido: alargar una parte no le añade
+   * silencio al final ni cambia lo que se oye. Los compases de más son sitio
+   * donde escribir.
+   */
+  readonly bars: number;
 }
 
 export interface Arrangement {
@@ -141,6 +155,16 @@ export const MAX_PART_BLOCKS = MAX_SECTION_DEGREES;
  */
 export const MIN_BLOCK_BEATS = 1;
 export const MAX_BLOCK_BEATS = 16;
+
+/**
+ * Los compases que trae una parte nueva, y los que añade el botón de alargar.
+ *
+ * Cuatro, porque cuatro compases es una frase: es lo que dura casi cualquier
+ * idea que se le ocurre a alguien con una guitarra en la mano, y es lo que
+ * llena la mayoría de las estrofas de dos en dos.
+ */
+export const BARS_POR_DEFECTO = 4;
+export const BARS_QUE_AÑADE = 2;
 
 /**
  * Los pulsos de un bloque, siempre dentro de lo que se puede dibujar.
@@ -314,6 +338,7 @@ export function addPart(arrangement: Arrangement, id: string, name?: string): Ar
         name: nombre === '' ? defaultPartName(arrangement.parts.length) : nombre,
         blocks: [],
         notes: [],
+        bars: BARS_POR_DEFECTO,
       },
     ],
   };
@@ -690,6 +715,39 @@ export function resizeNote(arrangement: Arrangement, noteId: string, length: num
 }
 
 /**
+ * Los compases que se dibujan de una parte.
+ *
+ * Los que tiene reservados, o los que hacen falta para que quepa lo que hay
+ * dentro si es más. Lo segundo pasa al traer una grabación larga: nadie ha
+ * pulsado el botón de alargar y los compases están ahí igual.
+ */
+export function drawnBars(part: Part, beatsPerBar: number): number {
+  const porCompas = Math.max(1, beatsPerBar);
+  return Math.max(part.bars, Math.ceil(partLength(part) / porCompas));
+}
+
+/**
+ * Alarga o acorta una parte.
+ *
+ * **No se puede acortar por debajo de lo que hay dentro.** Un botón que borra
+ * compases con acordes es un botón que borra trabajo sin decirlo, y para quitar
+ * un acorde ya está el acorde.
+ */
+export function setBars(
+  arrangement: Arrangement,
+  partId: string,
+  bars: number,
+  beatsPerBar: number,
+): Arrangement {
+  const porCompas = Math.max(1, beatsPerBar);
+  return mapPart(arrangement, partId, (part) => {
+    const minimo = Math.max(1, Math.ceil(partLength(part) / porCompas));
+    const siguiente = Math.min(MAX_BARS, Math.max(minimo, Math.round(bars)));
+    return siguiente === part.bars ? part : { ...part, bars: siguiente };
+  });
+}
+
+/**
  * Hasta dónde llega una parte, contando el punteo.
  *
  * Puede ser más de lo que ocupan sus acordes: una nota que se sale por el final
@@ -744,6 +802,7 @@ export function arrangementFromSong(
         start,
         length,
       })),
+      bars: Math.max(BARS_POR_DEFECTO, section.bars ?? 0),
     })),
   };
 }
@@ -795,6 +854,9 @@ export function sectionsFromArrangement(
       return {
         name: part.name,
         degrees,
+        // Solo si se ha alargado a mano: una parte de cuatro compases es lo de
+        // fábrica y no hace falta escribirlo.
+        ...(part.bars === BARS_POR_DEFECTO ? {} : { bars: part.bars }),
         ...(lead.length > 0 ? { lead } : {}),
         ...(sources.some((source) => source !== 'written') ? { sources } : {}),
       };
@@ -832,6 +894,7 @@ export function partFromCapture(
     // El croma oye acordes, no melodías: lo que se graba tocando entra como
     // acompañamiento y el punteo se escribe encima.
     notes: [],
+    bars: BARS_POR_DEFECTO,
   };
 }
 

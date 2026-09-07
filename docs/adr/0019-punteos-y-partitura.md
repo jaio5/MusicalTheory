@@ -45,6 +45,21 @@ pulso. La partitura es la que sale al entrar:**
   tira de bloques repitiendo lo mismo justo encima. Se pulsan, se quitan y se
   estiran tirando de la punta de su línea.
 
+**Una parte tiene sitio antes de tener contenido.** Trae cuatro compases —una
+frase— y se alarga de dos en dos con un botón. Antes el pentagrama medía lo que
+hubiera dentro, así que la única manera de escribir en el compás cuatro era
+rellenar los tres primeros: al revés de como se escribe música, donde primero hay
+papel. Es una medida de papel y no de sonido: alargar una parte no le añade
+silencio al final. Y no se puede acortar por debajo de lo que hay escrito, porque
+un botón que borra compases con acordes dentro borra trabajo sin decirlo.
+
+**El pentagrama se justifica al ancho**, entre veinte y cuarenta y seis píxeles
+por pulso. En la tira de bloques la medida es fija, porque allí la anchura de una
+caja **es** su duración y hay que poder compararlas de un vistazo; una partitura
+no funciona así —un sistema ocupa la línea entera tenga cuatro compases u ocho—.
+Con la medida fija, una parte corta salía como un sello en la esquina de una
+pantalla vacía.
+
 **Es la vista por defecto**, y no un extra detrás de un conmutador. Es donde se
 escribe: los acordes van encima, las notas dentro, y las dos cosas se arrastran.
 Empezar por una tira de bloques y esconder la partitura la convertía en una

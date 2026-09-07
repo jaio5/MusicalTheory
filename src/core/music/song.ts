@@ -64,6 +64,14 @@ export interface SongSection {
    * perdía y todo pasaba a valer igual.
    */
   readonly sources?: readonly BlockSource[];
+  /**
+   * Compases que ocupa la parte, aunque no estén llenos.
+   *
+   * Es sitio para escribir, no sonido: una parte de ocho compases con dos
+   * acordes suena lo que suenan los dos acordes. Se guarda porque perderlo al
+   * reabrir dejaría la partitura encogida a lo que hay dentro.
+   */
+  readonly bars?: number;
 }
 
 /** Una nota del punteo, como se guarda: altura, entrada y duración. */
@@ -93,6 +101,19 @@ export const MAX_SONG_NAME = 60;
 export const MAX_SECTION_NAME = 30;
 export const MAX_SECTIONS = 12;
 export const MAX_SECTION_DEGREES = 32;
+
+/**
+ * Lo más larga que puede ser una parte, en compases.
+ *
+ * Vive aquí y no en `arrangement.ts`, con el resto de lo que usa el montaje,
+ * porque es un tope de **lo que se guarda** y este fichero es el que los tiene
+ * todos. Ponerlo allí creaba un ciclo —`song` importaba de `arrangement` y
+ * `arrangement` de `song`— que ningún test veía y que tiraba la página entera
+ * con un `Cannot access 'MAX_SECTIONS' before initialization`.
+ *
+ * Treinta y dos compases: más que eso no es una parte, es la canción.
+ */
+export const MAX_BARS = 32;
 
 /** Cuántas canciones guarda una cuenta. Más allá, la lista deja de ser útil. */
 export const MAX_SONGS = 50;
@@ -228,6 +249,7 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
         const degrees = asDegrees(record['degrees'], mode);
         const lead = asLead(record['lead']);
         const sources = asSources(record['sources'], degrees.length);
+        const bars = record['bars'];
 
         // Se omite lo que no dice nada, igual que al escribir. Leer y guardar
         // tienen que dar lo mismo, o una canción crecería sola cada vez que se
@@ -235,6 +257,9 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
         return {
           name: name === '' ? defaultSectionName(index) : name,
           degrees,
+          ...(typeof bars === 'number' && Number.isFinite(bars) && bars > 0
+            ? { bars: Math.min(MAX_BARS, Math.round(bars)) }
+            : {}),
           ...(lead.length > 0 ? { lead } : {}),
           ...(sources.some((source) => source !== 'written') ? { sources } : {}),
         };
