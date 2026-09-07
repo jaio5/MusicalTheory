@@ -35,6 +35,11 @@ la migración y `pnpm db:migrate` la aplica; no se aplican solas al arrancar.
 añade un Ollama al que preguntar sin clave y sin factura. El script escribe el
 `.env` que falte con un `AUTH_SECRET` nuevo. Si el 3000 está ocupado, `APP_PORT`.
 
+**Para verlo funcionando hay un skill**: `.claude/skills/arrancar/` levanta la
+aplicación y la conduce con un navegador de verdad, micrófono falso incluido.
+Tiene las trampas que ya han mordido —el `fullPage` que no captura, los nombres
+accesibles de la rueda, el WAV que se repite en bucle—.
+
 **Prettier también formatea el markdown.** Después de tocar cualquier `.md` hay
 que pasar `pnpm format`, o `format:check` falla. Es el fallo más tonto y el más
 repetido.
