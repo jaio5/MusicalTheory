@@ -112,6 +112,47 @@ export function scheduleProgression(
   });
 }
 
+/**
+ * Un sonido con su sitio en el tiempo, en pulsos y desde el principio.
+ *
+ * Es lo que `PlaybackStep` no puede ser: los acordes se suceden sin huecos, así
+ * que a cada uno le basta con venir detrás del anterior, pero una melodía tiene
+ * silencios, se adelanta al compás y se queda callada media parte. Cada nota
+ * necesita decir **cuándo** entra.
+ */
+export interface TimedEvent {
+  /** Pulsos desde que empieza. */
+  readonly startBeat: number;
+  readonly beats: number;
+  readonly midis: readonly number[];
+}
+
+/**
+ * Reparte en el tiempo cosas que ya saben cuándo suenan.
+ *
+ * Existe para poder oír el acompañamiento y el punteo **con un solo reloj**. Dos
+ * reproductores, uno para cada cosa, tendrían dos `AudioContext` con dos relojes
+ * independientes, y unos milisegundos de diferencia entre el acorde y la nota se
+ * oyen como un golpe doble.
+ *
+ * Salen ordenados por su instante porque quien reproduce los programa de una vez
+ * y quien enseña por dónde va necesita que el índice suba con el tiempo.
+ */
+export function scheduleEvents(events: readonly TimedEvent[], bpm: number): ScheduledStep[] {
+  const porPulso = msPerBeat(clampBpm(bpm));
+
+  return [...events]
+    .sort((a, b) => a.startBeat - b.startBeat)
+    .map((event, index) => ({
+      index,
+      startMs: Math.max(0, event.startBeat) * porPulso,
+      // Al menos un medio pulso: es la rejilla más fina que hay, y una duración
+      // de cero no se oye.
+      durationMs: Math.max(0.5, event.beats) * porPulso,
+      midis: event.midis,
+    }));
+}
+
 /** Lo que dura la progresión entera, en milisegundos. */
 export function progressionDurationMs(scheduled: readonly ScheduledStep[]): number {
   const ultimo = scheduled.at(-1);

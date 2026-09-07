@@ -6,15 +6,19 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
   barsLabel,
   partBeats,
+  partLength,
   resolveDegree,
   type KeyMode,
   type Part,
   type PitchClass,
+  type ScaleId,
 } from '@core/music';
 import { Chip } from '@ui/Chip';
 import { TextField } from '@ui/TextField';
 
 import { BlockButton, anchoDeBloque } from './BlockButton';
+import { MelodyLane } from './MelodyLane';
+import { Staff } from './Staff';
 
 /**
  * Una parte del montaje: su nombre, sus bloques y el botón de oírla sola.
@@ -27,6 +31,9 @@ import { BlockButton, anchoDeBloque } from './BlockButton';
  * «renombrar» al lado habría metido un tercer control de cuarenta y cuatro
  * píxeles en cada fila, y son doce filas como mucho.
  */
+/** Cómo se enseña el punteo: en bloques, escrito, o nada. */
+export type Punteo = 'bloques' | 'partitura' | 'oculto';
+
 export interface PartRowProps {
   readonly part: Part;
   readonly tonic: PitchClass;
@@ -38,6 +45,12 @@ export interface PartRowProps {
   readonly draggingBlockId: string | null;
   /** Dónde caería el bloque que se está arrastrando, si cae en esta parte. */
   readonly dropIndex: number | null;
+  readonly punteo: Punteo;
+  /** Encendida mientras se arrastra una propuesta por encima de esta parte. */
+  readonly dropPart: boolean;
+  readonly scaleId: ScaleId;
+  readonly onlyScale: boolean;
+  readonly selectedNoteId: string | null;
   readonly onPlay: () => void;
   readonly onRename: (name: string) => void;
   readonly onRemove: () => void;
@@ -47,6 +60,14 @@ export interface PartRowProps {
   ) => void;
   readonly onBlockClick: (blockId: string) => void;
   readonly onBlockKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>, blockId: string) => void;
+  readonly onAddNote: (partId: string, offset: number, start: number) => void;
+  readonly onSelectNote: (noteId: string) => void;
+  readonly onMoveNote: (noteId: string, start: number, offset: number) => void;
+  readonly onResizeNote: (noteId: string, length: number) => void;
+  readonly onRemoveBlock: (blockId: string) => void;
+  readonly onResizeBlock: (blockId: string, beats: number) => void;
+  readonly onGestureStart: () => void;
+  readonly onGestureEnd: () => void;
 }
 
 export function PartRow({
@@ -59,17 +80,39 @@ export function PartRow({
   selectedBlockId,
   draggingBlockId,
   dropIndex,
+  punteo,
+  dropPart,
+  scaleId,
+  onlyScale,
+  selectedNoteId,
   onPlay,
   onRename,
   onRemove,
   onBlockPointerDown,
   onBlockClick,
   onBlockKeyDown,
+  onAddNote,
+  onSelectNote,
+  onMoveNote,
+  onResizeNote,
+  onRemoveBlock,
+  onResizeBlock,
+  onGestureStart,
+  onGestureEnd,
 }: PartRowProps) {
   const [editando, setEditando] = useState(false);
 
   return (
-    <section aria-label={part.name} className="border-border border-b px-3 py-2 last:border-b-0">
+    <section
+      aria-label={part.name}
+      // Toda la fila recibe lo que se arrastre desde las propuestas, y no solo la
+      // tira de bloques: en partitura no hay tira, y soltar «en la estrofa» tiene
+      // que valer igual en las tres vistas.
+      data-parte-destino={part.id}
+      className={`border-border border-b px-3 py-2 last:border-b-0 ${
+        dropPart ? 'bg-surface-raised' : ''
+      }`}
+    >
       <div className="flex items-center gap-2">
         {editando ? (
           <TextField
@@ -124,55 +167,104 @@ export function PartRow({
         </span>
       </div>
 
-      {/* La fila de bloques se desplaza sola en horizontal: doce compases no
-          caben en un portátil, y partirlos en dos líneas rompería lo único que
-          esta fila tiene que decir, que es el orden en el tiempo. */}
-      <ul
-        aria-label={`Acordes de ${part.name}`}
-        data-parte-vacia={part.blocks.length === 0 ? part.id : undefined}
-        className="mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
-      >
-        {part.blocks.length === 0 && (
-          <li
-            data-parte={part.id}
-            data-indice={0}
-            className="border-border text-text-muted min-h-tap flex items-center rounded-md border border-dashed px-4 text-xs"
-            style={{ minWidth: anchoDeBloque(beatsPerBar) }}
-          >
-            Suelta aquí un acorde
-          </li>
-        )}
+      {/*
+        En partitura no hay tira de bloques.
 
-        {part.blocks.map((block, indice) => {
-          const chord = resolveDegree(tonic, mode, block.degree);
-          return (
-            <li key={block.id} data-parte={part.id} data-indice={indice} className="flex">
-              {/* El hueco donde caería lo que se arrastra. Se abre antes del
+        Los acordes se leen en su sitio de siempre —cifrados encima del
+        pentagrama— y una tira de cajas repitiendo lo mismo justo encima sería
+        decirlo dos veces y ocupar el doble. Quien lee una partitura ya sabe
+        dónde mirar; a quien no, esta vista no le habla.
+      */}
+      {punteo !== 'partitura' && (
+        <ul
+          aria-label={`Acordes de ${part.name}`}
+          data-parte-vacia={part.blocks.length === 0 ? part.id : undefined}
+          className="mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
+        >
+          {part.blocks.length === 0 && (
+            <li
+              data-parte={part.id}
+              data-indice={0}
+              className="border-border text-text-muted min-h-tap flex items-center rounded-md border border-dashed px-4 text-xs"
+              style={{ minWidth: anchoDeBloque(beatsPerBar) }}
+            >
+              Suelta aquí un acorde
+            </li>
+          )}
+
+          {part.blocks.map((block, indice) => {
+            const chord = resolveDegree(tonic, mode, block.degree);
+            return (
+              <li key={block.id} data-parte={part.id} data-indice={indice} className="flex">
+                {/* El hueco donde caería lo que se arrastra. Se abre antes del
                   bloque, que es lo que hace que el sitio se vea antes de soltar
                   en vez de descubrirse después. */}
-              {dropIndex === indice && (
-                <span aria-hidden className="bg-brass-bright mr-1 w-1 shrink-0 rounded-full" />
-              )}
-              <BlockButton
-                symbol={chord.symbol}
-                degree={block.degree}
-                beats={block.beats}
-                beatsPerBar={beatsPerBar}
-                playing={playingBlockId === block.id}
-                selected={selectedBlockId === block.id}
-                dragging={draggingBlockId === block.id}
-                onPointerDown={(event) => onBlockPointerDown(event, block.id)}
-                onClick={() => onBlockClick(block.id)}
-                onKeyDown={(event) => onBlockKeyDown(event, block.id)}
-              />
-            </li>
-          );
-        })}
+                {dropIndex === indice && (
+                  <span aria-hidden className="bg-brass-bright mr-1 w-1 shrink-0 rounded-full" />
+                )}
+                <BlockButton
+                  symbol={chord.symbol}
+                  degree={block.degree}
+                  beats={block.beats}
+                  beatsPerBar={beatsPerBar}
+                  playing={playingBlockId === block.id}
+                  selected={selectedBlockId === block.id}
+                  dragging={draggingBlockId === block.id}
+                  onPointerDown={(event) => onBlockPointerDown(event, block.id)}
+                  onClick={() => onBlockClick(block.id)}
+                  onKeyDown={(event) => onBlockKeyDown(event, block.id)}
+                />
+              </li>
+            );
+          })}
 
-        {dropIndex !== null && dropIndex >= part.blocks.length && part.blocks.length > 0 && (
-          <li aria-hidden className="bg-brass-bright w-1 shrink-0 rounded-full" />
-        )}
-      </ul>
+          {dropIndex !== null && dropIndex >= part.blocks.length && part.blocks.length > 0 && (
+            <li aria-hidden className="bg-brass-bright w-1 shrink-0 rounded-full" />
+          )}
+        </ul>
+      )}
+
+      {/* El punteo, debajo y con el mismo píxel por pulso: así una nota queda
+          bajo el acorde sobre el que suena, sin tener que contar compases. */}
+      {punteo === 'bloques' && (
+        <MelodyLane
+          notes={part.notes}
+          beats={partLength(part)}
+          beatsPerBar={beatsPerBar}
+          tonic={tonic}
+          scaleId={scaleId}
+          onlyScale={onlyScale}
+          selectedNoteId={selectedNoteId}
+          partName={part.name}
+          onAdd={(offset, start) => onAddNote(part.id, offset, start)}
+          onSelect={onSelectNote}
+          onMove={onMoveNote}
+          onResize={onResizeNote}
+          onGestureStart={onGestureStart}
+          onGestureEnd={onGestureEnd}
+        />
+      )}
+      {punteo === 'partitura' && (
+        <Staff
+          notes={part.notes}
+          blocks={part.blocks}
+          beats={partLength(part)}
+          beatsPerBar={beatsPerBar}
+          tonic={tonic}
+          mode={mode}
+          selectedNoteId={selectedNoteId}
+          selectedBlockId={selectedBlockId}
+          partName={part.name}
+          onSelectBlock={onBlockClick}
+          onRemoveBlock={onRemoveBlock}
+          onResizeBlock={onResizeBlock}
+          onAdd={(offset, start) => onAddNote(part.id, offset, start)}
+          onSelect={onSelectNote}
+          onMove={onMoveNote}
+          onGestureStart={onGestureStart}
+          onGestureEnd={onGestureEnd}
+        />
+      )}
     </section>
   );
 }

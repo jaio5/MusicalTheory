@@ -50,12 +50,14 @@ El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
 ([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
 la manera normal de componer aquí.
 
-- **Los punteos.** Una canción hoy es armonía y su reparto en el tiempo: no hay
-  melodía en el modelo, y `capture.ts` lo dice de su propia captura. Un carril de
-  escala bajo cada parte —solo las notas de la escala activa, guardadas por su
-  grado y no por su altura, para que transportar la canción transporte también el
-  solo— pide ampliar `song.ts`, el esquema y el contrato de dos rutas. Va con su
-  ADR.
+- **El punteo no se guarda.** Las notas ya se escriben, se arrastran y suenan
+  ([adr/0019](./adr/0019-punteos-y-partitura.md)), pero una canción de `song.ts`
+  son grados: al guardar se pierde la melodía, igual que se pierde la duración de
+  un bloque. Es lo que más falta hace y toca el esquema y el contrato de dos
+  rutas.
+- **La partitura no tiene ligaduras ni silencios escritos.** Tampoco tresillos ni
+  dos voces. No es que falte dibujarlos: es que el modelo no los tiene, y una nota
+  que cruza la barra de compás se dibuja donde empieza y ya.
 - **Que la IA ordene las partes.** Sería el sexto camino de `paths.ts`,
   `estructura`: el modelo recibe las partes que hay y devuelve un orden con
   nombres, y el dominio comprueba que solo ha reordenado y repetido lo que había,
@@ -64,6 +66,8 @@ la manera normal de componer aquí.
   Canciones, y ahí la duración de los bloques se convierte en compases repetidos.
   Es a propósito y está razonado, pero significa que reabrir una canción da los
   bloques desagrupados.
+- **En la partitura no se reordenan los acordes.** Se ponen, se quitan y se
+  estiran; para moverlos de sitio hay que pasar a la vista de bloques.
 
 ## 4. Que aprender y componer sean lo mismo
 

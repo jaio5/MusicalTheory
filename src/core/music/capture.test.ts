@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { captureProgression, capturedDegrees, triadQuality, type CapturedChord } from './capture';
+import {
+  captureProgression,
+  capturedDegrees,
+  triadInside,
+  triadQuality,
+  type CapturedChord,
+} from './capture';
 import { normalizePitchClass, pitchClassFromName, type PitchClass } from './notes';
 
 const C = pitchClassFromName('C');
@@ -190,5 +196,32 @@ describe('captureProgression', () => {
       { degree: 'I', beats: 8 },
       { degree: 'V', beats: 4 },
     ]);
+  });
+});
+
+describe('triadInside', () => {
+  // `triadQuality` exige tres notas exactas porque eso es lo que oye el croma.
+  // Al escribir un cifrado es al revés: las que sobran son tensiones.
+  it('encuentra la tríada dentro de una cuatríada', () => {
+    expect(triadInside(9, [9, 0, 4, 7])).toBe('minor');
+    expect(triadInside(0, [0, 4, 7, 11])).toBe('major');
+    expect(triadInside(0, [0, 3, 6, 9])).toBe('diminished');
+  });
+
+  // No vale mirar las tres primeras notas: van ordenadas por semitono, así que
+  // las tres primeras de un add9 son la fundamental, la novena y la tercera.
+  it('no se deja engañar por el orden de las notas', () => {
+    expect(triadInside(0, [0, 2, 4, 7])).toBe('major');
+  });
+
+  // Un 7#9 lleva dentro la tercera mayor y la menor. Es un acorde mayor con una
+  // tensión, no un acorde menor, y de eso se encarga el orden del catálogo.
+  it('con las dos terceras dentro, manda la mayor', () => {
+    expect(triadInside(0, [0, 3, 4, 7, 10])).toBe('major');
+  });
+
+  it('lo que no tiene tercera no tiene especie', () => {
+    expect(triadInside(0, [0, 7])).toBeNull();
+    expect(triadInside(0, [0, 5, 7])).toBeNull();
   });
 });

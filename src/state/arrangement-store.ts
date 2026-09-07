@@ -22,19 +22,24 @@ import { create } from 'zustand';
 
 import {
   addBlock,
+  addNote,
   addPart,
   clampBeats,
   EMPTY_ARRANGEMENT,
   keepDegreesOfMode,
   moveBlock,
+  moveNote,
   movePart,
   removeBlock,
+  removeNote,
   removePart,
   renamePart,
   resizeBlock,
+  resizeNote,
   type Arrangement,
   type Block,
   type DegreeSymbol,
+  type LeadNote,
   type KeyMode,
 } from '@core/music';
 
@@ -59,6 +64,13 @@ export interface ArrangementActions {
   resizeBlock(blockId: string, beats: number): void;
   moveBlock(blockId: string, toPartId: string, to: number): void;
 
+  /** Una nota del punteo, y devuelve su identificador. */
+  addNote(partId: string, offset: number, start: number, length: number): string;
+  removeNote(noteId: string): void;
+  /** Otro momento, otra altura, o las dos: arrastrando es un solo gesto. */
+  moveNote(noteId: string, start: number, offset: number): void;
+  resizeNote(noteId: string, length: number): void;
+
   /** Mete de una vez lo que se acaba de grabar, con sus duraciones. */
   addRecorded(steps: readonly { degree: DegreeSymbol; beats: number }[], name: string): string;
 
@@ -66,6 +78,16 @@ export interface ArrangementActions {
   replace(arrangement: Arrangement): void;
   /** Deja fuera los grados que ese modo no tiene. Lo llama el cambio de rueda. */
   keepMode(mode: KeyMode): void;
+
+  /**
+   * Un arrastre entero cuenta como un paso atrás.
+   *
+   * Sin esto, soltar una nota después de moverla veinte píxeles deja veinte
+   * entradas en el deshacer y hacen falta veinte pulsaciones para volver.
+   * Se abre al empezar el gesto y se cierra al soltar.
+   */
+  beginGesture(): void;
+  endGesture(): void;
 
   undo(): void;
   clear(): void;
@@ -98,6 +120,16 @@ export function nuevoId(prefijo: string): string {
 
 export const useArrangementStore = create<ArrangementState>((set, get) => {
   /**
+   * Si hay un arrastre en marcha, y si ya se guardó su punto de partida.
+   *
+   * Van fuera del estado porque no se pintan: que haya un gesto abierto no cambia
+   * nada de lo que se ve, y meterlo en el store repintaría la pantalla entera dos
+   * veces por arrastre.
+   */
+  let enGesto = false;
+  let yaApilado = false;
+
+  /**
    * Aplica un cambio guardando lo que había.
    *
    * Si el cambio no cambia nada —soltar un bloque donde ya estaba, estirar hasta
@@ -112,7 +144,14 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
     if (siguiente === arrangement) {
       return;
     }
-    set({ arrangement: siguiente, past: [arrangement, ...past].slice(0, MAX_UNDO) });
+    // Dentro de un gesto solo se apila la primera vez: lo que se deshace es el
+    // arrastre entero, no cada píxel por el que pasó el puntero.
+    const apilar = !enGesto || !yaApilado;
+    yaApilado = true;
+    set({
+      arrangement: siguiente,
+      past: apilar ? [arrangement, ...past].slice(0, MAX_UNDO) : past,
+    });
   }
 
   return {
@@ -150,6 +189,22 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
         cambiar((actual) => moveBlock(actual, blockId, toPartId, to));
       },
 
+      addNote(partId, offset, start, length) {
+        const id = nuevoId('nota');
+        const note: LeadNote = { id, offset, start, length };
+        cambiar((actual) => addNote(actual, partId, note));
+        return id;
+      },
+      removeNote(noteId) {
+        cambiar((actual) => removeNote(actual, noteId));
+      },
+      moveNote(noteId, start, offset) {
+        cambiar((actual) => moveNote(actual, noteId, start, offset));
+      },
+      resizeNote(noteId, length) {
+        cambiar((actual) => resizeNote(actual, noteId, length));
+      },
+
       addRecorded(steps, name) {
         const partId = nuevoId('parte');
         cambiar((actual) => {
@@ -173,6 +228,15 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
       },
       keepMode(mode) {
         cambiar((actual) => keepDegreesOfMode(actual, mode));
+      },
+
+      beginGesture() {
+        enGesto = true;
+        yaApilado = false;
+      },
+      endGesture() {
+        enGesto = false;
+        yaApilado = false;
       },
 
       undo() {

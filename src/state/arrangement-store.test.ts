@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { EMPTY_ARRANGEMENT, arrangementLength, findBlock } from '@core/music';
+import { EMPTY_ARRANGEMENT, arrangementLength, findBlock, findNote } from '@core/music';
 
 import { MAX_UNDO, nuevoId, selectCanUndo, useArrangementStore } from './arrangement-store';
 
@@ -121,5 +121,48 @@ describe('cambiar de modo', () => {
 
     acciones().keepMode('minor');
     expect(useArrangementStore.getState().past.length).toBe(antes);
+  });
+});
+
+describe('un gesto entero es un paso atrás', () => {
+  // Arrastrar una nota son veinte cambios y una sola cosa que deshacer. Sin esto
+  // hacían falta veinte pulsaciones para devolverla a su sitio.
+  it('el arrastre no llena la pila', () => {
+    const parte = acciones().addPart();
+    const nota = acciones().addNote(parte, 0, 0, 1);
+    const antes = useArrangementStore.getState().past.length;
+
+    acciones().beginGesture();
+    for (let i = 1; i <= 8; i += 1) {
+      acciones().moveNote(nota, i * 0.5, i);
+    }
+    acciones().endGesture();
+
+    expect(useArrangementStore.getState().past.length).toBe(antes + 1);
+  });
+
+  it('y deshacerlo devuelve la nota a donde estaba', () => {
+    const parte = acciones().addPart();
+    const nota = acciones().addNote(parte, 0, 0, 1);
+
+    acciones().beginGesture();
+    acciones().moveNote(nota, 2, 5);
+    acciones().moveNote(nota, 3, 7);
+    acciones().endGesture();
+    acciones().undo();
+
+    expect(findNote(montaje(), nota)?.note).toMatchObject({ start: 0, offset: 0 });
+  });
+
+  it('cerrado el gesto, cada cambio vuelve a contar', () => {
+    const parte = acciones().addPart();
+    const nota = acciones().addNote(parte, 0, 0, 1);
+    acciones().beginGesture();
+    acciones().moveNote(nota, 1, 1);
+    acciones().endGesture();
+
+    const antes = useArrangementStore.getState().past.length;
+    acciones().moveNote(nota, 2, 2);
+    expect(useArrangementStore.getState().past.length).toBe(antes + 1);
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   addBlock,
+  addNote,
   addPart,
   arrangementBeats,
   arrangementFromSong,
@@ -10,23 +11,30 @@ import {
   clampBeats,
   EMPTY_ARRANGEMENT,
   findBlock,
+  findNote,
   keepDegreesOfMode,
   lastDegreeOf,
   MAX_BLOCK_BEATS,
   MAX_PART_BLOCKS,
   MAX_PARTS,
   moveBlock,
+  moveNote,
   movePart,
   partFromCapture,
+  partLength,
   playbackStepsOf,
   removeBlock,
+  removeNote,
+  soundOf,
   removePart,
   renamePart,
   resizeBlock,
+  resizeNote,
   sectionsFromArrangement,
   type Arrangement,
   type Block,
 } from './arrangement';
+import type { LeadNote } from './melody';
 import type { Song } from './song';
 
 function bloque(id: string, degree: Block['degree'], beats = 4): Block {
@@ -41,8 +49,9 @@ function montaje(): Arrangement {
         id: 'estrofa',
         name: 'Estrofa',
         blocks: [bloque('a', 'I'), bloque('b', 'vi'), bloque('c', 'IV')],
+        notes: [],
       },
-      { id: 'estribillo', name: 'Estribillo', blocks: [bloque('d', 'V')] },
+      { id: 'estribillo', name: 'Estribillo', blocks: [bloque('d', 'V')], notes: [] },
     ],
   };
 }
@@ -120,7 +129,7 @@ describe('bloques', () => {
   });
 
   it('no entran más bloques de los que caben', () => {
-    let a: Arrangement = { parts: [{ id: 'p', name: 'P', blocks: [] }] };
+    let a: Arrangement = { parts: [{ id: 'p', name: 'P', blocks: [], notes: [] }] };
     for (let i = 0; i < MAX_PART_BLOCKS + 3; i += 1) {
       a = addBlock(a, 'p', bloque(`b${i}`, 'I'));
     }
@@ -158,8 +167,8 @@ describe('moveBlock', () => {
     const llena = Array.from({ length: MAX_PART_BLOCKS }, (_, i) => bloque(`x${i}`, 'I'));
     const a: Arrangement = {
       parts: [
-        { id: 'origen', name: 'O', blocks: [bloque('viajero', 'V')] },
-        { id: 'destino', name: 'D', blocks: llena },
+        { id: 'origen', name: 'O', blocks: [bloque('viajero', 'V')], notes: [] },
+        { id: 'destino', name: 'D', blocks: llena, notes: [] },
       ],
     };
     expect(moveBlock(a, 'viajero', 'destino', 0)).toEqual(a);
@@ -174,7 +183,7 @@ describe('cuentas', () => {
 
   it('el último grado de una parte es desde donde se sugiere', () => {
     expect(lastDegreeOf(montaje().parts[0] as never)).toBe('IV');
-    expect(lastDegreeOf({ id: 'v', name: 'V', blocks: [] })).toBeNull();
+    expect(lastDegreeOf({ id: 'v', name: 'V', blocks: [], notes: [] })).toBeNull();
   });
 });
 
@@ -230,7 +239,9 @@ describe('montaje y canción', () => {
   });
 
   it('un bloque más corto que el compás sigue contando una vez', () => {
-    const a: Arrangement = { parts: [{ id: 'p', name: 'P', blocks: [bloque('b', 'I', 1)] }] };
+    const a: Arrangement = {
+      parts: [{ id: 'p', name: 'P', blocks: [bloque('b', 'I', 1)], notes: [] }],
+    };
     expect(sectionsFromArrangement(a, 4)[0]?.degrees).toEqual(['I']);
   });
 
@@ -305,5 +316,124 @@ describe('lo que no cambia devuelve lo mismo', () => {
     ['un modo que no deja fuera nada', () => keepDegreesOfMode(a, 'major')],
   ])('%s', (_, operacion) => {
     expect(operacion()).toBe(a);
+  });
+});
+
+describe('el punteo', () => {
+  function nota(id: string, extra: Partial<LeadNote> = {}): LeadNote {
+    return { id, offset: 0, start: 0, length: 1, ...extra };
+  }
+
+  function conNotas(): Arrangement {
+    let a = montaje();
+    a = addNote(a, 'estrofa', nota('n1', { start: 2, offset: 7 }));
+    a = addNote(a, 'estrofa', nota('n2', { start: 0, offset: 0 }));
+    return a;
+  }
+
+  // Tres sitios las recorren —el carril, el pentagrama y el reproductor— y los
+  // tres necesitan el mismo orden. Ordenarlas al guardar es lo que evita que
+  // alguno se olvide.
+  it('se guardan en orden de entrada, aunque lleguen desordenadas', () => {
+    expect(conNotas().parts[0]?.notes.map((n) => n.id)).toEqual(['n2', 'n1']);
+  });
+
+  it('una nota entra pasando por la rejilla y por las figuras', () => {
+    const a = addNote(montaje(), 'estrofa', nota('n', { start: 1.3, length: 1.9, offset: 99 }));
+    expect(findNote(a, 'n')?.note).toMatchObject({ start: 1.5, length: 2, offset: 24 });
+  });
+
+  it('mover cambia el momento y la altura de una vez', () => {
+    const a = moveNote(conNotas(), 'n1', 3, -5);
+    expect(findNote(a, 'n1')?.note).toMatchObject({ start: 3, offset: -5 });
+  });
+
+  it('mover la reordena si se va delante de otra', () => {
+    const a = moveNote(conNotas(), 'n1', 0, 7);
+    expect(a.parts[0]?.notes.map((n) => n.id)).toEqual(['n2', 'n1']);
+  });
+
+  it('estirar cambia la figura', () => {
+    expect(findNote(resizeNote(conNotas(), 'n1', 3.9), 'n1')?.note.length).toBe(4);
+  });
+
+  it('quitar se lleva solo esa', () => {
+    expect(removeNote(conNotas(), 'n1').parts[0]?.notes.map((n) => n.id)).toEqual(['n2']);
+  });
+
+  it('el punteo no toca los acordes', () => {
+    expect(arrangementLength(conNotas())).toBe(arrangementLength(montaje()));
+  });
+
+  // Una nota que se sale por el final es una frase que se estira sobre el acorde
+  // siguiente, y el pentagrama tiene que dibujar el compás en el que cae.
+  it('una parte llega hasta donde llegue lo último, sea acorde o nota', () => {
+    const corta = montaje().parts[1]!;
+    expect(partLength(corta)).toBe(4);
+
+    const conCola = addNote({ parts: [corta] }, 'estribillo', nota('n', { start: 4, length: 2 }));
+    expect(partLength(conCola.parts[0]!)).toBe(6);
+  });
+
+  describe('lo que no cambia devuelve lo mismo', () => {
+    const a = conNotas();
+
+    it.each([
+      ['quitar una nota que no existe', () => removeNote(a, 'nada')],
+      ['moverla a donde ya estaba', () => moveNote(a, 'n1', 2, 7)],
+      ['mover una que no existe', () => moveNote(a, 'nada', 1, 1)],
+      ['estirar a la figura que ya tenía', () => resizeNote(a, 'n1', 1)],
+      ['estirar una que no existe', () => resizeNote(a, 'nada', 2)],
+    ])('%s', (_, operacion) => {
+      expect(operacion()).toBe(a);
+    });
+  });
+});
+
+describe('soundOf', () => {
+  function conPunteo(): Arrangement {
+    return addNote(
+      addNote(montaje(), 'estrofa', { id: 'n1', offset: 0, start: 0, length: 1 }),
+      'estrofa',
+      { id: 'n2', offset: 7, start: 6, length: 2 },
+    );
+  }
+
+  it('los acordes van uno detrás de otro', () => {
+    const { events } = soundOf(montaje(), 0, 'major', null, false);
+    expect(events.map((e) => e.startBeat)).toEqual([0, 4, 8, 12]);
+  });
+
+  // Es lo que enciende el bloque que suena, y por eso tiene que ir junto a los
+  // sonidos y no calcularse aparte.
+  it('cada sonido dice de qué bloque es', () => {
+    const { owners } = soundOf(montaje(), 0, 'major', null, false);
+    expect(owners).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('el punteo entra en la misma lista, en su sitio', () => {
+    const { events, owners } = soundOf(conPunteo(), 0, 'major', 'estrofa');
+    expect(events.map((e) => e.startBeat)).toEqual([0, 0, 4, 6, 8]);
+    // Las notas no tienen dueño: al sonar una, el bloque encendido no cambia.
+    expect(owners.filter((dueño) => dueño === null)).toHaveLength(2);
+  });
+
+  it('sin punteo suenan solo los acordes', () => {
+    expect(soundOf(conPunteo(), 0, 'major', 'estrofa', false).events).toHaveLength(3);
+  });
+
+  // Mover una parte de sitio tiene que llevarse su melodía con ella, así que el
+  // punteo se mide desde el principio de su parte y no de la canción.
+  it('el punteo de la segunda parte empieza donde acaba la primera', () => {
+    const a = addNote(montaje(), 'estribillo', { id: 'n', offset: 0, start: 1, length: 1 });
+    const { events, owners } = soundOf(a, 0, 'major');
+    const nota = events[owners.indexOf(null)];
+    expect(nota?.startBeat).toBe(13);
+  });
+
+  it('una nota suena a la altura que dice, sobre la tónica', () => {
+    const { events, owners } = soundOf(conPunteo(), 0, 'major', 'estrofa');
+    const notas = events.filter((_, i) => owners[i] === null);
+    expect(notas[1]!.midis[0]! - notas[0]!.midis[0]!).toBe(7);
   });
 });

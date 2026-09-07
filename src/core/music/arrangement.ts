@@ -29,9 +29,17 @@
 
 import type { KeyMode } from './keys';
 import type { PitchClass } from './notes';
-import type { PlaybackStep } from './playback';
+import { voiceForPlayback, type PlaybackStep, type TimedEvent } from './playback';
 import { degreesFor, resolveDegree, type DegreeSymbol } from './progressions';
 import type { CapturedStep } from './capture';
+import {
+  clampOffset,
+  clampStart,
+  midiOf,
+  snapLength,
+  MAX_LEAD_NOTES,
+  type LeadNote,
+} from './melody';
 import { MAX_SECTIONS, MAX_SECTION_DEGREES, type Song, type SongSection } from './song';
 import { DEFAULT_BEATS_PER_BAR } from './tempo';
 
@@ -43,11 +51,20 @@ export interface Block {
   readonly beats: number;
 }
 
-/** Un tramo con nombre: la estrofa, el estribillo, el puente. */
+/**
+ * Un tramo con nombre: la estrofa, el estribillo, el puente.
+ *
+ * Los acordes van en `blocks`, uno detrás de otro y cada uno con lo que dura. El
+ * punteo va en `notes` **y por separado**, porque no es lo mismo: los acordes se
+ * suceden sin huecos y una melodía tiene silencios, se adelanta al compás y se
+ * queda callada media parte. Cada nota lleva su sitio en el tiempo; un bloque no
+ * lo necesita porque su sitio es venir después del anterior.
+ */
 export interface Part {
   readonly id: string;
   readonly name: string;
   readonly blocks: readonly Block[];
+  readonly notes: readonly LeadNote[];
 }
 
 export interface Arrangement {
@@ -218,6 +235,7 @@ export function addPart(arrangement: Arrangement, id: string, name?: string): Ar
         id,
         name: nombre === '' ? defaultPartName(arrangement.parts.length) : nombre,
         blocks: [],
+        notes: [],
       },
     ],
   };
@@ -363,6 +381,79 @@ export function playbackStepsOf(
 }
 
 /**
+ * Todo lo que suena de un montaje —acordes y punteo— con su sitio en el tiempo.
+ *
+ * Una sola lista y no dos, para que el acompañamiento y la melodía se programen
+ * contra el mismo reloj. Junto a ella va `owners`, que dice de qué bloque es cada
+ * sonido y **nulo cuando es una nota del punteo**: así quien enseña por dónde va
+ * enciende el bloque cuando toca y no apaga nada cuando lo que suena es una nota.
+ *
+ * `withMelody` en falso deja solo los acordes, que es lo que hace falta para oír
+ * el acompañamiento mientras se escribe encima.
+ */
+export interface ArrangementSound {
+  readonly events: readonly TimedEvent[];
+  readonly owners: readonly (string | null)[];
+}
+
+export function soundOf(
+  arrangement: Arrangement,
+  tonic: PitchClass,
+  mode: KeyMode,
+  partId: string | null = null,
+  withMelody = true,
+  baseMidi?: number,
+): ArrangementSound {
+  const partes =
+    partId === null ? arrangement.parts : arrangement.parts.filter((part) => part.id === partId);
+
+  const events: TimedEvent[] = [];
+  const owners: (string | null)[] = [];
+
+  // Las partes van una detrás de otra, así que cada una empieza donde acabó la
+  // anterior. El punteo se mide desde el principio de su parte, no de la canción:
+  // mover una parte de sitio se lleva su melodía con ella.
+  let desde = 0;
+  for (const part of partes) {
+    let enPulsos = desde;
+    for (const block of part.blocks) {
+      const chord = resolveDegree(tonic, mode, block.degree);
+      events.push({
+        startBeat: enPulsos,
+        beats: block.beats,
+        midis: voiceForPlayback(chord.root, chord.notes, baseMidi),
+      });
+      owners.push(block.id);
+      enPulsos += block.beats;
+    }
+
+    if (withMelody) {
+      for (const note of part.notes) {
+        events.push({
+          startBeat: desde + note.start,
+          beats: note.length,
+          midis: [midiOf(note, tonic)],
+        });
+        owners.push(null);
+      }
+    }
+
+    desde += partLength(part);
+  }
+
+  // Se ordenan a la vez que sus dueños: `scheduleEvents` también ordena, y si
+  // cada lista se ordenara por su cuenta el bloque encendido sería otro.
+  const orden = events
+    .map((event, indice) => ({ event, indice }))
+    .sort((a, b) => a.event.startBeat - b.event.startBeat || a.indice - b.indice);
+
+  return {
+    events: orden.map(({ event }) => event),
+    owners: orden.map(({ indice }) => owners[indice] ?? null),
+  };
+}
+
+/**
  * Los bloques en el orden en que van a sonar.
  *
  * Quien reproduce recibe un índice —«va por el tercero»— y necesita saber qué
@@ -380,6 +471,118 @@ export function blocksInOrder(
   return partes.flatMap((part) =>
     part.blocks.map((block) => ({ partId: part.id, blockId: block.id })),
   );
+}
+
+/**
+ * Dónde está una nota del punteo, o nulo si ese identificador no existe.
+ *
+ * Hermana de `findBlock`, y por el mismo motivo: quien arrastra tiene un
+ * identificador y necesita saber de qué parte salió.
+ */
+export function findNote(
+  arrangement: Arrangement,
+  noteId: string,
+): { readonly part: Part; readonly note: LeadNote } | null {
+  for (const part of arrangement.parts) {
+    const note = part.notes.find((candidata) => candidata.id === noteId);
+    if (note !== undefined) {
+      return { part, note };
+    }
+  }
+  return null;
+}
+
+/**
+ * Las notas de una parte, siempre en orden de entrada.
+ *
+ * Se ordenan al guardar y no al dibujar porque hay tres sitios que las recorren
+ * —los bloques, el pentagrama y el reproductor— y los tres necesitan lo mismo.
+ * Ordenar en cada uno era pedir que alguno se olvidara.
+ */
+function ordenar(notes: readonly LeadNote[]): LeadNote[] {
+  return [...notes].sort((a, b) => a.start - b.start || a.offset - b.offset);
+}
+
+export function addNote(arrangement: Arrangement, partId: string, note: LeadNote): Arrangement {
+  return mapPart(arrangement, partId, (part) => {
+    if (part.notes.length >= MAX_LEAD_NOTES) {
+      return part;
+    }
+    const nueva: LeadNote = {
+      id: note.id,
+      offset: clampOffset(note.offset),
+      start: clampStart(note.start),
+      length: snapLength(note.length),
+    };
+    return { ...part, notes: ordenar([...part.notes, nueva]) };
+  });
+}
+
+export function removeNote(arrangement: Arrangement, noteId: string): Arrangement {
+  return mapParts(arrangement, (part) => {
+    const notes = part.notes.filter((note) => note.id !== noteId);
+    return notes.length === part.notes.length ? part : { ...part, notes };
+  });
+}
+
+/**
+ * Lleva una nota a otro sitio: otro momento, otra altura, o las dos.
+ *
+ * Una sola función porque en el pentagrama y en el carril es un solo gesto: se
+ * coge la nota y se suelta donde sea. Separar «mover en el tiempo» de «cambiar de
+ * altura» obligaría a la interfaz a decidir cuál de las dos está pasando a mitad
+ * de un arrastre en diagonal.
+ */
+export function moveNote(
+  arrangement: Arrangement,
+  noteId: string,
+  start: number,
+  offset: number,
+): Arrangement {
+  const inicio = clampStart(start);
+  const altura = clampOffset(offset);
+
+  return mapParts(arrangement, (part) => {
+    const note = part.notes.find((candidata) => candidata.id === noteId);
+    if (note === undefined || (note.start === inicio && note.offset === altura)) {
+      return part;
+    }
+    return {
+      ...part,
+      notes: ordenar(
+        part.notes.map((candidata) =>
+          candidata.id === noteId ? { ...candidata, start: inicio, offset: altura } : candidata,
+        ),
+      ),
+    };
+  });
+}
+
+export function resizeNote(arrangement: Arrangement, noteId: string, length: number): Arrangement {
+  const pulsos = snapLength(length);
+  return mapParts(arrangement, (part) =>
+    part.notes.some((note) => note.id === noteId && note.length !== pulsos)
+      ? {
+          ...part,
+          notes: part.notes.map((note) =>
+            note.id === noteId ? { ...note, length: pulsos } : note,
+          ),
+        }
+      : part,
+  );
+}
+
+/**
+ * Hasta dónde llega una parte, contando el punteo.
+ *
+ * Puede ser más de lo que ocupan sus acordes: una nota que se sale por el final
+ * es una frase que se estira sobre el acorde siguiente, y el pentagrama tiene que
+ * dibujar el compás en el que cae.
+ */
+export function partLength(part: Part): number {
+  const acordes = partBeats(part);
+  const punteo = part.notes.reduce((mayor, note) => Math.max(mayor, note.start + note.length), 0);
+  return Math.max(acordes, punteo);
 }
 
 /**
@@ -416,6 +619,9 @@ export function arrangementFromSong(
         degree,
         beats: porCompas,
       })),
+      // Una canción guardada no tiene punteo: `song.ts` guarda grados y nada más.
+      // Abrirla da el acompañamiento, y la melodía se escribe encima.
+      notes: [],
     })),
   };
 }
@@ -480,6 +686,9 @@ export function partFromCapture(
       degree: step.degree,
       beats: clampBeats(step.beats),
     })),
+    // El croma oye acordes, no melodías: lo que se graba tocando entra como
+    // acompañamiento y el punteo se escribe encima.
+    notes: [],
   };
 }
 

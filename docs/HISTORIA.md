@@ -43,6 +43,7 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Las versiones pasan a ser **salidas**: canciones distintas con sus partes, no retoques.     |
 | Repaso de toda la aplicación: código muerto fuera, tres fallos reales arreglados.           |
 | Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.           |
+| El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.             |
 
 ## Los fallos que enseñaron algo
 

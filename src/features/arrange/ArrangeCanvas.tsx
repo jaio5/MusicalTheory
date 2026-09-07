@@ -4,11 +4,13 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
+  GRID,
   arrangementBeats,
   barsLabel,
   captureProgression,
   degreesFor,
   findBlock,
+  findNote,
   lastDegreeOf,
   nextDegrees,
   resolveDegree,
@@ -19,8 +21,10 @@ import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
 
+import { arrastrar } from './arrastrar';
 import { PX_POR_PULSO, ZONA_ESTIRAR_PX, anchoDeBloque } from './BlockButton';
-import { PartRow } from './PartRow';
+import { ChordEntry } from './ChordEntry';
+import { PartRow, type Punteo } from './PartRow';
 import { useArrangementPlayer } from './use-arrangement-player';
 import { useBlockDrag, type Medida } from './use-block-drag';
 
@@ -51,11 +55,35 @@ import { useBlockDrag, type Medida } from './use-block-drag';
 /** Cuántos acordes se proponen. Más de seis dejan de mirarse. */
 const CUANTAS_SUGERENCIAS = 6;
 
+/**
+ * Cuánto hay que moverse para que una pulsación sea un arrastre.
+ *
+ * El mismo cuatro que usan los bloques, y por lo mismo: un dedo nunca pulsa
+ * completamente quieto, y sin umbral la mitad de las pulsaciones acaban siendo
+ * arrastres de dos píxeles.
+ */
+const UMBRAL_ARRASTRE = 4;
+
+/**
+ * Las tres maneras de llevar el punteo.
+ *
+ * `bloques` y `partitura` son **la misma melodía** con dos pieles: las mismas
+ * notas, el mismo píxel por pulso y las mismas acciones. Lo que cambia es quién
+ * las lee. `oculto` deja la pantalla como estaba, que es lo que quiere quien solo
+ * está buscando acordes.
+ */
+const PUNTEOS: ReadonlyArray<{ id: Punteo; name: string }> = [
+  { id: 'oculto', name: 'Acordes' },
+  { id: 'bloques', name: 'Con punteo' },
+  { id: 'partitura', name: 'Partitura' },
+];
+
 export function ArrangeCanvas() {
   const activeKey = useSessionStore(selectActiveKey);
   const bpm = useSessionStore((state) => state.bpm);
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
   const captured = useSessionStore((state) => state.captured);
+  const scaleId = useSessionStore((state) => state.scaleId);
   const captureEndedAt = useSessionStore((state) => state.captureEndedAt);
   const capturing = useSessionStore((state) => state.capturing);
 
@@ -64,13 +92,81 @@ export function ArrangeCanvas() {
   const acciones = useArrangementStore((state) => state.actions);
 
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [activePartId, setActivePartId] = useState<string | null>(null);
+  const [punteo, setPunteo] = useState<Punteo>('oculto');
+  /** Qué propuesta se está arrastrando y sobre qué parte va, mientras dura. */
+  const [soltando, setSoltando] = useState<{
+    degree: DegreeSymbol;
+    symbol: string;
+    partId: string | null;
+    x: number;
+    y: number;
+  } | null>(null);
+  // Encendida se dibujan solo las notas de la escala, y no hay manera de escribir
+  // una que desafine. Es el mismo eje que separa los bloques de la partitura.
+  const [onlyScale, setOnlyScale] = useState(true);
   const listaRef = useRef<HTMLDivElement | null>(null);
+  /** Sobre qué parte se está soltando, y si el gesto llegó a ser un arrastre. */
+  const destinoRef = useRef<string | null>(null);
+  const arrastradaRef = useRef(false);
 
   const tonic = activeKey?.tonic ?? null;
   const mode = activeKey?.mode ?? 'major';
 
   const player = useArrangementPlayer(arrangement, tonic, mode, bpm);
+
+  /**
+   * Escribir una nota, seleccionarla y dejarla lista para alterarla.
+   *
+   * Dura un pulso por omisión: es la negra, la figura con la que se escribe casi
+   * todo, y estirarla es un gesto más corto que elegir la duración antes.
+   */
+  const escribirNota = useCallback(
+    (partId: string, offset: number, start: number) => {
+      setSelectedNoteId(acciones.addNote(partId, offset, start, 1));
+      setActivePartId(partId);
+    },
+    [acciones],
+  );
+
+  /**
+   * El punteo con el teclado.
+   *
+   * Más y menos alteran la nota elegida medio tono, que es como se escribe un
+   * cromatismo sin moverla de línea; las flechas la mueven en el tiempo y `Supr`
+   * la quita. Sin esto, la partitura solo se podría usar con ratón.
+   */
+  const teclaEnPunteo = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (selectedNoteId === null) {
+        return;
+      }
+      const sitio = findNote(arrangement, selectedNoteId);
+      if (sitio === null) {
+        return;
+      }
+      const { note } = sitio;
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        acciones.removeNote(selectedNoteId);
+        setSelectedNoteId(null);
+      } else if (event.key === '+' || event.key === '-') {
+        event.preventDefault();
+        acciones.moveNote(selectedNoteId, note.start, note.offset + (event.key === '+' ? 1 : -1));
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        const paso = event.key === 'ArrowLeft' ? -GRID : GRID;
+        if (event.shiftKey) {
+          acciones.resizeNote(selectedNoteId, note.length + paso * 2);
+        } else {
+          acciones.moveNote(selectedNoteId, note.start + paso, note.offset);
+        }
+      }
+    },
+    [acciones, arrangement, selectedNoteId],
+  );
 
   /**
    * La parte a la que van los acordes que se pulsan.
@@ -215,6 +311,66 @@ export function ArrangeCanvas() {
       .map((move) => ({ degree: move.to, why: move.why }));
   }, [mode, parteDestino, tonic]);
 
+  /**
+   * Arrastrar una propuesta hasta una parte.
+   *
+   * Es la otra manera de poner un acorde, y la que hace falta con más de una
+   * parte delante: pulsar lo mete en la de destino, que puede no ser la que se
+   * está mirando. Arrastrando se dice dónde va, y se ve antes de soltar.
+   *
+   * Dos cosas que costaron una pasada por el navegador:
+   *
+   * - **El destino se guarda en un ref además de en el estado.** Leerlo dentro
+   *   del actualizador de `setSoltando` para soltarlo allí mismo es cambiar un
+   *   componente mientras se está pintando otro, y React lo dice por consola.
+   * - **Un arrastre no es además una pulsación.** El navegador dispara el `click`
+   *   después del `pointerup` aunque el puntero haya recorrido media pantalla, y
+   *   sin acordarse de que hubo arrastre se metían dos acordes: el que se soltó y
+   *   el de la pulsación.
+   *
+   * La parte de debajo se busca con `elementFromPoint` y no midiéndolas al
+   * empezar, como sí hace el arrastre de bloques: aquí lo que hay debajo no se
+   * mueve mientras dura el gesto, así que no hace falta la foto.
+   */
+  const arrastrarPropuesta = useCallback(
+    (event: ReactPointerEvent, degree: DegreeSymbol, symbol: string) => {
+      if (event.button !== 0) {
+        return;
+      }
+      const inicioX = event.clientX;
+      const inicioY = event.clientY;
+      destinoRef.current = null;
+      arrastradaRef.current = false;
+
+      const parteBajo = (x: number, y: number): string | null =>
+        document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-parte-destino]')?.dataset[
+          'parteDestino'
+        ] ?? null;
+
+      arrastrar({
+        mover: (x, y) => {
+          if (!arrastradaRef.current) {
+            if (Math.hypot(x - inicioX, y - inicioY) < UMBRAL_ARRASTRE) {
+              return;
+            }
+            arrastradaRef.current = true;
+          }
+          destinoRef.current = parteBajo(x, y);
+          setSoltando({ degree, symbol, partId: destinoRef.current, x, y });
+        },
+        soltar: () => {
+          const partId = destinoRef.current;
+          setSoltando(null);
+          if (arrastradaRef.current && partId !== null) {
+            setSelectedBlockId(acciones.addBlock(partId, degree, beatsPerBar));
+            setActivePartId(partId);
+          }
+        },
+      });
+    },
+    [acciones, beatsPerBar],
+  );
+
   const ponerAcorde = useCallback(
     (degree: DegreeSymbol) => {
       const partId = parteDestino?.id ?? acciones.addPart('Estrofa');
@@ -293,6 +449,32 @@ export function ArrangeCanvas() {
           >
             Parte nueva
           </Chip>
+          <span className="flex gap-1" role="group" aria-label="Cómo llevar el punteo">
+            {PUNTEOS.map((candidato) => (
+              <Chip
+                key={candidato.id}
+                onClick={() => setPunteo(candidato.id)}
+                pressed={punteo === candidato.id}
+                tone="quiet"
+                className="px-3 text-xs"
+              >
+                {candidato.name}
+              </Chip>
+            ))}
+          </span>
+
+          {punteo === 'bloques' && (
+            <Chip
+              onClick={() => setOnlyScale(!onlyScale)}
+              pressed={onlyScale}
+              tone="quiet"
+              className="px-3 text-xs"
+              title="Solo las notas de la escala que tienes puesta"
+            >
+              Solo la escala
+            </Chip>
+          )}
+
           <Chip
             onClick={() => acciones.undo()}
             tone="quiet"
@@ -305,7 +487,15 @@ export function ArrangeCanvas() {
       </div>
 
       <div className="flex min-h-0 grow flex-col overflow-hidden lg:flex-row">
-        <div ref={listaRef} className="min-h-0 grow overflow-y-auto">
+        {/* Las teclas del punteo se escuchan en la caja entera y no en cada nota:
+            en el pentagrama la nota es un `<g>` de SVG, y un grupo de SVG no
+            recibe el foco igual en todos los navegadores. */}
+        <div
+          ref={listaRef}
+          className="min-h-0 grow overflow-y-auto"
+          onKeyDown={teclaEnPunteo}
+          role="presentation"
+        >
           {arrangement.parts.length === 0 ? (
             <p className="text-text-muted p-6 text-center text-sm">
               Pulsa un acorde de la derecha y empieza la primera parte.
@@ -323,6 +513,11 @@ export function ArrangeCanvas() {
                 selectedBlockId={selectedBlockId}
                 draggingBlockId={drag?.blockId ?? null}
                 dropIndex={drag?.target?.partId === part.id ? drag.target.index : null}
+                punteo={punteo}
+                dropPart={soltando?.partId === part.id}
+                scaleId={scaleId}
+                onlyScale={onlyScale}
+                selectedNoteId={selectedNoteId}
                 onPlay={() => player.toggle(part.id)}
                 onRename={(name) => acciones.renamePart(part.id, name)}
                 onRemove={() => acciones.removePart(part.id)}
@@ -332,6 +527,17 @@ export function ArrangeCanvas() {
                   setActivePartId(part.id);
                 }}
                 onBlockKeyDown={teclaEnBloque}
+                onRemoveBlock={(blockId) => {
+                  acciones.removeBlock(blockId);
+                  setSelectedBlockId(null);
+                }}
+                onResizeBlock={acciones.resizeBlock}
+                onAddNote={escribirNota}
+                onSelectNote={setSelectedNoteId}
+                onMoveNote={acciones.moveNote}
+                onResizeNote={acciones.resizeNote}
+                onGestureStart={acciones.beginGesture}
+                onGestureEnd={acciones.endGesture}
               />
             ))
           )}
@@ -344,9 +550,17 @@ export function ArrangeCanvas() {
           aria-label="Qué poner ahora"
           className="border-border shrink-0 overflow-y-auto border-t p-3 lg:w-72 lg:border-t-0 lg:border-l"
         >
-          <h3 className="text-text-muted text-xs tracking-widest uppercase">
+          {/* Escribir va antes que elegir: quien sabe cómo se llama el acorde no
+              tiene por qué buscarlo en una lista, y quien no lo sabe pasa de
+              largo hasta las propuestas de abajo. */}
+          <ChordEntry tonic={tonic} mode={mode} onPick={ponerAcorde} />
+
+          <h3 className="text-text-muted mt-4 text-xs tracking-widest uppercase">
             {parteDestino === null ? 'Para empezar' : `Después de ${parteDestino.name}`}
           </h3>
+          <p className="text-text-muted mt-1 text-xs">
+            Pulsa uno, o arrástralo hasta la parte donde lo quieras.
+          </p>
           <ul className="mt-3 flex flex-col gap-2">
             {sugerencias.map((sugerencia) => {
               const chord = resolveDegree(tonic, mode, sugerencia.degree);
@@ -354,8 +568,21 @@ export function ArrangeCanvas() {
                 <li key={sugerencia.degree}>
                   <button
                     type="button"
-                    onClick={() => ponerAcorde(sugerencia.degree)}
-                    className="border-border hover:border-brass-dim hover:bg-surface-raised min-h-tap flex w-full items-baseline gap-3 rounded-md border px-3 py-2 text-left"
+                    onClick={() => {
+                      // Tras un arrastre el navegador manda también el `click`.
+                      // Sin esto, soltar un acorde en una parte metía dos: el que
+                      // se soltó y el de la pulsación de vuelta.
+                      if (arrastradaRef.current) {
+                        arrastradaRef.current = false;
+                        return;
+                      }
+                      ponerAcorde(sugerencia.degree);
+                    }}
+                    onPointerDown={(event) =>
+                      arrastrarPropuesta(event, sugerencia.degree, chord.symbol)
+                    }
+                    style={{ touchAction: 'none' }}
+                    className="border-border hover:border-brass-dim hover:bg-surface-raised min-h-tap flex w-full cursor-grab items-baseline gap-3 rounded-md border px-3 py-2 text-left"
                   >
                     <span className="text-brass-bright font-mono text-base">{chord.symbol}</span>
                     <span className="text-text-muted font-mono text-xs">{sugerencia.degree}</span>
@@ -371,6 +598,22 @@ export function ArrangeCanvas() {
       {/* El bloque que se arrastra, pegado al puntero. Va fuera de las filas y en
           `fixed` porque tiene que poder salir de la fila de la que se sacó: es
           justo el gesto de llevárselo al estribillo. */}
+      {soltando !== null && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed z-50"
+          style={{ left: soltando.x - 30, top: soltando.y - 22 }}
+        >
+          <div
+            className={`superficie-viva min-h-tap flex items-center justify-center rounded-md px-4 font-mono ${
+              soltando.partId === null ? 'text-text-muted opacity-70' : 'text-brass-bright'
+            }`}
+          >
+            {soltando.symbol}
+          </div>
+        </div>
+      )}
+
       {arrastrado !== null && (
         <div
           aria-hidden

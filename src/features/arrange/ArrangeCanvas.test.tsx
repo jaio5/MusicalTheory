@@ -189,3 +189,139 @@ describe('lo grabado', () => {
     expect(bloques[1]).toHaveAttribute('aria-label', expect.stringContaining('4 pulsos'));
   });
 });
+
+describe('escribir un acorde', () => {
+  it('lo que se teclea se convierte en el grado que le toca', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'G');
+    await userEvent.click(screen.getByRole('button', { name: 'G' }));
+
+    expect(acordesDe('Estrofa')).toEqual(['G']);
+  });
+
+  /**
+   * El montaje guarda grados y un grado es una tríada, así que un `Am7` entra
+   * como `Am`. Se enseña el cifrado que va a quedar y no el que se ha escrito:
+   * enterarse después, con el acorde ya puesto, es peor que verlo antes.
+   */
+  it('una cuatríada se ofrece como la tríada que va a entrar', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'Am7');
+
+    expect(screen.getByRole('button', { name: 'Am' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Am' })).toHaveAttribute(
+      'title',
+      expect.stringContaining('Am7 entra como Am'),
+    );
+  });
+
+  /**
+   * Un acorde que no es ninguno de los grados del modo no se puede guardar, y se
+   * dice en vez de dejarlo escrito en un campo que no hace nada.
+   *
+   * Se prueba con Fa sostenido y no con Do sostenido, que era lo primero que se
+   * escribió: **el Do sostenido sí cabe en Do mayor**, porque el catálogo de
+   * grados tiene el napolitano y `bII` es justo ese. Con la fundamental en Fa
+   * sostenido no hay ningún grado, ni mayor ni menor.
+   */
+  it('lo que no cabe en la tonalidad no se puede poner', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'F#');
+
+    expect(screen.getByRole('button', { name: 'F#' })).toBeDisabled();
+    // El aviso lo parte React en varios nodos, así que se busca por el trozo
+    // que va entero en uno.
+    expect(screen.getByText(/Ninguno de esos es un grado/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'F#' })).toHaveAttribute(
+      'title',
+      expect.stringContaining('no es un grado de C mayor'),
+    );
+  });
+});
+
+describe('el punteo', () => {
+  async function conAcordes() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+  }
+
+  it('no se ve hasta que se pide', async () => {
+    await conAcordes();
+    expect(screen.queryByRole('img', { name: /Partitura/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Partitura' }));
+    expect(screen.getByRole('img', { name: /Partitura de Estrofa/ })).toBeInTheDocument();
+  });
+
+  // En partitura los acordes se leen encima del pentagrama. Una tira de cajas
+  // repitiendo lo mismo justo encima sería decirlo dos veces.
+  it('en partitura no hay además una tira de bloques', async () => {
+    await conAcordes();
+    await userEvent.click(screen.getByRole('button', { name: 'Partitura' }));
+    expect(screen.queryByRole('list', { name: 'Acordes de Estrofa' })).not.toBeInTheDocument();
+  });
+
+  it('con punteo se ve la rejilla y los acordes siguen en su tira', async () => {
+    await conAcordes();
+    await userEvent.click(screen.getByRole('button', { name: 'Con punteo' }));
+
+    expect(screen.getByRole('list', { name: 'Acordes de Estrofa' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^Escribir / }).length).toBeGreaterThan(0);
+  });
+
+  /**
+   * La casilla de «solo la escala» es la que separa la interfaz de quien sabe de
+   * la de quien no: encendida, no hay una sola casilla que suene mal.
+   */
+  it('solo la escala ofrece menos filas que las doce', async () => {
+    await conAcordes();
+    await userEvent.click(screen.getByRole('button', { name: 'Con punteo' }));
+
+    const conEscala = screen.getAllByRole('button', { name: /^Escribir / }).length;
+    await userEvent.click(screen.getByRole('button', { name: 'Solo la escala' }));
+    const cromatico = screen.getAllByRole('button', { name: /^Escribir / }).length;
+
+    expect(cromatico).toBeGreaterThan(conEscala);
+  });
+
+  it('pulsar una casilla escribe la nota', async () => {
+    await conAcordes();
+    await userEvent.click(screen.getByRole('button', { name: 'Con punteo' }));
+    await userEvent.click(screen.getAllByRole('button', { name: /^Escribir / })[0]!);
+
+    expect(screen.getAllByRole('button', { name: /en el pulso/ }).length).toBe(1);
+  });
+});
+
+describe('las dos vistas del punteo enseñan lo mismo', () => {
+  /**
+   * Con «solo la escala» puesta, una nota alterada no tiene fila donde
+   * dibujarse. Se queda donde está —quitarla sería borrar trabajo por haber
+   * cambiado de vista— y se avisa: escribir una nota y no verla parece que se ha
+   * perdido.
+   */
+  it('avisa de las notas que no caben en la rejilla', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
+
+    // Una nota de la escala y otra alterada, escritas por debajo de la interfaz.
+    const parte = useArrangementStore.getState().arrangement.parts[0]!;
+    const acciones = useArrangementStore.getState().actions;
+    acciones.addNote(parte.id, 0, 0, 1);
+    acciones.addNote(parte.id, 1, 1, 1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Con punteo' }));
+    expect(screen.getByText(/no es de la escala/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Solo la escala' }));
+    expect(screen.queryByText(/no es de la escala/)).not.toBeInTheDocument();
+  });
+});

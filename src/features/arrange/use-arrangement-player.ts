@@ -3,9 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
-  blocksInOrder,
-  playbackStepsOf,
-  scheduleProgression,
+  scheduleEvents,
+  soundOf,
   type Arrangement,
   type KeyMode,
   type PitchClass,
@@ -15,12 +14,16 @@ import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progre
 /**
  * Oír el montaje, y saber por qué bloque va.
  *
- * Es el mismo motor que usan las salidas —`scheduleProgression` y
- * `progression-player`— con una diferencia: allí lo que suena es una lista de
- * compases y aquí es un montaje con partes, así que hay que traducir el índice
- * que devuelve el reproductor al bloque que está sonando. Esa traducción sale de
- * `blocksInOrder`, que recorre el montaje igual que `playbackStepsOf`, para que
- * los dos índices no puedan descuadrarse.
+ * Es el mismo reproductor que usan las salidas, con dos diferencias. La primera:
+ * aquí suena un montaje con partes, así que hay que traducir el índice que
+ * devuelve el reproductor al bloque encendido, y esa traducción la da `soundOf`
+ * junto a los sonidos para que no puedan descuadrarse.
+ *
+ * La segunda es el punteo. Las notas van **en la misma lista** que los acordes y
+ * no en un segundo reproductor: dos `AudioContext` tienen dos relojes, y unos
+ * milisegundos entre el acorde y la nota se oyen como un golpe doble. Cuando lo
+ * que suena es una nota, el bloque encendido no cambia —su dueño es nulo— en vez
+ * de apagarse, que es lo que haría parpadear el cabezal en cada corchea.
  *
  * El `AudioContext` se crea al primer play y no antes: un contexto abierto sin
  * pulsar nada lo bloquea el navegador, y además gasta batería en una pantalla
@@ -42,6 +45,8 @@ export function useArrangementPlayer(
   tonic: PitchClass | null,
   mode: KeyMode,
   bpm: number,
+  /** Si suena también el punteo, o solo el acompañamiento. */
+  withMelody = true,
   createPlayer?: () => ProgressionPlayer,
 ): ArrangementPlayback {
   const [playing, setPlaying] = useState(false);
@@ -82,29 +87,31 @@ export function useArrangementPlayer(
         return;
       }
 
-      const pasos = playbackStepsOf(arrangement, tonic, mode, partId);
-      if (pasos.length === 0) {
+      const { events, owners } = soundOf(arrangement, tonic, mode, partId, withMelody);
+      if (events.length === 0) {
         return;
       }
 
-      const orden = blocksInOrder(arrangement, partId);
       playerRef.current ??= factoryRef.current?.() ?? new WebAudioProgressionPlayer();
 
       setPlaying(true);
       setPlayingPartId(partId);
-      setCurrentBlockId(orden[0]?.blockId ?? null);
+      setCurrentBlockId(owners.find((dueño) => dueño !== null) ?? null);
 
-      void playerRef.current.play(scheduleProgression(pasos, bpm), (step) => {
+      void playerRef.current.play(scheduleEvents(events, bpm), (step) => {
         if (step === null) {
           setPlaying(false);
           setPlayingPartId(null);
           setCurrentBlockId(null);
-        } else {
-          setCurrentBlockId(orden[step]?.blockId ?? null);
+          return;
+        }
+        const dueño = owners[step];
+        if (dueño !== null && dueño !== undefined) {
+          setCurrentBlockId(dueño);
         }
       });
     },
-    [arrangement, bpm, mode, playing, playingPartId, stop, tonic],
+    [arrangement, bpm, mode, playing, playingPartId, stop, tonic, withMelody],
   );
 
   return { playing, playingPartId, currentBlockId, toggle, stop };

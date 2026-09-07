@@ -94,6 +94,29 @@ export function triadQuality(root: PitchClass, notes: readonly PitchClass[]): Ch
   return found?.quality ?? null;
 }
 
+/**
+ * La tríada que hay **dentro** de un acorde, tenga las notas que tenga.
+ *
+ * `triadQuality` exige que sean exactamente tres, porque eso es lo que oye el
+ * croma y ahí de más significa que se ha colado una nota. Al escribir un cifrado
+ * es al revés: un `Am7` tiene cuatro notas y sigue siendo el mismo grado que un
+ * `Am`, y un `C7b9` tiene cinco y sigue siendo el I.
+ *
+ * Se busca la primera calidad cuyos intervalos estén todos presentes, y por eso
+ * el orden de `CALIDADES` importa: un `7#9` lleva dentro la tercera mayor y la
+ * menor, y es un acorde mayor con una tensión, no un acorde menor.
+ *
+ * No vale mirar las tres primeras notas: van ordenadas por semitono, así que las
+ * tres primeras de un `add9` son la fundamental, la novena y la tercera.
+ */
+export function triadInside(root: PitchClass, notes: readonly PitchClass[]): ChordQuality | null {
+  const relativos = new Set(notes.map((note) => normalizePitchClass(note - root)));
+  const found = CALIDADES.find((candidate) =>
+    candidate.intervals.every((interval) => relativos.has(interval as PitchClass)),
+  );
+  return found?.quality ?? null;
+}
+
 /** Si dos acordes oídos son el mismo. El croma no distingue inversiones. */
 function esElMismo(a: CapturedChord, b: CapturedChord): boolean {
   if (a.root !== b.root || a.notes.length !== b.notes.length) {

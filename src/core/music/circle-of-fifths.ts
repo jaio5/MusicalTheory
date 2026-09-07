@@ -82,3 +82,68 @@ export function shortestRotation(from: number, to: number): number {
 export function accidentalForKey(tonic: PitchClass, mode: KeyMode): Accidental {
   return keyPosition(tonic, mode) <= 6 ? 'sharp' : 'flat';
 }
+
+/**
+ * El orden en que se escriben las alteraciones en la armadura.
+ *
+ * No es un capricho tipográfico: es el orden del propio círculo. Cada sostenido
+ * que se añade está una quinta por encima del anterior, y cada bemol una quinta
+ * por debajo, así que las dos listas son la misma leída al revés.
+ */
+const ORDEN_SOSTENIDOS = ['F', 'C', 'G', 'D', 'A', 'E', 'B'] as const;
+const ORDEN_BEMOLES = ['B', 'E', 'A', 'D', 'G', 'C', 'F'] as const;
+
+/** La altura natural de cada letra, sin armadura ninguna. */
+const NATURALES: Readonly<Record<string, PitchClass>> = {
+  C: 0,
+  D: 2,
+  E: 4,
+  F: 5,
+  G: 7,
+  A: 9,
+  B: 11,
+};
+
+export interface KeySignature {
+  /** Las letras alteradas, en el orden en que se escriben. */
+  readonly letters: readonly string[];
+  readonly accidental: Accidental;
+}
+
+/**
+ * Qué lleva la armadura de esa tonalidad.
+ *
+ * Sale de la posición en el círculo y no de una tabla escrita a mano: la posición
+ * **es** el número de alteraciones. Uno hacia los sostenidos, un sostenido; uno
+ * hacia los bemoles, un bemol.
+ *
+ * Hace falta para dos cosas que parecen distintas y son la misma: dibujar el
+ * pentagrama, y saber qué nota es la que se escribe en una línea. En Sol mayor,
+ * la línea del Fa es un Fa sostenido, y quien arrastra una nota hasta ahí espera
+ * la de la tonalidad, no la natural.
+ */
+export function keySignature(tonic: PitchClass, mode: KeyMode): KeySignature {
+  const position = keyPosition(tonic, mode);
+  return position <= 6
+    ? { letters: ORDEN_SOSTENIDOS.slice(0, position), accidental: 'sharp' }
+    : { letters: ORDEN_BEMOLES.slice(0, 12 - position), accidental: 'flat' };
+}
+
+/**
+ * Qué altura suena en la línea de esa letra, con la armadura puesta.
+ *
+ * Es lo que convierte «la tercera línea del pentagrama» en una nota concreta, y
+ * por eso pasa por la armadura en vez de por la escala: buscar la letra entre las
+ * notas de la escala falla en Fa sostenido mayor, donde el Mi sostenido se llama
+ * `F` con los doce nombres que hay y taparía al Fa sostenido.
+ */
+export function pitchOfLetter(letter: string, signature: KeySignature): PitchClass {
+  const natural = NATURALES[letter];
+  if (natural === undefined) {
+    throw new RangeError(`No es una letra de nota: ${letter}.`);
+  }
+  if (!signature.letters.includes(letter)) {
+    return natural;
+  }
+  return normalizePitchClass(natural + (signature.accidental === 'sharp' ? 1 : -1));
+}
