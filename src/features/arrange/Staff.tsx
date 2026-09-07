@@ -100,6 +100,9 @@ export interface StaffProps {
   readonly selectedNoteId: string | null;
   readonly selectedBlockId: string | null;
   readonly partName: string;
+  readonly partId: string;
+  /** Entre qué dos compases caería lo que se está arrastrando, si es aquí. */
+  readonly dropAt: number | null;
   readonly onSelectBlock: (blockId: string) => void;
   readonly onRemoveBlock: (blockId: string) => void;
   readonly onResizeBlock: (blockId: string, beats: number) => void;
@@ -127,6 +130,8 @@ export function Staff({
   selectedNoteId,
   selectedBlockId,
   partName,
+  partId,
+  dropAt,
   onSelectBlock,
   onRemoveBlock,
   onResizeBlock,
@@ -341,8 +346,9 @@ export function Staff({
           lo que un cifrado suelto no dice y un bloque decía con su ancho.
         */}
         {
-          blocks.reduce<{ x: number; nodos: React.ReactElement[] }>(
+          blocks.reduce<{ x: number; nodos: React.ReactElement[]; i: number }>(
             (acumulado, block) => {
+              const indice = acumulado.i;
               const chord = resolveDegree(tonic, mode, block.degree);
               const x = MARGEN + acumulado.x * PX_POR_PULSO;
               const elegido = selectedBlockId === block.id;
@@ -352,6 +358,10 @@ export function Staff({
                   key={block.id}
                   role="button"
                   tabIndex={0}
+                  // El compás es zona de destino: al arrastrar un acorde por
+                  // encima, el hueco que se abre es el de aquí.
+                  data-parte={partId}
+                  data-indice={acumulado.x === 0 ? 0 : indice}
                   aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
                   aria-pressed={elegido}
                   className={`focus-visible:outline-brass-bright cursor-pointer focus-visible:outline-2 ${
@@ -406,11 +416,37 @@ export function Staff({
                   />
                 </g>,
               );
-              return { x: acumulado.x + block.beats, nodos: acumulado.nodos };
+              return {
+                x: acumulado.x + block.beats,
+                nodos: acumulado.nodos,
+                i: acumulado.i + 1,
+              };
             },
-            { x: 0, nodos: [] },
+            { x: 0, nodos: [], i: 0 },
           ).nodos
         }
+
+        {/* La marca de dónde caería el acorde que se arrastra. Va donde empieza
+            el compás ante el que se soltaría, que es donde va a aparecer. */}
+        {dropAt !== null && (
+          <line
+            aria-hidden
+            x1={
+              MARGEN +
+              blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * PX_POR_PULSO -
+              3
+            }
+            x2={
+              MARGEN +
+              blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * PX_POR_PULSO -
+              3
+            }
+            y1={2}
+            y2={BASE + 4}
+            className="stroke-brass-bright"
+            strokeWidth={2}
+          />
+        )}
 
         {notes.map((note) => {
           const escrita = writeNote(note, tonic, mode);

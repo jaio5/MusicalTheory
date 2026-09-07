@@ -128,9 +128,9 @@ const UMBRAL_ARRASTRE = 4;
  * está buscando acordes.
  */
 const PUNTEOS: ReadonlyArray<{ id: Punteo; name: string }> = [
-  { id: 'oculto', name: 'Acordes' },
-  { id: 'bloques', name: 'Con punteo' },
   { id: 'partitura', name: 'Partitura' },
+  { id: 'bloques', name: 'Bloques' },
+  { id: 'oculto', name: 'Solo acordes' },
 ];
 
 export function ArrangeCanvas() {
@@ -150,14 +150,23 @@ export function ArrangeCanvas() {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [activePartId, setActivePartId] = useState<string | null>(null);
-  const [punteo, setPunteo] = useState<Punteo>('oculto');
+  /**
+   * La partitura es lo primero que se ve.
+   *
+   * Es donde se escribe: los acordes van encima, las notas dentro y las dos
+   * cosas se arrastran. Empezar por una tira de bloques y esconder la partitura
+   * detrás de un conmutador la convertía en un extra, y no lo es —es la manera
+   * de escribir una canción que existe desde hace cuatro siglos—. Quien no la
+   * lea tiene los bloques a un toque.
+   */
+  const [punteo, setPunteo] = useState<Punteo>('partitura');
   /** Lo que hay que contar de la última grabación traída. */
   const [aviso, setAviso] = useState<string | null>(null);
   /** Qué propuesta se está arrastrando y sobre qué parte va, mientras dura. */
   const [soltando, setSoltando] = useState<{
     degree: DegreeSymbol;
     symbol: string;
-    partId: string | null;
+    destino: { partId: string; at: number | null } | null;
     x: number;
     y: number;
   } | null>(null);
@@ -166,7 +175,7 @@ export function ArrangeCanvas() {
   const [onlyScale, setOnlyScale] = useState(true);
   const listaRef = useRef<HTMLDivElement | null>(null);
   /** Sobre qué parte se está soltando, y si el gesto llegó a ser un arrastre. */
-  const destinoRef = useRef<string | null>(null);
+  const destinoRef = useRef<{ partId: string; at: number | null } | null>(null);
   const arrastradaRef = useRef(false);
 
   const tonic = activeKey?.tonic ?? null;
@@ -400,10 +409,35 @@ export function ArrangeCanvas() {
       destinoRef.current = null;
       arrastradaRef.current = false;
 
-      const parteBajo = (x: number, y: number): string | null =>
-        document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-parte-destino]')?.dataset[
-          'parteDestino'
-        ] ?? null;
+      /**
+       * Dónde caería el acorde: en qué parte y **entre qué dos compases**.
+       *
+       * Antes solo miraba la parte y lo metía al final, que es lo que se puede
+       * hacer con una fila de bloques a la que se apunta de lejos. Sobre una
+       * partitura no vale: se suelta encima de un compás porque se quiere
+       * **ahí**, y aparecer cuatro compases más allá se lee como que el gesto no
+       * ha funcionado.
+       */
+      const huecoBajo = (x: number, y: number): { partId: string; at: number | null } | null => {
+        const elemento = document.elementFromPoint(x, y);
+        const parte = elemento?.closest<HTMLElement>('[data-parte-destino]');
+        if (parte === null || parte === undefined) {
+          return null;
+        }
+        const partId = parte.dataset['parteDestino'] ?? '';
+        const hueco = elemento?.closest<HTMLElement>('[data-indice]');
+        const indice = hueco?.dataset['indice'];
+
+        if (indice === undefined || hueco?.dataset['parte'] !== partId) {
+          // Sobre la parte pero no sobre un compás: al final, que es donde se
+          // sigue una canción cuando no se apunta a ningún sitio concreto.
+          return { partId, at: null };
+        }
+        // Pasada la mitad, el acorde va detrás. Es la misma regla que sigue el
+        // arrastre de bloques, para que los dos gestos se sientan igual.
+        const caja = hueco.getBoundingClientRect();
+        return { partId, at: Number(indice) + (x > (caja.left + caja.right) / 2 ? 1 : 0) };
+      };
 
       arrastrar({
         mover: (x, y) => {
@@ -413,15 +447,15 @@ export function ArrangeCanvas() {
             }
             arrastradaRef.current = true;
           }
-          destinoRef.current = parteBajo(x, y);
-          setSoltando({ degree, symbol, partId: destinoRef.current, x, y });
+          destinoRef.current = huecoBajo(x, y);
+          setSoltando({ degree, symbol, destino: destinoRef.current, x, y });
         },
         soltar: () => {
-          const partId = destinoRef.current;
+          const destino = destinoRef.current;
           setSoltando(null);
-          if (arrastradaRef.current && partId !== null) {
-            setSelectedBlockId(acciones.addBlock(partId, degree, beatsPerBar));
-            setActivePartId(partId);
+          if (arrastradaRef.current && destino !== null) {
+            setSelectedBlockId(acciones.addBlock(destino.partId, degree, beatsPerBar, destino.at));
+            setActivePartId(destino.partId);
           }
         },
       });
@@ -429,14 +463,26 @@ export function ArrangeCanvas() {
     [acciones, beatsPerBar],
   );
 
+  /**
+   * Mete un acorde: detrás del que esté elegido, o al final si no hay ninguno.
+   *
+   * Con una partitura delante, elegir un compás y escribir un acorde solo puede
+   * significar «aquí». Meterlo al final obligaría a escribirlo y arrastrarlo
+   * después, que son dos gestos para una cosa.
+   *
+   * Escribiendo seguido, cada acorde queda elegido y el siguiente entra detrás:
+   * se encadena sin tener que apuntar a nada.
+   */
   const ponerAcorde = useCallback(
     (degree: DegreeSymbol) => {
-      const partId = parteDestino?.id ?? acciones.addPart('Estrofa');
-      const id = acciones.addBlock(partId, degree, beatsPerBar);
+      const elegido = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
+      const partId = elegido?.part.id ?? parteDestino?.id ?? acciones.addPart('Estrofa');
+      const at = elegido === null ? null : elegido.index + 1;
+
+      setSelectedBlockId(acciones.addBlock(partId, degree, beatsPerBar, at));
       setActivePartId(partId);
-      setSelectedBlockId(id);
     },
-    [acciones, beatsPerBar, parteDestino],
+    [acciones, arrangement, beatsPerBar, parteDestino, selectedBlockId],
   );
 
   /**
@@ -548,7 +594,13 @@ export function ArrangeCanvas() {
               meter cosas en ella, y sin esto los acordes que se pulsaban después
               seguían cayendo en la anterior. */}
           <Chip
-            onClick={() => setActivePartId(acciones.addPart())}
+            onClick={() => {
+              setActivePartId(acciones.addPart());
+              // Y se suelta lo que hubiera elegido: si no, el acorde siguiente
+              // caería detrás de un bloque de la parte anterior, que es de donde
+              // se acaba de salir.
+              setSelectedBlockId(null);
+            }}
             tone="quiet"
             className="px-3 text-xs"
           >
@@ -628,7 +680,8 @@ export function ArrangeCanvas() {
                 draggingBlockId={drag?.blockId ?? null}
                 dropIndex={drag?.target?.partId === part.id ? drag.target.index : null}
                 punteo={punteo}
-                dropPart={soltando?.partId === part.id}
+                dropPart={soltando?.destino?.partId === part.id}
+                dropAt={soltando?.destino?.partId === part.id ? soltando.destino.at : null}
                 scaleId={scaleId}
                 onlyScale={onlyScale}
                 selectedNoteId={selectedNoteId}
@@ -767,7 +820,7 @@ export function ArrangeCanvas() {
         >
           <div
             className={`superficie-viva min-h-tap flex items-center justify-center rounded-md px-4 font-mono ${
-              soltando.partId === null ? 'text-text-muted opacity-70' : 'text-brass-bright'
+              soltando.destino === null ? 'text-text-muted opacity-70' : 'text-brass-bright'
             }`}
           >
             {soltando.symbol}

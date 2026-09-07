@@ -111,10 +111,11 @@ renombrado no puede degradar a quien había pagado.
 **`/componer` tiene dos caras y un conmutador**: `Tocar` —la rueda, el acorde y sus
 formas— y `Montar`, el lienzo de bloques que se arrastran y suenan
 ([adr/0018](docs/adr/0018-el-lienzo-de-montar.md)). Nunca las dos a la vez: la
-línea de tiempo necesita el ancho entero. Dentro de `Montar`, el punteo se lleva
-en rejilla o **en partitura**, que son la misma melodía con dos pieles
-([adr/0019](docs/adr/0019-punteos-y-partitura.md)); en partitura los acordes van
-dentro, cifrados encima del pentagrama.
+línea de tiempo necesita el ancho entero. Dentro de `Montar`, **la partitura es
+lo que se ve al entrar** y los bloques están a un toque: son la misma canción con
+dos pieles ([adr/0019](docs/adr/0019-punteos-y-partitura.md)). En partitura los
+acordes van dentro, cifrados encima del pentagrama, y se ponen pulsando,
+arrastrando hasta el compás o escribiendo el cifrado.
 
 `/aprender` es **solo el camino**, y cada cosa tiene su dirección:
 `/aprender/[unidad]` y `/aprender/repaso`. Después `/profesor`, `/componer`,

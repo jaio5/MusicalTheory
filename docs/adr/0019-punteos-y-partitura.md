@@ -33,7 +33,7 @@ puntillos—. Ese tope está en el dominio y no en el dibujo, y es lo que garant
 que nunca haya una nota que la partitura no sepa escribir.
 
 **Y hay dos vistas de lo mismo, con las mismas acciones y el mismo píxel por
-pulso:**
+pulso. La partitura es la que sale al entrar:**
 
 - **Con punteo** es una rejilla de cajas bajo los acordes. La casilla de «solo la
   escala» es la que separa una interfaz de la otra: encendida, las filas son las
@@ -45,8 +45,19 @@ pulso:**
   tira de bloques repitiendo lo mismo justo encima. Se pulsan, se quitan y se
   estiran tirando de la punta de su línea.
 
-**Los acordes se ponen de tres maneras**: pulsando una propuesta, arrastrándola
-hasta la parte donde va, o **escribiendo el cifrado**. Lo escrito se convierte en
+**Es la vista por defecto**, y no un extra detrás de un conmutador. Es donde se
+escribe: los acordes van encima, las notas dentro, y las dos cosas se arrastran.
+Empezar por una tira de bloques y esconder la partitura la convertía en una
+decoración para expertos, cuando es la manera de escribir una canción que existe
+desde hace cuatro siglos. Quien no la lea tiene los bloques a un toque.
+
+**Los acordes se ponen de tres maneras, y las tres respetan dónde estás**:
+pulsando una propuesta, arrastrándola **hasta el compás donde va** —con una marca
+que enseña el hueco antes de soltar— o **escribiendo el cifrado**, que entra
+detrás del compás elegido. Meterlos siempre al final obligaba a escribir y
+arrastrar después, que son dos gestos para una cosa; y sobre una partitura,
+soltar encima de un compás y ver el acorde aparecer cuatro más allá se lee como
+que el gesto no ha funcionado. Lo escrito se convierte en
 el grado que le toca y el botón enseña **el cifrado que va a quedar**, no el que
 se tecleó: un `Am7` entra como `Am` porque un grado es una tríada, y enterarse
 después —con el acorde ya puesto— es peor que verlo antes.

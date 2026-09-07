@@ -68,8 +68,9 @@ la manera normal de componer aquí.
   Canciones, y ahí la duración de los bloques se convierte en compases repetidos.
   Es a propósito y está razonado, pero significa que reabrir una canción da los
   bloques desagrupados.
-- **En la partitura no se reordenan los acordes.** Se ponen, se quitan y se
-  estiran; para moverlos de sitio hay que pasar a la vista de bloques.
+- **En la partitura no se reordenan los acordes.** Se ponen —pulsando,
+  arrastrando hasta el compás o escribiendo—, se quitan y se estiran; para mover
+  uno que ya está puesto hay que pasar a la vista de bloques.
 
 ## 4. Que aprender y componer sean lo mismo
 

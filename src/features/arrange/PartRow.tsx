@@ -49,6 +49,8 @@ export interface PartRowProps {
   readonly punteo: Punteo;
   /** Encendida mientras se arrastra una propuesta por encima de esta parte. */
   readonly dropPart: boolean;
+  /** Entre qué dos compases caería lo que se arrastra, si cae en esta parte. */
+  readonly dropAt: number | null;
   readonly scaleId: ScaleId;
   readonly onlyScale: boolean;
   readonly selectedNoteId: string | null;
@@ -83,6 +85,7 @@ export function PartRow({
   dropIndex,
   punteo,
   dropPart,
+  dropAt,
   scaleId,
   onlyScale,
   selectedNoteId,
@@ -257,6 +260,8 @@ export function PartRow({
           selectedNoteId={selectedNoteId}
           selectedBlockId={selectedBlockId}
           partName={part.name}
+          partId={part.id}
+          dropAt={dropAt}
           onSelectBlock={onBlockClick}
           onRemoveBlock={onRemoveBlock}
           onResizeBlock={onResizeBlock}

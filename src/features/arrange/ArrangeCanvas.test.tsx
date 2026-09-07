@@ -22,11 +22,35 @@ function conTonalidad() {
   useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
 }
 
-/** Los cifrados de una parte, en el orden en que están. */
+/**
+ * Pasa a la tira de bloques.
+ *
+ * La partitura es lo que se ve por defecto, y hay gestos que solo existen ahí
+ * —arrastrar un bloque, estirarlo por el borde, el teclado sobre él—. Estas
+ * pruebas van de eso, así que cambian de vista primero.
+ */
+async function enBloques() {
+  await userEvent.click(screen.getByRole('button', { name: 'Bloques' }));
+}
+
+/** Los bloques de una parte, en la tira. */
+function tiraDe(parte: string) {
+  return within(screen.getByRole('list', { name: `Acordes de ${parte}` })).getAllByRole('button');
+}
+
+/**
+ * Los cifrados de una parte, en orden y **se vean como se vean**.
+ *
+ * Los mismos acordes se dibujan como una tira de bloques o como cifrados encima
+ * de un pentagrama, y una prueba sobre poner acordes no debería tener que saber
+ * cuál de las dos está puesta. Lo que las dos comparten es la etiqueta de cada
+ * acorde, así que se busca por ahí.
+ */
 function acordesDe(parte: string): string[] {
-  return within(screen.getByRole('list', { name: `Acordes de ${parte}` }))
-    .getAllByRole('button')
-    .map((boton) => boton.getAttribute('aria-label')?.split(',')[0] ?? '');
+  const seccion = screen.getByRole('region', { name: parte });
+  return within(seccion)
+    .queryAllByLabelText(/, grado /)
+    .map((nodo) => nodo.getAttribute('aria-label')?.split(',')[0] ?? '');
 }
 
 describe('sin tonalidad', () => {
@@ -90,15 +114,14 @@ describe('el teclado, que es lo que un arrastre no da', () => {
     const panel = screen.getByRole('complementary');
     await userEvent.click(within(panel).getAllByRole('button')[0]!);
     await userEvent.click(within(panel).getAllByRole('button')[1]!);
+    await enBloques();
   }
 
   it('las flechas mueven el bloque de sitio', async () => {
     await conDosAcordes();
     const antes = acordesDe('Estrofa');
 
-    const primero = within(screen.getByRole('list', { name: 'Acordes de Estrofa' })).getAllByRole(
-      'button',
-    )[0]!;
+    const primero = tiraDe('Estrofa')[0]!;
     primero.focus();
     await userEvent.keyboard('{ArrowRight}');
 
@@ -107,24 +130,16 @@ describe('el teclado, que es lo que un arrastre no da', () => {
 
   it('con Shift, las flechas estiran', async () => {
     await conDosAcordes();
-    const primero = within(screen.getByRole('list', { name: 'Acordes de Estrofa' })).getAllByRole(
-      'button',
-    )[0]!;
+    const primero = tiraDe('Estrofa')[0]!;
     primero.focus();
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
 
-    expect(
-      within(screen.getByRole('list', { name: 'Acordes de Estrofa' }))
-        .getAllByRole('button')[0]!
-        .getAttribute('aria-label'),
-    ).toMatch(/5 pulsos/);
+    expect(tiraDe('Estrofa')[0]!.getAttribute('aria-label')).toMatch(/5 pulsos/);
   });
 
   it('Supr quita el bloque', async () => {
     await conDosAcordes();
-    const primero = within(screen.getByRole('list', { name: 'Acordes de Estrofa' })).getAllByRole(
-      'button',
-    )[0]!;
+    const primero = tiraDe('Estrofa')[0]!;
     primero.focus();
     await userEvent.keyboard('{Delete}');
 
@@ -180,11 +195,9 @@ describe('lo grabado', () => {
 
     render(<ArrangeCanvas />);
     await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await enBloques();
 
-    const bloques = within(
-      screen.getByRole('list', { name: 'Acordes de Lo que has tocado' }),
-    ).getAllByRole('button');
-
+    const bloques = tiraDe('Lo que has tocado');
     expect(bloques[0]).toHaveAttribute('aria-label', expect.stringContaining('8 pulsos'));
     expect(bloques[1]).toHaveAttribute('aria-label', expect.stringContaining('4 pulsos'));
   });
@@ -252,11 +265,10 @@ describe('el punteo', () => {
     await userEvent.click(within(screen.getByRole('complementary')).getAllByRole('button')[0]!);
   }
 
-  it('no se ve hasta que se pide', async () => {
+  // La partitura es lo que se ve al entrar: es donde se escribe, y esconderla
+  // detrás de un conmutador la convertía en un extra.
+  it('la partitura es lo primero que se ve', async () => {
     await conAcordes();
-    expect(screen.queryByRole('img', { name: /Partitura/ })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Partitura' }));
     expect(screen.getByRole('img', { name: /Partitura de Estrofa/ })).toBeInTheDocument();
   });
 
@@ -264,13 +276,12 @@ describe('el punteo', () => {
   // repitiendo lo mismo justo encima sería decirlo dos veces.
   it('en partitura no hay además una tira de bloques', async () => {
     await conAcordes();
-    await userEvent.click(screen.getByRole('button', { name: 'Partitura' }));
     expect(screen.queryByRole('list', { name: 'Acordes de Estrofa' })).not.toBeInTheDocument();
   });
 
-  it('con punteo se ve la rejilla y los acordes siguen en su tira', async () => {
+  it('en bloques se ve la rejilla y los acordes siguen en su tira', async () => {
     await conAcordes();
-    await userEvent.click(screen.getByRole('button', { name: 'Con punteo' }));
+    await enBloques();
 
     expect(screen.getByRole('list', { name: 'Acordes de Estrofa' })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /^Escribir / }).length).toBeGreaterThan(0);
@@ -282,7 +293,7 @@ describe('el punteo', () => {
    */
   it('solo la escala ofrece menos filas que las doce', async () => {
     await conAcordes();
-    await userEvent.click(screen.getByRole('button', { name: 'Con punteo' }));
+    await enBloques();
 
     const conEscala = screen.getAllByRole('button', { name: /^Escribir / }).length;
     await userEvent.click(screen.getByRole('button', { name: 'Solo la escala' }));
@@ -293,7 +304,7 @@ describe('el punteo', () => {
 
   it('pulsar una casilla escribe la nota', async () => {
     await conAcordes();
-    await userEvent.click(screen.getByRole('button', { name: 'Con punteo' }));
+    await enBloques();
     await userEvent.click(screen.getAllByRole('button', { name: /^Escribir / })[0]!);
 
     expect(screen.getAllByRole('button', { name: /en el pulso/ }).length).toBe(1);
@@ -318,7 +329,7 @@ describe('las dos vistas del punteo enseñan lo mismo', () => {
     acciones.addNote(parte.id, 0, 0, 1);
     acciones.addNote(parte.id, 1, 1, 1);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Con punteo' }));
+    await enBloques();
     expect(screen.getByText(/no es de la escala/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Solo la escala' }));
@@ -352,11 +363,9 @@ describe('lo que se oyó, y lo que no', () => {
 
     render(<ArrangeCanvas />);
     await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await enBloques();
 
-    const bloques = within(
-      screen.getByRole('list', { name: 'Acordes de Lo que has tocado' }),
-    ).getAllByRole('button');
-
+    const bloques = tiraDe('Lo que has tocado');
     expect(bloques[0]).toHaveAttribute('aria-label', expect.stringContaining('dudoso'));
     expect(bloques[1]).not.toHaveAttribute('aria-label', expect.stringContaining('dudoso'));
   });
@@ -398,8 +407,8 @@ describe('lo que se oyó, y lo que no', () => {
     render(<ArrangeCanvas />);
     await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
     await userEvent.click(
-      within(screen.getByRole('list', { name: 'Acordes de Lo que has tocado' })).getAllByRole(
-        'button',
+      within(screen.getByRole('region', { name: 'Lo que has tocado' })).getAllByLabelText(
+        /, grado /,
       )[0]!,
     );
 
@@ -430,8 +439,8 @@ describe('lo que se oyó, y lo que no', () => {
     render(<ArrangeCanvas />);
     await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
     await userEvent.click(
-      within(screen.getByRole('list', { name: 'Acordes de Lo que has tocado' })).getAllByRole(
-        'button',
+      within(screen.getByRole('region', { name: 'Lo que has tocado' })).getAllByLabelText(
+        /, grado /,
       )[0]!,
     );
     await userEvent.click(
@@ -469,5 +478,44 @@ describe('apuntar lo que se toca', () => {
     conTonalidad();
     render(<ArrangeCanvas />);
     expect(screen.queryByRole('button', { name: /Apuntar lo que toco/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('escribir un acorde donde estás', () => {
+  /**
+   * Con una partitura delante, elegir un compás y escribir un acorde solo puede
+   * significar «aquí». Meterlo al final obligaría a escribirlo y arrastrarlo
+   * después, que son dos gestos para una cosa.
+   */
+  it('el acorde entra detrás del que esté elegido', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    const panel = screen.getByRole('complementary');
+
+    await userEvent.click(within(panel).getAllByRole('button')[0]!); // C
+    await userEvent.click(within(panel).getAllByRole('button')[0]!); // el siguiente
+    const dos = acordesDe('Estrofa');
+
+    // Se elige el primero y se escribe: tiene que quedar en medio.
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'Estrofa' })).getAllByLabelText(/, grado /)[0]!,
+    );
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'G');
+    await userEvent.click(screen.getByRole('button', { name: 'G' }));
+
+    expect(acordesDe('Estrofa')).toEqual([dos[0], 'G', dos[1]]);
+  });
+
+  // Escribiendo seguido, cada acorde queda elegido y el siguiente entra detrás:
+  // se encadena sin tener que apuntar a nada.
+  it('escribiendo seguido, se encadenan en orden', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    const panel = screen.getByRole('complementary');
+
+    for (let i = 0; i < 3; i += 1) {
+      await userEvent.click(within(panel).getAllByRole('button')[0]!);
+    }
+    expect(acordesDe('Estrofa')).toHaveLength(3);
   });
 });
