@@ -33,7 +33,16 @@ export interface SitioTutor {
 }
 
 /** Abajo a la izquierda, que es donde estaba antes de poder moverlo. */
-export const SITIO_POR_DEFECTO: SitioTutor = { lado: 'izquierda', alto: 78 };
+/**
+ * Abajo del todo y a la izquierda.
+ *
+ * Estaba a tres cuartos de altura, y ahí flotaba justo encima del camino de
+ * unidades en un teléfono y encima de las medallas en un escritorio: el muñeco
+ * tapaba lo que se había venido a leer. Pegado al borde de abajo solo pisa el
+ * final de la columna, que es donde menos duele, y sigue arrastrándose a donde
+ * cada uno quiera.
+ */
+export const SITIO_POR_DEFECTO: SitioTutor = { lado: 'izquierda', alto: 90 };
 
 const CLAVE = 'caos-ordenado:sitio-del-profesor';
 

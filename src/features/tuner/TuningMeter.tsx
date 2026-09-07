@@ -19,13 +19,16 @@ export function TuningMeter({ cents, status }: TuningMeterProps) {
   const needleColor = status === 'afinada' ? 'bg-tube-bright' : 'bg-brass-bright';
 
   return (
-    <div aria-hidden="true" className="relative h-20 w-full max-w-md">
-      <div className="border-border bg-surface absolute inset-x-0 top-6 h-8 rounded-md border" />
+    // Más alta y más ancha que antes: es lo que se mira de reojo mientras se
+    // gira la clavija, y competía en tamaño con dos desplegables. Un afinador se
+    // lee a un metro.
+    <div aria-hidden="true" className="relative h-28 w-full max-w-xl">
+      <div className="border-border bg-surface absolute inset-x-0 top-7 h-14 rounded-md border" />
 
       {TICKS.map((tick) => (
         <div
           key={tick}
-          className={`absolute top-6 h-8 w-px ${tick === 0 ? 'bg-brass' : 'bg-border'}`}
+          className={`absolute top-7 h-14 ${tick === 0 ? 'bg-brass w-0.5' : 'bg-border w-px'}`}
           style={{ left: `${50 + tick * 50}%` }}
         />
       ))}
@@ -37,7 +40,7 @@ export function TuningMeter({ cents, status }: TuningMeterProps) {
         style={{ transform: `translateX(${offset * 50}%)`, transitionProperty: 'transform' }}
       >
         <div
-          className={`absolute top-3 left-1/2 h-14 w-1 -translate-x-1/2 rounded-full ${needleColor}`}
+          className={`absolute top-4 left-1/2 h-20 w-1.5 -translate-x-1/2 rounded-full ${needleColor}`}
         />
       </div>
 

@@ -1,3 +1,4 @@
+export * from './Badges';
 export * from './DailyGoal';
 export * from './LearnPanel';
 export * from './LearnPath';

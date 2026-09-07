@@ -113,6 +113,10 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
       {/* La tonalidad, en una barra que se abre. Cerrada ocupa una línea y dice en
           qué tonalidad estás, que es lo único que hay que saber mientras contestas. */}
       <Disclosure
+        // Abierta mientras no haya tonalidad: sin ella la unidad no puede
+        // empezar, y con la rueda plegada lo único que había en pantalla era una
+        // frase pidiendo algo sin decir dónde.
+        abierto={activeKey === null}
         className="border-border bg-surface shrink-0 border-b px-4"
         summary={
           <>

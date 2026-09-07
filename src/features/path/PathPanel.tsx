@@ -298,46 +298,71 @@ export function NextChords() {
       </div>
 
       <ul className="min-h-0 grow overflow-y-auto p-2">
-        {options.map((option) => (
-          <li key={option.symbol}>
-            <button
-              type="button"
-              onClick={() => actions.pushChord(option)}
-              aria-label={`${option.symbol}, ${option.label}`}
-              className="hover:bg-surface-raised flex w-full items-baseline gap-3 px-3 py-2 text-left"
-            >
-              {/* Marcado como señal para que el verde y el rojo sigan ahí
+        {options.map((option, indice) => {
+          /**
+           * El porqué se dice una vez por fundamental, no una por variante.
+           *
+           * El motivo del encadenado depende del **movimiento del bajo**, así que
+           * F, Fmaj7, F5 y Fsus2 comparten el mismo: son el mismo salto con otra
+           * especie encima. Repetido en cada fila salían cuatro «Cae por quintas:
+           * el encadenado más fuerte que hay» seguidos, y una lista que dice
+           * cuatro veces lo mismo se lee como si estuviera rota.
+           *
+           * Lo que distingue a las variantes es el cifrado, que está a la
+           * izquierda y se lee de un vistazo.
+           */
+          const anterior = options[indice - 1];
+          const porque =
+            'motionWhy' in option && typeof option.motionWhy === 'string' && option.motionWhy !== ''
+              ? option.motionWhy
+              : option.why;
+          const repetido =
+            anterior !== undefined &&
+            anterior.root === option.root &&
+            porque ===
+              ('motionWhy' in anterior &&
+              typeof anterior.motionWhy === 'string' &&
+              anterior.motionWhy !== ''
+                ? anterior.motionWhy
+                : anterior.why);
+
+          return (
+            <li key={option.symbol}>
+              <button
+                type="button"
+                onClick={() => actions.pushChord(option)}
+                aria-label={`${option.symbol}, ${option.label}`}
+                className="hover:bg-surface-raised flex w-full items-baseline gap-3 px-3 py-2 text-left"
+              >
+                {/* Marcado como señal para que el verde y el rojo sigan ahí
                   mientras grabas: es lo único que da tiempo a mirar tocando. */}
-              <span
-                aria-hidden="true"
-                data-senal
-                className={`mt-1 block h-2 w-2 shrink-0 rounded-full ${safetyColour(option.notes, inKey)}`}
-              />
-              <span className="text-text w-16 shrink-0 font-mono text-base">{option.symbol}</span>
-              <span className="text-text-muted w-14 shrink-0 font-mono text-xs">
-                {option.label}
-              </span>
-              <RoleBadge role={option.role} />
-              <span className="min-w-0 grow">
-                <span className="text-text-muted line-clamp-2 block text-sm leading-snug">
-                  {'motionWhy' in option &&
-                  typeof option.motionWhy === 'string' &&
-                  option.motionWhy !== ''
-                    ? option.motionWhy
-                    : option.why}
+                <span
+                  aria-hidden="true"
+                  data-senal
+                  className={`mt-1 block h-2 w-2 shrink-0 rounded-full ${safetyColour(option.notes, inKey)}`}
+                />
+                <span className="text-text w-16 shrink-0 font-mono text-base">{option.symbol}</span>
+                <span className="text-text-muted w-14 shrink-0 font-mono text-xs">
+                  {option.label}
                 </span>
-                {/* Por qué se puede cambiar por otro. Va debajo y más pequeño
+                <RoleBadge role={option.role} />
+                <span className="min-w-0 grow">
+                  <span className="text-text-muted line-clamp-2 block text-sm leading-snug">
+                    {repetido ? '' : porque}
+                  </span>
+                  {/* Por qué se puede cambiar por otro. Va debajo y más pequeño
                     que el porqué del acorde: primero se entiende qué es, y
                     después por dónde se puede sustituir. */}
-                {option.substitution !== null ? (
-                  <span className="text-text-muted mt-0.5 block text-xs leading-snug opacity-80">
-                    Vale por {option.substitution.of}. {option.substitution.why}
-                  </span>
-                ) : null}
-              </span>
-            </button>
-          </li>
-        ))}
+                  {option.substitution !== null ? (
+                    <span className="text-text-muted mt-0.5 block text-xs leading-snug opacity-80">
+                      Vale por {option.substitution.of}. {option.substitution.why}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

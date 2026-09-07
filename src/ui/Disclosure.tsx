@@ -27,16 +27,29 @@ export function Disclosure({
   summary,
   tone = 'normal',
   className = '',
+  abierto = false,
   children,
 }: {
   /** El enunciado, lo que se lee con el bloque cerrado. */
   readonly summary: ReactNode;
   readonly tone?: 'normal' | 'grande';
   readonly className?: string;
+  /**
+   * Si empieza abierto.
+   *
+   * Para cuando la pantalla **no puede seguir** sin lo que hay dentro: una unidad
+   * sin tonalidad elegida pedía «elige una tonalidad» y no ofrecía dónde, con la
+   * rueda plegada detrás de una línea de texto que no parecía pulsable. Pedir sin
+   * ofrecer es la manera más corta de dejar a alguien parado.
+   *
+   * Es `defaultOpen` y no `open`: se abre así la primera vez y a partir de ahí
+   * manda quien lo abre y lo cierra, no el componente.
+   */
+  readonly abierto?: boolean;
   readonly children: ReactNode;
 }) {
   return (
-    <details className={`group ${className}`}>
+    <details className={`group ${className}`} open={abierto}>
       <summary
         className={`min-h-tap flex cursor-pointer list-none items-center gap-2 transition-colors marker:content-none [&::-webkit-details-marker]:hidden ${
           tone === 'grande'

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { can, cheapestPlanWith, nextAllowedUnit } from '@core/billing';
 import { dueReview, findUnit } from '@core/music';
-import { DailyGoal, LearnPath, StartPicker, Tutor, useProgress } from '@features/learn';
+import { Badges, DailyGoal, LearnPath, StartPicker, Tutor, useProgress } from '@features/learn';
 import { useAccount } from '@state/account';
 import { PlanLock } from '@ui/PlanLock';
 import { IconoTeoria, IconoTocar } from '@ui/icons';
@@ -93,6 +93,12 @@ export function PathScreen() {
               </div>
             )}
           </div>
+
+          {/* Las medallas llenan la mitad de abajo de esta columna, que se
+              quedaba vacía en cuanto la ventana pasaba de los novecientos de
+              alto. Y sobre todo: existían y no se veían en ninguna parte más que
+              como un contador. */}
+          <Badges progress={progress} />
         </div>
 
         <div className="min-h-0 lg:overflow-y-auto">

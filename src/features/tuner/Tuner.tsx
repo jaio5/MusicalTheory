@@ -54,41 +54,50 @@ export function Tuner(deps: TunerProps = {}) {
     await start(next === '' ? undefined : next);
   }
 
+  /**
+   * Escuchando, lo que se mira va primero y lo demás se aparta.
+   *
+   * Estaba al revés: el botón de parar y el desplegable de entrada iban arriba, y
+   * la nota y la aguja salían debajo de los dos. Se afina **a un metro y con las
+   * dos manos ocupadas** —lo dice la guía de estilo de este proyecto— y lo que se
+   * mira así es una nota y una aguja, no un `<select>`.
+   *
+   * Los controles no desaparecen: bajan. Se tocan una vez al empezar, como el
+   * selector de afinación, y desde ahí solo estorban.
+   */
   return (
     <Panel id="afinador" title="Afinador">
-      <div className="flex items-baseline justify-between gap-4">
-        {listening === 'listening' && (
-          <Button variant="quiet" onClick={() => void stop()}>
-            Dejar de escuchar
-          </Button>
-        )}
-      </div>
-
-      <div className="mt-4">
-        {listening === 'listening' && devices.length > 1 && (
-          <Field
-            label="Entrada"
-            value={deviceId}
-            onChange={(event) => void switchDevice(event.target.value)}
-          >
-            <option value="">La del sistema</option>
-            {devices.map((device) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {device.label === '' ? 'Entrada sin nombre' : device.label}
-              </option>
-            ))}
-          </Field>
-        )}
-      </div>
-
       {listening === 'listening' ? (
-        <Listening
-          reading={reading}
-          hasSignal={hasSignal}
-          clarity={clarity}
-          level={level}
-          tuningId={tuningId}
-        />
+        <>
+          <Listening
+            reading={reading}
+            hasSignal={hasSignal}
+            clarity={clarity}
+            level={level}
+            tuningId={tuningId}
+          />
+
+          <div className="border-border mt-8 flex flex-wrap items-end gap-4 border-t pt-4">
+            <Button variant="quiet" onClick={() => void stop()}>
+              Dejar de escuchar
+            </Button>
+            {devices.length > 1 && (
+              <Field
+                label="Entrada"
+                compact
+                value={deviceId}
+                onChange={(event) => void switchDevice(event.target.value)}
+              >
+                <option value="">La del sistema</option>
+                {devices.map((device) => (
+                  <option key={device.deviceId} value={device.deviceId}>
+                    {device.label === '' ? 'Entrada sin nombre' : device.label}
+                  </option>
+                ))}
+              </Field>
+            )}
+          </div>
+        </>
       ) : (
         <Stopped listening={listening} message={message} onStart={() => void start()} />
       )}
@@ -176,27 +185,32 @@ function Listening({
     >
       <p className="flex items-baseline gap-3">
         <span
-          className={`font-display text-7xl ${status === 'afinada' ? 'text-tube-bright' : 'text-brass-bright'}`}
+          // Ocho o nueve veces el cuerpo del texto. Es lo primero que se busca
+          // al mirar la pantalla desde donde se está tocando.
+          className={`font-display text-8xl sm:text-9xl ${status === 'afinada' ? 'text-tube-bright' : 'text-brass-bright'}`}
         >
           {noteName(reading.pitchClass)}
-          <span className="text-text-muted text-3xl">{reading.octave}</span>
+          <span className="text-text-muted text-4xl">{reading.octave}</span>
         </span>
       </p>
 
-      <p className="text-text mt-2 font-mono text-sm">
+      {/* La aguja pegada a la nota, y el consejo debajo. Son las tres cosas que
+          se leen de reojo mientras se gira la clavija; el resto son datos que se
+          miran parados. */}
+      <div className="mt-5 flex w-full justify-center">
+        <TuningMeter cents={reading.cents} status={status} />
+      </div>
+
+      <p className={`mt-4 text-lg ${status === 'afinada' ? 'text-tube-bright' : 'text-text'}`}>
+        {tuningAdvice(status)}
+      </p>
+
+      <p className="text-text-muted mt-4 font-mono text-sm">
         {reading.cents > 0 ? '+' : ''}
         {reading.cents.toFixed(1)} cents · {reading.frequency.toFixed(1)} Hz
       </p>
 
-      <div className="mt-6 flex w-full justify-center">
-        <TuningMeter cents={reading.cents} status={status} />
-      </div>
-
-      <p className={`mt-4 ${status === 'afinada' ? 'text-tube-bright' : 'text-text'}`}>
-        {tuningAdvice(status)}
-      </p>
-
-      <p className="text-text-muted mt-2 text-sm">
+      <p className="text-text-muted mt-1 text-sm">
         {distance === 0
           ? `Cuerda ${string.number}.ª al aire (${string.label})`
           : `A ${Math.abs(distance)} ${Math.abs(distance) === 1 ? 'semitono' : 'semitonos'} ${
