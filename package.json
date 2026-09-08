@@ -21,7 +21,8 @@
     "docker:up": "bash scripts/docker-arriba.sh",
     "docker:db": "docker compose up -d db",
     "docker:ia": "bash scripts/docker-arriba.sh --ia",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "usuarios:prueba": "node --env-file=.env scripts/usuarios-de-prueba.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {
