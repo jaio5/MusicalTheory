@@ -23,6 +23,11 @@ export interface ChordDiagramProps {
  *
  * Va marcado como imagen con su descripción: quien no lo ve necesita la
  * digitación en texto, no seis líneas y unos círculos.
+ *
+ * **Debajo de la rejilla hay un trozo de mástil**, y no es adorno: sin él, seis
+ * de estos seguidos son una tabla de contabilidad sobre el fondo de la página.
+ * Con el fondo un punto más claro y las esquinas redondeadas, cada uno se lee
+ * como una pieza —lo que es— y la fila entera se recorre de un vistazo.
  */
 export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
   // Si el acorde está más arriba del mástil se dibuja una ventana de cuatro
@@ -37,6 +42,17 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
       role="img"
       aria-label={`${label}: ${text}`}
     >
+      {/* El trozo de mástil sobre el que se dibuja todo. Sobresale medio hueco a
+          los lados para que las cuerdas de fuera no queden en el canto. */}
+      <rect
+        x={LEFT - CELL / 2}
+        y={TOP}
+        width={CELL * (STRINGS - 1) + CELL}
+        height={CELL * FRETS}
+        rx={3}
+        className="fill-surface-raised"
+      />
+
       {/* Cejuela gruesa solo si el acorde empieza en el primer traste. */}
       <line
         x1={LEFT}
@@ -94,11 +110,14 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
             )}
 
             {fret !== null && fret > 0 && (
+              // El dedo, con su aro del color del mástil: sobre una línea de
+              // traste, un círculo liso se funde con ella y parece un nudo.
               <circle
                 cx={x}
                 cy={TOP + CELL * (fret - start) + CELL / 2}
                 r={5}
-                className="fill-brass-bright"
+                className="fill-brass-bright stroke-surface-raised"
+                strokeWidth={1.5}
               />
             )}
           </g>

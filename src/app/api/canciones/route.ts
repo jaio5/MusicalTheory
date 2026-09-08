@@ -6,7 +6,7 @@
  * diferencia del avance, dos aparatos que guardan la misma canción no tienen que
  * ponerse de acuerdo, porque quien guarda es quien la tiene abierta.
  *
- * Lo que sube son **grados, un tempo y nombres de sección**. Ni audio ni vídeo,
+ * Lo que sube son **grados, un tempo y nombres de sección**. Nada de audio,
  * aquí tampoco: eso no sale del equipo y esta ruta no cambia eso.
  *
  * El identificador de la canción **no se cree nunca del cuerpo**: al crear lo

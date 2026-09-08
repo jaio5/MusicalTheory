@@ -6,6 +6,8 @@
  * se pierde contra el ampli y la de sierra es demasiado agresiva.
  */
 
+import { cerrarContexto, contextoDespierto } from './audio-context';
+
 export interface ReferenceTone {
   /** Suena una nota. Si ya sonaba otra, la corta. */
   play(frequency: number, durationMs?: number): Promise<void>;
@@ -30,13 +32,10 @@ export class WebAudioReferenceTone implements ReferenceTone {
 
     this.stop();
 
-    // El contexto se crea en el primer uso, que siempre viene de una pulsación:
-    // crearlo antes lo dejaría suspendido por la política de autoreproducción.
-    this.#context ??= new AudioContext();
-    const context = this.#context;
-    if (context.state === 'suspended') {
-      await context.resume();
-    }
+    // Se crea en el primer uso, que siempre viene de una pulsación: creado
+    // antes, la política de autoreproducción lo deja suspendido.
+    const context = await contextoDespierto(this.#context);
+    this.#context = context;
 
     const now = context.currentTime;
     const seconds = durationMs / 1000;
@@ -83,8 +82,6 @@ export class WebAudioReferenceTone implements ReferenceTone {
     this.stop();
     const context = this.#context;
     this.#context = null;
-    if (context !== null && context.state !== 'closed') {
-      await context.close();
-    }
+    await cerrarContexto(context);
   }
 }

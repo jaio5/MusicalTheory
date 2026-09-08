@@ -44,7 +44,7 @@ const SCREENS: ReadonlyArray<{
     href: '/componer',
     name: 'Componer',
     Icono: IconoComponer,
-    summary: 'Tonalidad, progresión, acordes y grabarte tocando.',
+    summary: 'Tonalidad, acordes, la canción por bloques y grabar lo que tocas.',
   },
   {
     href: '/afinar',
@@ -55,12 +55,22 @@ const SCREENS: ReadonlyArray<{
 ];
 
 /**
- * El marco: el botón de escuchar arriba, la navegación abajo en el móvil y arriba en
- * pantalla grande.
+ * El marco: una barra arriba, la navegación abajo en el móvil.
  *
- * Abajo en el móvil porque es donde llega el pulgar, y porque es lo que hace que esto
- * se sienta una aplicación y no una web con un menú. En pantalla grande sube a la
- * cabecera: allí abajo estorbaría y hay sitio de sobra.
+ * **Una barra, no dos.** Componer llegó a tener tres franjas fijas apiladas antes
+ * de que empezara la pantalla —la de escuchar, la de grabarse con la cámara y su
+ * propio encabezado— y en un portátil eso son ciento setenta píxeles gastados en
+ * decir que no está pasando nada. La de la cámara se fue con la cámara
+ * ([adr/0023](../../docs/adr/0023-grabar-solo-el-sonido.md)) y la de escuchar es
+ * ahora un botón, no una fila.
+ *
+ * La marca va **a la izquierda**, que es donde se busca el nombre de algo y donde
+ * lleva estando desde que hay páginas. Estuvo a la derecha, pegada a la
+ * navegación, y allí parecía una pestaña más.
+ *
+ * Abajo en el móvil porque es donde llega el pulgar, y porque es lo que hace que
+ * esto se sienta una aplicación y no una web con un menú. En pantalla grande sube
+ * a la cabecera: allí abajo estorbaría y hay sitio de sobra.
  *
  * Lo que suena es de esta pestaña, no de la aplicación entera.
  */
@@ -102,18 +112,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           que lo esconde es el `overflow-hidden` del marco. */}
       <a
         href="#contenido"
-        className="bg-brass text-background min-h-tap absolute top-2 left-2 z-50 inline-flex -translate-y-20 items-center rounded-md px-4 font-mono text-sm focus:translate-y-0"
+        className="bg-brass text-background min-h-tap absolute top-2 left-2 z-50 inline-flex -translate-y-20 items-center rounded-md px-4 text-sm font-medium focus:translate-y-0"
       >
         Saltar al contenido
       </a>
 
-      <header className="border-border bg-surface flex shrink-0 items-center gap-3 border-b px-3 py-1.5 shadow-[0_1px_0_rgba(0,0,0,0.5)]">
-        {/* Reconocer acordes solo donde sirve: en componer. */}
-        <MicButton chords={pathname === '/componer'} />
-
+      <header className="border-border bg-surface flex shrink-0 items-center gap-2 border-b px-3 py-2 sm:gap-3">
         <Link
           href="/"
-          className="text-text-muted hover:text-text min-h-tap ml-auto inline-flex items-center font-mono text-xs whitespace-nowrap"
+          className="text-text hover:text-brass-bright min-h-tap font-display mr-1 inline-flex shrink-0 items-center text-sm whitespace-nowrap transition-colors sm:text-base"
           title="Volver a la portada"
         >
           Caos ordenado
@@ -126,19 +133,24 @@ export function AppShell({ children }: { children: ReactNode }) {
               href={screen.href}
               aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
               title={screen.summary}
-              className={`min-h-tap inline-flex items-center rounded-md border px-3 font-mono text-xs transition-colors ${
+              className={`min-h-tap inline-flex items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors ${
                 isHere(pathname, screen.href)
-                  ? 'border-brass-dim bg-brass-dim/25 text-brass-bright'
-                  : 'text-text-muted hover:bg-surface-raised hover:text-text border-transparent'
+                  ? 'bg-brass-dim/25 text-brass-bright'
+                  : 'text-text-muted hover:bg-surface-raised hover:text-text'
               }`}
             >
+              <screen.Icono />
               {screen.name}
             </Link>
           ))}
         </nav>
 
-        <ThemeToggle />
-        <AccountMenu />
+        {/* Reconocer acordes solo donde sirve: en componer. */}
+        <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+          <MicButton chords={pathname === '/componer'} />
+          <ThemeToggle />
+          <AccountMenu />
+        </div>
       </header>
 
       <main id="contenido" tabIndex={-1} className="min-h-0 grow overflow-hidden">
@@ -157,7 +169,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             key={screen.href}
             href={screen.href}
             aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
-            className={`flex grow basis-0 flex-col items-center gap-1 py-2 font-mono text-xs transition-colors ${
+            className={`flex grow basis-0 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors ${
               isHere(pathname, screen.href) ? 'text-brass-bright' : 'text-text-muted'
             }`}
           >

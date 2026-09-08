@@ -4,6 +4,8 @@ import Link from 'next/link';
 
 import { planAfter, planOf, type PlanId } from '@core/billing';
 
+import { estiloBoton } from './Button';
+
 /**
  * A dónde se va cuando hace falta un plan.
  *
@@ -14,19 +16,33 @@ import { planAfter, planOf, type PlanId } from '@core/billing';
  *
  * Está en `ui/` porque lo necesitan tres features —aprender, ideas y la cuenta—
  * y un feature no importa de otro.
+ *
+ * **Dos formas, y la de botón es la de casa.** Era siempre un enlace subrayado de
+ * doce píxeles, y en las pantallas donde el candado es lo único que hay —el
+ * repaso sin plan, las ideas sin plan— eso dejaba la única salida de la pantalla
+ * escrita más pequeña que el aviso que la pide. Un enlace de ese tamaño está bien
+ * en mitad de un párrafo; no está bien siendo la acción. La forma de enlace se
+ * queda para lo segundo, que es donde va la palabra suelta dentro de una frase.
  */
 export function PlansLink({
   label = 'Ver los tres planes',
+  tono = 'boton',
   className = '',
 }: {
   readonly label?: string;
+  readonly tono?: 'boton' | 'enlace';
   readonly className?: string;
 }) {
+  if (tono === 'enlace') {
+    return (
+      <Link href="/planes" className={`enlace text-xs ${className}`}>
+        {label}
+      </Link>
+    );
+  }
+
   return (
-    <Link
-      href="/planes"
-      className={`text-brass-bright hover:text-brass font-mono text-xs underline ${className}`}
-    >
+    <Link href="/planes" className={estiloBoton('quiet', `px-4 text-sm ${className}`)}>
       {label}
     </Link>
   );

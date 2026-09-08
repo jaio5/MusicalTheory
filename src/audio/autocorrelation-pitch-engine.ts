@@ -7,6 +7,7 @@
  * prioridad o el componente se vuelva a renderizar.
  */
 
+import { Emisor } from '@core/estado-observable';
 import { detectPitch, signalRms } from './autocorrelation';
 import type { AudioInput } from './audio-input';
 import {
@@ -32,8 +33,8 @@ export class AutocorrelationPitchEngine implements PitchEngine {
   readonly options: PitchEngineOptions;
 
   readonly #now: () => number;
-  readonly #listeners = new Set<PitchListener>();
-  readonly #levelListeners = new Set<LevelListener>();
+  readonly #notas = new Emisor<PitchSample | null>();
+  readonly #niveles = new Emisor<number>();
 
   #input: AudioInput | null = null;
   #buffer: Float32Array<ArrayBuffer> | null = null;
@@ -82,17 +83,11 @@ export class AutocorrelationPitchEngine implements PitchEngine {
   }
 
   subscribe(listener: PitchListener): () => void {
-    this.#listeners.add(listener);
-    return () => {
-      this.#listeners.delete(listener);
-    };
+    return this.#notas.suscribir(listener);
   }
 
   subscribeLevel(listener: LevelListener): () => void {
-    this.#levelListeners.add(listener);
-    return () => {
-      this.#levelListeners.delete(listener);
-    };
+    return this.#niveles.suscribir(listener);
   }
 
   #analyse(): void {
@@ -111,10 +106,7 @@ export class AutocorrelationPitchEngine implements PitchEngine {
 
     // El nivel se informa siempre, aunque no haya nota: es el dato con el que
     // se ajustan los umbrales.
-    const level = signalRms(buffer);
-    for (const listener of this.#levelListeners) {
-      listener(level);
-    }
+    this.#niveles.emitir(signalRms(buffer));
 
     const detection = detectPitch(buffer, {
       sampleRate: input.sampleRate,
@@ -155,8 +147,6 @@ export class AutocorrelationPitchEngine implements PitchEngine {
   }
 
   #emit(sample: PitchSample | null): void {
-    for (const listener of this.#listeners) {
-      listener(sample);
-    }
+    this.#notas.emitir(sample);
   }
 }

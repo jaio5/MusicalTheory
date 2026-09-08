@@ -80,9 +80,7 @@ export function RegisterScreen() {
 
         {accounts && (
           <section aria-label="Qué te da la cuenta" className="flex flex-col gap-4">
-            <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">
-              Qué te da
-            </h2>
+            <h2 className="rotulo">Qué te da</h2>
 
             <ul className="flex flex-col gap-3">
               {[
@@ -118,9 +116,9 @@ export function RegisterScreen() {
 
             <p className="text-text-muted max-w-prose text-sm">
               Sin cuenta la aplicación funciona <strong className="text-text">entera</strong> menos
-              la IA: el afinador, la rueda, el mástil, el metrónomo, componer, grabarte y los cuatro
+              la IA: el afinador, la rueda, el mástil, el metrónomo, componer, grabar y los cuatro
               cursos del Grado Elemental. El avance se queda guardado en este navegador.{' '}
-              <Link href="/planes" className="text-brass-bright hover:text-brass underline">
+              <Link href="/planes" className="enlace">
                 Ver los tres planes
               </Link>
               .

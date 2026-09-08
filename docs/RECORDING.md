@@ -2,123 +2,113 @@
 
 ## Qué hace
 
-Grabar en vídeo al que toca, con los datos que la app va detectando —nota,
-desviación en cents, tonalidad, acorde— **quemados encima de la imagen**, y
-dejar el fichero descargado en su equipo.
+Grabar **el sonido** de lo que estás tocando, dejarte oírlo ahí mismo y, si vale,
+descargarlo a tu equipo.
 
-Es opcional y transversal: se puede activar tanto en modo aprender como en modo
-componer, y la app funciona entera sin tocarla nunca.
+Es opcional y vive donde se compone: una herramienta más de la fila de abajo de
+`/componer`, junto al mástil, las ideas, las salidas, las canciones y las
+sesiones. Se abre, se graba, se oye y se cierra. La aplicación funciona entera
+sin tocarla nunca.
+
+**Ya no graba vídeo.** Lo hizo, con la cámara puesta detrás de la interfaz y los
+datos detectados quemados encima de la imagen; el porqué de quitarlo está en
+[adr/0023](./adr/0023-grabar-solo-el-sonido.md), y el resumen es que costaba un
+canvas a treinta fotogramas por segundo, un bloque de CSS que dejaba la
+aplicación entera en contorno y el permiso más caro que hay, para un fichero que
+había que abrir en otro programa para saber si servía.
 
 ## Lo primero: no hay subida
 
-**El vídeo y el audio no salen del dispositivo.** No hay servidor de subida, ni
+**El sonido no sale del dispositivo.** No hay servidor de subida, ni
 almacenamiento en la nube, ni copia «temporal» en ningún sitio. El flujo entero
-—cámara, micro, composición, codificación— ocurre en el navegador, y el
-resultado se guarda con una descarga normal del navegador a la carpeta que el
-usuario elija.
+—micro, codificación, fichero— ocurre en el navegador, y el resultado se guarda
+con una descarga normal a la carpeta que elija quien graba.
 
 Esto no es una promesa de la interfaz: es que no existe código de subida, ni lo
-habrá sin una decisión explícita registrada como ADR.
+habrá sin una decisión explícita registrada como ADR. Es la regla 4 de la
+arquitectura.
 
 ## Permisos
 
-Se piden dos, por separado y en momentos distintos:
+El micrófono se pide **dos veces y por separado**, y es a propósito:
 
-- **Micrófono**, al entrar en cualquier modo que escuche. Frase:
-  «Necesitamos el micrófono para escuchar la guitarra y detectar qué nota
-  suena. El audio no sale de tu equipo.»
-- **Cámara**, solo al pulsar «grabar». Frase:
-  «Necesitamos la cámara para grabarte tocando. El vídeo se queda en tu equipo
-  y lo descargas tú.»
+- **Para escuchar**, al entrar en cualquier pantalla que analice. Lo abre
+  `audio/`, no guarda nada y su frase es: «Abrimos el micrófono, te decimos qué
+  nota suena y cuánto le falta. El audio no sale de tu equipo.»
+- **Para grabar**, solo al pulsar el botón de grabar. Lo abre `media/`, y lo que
+  hace con el flujo es quedárselo.
 
-Cada permiso se explica **antes** de disparar el diálogo del navegador, con una
-frase que dice para qué es. Si el usuario deniega, el mensaje dice qué ha
-pasado y qué hacer: «Has denegado el acceso a la cámara. Puedes grabarte
-volviendo a darle permiso desde el icono del candado de la barra de
-direcciones.»
+Son dos flujos con dos vidas distintas —analizar no debería parar porque se pare
+de grabar— y el navegador los reparte sin problema. El segundo permiso, en la
+práctica, ya está concedido si se estaba escuchando.
 
-Denegar la cámara no rompe nada: se puede seguir tocando sin grabar.
+Si se deniega, el mensaje dice qué ha pasado y qué hacer: «Has denegado el
+micrófono. Puedes darle permiso otra vez desde el icono de la barra de
+direcciones.» Denegarlo no rompe nada: se puede seguir componiendo sin grabar.
 
-## Cómo se compone la imagen
+## Las mejoras de llamada van apagadas
 
-`MediaRecorder` no sabe dibujar encima del vídeo, así que el overlay se compone
-a mano:
+`getUserMedia` pide `echoCancellation`, `noiseSuppression` y `autoGainControl` en
+**false**. Están pensadas para una voz en una videollamada, y con una guitarra
+delante se comen los armónicos y bajan el volumen en cuanto una nota se sostiene.
+Lo que se quiere aquí es la señal tal cual entra.
 
-1. Un `<video>` oculto reproduce el flujo de la cámara.
-2. En cada fotograma se dibuja ese vídeo sobre un `<canvas>`.
-3. Encima se dibujan los datos del momento: nota grande, cents, tonalidad,
-   acorde. Se piden mediante una función que devuelve el estado actual, para
-   que el compositor no dependa ni del dominio ni del store.
-4. `canvas.captureStream(fps)` convierte el canvas en un flujo de vídeo.
-5. Ese flujo se une con las pistas de audio en un `MediaStream` nuevo, y eso es
-   lo que entra en `MediaRecorder`.
+## Cómo se graba
 
-Los datos van **quemados**, no como pista de subtítulos: el vídeo se comparte
-en sitios que no entienden de subtítulos, y la gracia es que se vean.
+Sin composición ni canvas: se le da a `MediaRecorder` el flujo del micro y se
+recogen los trozos.
+
+1. `media/browser-mic-input.ts` abre el micrófono.
+2. `media/stream-recorder.ts` crea el `MediaRecorder` con el contenedor que se
+   haya negociado y lo arranca troceando cada segundo, para no retener una sesión
+   larga entera en un solo `Blob`.
+3. Al parar, los trozos se juntan en un `Blob` y se devuelve con su duración y su
+   nombre.
+
+La duración se mide **con el reloj**, no contando trozos: si el hilo se atasca,
+`ondataavailable` se retrasa y el conteo mentiría. Lo que se pasa en pausa no
+cuenta.
 
 ## Formatos por navegador
 
-No hay un contenedor que funcione en todas partes. Se negocia probando
-candidatos con `MediaRecorder.isTypeSupported()` y quedándose con el primero
-que acepte:
+No hay un contenedor que funcione en todas partes. Se negocia probando candidatos
+con `MediaRecorder.isTypeSupported()` y quedándose con el primero que acepte:
 
-| Candidato                         | Dónde funciona                                                 |
-| --------------------------------- | -------------------------------------------------------------- |
-| `video/webm;codecs=vp9,opus`      | Chrome, Edge, Firefox. Es el preferido: mejor calidad por bit. |
-| `video/webm;codecs=vp8,opus`      | Respaldo en Firefox y en Chrome antiguos.                      |
-| `video/mp4;codecs=avc1,mp4a.40.2` | Safari, que no graba WebM.                                     |
+| Candidato                    | Dónde funciona                                              |
+| ---------------------------- | ----------------------------------------------------------- |
+| `audio/webm;codecs=opus`     | Chrome, Edge, Firefox. El preferido: mejor calidad por bit. |
+| `audio/webm`                 | Respaldo si el navegador no sabe contestar por códec.       |
+| `audio/mp4;codecs=mp4a.40.2` | Safari, que no graba WebM. El `.m4a` lo abre cualquiera.    |
+| `audio/ogg;codecs=opus`      | Último recurso en Firefox antiguos.                         |
 
-La extensión del fichero descargado se deriva del tipo que se haya negociado, y
-`Recording.mimeType` expone cuál ha sido. Si no hay ninguno soportado, el
-recorder entra en estado `unsupported` y la interfaz explica que ese navegador
-no puede grabar, en vez de fallar al pulsar el botón.
+La extensión del fichero se deriva del tipo negociado, y `Recording.mimeType`
+expone cuál ha sido. Si no hay ninguno soportado, el grabador entra en estado
+`unsupported` y la interfaz explica que ese navegador no puede grabar, en vez de
+fallar al pulsar el botón.
 
-## La descarga
+## Oírla primero, descargarla después
 
-Al parar, se juntan los trozos en un `Blob`, se crea una URL con
-`URL.createObjectURL` y se dispara un `<a download>` con nombre sugerido del
-tipo `caos-ordenado-2026-07-28-1930.webm`. La URL se libera con
-`URL.revokeObjectURL` en cuanto termina: un objeto grande retenido es memoria
-que no vuelve.
+Al parar, **lo primero que sale es el reproductor** del navegador, con la toma
+cargada. Después están descargar y descartar.
+
+Ese orden es la decisión, no un detalle: antes se paraba y salía un botón para
+descargar un fichero que no habías oído, así que para saber si la toma valía había
+que bajarla y abrirla en otro programa. El reproductor del navegador ya sabe
+buscar dentro, cambiar la velocidad y decir cuánto dura, y nada de eso lo íbamos a
+hacer mejor a mano.
+
+La descarga dispara un `<a download>` con nombre del tipo
+`caos-ordenado-2026-09-08-1905.webm`. La URL del `Blob` se libera con
+`URL.revokeObjectURL` al empezar la siguiente toma, al descartarla o al salir de
+la pantalla: un objeto grande retenido es memoria que no vuelve.
 
 ## Coste y límites
 
-- Componer en canvas a 30 fps con overlay cuesta CPU. Si el equipo no llega, se
-  baja a 24 fps antes que perder el análisis de tono: la app es primero un
-  asistente y después una grabadora.
-- Una sesión larga en 1080p ocupa cientos de megas en memoria antes de la
-  descarga. Se troceará en fragmentos y se avisará por encima de cierta
-  duración.
-- La cámara y el análisis de audio compiten. Si se nota, la grabación baja
-  primero de resolución.
-
-## Por qué la cámara se veía negra
-
-La primera versión ponía el vídeo en `position: fixed` con `z-index: -10` y
-volvía transparente la interfaz del grabador. No se veía nada, y el motivo es de
-orden de pintado: un elemento con z negativo se pinta por encima del lienzo de la
-página pero **por debajo de los fondos de los bloques en flujo**, y los ancestros
-del grabador —el `div` raíz y el `body`— seguían siendo opacos porque la clase
-estaba en un descendiente y no llegaba a ellos.
-
-La marca de grabación va ahora en el `body`, así que la transparencia alcanza a
-todos los ancestros y el vídeo aparece donde tiene que aparecer: encima del
-lienzo y debajo de la interfaz entera.
-
-Dos cosas más tapaban la cámara sin ser fondos CSS:
-
-- **La rueda de quintas** es un disco negro pintado con `fill` de SVG, que
-  `background-color` no toca. Se apagan solo los rellenos que son fondo
-  (`fill-surface`, `fill-background`); los puntos del diagrama y las letras se
-  quedan, que es la información.
-- **El texto apagado** no se lee sobre vídeo. Al grabar sube casi al color
-  normal, y todo lleva sombra.
-
-Lo marcado con `data-senal` conserva su color con un aro oscuro para que se lea
-sobre lo que sea que haya detrás: el piloto de grabación, el de escucha y el
-punto verde o rojo de cada acorde. Es lo único que da tiempo a mirar mientras
-tocas.
-
-Comprobado en un Chromium de verdad con cámara falsa
-(`--use-fake-device-for-media-stream`), pulsando el botón y mirando la captura,
-no razonándolo sobre el papel.
+- **La toma vive en memoria y no se guarda.** Al descartarla o al recargar, se
+  pierde. Guardarla junto a las sesiones pide antes decidir cuánto se guarda y qué
+  se borra, y eso es otra decisión ([adr/0023](./adr/0023-grabar-solo-el-sonido.md)).
+- Un minuto de Opus son algo menos de dos megas. Una toma larga cabe de sobra en
+  memoria, que es justo lo contrario de lo que pasaba con el vídeo en 1080p.
+- Grabar y analizar a la vez cuesta poco: `MediaRecorder` codifica fuera del hilo
+  principal, y ahí ya no hay ningún canvas compitiendo con los dos motores de
+  análisis.

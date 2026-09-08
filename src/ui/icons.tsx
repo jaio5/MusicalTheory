@@ -166,6 +166,194 @@ export function IconoCandado() {
 }
 
 /**
+ * Los de las herramientas de componer, que antes eran cinco pastillas de texto
+ * en fila y ahora se reconocen por la forma.
+ *
+ * Es donde más se notaba lo que el proyecto ya sabía de los emoji: cinco
+ * rótulos —«Mástil», «Ideas», «Salidas», «Canciones», «Sesiones»— tenían que
+ * leerse enteros para elegir uno, y en el móvil no cabían y se salían por la
+ * derecha. Con icono, se apunta.
+ */
+
+/** Mástil: seis cuerdas y los trastes. */
+export function IconoMastil() {
+  return (
+    <Trazo>
+      <g>
+        <path d="M3 5h18M3 12h18M3 19h18" />
+        <path d="M8 4v16M16 4v16" opacity="0.5" />
+      </g>
+    </Trazo>
+  );
+}
+
+/** Ideas: la bombilla de siempre, que aquí es lo que propone la IA. */
+export function IconoIdeas() {
+  return (
+    <Trazo>
+      <g>
+        <path d="M9 17.5a5.5 5.5 0 1 1 6 0v1.5a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 19z" />
+        <path d="M10 17.5h4" opacity="0.55" />
+      </g>
+    </Trazo>
+  );
+}
+
+/** Salidas: por dónde puede seguir esto, que es una bifurcación. */
+export function IconoSalidas() {
+  return (
+    <Trazo>
+      <g>
+        <path d="M6 20V9a3 3 0 0 1 3-3h9" />
+        <path d="M15 3l3 3-3 3" />
+        <path d="M6 20h6a3 3 0 0 0 3-3v-2" opacity="0.55" />
+      </g>
+    </Trazo>
+  );
+}
+
+/** Canciones: lo que se guarda a propósito y con nombre. */
+export function IconoCanciones() {
+  return (
+    <Trazo>
+      <g>
+        <path d="M10 18V6l9-2v12" />
+        <circle cx="7" cy="18" r="3" />
+        <circle cx="16" cy="16" r="3" />
+      </g>
+    </Trazo>
+  );
+}
+
+/** Sesiones: el rastro de lo que se tocó, que es un reloj hacia atrás. */
+export function IconoSesiones() {
+  return (
+    <Trazo>
+      <g>
+        <path d="M3.5 9A9 9 0 1 1 3 12" />
+        <path d="M3 4v5h5" />
+        <path d="M12 8v4.5l3 1.8" />
+      </g>
+    </Trazo>
+  );
+}
+
+/**
+ * Los de la grabadora. El punto y el cuadrado son los de cualquier aparato de
+ * grabar desde hace cincuenta años: no hay nada que enseñar ahí.
+ */
+export function IconoPunto() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5" fill="currentColor">
+      <circle cx="12" cy="12" r="8" />
+    </svg>
+  );
+}
+
+export function IconoParar() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4" fill="currentColor">
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+    </svg>
+  );
+}
+
+/** Sonar: el triángulo de reproducir, que aquí es «escúchalo». */
+export function IconoSonar() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4" fill="currentColor">
+      <path d="M8 5.5v13l11-6.5z" />
+    </svg>
+  );
+}
+
+export function IconoDescargar() {
+  return (
+    <Trazo>
+      <g>
+        <path d="M12 4v10" />
+        <path d="M8 11l4 3 4-3" />
+        <path d="M4.5 18.5h15" />
+      </g>
+    </Trazo>
+  );
+}
+
+export function IconoPapelera() {
+  return (
+    <Trazo>
+      <g>
+        <path d="M4.5 7h15" />
+        <path d="M9.5 7V4.8h5V7" />
+        <path d="M6.5 7l.8 11.4A1.8 1.8 0 0 0 9.1 20h5.8a1.8 1.8 0 0 0 1.8-1.6L17.5 7" />
+      </g>
+    </Trazo>
+  );
+}
+
+/** El micro: lo que abre y cierra la escucha. */
+export function IconoMicro() {
+  return (
+    <Trazo>
+      <g>
+        <rect x="9" y="3" width="6" height="11" rx="3" />
+        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
+        <path d="M12 18v3" />
+      </g>
+    </Trazo>
+  );
+}
+
+/** Y el micro tachado, para decir que ahora mismo no se está escuchando. */
+export function IconoMicroMudo() {
+  return (
+    <Trazo>
+      <g>
+        <path d="M9 6.5A3 3 0 0 1 15 6.5v4.2" />
+        <path d="M15 14.2a3 3 0 0 1-4.6.4" />
+        <path d="M5.5 11.5a6.5 6.5 0 0 0 9.9 5.6M18.5 11.5a6.4 6.4 0 0 1-.5 2.5" />
+        <path d="M12 18v3" />
+        <path d="M4 3.5l16 17" />
+      </g>
+    </Trazo>
+  );
+}
+
+/**
+ * Acertar y fallar, en la corrección de una pregunta.
+ *
+ * Van con el color puesto por quien los usa —heredan `currentColor`— porque el
+ * verde y el rojo de aquí son los del tema, y porque **la forma tiene que decirlo
+ * sola**: verde contra rojo es justo el par que no distingue la deficiencia de
+ * color más común, y es la misma razón por la que los tres estados armónicos
+ * llevan círculo, anillo y rombo en `ui/Marca`.
+ */
+export function IconoAcierto() {
+  return (
+    <Trazo>
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </Trazo>
+  );
+}
+
+export function IconoFallo() {
+  return (
+    <Trazo>
+      <path d="M7 7l10 10M17 7L7 17" />
+    </Trazo>
+  );
+}
+
+/** Cerrar lo que se ha abierto: una equis de verdad, no un carácter. */
+export function IconoCerrar() {
+  return (
+    <Trazo>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </Trazo>
+  );
+}
+
+/**
  * El sol y la luna del conmutador de tema.
  *
  * Se enseña **el tema al que se va**, no el que hay puesto: un icono de sol

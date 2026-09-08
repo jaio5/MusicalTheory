@@ -118,7 +118,7 @@ function PlanCard({
 
       <div className="mt-4">
         {current ? (
-          <p className="text-brass-bright font-mono text-sm">Es el que tienes</p>
+          <p className="text-brass-bright text-sm font-medium">Es el que tienes</p>
         ) : (
           <Link href={`/planes/${plan.id}`} className={estiloBoton('primary', 'w-full')}>
             Elegir {plan.name}

@@ -87,7 +87,7 @@ export function ReviewScreen() {
         lead="Lo que fallaste, otra vez y en la tonalidad de hoy."
         back={{ href: '/aprender', label: 'Camino' }}
         actions={
-          <p className="text-text-muted font-mono text-xs">
+          <p className="text-text-muted text-xs">
             {activeKey === null ? 'sin tonalidad' : keyName(activeKey.tonic, activeKey.mode)}
           </p>
         }

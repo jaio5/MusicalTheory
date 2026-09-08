@@ -1,11 +1,56 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import type { AudioInput, AudioInputState } from '@audio/audio-input';
+import type { PitchEngine } from '@audio/pitch-engine';
 import { useSessionStore } from '@state/session-store';
 
 import { HeardChord } from './HeardChord';
+
+/** Un micrófono que se abre y se cierra sin tocar el navegador. */
+class EntradaFalsa implements AudioInput {
+  state: AudioInputState = 'idle';
+  readonly sampleRate = 48_000;
+  readonly frameSize = 2048;
+  readonly spectrumSize = 8192;
+  error = null;
+
+  async start(): Promise<void> {
+    this.state = 'running';
+  }
+  async stop(): Promise<void> {
+    this.state = 'idle';
+  }
+  readTimeDomain(): boolean {
+    return true;
+  }
+  readSpectrum(): boolean {
+    return true;
+  }
+  subscribe(): () => void {
+    return () => {};
+  }
+}
+
+class MotorCallado implements PitchEngine {
+  readonly options = {} as PitchEngine['options'];
+  running = false;
+  async start(): Promise<void> {
+    this.running = true;
+  }
+  stop(): void {
+    this.running = false;
+  }
+  subscribe(): () => void {
+    return () => {};
+  }
+  subscribeLevel(): () => void {
+    return () => {};
+  }
+}
 
 function escuchando(): void {
   useSessionStore.getState().actions.setListening('listening');
@@ -40,10 +85,29 @@ describe('El acorde que suena', () => {
     useSessionStore.getState().actions.reset();
   });
 
-  it('no dice nada si no se escucha y no ha sonado nada todavía', () => {
-    const { container } = render(<HeardChord />);
+  /**
+   * Con el micro cerrado, **lo ofrece**.
+   *
+   * Esta zona se quedaba en blanco, y con ella se quedaba callada la cosa que
+   * esta aplicación dice de sí misma en la portada: que te oye tocar. Estaba a un
+   * botón de distancia —el de la barra de arriba— y nada lo decía aquí, que es
+   * donde pasa.
+   */
+  it('con el micro cerrado ofrece abrirlo, en vez de quedarse en blanco', () => {
+    render(<HeardChord />);
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByRole('button', { name: /abrir el micrófono/i })).toBeInTheDocument();
+  });
+
+  it('y al pulsarlo, escucha', async () => {
+    const entrada = new EntradaFalsa();
+    render(
+      <HeardChord deps={{ createInput: () => entrada, createEngine: () => new MotorCallado() }} />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /abrir el micrófono/i }));
+
+    await waitFor(() => expect(entrada.state).toBe('running'));
   });
 
   it('pide un acorde entero mientras no reconoce ninguno', () => {

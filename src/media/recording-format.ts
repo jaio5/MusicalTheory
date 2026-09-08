@@ -1,7 +1,7 @@
 /**
  * Negociación de formato y nombre del fichero.
  *
- * No hay un contenedor que funcione en todas partes, así que se prueban
+ * No hay un contenedor de audio que funcione en todas partes, así que se prueban
  * candidatos por orden. Está separado del grabador porque es lo único de esta
  * capa que se puede probar sin navegador.
  */
@@ -12,15 +12,19 @@ export interface RecordingFormat {
 }
 
 /**
- * Por orden de preferencia. VP9 da mejor calidad por bit; VP8 es el respaldo en
- * navegadores antiguos; MP4 existe porque Safari no graba WebM.
+ * Por orden de preferencia, y todos de **audio solo**.
+ *
+ * Opus dentro de WebM es lo que mejor suena por bit y lo que aceptan Chrome,
+ * Edge y Firefox. MP4/AAC existe porque Safari no graba WebM, y ese fichero lo
+ * abre además cualquier reproductor sin pensar. `audio/webm` a secas es el
+ * respaldo de un navegador que no sepa contestar por códec.
  */
 export const FORMAT_CANDIDATES: readonly RecordingFormat[] = [
-  { mimeType: 'video/webm;codecs=vp9,opus', extension: 'webm' },
-  { mimeType: 'video/webm;codecs=vp8,opus', extension: 'webm' },
-  { mimeType: 'video/webm', extension: 'webm' },
-  { mimeType: 'video/mp4;codecs=avc1,mp4a.40.2', extension: 'mp4' },
-  { mimeType: 'video/mp4', extension: 'mp4' },
+  { mimeType: 'audio/webm;codecs=opus', extension: 'webm' },
+  { mimeType: 'audio/webm', extension: 'webm' },
+  { mimeType: 'audio/mp4;codecs=mp4a.40.2', extension: 'm4a' },
+  { mimeType: 'audio/mp4', extension: 'm4a' },
+  { mimeType: 'audio/ogg;codecs=opus', extension: 'ogg' },
 ];
 
 /**

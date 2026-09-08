@@ -255,7 +255,7 @@ export function Tutor({
             <button
               type="button"
               onClick={cerrar}
-              className="text-text-muted hover:text-text font-mono text-xs"
+              className="text-text-muted hover:text-text text-xs"
             >
               Cerrar
             </button>

@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { pitchClassFromName } from '@core/music';
 import { useSessionStore } from '@state/session-store';
@@ -16,21 +16,45 @@ vi.mock('next/navigation', () => ({
 }));
 
 /**
+ * Se limpia el almacenamiento, no solo el estado.
+ *
+ * Desde que la tonalidad se recuerda, `reset()` no basta: la pantalla llama a
+ * `loadWorkspace` al montarse y volvería a poner la que dejó puesta el test
+ * anterior. Es el mismo motivo por el que existe la persistencia, visto desde el
+ * otro lado.
+ */
+beforeEach(() => {
+  localStorage.clear();
+  useSessionStore.getState().actions.reset();
+});
+
+/**
  * Lo que se prueba aquí es **qué se sacrifica en el móvil**, que es una decisión y
  * no un detalle de estilo. jsdom no tiene ancho de pantalla de verdad, así que se
  * comprueba la regla escrita: qué lleva `sm:`/`lg:` y qué no.
  */
 describe('Componer en una pantalla estrecha', () => {
-  it('la barra de grabar solo aparece a partir de tableta', () => {
+  /**
+   * Grabar dejó de ser una franja fija arriba.
+   *
+   * Cuando grababa vídeo tenía que esconderse en el móvil: se llevaba un renglón
+   * entero para algo que pide trípode y pantalla grande. Grabando solo el sonido
+   * ya no hay franja que esconder —es una herramienta más de la fila de abajo—,
+   * así que la pregunta cambia: **que esté disponible en cualquier ancho**, que
+   * es justo lo contrario de lo que se defendía antes
+   * ([adr/0023](../../../docs/adr/0023-grabar-solo-el-sonido.md)).
+   */
+  it('grabar es una herramienta más, y está también en el movil', async () => {
     render(<ComposeScreen />);
 
-    const grabar = screen.getByRole('button', { name: /grabarte tocando/i });
-    const barra = grabar.parentElement;
-
-    expect(barra?.className, 'la barra de grabar tiene que esconderse en móvil').toContain(
+    const pestana = screen.getByRole('button', { name: 'Grabar' });
+    expect(pestana.className, 'la pestaña de grabar no se esconde en móvil').not.toContain(
       'hidden',
     );
-    expect(barra?.className).toContain('sm:flex');
+
+    await userEvent.click(pestana);
+
+    expect(screen.getByRole('button', { name: /grabar lo que tocas/i })).toBeInTheDocument();
   });
 
   /**
@@ -123,10 +147,62 @@ describe('Componer en una pantalla estrecha', () => {
 
   // Lo que se mira mientras tocas sigue estando en las dos anchuras.
   it('el acorde y a dónde ir no se sacrifican', () => {
+    // Con tonalidad puesta: sin ella las dos columnas se juntan a propósito en
+    // una sola cosa que decir, que es por dónde se empieza.
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
     render(<ComposeScreen />);
 
     expect(screen.getByLabelText('El acorde y sus formas')).toBeInTheDocument();
     expect(screen.getByLabelText('A dónde puedes ir')).toBeInTheDocument();
+  });
+
+  /**
+   * Qué va primero cuando se apilan.
+   *
+   * En pantalla ancha son tres columnas y no hay «antes»; apiladas en un
+   * teléfono sí, y salían en el orden de la pantalla ancha. Sin acorde elegido,
+   * las dos primeras franjas son invitaciones —«elige uno», «abre el micro»— así
+   * que había que pasar por delante de setecientos píxeles de sugerencias para
+   * llegar a lo único que se puede hacer, que es la lista. Con acorde el orden es
+   * el bueno, y se deja.
+   */
+  it('sin acorde elegido, en el móvil la lista va antes que las invitaciones', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    render(<ComposeScreen />);
+
+    expect(screen.getByLabelText('A dónde puedes ir').className).toContain('order-1');
+    expect(screen.getByLabelText('El acorde y sus formas').className).toContain('order-2');
+  });
+
+  it('con acorde elegido vuelve el orden de siempre: primero cómo se hace', () => {
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    actions.pushChord({ symbol: 'C', label: 'I', root: 0, notes: [0, 4, 7], why: 'La casa.' });
+
+    render(<ComposeScreen />);
+
+    expect(screen.getByLabelText('El acorde y sus formas').className).toContain('order-1');
+    expect(screen.getByLabelText('A dónde puedes ir').className).toContain('order-2');
+  });
+
+  /**
+   * Y sin tonalidad, **una sola**.
+   *
+   * Eran tres paneles diciendo cada uno su versión de «elige una tonalidad»: uno
+   * centrado a media pantalla, otro debajo del rótulo «Elegido» y un tercero en
+   * la columna de al lado. Tres veces lo mismo en una pantalla vacía se lee como
+   * una pantalla rota, no como una que espera.
+   */
+  it('sin tonalidad, las dos columnas se juntan en una sola cosa que decir', () => {
+    useSessionStore.getState().actions.reset();
+
+    render(<ComposeScreen />);
+
+    expect(screen.getByLabelText('Por dónde se empieza')).toBeInTheDocument();
+    expect(screen.queryByLabelText('El acorde y sus formas')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('A dónde puedes ir')).not.toBeInTheDocument();
   });
 });
 
@@ -138,6 +214,28 @@ describe('La tonalidad que se está usando', () => {
 
     expect(screen.getByText('sin elegir')).toBeInTheDocument();
     expect(screen.getByText(/Pulsa una tonalidad para empezar/)).toBeInTheDocument();
+  });
+
+  /**
+   * Y **se pliega sola en cuanto hay tonalidad**.
+   *
+   * No lo hacía, y era el peor fallo de la pantalla en un teléfono: la barra es
+   * `shrink-0` y la rueda abierta medía seiscientos trece píxeles de ochocientos,
+   * así que a lo que crece —el acorde, la lista, la canción— le tocaban cero, y
+   * no había forma de desplazarse hasta ello. Elegías el tono y la pantalla
+   * parecía vaciarse. Se vio midiendo el reparto de alto en un Chromium de
+   * verdad; ningún test lo habría visto mirando texto.
+   */
+  it('la tonalidad se abre sin elegir y se pliega al elegir', () => {
+    useSessionStore.getState().actions.reset();
+    const { container, rerender } = render(<ComposeScreen />);
+
+    expect(container.querySelector('details')).toHaveAttribute('open');
+
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    rerender(<ComposeScreen />);
+
+    expect(container.querySelector('details')).not.toHaveAttribute('open');
   });
 
   it('elegida, se lee en las dos: la plegada del móvil y la columna de al lado', () => {

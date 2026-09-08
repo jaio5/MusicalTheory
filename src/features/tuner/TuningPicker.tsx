@@ -37,9 +37,12 @@ export function TuningPicker() {
           mira desde donde se está con la guitarra puesta. */}
       <ol aria-label="Cuerdas de la afinación" className="flex gap-2">
         {tuning.strings.map((string) => (
+          // Con relieve, como todo lo que se mira en esta aplicación: seis
+          // rectángulos de un píxel sobre el fondo se leen como una tabla, y
+          // esto es un juego de seis cuerdas.
           <li
             key={string.number}
-            className="border-border flex grow basis-0 flex-col items-center gap-0.5 border py-2"
+            className="superficie flex grow basis-0 flex-col items-center gap-0.5 py-2.5"
           >
             <span className="text-text font-mono text-2xl">
               {noteName(midiToPitchClass(string.midi), tuning.accidental)}

@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import type { NextResponse } from 'next/server';
 
-import { MAX_MODEL_ATTEMPTS, TOKEN_BUDGETS } from '@core/billing';
+import { TOKEN_BUDGETS } from '@core/billing';
 import { degreesFor } from '@core/music';
 import {
   MARCA_PREGUNTA,
@@ -10,10 +10,9 @@ import {
   validateTeacherAnswer,
   type TeacherRequest,
 } from '@features/learn/teacher-contract';
-import { abrirPuertaDeIa, frenarPorFrecuencia } from '@server/ai-gate';
-import { askModel } from '@server/ask-model';
+import { responderConModelo } from '@server/ai-route';
 import { respuestaSinIA } from '@server/fake-model';
-import { ANSWER_SCHEMA, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
+import { ANSWER_SCHEMA, cabeceraDePrompt, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
 import { SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
@@ -21,10 +20,10 @@ import { SlidingWindowRateLimiter } from '@server/rate-limit';
  * clave viven solo aquí, porque importarlos desde un componente los llevaría al
  * navegador.
  *
- * Tres puertas antes de gastar dinero, y en este orden: el límite por minuto
- * —memoria, gratis de comprobar—, tener cuenta, y el cupo del plan, que es una
- * escritura en la base de datos. Al revés se pagaría una consulta por cada
- * pulsación de más.
+ * El cuerpo —las puertas, el reintento y qué contestar en cada final— lo pone
+ * `server/ai-route.ts`, que es el mismo para las tres rutas. Aquí solo queda lo
+ * que distingue al profesor: cómo se lee su petición, cómo se escribe su prompt
+ * y qué esquema se le exige a la respuesta.
  *
  * `max_tokens` sale de `TOKEN_BUDGETS`, en el dominio, y no de un número escrito
  * aquí. Es el mismo número con el que se calculan los cupos, así que el peor caso
@@ -41,10 +40,7 @@ const MAX_TOKENS = TOKEN_BUDGETS.profesor.output;
 const limiter = new SlidingWindowRateLimiter();
 
 function buildPrompt(request: TeacherRequest, validDegrees: readonly string[]): string {
-  const lines = [
-    `Tonalidad: ${request.key.tonic} ${request.key.mode === 'major' ? 'mayor' : 'menor'}.`,
-    `Grados válidos: ${validDegrees.join(', ')}.`,
-  ];
+  const lines = cabeceraDePrompt(request.key, validDegrees);
 
   if (request.scale !== undefined) {
     lines.push(`Escala que está usando: ${request.scale}.`);
@@ -64,58 +60,16 @@ function buildPrompt(request: TeacherRequest, validDegrees: readonly string[]): 
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const now = Date.now();
-  // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
-  const frenada = await frenarPorFrecuencia(request, limiter, teacherError, now);
-  if (frenada !== null) {
-    return frenada;
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(teacherError('invalid_request'), { status: 400 });
-  }
-
-  const parsed = parseTeacherRequest(body);
-  if (parsed === null) {
-    return NextResponse.json(teacherError('invalid_request'), { status: 400 });
-  }
-
-  const cerrada = await abrirPuertaDeIa({
-    feature: 'profesor',
+  return responderConModelo(request, {
+    limiter,
     error: teacherError,
-    loQueEs: 'Preguntarle al profesor',
-    plural: false,
+    puerta: { feature: 'profesor', loQueEs: 'Preguntarle al profesor', plural: false },
+    parse: parseTeacherRequest,
+    prompt: (peticion) => buildPrompt(peticion, degreesFor(peticion.key.mode)),
+    system: TEACHER_SYSTEM_PROMPT,
+    schema: () => ANSWER_SCHEMA,
+    maxTokens: MAX_TOKENS,
+    sinClave: respuestaSinIA,
+    validar: validateTeacherAnswer,
   });
-  if (cerrada !== null) {
-    return cerrada;
-  }
-
-  const prompt = buildPrompt(parsed, degreesFor(parsed.key.mode));
-
-  // Un reintento y basta, por lo mismo que en ideas: un «no ha salido» rápido
-  // vale más que treinta segundos de espera.
-  for (let attempt = 0; attempt < MAX_MODEL_ATTEMPTS; attempt += 1) {
-    let payload: unknown;
-    try {
-      payload = await askModel({
-        prompt,
-        system: TEACHER_SYSTEM_PROMPT,
-        schema: ANSWER_SCHEMA,
-        maxTokens: MAX_TOKENS,
-        sinClave: respuestaSinIA,
-      });
-    } catch {
-      return NextResponse.json(teacherError('model_unavailable'), { status: 502 });
-    }
-
-    const answer = validateTeacherAnswer(payload, parsed);
-    if (answer !== null) {
-      return NextResponse.json(answer);
-    }
-  }
-
-  return NextResponse.json(teacherError('unparseable_response'), { status: 502 });
 }

@@ -116,8 +116,8 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
     return (
       <Panel id="aprender" title="Aprender">
         <p className="text-text-muted mt-4">
-          Elige una tonalidad o toca unos compases, y aquí sale la escala para practicarla nota a
-          nota.
+          Elige una tonalidad o toca unas notas sueltas, y aquí sale la escala para practicarla nota
+          a nota.
         </p>
       </Panel>
     );
@@ -157,7 +157,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
             <li
               key={item.index}
               aria-current={current ? 'step' : undefined}
-              className={`rounded-md border px-3 py-2 font-mono text-sm ${
+              className={`rounded-md border px-3 py-2 text-sm ${
                 current
                   ? 'border-brass-bright text-brass-bright'
                   : passed

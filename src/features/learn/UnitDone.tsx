@@ -39,7 +39,7 @@ export function UnitDone({
   return (
     <div className="flex min-h-0 grow flex-col items-center justify-center gap-6 p-6 text-center">
       <div>
-        <p className="text-tube-bright font-mono text-xs tracking-widest uppercase">
+        <p className="rotulo text-tube-bright">
           {celebration.flawless && celebration.unitId !== 'repaso'
             ? 'Sin un fallo'
             : celebration.unitId === 'repaso'
@@ -88,9 +88,7 @@ export function UnitDone({
 
       {nuevas.length > 0 && (
         <div>
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            {nuevas.length === 1 ? 'Medalla nueva' : 'Medallas nuevas'}
-          </p>
+          <p className="rotulo">{nuevas.length === 1 ? 'Medalla nueva' : 'Medallas nuevas'}</p>
           <ul aria-label="Medallas nuevas" className="mt-2 flex flex-wrap justify-center gap-2">
             {nuevas.map((badge) => (
               <li
@@ -121,7 +119,7 @@ function Dato({
 }) {
   return (
     <div>
-      <dt className="text-text-muted font-mono text-xs tracking-widest uppercase">{etiqueta}</dt>
+      <dt className="rotulo">{etiqueta}</dt>
       <dd className={`mt-0.5 font-mono text-xl ${bueno ? 'text-tube-bright' : 'text-text'}`}>
         {valor}
       </dd>

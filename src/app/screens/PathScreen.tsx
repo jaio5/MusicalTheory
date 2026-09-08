@@ -44,7 +44,13 @@ export function PathScreen() {
           En estrecho se apila en el orden de siempre: primero la meta, porque lo
           primero que se mira al abrir es si hoy ya has hecho algo. */}
       <div className="grid min-h-0 grow grid-cols-1 overflow-y-auto lg:grid-cols-[24rem_minmax(0,1fr)] lg:overflow-hidden xl:grid-cols-[27rem_minmax(0,1fr)]">
-        <div className="border-border flex flex-col lg:min-h-0 lg:overflow-y-auto lg:border-r">
+        {/* La columna de la izquierda, un punto más clara que el camino.
+
+            Estaban las dos sobre el mismo negro, separadas por una línea de un
+            píxel: desde lejos, una pared. Con el tono se ve de un vistazo que a un
+            lado está lo que se consulta y al otro lo que se recorre, que es lo que
+            este proyecto ya dice de la profundidad. */}
+        <div className="border-border lg:bg-surface flex flex-col lg:min-h-0 lg:overflow-y-auto lg:border-r">
           <DailyGoal
             progress={progress}
             day={day}
@@ -65,7 +71,7 @@ export function PathScreen() {
                   {found.unit.kind === 'play' ? <IconoTocar /> : <IconoTeoria />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-mono text-xs opacity-80">
+                  <span className="block text-xs opacity-80">
                     {found.course.year}º de{' '}
                     {found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'} · seguir
                   </span>

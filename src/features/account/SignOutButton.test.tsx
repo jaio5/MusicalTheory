@@ -57,7 +57,7 @@ describe('salir', () => {
 
     await userEvent.click(screen.getByRole('button'));
 
-    expect(screen.getByRole('button', { name: 'Saliendo...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saliendo…' })).toBeDisabled();
     terminar();
     await waitFor(() => expect(screen.getByRole('button')).toBeEnabled());
   });

@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import type { NextResponse } from 'next/server';
 
-import { MAX_MODEL_ATTEMPTS, TOKEN_BUDGETS } from '@core/billing';
+import { TOKEN_BUDGETS } from '@core/billing';
 import { degreesFor, MOVES, PATHS, PATHS_BY_KIND, graphText, type PathKind } from '@core/music';
 
 import {
@@ -9,10 +9,9 @@ import {
   versionsError,
   type VersionsRequest,
 } from '@features/versions/contract';
-import { abrirPuertaDeIa, frenarPorFrecuencia } from '@server/ai-gate';
-import { askModel } from '@server/ask-model';
+import { responderConModelo } from '@server/ai-route';
 import { versionesSinIA } from '@server/fake-model';
-import { versionsSchema, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
+import { cabeceraDePrompt, versionsSchema, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
 import { SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
@@ -67,12 +66,11 @@ function movesText(): string {
 }
 
 function buildPrompt(request: VersionsRequest): string {
-  const { tonic, mode } = request.key;
+  const { mode } = request.key;
   const progresion = request.progression.map((step) => `${step.degree} x${step.beats}`).join(' | ');
 
   const lines = [
-    `Tonalidad: ${tonic} ${mode === 'major' ? 'mayor' : 'menor'}.`,
-    `Grados válidos: ${degreesFor(mode).join(', ')}.`,
+    ...cabeceraDePrompt(request.key, degreesFor(mode)),
     `Salidas que puedes declarar:\n${pathsText(request.kind)}`,
     `Movimientos, solo para rearmonizar:\n${movesText()}`,
     // El mapa de saltos es lo que convierte «inventa algo» en «elige por dónde».
@@ -94,66 +92,27 @@ function buildPrompt(request: VersionsRequest): string {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const now = Date.now();
-  // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
-  const frenada = await frenarPorFrecuencia(request, limiter, versionsError, now);
-  if (frenada !== null) {
-    return frenada;
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(versionsError('invalid_request'), { status: 400 });
-  }
-
-  const parsed = parseVersionsRequest(body);
-  if (parsed === null) {
-    return NextResponse.json(versionsError('invalid_request'), { status: 400 });
-  }
-
-  const cerrada = await abrirPuertaDeIa({
-    feature: 'versiones',
+  return responderConModelo(request, {
+    limiter,
     error: versionsError,
-    loQueEs: 'Las salidas de lo que tocas',
-    plural: true,
+    puerta: { feature: 'versiones', loQueEs: 'Las salidas de lo que tocas', plural: true },
+    parse: parseVersionsRequest,
+    prompt: buildPrompt,
+    system: VERSIONS_SYSTEM_PROMPT,
+    // El esquema depende del modo: los grados válidos no son los mismos en mayor
+    // que en menor, y el enumerado es lo que impide que escriba uno que no
+    // existe.
+    schema: (peticion) => versionsSchema(peticion.key.mode, peticion.kind),
+    maxTokens: MAX_TOKENS,
+    sinClave: (peticion) =>
+      versionesSinIA({
+        tonic: peticion.key.tonic,
+        mode: peticion.key.mode,
+        progression: peticion.progression,
+      }),
+    validar: (payload, peticion) => {
+      const versions = validateVersions(payload, peticion);
+      return versions.length > 0 ? { versions } : null;
+    },
   });
-  if (cerrada !== null) {
-    return cerrada;
-  }
-
-  const prompt = buildPrompt(parsed);
-
-  // Un reintento y basta, como en las ideas: encadenar más cuesta dinero y
-  // tiempo, y aquí además cada intento es la petición más cara que hay.
-  for (let attempt = 0; attempt < MAX_MODEL_ATTEMPTS; attempt += 1) {
-    let payload: unknown;
-    try {
-      payload = await askModel({
-        prompt,
-        system: VERSIONS_SYSTEM_PROMPT,
-        // El esquema depende del modo: los grados válidos no son los mismos
-        // en mayor que en menor, y el enumerado es lo que impide que escriba uno
-        // que no existe.
-        schema: versionsSchema(parsed.key.mode, parsed.kind),
-        maxTokens: MAX_TOKENS,
-        sinClave: () =>
-          versionesSinIA({
-            tonic: parsed.key.tonic,
-            mode: parsed.key.mode,
-            progression: parsed.progression,
-          }),
-      });
-    } catch {
-      return NextResponse.json(versionsError('model_unavailable'), { status: 502 });
-    }
-
-    const versions = validateVersions(payload, parsed);
-    if (versions.length > 0) {
-      return NextResponse.json({ versions });
-    }
-  }
-
-  return NextResponse.json(versionsError('unparseable_response'), { status: 502 });
 }

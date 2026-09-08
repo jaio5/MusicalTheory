@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Chip } from '@ui/Chip';
+import { IconoParar, IconoSonar } from '@ui/icons';
 import { Field } from '@ui/Field';
 
 import { WebAudioMetronome, type Metronome as MetronomeEngine } from '@audio/metronome';
@@ -85,15 +86,17 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
           onClick={() => void toggle()}
           aria-pressed={running}
           aria-label={running ? 'Parar el metrónomo' : 'Poner el metrónomo'}
-          className={`size-tap flex shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+          className={`size-tap flex shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors ${
             running
               ? 'border-brass-bright text-brass-bright'
               : 'border-border text-text-muted hover:border-brass'
           }`}
         >
-          <span aria-hidden="true" className="text-sm">
-            {running ? '■' : '▶'}
-          </span>
+          {/* El cuadrado y el triángulo son los de cualquier aparato desde hace
+              cincuenta años, pero dibujados: escritos como caracteres, `■` y `▶`
+              los pinta cada sistema a su manera y a su tamaño, que es lo mismo
+              que ya se dijo de los emoji. */}
+          {running ? <IconoParar /> : <IconoSonar />}
         </button>
 
         <label className="flex items-center gap-1">

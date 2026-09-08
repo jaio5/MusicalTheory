@@ -34,9 +34,14 @@ export function LevelMeter({ rms }: LevelMeterProps) {
 
   return (
     <div className="w-full">
-      <div className="text-text-muted flex items-baseline justify-between font-mono text-xs">
+      {/* El rótulo en la sans y el número en monoespaciada: el rótulo es
+          interfaz y los decibelios son un dato que salta de golpe entre −45 y
+          −12, así que sin ancho fijo la línea baila. */}
+      <div className="text-text-muted flex items-baseline justify-between text-xs">
         <span>Nivel de entrada</span>
-        <span>{rms <= 0 ? '—' : `${(20 * Math.log10(rms)).toFixed(0)} dB`}</span>
+        <span className="font-mono tabular-nums">
+          {rms <= 0 ? '—' : `${(20 * Math.log10(rms)).toFixed(0)} dB`}
+        </span>
       </div>
 
       <div

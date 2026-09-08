@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useProgressionPlayer } from '@state/use-progression-player';
 
 import {
   scheduleEvents,
@@ -9,7 +10,7 @@ import {
   type KeyMode,
   type PitchClass,
 } from '@core/music';
-import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
+import type { ProgressionPlayer } from '@audio/progression-player';
 
 /**
  * Oír el montaje, y saber por qué bloque va.
@@ -53,27 +54,16 @@ export function useArrangementPlayer(
   const [playingPartId, setPlayingPartId] = useState<string | null>(null);
   const [currentBlockId, setCurrentBlockId] = useState<string | null>(null);
 
-  const playerRef = useRef<ProgressionPlayer | null>(null);
-  const factoryRef = useRef(createPlayer);
-  useEffect(() => {
-    factoryRef.current = createPlayer;
-  });
-
-  // Al salir de la pantalla se calla y se suelta el contexto. Sin esto, cambiar
-  // de pantalla en mitad de una canción la deja sonando por detrás.
-  useEffect(() => {
-    return () => {
-      void playerRef.current?.dispose();
-      playerRef.current = null;
-    };
-  }, []);
+  const { pedir, parar } = useProgressionPlayer(createPlayer);
 
   const stop = useCallback(() => {
-    playerRef.current?.stop();
+    parar();
     setPlaying(false);
     setPlayingPartId(null);
     setCurrentBlockId(null);
-  }, []);
+    // `pedir` y `parar` no cambian entre renders: los memoriza
+    // `useProgressionPlayer`. Van en la lista para que ESLint pueda comprobarlo.
+  }, [parar]);
 
   const toggle = useCallback(
     (partId: string | null) => {
@@ -92,13 +82,13 @@ export function useArrangementPlayer(
         return;
       }
 
-      playerRef.current ??= factoryRef.current?.() ?? new WebAudioProgressionPlayer();
+      const player = pedir();
 
       setPlaying(true);
       setPlayingPartId(partId);
       setCurrentBlockId(owners.find((dueño) => dueño !== null) ?? null);
 
-      void playerRef.current.play(scheduleEvents(events, bpm), (step) => {
+      void player.play(scheduleEvents(events, bpm), (step) => {
         if (step === null) {
           setPlaying(false);
           setPlayingPartId(null);
@@ -111,7 +101,7 @@ export function useArrangementPlayer(
         }
       });
     },
-    [arrangement, bpm, mode, playing, playingPartId, stop, tonic, withMelody],
+    [arrangement, bpm, mode, pedir, playing, playingPartId, stop, tonic, withMelody],
   );
 
   return { playing, playingPartId, currentBlockId, toggle, stop };

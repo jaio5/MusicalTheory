@@ -44,26 +44,26 @@ export interface Paleta {
  * El tema claro, el que se ofrece: elegante por lo que **no** tiene.
  *
  * Un solo acento y tres grises. El oro es el mismo hilo del latón de antes, pero
- * bajado a `#A16207`: es lo que hace falta para que un texto de acento llegue a
+ * bajado a `#9A5B08`: es lo que hace falta para que un texto de acento llegue a
  * 4,5:1 sobre blanco, y el dorado bonito de las paletas —`#D4AF37`— no lo cumple
  * ni de lejos. Los grises son cálidos y no azules: sobre blanco puro, un gris
  * azulado deja la pantalla con aire de hospital.
  */
 export const paletaClara: Paleta = {
   background: '#FFFFFF',
-  surface: '#FAFAF9',
-  surfaceRaised: '#F5F5F4',
-  border: '#E7E5E4',
+  surface: '#FAF9F7',
+  surfaceRaised: '#F3F1ED',
+  border: '#E4E0D9',
 
   text: '#1C1917',
-  textMuted: '#6B625C',
+  textMuted: '#655C54',
 
-  brass: '#A16207',
-  brassBright: '#854D0E',
-  brassDim: '#E2CFA4',
+  brass: '#9A5B08',
+  brassBright: '#7C4A0C',
+  brassDim: '#E0CDA2',
 
   oxblood: '#B91C1C',
-  oxbloodBright: '#991B1B',
+  oxbloodBright: '#9F1239',
 
   tube: '#15803D',
   tubeBright: '#166534',
@@ -74,31 +74,35 @@ export const paletaClara: Paleta = {
  *
  * **`oxblood` es el tapizado y `oxbloodBright` es lo que se lee.** No son dos
  * tonos del mismo rojo para elegir a gusto: el primero solo vale de relleno
- * —el fondo del botón de escuchar— y el segundo es el que llevan los mensajes
+ * —el fondo del botón de grabar— y el segundo es el que llevan los mensajes
  * de error, que aquí son veinticuatro. Estuvo en `#8C2B31`, que sobre este
  * negro da 2,26:1: menos de la mitad del 4,5:1 que pide un texto, y justo en
- * lo más importante que hay que poder leer. El de ahora conserva el matiz del
- * tapizado —el mismo rojo con algo de tierra— subido hasta 5,3:1 sobre la
- * superficie más clara, que es el peor fondo donde cae.
+ * lo más importante que hay que poder leer.
+ *
+ * Al repasar la estética se subió el latón —de `#B08D4F` a `#C08A3E`, y el vivo
+ * de `#D8B76A` a `#E8B765`— y se abrió el escalón entre las tres superficies.
+ * No es capricho: **la aplicación se leía plana**, con el fondo, las tarjetas y
+ * lo que está encima casi del mismo gris pardo, así que nada parecía estar sobre
+ * nada. El latón de antes tampoco parecía metal encendido; parecía cartón.
  */
 export const paletaOscura: Paleta = {
-  background: '#12100E',
-  surface: '#1A1714',
-  surfaceRaised: '#241F1A',
-  border: '#332C25',
+  background: '#100D0B',
+  surface: '#1A1613',
+  surfaceRaised: '#26201A',
+  border: '#3A322A',
 
-  text: '#EDE6DA',
-  textMuted: '#A79C8C',
+  text: '#F3ECE0',
+  textMuted: '#B3A695',
 
-  brass: '#B08D4F',
-  brassBright: '#D8B76A',
+  brass: '#C08A3E',
+  brassBright: '#E8B765',
   brassDim: '#6E5830',
 
   oxblood: '#6B1F24',
-  oxbloodBright: '#D07C7F',
+  oxbloodBright: '#E8878A',
 
   tube: '#5C8A5A',
-  tubeBright: '#7FB07C',
+  tubeBright: '#86BC82',
 };
 
 /**
@@ -125,12 +129,12 @@ export const VARIABLES_CSS: Readonly<Record<keyof Paleta, string>> = {
 };
 
 /**
- * Los colores del overlay de grabación.
+ * La paleta de casa, para el poco código que necesita un color sin pasar por una
+ * clase de Tailwind.
  *
- * Son los del tema oscuro **siempre**, y no es un descuido: ese texto se dibuja
- * encima del vídeo de la cámara, no encima de la aplicación. Sobre una imagen
- * cualquiera, la letra clara con sombra se lee y la oscura desaparece en cuanto
- * se toca una pared clara.
+ * Es la oscura porque es la que sale por defecto. Quien lea de aquí y dibuje algo
+ * que también existe en claro está haciendo trampa: lo correcto es una utilidad
+ * de color, que sigue al tema puesto.
  */
 export const colors = paletaOscura;
 
@@ -198,7 +202,3 @@ export const durations = {
   /** Giro de la rueda de quintas hasta poner arriba la tonalidad detectada. */
   wheel: 650,
 } as const;
-
-export type ColorToken = keyof typeof colors;
-export type FontToken = keyof typeof fonts;
-export type DurationToken = keyof typeof durations;

@@ -9,7 +9,7 @@
  * se pisarían: el segundo en escribir borraría lo que hizo el primero. Fusionando
  * aquí, subir es siempre seguro y nunca hay que decidir quién gana.
  *
- * Lo que sube son identificadores de unidad, números y fechas. Ni audio ni vídeo,
+ * Lo que sube son identificadores de unidad, números y fechas. Nada de audio,
  * aquí tampoco: eso no sale del equipo y esta ruta no cambia eso.
  */
 
@@ -22,6 +22,8 @@ import { readJsonBody } from '@server/request-body';
 import { loadAccountProgress, saveAccountProgress } from '@server/progress-repo';
 
 export const runtime = 'nodejs';
+
+type Sesion = NonNullable<Awaited<ReturnType<typeof currentSession>>>;
 
 function sinCuenta(): NextResponse {
   return NextResponse.json(
@@ -45,13 +47,28 @@ function sinPlan(): NextResponse {
   );
 }
 
-export async function GET(): Promise<NextResponse> {
+/**
+ * La sesión que puede sincronizar, o ya la respuesta que explica por qué no.
+ *
+ * Las dos operaciones piden lo mismo —cuenta y plan— y lo pedían con seis líneas
+ * calcadas. Devolver la respuesta en vez de lanzar deja que quien llama la
+ * reenvíe tal cual, que es lo único que hacía con ella.
+ */
+async function sesionQueSincroniza(): Promise<Sesion | NextResponse> {
   const session = await currentSession();
   if (session === null) {
     return sinCuenta();
   }
   if (!can(session.account.plan, 'sincronizar')) {
     return sinPlan();
+  }
+  return session;
+}
+
+export async function GET(): Promise<NextResponse> {
+  const session = await sesionQueSincroniza();
+  if (session instanceof NextResponse) {
+    return session;
   }
 
   const loaded = await loadAccountProgress(session.userId);
@@ -68,12 +85,9 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function PUT(request: Request): Promise<NextResponse> {
-  const session = await currentSession();
-  if (session === null) {
-    return sinCuenta();
-  }
-  if (!can(session.account.plan, 'sincronizar')) {
-    return sinPlan();
+  const session = await sesionQueSincroniza();
+  if (session instanceof NextResponse) {
+    return session;
   }
 
   const record = await readJsonBody(request);

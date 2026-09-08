@@ -134,7 +134,11 @@ describe('preguntar', () => {
 
     await preguntar();
 
-    expect(screen.getByRole('button', { name: 'Pensando' })).toBeDisabled();
+    const pensando = screen.getByRole('button', { name: 'Pensando…' });
+    expect(pensando).toBeDisabled();
+    // Y lo dice también a quien no lee el rótulo: la ruedecilla es adorno, y por
+    // eso lo que lleva la información es `aria-busy`.
+    expect(pensando).toHaveAttribute('aria-busy', 'true');
     contestar(respuesta(200, { answer: 'Ya está.' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preguntar' })).toBeDefined());
   });

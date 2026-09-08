@@ -32,17 +32,21 @@ export interface SitioTutor {
   readonly alto: number;
 }
 
-/** Abajo a la izquierda, que es donde estaba antes de poder moverlo. */
 /**
- * Abajo del todo y a la izquierda.
+ * Abajo del todo y a la derecha.
  *
- * Estaba a tres cuartos de altura, y ahí flotaba justo encima del camino de
+ * Estuvo a tres cuartos de altura, y ahí flotaba justo encima del camino de
  * unidades en un teléfono y encima de las medallas en un escritorio: el muñeco
- * tapaba lo que se había venido a leer. Pegado al borde de abajo solo pisa el
- * final de la columna, que es donde menos duele, y sigue arrastrándose a donde
- * cada uno quiera.
+ * tapaba lo que se había venido a leer. Bajarlo al borde arregló la altura pero
+ * no el lado: en el camino, la esquina de abajo a la izquierda es donde acaba la
+ * lista de medallas, y allí el muñeco se comía dos renglones de texto.
+ *
+ * A la derecha no. Las tres pantallas donde sale —el camino, la unidad y el
+ * repaso— tienen la columna ancha a la izquierda y aire a la derecha, y ese es
+ * además el rincón donde todo el mundo espera encontrar un ayudante flotante.
+ * Sigue arrastrándose a donde cada uno quiera.
  */
-export const SITIO_POR_DEFECTO: SitioTutor = { lado: 'izquierda', alto: 90 };
+export const SITIO_POR_DEFECTO: SitioTutor = { lado: 'derecha', alto: 90 };
 
 const CLAVE = 'caos-ordenado:sitio-del-profesor';
 

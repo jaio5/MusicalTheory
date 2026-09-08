@@ -250,3 +250,30 @@ se estaba tocando—, y eso solo se ve si se enseña.
 
 El razonamiento entero está en
 [adr/0020](./adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md).
+
+## La tonalidad se detecta con notas sueltas, no rasgueando
+
+Vale la pena decirlo aparte porque la interfaz llegó a prometer lo contrario.
+
+La tonalidad se deduce de un **histograma de alturas**: cada nota que el motor de
+tono reconoce suma en su casilla, y cada medio segundo se correlaciona el
+histograma con los veinticuatro perfiles. El motor de tono es el de
+autocorrelación, y es **monofónico**: con un acorde sonando no entrega ninguna
+nota, así que el histograma no se llena y no hay nada que correlacionar.
+
+Es decir: **rasgueando acordes, la tonalidad no se detecta nunca.** Tocando la
+escala, sale en cuatro o cinco segundos.
+
+Comprobado tocándole a la aplicación dos ficheros por el micrófono falso: uno de
+la progresión G–C–D–Em, doce segundos y cero detección; otro de la escala de Sol
+arriba y abajo, que la saca a los pocos compases —como Mi menor, que comparte
+armadura con Sol mayor y es una lectura correcta para un histograma sin contexto
+armónico—.
+
+Lo que sí oye un rasgueo es el **motor de croma**, que es otro y responde a otra
+pregunta: qué acorde suena ahora, no en qué tonalidad estás. Los dos corren a la
+vez y no se hablan.
+
+Por eso la interfaz dice «toca unas notas sueltas y la detecto sola» y no «toca
+unos compases». La frase de antes era verdad solo a veces, que es la peor clase de
+verdad en una promesa.

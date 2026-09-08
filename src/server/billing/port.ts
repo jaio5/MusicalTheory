@@ -1,7 +1,7 @@
 /**
  * Por dónde se cobra. La interfaz, no el cobrador.
  *
- * Es el mismo patrón que `AudioInput`, `CameraInput` y `SessionStorage`: la
+ * Es el mismo patrón que `AudioInput`, `MicInput` y `SessionStorage`: la
  * aplicación habla con una interfaz y la implementación se elige al arrancar. Ahí
  * se ganó poder probar el afinador sin micrófono; aquí se gana poder tener los
  * tres planes funcionando y probados **antes** de que exista una cuenta de

@@ -5,7 +5,7 @@
  * TypeScript puro, así que se prueba sin levantar nada.
  *
  * Lo que viaja son símbolos y la pregunta escrita: tonalidad, escala, grados y
- * la frase que se teclea. El audio y el vídeo no salen del equipo, y esto no
+ * la frase que se teclea. El audio no sale del equipo, y esto no
  * abre esa puerta porque el micro no aporta nada a esta petición.
  */
 

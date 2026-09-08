@@ -19,6 +19,8 @@
 
 import { midiToFrequency, type ScheduledStep } from '@core/music';
 
+import { cerrarContexto, contextoDespierto } from './audio-context';
+
 export interface ProgressionPlayer {
   /**
    * Suena la progresión. Si ya sonaba otra, la corta.
@@ -58,13 +60,10 @@ export class WebAudioProgressionPlayer implements ProgressionPlayer {
 
     this.stop();
 
-    // El contexto se crea en el primer uso, que siempre viene de una pulsación:
-    // creado antes, la política de autoreproducción lo deja suspendido.
-    this.#context ??= new AudioContext();
-    const context = this.#context;
-    if (context.state === 'suspended') {
-      await context.resume();
-    }
+    // Se crea en el primer uso, que siempre viene de una pulsación: creado
+    // antes, la política de autoreproducción lo deja suspendido.
+    const context = await contextoDespierto(this.#context);
+    this.#context = context;
 
     const empieza = context.currentTime;
 
@@ -132,8 +131,6 @@ export class WebAudioProgressionPlayer implements ProgressionPlayer {
     this.stop();
     const context = this.#context;
     this.#context = null;
-    if (context !== null && context.state !== 'closed') {
-      await context.close();
-    }
+    await cerrarContexto(context);
   }
 }

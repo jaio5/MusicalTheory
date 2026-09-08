@@ -21,6 +21,7 @@ import { db } from './db/client';
 import { rateLimits } from './db/schema';
 import {
   DEFAULT_RATE_LIMIT,
+  requesterKey,
   type RateLimitOptions,
   type RateLimitResult,
   type SlidingWindowRateLimiter,
@@ -160,4 +161,36 @@ export async function limitRequest(input: {
 
   input.memoria.prune(input.now);
   return input.memoria.check(input.key, input.now);
+}
+
+/**
+ * Cuánto hay que esperar para esta petición, o nulo si puede pasar.
+ *
+ * Es `limitRequest` con lo que siempre se escribe alrededor: leer el reloj, sacar
+ * la clave de la dirección y quedarse solo con el «espera tantos segundos».
+ * Estaba copiado cuatro veces —tres en la ruta de la cuenta y una en la puerta de
+ * la IA— y en cada copia había que acordarse de dos cosas que no se ven: que la
+ * clave lleva **para qué es**, porque registrar y cambiar la cuenta son dos
+ * límites y con la misma clave gastar los intentos de uno gasta los del otro; y
+ * que el reloj entra una sola vez, porque leerlo dos veces en la misma petición
+ * puede caer a los dos lados de la ventana.
+ *
+ * Devuelve segundos y no una respuesta: cada ruta contesta lo suyo —la de la
+ * cuenta un 429 con su mensaje, las de IA el error de su contrato— y esa
+ * diferencia es de ellas, no de aquí.
+ */
+export async function esperaPorFrecuencia(
+  request: Request,
+  memoria: SlidingWindowRateLimiter,
+  para: string,
+  options?: RateLimitOptions,
+  now: number = Date.now(),
+): Promise<number | null> {
+  const { allowed, retryAfterSeconds } = await limitRequest({
+    memoria,
+    key: `${para}:${requesterKey(request.headers)}`,
+    now,
+    options,
+  });
+  return allowed ? null : retryAfterSeconds;
 }

@@ -137,8 +137,22 @@ describe('El muñeco del profesor', () => {
     expect(marco.className).toContain('items-start');
   });
 
-  it('en el lado de siempre se abre hacia el otro', () => {
+  /**
+   * De salida vive abajo a la derecha, que es el rincón donde no hay texto: en
+   * el camino, la esquina de la izquierda es donde acaba la lista de medallas y
+   * allí el muñeco se comía dos renglones.
+   */
+  it('de salida está a la derecha, y el globo se abre hacia dentro', () => {
     moverTutor(SITIO_POR_DEFECTO);
+    const { container } = pintar(<Tutor />);
+
+    const marco = container.firstElementChild as HTMLElement;
+    expect(marco.className).toContain('right-3');
+    expect(marco.className).toContain('flex-row-reverse');
+  });
+
+  it('movido a la izquierda, se abre hacia el otro lado', () => {
+    moverTutor({ lado: 'izquierda', alto: 90 });
     const { container } = pintar(<Tutor />);
 
     const marco = container.firstElementChild as HTMLElement;

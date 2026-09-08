@@ -6,7 +6,7 @@ El modo componer puede pedir ideas: progresiones a partir de lo que estás
 tocando, un giro para romper el bucle, qué escala meter encima. Eso lo responde
 un modelo de Anthropic, y siempre a través de un route handler del servidor.
 
-**A la IA solo viajan símbolos.** Nunca audio, nunca vídeo, nunca una grabación,
+**A la IA solo viajan símbolos.** Nunca audio, nunca una grabación,
 nunca un identificador de usuario. Lo que sale del navegador es: la tonalidad
 detectada, la escala elegida, los nombres de las notas tocadas últimamente y el
 grado actual. Nada de eso permite reconstruir la interpretación, y ninguna de
@@ -30,6 +30,24 @@ saber si seguían diciendo lo mismo.
 
 Esto además da un sitio donde poner límites de frecuencia, tiempo máximo y
 control de coste, que en el cliente serían imposibles de hacer cumplir.
+
+## Las tres rutas son una sola, y once diferencias
+
+`ideas`, `teacher` y `versiones` hacían exactamente lo mismo en el mismo orden
+—frenar por frecuencia, abrir las puertas del gasto, montar el prompt, llamar al
+modelo, validar, reintentar una vez, contestar— y lo hacían con tres copias del
+mismo cuerpo. Cuando había que cambiar algo del orden, se cambiaba tres veces; y
+una vez se cambió solo en dos.
+
+Ahora el cuerpo está una vez, en `server/ai-route.ts`, y cada ruta se declara:
+qué contador la frena, cómo se lee su petición, qué prompt escribe, qué esquema
+pide, cuántos tokens gasta como mucho, qué contesta sin clave y cómo valida lo
+que vuelve. Once campos, y ninguno de ellos es «en qué orden pasan las cosas».
+
+Dos tests lo sujetan: uno comprueba que ninguna ruta contiene `spendAi` ni
+`askModel(` —si vuelve a aparecer, es que alguien ha vuelto a escribir el cuerpo
+a mano— y otro que en el cuerpo común la puerta del gasto va **antes** de la
+llamada al modelo, que es lo único que hace que se cobre el intento.
 
 ## Endpoint
 
@@ -401,7 +419,7 @@ parte más cara y la única que se puede pedir en cadena sin leer lo anterior.
 Lo que viaja es la tonalidad, la escala, **el identificador** de la unidad que se
 está leyendo y la pregunta escrita, recortada a 240 caracteres. El identificador y
 no el título: el título lo resuelve el servidor contra `core/music/curriculum.ts`,
-así que ese campo dejó de ser texto libre entrando a un prompt. El audio y el vídeo siguen sin
+así que ese campo dejó de ser texto libre entrando a un prompt. El audio sigue sin
 salir del equipo: esta petición no los toca.
 
 De vuelta viene una respuesta corta y, si viene a cuento, un ejemplo tocable en

@@ -70,7 +70,7 @@ describe('El repaso', () => {
     pintar(conUnFallo(0));
 
     expect(screen.getByText(esperada.prompt)).toBeInTheDocument();
-    expect(screen.getByText('1 de 1')).toBeInTheDocument();
+    expect(screen.getByText('Pregunta 1 de 1')).toBeInTheDocument();
   });
 
   it('pregunta lo mismo en otra tonalidad, con otros acordes', () => {
@@ -153,12 +153,12 @@ describe('El repaso', () => {
     const buena = primera.choices.find((choice) => choice.correct)!;
 
     pintar(progress);
-    expect(screen.getByText('1 de 2')).toBeInTheDocument();
+    expect(screen.getByText('Pregunta 1 de 2')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: buena.text }));
     await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
 
-    expect(screen.getByText('2 de 2')).toBeInTheDocument();
+    expect(screen.getByText('Pregunta 2 de 2')).toBeInTheDocument();
   });
 });
 

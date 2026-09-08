@@ -70,7 +70,7 @@ function acordesDe(parte: string): string[] {
 describe('sin tonalidad', () => {
   it('no enseña el lienzo, dice qué falta', () => {
     render(<ArrangeCanvas />);
-    expect(screen.getByText(/Elige una tonalidad/)).toBeInTheDocument();
+    expect(screen.getByText(/Empieza eligiendo la tonalidad/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Escuchar la canción/ })).not.toBeInTheDocument();
   });
 });
@@ -80,10 +80,32 @@ describe('montar', () => {
     conTonalidad();
     render(<ArrangeCanvas />);
 
-    expect(screen.getByText(/empieza la primera parte/)).toBeInTheDocument();
+    expect(screen.getByText(/La canción está en blanco/)).toBeInTheDocument();
     await userEvent.click(propuestas()[0]!);
 
     expect(acordesDe('Estrofa')).toEqual(['C']);
+  });
+
+  /**
+   * El hueco del final dice que la canción sigue.
+   *
+   * Con una sola parte quedaban quinientos píxeles de negro debajo del
+   * pentagrama, y ese vacío no decía ni que una canción se hace de partes ni que
+   * se pueden añadir. El botón existía, pero arriba en la barra y entre otros
+   * seis. Con la canción en blanco no sale: entonces lo que falta es el primer
+   * acorde, no la segunda parte, y ya lo dice el estado vacío.
+   */
+  it('con la canción empezada, se puede añadir otra parte desde el final', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    expect(screen.queryByRole('button', { name: /añadir otra parte/i })).not.toBeInTheDocument();
+
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(screen.getByRole('button', { name: /añadir otra parte/i }));
+
+    // La parte nueva sale con su nombre, y pasa a ser la de destino.
+    expect(screen.getByRole('button', { name: 'Parte 2' })).toBeInTheDocument();
   });
 
   // Es lo que hace que se pueda encadenar sin elegir parte antes de cada acorde.

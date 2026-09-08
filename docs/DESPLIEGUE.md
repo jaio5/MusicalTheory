@@ -24,7 +24,7 @@ solo sitio, `server/ai-gate.ts`.
 Todo lo demás —afinador, rueda, mástil, acordes, metrónomo, grabación— corre en
 el navegador y funcionaría hasta en un servidor de ficheros.
 
-**HTTPS.** El micrófono y la cámara solo se conceden en un origen seguro. En
+**HTTPS.** El micrófono solo se concede en un origen seguro. En
 `localhost` el navegador hace la excepción; en cualquier otro sitio, sin
 certificado no hay permiso y la aplicación entera se queda muda.
 
@@ -38,7 +38,7 @@ IndexedDB y avance en `localStorage`. Así era antes de que existieran las cuent
 así sigue siendo si no se configura ninguna. Un despliegue nuevo tampoco pierde nada
 en ese modo, porque no hay nada de nadie.
 
-Lo que **nunca** hace falta guardar en ningún sitio: audio y vídeo. Eso no sale del
+Lo que **nunca** hace falta guardar en ningún sitio: el audio. Eso no sale del
 equipo de quien toca y las cuentas no han cambiado eso.
 
 ## Variables de entorno

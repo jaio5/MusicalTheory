@@ -6,6 +6,8 @@ import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { apiErrorFrom } from '@state/api-error';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
+import { Aviso } from '@ui/Aviso';
+import { Formulario } from '@ui/Formulario';
 
 export interface ForgottenFormProps {
   /** El vale del enlace del correo, si se ha llegado por ahí. */
@@ -106,13 +108,7 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
     : email !== '' && !working;
 
   return (
-    <form
-      className="flex max-w-sm flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void (conVale ? cambiar() : pedirEnlace());
-      }}
-    >
+    <Formulario onEnviar={() => (conVale ? cambiar() : pedirEnlace())}>
       {conVale ? (
         <>
           <TextField
@@ -143,17 +139,13 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
         />
       )}
 
-      {error !== null && (
-        <p className="text-oxblood-bright text-sm" role="alert">
-          {error}
-        </p>
-      )}
+      <Aviso mensaje={error} anuncio="urgente" />
 
       <div className="w-fit">
-        <Button type="submit" disabled={!puede}>
-          {working ? 'Un momento...' : conVale ? 'Poner esta contraseña' : 'Mandarme el enlace'}
+        <Button type="submit" disabled={!puede} cargando={working}>
+          {working ? 'Un momento…' : conVale ? 'Poner esta contraseña' : 'Mandarme el enlace'}
         </Button>
       </div>
-    </form>
+    </Formulario>
   );
 }

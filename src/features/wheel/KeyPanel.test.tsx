@@ -21,14 +21,74 @@ function playAMinor() {
 describe('Panel de tonalidad', () => {
   it('dice que hay que tocar algo antes de detectar nada', () => {
     render(<KeyPanel />);
-    expect(screen.getByText(/toca unos compases y la detectamos sola/i)).toBeInTheDocument();
+    expect(screen.getByText(/toca unas notas sueltas y la detectamos sola/i)).toBeInTheDocument();
   });
 
+  /**
+   * La rueda **no es una imagen donde se elige tonalidad**, y por eso aquí es un
+   * grupo. Llevaba `role="img"` con veinticuatro botones dentro, que es decirle a
+   * un lector de pantalla que ahí no hay nada que tocar: los hijos de un `img`
+   * son decoración por definición. En la portada, donde no se pulsa, sigue siendo
+   * una imagen.
+   *
+   * Lo que no se pierde es lo que decía: qué tonalidad ha quedado arriba y qué
+   * anillo ha pasado a fuera son las dos cosas que la rueda cuenta girando, y
+   * girar no se oye.
+   */
   it('describe la rueda para quien no la ve', () => {
     render(<KeyPanel />);
     expect(
-      screen.getByRole('img', { name: /rueda de quintas.*todavía no hay tonalidad/i }),
+      screen.getByRole('group', { name: /rueda de quintas.*todavía no hay tonalidad/i }),
     ).toBeInTheDocument();
+  });
+
+  it('y dice que ahí se elige y cómo se recorre', () => {
+    render(<KeyPanel />);
+    expect(screen.getByRole('group', { name: /muévete con las flechas/i })).toBeInTheDocument();
+  });
+
+  /**
+   * La rueda es **un mando, no una lista de veinticuatro enlaces**.
+   *
+   * Lo era: entrar en componer con el teclado y llegar a la lista de acordes
+   * costaba pasar por las doce mayores y las doce menores, una a una. Un mando se
+   * tabula una vez y se recorre con las flechas, que es lo que espera cualquiera
+   * que llegue aquí sin ratón.
+   */
+  it('solo pide un turno del tabulador, no veinticuatro', () => {
+    const { container } = render(<KeyPanel />);
+
+    const alcanzables = container.querySelectorAll('[data-casilla][tabindex="0"]');
+    expect(alcanzables).toHaveLength(1);
+    expect(container.querySelectorAll('[data-casilla]')).toHaveLength(24);
+  });
+
+  it('las flechas giran la rueda y cambian de anillo', async () => {
+    render(<KeyPanel />);
+    const do_ = screen.getByTitle('C mayor');
+    do_.focus();
+
+    // Derecha e izquierda giran por el círculo de quintas, que es el orden en el
+    // que están puestas: de Do se va a Sol.
+    await userEvent.keyboard('{ArrowRight}');
+    expect(document.activeElement).toBe(screen.getByTitle('G mayor'));
+
+    // Abajo y arriba cambian de anillo sin moverse de sitio: la relativa menor
+    // de Sol comparte armadura y por eso comparte posición.
+    await userEvent.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(screen.getByTitle('E menor'));
+
+    await userEvent.keyboard('{ArrowUp}');
+    expect(document.activeElement).toBe(screen.getByTitle('G mayor'));
+  });
+
+  it('da la vuelta redonda: la rueda no tiene principio ni final', async () => {
+    render(<KeyPanel />);
+    screen.getByTitle('C mayor').focus();
+
+    await userEvent.keyboard('{ArrowLeft}');
+
+    expect(document.activeElement).toBe(screen.getByTitle('F mayor'));
   });
 
   it('detecta A menor al tocarla y lo dice', async () => {
@@ -37,7 +97,7 @@ describe('Panel de tonalidad', () => {
 
     expect(await screen.findByText(/detectada: A menor/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: /rueda de quintas con A menor arriba/i }),
+      screen.getByRole('group', { name: /rueda de quintas con A menor arriba/i }),
     ).toBeInTheDocument();
   });
 
@@ -146,7 +206,7 @@ describe('los anillos se dan la vuelta', () => {
     await userEvent.click(screen.getByTitle('G mayor'));
 
     expect(
-      await screen.findByRole('img', { name: /las mayores en el anillo de fuera/i }),
+      await screen.findByRole('group', { name: /las mayores en el anillo de fuera/i }),
     ).toBeInTheDocument();
   });
 
@@ -155,7 +215,7 @@ describe('los anillos se dan la vuelta', () => {
     await userEvent.click(screen.getByTitle('E menor'));
 
     expect(
-      await screen.findByRole('img', { name: /las menores en el anillo de fuera/i }),
+      await screen.findByRole('group', { name: /las menores en el anillo de fuera/i }),
     ).toBeInTheDocument();
   });
 

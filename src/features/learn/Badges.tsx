@@ -22,18 +22,24 @@ export function Badges({ progress }: { readonly progress: Progress }) {
 
   return (
     <section aria-label="Medallas" className="px-3 py-3">
-      <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">
+      <h2 className="rotulo">
         Medallas · {ganadas.size} de {BADGES.length}
       </h2>
 
-      <ul className="mt-3 flex flex-col gap-2">
+      {/* En rejilla de dos donde cabe: diez medallas en una sola columna son un
+          muro de texto de trescientos píxeles de alto, y lo que se hace con ellas
+          es recorrerlas buscando cuál probar. En dos columnas se recorren de un
+          vistazo y la columna deja de parecer una lista de la compra. */}
+      <ul className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         {BADGES.map((badge) => {
           const tenida = ganadas.has(badge.id);
           return (
-            <li
-              key={badge.id}
-              className={`flex items-baseline gap-3 ${tenida ? '' : 'opacity-55'}`}
-            >
+            // La diferencia entre tenida y no tenida se dice con **el punto y el
+            // color del nombre**, no bajando la opacidad. Estuvo al 55 %, y eso
+            // multiplica el contraste de un gris que ya era el suave: en el tema
+            // claro dejaba diez descripciones por debajo de lo que se puede leer,
+            // que es precisamente lo que hay que leer para ir a por la medalla.
+            <li key={badge.id} className="flex items-baseline gap-3">
               {/* Un punto y no un icono: son diez y cada una con su dibujo sería
                   una pared de adornos. Lleno cuando está, hueco cuando falta. */}
               <span
@@ -43,7 +49,9 @@ export function Badges({ progress }: { readonly progress: Progress }) {
                 }`}
               />
               <span className="min-w-0">
-                <span className={`block text-sm ${tenida ? 'text-text' : 'text-text-muted'}`}>
+                <span
+                  className={`block text-sm ${tenida ? 'text-brass-bright font-medium' : 'text-text'}`}
+                >
                   {badge.name}
                 </span>
                 {!tenida && (

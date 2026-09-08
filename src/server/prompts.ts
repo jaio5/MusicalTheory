@@ -26,6 +26,7 @@ import {
   PATHS_BY_KIND,
   SCALE_IDS,
   type KeyMode,
+  type NoteName,
   type PathKind,
 } from '@core/music';
 
@@ -294,4 +295,29 @@ export function ideasSchema(kind: IdeasKind, mode: KeyMode): Record<string, unkn
     required: ['ideas'],
     additionalProperties: false,
   };
+}
+
+/**
+ * Las dos líneas con las que empieza todo prompt de esta aplicación.
+ *
+ * En qué tonalidad se está y qué grados son válidos en ella. Van las dos siempre
+ * y van primero: **el enumerado de grados es lo que impide que el modelo escriba
+ * uno que no existe**, y es el mismo truco que llevó las ideas de cero de cuatro
+ * respuestas válidas a cuatro de cuatro —enseñarle lo que el validador va a
+ * comprobar, en vez de pedírselo en prosa—.
+ *
+ * Estaban escritas tres veces, una por ruta, con la misma interpolación y el
+ * mismo `mayor`/`menor` a mano. Tres copias de una frase que el modelo lee
+ * literalmente son tres sitios donde se puede escribir distinto sin que nada
+ * falle: el prompt no tiene tipos, y una ruta que dijera «Tonalidad: 7 major»
+ * seguiría compilando.
+ */
+export function cabeceraDePrompt(
+  key: { readonly tonic: NoteName; readonly mode: KeyMode },
+  validDegrees: readonly string[],
+): string[] {
+  return [
+    `Tonalidad: ${key.tonic} ${key.mode === 'major' ? 'mayor' : 'menor'}.`,
+    `Grados válidos: ${validDegrees.join(', ')}.`,
+  ];
 }

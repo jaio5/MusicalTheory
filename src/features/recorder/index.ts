@@ -1,1 +1,1 @@
-export * from './RecordStage';
+export * from './Grabadora';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { can, cheapestPlanWith, MAX_VERSION_DEGREES } from '@core/billing';
 import {
@@ -16,8 +16,9 @@ import {
 } from '@core/music';
 import { analyzeRecording } from '@audio/analyze-recording';
 import { canRecord } from '@audio/recorder';
-import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
+import type { ProgressionPlayer } from '@audio/progression-player';
 import { useAccount } from '@state/account';
+import { useProgressionPlayer } from '@state/use-progression-player';
 import { entradaActiva } from '@state/use-listening';
 import { apiErrorOf } from '@state/api-error';
 
@@ -96,25 +97,7 @@ export function VersionsPanel({
    */
   const [kind, setKind] = useState<PathKind>('continuar');
 
-  const playerRef = useRef<ProgressionPlayer | null>(null);
-  const factoryRef = useRef(createPlayer);
-  useEffect(() => {
-    factoryRef.current = createPlayer;
-  });
-
-  // Al salir de la pantalla se calla y se suelta el contexto de audio. Sin esto,
-  // cambiar de pantalla en mitad de una versión la deja sonando.
-  useEffect(() => {
-    return () => {
-      void playerRef.current?.dispose();
-      playerRef.current = null;
-    };
-  }, []);
-
-  function player(): ProgressionPlayer {
-    playerRef.current ??= factoryRef.current?.() ?? new WebAudioProgressionPlayer();
-    return playerRef.current;
-  }
+  const { pedir: player, parar } = useProgressionPlayer(createPlayer);
 
   /**
    * Suena esa versión, o la calla si ya sonaba.
@@ -128,7 +111,7 @@ export function VersionsPanel({
       return;
     }
     if (sonando?.title === version.title) {
-      player().stop();
+      parar();
       setSonando(null);
       return;
     }
@@ -349,6 +332,7 @@ export function VersionsPanel({
 
         <Button
           onClick={() => void ask()}
+          cargando={pending}
           disabled={pending || !sePuedePedir || capturing || analizando}
         >
           {pending ? 'Buscando salidas…' : 'Salidas de esto'}

@@ -3,6 +3,8 @@
 import { nearestString, semitonesFromString, TUNINGS, type TuningId } from '@core/instrument';
 import { noteName, type PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
+import { IconoMicro } from '@ui/icons';
+import { Vacio } from '@ui/Vacio';
 import { Field } from '@ui/Field';
 import { Panel } from '@ui/Panel';
 import { useSessionStore, type ListeningState } from '@state/session-store';
@@ -66,7 +68,7 @@ export function Tuner(deps: TunerProps = {}) {
    * selector de afinación, y desde ahí solo estorban.
    */
   return (
-    <Panel id="afinador" title="Afinador">
+    <Panel id="afinador" title="Afinador" rotuloOculto>
       {listening === 'listening' ? (
         <>
           <Listening
@@ -123,24 +125,27 @@ function Stopped({
   const blocked = listening === 'unsupported';
 
   return (
-    <div className="mt-6">
-      <p className="text-text-muted">
-        Necesitamos el micrófono para escuchar la guitarra y decirte qué nota suena. El audio no
-        sale de tu equipo.
-      </p>
+    <>
+      <Vacio
+        icono={<IconoMicro />}
+        titulo="Necesitamos oírte para afinarte"
+        accion={
+          <Button onClick={onStart} disabled={blocked || listening === 'requesting'}>
+            <IconoMicro />
+            {listening === 'requesting' ? 'Pidiendo permiso…' : 'Escuchar la guitarra'}
+          </Button>
+        }
+      >
+        Abrimos el micrófono, te decimos qué nota suena y cuánto le falta. El audio no sale de tu
+        equipo: se analiza aquí y no se guarda.
+      </Vacio>
 
       {message !== null && (
-        <p role="alert" className="text-oxblood-bright mt-4 text-sm">
+        <p role="alert" className="text-oxblood-bright mt-2 text-center text-sm">
           {message}
         </p>
       )}
-
-      <div className="mt-6">
-        <Button onClick={onStart} disabled={blocked || listening === 'requesting'}>
-          {listening === 'requesting' ? 'Pidiendo permiso…' : 'Escuchar la guitarra'}
-        </Button>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -163,7 +168,7 @@ function Listening({
     return (
       <div className="mt-6 flex min-h-40 flex-col justify-center gap-6">
         <div>
-          <p className="text-text-muted font-mono text-lg">Esperando a que suene algo…</p>
+          <p className="text-text-muted text-lg">Esperando a que suene algo…</p>
           <p className="text-text-muted mt-2 text-sm">
             Toca una cuerda al aire y deja que suene un momento.
           </p>
@@ -205,7 +210,7 @@ function Listening({
         {tuningAdvice(status)}
       </p>
 
-      <p className="text-text-muted mt-4 font-mono text-sm">
+      <p className="text-text-muted mt-4 text-sm">
         {reading.cents > 0 ? '+' : ''}
         {reading.cents.toFixed(1)} cents · {reading.frequency.toFixed(1)} Hz
       </p>
@@ -229,9 +234,7 @@ function Listening({
           </p>
         )
       ) : (
-        <p className="text-text-muted mt-4 font-mono text-sm">
-          Sin señal. Vuelve a tocar la cuerda.
-        </p>
+        <p className="text-text-muted mt-4 text-sm">Sin señal. Vuelve a tocar la cuerda.</p>
       )}
     </div>
   );

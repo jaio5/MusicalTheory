@@ -6,12 +6,19 @@ import { SCALE_IDS, SCALES, STYLE_IDS, STYLES, type ScaleId, type StyleId } from
 import { useSessionStore } from '@state/session-store';
 import { Field } from '@ui/Field';
 
+import { NotasDeLaEscala } from './NotasDeLaEscala';
+
 /**
  * Estilo y escala, debajo de la rueda.
  *
  * Van aquí y no en la barra de arriba porque son de la misma familia que la
  * tonalidad: los tres deciden qué propone la aplicación, y la tonalidad ya se
  * elige en la rueda que tienen encima.
+ *
+ * Y **debajo, las notas que salen de elegir eso**. Elegir una escala en un
+ * desplegable y que no pase nada visible es lo que hacía que ese control
+ * pareciera un ajuste escondido en vez de una decisión musical: ahora la fila de
+ * notas cambia delante, que es la respuesta.
  */
 export function Settings() {
   const scaleId = useSessionStore((state) => state.scaleId);
@@ -51,6 +58,10 @@ export function Settings() {
           </option>
         ))}
       </Field>
+
+      <div className="mt-2">
+        <NotasDeLaEscala />
+      </div>
     </div>
   );
 }

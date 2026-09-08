@@ -55,10 +55,6 @@ export interface Idea {
   readonly scale?: ScaleId;
 }
 
-export interface IdeasResponse {
-  readonly ideas: readonly Idea[];
-}
-
 /**
  * Los siete códigos, compartidos con las otras dos rutas de IA.
  *
@@ -72,7 +68,7 @@ export type IdeasError = AiError;
 /** Mensajes en español: qué ha pasado y qué hacer. */
 export const ERROR_MESSAGES: Readonly<Record<AiErrorCode, string>> = {
   invalid_request:
-    'Falta la tonalidad. Toca unos compases para que podamos detectarla y vuelve a pedirlo.',
+    'Falta la tonalidad. Elígela en la rueda, o toca unas notas sueltas para que podamos detectarla.',
   rate_limited: 'Has pedido muchas ideas seguidas. Espera un momento y vuelve a intentarlo.',
   model_unavailable: 'No hemos podido contactar con el modelo. Vuelve a intentarlo en un minuto.',
   unparseable_response: 'La respuesta no ha venido bien formada. Vuelve a pedirlo.',

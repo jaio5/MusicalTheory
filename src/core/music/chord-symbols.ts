@@ -102,8 +102,6 @@ const BY_USE: readonly string[] = [
   '7b9',
 ];
 
-export const KNOWN_SUFFIXES: readonly string[] = BY_USE.filter((suffix) => suffix !== '');
-
 /**
  * Interpreta un cifrado. Devuelve null si no lo reconoce, que es información
  * útil: la interfaz puede decir «no conozco ese acorde» en vez de callarse.

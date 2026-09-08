@@ -33,18 +33,21 @@ import { authAvailable } from '@server/auth';
 import { currentAccount, currentSession } from '@server/entitlements';
 import { tooManyRequests } from '@server/api-response';
 import { readJsonBody } from '@server/request-body';
-import { limitRequest } from '@server/rate-limit-db';
-import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
+import { esperaPorFrecuencia } from '@server/rate-limit-db';
+import { SlidingWindowRateLimiter } from '@server/rate-limit';
 import { changePassword, createUser, deleteAccount, setName } from '@server/users';
 
 export const runtime = 'nodejs';
+
+type Sesion = NonNullable<Awaited<ReturnType<typeof currentSession>>>;
 
 /**
  * Cinco registros por minuto y dirección. Crear una cuenta cifra una contraseña,
  * y cifrar una contraseña cuesta cien milisegundos de procesador a propósito:
  * sin límite, esta ruta es la más fácil de usar para tumbar el servidor.
  */
-const limiter = new SlidingWindowRateLimiter({ limit: 5, windowMs: 60_000 });
+const LIMITE_REGISTRO = { limit: 5, windowMs: 60_000 } as const;
+const limiter = new SlidingWindowRateLimiter(LIMITE_REGISTRO);
 
 export async function GET(): Promise<NextResponse> {
   if (!authAvailable()) {
@@ -83,18 +86,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const now = Date.now();
   // La clave lleva para qué es: registrar y cambiar la cuenta son dos límites
   // distintos, y con la misma clave gastar los intentos de uno gastaría los del
   // otro. En memoria eran dos objetos; compartidos, son dos claves.
-  const { allowed, retryAfterSeconds } = await limitRequest({
-    memoria: limiter,
-    key: `registro:${requesterKey(request.headers)}`,
-    now,
-    options: { limit: 5, windowMs: 60_000 },
-  });
-  if (!allowed) {
-    return tooManyRequests(retryAfterSeconds);
+  const espera = await esperaPorFrecuencia(request, limiter, 'registro', LIMITE_REGISTRO);
+  if (espera !== null) {
+    return tooManyRequests(espera);
   }
 
   let body: unknown;
@@ -136,7 +133,8 @@ export async function POST(request: Request): Promise<NextResponse> {
  * que evita que probar contraseñas deje sin poder registrarse a quien comparte
  * salida a internet.
  */
-const patchLimiter = new SlidingWindowRateLimiter({ limit: 10, windowMs: 60_000 });
+const LIMITE_CUENTA = { limit: 10, windowMs: 60_000 } as const;
+const patchLimiter = new SlidingWindowRateLimiter(LIMITE_CUENTA);
 
 const MENSAJES_PATCH = {
   'sin-base-de-datos': MENSAJES['sin-base-de-datos'],
@@ -152,29 +150,39 @@ const ESTADOS_PATCH = {
   error: 500,
 } as const;
 
-export async function PATCH(request: Request): Promise<NextResponse> {
+/**
+ * La sesión que puede tocar la cuenta, ya frenada, o la respuesta que dice por
+ * qué no.
+ *
+ * Cambiar y borrar piden lo mismo —haber entrado, y no estar probando a lo
+ * bruto— y lo pedían con nueve líneas calcadas. Lo único que cambia es cómo
+ * acaba la frase del 401, porque no es lo mismo pedir la cuenta para cambiar el
+ * nombre que para borrarla entera.
+ */
+async function sesionQuePuedeTocarLaCuenta(
+  request: Request,
+  paraQue: string,
+): Promise<Sesion | NextResponse> {
   const session = await currentSession();
   if (session === null) {
     return NextResponse.json(
-      {
-        error: {
-          code: 'sin-sesion',
-          message: 'Entra con tu cuenta para cambiar esto.',
-        },
-      },
+      { error: { code: 'sin-sesion', message: `Entra con tu cuenta para ${paraQue}.` } },
       { status: 401 },
     );
   }
 
-  const now = Date.now();
-  const { allowed, retryAfterSeconds } = await limitRequest({
-    memoria: patchLimiter,
-    key: `cuenta:${requesterKey(request.headers)}`,
-    now,
-    options: { limit: 10, windowMs: 60_000 },
-  });
-  if (!allowed) {
-    return tooManyRequests(retryAfterSeconds);
+  const espera = await esperaPorFrecuencia(request, patchLimiter, 'cuenta', LIMITE_CUENTA);
+  if (espera !== null) {
+    return tooManyRequests(espera);
+  }
+
+  return session;
+}
+
+export async function PATCH(request: Request): Promise<NextResponse> {
+  const session = await sesionQuePuedeTocarLaCuenta(request, 'cambiar esto');
+  if (session instanceof NextResponse) {
+    return session;
   }
 
   const record = await readJsonBody(request);
@@ -227,27 +235,13 @@ const ESTADOS_DELETE = { 'sin-base-de-datos': 501, 'no-coincide': 403, error: 50
  * bruto. Dos contadores separados para lo mismo darían el doble de intentos.
  *
  * Se va con ella el avance, las canciones y el contador de IA. Lo que no se va es
- * lo que nunca estuvo aquí: no hay audio ni vídeo que borrar, porque no sale del
+ * lo que nunca estuvo aquí: no hay audio que borrar, porque no sale del
  * equipo.
  */
 export async function DELETE(request: Request): Promise<NextResponse> {
-  const session = await currentSession();
-  if (session === null) {
-    return NextResponse.json(
-      { error: { code: 'sin-sesion', message: 'Entra con tu cuenta para borrarla.' } },
-      { status: 401 },
-    );
-  }
-
-  const now = Date.now();
-  const { allowed, retryAfterSeconds } = await limitRequest({
-    memoria: patchLimiter,
-    key: `cuenta:${requesterKey(request.headers)}`,
-    now,
-    options: { limit: 10, windowMs: 60_000 },
-  });
-  if (!allowed) {
-    return tooManyRequests(retryAfterSeconds);
+  const session = await sesionQuePuedeTocarLaCuenta(request, 'borrarla');
+  if (session instanceof NextResponse) {
+    return session;
   }
 
   const record = await readJsonBody(request);

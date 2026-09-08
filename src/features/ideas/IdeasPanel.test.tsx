@@ -46,12 +46,12 @@ function respondWith(payload: unknown, status = 200): Response {
 describe('Panel de ideas', () => {
   it('avisa de que a la IA solo van símbolos', () => {
     render(conCuenta(<IdeasPanel fetchIdeas={async () => respondWith({ ideas: [] })} />));
-    expect(screen.getByText(/ni el audio ni el vídeo salen de tu equipo/i)).toBeInTheDocument();
+    expect(screen.getByText(/el audio no sale de tu equipo/i)).toBeInTheDocument();
   });
 
   it('no deja pedir nada sin tonalidad', () => {
     render(conCuenta(<IdeasPanel fetchIdeas={async () => respondWith({ ideas: [] })} />));
-    expect(screen.getByText(/toca unos compases o elige una tonalidad/i)).toBeInTheDocument();
+    expect(screen.getByText(/toca unas notas sueltas o elige una tonalidad/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /progresiones/i })).not.toBeInTheDocument();
   });
 

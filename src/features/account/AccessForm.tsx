@@ -8,7 +8,11 @@ import { useState } from 'react';
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { registerAccount, signInWithPassword, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
+import { IconoLlave } from '@ui/icons';
 import { TextField } from '@ui/TextField';
+import { Vacio } from '@ui/Vacio';
+import { Aviso } from '@ui/Aviso';
+import { Formulario } from '@ui/Formulario';
 
 /**
  * Entrar o crear una cuenta, en el mismo formulario.
@@ -43,11 +47,15 @@ export function AccessForm({
   const [working, setWorking] = useState(false);
 
   if (!accounts) {
+    // Es un estado normal y no un fallo —sin base de datos todo el mundo es
+    // anónimo con plan gratis—, así que se dice como se dice un estado vacío:
+    // con su dibujo y diciendo qué sigue funcionando, no con un párrafo suelto
+    // en mitad de una pantalla en blanco.
     return (
-      <p className="text-text-muted max-w-prose text-sm">
-        Esta copia de la aplicación no tiene cuentas configuradas. Todo lo demás funciona igual y tu
-        avance se guarda en este navegador; lo que no hay es forma de llevártelo a otro aparato.
-      </p>
+      <Vacio icono={<IconoLlave />} titulo="Aquí no hay cuentas configuradas">
+        Todo lo demás funciona igual y tu avance se guarda en este navegador. Lo único que no hay es
+        forma de llevártelo a otro aparato.
+      </Vacio>
     );
   }
 
@@ -79,17 +87,11 @@ export function AccessForm({
   const puede = email.trim() !== '' && password.length >= (nuevo ? MIN_PASSWORD_LENGTH : 1);
 
   return (
-    <form
-      className="flex max-w-sm flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
+    <Formulario onEnviar={submit}>
       <div
         role="group"
         aria-label="Entrar o registrarse"
-        className="border-border flex w-fit border font-mono text-xs"
+        className="border-border flex w-fit border text-sm"
       >
         {[
           { key: false, label: 'Ya tengo cuenta' },
@@ -144,17 +146,11 @@ export function AccessForm({
         onChange={(event) => setPassword(event.target.value)}
       />
 
-      {/* `aria-live` para que el lector de pantalla lo anuncie sin tener que
-          volver a buscarlo: quien no ve la pantalla no sabe que ha aparecido. */}
-      {error !== null && (
-        <p className="text-oxblood-bright text-sm" aria-live="polite">
-          {error}
-        </p>
-      )}
+      <Aviso mensaje={error} />
 
       <div>
-        <Button type="submit" disabled={!puede || working}>
-          {working ? 'Un momento...' : nuevo ? 'Crear la cuenta' : 'Entrar'}
+        <Button type="submit" cargando={working} disabled={!puede || working}>
+          {working ? 'Un momento…' : nuevo ? 'Crear la cuenta' : 'Entrar'}
         </Button>
       </div>
 
@@ -162,7 +158,7 @@ export function AccessForm({
           contraseña que recuperar todavía, y ofrecerlo ahí despista. */}
       {!nuevo && (
         <p className="text-text-muted text-xs">
-          <Link href="/olvidada" className="text-brass-bright hover:text-brass underline">
+          <Link href="/olvidada" className="enlace">
             He olvidado mi contraseña
           </Link>
         </p>
@@ -170,8 +166,8 @@ export function AccessForm({
 
       <p className="text-text-muted text-xs">
         La contraseña se guarda cifrada y nunca en claro. Lo único que se guarda de lo que toques
-        son las unidades que superas: ni audio, ni vídeo.
+        son las unidades que superas. Nada de audio.
       </p>
-    </form>
+    </Formulario>
   );
 }

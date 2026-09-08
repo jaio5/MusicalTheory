@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { deleteAccount } from '@state/account';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
+import { Aviso } from '@ui/Aviso';
+import { Formulario } from '@ui/Formulario';
 
 /**
  * Borrar la cuenta.
@@ -66,13 +68,7 @@ export function DeleteAccountForm() {
   }
 
   return (
-    <form
-      className="flex max-w-sm flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
+    <Formulario onEnviar={submit}>
       <p className="text-text max-w-prose text-sm">
         Se van con la cuenta: <strong>tu avance</strong> —unidades, XP, racha y medallas—,{' '}
         <strong>tus canciones guardadas</strong> y <strong>tu plan</strong>. Lo que hay en este
@@ -95,14 +91,10 @@ export function DeleteAccountForm() {
         onChange={(event) => setConfirmacion(event.target.value)}
       />
 
-      {error !== null && (
-        <p className="text-oxblood-bright text-sm" role="alert">
-          {error}
-        </p>
-      )}
+      <Aviso mensaje={error} anuncio="urgente" />
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={!puede}>
+        <Button type="submit" disabled={!puede} cargando={working}>
           {working ? 'Borrando…' : 'Borrar mi cuenta'}
         </Button>
         <Button
@@ -117,6 +109,6 @@ export function DeleteAccountForm() {
           Mejor no
         </Button>
       </div>
-    </form>
+    </Formulario>
   );
 }

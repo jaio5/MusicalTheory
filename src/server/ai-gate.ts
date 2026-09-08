@@ -30,8 +30,8 @@ import { needsPlanMessage, planOf, quotaMessage, type AiFeature } from '@core/bi
 
 import { modelAvailable } from './ask-model';
 import { spendAi } from './entitlements';
-import { limitRequest } from './rate-limit-db';
-import { requesterKey, type SlidingWindowRateLimiter } from './rate-limit';
+import { esperaPorFrecuencia } from './rate-limit-db';
+import type { SlidingWindowRateLimiter } from './rate-limit';
 
 /** Lo que cada ruta sabe construir con su propia lista de frases. */
 export type ConstructorDeError = (code: AiErrorCode, message?: string) => AiError;
@@ -42,6 +42,11 @@ export type ConstructorDeError = (code: AiErrorCode, message?: string) => AiErro
  * Devuelve la respuesta cuando hay que frenar, y nulo cuando se puede seguir. Va
  * antes de leer el cuerpo porque es la puerta más barata que hay: no toca ni la
  * base de datos ni la sesión.
+ *
+ * **Las tres rutas de IA comparten cubo**, y por eso comparten prefijo: veinte
+ * pulsaciones seguidas son veinte pulsaciones seguidas aunque se repartan entre
+ * pedir ideas y preguntarle al profesor. La cuenta tiene los suyos —`registro` y
+ * `cuenta`— porque son otra cosa.
  */
 export async function frenarPorFrecuencia(
   request: Request,
@@ -49,19 +54,15 @@ export async function frenarPorFrecuencia(
   error: ConstructorDeError,
   now: number,
 ): Promise<NextResponse | null> {
-  const { allowed, retryAfterSeconds } = await limitRequest({
-    memoria: limiter,
-    key: requesterKey(request.headers),
-    now,
-  });
-  if (allowed) {
+  const espera = await esperaPorFrecuencia(request, limiter, 'ia', undefined, now);
+  if (espera === null) {
     return null;
   }
   return NextResponse.json(error('rate_limited'), {
     status: 429,
     // La cabecera es la parte que se olvida al copiar, y sin ella un cliente
     // educado no sabe cuánto esperar y vuelve a probar en seguida.
-    headers: { 'Retry-After': String(retryAfterSeconds) },
+    headers: { 'Retry-After': String(espera) },
   });
 }
 

@@ -126,7 +126,7 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
                       ? `${candidato.symbol}, grado ${candidato.degree}`
                       : `${candidato.escrito} entra como ${candidato.symbol}, grado ${candidato.degree}: se guardan tríadas`
                 }
-                className="border-border text-text hover:border-brass-dim hover:bg-surface-raised min-h-tap inline-flex items-center rounded-md border px-3 font-mono text-sm disabled:opacity-35"
+                className="border-border text-text hover:border-brass-dim hover:bg-surface-raised min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-sm font-medium disabled:opacity-35"
               >
                 {candidato.symbol}
               </button>

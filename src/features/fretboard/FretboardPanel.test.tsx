@@ -12,7 +12,7 @@ import { FretboardPanel } from './FretboardPanel';
 describe('Panel del mástil', () => {
   it('pide una tonalidad mientras no haya ninguna', () => {
     render(<FretboardPanel />);
-    expect(screen.getByText(/toca unos compases o elige una tonalidad/i)).toBeInTheDocument();
+    expect(screen.getByText(/toca unas notas sueltas o elige una tonalidad/i)).toBeInTheDocument();
   });
 
   it('enseña la escala de la tonalidad fijada', async () => {
@@ -75,7 +75,7 @@ describe('Panel del mástil', () => {
     render(<FretboardPanel />);
 
     expect(useSessionStore.getState().keyCandidates.length).toBeGreaterThan(0);
-    expect(screen.queryByText(/toca unos compases o elige/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/toca unas notas sueltas o elige/i)).not.toBeInTheDocument();
   });
 
   it('el diapasón por sí solo no rompe nada', () => {
@@ -84,6 +84,6 @@ describe('Panel del mástil', () => {
 
     // Una nota suelta no basta para saber la tonalidad, y el mástil lo dice en
     // vez de pintar una escala inventada.
-    expect(screen.getByText(/toca unos compases/i)).toBeInTheDocument();
+    expect(screen.getByText(/toca unas notas sueltas/i)).toBeInTheDocument();
   });
 });

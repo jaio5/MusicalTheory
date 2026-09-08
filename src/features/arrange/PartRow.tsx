@@ -145,11 +145,7 @@ export function PartRow({
             }}
           />
         ) : (
-          <Chip
-            onClick={() => setEditando(true)}
-            tone="quiet"
-            className="text-xs tracking-widest uppercase"
-          >
+          <Chip onClick={() => setEditando(true)} tone="quiet" className="text-xs">
             {part.name}
           </Chip>
         )}

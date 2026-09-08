@@ -67,7 +67,7 @@ export function Screen({
           {back !== undefined && (
             <Link
               href={back.href}
-              className="text-text-muted hover:text-text min-h-tap -mx-2 mb-2 inline-flex items-center px-2 font-mono text-sm"
+              className="text-text-muted hover:text-text min-h-tap -mx-2 mb-2 inline-flex items-center gap-1 px-2 text-sm"
             >
               ← {back.label}
             </Link>
@@ -129,14 +129,27 @@ export function WorkHeader({
       {back !== undefined && (
         <Link
           href={back.href}
-          className="text-text-muted hover:text-text min-h-tap -mx-2 inline-flex shrink-0 items-center px-2 font-mono text-xs"
+          className="text-text-muted hover:text-text min-h-tap -mx-2 inline-flex shrink-0 items-center gap-1 px-2 text-sm"
         >
           ← {back.label}
         </Link>
       )}
       <h1 className="text-text font-display text-base">{title}</h1>
       {lead !== undefined && <p className="text-text-muted min-w-0 truncate text-xs">{lead}</p>}
-      {actions !== undefined && <div className="ml-auto shrink-0">{actions}</div>}
+      {/*
+        El hueco de acciones **puede encoger**, y hace falta que pueda.
+        
+        Llevaba `shrink-0`, y con eso su ancho es el de su contenido pase lo que
+        pase: en un teléfono, la fila de componer —el conmutador de caras más el
+        metrónomo entero— medía cuatrocientos diez píxeles dentro de una pantalla
+        de trescientos noventa, y el `overflow-hidden` del marco se comía el botón
+        de subir el tempo. No se veía y no se podía pulsar.
+        
+        Lo que arregla no es meter otro `flex-wrap`: el de dentro ya estaba, y no
+        envolvía nada porque nadie le estaba apretando. Con `min-w-0` y sin
+        `shrink-0`, la caja se estrecha, el de dentro se entera y parte la fila.
+      */}
+      {actions !== undefined && <div className="ml-auto min-w-0">{actions}</div>}
     </div>
   );
 }
@@ -163,11 +176,19 @@ export function Section({
     // `id` sin valor lo omite React solo, y reservar sitio arriba no molesta
     // cuando no hay ancla a la que saltar: tres condicionales para nada.
     <section id={id} aria-label={title} className="scroll-mt-4">
-      {/* El rótulo con una marca de latón delante: separa los apartados sin
-          meter otra línea horizontal, que es lo que aplanaba las pantallas. */}
-      <h2 className="text-text-muted flex items-center gap-2 font-mono text-xs tracking-widest uppercase">
-        <span aria-hidden="true" className="bg-brass-dim h-3 w-0.5 rounded-full" />
-        {title}
+      {/*
+        El rótulo, y una línea fina que ocupa lo que sobra.
+        
+        Llevaba una marca de latón **delante**: dos píxeles de ancho por doce de
+        alto, que con el rótulo en versalitas de máquina pasaba por adorno y con
+        el rótulo en la sans se lee como un `|` suelto antes del título, igual que
+        una errata. La línea detrás hace el mismo trabajo —separar sin meter una
+        regla de lado a lado, que es lo que aplanaba las pantallas— y se lee como
+        lo que es: donde empieza un apartado.
+      */}
+      <h2 className="rotulo flex items-center gap-3">
+        <span className="shrink-0">{title}</span>
+        <span aria-hidden="true" className="bg-border h-px grow" />
       </h2>
       <div className="mt-3">{children}</div>
     </section>

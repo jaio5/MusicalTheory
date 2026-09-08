@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { can, cheapestPlanWith, nextAllowedUnit, unitAccess } from '@core/billing';
-import { findUnit, keyName } from '@core/music';
+import { findUnit } from '@core/music';
 import {
   EarUnit,
   LearnPanel,
@@ -13,11 +13,9 @@ import {
   useProgress,
   type Celebration,
 } from '@features/learn';
-import { KeyPanel } from '@features/wheel';
+import { BarraDeTonalidad } from '@features/wheel';
 import { useAccount } from '@state/account';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { PlanLock } from '@ui/PlanLock';
-import { Disclosure } from '@ui/Disclosure';
 import { Screen, WorkHeader } from '@ui/Screen';
 
 /**
@@ -33,7 +31,6 @@ import { Screen, WorkHeader } from '@ui/Screen';
  */
 export function UnitScreen({ unitId }: { readonly unitId: string }) {
   const router = useRouter();
-  const activeKey = useSessionStore(selectActiveKey);
   const { account, signedIn } = useAccount();
   const { progress, day, celebration, dismissCelebration, complete, miss } = useProgress();
 
@@ -107,34 +104,19 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
           found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'
         } · ${found.course.title}`}
         back={{ href: '/aprender', label: 'Camino' }}
-        actions={<p className="text-text-muted font-mono text-xs">{found.unit.xp} XP</p>}
+        actions={
+          <p className="text-text-muted font-mono text-xs tabular-nums">{found.unit.xp} XP</p>
+        }
       />
 
       {/* La tonalidad, en una barra que se abre. Cerrada ocupa una línea y dice en
           qué tonalidad estás, que es lo único que hay que saber mientras contestas. */}
-      <Disclosure
-        // Abierta mientras no haya tonalidad: sin ella la unidad no puede
-        // empezar, y con la rueda plegada lo único que había en pantalla era una
-        // frase pidiendo algo sin decir dónde.
-        abierto={activeKey === null}
-        className="border-border bg-surface shrink-0 border-b px-4"
-        summary={
-          <>
-            Tonalidad:{' '}
-            <span className="text-brass-bright">
-              {activeKey === null ? 'sin elegir' : keyName(activeKey.tonic, activeKey.mode)}
-            </span>
-          </>
-        }
-      >
-        <div className="flex flex-col items-center gap-2 pt-2 pb-4">
-          <KeyPanel compact />
-          <p className="text-text-muted max-w-prose text-center text-xs">
-            Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
-            preguntas hablan de otros acordes.
-          </p>
-        </div>
-      </Disclosure>
+      <BarraDeTonalidad className="border-border bg-surface shrink-0 border-b px-4">
+        <p className="text-text-muted max-w-prose text-center text-xs">
+          Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
+          preguntas hablan de otros acordes.
+        </p>
+      </BarraDeTonalidad>
 
       <div className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto">
         {found.unit.kind === 'theory' ? (
@@ -214,7 +196,7 @@ function Siguiente({
         onNext={onNext}
       />
       <p className="pb-6 text-center">
-        <Link href="/aprender" className="text-text-muted hover:text-text font-mono text-sm">
+        <Link href="/aprender" className="text-text-muted hover:text-text text-sm">
           Volver al camino
         </Link>
       </p>

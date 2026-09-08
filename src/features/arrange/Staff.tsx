@@ -16,6 +16,7 @@ import {
 } from '@core/music';
 
 import { arrastrar } from './arrastrar';
+import { BOLITA, CLAVE_DE_SOL, ESPACIO_CLAVE } from './clef';
 
 /**
  * La partitura: el mismo punteo, escrito.
@@ -66,20 +67,38 @@ const PASO = 6;
 /** Dónde cae la línea de abajo del pentagrama, contando desde arriba del dibujo. */
 const BASE = 82;
 
-/** Cuánto ocupa la clave y la armadura antes de que empiece el tiempo. */
-const MARGEN = 52;
+/**
+ * Dónde acaba la clave y puede empezar la armadura.
+ *
+ * La clave se ensancha a los dos lados de su espiral; este número es el canto
+ * derecho más un respiro.
+ */
+const CLAVE_HASTA = 42;
+
+/** Lo que ocupa cada alteración de la armadura a lo ancho. */
+const PASO_ARMADURA = 8;
 
 const ALTO = 130;
 
 /**
- * Cuánto se encoge la caja de la clave para caber en el pentagrama.
+ * Cuánto se encoge la clave para caber en el pentagrama.
  *
- * La caja mide 152 de alto y una clave de sol ocupa algo más que el pentagrama:
- * sobresale por arriba con la voluta y por abajo con la cola. Con esto son unos
- * noventa píxeles contra los cuarenta y ocho de las cinco líneas, que es la
- * proporción de cualquier partitura.
+ * **Sale de una división, no de probar números.** El dibujo se hizo con un
+ * espacio de pentagrama que vale `ESPACIO_CLAVE`, y aquí un espacio son dos
+ * pasos; la escala es el cociente. Si algún día el pentagrama crece, la clave
+ * crece con él y sigue midiendo lo que debe: una clave de sol ocupa algo más que
+ * las cinco líneas, porque sobresale con el gancho por arriba y con la cola por
+ * abajo.
  */
-const ESCALA_CLAVE = 0.59;
+const ESCALA_CLAVE = (2 * PASO) / ESPACIO_CLAVE;
+
+/**
+ * A qué distancia del borde se planta el centro de la espiral.
+ *
+ * Es el centro y no el canto izquierdo: la clave se ensancha hacia la izquierda
+ * con la panza de la espiral, así que este número tiene que dejarle sitio a eso.
+ */
+const MARGEN_CLAVE = 22;
 
 /** El `step` de la línea de abajo del pentagrama en clave de sol: el Mi de la 4.ª. */
 const STEP_BASE = 2;
@@ -206,6 +225,19 @@ export function Staff({
    */
   const arrastradaRef = useRef(false);
   const armadura = keySignature(tonic, mode);
+
+  /**
+   * Cuánto se reserva antes de que empiece el tiempo, y **depende de la
+   * tonalidad**.
+   *
+   * Era un número fijo —cincuenta y dos— calculado para Do mayor, que no tiene
+   * armadura. En Fa sostenido hay seis sostenidos, y con el hueco fijo se
+   * escribían encima de la clave y se metían en el primer compás: la partitura
+   * de las tonalidades con más alteraciones salía ilegible justo por el lado que
+   * más hay que leer. Ahora el hueco crece con lo que hay que meter en él.
+   */
+  const margen = CLAVE_HASTA + armadura.letters.length * PASO_ARMADURA + 12;
+
   const compases = Math.max(1, bars);
   const pulsos = compases * beatsPerBar;
 
@@ -232,9 +264,9 @@ export function Staff({
 
   const porPulso = Math.min(
     PULSO_MAXIMO,
-    Math.max(PULSO_MINIMO, (disponible - MARGEN - 12) / Math.max(1, pulsos)),
+    Math.max(PULSO_MINIMO, (disponible - margen - 12) / Math.max(1, pulsos)),
   );
-  const ancho = MARGEN + pulsos * porPulso + 8;
+  const ancho = margen + pulsos * porPulso + 8;
 
   /** Qué escalón y qué pulso hay bajo un punto de la pantalla. */
   const sitioEn = useCallback(
@@ -250,10 +282,13 @@ export function Staff({
       const y = clientY - caja.top;
       return {
         step: Math.round((BASE - y) / PASO) + STEP_BASE,
-        start: Math.max(0, Math.round((x - MARGEN) / porPulso / 0.5) * 0.5),
+        start: Math.max(0, Math.round((x - margen) / porPulso / 0.5) * 0.5),
       };
     },
-    [porPulso],
+    // El margen entra aquí desde que depende de la tonalidad: en Fa sostenido
+    // hay seis sostenidos delante, y con el número de Do mayor cada nota que se
+    // escribe caería medio compás a la izquierda de donde se pulsó.
+    [porPulso, margen],
   );
 
   /**
@@ -364,159 +399,125 @@ export function Staff({
   );
 
   return (
-    <div ref={cajaRef} className="mt-1 overflow-x-auto">
-      <svg
-        ref={svgRef}
-        width={ancho}
-        height={ALTO}
-        viewBox={`0 0 ${ancho} ${ALTO}`}
-        role="img"
-        aria-label={`Partitura de ${partName}: ${notes.length} notas`}
-        className="text-text block"
-        onClick={(event) => {
-          if (arrastradaRef.current) {
-            arrastradaRef.current = false;
-            return;
-          }
-          const sitio = sitioEn(event.clientX, event.clientY);
-          if (sitio !== null) {
-            onAdd(offsetOfStep(sitio.step, tonic, mode), sitio.start);
-          }
-        }}
-      >
-        {/* Las cinco líneas. */}
-        {[0, 1, 2, 3, 4].map((linea) => (
-          <line
-            key={linea}
-            x1={4}
-            x2={ancho - 4}
-            y1={BASE - linea * 2 * PASO}
-            y2={BASE - linea * 2 * PASO}
-            stroke="currentColor"
-            // Las cinco líneas son la referencia contra la que se lee todo lo
-            // demás: apagadas al 45 % se veían como una sugerencia de
-            // pentagrama. Se probó a ponerle fondo claro al dibujo, como hace
-            // Soundslice con su papel, y en una aplicación oscura con identidad
-            // propia el rectángulo blanco canta más de lo que ayuda: lo que le
-            // faltaba a la partitura era contraste, no papel.
-            strokeOpacity={0.7}
-            strokeWidth={1}
-          />
-        ))}
+    // **La partitura es una hoja**, no un dibujo flotando en la pantalla.
+    //
+    // Estaba sobre el mismo negro que todo lo demás, y una partitura sin papel
+    // debajo no se lee como una partitura: se lee como cinco rayas sueltas. Con
+    // la superficie de siempre —fondo un punto más claro, filo de luz arriba y
+    // sombra debajo— pasa a ser algo apoyado sobre la mesa, que es lo que el
+    // proyecto ya hace con todo lo que se mira.
+    /*
+      Dos cajas y no una, y la de fuera **no puede ser el papel**.
 
-        {/*
-          La clave de sol, dibujada.
+      La de fuera es la que se mide para repartir los pulsos, así que tiene que
+      ocupar todo el ancho disponible. La de dentro es la hoja, y esa mide lo que
+      la música: a todo lo ancho quedaba media hoja en blanco a la derecha del
+      último acorde, que se lee como que falta algo.
 
-          Se probó primero con el carácter de siempre —`U+1D11E`— y salía **un
-          cuadro vacío**: los símbolos musicales de Unicode no están en las
-          fuentes de sistema, y una partitura que empieza con un cuadro no es una
-          partitura. Así que se dibuja, como ya se dibujan aquí los diagramas de
-          acorde.
-
-          Va en su propio sistema de coordenadas —una caja de 24 × 100— y se
-          coloca con un `transform`, para poder dibujar la forma sin arrastrar en
-          cada curva la aritmética del pentagrama. La caja se escala para que la
-          espiral caiga sobre la segunda línea, que es lo que la clave significa
-          y lo único que **tiene** que cuadrar.
-
-          Se dibuja como una silueta rellena y no como un trazo: una clave de sol
-          tiene la línea gruesa en las curvas y fina en las puntas, y con un
-          `stroke` de ancho constante sale un alambre.
-        */}
-        <g
-          aria-hidden
-          // La escala y el sitio salen de una sola condición: **el centro de la
-          // espiral tiene que caer en la segunda línea**, que es la del Sol y es
-          // lo que la clave significa. En la caja de dibujo ese centro está en
-          // y=101, así que el desplazamiento es la línea menos 101 por la escala.
-          transform={`translate(8 ${BASE - 2 * PASO - 101 * ESCALA_CLAVE}) scale(${ESCALA_CLAVE})`}
-          fill="currentColor"
-          fillOpacity={0.85}
+      Juntarlas en una sola con `w-fit` se muerde la cola: el observador mediría
+      el contenido en vez del hueco, el reparto saldría más estrecho, el contenido
+      encogería, y así hasta el pulso mínimo. Se vio: la partitura se quedó a la
+      mitad de ancho.
+    */
+    <div ref={cajaRef} className="mt-1">
+      <div className="superficie w-fit max-w-full overflow-x-auto px-2 py-1">
+        <svg
+          ref={svgRef}
+          width={ancho}
+          height={ALTO}
+          viewBox={`0 0 ${ancho} ${ALTO}`}
+          role="img"
+          aria-label={`Partitura de ${partName}: ${notes.length} notas`}
+          className="text-text block"
+          onClick={(event) => {
+            if (arrastradaRef.current) {
+              arrastradaRef.current = false;
+              return;
+            }
+            const sitio = sitioEn(event.clientX, event.clientY);
+            if (sitio !== null) {
+              onAdd(offsetOfStep(sitio.step, tonic, mode), sitio.start);
+            }
+          }}
         >
-          <path
-            d={
-              // La voluta de arriba, el tallo que baja y la espiral que se
-              // cierra sobre la línea del sol; luego el mismo camino de vuelta
-              // por el otro lado, un poco desplazado, que es lo que le da el
-              // grosor variable.
-              'M 42 4 ' +
-              'C 26 18 18 34 22 50 ' +
-              'C 24 58 30 66 34 74 ' +
-              'C 39 84 41 92 39 100 ' +
-              'C 37 110 30 116 22 116 ' +
-              'C 12 116 5 109 5 100 ' +
-              'C 5 92 11 86 19 86 ' +
-              'C 26 86 31 91 31 98 ' +
-              'C 31 103 28 106 24 107 ' +
-              'C 27 108 31 106 33 102 ' +
-              'C 36 96 34 88 30 80 ' +
-              'C 26 72 20 63 17 54 ' +
-              'C 12 36 21 16 40 0 ' +
-              'Z ' +
-              // El hueco de la espiral: dibujado al revés para que el relleno lo
-              // vacíe, que es lo que hace que se vea el bucle y no un borrón.
-              'M 22 92 ' +
-              'C 16 92 11 96 11 101 ' +
-              'C 11 106 16 110 22 110 ' +
-              'C 27 110 31 106 31 101 ' +
-              'C 31 96 27 92 22 92 ' +
-              'Z'
-            }
-            fillRule="evenodd"
-          />
-          {/* El tallo, que baja recto desde la voluta y acaba en la colita. */}
-          <path
-            d={
-              'M 40 2 ' +
-              'C 44 10 47 24 47 40 ' +
-              'C 47 70 45 100 44 122 ' +
-              'C 43 138 38 148 28 150 ' +
-              'C 20 152 13 148 11 141 ' +
-              'C 9 135 12 129 18 128 ' +
-              'C 23 127 27 130 28 135 ' +
-              'C 29 139 26 142 22 142 ' +
-              'C 25 144 30 143 33 139 ' +
-              'C 37 133 39 122 40 108 ' +
-              'C 41 84 42 56 42 38 ' +
-              'C 42 24 41 12 38 4 ' +
-              'Z'
-            }
-          />
-        </g>
+          {/* Las cinco líneas. */}
+          {[0, 1, 2, 3, 4].map((linea) => (
+            <line
+              key={linea}
+              x1={4}
+              x2={ancho - 4}
+              y1={BASE - linea * 2 * PASO}
+              y2={BASE - linea * 2 * PASO}
+              stroke="currentColor"
+              // Las cinco líneas son la referencia contra la que se lee todo lo
+              // demás: apagadas al 45 % se veían como una sugerencia de
+              // pentagrama. Se probó a ponerle fondo claro al dibujo, como hace
+              // Soundslice con su papel, y en una aplicación oscura con identidad
+              // propia el rectángulo blanco canta más de lo que ayuda: lo que le
+              // faltaba a la partitura era contraste, no papel.
+              strokeOpacity={0.7}
+              strokeWidth={1}
+            />
+          ))}
 
-        {/* La armadura, en el orden en que se escribe. */}
-        {armadura.letters.map((letra, indice) => (
-          <text
-            key={letra}
-            x={34 + indice * 7}
-            y={
-              yDeStep(
-                (armadura.accidental === 'sharp' ? ALTURA_SOSTENIDOS : ALTURA_BEMOLES)[letra] ?? 6,
-              ) + 4
-            }
-            fontSize={14}
-            fill="currentColor"
-            fillOpacity={0.75}
+          {/*
+          La clave de sol.
+
+          El dibujo vive en `clef.ts`, y allí está el porqué: se genera a partir
+          de la línea que recorre la pluma en vez de escribirse curva a curva,
+          que es como salió la primera —una espiral con un palo, sin los dos
+          cruces que hacen la clave—.
+
+          Aquí solo se coloca, y colocarla es **una traslación y nada más**: las
+          coordenadas de la clave tienen el centro de la espiral en el origen, y
+          ese centro va sobre la línea del Sol, que es lo único que la clave
+          significa. Antes había que restarle a la línea el 101 de la caja de
+          dibujo multiplicado por la escala, y ese 101 no lo sabía nadie.
+        */}
+          <g
             aria-hidden
+            transform={`translate(${MARGEN_CLAVE} ${BASE - 2 * PASO}) scale(${ESCALA_CLAVE})`}
+            fill="currentColor"
+            fillOpacity={0.85}
           >
-            {armadura.accidental === 'sharp' ? '♯' : '♭'}
-          </text>
-        ))}
+            <path d={CLAVE_DE_SOL} />
+            <circle cx={BOLITA.x} cy={BOLITA.y} r={BOLITA.r} />
+          </g>
 
-        {/* Las barras de compás, y el cifrado del acorde encima de cada bloque. */}
-        {Array.from({ length: compases + 1 }, (_, i) => (
-          <line
-            key={i}
-            x1={MARGEN + i * beatsPerBar * porPulso}
-            x2={MARGEN + i * beatsPerBar * porPulso}
-            y1={BASE - 8 * PASO}
-            y2={BASE}
-            stroke="currentColor"
-            strokeOpacity={0.5}
-          />
-        ))}
+          {/* La armadura, en el orden en que se escribe. */}
+          {armadura.letters.map((letra, indice) => (
+            <text
+              key={letra}
+              x={CLAVE_HASTA + indice * PASO_ARMADURA}
+              y={
+                yDeStep(
+                  (armadura.accidental === 'sharp' ? ALTURA_SOSTENIDOS : ALTURA_BEMOLES)[letra] ??
+                    6,
+                ) + 4
+              }
+              fontSize={14}
+              fill="currentColor"
+              fillOpacity={0.75}
+              aria-hidden
+            >
+              {armadura.accidental === 'sharp' ? '♯' : '♭'}
+            </text>
+          ))}
 
-        {/*
+          {/* Las barras de compás, y el cifrado del acorde encima de cada bloque. */}
+          {Array.from({ length: compases + 1 }, (_, i) => (
+            <line
+              key={i}
+              x1={margen + i * beatsPerBar * porPulso}
+              x2={margen + i * beatsPerBar * porPulso}
+              y1={BASE - 8 * PASO}
+              y2={BASE}
+              stroke="currentColor"
+              strokeOpacity={0.5}
+            />
+          ))}
+
+          {/*
           Los cifrados, que aquí **son** los acordes y no su etiqueta.
 
           En esta vista no hay tira de bloques, así que el cifrado es lo único que
@@ -524,226 +525,236 @@ export function Staff({
           que un bloque. Debajo lleva una línea que dice hasta dónde llega, que es
           lo que un cifrado suelto no dice y un bloque decía con su ancho.
         */}
-        {
-          blocks.reduce<{ x: number; nodos: React.ReactElement[]; i: number }>(
-            (acumulado, block) => {
-              const indice = acumulado.i;
-              const chord = resolveDegree(tonic, mode, block.degree);
-              const x = MARGEN + acumulado.x * porPulso;
-              const elegido = selectedBlockId === block.id;
+          {
+            blocks.reduce<{ x: number; nodos: React.ReactElement[]; i: number }>(
+              (acumulado, block) => {
+                const indice = acumulado.i;
+                const chord = resolveDegree(tonic, mode, block.degree);
+                const x = margen + acumulado.x * porPulso;
+                const elegido = selectedBlockId === block.id;
 
-              acumulado.nodos.push(
-                <g
-                  key={block.id}
-                  role="button"
-                  tabIndex={0}
-                  // El compás es zona de destino: al arrastrar un acorde por
-                  // encima, el hueco que se abre es el de aquí.
-                  data-parte={partId}
-                  data-indice={acumulado.x === 0 ? 0 : indice}
-                  aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
-                  aria-pressed={elegido}
-                  style={{ touchAction: 'none' }}
-                  className={`focus-visible:outline-brass-bright cursor-grab focus-visible:outline-2 ${
-                    elegido ? 'text-brass-bright' : ''
-                  }`}
-                  onPointerDown={(event) => moverAcorde(event, block.id)}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelectBlock(block.id);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Delete' || event.key === 'Backspace') {
-                      event.preventDefault();
-                      onRemoveBlock(block.id);
-                    }
-                  }}
-                >
-                  <text
-                    x={x}
-                    y={17}
-                    fontSize={14}
-                    fontFamily="ui-monospace, monospace"
-                    fill="currentColor"
-                    fillOpacity={elegido ? 1 : 0.85}
+                acumulado.nodos.push(
+                  <g
+                    key={block.id}
+                    role="button"
+                    tabIndex={0}
+                    // El compás es zona de destino: al arrastrar un acorde por
+                    // encima, el hueco que se abre es el de aquí.
+                    data-parte={partId}
+                    data-indice={acumulado.x === 0 ? 0 : indice}
+                    aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
+                    aria-pressed={elegido}
+                    style={{ touchAction: 'none' }}
+                    className={`focus-visible:outline-brass-bright cursor-grab focus-visible:outline-2 ${
+                      elegido ? 'text-brass-bright' : ''
+                    }`}
+                    onPointerDown={(event) => moverAcorde(event, block.id)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectBlock(block.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Delete' || event.key === 'Backspace') {
+                        event.preventDefault();
+                        onRemoveBlock(block.id);
+                      }
+                    }}
                   >
-                    {chord.symbol}
-                  </text>
-                  <line
-                    x1={x}
-                    x2={x + block.beats * porPulso - 4}
-                    y1={22}
-                    y2={22}
-                    stroke="currentColor"
-                    strokeOpacity={elegido ? 0.9 : 0.3}
-                    strokeWidth={elegido ? 2 : 1}
-                  />
-                  <rect
-                    x={x - 2}
-                    y={4}
-                    width={Math.max(24, block.beats * porPulso - 14)}
-                    height={22}
-                    fill="transparent"
-                  />
-                  {/* La punta de la línea: de aquí se tira para estirar. */}
-                  <rect
-                    x={x + block.beats * porPulso - 16}
-                    y={4}
-                    width={16}
-                    height={22}
-                    fill="transparent"
-                    className="cursor-ew-resize"
-                    onPointerDown={(event) => estirarAcorde(event, block.id, block.beats)}
-                  />
-                </g>,
-              );
-              return {
-                x: acumulado.x + block.beats,
-                nodos: acumulado.nodos,
-                i: acumulado.i + 1,
-              };
-            },
-            { x: 0, nodos: [], i: 0 },
-          ).nodos
-        }
+                    {/* El cifrado, con peso: en esta vista **es** el acorde, no su
+                      etiqueta, y a catorce píxeles al 85 % se leía como un pie de
+                      foto al lado de un pentagrama que ocupa cinco veces más. */}
+                    <text
+                      x={x}
+                      y={17}
+                      fontSize={15}
+                      fontWeight={600}
+                      fontFamily="ui-monospace, monospace"
+                      fill="currentColor"
+                      fillOpacity={elegido ? 1 : 0.95}
+                    >
+                      {chord.symbol}
+                    </text>
+                    <line
+                      x1={x}
+                      x2={x + block.beats * porPulso - 4}
+                      y1={22}
+                      y2={22}
+                      stroke="currentColor"
+                      strokeOpacity={elegido ? 0.9 : 0.3}
+                      strokeWidth={elegido ? 2 : 1}
+                    />
+                    <rect
+                      x={x - 2}
+                      y={4}
+                      width={Math.max(24, block.beats * porPulso - 14)}
+                      height={22}
+                      fill="transparent"
+                    />
+                    {/* La punta de la línea: de aquí se tira para estirar. */}
+                    <rect
+                      x={x + block.beats * porPulso - 16}
+                      y={4}
+                      width={16}
+                      height={22}
+                      fill="transparent"
+                      className="cursor-ew-resize"
+                      onPointerDown={(event) => estirarAcorde(event, block.id, block.beats)}
+                    />
+                  </g>,
+                );
+                return {
+                  x: acumulado.x + block.beats,
+                  nodos: acumulado.nodos,
+                  i: acumulado.i + 1,
+                };
+              },
+              { x: 0, nodos: [], i: 0 },
+            ).nodos
+          }
 
-        {/* La marca de dónde caería el acorde que se arrastra. Va donde empieza
+          {/* La marca de dónde caería el acorde que se arrastra. Va donde empieza
             el compás ante el que se soltaría, que es donde va a aparecer. */}
-        {dropAt !== null && (
-          <line
-            aria-hidden
-            x1={
-              MARGEN + blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * porPulso - 3
-            }
-            x2={
-              MARGEN + blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * porPulso - 3
-            }
-            y1={2}
-            y2={BASE + 4}
-            className="stroke-brass-bright"
-            strokeWidth={2}
-          />
-        )}
+          {dropAt !== null && (
+            <line
+              aria-hidden
+              x1={
+                margen +
+                blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * porPulso -
+                3
+              }
+              x2={
+                margen +
+                blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * porPulso -
+                3
+              }
+              y1={2}
+              y2={BASE + 4}
+              className="stroke-brass-bright"
+              strokeWidth={2}
+            />
+          )}
 
-        {notes.map((note) => {
-          const escrita = writeNote(note, tonic, mode);
-          const x = MARGEN + note.start * porPulso + 6;
-          const y = yDeStep(escrita.step);
-          const { hueca, plica, corchete, punto } = figura(note.length);
-          const arriba = escrita.step < 6;
-          const seleccionada = selectedNoteId === note.id;
-          const dudosa = isDoubtfulNote(note);
+          {notes.map((note) => {
+            const escrita = writeNote(note, tonic, mode);
+            const x = margen + note.start * porPulso + 6;
+            const y = yDeStep(escrita.step);
+            const { hueca, plica, corchete, punto } = figura(note.length);
+            const arriba = escrita.step < 6;
+            const seleccionada = selectedNoteId === note.id;
+            const dudosa = isDoubtfulNote(note);
 
-          return (
-            <g
-              key={note.id}
-              role="button"
-              tabIndex={0}
-              aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}${dudosa ? ', dudosa' : ''}`}
-              className="focus-visible:outline-brass-bright cursor-grab rounded focus-visible:outline-2"
-              style={{ touchAction: 'none' }}
-              onPointerDown={(event) => cogerNota(event, note)}
-              onClick={(event) => {
-                event.stopPropagation();
-                onSelect(note.id);
-              }}
-            >
-              {/* Las líneas adicionales, para lo que se sale del pentagrama. */}
-              {escrita.step > 10 &&
-                Array.from({ length: Math.floor((escrita.step - 10) / 2) }, (_, i) => (
-                  <line
-                    key={`a${i}`}
-                    x1={x - 8}
-                    x2={x + 8}
-                    y1={yDeStep(12 + i * 2)}
-                    y2={yDeStep(12 + i * 2)}
-                    stroke="currentColor"
-                    strokeOpacity={0.7}
-                  />
-                ))}
-              {escrita.step < 2 &&
-                Array.from({ length: Math.floor((2 - escrita.step) / 2) }, (_, i) => (
-                  <line
-                    key={`b${i}`}
-                    x1={x - 8}
-                    x2={x + 8}
-                    y1={yDeStep(0 - i * 2)}
-                    y2={yDeStep(0 - i * 2)}
-                    stroke="currentColor"
-                    strokeOpacity={0.7}
-                  />
-                ))}
+            return (
+              <g
+                key={note.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}${dudosa ? ', dudosa' : ''}`}
+                className="focus-visible:outline-brass-bright cursor-grab rounded focus-visible:outline-2"
+                style={{ touchAction: 'none' }}
+                onPointerDown={(event) => cogerNota(event, note)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect(note.id);
+                }}
+              >
+                {/* Las líneas adicionales, para lo que se sale del pentagrama. */}
+                {escrita.step > 10 &&
+                  Array.from({ length: Math.floor((escrita.step - 10) / 2) }, (_, i) => (
+                    <line
+                      key={`a${i}`}
+                      x1={x - 8}
+                      x2={x + 8}
+                      y1={yDeStep(12 + i * 2)}
+                      y2={yDeStep(12 + i * 2)}
+                      stroke="currentColor"
+                      strokeOpacity={0.7}
+                    />
+                  ))}
+                {escrita.step < 2 &&
+                  Array.from({ length: Math.floor((2 - escrita.step) / 2) }, (_, i) => (
+                    <line
+                      key={`b${i}`}
+                      x1={x - 8}
+                      x2={x + 8}
+                      y1={yDeStep(0 - i * 2)}
+                      y2={yDeStep(0 - i * 2)}
+                      stroke="currentColor"
+                      strokeOpacity={0.7}
+                    />
+                  ))}
 
-              {escrita.accidental !== '' && (
-                <text x={x - 18} y={y + 4} fontSize={13} fill="currentColor">
-                  {escrita.accidental === '#' ? '♯' : '♭'}
-                </text>
-              )}
+                {escrita.accidental !== '' && (
+                  <text x={x - 18} y={y + 4} fontSize={13} fill="currentColor">
+                    {escrita.accidental === '#' ? '♯' : '♭'}
+                  </text>
+                )}
 
-              {/* La cabeza va inclinada, como en cualquier partitura: es lo que
+                {/* La cabeza va inclinada, como en cualquier partitura: es lo que
                   la distingue de un punto y lo que la hace caber entre dos
                   líneas que están a cinco píxeles. */}
-              {seleccionada && (
-                <circle
+                {seleccionada && (
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={9}
+                    className="fill-brass-dim"
+                    fillOpacity={0.35}
+                    aria-hidden
+                  />
+                )}
+                <ellipse
                   cx={x}
                   cy={y}
-                  r={9}
-                  className="fill-brass-dim"
-                  fillOpacity={0.35}
-                  aria-hidden
+                  rx={5.2}
+                  ry={3.8}
+                  transform={`rotate(-20 ${x} ${y})`}
+                  fill={hueca ? 'none' : 'currentColor'}
+                  stroke="currentColor"
+                  strokeWidth={hueca ? 1.6 : 1}
+                  className={seleccionada ? 'text-brass-bright' : ''}
                 />
-              )}
-              <ellipse
-                cx={x}
-                cy={y}
-                rx={5.2}
-                ry={3.8}
-                transform={`rotate(-20 ${x} ${y})`}
-                fill={hueca ? 'none' : 'currentColor'}
-                stroke="currentColor"
-                strokeWidth={hueca ? 1.6 : 1}
-                className={seleccionada ? 'text-brass-bright' : ''}
-              />
-              {punto && <circle cx={x + 9} cy={y - 2} r={1.4} fill="currentColor" />}
+                {punto && <circle cx={x + 9} cy={y - 2} r={1.4} fill="currentColor" />}
 
-              {/* Una nota que llegó sucia se marca con un interrogante pequeño
+                {/* Una nota que llegó sucia se marca con un interrogante pequeño
                   encima, igual que un acorde dudoso lo lleva al lado. No con
                   color: los colores de esta pantalla ya dicen otra cosa. */}
-              {dudosa && (
-                <text
-                  x={x - 3}
-                  y={arriba ? y + 16 : y - 12}
-                  fontSize={11}
-                  fill="currentColor"
-                  fillOpacity={0.6}
-                  aria-hidden
-                >
-                  ?
-                </text>
-              )}
+                {dudosa && (
+                  <text
+                    x={x - 3}
+                    y={arriba ? y + 16 : y - 12}
+                    fontSize={11}
+                    fill="currentColor"
+                    fillOpacity={0.6}
+                    aria-hidden
+                  >
+                    ?
+                  </text>
+                )}
 
-              {plica && (
-                <line
-                  x1={arriba ? x + 5 : x - 5}
-                  x2={arriba ? x + 5 : x - 5}
-                  y1={y}
-                  y2={arriba ? y - 26 : y + 26}
-                  stroke="currentColor"
-                  strokeWidth={1.2}
-                />
-              )}
-              {corchete && (
-                <path
-                  d={
-                    arriba ? `M ${x + 5} ${y - 26} q 8 4 7 12` : `M ${x - 5} ${y + 26} q 8 -4 7 -12`
-                  }
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.6}
-                />
-              )}
+                {plica && (
+                  <line
+                    x1={arriba ? x + 5 : x - 5}
+                    x2={arriba ? x + 5 : x - 5}
+                    y1={y}
+                    y2={arriba ? y - 26 : y + 26}
+                    stroke="currentColor"
+                    strokeWidth={1.2}
+                  />
+                )}
+                {corchete && (
+                  <path
+                    d={
+                      arriba
+                        ? `M ${x + 5} ${y - 26} q 8 4 7 12`
+                        : `M ${x - 5} ${y + 26} q 8 -4 7 -12`
+                    }
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.6}
+                  />
+                )}
 
-              {/*
+                {/*
                 La zona de agarre, en dos piezas: una sobre la cabeza y otra a lo
                 largo de la plica.
 
@@ -752,26 +763,27 @@ export function Staff({
                 mitad de la altura de la nota, y quien va a cogerla apunta a la
                 figura entera, no a la elipse de abajo.
               */}
-              <rect
-                x={x - 10}
-                y={y - 9}
-                width={Math.max(20, note.length * porPulso)}
-                height={18}
-                fill="transparent"
-              />
-              {plica && (
                 <rect
-                  x={arriba ? x : x - 10}
-                  y={arriba ? y - 28 : y + 10}
-                  width={10}
+                  x={x - 10}
+                  y={y - 9}
+                  width={Math.max(20, note.length * porPulso)}
                   height={18}
                   fill="transparent"
                 />
-              )}
-            </g>
-          );
-        })}
-      </svg>
+                {plica && (
+                  <rect
+                    x={arriba ? x : x - 10}
+                    y={arriba ? y - 28 : y + 10}
+                    width={10}
+                    height={18}
+                    fill="transparent"
+                  />
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
     </div>
   );
 }

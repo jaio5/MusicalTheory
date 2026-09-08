@@ -12,7 +12,7 @@
  * que dice «sustitución tritonal» y no lo es se cae entera, porque el porqué es
  * la mitad de lo que se está vendiendo: sin él son cuatro acordes distintos.
  *
- * Ni audio ni vídeo. Lo que viaja son grados, un número de pulsos y una
+ * Nada de audio. Lo que viaja son grados, un número de pulsos y una
  * tonalidad.
  */
 
@@ -122,10 +122,6 @@ export interface Version {
   readonly sections: readonly VersionSection[];
   /** Todas las partes seguidas, que es lo que se toca y lo que se guarda. */
   readonly steps: readonly VersionStepOut[];
-}
-
-export interface VersionsResponse {
-  readonly versions: readonly Version[];
 }
 
 /**

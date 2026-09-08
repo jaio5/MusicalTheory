@@ -19,7 +19,7 @@ export function LandingWheel() {
   return (
     <div className="flex flex-col items-center gap-3">
       <KeyPanel compact />
-      <p className="text-text-muted text-center font-mono text-sm">
+      <p className="text-text-muted text-center text-sm">
         {activeKey === null ? 'Pulsa una tonalidad' : keyName(activeKey.tonic, activeKey.mode)}
       </p>
       {activeKey !== null && (

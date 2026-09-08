@@ -374,7 +374,7 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       <p className="text-text-muted mt-2 text-sm">
         Se guardan en tu cuenta: la tonalidad y los grados, no los cifrados. Por eso una canción
         guardada se puede abrir en otro tono. Con el montaje van también sus partes, el punteo y de
-        dónde salió cada acorde. Ni audio ni vídeo, aquí tampoco.
+        dónde salió cada acorde. Nada de audio, aquí tampoco.
       </p>
 
       {message !== null && (

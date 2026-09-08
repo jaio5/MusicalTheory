@@ -207,11 +207,11 @@ describe('la puerta del modelo', () => {
    * estructural**: las rutas no gastan cupo por su cuenta, y quien lo gasta
    * comprueba el proveedor primero porque es la misma función.
    *
-   * Quedan dos comprobaciones, y las dos son de una línea de código cada una:
-   * que ninguna ruta se salte la puerta, y que dentro de la puerta el orden sea
-   * el que es.
+   * Y desde que el cuerpo de las tres rutas vive también en un solo sitio
+   * —`ai-route.ts`—, lo que hay que comprobar es aún menos: que ninguna ruta se
+   * escriba su propio cuerpo, y que el que hay pasa por la puerta.
    */
-  it('ninguna ruta gasta cupo por su cuenta', () => {
+  it('ninguna ruta gasta cupo por su cuenta ni habla con el modelo a solas', () => {
     for (const ruta of ['ideas', 'teacher', 'versiones']) {
       const codigo = readFileSync(
         fileURLToPath(new URL(`../app/api/${ruta}/route.ts`, import.meta.url)),
@@ -219,8 +219,19 @@ describe('la puerta del modelo', () => {
       );
 
       expect(codigo, `${ruta} llama a spendAi sin pasar por la puerta`).not.toContain('spendAi');
-      expect(codigo, `${ruta} no pasa por la puerta`).toContain('abrirPuertaDeIa');
+      expect(codigo, `${ruta} llama al modelo por su cuenta`).not.toContain('askModel(');
+      expect(codigo, `${ruta} no usa el cuerpo común`).toContain('responderConModelo');
     }
+  });
+
+  it('el cuerpo común pasa por la puerta antes de hablar con el modelo', () => {
+    const codigo = readFileSync(fileURLToPath(new URL('./ai-route.ts', import.meta.url)), 'utf8');
+    const puerta = codigo.indexOf('await abrirPuertaDeIa(');
+    const modelo = codigo.indexOf('await askModel(');
+
+    expect(puerta).toBeGreaterThan(-1);
+    expect(modelo).toBeGreaterThan(-1);
+    expect(puerta, 'habla con el modelo antes de abrir la puerta').toBeLessThan(modelo);
   });
 
   it('la puerta mira el proveedor antes de gastar', () => {

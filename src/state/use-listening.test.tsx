@@ -110,6 +110,80 @@ function Escucha(deps: ListeningDeps) {
   );
 }
 
+/**
+ * Dos botones de escuchar en la misma pantalla, que es lo que hay en `/afinar`:
+ * el grande del afinador y el de la barra de arriba.
+ */
+function DosBotones({ deps }: { readonly deps: ListeningDeps }) {
+  const barra = useListening(deps);
+  const afinador = useListening(deps);
+  return (
+    <>
+      <button type="button" onClick={() => void afinador.start()}>
+        Arrancar desde el afinador
+      </button>
+      <button type="button" onClick={() => void barra.stop()}>
+        Parar desde la barra
+      </button>
+    </>
+  );
+}
+
+/**
+ * El fallo que costó encontrar, y que ningún test veía: **dos botones, dos
+ * micrófonos**.
+ *
+ * En `/afinar` hay dos sitios que abren el micro y el estado de sesión es uno
+ * solo. Cada gancho guardaba su entrada en sus propias referencias, así que al
+ * arrancar desde el afinador el botón de la barra se pintaba encendido —lee el
+ * estado global— y al pulsarlo llamaba a *su* `stop`, que no tenía nada abierto:
+ * ponía «sin escuchar», el afinador volvía a su pantalla de arranque y **el
+ * micrófono seguía abierto**, con el piloto del navegador encendido.
+ *
+ * Se vio conduciendo un Chromium de verdad y contando las pistas vivas, no
+ * leyendo el código. Esto es lo que impide que vuelva.
+ */
+describe('El micrófono es uno solo', () => {
+  it('parar desde un botón cierra lo que abrió el otro', async () => {
+    const entrada = new FakeInput();
+    render(
+      <DosBotones
+        deps={{ createInput: () => entrada, createEngine: () => new SilentPitchEngine() }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /arrancar desde el afinador/i }));
+    await waitFor(() => expect(entrada.state).toBe('running'));
+
+    await userEvent.click(screen.getByRole('button', { name: /parar desde la barra/i }));
+
+    expect(entrada.state, 'el micro se ha quedado abierto').toBe('idle');
+    expect(useSessionStore.getState().listening).toBe('idle');
+  });
+
+  it('y no se abre dos veces si se pulsan los dos', async () => {
+    const abiertas: FakeInput[] = [];
+    render(
+      <DosBotones
+        deps={{
+          createInput: () => {
+            const nueva = new FakeInput();
+            abiertas.push(nueva);
+            return nueva;
+          },
+          createEngine: () => new SilentPitchEngine(),
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /arrancar desde el afinador/i }));
+    await waitFor(() => expect(abiertas).toHaveLength(1));
+    await userEvent.click(screen.getByRole('button', { name: /arrancar desde el afinador/i }));
+
+    expect(abiertas, 'se ha pedido el micro dos veces').toHaveLength(1);
+  });
+});
+
 describe('Escuchar', () => {
   it('sin pedirlo, no analiza acordes', async () => {
     const chordEngine = new FakeChordEngine();

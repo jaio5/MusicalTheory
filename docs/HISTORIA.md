@@ -34,20 +34,29 @@ cualquier descripción.
 
 Después de la veinte, en un solo día (26 de agosto de 2026):
 
-| Qué                                                                                         |
-| ------------------------------------------------------------------------------------------- |
-| Un modelo de casa —Ollama— para poder preguntarle a la IA sin clave y sin factura.          |
-| El esquema de las ideas deja de pedir de menos: de 0 de 4 peticiones válidas a 36 de 36.    |
-| Un solo canal de texto libre, y el profesor declara si le preguntan de música.              |
-| El sonido se guarda y al parar se vuelve a escuchar entero, con ventana cuatro veces mayor. |
-| Las versiones pasan a ser **salidas**: canciones distintas con sus partes, no retoques.     |
-| Repaso de toda la aplicación: código muerto fuera, tres fallos reales arreglados.           |
-| Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.           |
-| El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.             |
-| Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.           |
-| Qué nota puede seguir, siempre a la vista, y el punteo que tocas cae en la partitura.       |
-| Aprender gana unidades de oído: suena un acorde en tu tonalidad y dices qué era.            |
-| Remate: el lienzo se guarda, los acordes se reordenan escritos y el bVII deja de ser A#.    |
+| Qué                                                                                          |
+| -------------------------------------------------------------------------------------------- |
+| Un modelo de casa —Ollama— para poder preguntarle a la IA sin clave y sin factura.           |
+| El esquema de las ideas deja de pedir de menos: de 0 de 4 peticiones válidas a 36 de 36.     |
+| Un solo canal de texto libre, y el profesor declara si le preguntan de música.               |
+| El sonido se guarda y al parar se vuelve a escuchar entero, con ventana cuatro veces mayor.  |
+| Las versiones pasan a ser **salidas**: canciones distintas con sus partes, no retoques.      |
+| Repaso de toda la aplicación: código muerto fuera, tres fallos reales arreglados.            |
+| Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.            |
+| El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.              |
+| Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.            |
+| Qué nota puede seguir, siempre a la vista, y el punteo que tocas cae en la partitura.        |
+| Aprender gana unidades de oído: suena un acorde en tu tonalidad y dices qué era.             |
+| Remate: el lienzo se guarda, los acordes se reordenan escritos y el bVII deja de ser A#.     |
+| La interfaz se lee: fuera la monoespaciada de todo lo que no es un dato, y la rueda de pie.  |
+| Grabarse pasa a ser solo sonido, que se oye ahí mismo; se va la cámara y su capa entera.     |
+| El micrófono pasa a ser uno de verdad, y la tonalidad se recuerda de una vez para otra.      |
+| La pregunta se ve como lo que hay que hacer, y cada botón que trabaja lo dice.               |
+| La rueda se recorre con las flechas, y abrirla en un móvil deja de vaciar la pantalla.       |
+| La aplicación deja de prometer que detecta la tonalidad rasgueando: pide notas sueltas.      |
+| La clave de sol se dibuja de su trazo y por fin se reconoce; la armadura deja de pisarla.    |
+| Se usa la profundidad que ya estaba escrita: la partitura es hoja y las columnas se separan. |
+| Lo que estaba escrito tres y cinco veces pasa a estarlo una: rutas, oyentes y avisos.        |
 
 ## Los fallos que enseñaron algo
 
@@ -68,3 +77,53 @@ ninguno se veía leyendo el código:
   por encima de la propia guitarra y detectaba cero acordes en ocho segundos.
 - **Un reloj de tres minutos leía la grabadora equivocada** y cortaba por la mitad
   una grabación posterior.
+- **La monoespaciada se extendió sin que nadie lo decidiera**, de las notas y los
+  cents a la navegación, los botones y diecinueve rótulos en versalitas: cerca de
+  cien sitios, y la aplicación entera con pinta de terminal. Nadie lo vio porque
+  cada sitio, por separado, parecía razonable.
+- **La rueda de quintas giraba las letras con el disco**, «como el aparato de
+  verdad», y once de las doce tonalidades quedaban tumbadas o boca abajo. Era el
+  control con el que empieza todo lo demás.
+- **Dos botones de escuchar, dos micrófonos.** En `/afinar` hay dos sitios que
+  abren el micro y el estado de sesión es uno; cada uno guardaba su entrada en
+  sus propias referencias. Al arrancar desde el afinador, el de la barra se
+  pintaba encendido y al pulsarlo llamaba a _su_ parada, que no tenía nada
+  abierto: la pantalla decía «sin escuchar» y **el micrófono seguía abierto**. Se
+  vio contando pistas vivas en un Chromium de verdad, no leyendo el código.
+- **La tonalidad no se recordaba**, y era lo único que no. La aplicación se
+  acordaba de que te gusta el rock y se olvidaba de en qué estabas tocando, así
+  que las cinco pantallas volvían a pedirla en cada recarga.
+- **Abrir la rueda en un teléfono vaciaba componer.** La barra de tonalidad es
+  `shrink-0` y abierta medía 613 px de 800: a lo que crece —el acorde, la lista,
+  la canción— le tocaban **cero**, y no había forma de desplazarse hasta ello.
+  Elegías el tono y la pantalla parecía romperse. Se vio midiendo el reparto de
+  alto en un navegador de verdad; ningún test que lea texto lo habría visto.
+- **La rueda pedía veinticuatro turnos del tabulador** y llevaba `role="img"` con
+  veinticuatro botones dentro, que es decirle a un lector de pantalla que ahí no
+  hay nada que tocar.
+- **«Toca unos compases y la detectamos sola» era verdad solo a veces.** Lo decían
+  seis pantallas. La tonalidad sale de un histograma de alturas que llena el motor
+  de tono, y ese es monofónico: rasgueando acordes no entra ni una nota y no se
+  detecta nunca; con la escala tarda cuatro segundos. Se vio tocándole a la
+  aplicación dos ficheros por el micrófono falso, no leyendo el código.
+- **La clave de sol no parecía una clave de sol**, dos intentos seguidos. Estaba
+  escrita curva a curva como silueta, y de ahí salió una espiral con un palo: le
+  faltaban los **dos cruces con el mástil**, que son lo que la hace reconocible, y
+  escribiendo el contorno a mano hay que llevar la cuenta de los dos lados de cada
+  cruce. Se arregló cambiando de idea: se declara la línea que recorre la pluma y
+  cuánto pesa en cada punto —que es como se piensa una letra— y el contorno sale
+  de desplazarla a los dos lados.
+- **Y la armadura se escribía encima de la clave.** El hueco anterior al primer
+  compás era un número fijo calculado para Do mayor, que no tiene alteraciones; en
+  Fa sostenido son seis sostenidos y se metían en la clave y en el primer compás.
+- **Centrar el afinador con `justify-center` le quitó el scroll.** Es la trampa
+  clásica de flexbox: cuando el contenido no cabe se sale por los dos lados y no
+  hay forma de bajar hasta lo que sobra. Se arregló el mismo día que se introdujo,
+  y solo porque una sonda midió qué elementos no alcanzaba ningún ancestro.
+- **Extraer una pieza compartida deja dos rastros que ningún test ve.** Al sacar
+  el reproductor de progresiones a un hook, los tres sitios que lo usaban se
+  quedaron con `useEffect` y `useRef` importados y sin usar, y con dos listas de
+  dependencias incompletas: lo dijo ESLint, no la batería de tests. Y al meter el
+  import del nuevo módulo con un script, cayó **dentro** de un `import` de varias
+  líneas y rompió el fichero. Un `assert` de lo que se sustituye no basta: hay que
+  mirar dónde acaba lo que se añade.

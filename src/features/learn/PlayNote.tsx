@@ -6,7 +6,13 @@ import { midiToOctave, noteName } from '@core/music';
 import { useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 
-import { EXERCISE_TOLERANCE_CENTS, HOLD_MS, stepMatches, type ExerciseStep } from './exercise';
+import {
+  EXERCISE_TOLERANCE_CENTS,
+  HOLD_MS,
+  stepMatches,
+  type ExerciseStep,
+  type PasoContestable,
+} from './exercise';
 
 /**
  * El repaso de una nota que se atragantó: volver a tocarla.
@@ -28,14 +34,7 @@ export function PlayNote({
   lastLabel,
   onAnswered,
   onNext,
-}: {
-  readonly step: ExerciseStep;
-  readonly position: number;
-  readonly total: number;
-  readonly lastLabel: string;
-  readonly onAnswered: (correct: boolean) => void;
-  readonly onNext: () => void;
-}) {
+}: { readonly step: ExerciseStep } & PasoContestable) {
   /** Nulo mientras se busca; luego, si salió o no. */
   const [resultado, setResultado] = useState<'bien' | 'mal' | null>(null);
 
@@ -83,7 +82,7 @@ export function PlayNote({
 
   return (
     <div>
-      <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
+      <p className="rotulo">
         {position} de {total} · tócala
       </p>
 

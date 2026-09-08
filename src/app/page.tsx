@@ -75,7 +75,7 @@ const QUESTIONS: ReadonlyArray<{ q: string; a: string }> = [
   },
   {
     q: '¿Cuánto cuesta?',
-    a: 'El afinador, la rueda, el mástil, el metrónomo, los acordes y grabarte tocando son gratis y lo van a seguir siendo: pasan enteros en tu navegador, así que servirlos no cuesta nada. Lo que se paga es la IA —el profesor y las ideas son llamadas a un modelo— y el temario del Grado Profesional, en tres planes desde 4,99 € al mes. Sin pagar nada tienes el Grado Elemental completo y unas preguntas al profesor al día.',
+    a: 'El afinador, la rueda, el mástil, el metrónomo, los acordes y grabar lo que tocas son gratis y lo van a seguir siendo: pasan enteros en tu navegador, así que servirlos no cuesta nada. Lo que se paga es la IA —el profesor y las ideas son llamadas a un modelo— y el temario del Grado Profesional, en tres planes desde 4,99 € al mes. Sin pagar nada tienes el Grado Elemental completo y unas preguntas al profesor al día.',
   },
 ];
 
@@ -94,26 +94,49 @@ export default function Portada() {
       <header className="border-border bg-surface/80 sticky top-0 z-20 border-b backdrop-blur">
         <div className="mx-auto flex max-w-[min(90rem,92vw)] items-center gap-4 px-6 py-3">
           <span className="font-display text-brass-bright text-lg">Caos ordenado</span>
-          <nav
-            aria-label="Secciones"
-            className="text-text-muted ml-auto hidden gap-4 text-sm sm:flex"
-          >
-            <a href="#afinador" className="hover:text-text">
-              Afinador
-            </a>
-            <a href="#pantallas" className="hover:text-text">
-              Pantallas
-            </a>
-            <a href="#privacidad" className="hover:text-text">
-              Privacidad
-            </a>
-          </nav>
-          <Link
-            href="/componer"
-            className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 border px-3 py-1 font-mono text-xs"
-          >
-            Abrir
-          </Link>
+          {/* Los tres de la barra y el de abrir **con alto de dedo**.
+
+              Medían veinte y veintiséis píxeles, y son lo primero que se toca en
+              toda la aplicación: la portada es donde llega quien no la conoce, y
+              casi siempre desde un teléfono. La regla de los 44 px estaba escrita
+              y vigilada dentro de la aplicación, pero la portada no pasa por
+              `ui/Screen` ni por `ui/Button`, así que se quedaba fuera. */}
+          {/* La navegación y el botón, en el mismo grupo empujado a la derecha.
+
+              Con el `ml-auto` solo en la navegación, en un teléfono —donde la
+              navegación no se enseña— no quedaba nada que empujara: el «Abrir» se
+              pegaba a la marca y la mitad derecha de la barra quedaba vacía. */}
+          <div className="ml-auto flex items-center gap-3">
+            <nav
+              aria-label="Secciones"
+              className="text-text-muted hidden items-center gap-1 text-sm sm:flex"
+            >
+              <a
+                href="#afinador"
+                className="hover:text-text min-h-tap inline-flex items-center px-3"
+              >
+                Afinador
+              </a>
+              <a
+                href="#pantallas"
+                className="hover:text-text min-h-tap inline-flex items-center px-3"
+              >
+                Pantallas
+              </a>
+              <a
+                href="#privacidad"
+                className="hover:text-text min-h-tap inline-flex items-center px-3"
+              >
+                Privacidad
+              </a>
+            </nav>
+            <Link
+              href="/componer"
+              className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 min-h-tap inline-flex items-center rounded-md border px-4 text-sm font-medium"
+            >
+              Abrir
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -152,7 +175,7 @@ export default function Portada() {
             </a>
           </div>
 
-          <ul className="text-text-muted mt-10 flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs">
+          <ul className="text-text-muted mt-10 flex flex-wrap gap-x-6 gap-y-2 text-xs">
             {CLAIMS.map((claim) => (
               <li key={claim} className="flex items-center gap-2">
                 <span aria-hidden="true" className="bg-brass block h-1 w-1 rounded-full" />
@@ -165,9 +188,7 @@ export default function Portada() {
 
       <section id="afinador" className="border-border border-b">
         <div className="mx-auto max-w-[min(90rem,92vw)] px-6 py-20">
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            Pruébalo aquí
-          </p>
+          <p className="rotulo">Pruébalo aquí</p>
           <h2 className="font-display text-fluid-title mt-3">Un afinador de verdad, ahora</h2>
           <p className="text-text-muted text-fluid-body mt-4 max-w-[68ch] leading-relaxed">
             Hace falta el micro para escuchar la cuerda y calcular su frecuencia. El sonido se
@@ -181,7 +202,7 @@ export default function Portada() {
 
           <p className="text-text-muted mt-4 text-sm">
             Con otra afinación —drop D, DADGAD, open G— entra en{' '}
-            <Link href="/afinar" className="text-brass-bright underline underline-offset-4">
+            <Link href="/afinar" className="enlace">
               la pantalla de afinar
             </Link>
             .
@@ -191,16 +212,25 @@ export default function Portada() {
 
       <section id="pantallas" className="border-border border-b">
         <div className="mx-auto max-w-[min(90rem,92vw)] px-6 py-20">
-          <h2 className="font-display text-fluid-title">Tres pantallas, tres cosas</h2>
+          {/* Cuatro, y no tres. Decía «tres pantallas» debajo de cuatro tarjetas
+              desde que afinar se separó de componer: quien las cuenta encuentra
+              una de más, que es la peor manera de empezar a fiarse de algo. */}
+          <h2 className="font-display text-fluid-title">Cuatro pantallas, cuatro cosas</h2>
           <p className="text-text-muted text-fluid-body mt-4 max-w-[68ch] leading-relaxed">
             Cada una está hecha para una cosa y trae dentro lo que hace falta para esa cosa. No hay
             que montarse nada ni buscar dónde está lo que quieres.
           </p>
 
-          <div className="mt-10 grid gap-10 lg:grid-cols-3">
+          {/* Cuatro columnas cuando caben, y dos cuando no. En tres, la cuarta
+              tarjeta se quedaba sola en una fila con dos tercios de la pantalla
+              vacíos al lado. */}
+          <div className="mt-10 grid gap-10 sm:grid-cols-2 xl:grid-cols-4">
             {SCREENS.map((screen) => (
-              <article key={screen.href} className="border-border border-t pt-8">
-                <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
+              // Columna con el enlace empujado abajo: los cuatro textos miden
+              // distinto y los cuatro «Abrir» acababan a cuatro alturas, que en
+              // una fila de tarjetas se lee como que están descuadradas.
+              <article key={screen.href} className="border-border flex flex-col border-t pt-8">
+                <p className="rotulo">
                   {screen.step} — {screen.name}
                 </p>
                 <h3 className="font-display text-fluid-subtitle mt-2">{screen.headline}</h3>
@@ -209,9 +239,10 @@ export default function Portada() {
                 </p>
                 <Link
                   href={screen.href}
-                  className="text-brass-bright mt-4 inline-block underline underline-offset-4"
+                  className="enlace min-h-tap mt-auto -ml-2 inline-flex items-center gap-1 self-start px-2 pt-3"
                 >
                   Abrir {screen.name.toLowerCase()}
+                  <span aria-hidden="true">→</span>
                 </Link>
               </article>
             ))}
@@ -222,9 +253,7 @@ export default function Portada() {
       <section className="border-border bg-surface border-b">
         <div className="mx-auto grid max-w-[min(90rem,92vw)] gap-10 px-6 py-20 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <div>
-            <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-              La rueda de quintas
-            </p>
+            <p className="rotulo">La rueda de quintas</p>
             <h2 className="font-display text-fluid-title mt-3">Gira sola hasta tu tonalidad</h2>
             <p className="text-text-muted text-fluid-body mt-4 max-w-[60ch] leading-relaxed">
               Mientras tocas, la aplicación acumula las notas que aparecen y calcula en qué
@@ -244,29 +273,25 @@ export default function Portada() {
 
       <section className="border-border border-b">
         <div className="mx-auto max-w-[min(90rem,92vw)] px-6 py-20">
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            Grabarte tocando
-          </p>
-          <h2 className="font-display text-fluid-title mt-3">
-            Con la cámara puesta, si te apetece
-          </h2>
+          <p className="rotulo">Grabar lo que tocas</p>
+          <h2 className="font-display text-fluid-title mt-3">Dale, tócalo y escúchate</h2>
           <p className="text-text-muted text-fluid-body mt-4 max-w-[68ch] leading-relaxed">
-            Desde la pantalla de componer puedes grabarte mientras tocas. La cámara se pone detrás
-            de todo y la interfaz se queda en contorno y letra, así que te ves sin dejar de leer los
-            acordes y hacia dónde puedes ir. El archivo se guarda en tu disco cuando pulsas
-            descargar; si no lo haces, desaparece al cerrar la pestaña.
+            Desde la pantalla de componer se graba lo que estás tocando sin salir de ella, y al
+            parar te suena ahí mismo: lo primero que puedes hacer con una toma es oírla y decidir si
+            vale. Si vale, se descarga a tu disco; si no, se tira y se vuelve a intentar. Solo el
+            sonido, y no sale de tu equipo.
           </p>
         </div>
       </section>
 
       <section id="privacidad" className="border-border bg-surface border-b">
         <div className="mx-auto max-w-[min(90rem,92vw)] px-6 py-20">
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">Privacidad</p>
+          <p className="rotulo">Privacidad</p>
           <h2 className="font-display text-fluid-title mt-3">Tu audio no sale de aquí</h2>
           <p className="text-text-muted text-fluid-body mt-4 max-w-[68ch] leading-relaxed">
             El micrófono se analiza dentro del navegador, en tu ordenador. Nadie escucha lo que
-            tocas y no queda ninguna grabación en ningún servidor. El vídeo, igual: se compone en tu
-            equipo y se descarga desde ahí.
+            tocas y no queda ninguna grabación en ningún servidor. Lo que grabas, igual: se guarda
+            en la memoria de la pestaña y se descarga desde ahí.
           </p>
           <p className="text-text-muted text-fluid-body mt-4 max-w-[68ch] leading-relaxed">
             Cuando le pides una idea al modelo o le preguntas al profesor, lo único que viaja son
@@ -316,24 +341,38 @@ export default function Portada() {
       </section>
 
       <footer className="border-border text-text-muted border-t">
-        <div className="mx-auto flex max-w-[min(90rem,92vw)] flex-wrap items-center gap-x-6 gap-y-2 px-6 py-8 text-sm">
-          <span className="font-display text-text">Caos ordenado</span>
-          <Link href="/aprender" className="hover:text-text">
+        {/* Los cinco del pie **también se pulsan con el dedo**. Eran renglones de
+            veinte píxeles: en un teléfono, cinco destinos pegados y ninguno con
+            alto de dedo es la manera de acabar entrando donde no querías. */}
+        <div className="mx-auto flex max-w-[min(90rem,92vw)] flex-wrap items-center gap-x-1 gap-y-1 px-5 py-6 text-sm">
+          <span className="font-display text-text min-h-tap mr-3 inline-flex items-center px-1">
+            Caos ordenado
+          </span>
+          <Link
+            href="/aprender"
+            className="hover:text-text min-h-tap inline-flex items-center px-3"
+          >
             Aprender
           </Link>
-          <Link href="/profesor" className="hover:text-text">
+          <Link
+            href="/profesor"
+            className="hover:text-text min-h-tap inline-flex items-center px-3"
+          >
             Profesor
           </Link>
-          <Link href="/componer" className="hover:text-text">
+          <Link
+            href="/componer"
+            className="hover:text-text min-h-tap inline-flex items-center px-3"
+          >
             Componer
           </Link>
-          <Link href="/afinar" className="hover:text-text">
+          <Link href="/afinar" className="hover:text-text min-h-tap inline-flex items-center px-3">
             Afinar
           </Link>
-          <Link href="/planes" className="hover:text-text">
+          <Link href="/planes" className="hover:text-text min-h-tap inline-flex items-center px-3">
             Planes
           </Link>
-          <span className="ml-auto">Hecho para tocar de noche</span>
+          <span className="ml-auto px-1">Hecho para tocar de noche</span>
         </div>
       </footer>
     </div>

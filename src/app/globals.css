@@ -58,7 +58,7 @@
  *
  * Elegante por lo que **no** tiene: un solo acento y tres grises. El oro es el
  * mismo hilo que la aplicación llevaba en oscuro —era un amplificador de latón—,
- * pero bajado hasta #a16207, que es lo que hace falta para que un texto de acento
+ * pero bajado hasta #9a5b08, que es lo que hace falta para que un texto de acento
  * llegue a 4,5:1 sobre blanco. El dorado bonito de las paletas, #d4af37, no lo
  * cumple ni de lejos.
  *
@@ -69,19 +69,19 @@
   color-scheme: light;
 
   --fondo: #ffffff;
-  --superficie: #fafaf9;
-  --superficie-alta: #f5f5f4;
-  --borde: #e7e5e4;
+  --superficie: #faf9f7;
+  --superficie-alta: #f3f1ed;
+  --borde: #e4e0d9;
 
   --texto: #1c1917;
-  --texto-suave: #6b625c;
+  --texto-suave: #655c54;
 
-  --laton: #a16207;
-  --laton-vivo: #854d0e;
-  --laton-suave: #e2cfa4;
+  --laton: #9a5b08;
+  --laton-vivo: #7c4a0c;
+  --laton-suave: #e0cda2;
 
   --rojo: #b91c1c;
-  --rojo-vivo: #991b1b;
+  --rojo-vivo: #9f1239;
 
   --verde: #15803d;
   --verde-vivo: #166534;
@@ -105,26 +105,26 @@
 :root[data-tema='oscuro'] {
   color-scheme: dark;
 
-  --fondo: #12100e;
-  --superficie: #1a1714;
-  --superficie-alta: #241f1a;
-  --borde: #332c25;
+  --fondo: #100d0b;
+  --superficie: #1a1613;
+  --superficie-alta: #26201a;
+  --borde: #3a322a;
 
-  --texto: #ede6da;
-  --texto-suave: #a79c8c;
+  --texto: #f3ece0;
+  --texto-suave: #b3a695;
 
-  --laton: #b08d4f;
-  --laton-vivo: #d8b76a;
+  --laton: #c08a3e;
+  --laton-vivo: #e8b765;
   --laton-suave: #6e5830;
 
   /* El tapizado se queda oscuro porque es relleno —el fondo del botón de
-     escuchar— y el vivo sube, porque es el que llevan los mensajes de error.
+     grabar— y el vivo sube, porque es el que llevan los mensajes de error.
      `#8c2b31` daba 2,26:1 sobre este negro: la mitad de lo que pide un texto. */
   --rojo: #6b1f24;
-  --rojo-vivo: #d07c7f;
+  --rojo-vivo: #e8878a;
 
   --verde: #5c8a5a;
-  --verde-vivo: #7fb07c;
+  --verde-vivo: #86bc82;
 
   --sombra-suave: 0 1px 2px rgb(0 0 0 / 0.35);
   --sombra-alta: 0 4px 16px rgb(0 0 0 / 0.35);
@@ -196,9 +196,51 @@
     box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-brass-bright) 18%, transparent);
   }
 
+  /*
+   * Un enlace dentro de una frase.
+   *
+   * Estaba escrito diez veces y ya había tres versiones: con `hover` y sin él,
+   * con la raya pegada a la letra y despegada cuatro píxeles. La raya separada
+   * es la que deja leer las colas de las jotas y las ges, que es justo lo que
+   * pasa en «/olvidada» y «/registro».
+   *
+   * Va de latón vivo y no del apagado: es lo único que se puede pulsar dentro
+   * de un párrafo, y el apagado sobre el fondo claro no llega al contraste de
+   * un texto.
+   */
+  .enlace {
+    color: var(--color-brass-bright);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .enlace:hover {
+    color: var(--color-brass);
+  }
+
   /* El aro de lo que está seleccionado en el camino. */
   .halo-latón {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brass-bright) 15%, transparent);
+  }
+
+  /*
+   * El rótulo de un apartado.
+   *
+   * Estuvo escrito como `font-mono text-xs tracking-widest uppercase` en
+   * diecinueve sitios, y era **la causa principal de que esto pareciera un panel
+   * de administración**: media pantalla en monoespaciada de once píxeles y todo
+   * en mayúsculas. La monoespaciada aquí es para lo que se alinea en columna
+   * —notas, cifrados, cents, compases—, no para los rótulos.
+   *
+   * Ahora es la sans a 12 px, con peso y sin gritar. Se lee igual de rápido y
+   * deja de competir con el contenido.
+   */
+  .rotulo {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
   }
 
   /* Y el de la unidad que toca ahora, que además brilla un poco. */
@@ -290,72 +332,6 @@
   /* La esquina donde se juntan las dos barras, del mismo color que el canal. */
   ::-webkit-scrollbar-corner {
     background: var(--color-surface);
-  }
-
-  /*
-   * Modo grabación: la cámara va detrás de todo, así que la interfaz se queda
-   * en contorno y letra. El !important es a propósito: hay que ganarle a las
-   * utilidades de fondo de cada componente sin tocar los cien sitios donde se
-   * ponen, y esto solo aplica mientras se está grabando.
-   */
-  body.grabando,
-  body.grabando *:not([data-senal]):not([data-velo]) {
-    background-color: transparent !important;
-  }
-
-  body.grabando {
-    /* Con el velo ya se lee; la sombra es para los sitios claros de la imagen. */
-    text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
-  }
-
-  body.grabando button,
-  body.grabando input,
-  body.grabando select,
-  body.grabando [class*='border'] {
-    border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
-  }
-
-  /*
-   * Los fondos de los dibujos son relleno de SVG, no background: la rueda es un
-   * disco negro que, sin esto, tapa la cámara entera. Solo caen los rellenos
-   * que son fondo; los puntos del diagrama y las letras siguen ahí, que es la
-   * información.
-   */
-  body.grabando .fill-surface,
-  body.grabando .fill-surface-raised,
-  body.grabando .fill-background {
-    fill: transparent !important;
-  }
-
-  /*
-   * Sobre vídeo, la letra es clara **valga lo que valga el tema**.
-   *
-   * Esto se dibuja encima de la cámara, no encima de la aplicación: en el tema
-   * claro, seguir al token dejaría letra casi negra sobre una imagen cualquiera,
-   * y desaparece en cuanto se toca una pared clara. El velo y la sombra están
-   * calculados para lo contrario.
-   */
-  body.grabando,
-  body.grabando .text-text,
-  body.grabando .text-text-muted {
-    color: #ede6da;
-  }
-
-  body.grabando .fill-text,
-  body.grabando .fill-text-muted {
-    fill: #ede6da;
-  }
-
-  /*
-   * Lo marcado como señal conserva su color: el piloto de grabación, el de
-   * escucha y el punto verde o rojo de cada acorde. Es estado, no adorno, y en
-   * mitad de una toma es justo lo único que hay tiempo de mirar.
-   *
-   * El aro oscuro es para que el color se lea sobre lo que sea que haya detrás:
-   * un punto verde sobre una pared verde no dice nada.
-   */
-  body.grabando [data-senal] {
-    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.65);
   }
 
   /*

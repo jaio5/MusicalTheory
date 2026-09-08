@@ -10,6 +10,7 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { PlanLock } from '@ui/PlanLock';
 import { PlansLink, seArreglaConPlan } from '@ui/PlansLink';
+import { Aviso } from '@ui/Aviso';
 
 import {
   ERROR_MESSAGES,
@@ -95,8 +96,8 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
   return (
     <div>
       <p className="text-text-muted mt-2 text-sm">
-        Le pasamos la tonalidad, la escala y los nombres de las notas. Ni el audio ni el vídeo salen
-        de tu equipo.
+        Le pasamos la tonalidad, la escala y los nombres de las notas. El audio no sale de tu
+        equipo.
       </p>
 
       {!puedePedir ? (
@@ -109,12 +110,12 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
           />
           <p className="text-text-muted mt-2 text-xs">
             Es la parte más cara: cada pulsación son varias progresiones razonadas. Todo lo demás de
-            esta pantalla —los acordes, el mástil, a dónde ir, el metrónomo y grabarte— es gratis.
+            esta pantalla —los acordes, el mástil, a dónde ir, el metrónomo y grabar— es gratis.
           </p>
         </div>
       ) : activeKey === null ? (
         <p className="text-text-muted mt-6">
-          Toca unos compases o elige una tonalidad para poder pedir ideas.
+          Toca unas notas sueltas o elige una tonalidad para poder pedir ideas.
         </p>
       ) : (
         <>
@@ -124,6 +125,7 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
                 key={kind}
                 variant={kind === 'progression' ? 'primary' : 'quiet'}
                 disabled={pending !== null}
+                cargando={pending === kind}
                 onClick={() => void ask(kind)}
               >
                 {pending === kind ? 'Pensando…' : KIND_LABELS[kind]}
@@ -133,7 +135,7 @@ export function IdeasPanel({ fetchIdeas = defaultFetch }: IdeasPanelProps = {}) 
 
           {error !== null && (
             <div role="alert" className="mt-4">
-              <p className="text-oxblood-bright text-sm">{error.message}</p>
+              <Aviso mensaje={error.message} anuncio="ninguno" />
               {/* El candado que salta en marcha lleva al mismo sitio que el que
                   se enseña de antemano: la frase dice qué plan hace falta y el
                   enlace lleva a donde se ve qué trae cada uno. */}

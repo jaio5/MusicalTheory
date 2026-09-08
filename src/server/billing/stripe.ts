@@ -64,24 +64,24 @@ export function stripeConfigured(): boolean {
 }
 
 /**
- * Una llamada a la API de Stripe.
+ * Ir a la API de Stripe y volver con lo que diga, o con nulo.
  *
- * Con `application/x-www-form-urlencoded`, que es lo que espera: la API de
- * Stripe no acepta JSON en el cuerpo.
+ * Todo lo que puede salir mal sale igual —una respuesta que no es 200, la red
+ * caída, un cuerpo que no es JSON— y en los tres casos se contesta nulo: quien
+ * llama no puede hacer nada distinto según cuál fuera, y lo que se le enseña a
+ * quien paga es lo mismo.
+ *
+ * La clave se lee en cada llamada y no al cargar el módulo, porque en desarrollo
+ * el `.env` puede aparecer después de que Next haya importado esto.
  */
-async function stripeFetch(
-  path: string,
-  form: Record<string, string>,
-): Promise<Record<string, unknown> | null> {
-  const key = process.env['STRIPE_SECRET_KEY'] ?? '';
+async function stripeIrY(url: string, init: RequestInit): Promise<Record<string, unknown> | null> {
   try {
-    const response = await fetch(`${API}${path}`, {
-      method: 'POST',
+    const response = await fetch(url, {
+      ...init,
       headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Bearer ${process.env['STRIPE_SECRET_KEY'] ?? ''}`,
+        ...init.headers,
       },
-      body: new URLSearchParams(form).toString(),
     });
     if (!response.ok) {
       return null;
@@ -92,23 +92,29 @@ async function stripeFetch(
   }
 }
 
+/**
+ * Una llamada a la API de Stripe.
+ *
+ * Con `application/x-www-form-urlencoded`, que es lo que espera: la API de
+ * Stripe no acepta JSON en el cuerpo.
+ */
+async function stripeFetch(
+  path: string,
+  form: Record<string, string>,
+): Promise<Record<string, unknown> | null> {
+  return stripeIrY(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(form).toString(),
+  });
+}
+
 /** Una consulta a la API de Stripe. Los parámetros van en la dirección. */
 async function stripeGet(
   path: string,
   query: Record<string, string>,
 ): Promise<Record<string, unknown> | null> {
-  const key = process.env['STRIPE_SECRET_KEY'] ?? '';
-  try {
-    const response = await fetch(`${API}${path}?${new URLSearchParams(query).toString()}`, {
-      headers: { Authorization: `Bearer ${key}` },
-    });
-    if (!response.ok) {
-      return null;
-    }
-    return (await response.json()) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
+  return stripeIrY(`${API}${path}?${new URLSearchParams(query).toString()}`, {});
 }
 
 export const StripeBilling: Billing = {

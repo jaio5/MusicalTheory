@@ -17,8 +17,27 @@ import { useSessionStore, type ListeningState } from './session-store';
  * del afinador y el botón de escuchar de la barra. Un feature no puede importar
  * de otro, así que lo compartido sube aquí.
  *
+ * **El micrófono es uno, y por eso lo que lo sujeta vive en el módulo y no en el
+ * componente.** Esto no era así, y de ahí salía un fallo que se veía en un
+ * navegador de verdad: en `/afinar` hay dos botones que abren el micro —el
+ * grande del afinador y el de la barra de arriba—, cada uno con su propia copia
+ * de estas referencias, y el estado de sesión es uno solo para los dos. Al
+ * arrancar desde el afinador, el de la barra se pintaba encendido; al pulsarlo
+ * para pararlo, llamaba a *su* `stop`, que no tenía nada abierto: ponía el
+ * estado en «sin escuchar», el afinador volvía a su pantalla de arranque… **y el
+ * micrófono seguía abierto**, con el piloto del navegador encendido y el motor
+ * analizando. En una aplicación cuya primera promesa es que el audio no sale de
+ * aquí, un micro que no se cierra cuando dices que lo has cerrado es el peor
+ * fallo posible.
+ *
+ * Con el recurso en el módulo, `start` y `stop` son los mismos para todos: da
+ * igual desde qué botón se pulse. Que sea único ya estaba medio reconocido —
+ * `entradaSonando` llevaba aquí desde que las salidas necesitaron la entrada
+ * abierta—; lo que faltaba era llevarse el resto con ella.
+ *
  * Las dependencias entran por parámetro porque en React no hay contenedor de
  * inyección: quien quiera otro motor —un test, o mañana YIN— pasa otra fábrica.
+ * Las usa **quien arranca**, que es quien decide con qué se escucha.
  */
 export interface ListeningDeps {
   readonly createInput?: (deviceId?: string) => AudioInput;
@@ -59,9 +78,41 @@ export interface ListeningControls {
  */
 let entradaSonando: AudioInput | null = null;
 
+/** El motor de tono y el de acordes que cuelgan de esa entrada, si los hay. */
+let motorSonando: PitchEngine | null = null;
+let motorDeAcordes: ChordEngine | null = null;
+let dejarDeMirarElEstado: (() => void) | null = null;
+
+/**
+ * Cuántos componentes tienen el gancho montado.
+ *
+ * Se cuenta porque el micro ya no lo cierra el componente que se va: si lo
+ * hiciera, salir del afinador cerraría el micro que había abierto el botón de la
+ * barra, que vive en el marco y no se desmonta nunca. Se cierra cuando **no
+ * queda nadie**, que es lo que pasa al recargar en caliente o al cerrar la
+ * pestaña, y es de lo que protegía el efecto de limpieza original.
+ */
+let montados = 0;
+
 /** La entrada abierta, o nula si el micro está cerrado. */
 export function entradaActiva(): AudioInput | null {
   return entradaSonando;
+}
+
+/** Suelta el aparato sin tocar el estado de la interfaz. */
+async function soltarLoAbierto(): Promise<void> {
+  motorSonando?.stop();
+  motorSonando = null;
+
+  motorDeAcordes?.stop();
+  motorDeAcordes = null;
+
+  dejarDeMirarElEstado?.();
+  dejarDeMirarElEstado = null;
+
+  const entrada = entradaSonando;
+  entradaSonando = null;
+  await entrada?.stop();
 }
 
 export function useListening({
@@ -85,45 +136,25 @@ export function useListening({
     factories.current = { createInput, createEngine, chords, createChordEngine };
   });
 
-  const inputRef = useRef<AudioInput | null>(null);
-  const engineRef = useRef<PitchEngine | null>(null);
-  const chordEngineRef = useRef<ChordEngine | null>(null);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
-
   const stop = useCallback(async () => {
-    engineRef.current?.stop();
-    engineRef.current = null;
+    await soltarLoAbierto();
 
-    chordEngineRef.current?.stop();
-    chordEngineRef.current = null;
     actions.setHeardChord(null);
-
-    unsubscribeRef.current?.();
-    unsubscribeRef.current = null;
-
-    const input = inputRef.current;
-    inputRef.current = null;
-    if (entradaSonando === input) {
-      entradaSonando = null;
-    }
-    await input?.stop();
-
     actions.setPitch(null);
     actions.setListening('idle');
   }, [actions]);
 
   const start = useCallback(
     async (deviceId?: string) => {
-      if (inputRef.current !== null) {
+      if (entradaSonando !== null) {
         return;
       }
 
       const input =
         factories.current.createInput?.(deviceId) ??
         new WebAudioInput(deviceId === undefined ? {} : { deviceId });
-      inputRef.current = input;
       entradaSonando = input;
-      unsubscribeRef.current = input.subscribe((state) => {
+      dejarDeMirarElEstado = input.subscribe((state) => {
         actions.setListening(LISTENING_BY_INPUT_STATE[state], input.error?.message ?? null);
       });
 
@@ -133,15 +164,14 @@ export function useListening({
       if (input.state !== 'running') {
         // El permiso se ha denegado o el dispositivo ha fallado: el mensaje ya lo
         // ha puesto la suscripción, aquí solo hay que soltar lo abierto.
-        unsubscribeRef.current?.();
-        unsubscribeRef.current = null;
-        inputRef.current = null;
+        dejarDeMirarElEstado?.();
+        dejarDeMirarElEstado = null;
         entradaSonando = null;
         return;
       }
 
       const engine = factories.current.createEngine?.() ?? new AutocorrelationPitchEngine();
-      engineRef.current = engine;
+      motorSonando = engine;
       engine.subscribeLevel((rms) => actions.setLevel(rms));
       engine.subscribe((sample) => {
         actions.setPitch(
@@ -155,7 +185,7 @@ export function useListening({
 
       if (factories.current.chords === true) {
         const chordEngine = factories.current.createChordEngine?.() ?? new ChromaChordEngine();
-        chordEngineRef.current = chordEngine;
+        motorDeAcordes = chordEngine;
         chordEngine.subscribe((chord) => {
           actions.setHeardChord(
             chord === null
@@ -182,18 +212,19 @@ export function useListening({
     [actions],
   );
 
-  // Un micrófono abierto es un recurso, y en React el sitio de cerrarlo es el
-  // return del efecto. Sin esto, recargar en caliente deja capturas colgadas.
+  // Un micrófono abierto es un recurso, y en React el sitio de soltarlo es el
+  // return de un efecto. Sin esto, recargar en caliente deja capturas colgadas.
+  //
+  // Lo que cambia respecto a antes es **cuándo**: no al irse un componente, sino
+  // al irse el último. Salir del afinador no puede cerrar el micro que abrió el
+  // botón de la barra, que vive en el marco y sigue ahí.
   useEffect(() => {
+    montados += 1;
     return () => {
-      engineRef.current?.stop();
-      chordEngineRef.current?.stop();
-      unsubscribeRef.current?.();
-      void inputRef.current?.stop();
-      engineRef.current = null;
-      chordEngineRef.current = null;
-      unsubscribeRef.current = null;
-      inputRef.current = null;
+      montados -= 1;
+      if (montados === 0) {
+        void soltarLoAbierto();
+      }
     };
   }, []);
 

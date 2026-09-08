@@ -109,7 +109,7 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
 
 No es deuda, son decisiones, y están aquí para no volver a proponerlas:
 
-- **No sube audio ni vídeo**, y no lo hará sin un ADR
+- **No sube audio**, y no lo hará sin un ADR
   ([adr/0017](./adr/0017-escuchar-la-grabacion-entera.md) lo vuelve a confirmar al
   analizar la grabación en local).
 - **No hay vidas ni corazones.** Fallar no bloquea: se explica y se sigue.

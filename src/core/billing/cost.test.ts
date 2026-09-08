@@ -254,15 +254,28 @@ describe('el reintento también se paga', () => {
     expect(requestCostMicros('versiones', 'claude-opus-5')).toBe(unaLlamada * MAX_MODEL_ATTEMPTS);
   });
 
-  it('las tres rutas reintentan lo que dice la constante', () => {
-    // Si una ruta reintentara más veces que esto, el cupo estaría calculado con
-    // un peor caso que no es el peor caso.
+  /**
+   * Si se reintentara más veces que esto, el cupo estaría calculado con un peor
+   * caso que no es el peor caso.
+   *
+   * Esto miraba las tres rutas, una a una, porque el bucle estaba copiado tres
+   * veces. Ahora hay uno solo —`server/ai-route.ts`— y las rutas no pueden
+   * separarse de él ni aunque quieran: la garantía dejó de ser que tres ficheros
+   * digan lo mismo y pasó a ser que solo haya un sitio donde decirlo.
+   */
+  it('el cuerpo común reintenta lo que dice la constante, y nadie más reintenta', () => {
+    const comun = readFileSync(
+      fileURLToPath(new URL('../../server/ai-route.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(comun, 'el cuerpo común no usa la constante').toContain('intento < MAX_MODEL_ATTEMPTS');
+
     for (const ruta of ['ideas', 'teacher', 'versiones']) {
       const codigo = readFileSync(
         fileURLToPath(new URL(`../../app/api/${ruta}/route.ts`, import.meta.url)),
         'utf8',
       );
-      expect(codigo, `${ruta} no usa la constante`).toContain('attempt < MAX_MODEL_ATTEMPTS');
+      expect(codigo, `${ruta} se escribe su propio reintento`).not.toContain('MAX_MODEL_ATTEMPTS');
     }
   });
 });

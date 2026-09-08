@@ -42,7 +42,10 @@ export function PlanLock({
       <p className={`text-text ${compact ? 'text-xs' : 'text-sm'}`}>
         {needsPlanMessage(needed, what, plural)}
       </p>
-      <PlansLink className="mt-1 inline-block" />
+      {/* Compacto es una fila estrecha dentro de otra cosa; ahí el botón se come
+          la fila y la palabra suelta hace el trabajo. En el resto, esto **es** la
+          acción de la pantalla y se ve como tal. */}
+      <PlansLink tono={compact ? 'enlace' : 'boton'} className="mt-2 inline-flex" />
       {/* Sin cuenta hace falta una, pero no se manda a otra pantalla a por ella:
           se entra desde la misma ventana del plan, sin perder por dónde ibas. */}
       {!signedIn && (

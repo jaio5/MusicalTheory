@@ -36,7 +36,7 @@ que pagues, y un `core/music` que importase precios dejaría de poder probarse s
 
 **El cobro, un puerto.** `server/billing/port.ts` declara la interfaz y hoy la
 implementa `FakeBilling`, que cambia el plan y no cobra. Es el mismo patrón que
-`AudioInput`, `CameraInput` y `SessionStorage`, donde se ganó poder probar el
+`AudioInput`, `MicInput` y `SessionStorage`, donde se ganó poder probar el
 afinador sin micrófono.
 
 La interfaz contempla ya la respuesta **«ir a pagar a otro sitio»** con una

@@ -44,6 +44,28 @@ accesibles de la rueda, el WAV que se repite en bucle—.
 que pasar `pnpm format`, o `format:check` falla. Es el fallo más tonto y el más
 repetido.
 
+**Una barra que se abre encima de algo que crece necesita `tope`.** En las
+pantallas de taller, `ui/Disclosure` va con `shrink-0` sobre una caja que crece:
+si lo que se abre mide más que la pantalla, al que crece le tocan **cero píxeles**
+y lo de debajo se queda fuera de alcance, sin scroll que valga. En un teléfono,
+abrir la rueda de quintas vaciaba componer. El `tope` lo acota y lo desplaza por
+dentro; y lo que se abre para elegir algo se pliega solo al elegirlo.
+
+**El micrófono es uno, y lo sujeta el módulo `state/use-listening.ts`, no el
+componente.** Dos botones lo abren —el del afinador y el de la barra— y el estado
+de sesión es uno: con las referencias dentro del gancho, uno podía decir «he
+parado» sin haber parado nada y el micro se quedaba abierto con el piloto
+encendido. Quien monte otro botón de escuchar **no guarda la entrada**; se suelta
+cuando no queda ningún consumidor montado.
+
+**La monoespaciada es para lo que se alinea en columna**, no para la interfaz:
+notas, cifrados, cents, hercios, compases, XP, un correo. Navegación, botones,
+pastillas y rótulos van en la sans, y el rótulo de un apartado es la clase
+`.rotulo` y no una cadena escrita a mano
+([adr/0024](docs/adr/0024-la-interfaz-se-lee-primero.md)). Llegó a estar en cerca
+de cien sitios y dejaba la aplicación con pinta de terminal. **Este no lo vigila
+ningún test**: «esto es un dato y aquello no» no se lee en una clase.
+
 ## Las capas y quién importa a quién
 
 ```
@@ -60,8 +82,8 @@ Cinco reglas, todas menos la cuarta vigiladas por ESLint:
    `ui/` o `state/`.
 3. **`audio/` y `media/` exponen interfaces que `features/` consume.** Nada de
    `AudioContext` suelto dentro de un componente.
-4. **El audio y el vídeo no salen del dispositivo.** A la IA solo viajan símbolos;
-   a la base de datos, identificadores de unidad, números y fechas.
+4. **El audio no sale del dispositivo.** A la IA solo viajan símbolos; a la base
+   de datos, identificadores de unidad, números y fechas.
 5. **`src/server/` solo lo abre `app/`, y no importa del navegador.** Un import de
    `@server/` desde un componente se lleva Postgres y la cadena de conexión al
    bundle del cliente. Vigilado en los dos sentidos.
@@ -92,7 +114,9 @@ renombrado no puede degradar a quien había pagado.
 | Volver a escuchar lo grabado, con calma                   | `audio/offline-chords.ts`, `audio/fft.ts`      |
 | Mástil, afinaciones, formas de acorde                     | `src/core/instrument/`                         |
 | Estado de sesión y persistencia                           | `src/state/` (IndexedDB)                       |
-| Grabación con cámara                                      | `src/media/`                                   |
+| Lo que se recuerda de una vez para otra                   | `state/workspace.ts` (tono, estilo, escala)    |
+| Quién abre el micro, y por qué es uno solo                | `state/use-listening.ts`                       |
+| Grabar el sonido y descargarlo                            | `src/media/`, `features/recorder/`             |
 | Rutas de servidor de la IA                                | `app/api/ideas`, `/teacher`, `/versiones`      |
 | Las puertas de toda petición a la IA                      | `server/ai-gate.ts`                            |
 | La llamada al modelo, y el único sitio con el SDK         | `server/ask-model.ts`                          |
@@ -103,6 +127,7 @@ renombrado no puede degradar a quien había pagado.
 | Una canción guardada: grados, tonalidad y secciones       | `core/music/song.ts` + `server/songs-repo.ts`  |
 | El montaje por bloques, y lo que dura cada acorde         | `core/music/arrangement.ts` + `state/`         |
 | El lienzo: arrastrar bloques, estirarlos, escucharlos     | `features/arrange/`                            |
+| El pentagrama, y la clave de sol dibujada                 | `arrange/Staff.tsx` + `arrange/clef.ts`        |
 | El punteo: alturas, figuras y cómo se escribe cada nota   | `core/music/melody.ts`                         |
 | La armadura de una tonalidad, y qué nota va en cada línea | `core/music/circle-of-fifths.ts`               |
 | Planes, permisos y si una unidad la abre el plan          | `src/core/billing/` (`plans.ts`, `access.ts`)  |
@@ -113,8 +138,18 @@ renombrado no puede degradar a quien había pagado.
 | Cuentas, contraseñas, base de datos y cupos               | `src/server/`                                  |
 | Por dónde entra texto libre, y qué lo acota               | `features/learn/teacher-contract.ts`           |
 | El marco de una pantalla y sus apartados                  | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)   |
+| Lo que se ve cuando todavía no hay nada                   | `src/ui/Vacio.tsx`, `ui/EmpezarPorTonalidad`   |
 | Leer lo que llega de fuera, y el error que contestó       | `core/parse.ts`, `state/api-error.ts`          |
 | Tokens de diseño y las dos paletas                        | `src/ui/tokens.ts` (+ espejo en `globals.css`) |
+| El cuerpo común de las tres rutas de IA                   | `server/ai-route.ts`                           |
+| Un estado que se mira y al que uno se apunta              | `core/estado-observable.ts` (`Emisor`)         |
+| Abrir y cerrar el `AudioContext`, en un solo sitio        | `audio/audio-context.ts`                       |
+| Oír una progresión desde un componente                    | `state/use-progression-player.ts`              |
+| El error de un formulario, y que se anuncie               | `src/ui/Aviso.tsx`                             |
+| Un formulario que se envía sin recargar la página         | `src/ui/Formulario.tsx`                        |
+| La tonalidad plegada en una línea, con su rueda           | `features/wheel/BarraDeTonalidad.tsx`          |
+| El rótulo de un apartado, en un solo sitio                | `.rotulo` en `app/globals.css`                 |
+| Un enlace dentro de una frase                             | `.enlace` en `app/globals.css`                 |
 
 **`/componer` tiene dos caras y un conmutador**: `Tocar` —la rueda, el acorde y sus
 formas— y `Montar`, el lienzo de bloques que se arrastran y suenan
@@ -150,7 +185,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                     |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Van veintidós.
+descartadas. Van veinticuatro.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando
@@ -162,8 +197,13 @@ ha ejecutado nunca vive en `PARA-PUBLICAR.md` y se dice que no se ha ejecutado.
 
 ## Lo que este proyecto no hace
 
-- **No sube audio ni vídeo.** Ni una línea de código de subida, y no la habrá sin
-  un ADR. Con cuenta sí sube el avance: identificadores, números y fechas.
+- **No sube audio.** Ni una línea de código de subida, y no la habrá sin un ADR.
+  Con cuenta sí sube el avance: identificadores, números y fechas.
+- **No graba vídeo.** Lo hizo —cámara detrás de la interfaz, datos quemados
+  encima— y se quitó entera con su capa y su bloque de CSS: pedía trípode,
+  pantalla grande y el permiso más caro que hay, para un fichero que había que
+  abrir en otro programa ([adr/0023](docs/adr/0023-grabar-solo-el-sonido.md)).
+  Ahora se graba el sonido, se oye ahí mismo y se descarga si vale.
 - **No cobra todavía.** El cobrador de hoy cambia el plan sin cobrar, a propósito y
   con su ADR. Se cobrará al publicar; lo que eso pide está en `PARA-PUBLICAR.md`.
 - **No tiene vidas ni corazones.** Fallar no bloquea: se explica y se sigue.
@@ -175,6 +215,11 @@ ha ejecutado nunca vive en `PARA-PUBLICAR.md` y se dice que no se ha ejecutado.
   con plan gratis y el avance se queda en su navegador.
 - **No manda correos sin configurarlo**, y la pantalla lo dice en vez de prometer
   un correo que no llega.
+- **No detecta la tonalidad rasgueando.** Sale de un histograma de alturas que
+  llena el motor de tono, y ese es monofónico: con un acorde sonando no entrega
+  ninguna nota. Con la escala tarda cuatro segundos; con acordes no llega nunca.
+  La interfaz lo dice así —«toca unas notas sueltas»— desde que se comprobó con
+  dos ficheros por el micrófono falso.
 - La detección de tono es **monofónica** y pide señal limpia. Para acordes hay otro
   análisis, y el reconocimiento **duda con inversiones**: el croma olvida la
   octava, así que C/E y C son el mismo vector. Lo que sí hace es **decir cuándo

@@ -332,7 +332,7 @@ Cinco tablas y nada más (`src/server/db/schema.ts`):
   tonalidad, el tempo y **los grados**, nunca los cifrados: por eso una canción
   guardada se puede abrir en otro tono sin traducir nada.
 
-**Ni una muestra de audio ni un fotograma de vídeo.** Eso no sale del equipo, y las
+**Ni una muestra de audio.** Eso no sale del equipo, y las
 cuentas no han cambiado eso: lo que viaja del progreso son identificadores de
 unidad, números y fechas, y lo que viaja de una canción son grados, un número y
 nombres de sección.

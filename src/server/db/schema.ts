@@ -9,7 +9,7 @@
  * una dirección —desde que puede haber más de un servidor— y los vales para
  * recuperar una contraseña olvidada.
  *
- * **Ni audio ni vídeo, aquí tampoco.** Lo que se guarda del progreso son
+ * **Nada de audio, aquí tampoco.** Lo que se guarda del progreso son
  * identificadores de unidad, números y fechas; lo que se guarda de una canción
  * son grados, un tempo y nombres de sección. Ni una muestra de sonido.
  */
@@ -191,7 +191,7 @@ export const rateLimits = pgTable('rate_limits', {
  * está duplicado dentro de `data`; el nombre vive aquí y solo aquí.
  *
  * Lo que hay en `data` son **grados**, no cifrados, y eso lo decide
- * `core/music/song.ts`. Ni audio ni vídeo, aquí tampoco.
+ * `core/music/song.ts`. Nada de audio, aquí tampoco.
  */
 export const songs = pgTable(
   'songs',

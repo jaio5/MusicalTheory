@@ -9,6 +9,7 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
 import { PlansLink, seArreglaConPlan } from '@ui/PlansLink';
+import { Aviso } from '@ui/Aviso';
 
 import {
   MAX_QUESTION_LENGTH,
@@ -46,7 +47,7 @@ export interface TeacherProps {
  * El profesor: preguntas de teoría contestadas en la tonalidad en la que estás.
  *
  * Lo que viaja al modelo es la tonalidad, la escala y lo que escribas. El audio
- * y el vídeo no salen del equipo, y esta pantalla no los toca.
+ * no sale del equipo, y esta pantalla no lo toca.
  */
 export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
   const { account, signedIn, refresh } = useAccount();
@@ -128,8 +129,12 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
             className="border-border bg-surface text-text placeholder:text-text-muted focus:border-brass-dim min-h-tap w-full rounded-md border px-3 text-sm transition-colors"
           />
         </label>
-        <Button type="submit" disabled={asking || activeKey === null || question.trim() === ''}>
-          {asking ? 'Pensando' : 'Preguntar'}
+        <Button
+          type="submit"
+          cargando={asking}
+          disabled={asking || activeKey === null || question.trim() === ''}
+        >
+          {asking ? 'Pensando…' : 'Preguntar'}
         </Button>
       </form>
 
@@ -161,7 +166,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
       {!signedIn && (
         <p className="text-text-muted text-xs">
           El profesor pide cuenta: es lo que permite contar el gasto por persona y no por navegador.{' '}
-          <Link href="/cuenta" className="text-brass-bright hover:text-brass underline">
+          <Link href="/cuenta" className="enlace">
             Entrar
           </Link>
           .
@@ -169,9 +174,13 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
       )}
 
       {!compact && answer === null && message === null && !asking && (
-        <ul className="flex flex-wrap gap-1">
+        // En rejilla de dos, no en fila que envuelve: las cuatro miden cosas
+        // distintas y envueltas salían dos arriba y dos abajo con anchos
+        // desiguales, que se lee como una lista rota. En dos columnas iguales se
+        // recorren de un vistazo, que es para lo que están.
+        <ul className="grid gap-2 sm:grid-cols-2">
           {OPENERS.map((opener) => (
-            <li key={opener}>
+            <li key={opener} className="flex">
               {/*
                 Sin tonalidad rellenan el campo en vez de estar muertos.
 
@@ -182,7 +191,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
               */}
               <Chip
                 tone="quiet"
-                className="text-left text-xs"
+                className="w-full justify-start px-3 text-left text-xs"
                 onClick={() => {
                   setQuestion(opener);
                   if (activeKey !== null) {
@@ -199,7 +208,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
 
       {message !== null && (
         <div role="alert">
-          <p className="text-oxblood-bright text-sm">{message.text}</p>
+          <Aviso mensaje={message.text} anuncio="ninguno" />
           {/* Si lo que falta es plan, la salida está a un clic y en la pantalla
               donde se ve qué trae cada uno. */}
           {seArreglaConPlan(message.code, account.plan) && (
@@ -212,7 +221,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
         <div className="border-border border-l-2 pl-3">
           <p className="text-text text-sm">{answer.answer}</p>
           {answer.example !== undefined && (
-            <p className="text-text-muted mt-1 font-mono text-xs">
+            <p className="text-text-muted mt-1 text-xs">
               {answer.example.chords.join(' → ')}
               <span className="ml-2">({answer.example.degrees.join(' ')})</span>
             </p>

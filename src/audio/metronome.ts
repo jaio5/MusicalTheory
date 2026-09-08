@@ -12,6 +12,8 @@
 
 import { clampBpm, DEFAULT_BEATS_PER_BAR } from '@core/music';
 
+import { cerrarContexto, contextoDespierto } from './audio-context';
+
 export interface MetronomeOptions {
   readonly bpm: number;
   /** Cuántos pulsos por compás. El primero suena más agudo. */
@@ -65,13 +67,10 @@ export class WebAudioMetronome implements Metronome {
     this.#beatsPerBar = Math.max(1, Math.round(beatsPerBar));
     this.#onBeat = onBeat;
 
-    // El contexto se crea en el primer uso, que siempre viene de una pulsación:
-    // crearlo antes lo dejaría suspendido por la política de autoreproducción.
-    this.#context ??= new AudioContext();
-    const context = this.#context;
-    if (context.state === 'suspended') {
-      await context.resume();
-    }
+    // Se crea en el primer uso, que siempre viene de una pulsación: creado
+    // antes, la política de autoreproducción lo deja suspendido.
+    const context = await contextoDespierto(this.#context);
+    this.#context = context;
 
     this.#beat = 0;
     this.#nextBeatAt = context.currentTime + 0.1;
@@ -94,9 +93,7 @@ export class WebAudioMetronome implements Metronome {
     this.stop();
     const context = this.#context;
     this.#context = null;
-    if (context !== null && context.state !== 'closed') {
-      await context.close();
-    }
+    await cerrarContexto(context);
   }
 
   #schedule(): void {

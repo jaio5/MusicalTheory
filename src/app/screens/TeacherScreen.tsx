@@ -44,7 +44,10 @@ export function TeacherScreen() {
 
         Es el mismo patrón que usan la unidad y el afinador, y por lo mismo.
       */}
-      <section aria-label="Tonalidad" className="border-border border p-4">
+      {/* Con relieve y con el relleno justo: cerrada es **una línea**, y una caja
+          de cuatro de relleno alrededor de un renglón deja ochenta píxeles de
+          hueco que no dicen nada. Abierta, el relleno lo pone lo de dentro. */}
+      <section aria-label="Tonalidad" className="superficie px-4 py-1">
         <Disclosure
           abierto={activeKey === null}
           summary={
@@ -62,7 +65,7 @@ export function TeacherScreen() {
             <KeyPanel compact />
             <p className="text-text-muted max-w-prose min-w-0 text-sm">
               {activeKey === null
-                ? 'Elige una en la rueda, o toca unos compases con el micro abierto y se detecta sola.'
+                ? 'Elígela en la rueda, o toca unas notas sueltas con el micro abierto y se detecta sola.'
                 : 'Cámbiala y la misma pregunta se contesta con otros acordes.'}
             </p>
           </div>
@@ -78,11 +81,13 @@ export function TeacherScreen() {
             Pro. */}
       {!can(account.plan, 'profesor-con-progreso') && (
         <Section title="Con el plan Pro">
+          {/* Aquí no es compacto: es el contenido entero de un apartado, y su
+              enlace es lo único que se puede hacer en él. Compacto es para una
+              fila estrecha metida dentro de otra cosa, como la del camino. */}
           <PlanLock
             needed={cheapestPlanWith('profesor-con-progreso')}
             what="Un profesor que sabe qué unidades llevas hechas"
             signedIn={signedIn}
-            compact
           />
         </Section>
       )}
@@ -91,7 +96,7 @@ export function TeacherScreen() {
         Tu plan {plan.name} incluye {monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA
         al mes —hasta {dailyAiRequests(plan.id, account.aiModel)} en un mismo día—, contando las
         preguntas de aquí y las ideas de componer. A la IA solo viajan símbolos: la tonalidad, la
-        escala y lo que escribas. Ni audio, ni vídeo.
+        escala y lo que escribas. Nada de audio.
       </p>
     </Screen>
   );

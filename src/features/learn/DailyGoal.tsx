@@ -50,9 +50,7 @@ export function DailyGoal({
         </ProgressRing>
 
         <div className="min-w-0 grow">
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            La meta de hoy
-          </p>
+          <p className="rotulo">La meta de hoy</p>
           <p className="text-text mt-0.5 text-sm">
             {parte >= 1 ? (
               <span className="text-tube-bright">Hecha. Lo de ahora es de propina.</span>
@@ -113,7 +111,7 @@ export function DailyGoal({
               ? 'Tienes una pregunta para repasar'
               : `Tienes ${pendientes} preguntas para repasar`}
           </span>
-          <span className="text-brass-bright shrink-0 font-mono text-xs">Repasar</span>
+          <span className="text-brass-bright shrink-0 text-xs font-semibold">Repasar</span>
         </button>
       )}
     </div>

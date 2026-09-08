@@ -46,7 +46,7 @@ describe('Panel de aprender', () => {
 
   it('pide una tonalidad antes de poder practicar', () => {
     renderPanel();
-    expect(screen.getByText(/elige una tonalidad o toca unos compases/i)).toBeInTheDocument();
+    expect(screen.getByText(/elige una tonalidad o toca unas notas sueltas/i)).toBeInTheDocument();
   });
 
   it('propone la escala de la tonalidad activa', async () => {

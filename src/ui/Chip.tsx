@@ -19,6 +19,14 @@ import type { ReactNode } from 'react';
  * pantalla no ve el borde de latón. `acierto` y `fallo` son los dos colores que
  * necesita una respuesta ya contestada, y están aquí y no sueltos en la pregunta
  * porque son la misma pieza en otro estado, no otra pieza.
+ *
+ * **La letra es la sans, no la monoespaciada.** Lo era, y con eso las respuestas
+ * de una pregunta, las pestañas del taller y los botones del metrónomo se leían
+ * como la salida de un terminal. La monoespaciada de esta aplicación es para lo
+ * que se alinea en columna y se compara dígito a dígito —cents, hercios,
+ * compases, un cifrado— y una pastilla no es nada de eso. Lo que sí conserva la
+ * mono es su contenido cuando *es* un dato: quien la usa pasa `font-mono` en
+ * `className`, que es una decisión por sitio y no por componente.
  */
 const TONOS = {
   normal: 'border-border text-text enabled:hover:border-brass-dim enabled:hover:bg-surface-raised',
@@ -65,7 +73,15 @@ export function Chip({
       aria-pressed={pressed}
       title={title}
       aria-label={ariaLabel}
-      className={`min-h-tap inline-flex items-center justify-center rounded-md border px-3 font-mono text-sm transition-[background-color,border-color,color,box-shadow,transform] duration-150 enabled:active:translate-y-px disabled:cursor-default disabled:opacity-40 ${
+      // **Lo corregido no se apaga.** Al contestar, las opciones se desactivan y
+      // el `disabled:opacity-40` las dejaba todas al cuarenta por ciento: la
+      // acertada en verde y la fallada en rojo son justo lo que hay que leer
+      // entonces, y quedaban por debajo del contraste mínimo. Se apaga lo que ya
+      // no dice nada —las opciones que ni eran ni se eligieron— y se queda a todo
+      // color lo que corrige.
+      className={`min-h-tap inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border px-3.5 text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 enabled:active:translate-y-px disabled:cursor-default ${
+        corregido ? '' : 'disabled:opacity-40'
+      } ${
         marcado ? 'border-brass-bright text-brass-bright bg-surface-raised filo-latón' : TONOS[tone]
       } ${className}`}
     >

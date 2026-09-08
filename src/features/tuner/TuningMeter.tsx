@@ -1,4 +1,4 @@
-import { meterOffset, METER_RANGE_CENTS, type TuningStatus } from './tuning';
+import { IN_TUNE_CENTS, meterOffset, METER_RANGE_CENTS, type TuningStatus } from './tuning';
 
 export interface TuningMeterProps {
   readonly cents: number;
@@ -24,6 +24,29 @@ export function TuningMeter({ cents, status }: TuningMeterProps) {
     // lee a un metro.
     <div aria-hidden="true" className="relative h-28 w-full max-w-xl">
       <div className="border-border bg-surface absolute inset-x-0 top-7 h-14 rounded-md border" />
+
+      {/*
+        La franja del centro: **dónde hay que dejar la aguja**.
+
+        Sin ella, la escala dice dónde estás pero no adónde vas: hay que leer los
+        números, calcular si cinco cents es mucho o poco y decidir. Con la franja
+        se afina mirando, que es lo que se hace de reojo con la mano en la
+        clavija. Se enciende en verde en cuanto la aguja entra, y ese cambio de
+        color es la respuesta antes que ninguna palabra.
+
+        Mide lo que mide la tolerancia de verdad —`IN_TUNE_CENTS` sobre el rango
+        de la escala—, no un ancho a ojo: si algún día se aprieta a tres cents, la
+        franja se estrecha sola.
+      */}
+      <div
+        className={`absolute top-7 h-14 transition-colors duration-150 ${
+          status === 'afinada' ? 'bg-tube/40' : 'bg-brass-dim/20'
+        }`}
+        style={{
+          left: `${50 - (IN_TUNE_CENTS / METER_RANGE_CENTS) * 50}%`,
+          width: `${(IN_TUNE_CENTS / METER_RANGE_CENTS) * 100}%`,
+        }}
+      />
 
       {TICKS.map((tick) => (
         <div

@@ -10,6 +10,7 @@ import { Button, estiloBoton } from '@ui/Button';
 
 import { AccessForm } from './AccessForm';
 import { ETIQUETAS } from './PlanCards';
+import { Aviso } from '@ui/Aviso';
 
 /**
  * La ventana de pagar un plan concreto.
@@ -76,9 +77,7 @@ export function Checkout({
     return (
       <div className="flex flex-col gap-4">
         <div>
-          <p className="text-tube-bright font-mono text-xs tracking-widest uppercase">
-            {done ? 'Plan activado' : 'Ya lo tienes'}
-          </p>
+          <p className="rotulo text-tube-bright">{done ? 'Plan activado' : 'Ya lo tienes'}</p>
           <h2 className="text-text mt-1 text-2xl">Tienes el plan {plan.name}</h2>
           <p className="text-text-muted mt-2 max-w-prose text-sm">
             {can(plan.id, 'grado-profesional')
@@ -101,9 +100,7 @@ export function Checkout({
   return (
     <div className="flex flex-col gap-6">
       <section aria-label="Qué vas a contratar">
-        <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">
-          Lo que vas a contratar
-        </h2>
+        <h2 className="rotulo">Lo que vas a contratar</h2>
 
         <div className="border-border mt-3 border">
           <div className="border-border flex items-baseline justify-between gap-4 border-b px-4 py-3">
@@ -127,7 +124,7 @@ export function Checkout({
                     </span>
                     <span className="text-text">{label}</span>
                     {nuevo && esSubida && (
-                      <span className="text-brass-bright font-mono text-xs">nuevo</span>
+                      <span className="text-brass-bright text-xs font-medium">nuevo</span>
                     )}
                   </li>
                 );
@@ -165,9 +162,7 @@ export function Checkout({
         </p>
       ) : !signedIn ? (
         <section aria-label="Entrar para continuar">
-          <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            Primero, tu cuenta
-          </h2>
+          <h2 className="rotulo">Primero, tu cuenta</h2>
           <p className="text-text-muted mt-1 mb-3 max-w-prose text-sm">
             El plan va asociado a una cuenta. Al entrar te quedas aquí y sigues con el plan{' '}
             {plan.name}.
@@ -176,7 +171,7 @@ export function Checkout({
         </section>
       ) : (
         <section aria-label="Confirmar">
-          <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">Confirmar</h2>
+          <h2 className="rotulo">Confirmar</h2>
 
           {/* Lo que sigue es la frase más importante de la pantalla y va antes del
               botón, no debajo en letra pequeña. */}
@@ -205,11 +200,7 @@ export function Checkout({
             </Button>
           </div>
 
-          {error !== null && (
-            <p className="text-oxblood-bright mt-3 text-sm" aria-live="polite">
-              {error}
-            </p>
-          )}
+          <Aviso mensaje={error} className="mt-3" />
         </section>
       )}
 

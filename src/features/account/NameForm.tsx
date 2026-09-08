@@ -6,6 +6,8 @@ import { MAX_NAME_LENGTH } from '@core/billing';
 import { updateAccount, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
+import { Aviso } from '@ui/Aviso';
+import { Formulario } from '@ui/Formulario';
 
 /**
  * Cómo quieres que te llamen.
@@ -50,13 +52,7 @@ export function NameForm() {
   }
 
   return (
-    <form
-      className="flex max-w-sm flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
+    <Formulario onEnviar={submit}>
       <TextField
         label="Cómo te llamas"
         type="text"
@@ -70,22 +66,14 @@ export function NameForm() {
         placeholder="Sin poner nada, se usa tu correo"
       />
 
-      {error !== null && (
-        <p className="text-oxblood-bright text-sm" aria-live="polite">
-          {error}
-        </p>
-      )}
-      {hecho && (
-        <p className="text-tube-bright text-sm" aria-live="polite">
-          Guardado.
-        </p>
-      )}
+      <Aviso mensaje={error} />
+      <Aviso mensaje={hecho && 'Guardado.'} tono="hecho" />
 
       <div>
         <Button type="submit" disabled={working || name === (account.name ?? '')}>
           {working ? 'Un momento...' : 'Guardar el nombre'}
         </Button>
       </div>
-    </form>
+    </Formulario>
   );
 }

@@ -21,12 +21,13 @@ Cada pantalla hace una cosa:
   validadas por el micro.
 - **Profesor** — pregunta lo que sea de teoría y te lo explica en tres frases con los
   acordes de tu tonalidad.
-- **Componer** — eliges tonalidad en la rueda, encadenas acordes y ves de cuántas
-  maneras se hacen a lo largo del mástil y a dónde puedes ir desde ahí. Reconoce el
-  acorde que estás tocando, lleva metrónomo y te graba con la cámara detrás de la
-  interfaz. Y **graba un trozo**: al parar lo vuelve a escuchar entero con calma y
-  te ofrece salidas —canciones distintas que arrancan de lo que llevas, con sus
-  partes—, comprobadas contra la teoría antes de enseñártelas.
+- **Componer** — eliges tonalidad en la rueda, encadenas acordes y los oyes, y ves
+  de cuántas maneras se hacen a lo largo del mástil y a dónde puedes ir desde ahí.
+  Reconoce el acorde que estás tocando y lleva metrónomo. Además monta la canción
+  por bloques, en partitura o arrastrándolos. Y **graba un trozo**: solo el sonido,
+  que te suena ahí mismo y te descargas si vale; al parar lo vuelve a escuchar
+  entero con calma y te ofrece salidas —canciones distintas que arrancan de lo que
+  llevas, con sus partes—, comprobadas contra la teoría antes de enseñártelas.
 - **Afinar** — ocho afinaciones, de la estándar al open D, y nada más en
   pantalla.
 
@@ -139,7 +140,7 @@ La detección de tono es **monofónica** y necesita señal sin distorsión.
 
 ## Privacidad
 
-El audio y el vídeo no salen del dispositivo. No hay una línea de código de subida.
+El audio no sale del dispositivo. No hay una línea de código de subida.
 A la IA solo viajan símbolos: tonalidad, escala, nombres de notas y grado actual.
 Con cuenta se guarda además tu avance del temario —identificadores de unidad, números
 y fechas— y tu contraseña cifrada; nunca una muestra de sonido. Ver

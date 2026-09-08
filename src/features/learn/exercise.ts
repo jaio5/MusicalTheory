@@ -197,3 +197,23 @@ export function exerciseCompletion(progress: ExerciseProgress, exercise: Exercis
   }
   return Math.min(1, progress.index / exercise.steps.length);
 }
+
+/**
+ * Lo que toda pregunta de una unidad necesita, sea de las que se contestan
+ * pulsando o de las que se contestan tocando.
+ *
+ * Estaba escrito igual en `Question` y en `PlayNote`, y quien las coloca
+ * —`TheoryUnit`, `EarUnit`, `ReviewSession`— les pasa exactamente lo mismo. Un
+ * tipo compartido es lo que impide que una de las dos se quede sin `position`
+ * el día que se añada la tercera.
+ */
+export interface PasoContestable {
+  /** Cuál es de cuántas, para poder decir «3 de 4». Empieza en 1. */
+  readonly position: number;
+  readonly total: number;
+  /** Qué dice el botón en la última: «Terminar la unidad», «Terminar el repaso». */
+  readonly lastLabel: string;
+  /** Se avisa una vez, al contestar, diciendo si se acertó. */
+  readonly onAnswered: (correct: boolean) => void;
+  readonly onNext: () => void;
+}

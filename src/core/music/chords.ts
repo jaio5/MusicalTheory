@@ -13,7 +13,7 @@ import {
   type NoteName,
   type PitchClass,
 } from './notes';
-import { scaleNotes, SCALES, type HeptatonicScaleId } from './scales';
+import { scaleNotes, type HeptatonicScaleId } from './scales';
 
 export type ChordQuality = 'major' | 'minor' | 'diminished' | 'augmented';
 
@@ -42,14 +42,6 @@ const QUALITY_SUFFIX: Readonly<Record<ChordQuality, string>> = {
 };
 
 const ROMAN_NUMERALS: readonly string[] = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
-
-/** Nombre en español de cada especie, para los textos de la interfaz. */
-export const QUALITY_NAMES: Readonly<Record<ChordQuality, string>> = {
-  major: 'mayor',
-  minor: 'menor',
-  diminished: 'disminuido',
-  augmented: 'aumentado',
-};
 
 /**
  * Deduce la especie a partir de los dos intervalos que forman la tríada.
@@ -110,6 +102,32 @@ export function chordNoteNames(
 }
 
 /**
+ * La nota que queda `salto` terceras por encima de un grado de la escala.
+ *
+ * Es lo único que compartían las tríadas y las cuatríadas, y era la parte con
+ * trampa de las dos: subir de dos en dos escalones **dando la vuelta** al llegar
+ * al final —el V grado coge su séptima del IV, una octava más arriba— y
+ * comprobar que la escala tenga los siete escalones que eso da por hecho.
+ * Estaba escrito dos veces, con la única diferencia de si se paraba en la quinta
+ * o en la séptima.
+ *
+ * Devuelve una nota y no `PitchClass | undefined`: la comprobación vive aquí, y
+ * así quien apila terceras no tiene que repetirla por cada nota que apila.
+ */
+function escalon(
+  notes: readonly PitchClass[],
+  scaleId: HeptatonicScaleId,
+  degree: Degree,
+  salto: number,
+): PitchClass {
+  const nota = notes[(degree - 1 + salto * 2) % notes.length];
+  if (nota === undefined) {
+    throw new RangeError(`La escala ${scaleId} no tiene siete notas.`);
+  }
+  return nota;
+}
+
+/**
  * Las siete tríadas de una tonalidad, en orden de grado.
  *
  * Solo acepta escalas de siete notas: apilar terceras sobre una pentatónica
@@ -121,17 +139,11 @@ export function diatonicTriads(
   accidental: Accidental = 'sharp',
 ): DiatonicChord[] {
   const notes = scaleNotes(tonic, scaleId);
-  const size = SCALES[scaleId].intervals.length;
 
   return DEGREES.map((degree) => {
-    const index = degree - 1;
-    const root = notes[index];
-    const third = notes[(index + 2) % size];
-    const fifth = notes[(index + 4) % size];
-
-    if (root === undefined || third === undefined || fifth === undefined) {
-      throw new RangeError(`La escala ${scaleId} no tiene siete notas.`);
-    }
+    const root = escalon(notes, scaleId, degree, 0);
+    const third = escalon(notes, scaleId, degree, 1);
+    const fifth = escalon(notes, scaleId, degree, 2);
 
     const quality = qualityFromIntervals(
       normalizePitchClass(third - root),
@@ -196,16 +208,6 @@ const SEVENTH_ROMAN: Readonly<Record<SeventhQuality, { upper: boolean; suffix: s
   augmentedMajor7: { upper: true, suffix: '+maj7' },
 };
 
-export const SEVENTH_QUALITY_NAMES: Readonly<Record<SeventhQuality, string>> = {
-  major7: 'mayor séptima',
-  dominant7: 'dominante',
-  minor7: 'menor séptima',
-  halfDiminished7: 'semidisminuido',
-  diminished7: 'disminuido séptima',
-  minorMajor7: 'menor con séptima mayor',
-  augmentedMajor7: 'aumentado con séptima mayor',
-};
-
 export interface SeventhChord {
   readonly degree: Degree;
   readonly root: PitchClass;
@@ -256,18 +258,12 @@ export function diatonicSevenths(
   accidental: Accidental = 'sharp',
 ): SeventhChord[] {
   const notes = scaleNotes(tonic, scaleId);
-  const size = SCALES[scaleId].intervals.length;
 
   return DEGREES.map((degree) => {
-    const index = degree - 1;
-    const root = notes[index];
-    const third = notes[(index + 2) % size];
-    const fifth = notes[(index + 4) % size];
-    const seventh = notes[(index + 6) % size];
-
-    if (root === undefined || third === undefined || fifth === undefined || seventh === undefined) {
-      throw new RangeError(`La escala ${scaleId} no tiene siete notas.`);
-    }
+    const root = escalon(notes, scaleId, degree, 0);
+    const third = escalon(notes, scaleId, degree, 1);
+    const fifth = escalon(notes, scaleId, degree, 2);
+    const seventh = escalon(notes, scaleId, degree, 3);
 
     const quality = seventhQualityFromIntervals(
       normalizePitchClass(third - root),

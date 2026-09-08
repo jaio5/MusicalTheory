@@ -15,6 +15,8 @@ import {
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { IconoGrieta } from '@ui/icons';
+import { Vacio } from '@ui/Vacio';
 
 import { createExercise, type ExerciseStep } from './exercise';
 import { PlayNote } from './PlayNote';
@@ -80,12 +82,10 @@ export function ReviewSession({
 
   if (activeKey === null) {
     return (
-      <div className="p-4">
-        <p className="text-text-muted max-w-prose text-sm">
-          Elige una tonalidad para repasar: las preguntas se vuelven a generar con sus acordes, y
-          sin tonalidad no hay acordes con los que preguntar.
-        </p>
-      </div>
+      <Vacio icono={<IconoGrieta />} titulo="Elige una tonalidad para repasar">
+        Las preguntas se vuelven a generar con sus acordes, así que sin tonalidad no hay acordes con
+        los que preguntar. Está en la rueda de aquí arriba.
+      </Vacio>
     );
   }
 

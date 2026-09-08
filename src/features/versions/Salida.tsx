@@ -40,9 +40,7 @@ export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: Salid
           <h3 className="text-text text-base">{version.title}</h3>
           {/* Por dónde ha tirado. Es lo que separa una salida de otra, y
                 sin ello tres propuestas parecen tres caprichos. */}
-          <span className="text-text-muted block font-mono text-xs uppercase">
-            {pathById(version.path)?.name ?? version.path}
-          </span>
+          <span className="rotulo block">{pathById(version.path)?.name ?? version.path}</span>
         </span>
         <span className="flex flex-wrap gap-2">
           {/* Escuchar antes que ponerla: comparar tres versiones
@@ -64,7 +62,7 @@ export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: Salid
                 con una sola sería un rótulo de adorno encima de lo mismo
                 de siempre. */}
           {version.sections.length > 1 && (
-            <p className="text-text-muted font-mono text-xs uppercase">
+            <p className="rotulo">
               {seccion.name}
               {seccion.yours && <span className="text-brass-bright"> · lo que tocaste</span>}
             </p>

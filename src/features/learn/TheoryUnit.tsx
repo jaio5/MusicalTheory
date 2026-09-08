@@ -5,6 +5,9 @@ import { useMemo, useState } from 'react';
 import { lessonNotes, type TheoryUnit as TheoryUnitDef } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 
+import { Vacio } from '@ui/Vacio';
+import { IconoTeoria } from '@ui/icons';
+
 import { Question } from './Question';
 import { Tutor } from './Tutor';
 
@@ -45,9 +48,10 @@ export function TheoryUnit({
 
   if (activeKey === null || notes === null) {
     return (
-      <p className="text-text-muted p-4 text-sm">
-        Elige una tonalidad y te explico esto con tus acordes, no con los de un libro.
-      </p>
+      <Vacio icono={<IconoTeoria />} titulo="Elige una tonalidad para empezar">
+        La explicación y las preguntas se escriben con <strong>tus</strong> acordes, no con los de
+        un libro: sin tonalidad no hay acordes de los que hablar. Está en la rueda de aquí arriba.
+      </Vacio>
     );
   }
 
@@ -66,9 +70,7 @@ export function TheoryUnit({
 
       {exercise !== undefined && (
         <div className="border-border mt-6 max-w-prose border-t pt-4">
-          <h3 className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            Compruébalo
-          </h3>
+          <h3 className="rotulo">Compruébalo</h3>
 
           <Question
             exercise={exercise}

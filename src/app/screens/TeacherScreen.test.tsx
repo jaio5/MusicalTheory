@@ -49,7 +49,11 @@ describe('El profesor', () => {
     pintar();
 
     expect(screen.getByText(/ninguna tonalidad todavía/)).toBeInTheDocument();
-    expect(screen.getByText(/Elige una en la rueda/)).toBeInTheDocument();
+    expect(screen.getByText(/Elígela en la rueda/)).toBeInTheDocument();
+    // Y **notas sueltas**, no «unos compases»: la tonalidad se deduce del
+    // histograma de alturas, y ese lo llena el motor de tono, que es monofónico.
+    // Rasgueando acordes no entra ni una nota y no se detecta nada.
+    expect(screen.getByText(/notas sueltas/)).toBeInTheDocument();
   });
 
   it('con tonalidad, dice en cuál está explicando', () => {
@@ -64,11 +68,11 @@ describe('El profesor', () => {
   });
 
   it('dice el cupo del plan y que a la IA solo viajan simbolos', () => {
-    // Es la regla 4 de la arquitectura dicha donde se puede leer: ni audio ni
-    // vídeo salen del dispositivo.
+    // Es la regla 4 de la arquitectura dicha donde se puede leer: el audio no
+    // sale del dispositivo.
     pintar();
 
-    expect(screen.getByText(/Ni audio, ni vídeo/)).toBeInTheDocument();
+    expect(screen.getByText(/Nada de audio/)).toBeInTheDocument();
   });
 
   it('a quien no tiene Pro le enseña qué le falta', () => {

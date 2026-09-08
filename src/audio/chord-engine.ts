@@ -15,6 +15,7 @@ import { readChord, type Accidental, type ChordReading } from '@core/music';
 
 import type { AudioInput } from './audio-input';
 import { chromaFromSpectrum } from './chroma';
+import { Emisor } from '@core/estado-observable';
 
 export interface ChordEngineOptions {
   /** Análisis por segundo. */
@@ -63,7 +64,7 @@ export interface ChordEngine {
 export class ChromaChordEngine implements ChordEngine {
   readonly options: ChordEngineOptions;
 
-  readonly #listeners = new Set<(chord: ChordReading | null) => void>();
+  readonly #oidos = new Emisor<ChordReading | null>();
   #input: AudioInput | null = null;
   #spectrum: Float32Array<ArrayBuffer> | null = null;
   #timer: ReturnType<typeof setInterval> | null = null;
@@ -111,10 +112,7 @@ export class ChromaChordEngine implements ChordEngine {
   }
 
   subscribe(listener: (chord: ChordReading | null) => void): () => void {
-    this.#listeners.add(listener);
-    return () => {
-      this.#listeners.delete(listener);
-    };
+    return this.#oidos.suscribir(listener);
   }
 
   #analyse(): void {
@@ -154,8 +152,6 @@ export class ChromaChordEngine implements ChordEngine {
     }
 
     this.#announced = symbol;
-    for (const listener of this.#listeners) {
-      listener(reading);
-    }
+    this.#oidos.emitir(reading);
   }
 }

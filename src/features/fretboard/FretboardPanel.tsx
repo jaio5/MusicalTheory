@@ -23,7 +23,8 @@ export function FretboardPanel() {
     <div className="flex min-h-0 flex-col">
       {activeKey === null ? (
         <p className="text-text-muted mt-6 shrink-0">
-          Toca unos compases o elige una tonalidad arriba, y aquí sale la escala sobre el mástil.
+          Toca unas notas sueltas o elige una tonalidad arriba, y aquí sale la escala sobre el
+          mástil.
         </p>
       ) : (
         <>

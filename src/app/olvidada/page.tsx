@@ -49,7 +49,7 @@ export default async function Olvidada({
           <p className="text-text-muted max-w-prose text-sm">
             Esta copia de la aplicación no manda correo, así que no se puede recuperar la contraseña
             desde aquí. Si sabes la que tienes, se cambia en{' '}
-            <Link href="/cuenta#contrasena" className="text-brass-bright underline">
+            <Link href="/cuenta#contrasena" className="enlace">
               tu cuenta
             </Link>
             .

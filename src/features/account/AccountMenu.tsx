@@ -122,7 +122,7 @@ export function AccountMenu() {
           <div className="border-border border-b px-3 py-2">
             <p className="text-text truncate text-sm">{nombre}</p>
             <p className="text-text-muted truncate font-mono text-xs">{account.email}</p>
-            <p className="text-brass-bright mt-1 font-mono text-xs">Plan {planName}</p>
+            <p className="text-brass-bright mt-1 text-xs font-medium">Plan {planName}</p>
           </div>
 
           <ul className="py-1">

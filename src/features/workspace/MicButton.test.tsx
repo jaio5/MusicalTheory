@@ -115,36 +115,45 @@ describe('el boton de escuchar', () => {
     );
   });
 
-  it('sin escuchar no hay nota, y lo dice en vez de dejar un hueco', () => {
+  /**
+   * Apagado, esto es **un botón y nada más**.
+   *
+   * Estuvo al revés: un hueco fijo con un guion y el rótulo «sin escuchar»
+   * debajo, en la esquina más cara de la pantalla y esté pasando algo o no. En la
+   * cabecera de una aplicación que se usa con la guitarra puesta, media franja
+   * izquierda reservada a decir que no pasa nada es sitio robado a lo que sí
+   * pasa. Lo que se prueba es que ese hueco ya no existe.
+   */
+  it('apagado no reserva sitio para una lectura que no hay', () => {
     pintar();
 
-    expect(screen.getByText('—')).toBeInTheDocument();
-    expect(screen.getByText('sin escuchar')).toBeInTheDocument();
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
+    expect(screen.queryByText('esperando')).not.toBeInTheDocument();
   });
 
-  it('la nota que suena va dentro del propio boton, no en otro sitio', () => {
-    // Escuchar y lo que se oye son el mismo objeto, y así ocupan un sitio en vez
-    // de dos.
+  it('la nota que suena sale al lado del boton en cuanto se escucha', async () => {
     useSessionStore.setState({
       reading: { name: 'A', pitchClass: 9, octave: 2, cents: -7, frequency: 110, midi: 45 },
       hasSignal: true,
     });
 
     pintar();
+    await userEvent.click(screen.getByRole('button'));
 
-    expect(screen.getByText('A2')).toBeInTheDocument();
-    expect(screen.getByText('-7 cents')).toBeInTheDocument();
+    expect(await screen.findByText('A2')).toBeInTheDocument();
+    expect(screen.getByText('-7¢')).toBeInTheDocument();
   });
 
-  it('una desviacion hacia arriba lleva su signo', () => {
+  it('una desviacion hacia arriba lleva su signo', async () => {
     useSessionStore.setState({
       reading: { name: 'A', pitchClass: 9, octave: 2, cents: 12, frequency: 111, midi: 45 },
       hasSignal: true,
     });
 
     pintar();
+    await userEvent.click(screen.getByRole('button'));
 
-    expect(screen.getByText('+12 cents')).toBeInTheDocument();
+    expect(await screen.findByText('+12¢')).toBeInTheDocument();
   });
 
   it('un problema con el micro se anuncia, no se traga', () => {

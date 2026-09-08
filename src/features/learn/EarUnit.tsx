@@ -12,6 +12,8 @@ import {
 import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { IconoSonar } from '@ui/icons';
+import { Vacio } from '@ui/Vacio';
 
 import { Question } from './Question';
 import { Tutor } from './Tutor';
@@ -102,9 +104,10 @@ export function EarUnit({
 
   if (activeKey === null) {
     return (
-      <p className="text-text-muted p-4 text-sm">
-        Elige una tonalidad: un acorde solo tiene grado dentro de una, y de eso va esto.
-      </p>
+      <Vacio icono={<IconoSonar />} titulo="Elige una tonalidad para empezar">
+        Un acorde solo tiene grado dentro de una tonalidad, y de eso va esto: vas a oír acordes y
+        decir qué papel hacen. Está en la rueda de aquí arriba.
+      </Vacio>
     );
   }
 

@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
+import type { NextResponse } from 'next/server';
 
-import { MAX_MODEL_ATTEMPTS, TOKEN_BUDGETS } from '@core/billing';
+import { TOKEN_BUDGETS } from '@core/billing';
 import { degreesFor } from '@core/music';
 
 import {
@@ -9,10 +9,9 @@ import {
   validateIdeas,
   type IdeasRequest,
 } from '@features/ideas/contract';
-import { abrirPuertaDeIa, frenarPorFrecuencia } from '@server/ai-gate';
-import { askModel } from '@server/ask-model';
+import { responderConModelo } from '@server/ai-route';
 import { ideasSinIA } from '@server/fake-model';
-import { ideasSchema, IDEAS_SYSTEM_PROMPT } from '@server/prompts';
+import { cabeceraDePrompt, ideasSchema, IDEAS_SYSTEM_PROMPT } from '@server/prompts';
 import { SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
@@ -44,10 +43,7 @@ const limiter = new SlidingWindowRateLimiter();
 const MAX_TOKENS = TOKEN_BUDGETS.ideas.output;
 
 function buildPrompt(request: IdeasRequest, validDegrees: readonly string[]): string {
-  const lines = [
-    `Tonalidad: ${request.key.tonic} ${request.key.mode === 'major' ? 'mayor' : 'menor'}.`,
-    `Grados válidos: ${validDegrees.join(', ')}.`,
-  ];
+  const lines = cabeceraDePrompt(request.key, validDegrees);
 
   if (request.scale !== undefined) {
     lines.push(`Escala que está usando: ${request.scale}.`);
@@ -82,61 +78,22 @@ function buildPrompt(request: IdeasRequest, validDegrees: readonly string[]): st
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const now = Date.now();
-  // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
-  const frenada = await frenarPorFrecuencia(request, limiter, ideasError, now);
-  if (frenada !== null) {
-    return frenada;
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(ideasError('invalid_request'), { status: 400 });
-  }
-
-  const parsed = parseIdeasRequest(body);
-  if (parsed === null) {
-    return NextResponse.json(ideasError('invalid_request'), { status: 400 });
-  }
-
-  const cerrada = await abrirPuertaDeIa({
-    feature: 'ideas',
+  return responderConModelo(request, {
+    limiter,
     error: ideasError,
-    loQueEs: 'Las ideas de la IA',
-    plural: true,
+    puerta: { feature: 'ideas', loQueEs: 'Las ideas de la IA', plural: true },
+    parse: parseIdeasRequest,
+    prompt: (peticion) => buildPrompt(peticion, degreesFor(peticion.key.mode)),
+    system: IDEAS_SYSTEM_PROMPT,
+    // El esquema depende de lo que se haya pedido: con `scale` hace falta un
+    // identificador de escala y con los otros dos, grados del modo. Es lo mismo
+    // que `validateIdeas` mira después.
+    schema: (peticion) => ideasSchema(peticion.kind, peticion.key.mode),
+    maxTokens: MAX_TOKENS,
+    sinClave: (peticion) => ideasSinIA(peticion.key.tonic, peticion.key.mode),
+    validar: (payload, peticion) => {
+      const ideas = validateIdeas(payload, peticion);
+      return ideas.length > 0 ? { ideas } : null;
+    },
   });
-  if (cerrada !== null) {
-    return cerrada;
-  }
-
-  const prompt = buildPrompt(parsed, degreesFor(parsed.key.mode));
-
-  // Un reintento y basta. Encadenar más cuesta dinero y tiempo, y el usuario
-  // prefiere un «no ha salido» rápido a treinta segundos de espera.
-  for (let attempt = 0; attempt < MAX_MODEL_ATTEMPTS; attempt += 1) {
-    let payload: unknown;
-    try {
-      payload = await askModel({
-        prompt,
-        system: IDEAS_SYSTEM_PROMPT,
-        // El esquema depende de lo que se haya pedido: con `scale` hace falta un
-        // identificador de escala y con los otros dos, grados del modo. Es lo que
-        // `validateIdeas` mira justo debajo.
-        schema: ideasSchema(parsed.kind, parsed.key.mode),
-        maxTokens: MAX_TOKENS,
-        sinClave: () => ideasSinIA(parsed.key.tonic, parsed.key.mode),
-      });
-    } catch {
-      return NextResponse.json(ideasError('model_unavailable'), { status: 502 });
-    }
-
-    const ideas = validateIdeas(payload, parsed);
-    if (ideas.length > 0) {
-      return NextResponse.json({ ideas });
-    }
-  }
-
-  return NextResponse.json(ideasError('unparseable_response'), { status: 502 });
 }

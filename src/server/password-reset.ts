@@ -30,7 +30,7 @@ import { sameHex } from './constant-time';
 import { db } from './db/client';
 import { passwordResets, users } from './db/schema';
 import { hashPassword } from './password';
-import { normalizeEmail } from './users';
+import { baseYCorreo } from './users';
 
 /**
  * Cuánto dura el vale.
@@ -77,11 +77,11 @@ export async function requestReset(
   rawEmail: unknown,
   now: Date,
 ): Promise<{ token: string; email: string } | null> {
-  const database = db();
-  const email = normalizeEmail(rawEmail);
-  if (database === null || email === null) {
+  const abierto = baseYCorreo(rawEmail);
+  if (abierto === null) {
     return null;
   }
+  const { database, email } = abierto;
 
   try {
     const [user] = await database

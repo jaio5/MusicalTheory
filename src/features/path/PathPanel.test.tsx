@@ -4,10 +4,31 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
-import type { PitchClass } from '@core/music';
+import type { ProgressionPlayer } from '@audio/progression-player';
+import type { PitchClass, ScheduledStep } from '@core/music';
 import { useSessionStore, type PathChord } from '@state/session-store';
 
 import { CurrentChord, NextChords, Voicings } from './PathPanel';
+
+/** Un reproductor que apunta lo que le mandan en vez de sonar. */
+class ReproductorFalso implements ProgressionPlayer {
+  sonadas: ScheduledStep[][] = [];
+  paradas = 0;
+  #avisar: ((index: number | null) => void) | null = null;
+
+  async play(steps: readonly ScheduledStep[], onStep?: (index: number | null) => void) {
+    this.sonadas.push([...steps]);
+    this.#avisar = onStep ?? null;
+  }
+  stop() {
+    this.paradas += 1;
+  }
+  async dispose() {}
+  /** Lo que hace el reproductor de verdad al llegar al final. */
+  terminar() {
+    this.#avisar?.(null);
+  }
+}
 
 const AM: PathChord = {
   symbol: 'Am',
@@ -48,6 +69,48 @@ describe('El acorde actual', () => {
     expect(screen.getAllByText('Am')).toHaveLength(2);
     expect(screen.getByText('A · C · E')).toBeInTheDocument();
     expect(screen.getByText('El primer grado.')).toBeInTheDocument();
+  });
+
+  /**
+   * Lo que faltaba, y lo que convertía esto en un catálogo.
+   *
+   * Se encadenaban cuatro acordes leyendo por qué pega cada uno con el anterior
+   * y no había forma de oírlo sin coger la guitarra. La aplicación ya sabía
+   * sonar progresiones en otros tres sitios; aquí no se le había pedido.
+   */
+  it('deja oír lo que llevas, con un acorde por cada dos pulsos', async () => {
+    play(AM, G);
+    const player = new ReproductorFalso();
+    render(<CurrentChord createPlayer={() => player} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la progresión/i }));
+
+    expect(player.sonadas).toHaveLength(1);
+    expect(player.sonadas[0]).toHaveLength(2);
+    expect(player.sonadas[0]![0]!.startMs).toBe(0);
+    expect(player.sonadas[0]![1]!.startMs).toBeGreaterThan(0);
+  });
+
+  it('el mismo botón la calla: parar aparte obliga a apuntar a otro sitio', async () => {
+    play(AM, G);
+    const player = new ReproductorFalso();
+    render(<CurrentChord createPlayer={() => player} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la progresión/i }));
+    await userEvent.click(screen.getByRole('button', { name: /parar la progresión/i }));
+
+    expect(player.paradas).toBe(1);
+    expect(screen.getByRole('button', { name: /escuchar la progresión/i })).toBeInTheDocument();
+  });
+
+  it('sin progresión no hay nada que oír, y el botón no está', () => {
+    useSessionStore.getState().actions.reset();
+    useSessionStore.getState().actions.pinKey({ tonic: 9, mode: 'minor' });
+    render(<CurrentChord />);
+
+    expect(
+      screen.queryByRole('button', { name: /escuchar la progresión/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('recorta la progresión al pulsar un acorde anterior', () => {
@@ -122,10 +185,19 @@ describe('Formas del acorde', () => {
     expect(shapes.children.length).toBeGreaterThan(1);
   });
 
-  it('sin acorde elegido no enseña nada', () => {
-    render(<Voicings />);
+  /**
+   * Sin acorde no hay nada, **ni el rótulo**.
+   *
+   * Estuvo diciendo «Pulsa un acorde de la lista y aquí sale cómo se hace» justo
+   * debajo de otro panel que ya decía lo mismo con otras palabras. Dos veces la
+   * misma instrucción en una pantalla vacía no ayuda el doble: se lee como que
+   * algo no ha cargado.
+   */
+  it('sin acorde elegido no enseña nada, ni su rótulo', () => {
+    const { container } = render(<Voicings />);
 
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 });
 

@@ -31,6 +31,9 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
+import { EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
+import { IconoCanciones } from '@ui/icons';
+import { Vacio } from '@ui/Vacio';
 
 import { arrastrar } from './arrastrar';
 import { PX_POR_PULSO, ZONA_ESTIRAR_PX, anchoDeBloque } from './BlockButton';
@@ -728,11 +731,27 @@ export function ArrangeCanvas() {
       noteHistory.some((nota) => nota.at >= captureStartedAt && nota.at <= captureEndedAt));
   const arrastrado = drag === null ? null : findBlock(arrangement, drag.blockId);
 
+  /**
+   * Una parte nueva, y **pasa a ser la de destino**.
+   *
+   * Se crea una parte para meter cosas en ella; sin esto, los acordes que se
+   * pulsaban después seguían cayendo en la anterior. Y se suelta lo que hubiera
+   * elegido, o el acorde siguiente caería detrás de un bloque de la parte de la
+   * que se acaba de salir.
+   *
+   * Está sacada aparte porque la piden dos sitios: el botón de la barra y el
+   * hueco del final de la canción.
+   */
+  function anadirParte(): void {
+    setActivePartId(acciones.addPart());
+    setSelectedBlockId(null);
+  }
+
   if (tonic === null) {
     return (
-      <p className="text-text-muted p-6 text-center text-sm">
-        Elige una tonalidad y monta la canción con bloques: los arrastras, los estiras y los oyes.
-      </p>
+      <div className="flex min-h-0 grow items-center justify-center">
+        <EmpezarPorTonalidad />
+      </div>
     );
   }
 
@@ -784,20 +803,7 @@ export function ArrangeCanvas() {
               Traer lo grabado
             </Chip>
           )}
-          {/* La parte nueva pasa a ser la de destino. Se crea una parte para
-              meter cosas en ella, y sin esto los acordes que se pulsaban después
-              seguían cayendo en la anterior. */}
-          <Chip
-            onClick={() => {
-              setActivePartId(acciones.addPart());
-              // Y se suelta lo que hubiera elegido: si no, el acorde siguiente
-              // caería detrás de un bloque de la parte anterior, que es de donde
-              // se acaba de salir.
-              setSelectedBlockId(null);
-            }}
-            tone="quiet"
-            className="px-3 text-xs"
-          >
+          <Chip onClick={anadirParte} tone="quiet" className="px-3 text-xs">
             + Parte
           </Chip>
           {punteo === 'bloques' && (
@@ -851,9 +857,11 @@ export function ArrangeCanvas() {
           role="presentation"
         >
           {arrangement.parts.length === 0 ? (
-            <p className="text-text-muted p-6 text-center text-sm">
-              Pulsa un acorde de la derecha y empieza la primera parte.
-            </p>
+            <Vacio icono={<IconoCanciones />} titulo="La canción está en blanco">
+              Pulsa un acorde de la lista y con él se crea la primera parte. Después se arrastra
+              para moverlo, se estira por los bordes para que dure más y se pulsa Escuchar para
+              oírla entera.
+            </Vacio>
           ) : (
             arrangement.parts.map((part) => (
               <PartRow
@@ -901,6 +909,33 @@ export function ArrangeCanvas() {
                 onGestureEnd={acciones.endGesture}
               />
             ))
+          )}
+
+          {/*
+            El hueco del final, que dice que la canción sigue.
+
+            Con una sola parte quedaban quinientos píxeles de negro debajo del
+            pentagrama, y ese vacío no decía nada: ni que una canción se hace de
+            partes ni que se pueden añadir. El botón para hacerlo existía, pero
+            arriba en la barra, entre otros seis, escrito «+ Parte».
+            
+            Va **al final de la lista y no antes**, porque es donde continúa la
+            canción, y en trazo discontinuo porque es un sitio por llenar y no
+            una parte más.
+          */}
+          {arrangement.parts.length > 0 && (
+            <div className="p-3">
+              <button
+                type="button"
+                onClick={anadirParte}
+                className="border-border text-text-muted hover:border-brass-dim hover:text-brass-bright hover:bg-surface min-h-tap flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed text-sm transition-colors"
+              >
+                <span aria-hidden="true" className="text-base">
+                  +
+                </span>
+                Añadir otra parte
+              </button>
+            </div>
           )}
         </div>
 
@@ -953,9 +988,7 @@ export function ArrangeCanvas() {
               aria-label="Corregir el acorde"
               className="border-brass-dim mb-4 rounded-md border border-dashed p-3"
             >
-              <h3 className="text-text-muted text-xs tracking-widest uppercase">
-                No lo oí claro. ¿Era esto?
-              </h3>
+              <h3 className="rotulo">No lo oí claro. ¿Era esto?</h3>
               <p className="text-text-muted mt-1 text-xs">
                 Apunté {resolveDegree(tonic, mode, enDuda.degree).symbol} y estuve a punto de decir
                 otra cosa.
@@ -966,7 +999,7 @@ export function ArrangeCanvas() {
                     <button
                       type="button"
                       onClick={() => acciones.fixBlock(enDuda.id, otro)}
-                      className="border-border text-text hover:border-brass-dim hover:bg-surface-raised min-h-tap inline-flex items-center gap-2 rounded-md border px-3 font-mono text-sm"
+                      className="border-border text-text hover:border-brass-dim hover:bg-surface-raised min-h-tap inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-medium"
                     >
                       {resolveDegree(tonic, mode, otro).symbol}
                       <span className="text-text-muted text-xs">{otro}</span>
@@ -993,7 +1026,7 @@ export function ArrangeCanvas() {
               largo hasta las propuestas de abajo. */}
           <ChordEntry tonic={tonic} mode={mode} onPick={ponerAcorde} />
 
-          <h3 className="text-text-muted mt-4 text-xs tracking-widest uppercase">
+          <h3 className="rotulo mt-4">
             {parteDestino === null ? 'Para empezar' : `Después de ${parteDestino.name}`}
           </h3>
           <p className="text-text-muted mt-1 text-xs">
@@ -1045,9 +1078,7 @@ export function ArrangeCanvas() {
                   pentatónica menor puesta sobre una tonalidad mayor salen un Mi
                   bemol y un Si bemol encima de un Do mayor, que suena a blues y
                   es correcto pero desconcierta si no se dice de dónde vienen. */}
-              <h3 className="text-text-muted text-xs tracking-widest uppercase">
-                Y de nota, sobre {SCALES[scaleId].name.toLowerCase()}
-              </h3>
+              <h3 className="rotulo">Y de nota, sobre {SCALES[scaleId].name.toLowerCase()}</h3>
               <ul className="mt-2 flex flex-wrap gap-1">
                 {notaSiguiente.notes.map((nota) => (
                   <li key={nota.offset}>
@@ -1056,7 +1087,7 @@ export function ArrangeCanvas() {
                       onClick={() => ponerNota(nota.offset)}
                       title={nota.why}
                       aria-label={`${nota.name}: ${nota.why}`}
-                      className={`min-h-tap inline-flex items-center gap-1.5 rounded-md border px-3 font-mono text-sm ${
+                      className={`min-h-tap inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 text-sm font-medium ${
                         nota.role === 'acorde'
                           ? 'border-brass-dim text-text hover:bg-surface-raised'
                           : 'border-border text-text-muted hover:border-brass-dim hover:text-text'

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { chordVoicings } from '@core/instrument';
 import {
@@ -8,6 +8,7 @@ import {
   HARMONIC_ROLES,
   noteName,
   scaleNotes,
+  scheduleProgression,
   suggestChords,
   suggestTransitions,
   type HarmonicRole,
@@ -15,8 +16,13 @@ import {
   type PitchClass,
 } from '@core/music';
 import { selectActiveKey, useSessionStore, type PathChord } from '@state/session-store';
+import { useProgressionPlayer } from '@state/use-progression-player';
+import type { ProgressionPlayer } from '@audio/progression-player';
 import { ChordDiagram } from '@ui/ChordDiagram';
+import { Chip } from '@ui/Chip';
+import { IconoCerrar, IconoMastil, IconoParar, IconoSonar } from '@ui/icons';
 import { Marca, type MarcaTono } from '@ui/Marca';
+import { Vacio } from '@ui/Vacio';
 
 import { ChordSearch } from './ChordSearch';
 
@@ -102,15 +108,21 @@ export function VoicingList({ chord }: { chord: ShowableChord }) {
   }
 
   return (
-    <ul aria-label={`Formas de hacer ${chord.symbol}`} className="flex flex-wrap gap-3 p-3">
+    <ul aria-label={`Formas de hacer ${chord.symbol}`} className="flex flex-wrap gap-2 p-3">
       {voicings.map((voicing) => (
-        <li key={voicing.frets.join('-')} className="flex flex-col items-center">
+        // Cada forma en su tarjeta. Sueltas y pegadas por un hueco, seis
+        // diagramas seguidos se leen como una sola rejilla larga y hay que
+        // contar las cuerdas para saber dónde acaba uno y empieza el siguiente.
+        <li
+          key={voicing.frets.join('-')}
+          className="border-border rounded-lg border px-1.5 pt-1 pb-1.5"
+        >
           <ChordDiagram
             frets={voicing.frets}
             position={voicing.position}
             label={`${chord.symbol}, ${voicing.name.toLowerCase()}`}
           />
-          <span className="text-text-muted mt-1 text-center text-xs">{voicing.name}</span>
+          <span className="text-text-muted mt-0.5 block text-center text-xs">{voicing.name}</span>
         </li>
       ))}
     </ul>
@@ -123,12 +135,61 @@ export function VoicingList({ chord }: { chord: ShowableChord }) {
  * sitios distintos.
  */
 
-/** En qué acorde estás y cómo has llegado. */
-export function CurrentChord() {
+/**
+ * En qué acorde estás, cómo has llegado y **cómo suena lo que llevas**.
+ *
+ * Lo último faltaba, y era lo que convertía esta pantalla en un catálogo: se
+ * encadenaban C, F, G y Am leyendo por qué pega cada uno con el anterior, y no
+ * había forma de oírlo sin coger la guitarra y tocarlo. La aplicación ya sabía
+ * sonar progresiones —lo hacen el lienzo de montar, las salidas y las preguntas
+ * de oído— y aquí no se le había pedido.
+ */
+export function CurrentChord({
+  createPlayer,
+}: {
+  readonly createPlayer?: () => ProgressionPlayer;
+}) {
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
+  const bpm = useSessionStore((state) => state.bpm);
   const actions = useSessionStore((state) => state.actions);
   const current = path.at(-1) ?? null;
+
+  const [sonando, setSonando] = useState(false);
+
+  const { pedir, parar } = useProgressionPlayer(createPlayer);
+
+  /**
+   * Suena lo que llevas, o lo calla si ya sonaba.
+   *
+   * El mismo botón para las dos cosas: cuando algo está sonando, lo que se
+   * quiere hacer es cortarlo, y un botón de parar aparte obliga a apuntar a otro
+   * sitio. Es lo que ya hacen las salidas.
+   *
+   * Dos pulsos por acorde: es el reparto más corto en el que se oye el
+   * movimiento de uno al siguiente, que es de lo que va esta pantalla, y no
+   * obliga a esperar cuatro compases para oír una progresión de cuatro acordes.
+   */
+  async function escuchar(): Promise<void> {
+    if (sonando) {
+      parar();
+      setSonando(false);
+      return;
+    }
+
+    setSonando(true);
+    await pedir().play(
+      scheduleProgression(
+        path.map((chord) => ({ root: chord.root, notes: chord.notes, beats: 2 })),
+        bpm,
+      ),
+      (index) => {
+        if (index === null) {
+          setSonando(false);
+        }
+      },
+    );
+  }
   const accidental =
     activeKey === null ? 'sharp' : accidentalForKey(activeKey.tonic, activeKey.mode);
 
@@ -143,9 +204,11 @@ export function CurrentChord() {
   return (
     <div className="flex flex-col gap-2 p-3">
       {current === null ? (
-        <p className="text-text-muted py-10 text-center text-sm">
-          Elige un acorde de la lista y te enseño cómo se hace, traste a traste.
-        </p>
+        <Vacio icono={<IconoMastil />} titulo="Elige el primer acorde">
+          Están en la lista de acordes —a la derecha en pantalla ancha, aquí abajo en el móvil—,
+          ordenados por lo bien que entran en tu tonalidad. Al pulsar uno sale cómo se hace traste a
+          traste y a dónde puede seguir.
+        </Vacio>
       ) : (
         <>
           <div className="flex items-baseline gap-3">
@@ -163,6 +226,20 @@ export function CurrentChord() {
 
       {path.length > 0 && (
         <div className="border-border flex items-center gap-1 border-t pt-2">
+          {/* El botón de oírla, primero: es lo que se hace con una progresión
+              terminada, y a la derecha se habría quedado detrás de una lista que
+              se desplaza. */}
+          <Chip
+            onClick={() => void escuchar()}
+            pressed={sonando}
+            tone="quiet"
+            className="shrink-0 px-2"
+            ariaLabel={sonando ? 'Parar la progresión' : 'Escuchar la progresión'}
+            title={sonando ? 'Parar' : 'Escuchar lo que llevas'}
+          >
+            {sonando ? <IconoParar /> : <IconoSonar />}
+          </Chip>
+
           <ol
             aria-label="Progresión"
             className="flex min-w-0 grow items-center gap-1 overflow-x-auto"
@@ -173,7 +250,7 @@ export function CurrentChord() {
                 <button
                   type="button"
                   onClick={() => actions.trimPath(index)}
-                  className={`px-1 py-0.5 font-mono text-sm ${
+                  className={`cursor-pointer px-1 py-0.5 font-mono text-sm ${
                     index === path.length - 1
                       ? 'text-brass-bright'
                       : 'text-text-muted hover:text-text'
@@ -189,9 +266,9 @@ export function CurrentChord() {
             onClick={() => actions.clearPath()}
             aria-label="Limpiar la progresión"
             title="Limpiar"
-            className="text-text-muted hover:text-oxblood-bright shrink-0 px-1 text-sm"
+            className="text-text-muted hover:text-oxblood-bright min-h-tap inline-flex shrink-0 cursor-pointer items-center px-1"
           >
-            ×
+            <IconoCerrar />
           </button>
         </div>
       )}
@@ -202,26 +279,27 @@ export function CurrentChord() {
 /**
  * Cómo se hace el acorde que has elegido.
  *
- * La zona está siempre, con acorde o sin él. Si apareciera y desapareciera, lo
- * que va debajo —lo que estás tocando— cambiaría de sitio cada vez que eliges
- * algo, y se acaba mirando dónde estaba en vez de mirar el mástil.
+ * La zona está siempre **mientras haya acorde**: si apareciera y desapareciera al
+ * cambiar de uno a otro, lo que va debajo —lo que estás tocando— se movería de
+ * sitio cada vez, y se acaba mirando dónde estaba en vez de mirar el mástil.
+ *
+ * Sin ningún acorde todavía **no hay nada, ni el rótulo**. Estaba, y decía «Pulsa
+ * un acorde de la lista y aquí sale cómo se hace» justo debajo de otro panel que
+ * ya decía lo mismo con otras palabras. Dos veces la misma instrucción en una
+ * pantalla vacía no ayuda el doble: se lee como que algo no ha cargado.
  */
 export function Voicings() {
   const path = useSessionStore((state) => state.path);
   const current = path.at(-1) ?? null;
 
+  if (current === null) {
+    return null;
+  }
+
   return (
     <section aria-label="Formas del acorde elegido" className="border-border shrink-0 border-b">
-      <p className="text-text-muted px-3 pt-2 font-mono text-xs tracking-widest uppercase">
-        Elegido
-      </p>
-      {current === null ? (
-        <p className="text-text-muted px-3 py-4 text-sm">
-          Pulsa un acorde de la lista y aquí sale cómo se hace.
-        </p>
-      ) : (
-        <VoicingList chord={current} />
-      )}
+      <p className="rotulo px-3 pt-2">Elegido</p>
+      <VoicingList chord={current} />
     </section>
   );
 }
@@ -266,7 +344,7 @@ export function NextChords() {
       </div>
 
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-3 pt-2">
-        <p className="text-text-muted text-xs tracking-widest uppercase">
+        <p className="rotulo">
           {current === null ? 'Por dónde empezar' : `Desde ${current.symbol}`}
         </p>
         {/* Lo que significan los puntos, al lado de los puntos: preguntarse qué
@@ -305,7 +383,7 @@ export function NextChords() {
         </p>
       </div>
 
-      <ul className="min-h-0 grow overflow-y-auto p-2">
+      <ul className="min-h-0 grow space-y-0.5 overflow-y-auto p-2">
         {options.map((option, indice) => {
           /**
            * El porqué se dice una vez por fundamental, no una por variante.
@@ -340,29 +418,45 @@ export function NextChords() {
                 type="button"
                 onClick={() => actions.pushChord(option)}
                 aria-label={`${option.symbol}, ${option.label}`}
-                className="hover:bg-surface-raised flex w-full items-baseline gap-3 px-3 py-2 text-left"
+                className="hover:bg-surface-raised focus-visible:bg-surface-raised block w-full cursor-pointer rounded-md px-3 py-2 text-left transition-colors"
               >
-                {/* Marcado como señal para que la marca siga ahí mientras
-                  grabas: es lo único que da tiempo a mirar tocando. */}
-                <Marca tono={safetyTone(option.notes, inKey)} senal className="mt-1" />
-                <span className="text-text w-16 shrink-0 font-mono text-base">{option.symbol}</span>
-                <span className="text-text-muted w-14 shrink-0 font-mono text-xs">
-                  {option.label}
+                {/*
+                  Dos renglones, no uno.
+
+                  Estaba todo en fila —marca, cifrado de ancho fijo, grado de
+                  ancho fijo, chapa y el porqué en lo que sobrara—, y en la
+                  columna de componer «lo que sobraba» eran ciento treinta
+                  píxeles: cuatro palabras por línea, cuatro líneas y un
+                  `line-clamp-2` cortando la frase a la mitad. La explicación de
+                  por qué un acorde sigue a otro es **lo que se viene a leer
+                  aquí**, y estaba en la rendija más estrecha de la pantalla.
+
+                  Arriba, lo que se busca de un vistazo bajando por la lista: la
+                  marca, el cifrado y su grado. Abajo, la frase a todo el ancho.
+                */}
+                <span className="flex items-center gap-2">
+                  {/* Marcado como señal para que la marca siga ahí mientras
+                      grabas: es lo único que da tiempo a mirar tocando. */}
+                  <Marca tono={safetyTone(option.notes, inKey)} senal />
+                  <span className="text-text font-mono text-base">{option.symbol}</span>
+                  <span className="text-text-muted font-mono text-xs">{option.label}</span>
+                  <RoleBadge role={option.role} />
                 </span>
-                <RoleBadge role={option.role} />
-                <span className="min-w-0 grow">
-                  <span className="text-text-muted line-clamp-2 block text-sm leading-snug">
-                    {repetido ? '' : porque}
+
+                {(repetido ? '' : porque) !== '' && (
+                  <span className="text-text-muted mt-0.5 block text-sm leading-snug">
+                    {porque}
                   </span>
-                  {/* Por qué se puede cambiar por otro. Va debajo y más pequeño
+                )}
+
+                {/* Por qué se puede cambiar por otro. Va debajo y más pequeño
                     que el porqué del acorde: primero se entiende qué es, y
                     después por dónde se puede sustituir. */}
-                  {option.substitution !== null ? (
-                    <span className="text-text-muted mt-0.5 block text-xs leading-snug opacity-80">
-                      Vale por {option.substitution.of}. {option.substitution.why}
-                    </span>
-                  ) : null}
-                </span>
+                {option.substitution !== null ? (
+                  <span className="text-text-muted mt-0.5 block text-xs leading-snug">
+                    Vale por {option.substitution.of}. {option.substitution.why}
+                  </span>
+                ) : null}
               </button>
             </li>
           );

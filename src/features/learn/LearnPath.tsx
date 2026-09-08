@@ -64,7 +64,7 @@ export function LearnPath({
               más de la lista. */}
             <div className="bg-surface-raised border-border sticky top-0 z-10 border-b px-4 py-2.5">
               <div className="border-brass-dim border-l-2 pl-3">
-                <h2 className="text-text font-mono text-sm tracking-wide">{grade.name}</h2>
+                <h2 className="text-text text-sm font-semibold">{grade.name}</h2>
                 <p className="text-text-muted text-xs">{grade.summary}</p>
               </div>
             </div>
@@ -96,9 +96,7 @@ export function LearnPath({
                       </ProgressRing>
 
                       <div className="min-w-0">
-                        <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-                          {course.year}º curso
-                        </p>
+                        <p className="rotulo">{course.year}º curso</p>
                         <h3 className="text-text text-base">{course.title}</h3>
                         <p className="text-text-muted mt-0.5 text-xs">{course.summary}</p>
                       </div>
@@ -201,6 +199,11 @@ function UnitNode({
   // El relieve va con el estado, y es lo que hace que el camino se lea de un
   // vistazo sin contar nada: lo hecho es verde y macizo, lo que toca brilla en
   // latón con su halo, y lo cerrado se hunde en el fondo.
+  //
+  // «Se hunde» con el color y el candado, **no con media opacidad encima**. La
+  // llevaba —un 45 %— y eso multiplica el contraste de un gris que ya era el
+  // suave: en el tema claro, el nombre de una unidad cerrada se quedaba en 2,6:1.
+  // Y son las que hay que poder leer para saber a dónde lleva el camino.
   const anillo = active
     ? 'border-brass-bright bg-surface-raised halo-latón'
     : access === 'hecha'
@@ -211,7 +214,7 @@ function UnitNode({
         ? here
           ? 'border-brass-bright bg-surface-raised text-brass-bright halo-aquí'
           : 'border-brass-dim bg-surface-raised text-text'
-        : 'border-border bg-surface text-text-muted opacity-45';
+        : 'border-border bg-surface text-text-muted';
 
   return (
     <div className="flex items-center gap-2">
@@ -247,7 +250,7 @@ function UnitNode({
         >
           {unit.title}
         </p>
-        <p className="text-text-muted flex flex-wrap items-center gap-x-2 font-mono text-xs">
+        <p className="text-text-muted flex flex-wrap items-center gap-x-2 text-xs">
           {here && (
             <span className="border-brass-bright text-brass-bright rounded-full border px-2 py-0.5">
               aquí

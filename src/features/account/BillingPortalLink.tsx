@@ -48,6 +48,7 @@ export function BillingPortalLink() {
           })
           .finally(() => setWorking(false));
       }}
+      cargando={working}
     >
       {working ? 'Abriendo…' : 'Tarjeta y facturas'}
     </Button>

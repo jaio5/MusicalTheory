@@ -2,15 +2,23 @@
 
 import { useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
+import { IconoMicro, IconoMicroMudo } from '@ui/icons';
 
 export type MicButtonProps = ListeningDeps;
 
 /**
- * El botón de escuchar, redondo y grande, como el de grabar de la cámara del
- * móvil: se entiende sin leer nada.
+ * El botón de escuchar, y la nota que suena a su lado.
  *
- * Lleva dentro la nota que suena, porque es el mismo objeto —escuchar y lo que
- * se oye— y así ocupa un sitio en vez de dos.
+ * Es lo primero de la barra porque es lo que enciende media aplicación: sin
+ * micro no hay afinador, ni acordes reconocidos, ni escala validada.
+ *
+ * **La lectura solo ocupa sitio cuando dice algo.** Antes había un hueco fijo de
+ * seis caracteres con un guion y el rótulo «sin escuchar» debajo, en la esquina
+ * más cara de la pantalla y **siempre**, aunque no hubiera nada que leer: en la
+ * cabecera de una aplicación que se usa con la guitarra puesta, la mitad
+ * izquierda estaba reservada a decir que no pasaba nada. Ahora, apagado, es un
+ * botón; encendido, aparece la pastilla con la nota y los cents, que es cuando
+ * eso importa.
  */
 export function MicButton(deps: MicButtonProps = {}) {
   const listening = useSessionStore((state) => state.listening);
@@ -23,7 +31,7 @@ export function MicButton(deps: MicButtonProps = {}) {
   const busy = listening === 'requesting';
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 items-center gap-2">
       <button
         type="button"
         onClick={() => void (isListening ? stop() : start())}
@@ -31,49 +39,52 @@ export function MicButton(deps: MicButtonProps = {}) {
         aria-pressed={isListening}
         aria-label={isListening ? 'Dejar de escuchar la guitarra' : 'Escuchar la guitarra'}
         title={isListening ? 'Dejar de escuchar' : 'Escuchar la guitarra'}
-        className={`size-tap relative flex shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+        className={`size-tap relative flex shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-[background-color,border-color,transform] duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
           isListening
-            ? 'border-oxblood-bright bg-oxblood'
-            : 'border-border bg-surface hover:border-brass'
-        } disabled:opacity-50`}
+            ? 'border-tube-bright bg-tube/25 text-tube-bright'
+            : 'border-border bg-surface text-text-muted hover:border-brass hover:text-brass-bright'
+        }`}
       >
-        {/* Un círculo relleno dentro de un aro, como el botón de grabar. */}
-        <span
-          aria-hidden="true"
-          data-senal
-          className={`block rounded-full transition-all ${
-            isListening ? 'bg-oxblood-bright h-3.5 w-3.5 rounded-sm' : 'bg-brass h-6 w-6'
-          }`}
-        />
+        <span data-senal className="flex">
+          {isListening ? <IconoMicro /> : <IconoMicroMudo />}
+        </span>
         {isListening && (
           <span
             aria-hidden="true"
-            className="border-oxblood-bright absolute inset-0 animate-ping rounded-full border opacity-40"
+            className="border-tube-bright absolute inset-0 animate-ping rounded-full border opacity-30"
           />
         )}
       </button>
 
-      <span className="flex min-w-24 flex-col leading-tight">
-        <span
-          className={`font-mono text-lg tabular-nums ${
-            hasSignal ? 'text-brass-bright' : 'text-text-muted'
-          }`}
-        >
-          {reading === null ? '—' : `${reading.name}${reading.octave}`}
-        </span>
-        <span className="text-text-muted font-mono text-xs tabular-nums">
-          {reading === null || !hasSignal
-            ? busy
-              ? 'pidiendo permiso'
-              : isListening
-                ? 'esperando'
-                : 'sin escuchar'
-            : `${reading.cents > 0 ? '+' : ''}${reading.cents.toFixed(0)} cents`}
-        </span>
+      {/* Vive dentro de un `aria-live` para que quien no ve la pantalla se entere
+          de la nota igual que quien la ve: es la respuesta a haber tocado. */}
+      <span aria-live="polite" className="flex min-w-0 items-center gap-2">
+        {(isListening || busy) && (
+          <span
+            className={`border-border bg-surface-raised inline-flex items-center gap-2 rounded-full border px-3 py-1 ${
+              hasSignal ? '' : 'opacity-70'
+            }`}
+          >
+            <span
+              className={`font-mono text-base tabular-nums ${
+                hasSignal ? 'text-brass-bright' : 'text-text-muted'
+              }`}
+            >
+              {reading === null || !hasSignal ? '—' : `${reading.name}${reading.octave}`}
+            </span>
+            <span className="text-text-muted font-mono text-xs whitespace-nowrap tabular-nums">
+              {reading === null || !hasSignal
+                ? busy
+                  ? 'pidiendo permiso'
+                  : 'esperando'
+                : `${reading.cents > 0 ? '+' : ''}${reading.cents.toFixed(0)}¢`}
+            </span>
+          </span>
+        )}
       </span>
 
       {message !== null && (
-        <span role="alert" className="text-oxblood-bright max-w-56 text-xs">
+        <span role="alert" className="text-oxblood-bright hidden max-w-56 text-xs md:inline">
           {message}
         </span>
       )}

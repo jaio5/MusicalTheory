@@ -6,6 +6,8 @@ import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { signInWithPassword, updateAccount, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
+import { Aviso } from '@ui/Aviso';
+import { Formulario } from '@ui/Formulario';
 
 /**
  * Cambiar la contraseña.
@@ -71,13 +73,7 @@ export function PasswordForm() {
   }
 
   return (
-    <form
-      className="flex max-w-sm flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
+    <Formulario onEnviar={submit}>
       <TextField
         label="La de ahora"
         type="password"
@@ -110,23 +106,20 @@ export function PasswordForm() {
       {/* Que no coincidan se dice antes de enviar y no después: el servidor no
           puede saberlo, y descubrirlo al volver obligaría a escribirla otra vez. */}
       {repetida !== '' && !coinciden && (
-        <p className="text-oxblood-bright text-sm">Las dos nuevas no son la misma.</p>
+        <Aviso mensaje="Las dos nuevas no son la misma." anuncio="ninguno" />
       )}
 
-      {error !== null && (
-        <p className="text-oxblood-bright text-sm" aria-live="polite">
-          {error}
-        </p>
-      )}
-      {hecho && (
-        <p className="text-tube-bright text-sm" aria-live="polite">
-          Cambiada. Las sesiones que hubiera abiertas en otros aparatos se han cerrado.
-        </p>
-      )}
+      <Aviso mensaje={error} />
+      <Aviso
+        mensaje={
+          hecho && 'Cambiada. Las sesiones que hubiera abiertas en otros aparatos se han cerrado.'
+        }
+        tono="hecho"
+      />
 
       <div>
-        <Button type="submit" disabled={!puede}>
-          {working ? 'Un momento...' : 'Cambiar la contraseña'}
+        <Button type="submit" disabled={!puede} cargando={working}>
+          {working ? 'Un momento…' : 'Cambiar la contraseña'}
         </Button>
       </div>
 
@@ -134,6 +127,6 @@ export function PasswordForm() {
         Se guarda cifrada con scrypt, nunca en claro, y cambiarla no cierra la sesión que tienes
         abierta aquí.
       </p>
-    </form>
+    </Formulario>
   );
 }

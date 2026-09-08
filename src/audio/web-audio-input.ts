@@ -5,6 +5,7 @@
  * AudioContext. Todo lo demás habla con la interfaz AudioInput.
  */
 
+import { EstadoObservable, type Oyente } from '@core/estado-observable';
 import { MAX_RECORDING_SECONDS, type AudioRecorder, type Recording } from './recorder';
 import type {
   AudioInput,
@@ -22,16 +23,13 @@ export const DEFAULT_FRAME_SIZE = 2048;
  */
 export const DEFAULT_SPECTRUM_SIZE = 8192;
 
-type StateListener = (state: AudioInputState) => void;
-
 export class WebAudioInput implements AudioInput, AudioRecorder {
   readonly frameSize: number;
   readonly spectrumSize: number;
 
   readonly #deviceId: string | undefined;
-  readonly #listeners = new Set<StateListener>();
+  readonly #estado = new EstadoObservable<AudioInputState>('idle');
 
-  #state: AudioInputState = 'idle';
   #error: AudioInputError | null = null;
   #context: AudioContext | null = null;
   #stream: MediaStream | null = null;
@@ -52,7 +50,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
   }
 
   get state(): AudioInputState {
-    return this.#state;
+    return this.#estado.valor;
   }
 
   get error(): AudioInputError | null {
@@ -65,7 +63,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
   }
 
   async start(): Promise<void> {
-    if (this.#state === 'running' || this.#state === 'requesting') {
+    if (this.#estado.valor === 'running' || this.#estado.valor === 'requesting') {
       return;
     }
 
@@ -79,7 +77,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
     }
 
     this.#error = null;
-    this.#setState('requesting');
+    this.#estado.cambiarA('requesting');
 
     try {
       // Las tres opciones desactivadas están pensadas para videollamadas y
@@ -136,7 +134,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
       return;
     }
 
-    this.#setState('running');
+    this.#estado.cambiarA('running');
   }
 
   /**
@@ -159,7 +157,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
     const despertar = () => {
       // Solo mientras se supone que estamos escuchando: si ya se paró, dejarlo
       // dormido es lo correcto.
-      if (this.#context !== context || this.#state !== 'running') {
+      if (this.#context !== context || this.#estado.valor !== 'running') {
         return;
       }
       if (context.state !== 'suspended') {
@@ -198,8 +196,8 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
    * señal con costuras se llena de faldas que no existen. `MediaRecorder` da el
    * flujo entero y seguido, que es lo único que sirve para volver a analizarlo.
    *
-   * Es además lo que ya usa `media/session-recorder.ts` para grabar la sesión en
-   * vídeo, así que no entra una pieza nueva en el proyecto.
+   * Es además lo que ya usa `media/stream-recorder.ts` para grabar la toma que
+   * te descargas, así que no entra una pieza nueva en el proyecto.
    */
   startRecording(): boolean {
     if (this.#stream === null || typeof MediaRecorder === 'undefined') {
@@ -313,8 +311,8 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
       await context.close();
     }
 
-    if (this.#state === 'running' || this.#state === 'requesting') {
-      this.#setState('idle');
+    if (this.#estado.valor === 'running' || this.#estado.valor === 'requesting') {
+      this.#estado.cambiarA('idle');
     }
   }
 
@@ -327,7 +325,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
    * `false` el motor sabe que no hay dato, que no es lo mismo.
    */
   get #despierto(): boolean {
-    return this.#state === 'running' && this.#context?.state === 'running';
+    return this.#estado.valor === 'running' && this.#context?.state === 'running';
   }
 
   readTimeDomain(target: Float32Array<ArrayBuffer>): boolean {
@@ -346,26 +344,13 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
     return true;
   }
 
-  subscribe(listener: StateListener): () => void {
-    this.#listeners.add(listener);
-    return () => {
-      this.#listeners.delete(listener);
-    };
+  subscribe(listener: Oyente<AudioInputState>): () => void {
+    return this.#estado.suscribir(listener);
   }
 
   #fail(error: AudioInputError): void {
     this.#error = error;
-    this.#setState(error.state);
-  }
-
-  #setState(state: AudioInputState): void {
-    if (this.#state === state) {
-      return;
-    }
-    this.#state = state;
-    for (const listener of this.#listeners) {
-      listener(state);
-    }
+    this.#estado.cambiarA(error.state);
   }
 }
 

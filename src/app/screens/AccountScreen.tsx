@@ -50,7 +50,7 @@ export function AccountScreen() {
         {accounts && (
           <p className="text-text-muted text-sm">
             ¿Todavía no tienes?{' '}
-            <Link href="/registro" className="text-brass-bright hover:text-brass underline">
+            <Link href="/registro" className="enlace">
               Crear tu cuenta
             </Link>
             .
@@ -79,7 +79,7 @@ export function AccountScreen() {
         </div>
 
         <div className="border-brass-dim ml-auto rounded-md border px-3 py-1.5 text-center">
-          <p className="text-brass-bright font-mono text-sm">Plan {plan.name}</p>
+          <p className="text-brass-bright text-sm font-medium">Plan {plan.name}</p>
           <p className="text-text-muted font-mono text-xs">{priceLabel(plan.id)}</p>
         </div>
       </div>
@@ -95,7 +95,7 @@ export function AccountScreen() {
             { que: 'Medallas', cuanto: `${progress.badges.length} de ${BADGES.length}` },
           ].map(({ que, cuanto }) => (
             <div key={que} className="superficie p-3 text-center">
-              <dt className="text-text-muted font-mono text-xs tracking-widest uppercase">{que}</dt>
+              <dt className="rotulo">{que}</dt>
               <dd className="text-text mt-1 font-mono text-2xl tabular-nums">{cuanto}</dd>
             </div>
           ))}
@@ -153,8 +153,8 @@ export function AccountScreen() {
           </li>
           <li>Cuántas veces has usado la IA hoy, para descontarlo del cupo de tu plan.</li>
           <li>
-            <strong className="text-text">Ni una muestra de audio ni un fotograma de vídeo.</strong>{' '}
-            Eso no sale de tu equipo, y las cuentas no han cambiado eso.
+            <strong className="text-text">Ni una muestra de audio.</strong> Eso no sale de tu
+            equipo, y las cuentas no han cambiado eso.
           </li>
         </ul>
       </Section>

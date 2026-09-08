@@ -278,6 +278,7 @@ function remember(state: SessionState, patch: Partial<WorkspacePreferences>): vo
     styleId: state.styleId,
     scaleId: state.scaleId,
     tuningId: state.tuningId,
+    pinnedKey: state.pinnedKey,
     ...patch,
   });
 }
@@ -323,8 +324,26 @@ export const useSessionStore = create<SessionState>()((set) => ({
       }),
 
     setLevel: (level) => set({ level }),
-    pinKey: (pinnedKey) => set({ pinnedKey }),
-    followDetection: () => set({ pinnedKey: null }),
+    /**
+     * La tonalidad **se recuerda**, como el estilo y la escala.
+     *
+     * No lo hacía, y era la que más falta hacía: sin ella no hay acordes que
+     * proponer, ni escala que enseñar, ni preguntas que generar, así que las
+     * cinco pantallas volvían a pedirla en cada recarga. La aplicación se
+     * acordaba de que te gusta el rock y se olvidaba de en qué estabas tocando.
+     */
+    pinKey: (pinnedKey) =>
+      set((state) => {
+        remember(state, { pinnedKey });
+        return { pinnedKey };
+      }),
+
+    // Volver a la detección también se recuerda: es una decisión, no un olvido.
+    followDetection: () =>
+      set((state) => {
+        remember(state, { pinnedKey: null });
+        return { pinnedKey: null };
+      }),
     setScale: (scaleId) =>
       set((state) => {
         remember(state, { scaleId });
@@ -349,6 +368,7 @@ export const useSessionStore = create<SessionState>()((set) => ({
         styleId: preferences.styleId,
         scaleId: preferences.scaleId,
         tuningId: preferences.tuningId,
+        pinnedKey: preferences.pinnedKey,
       });
     },
     // El vivo se apaga al soltar las cuerdas; el último se queda. Así lo que

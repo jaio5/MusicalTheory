@@ -61,7 +61,7 @@ export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
         <div className="w-full">
           <p className="text-text-muted text-sm" aria-live="polite">
             {activeKey === null
-              ? 'Toca unos compases y la detectamos sola.'
+              ? 'Toca unas notas sueltas y la detectamos sola.'
               : pinnedKey === null
                 ? `Detectada: ${keyName(activeKey.tonic, activeKey.mode)}.`
                 : `Fijada a mano: ${keyName(activeKey.tonic, activeKey.mode)}.`}
@@ -105,9 +105,7 @@ export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
 
           {candidates.length > 0 && (
             <div className="mt-6">
-              <p className="text-text-muted text-xs tracking-widest uppercase">
-                Lo que mejor encaja
-              </p>
+              <p className="rotulo">Lo que mejor encaja</p>
               <ol className="mt-2 space-y-1">
                 {candidates.map((candidate) => (
                   <li

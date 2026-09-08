@@ -28,7 +28,7 @@ export function PlansScreen() {
       <div>
         <p className="text-text-muted max-w-prose">
           El afinador, la rueda, el mástil, el metrónomo, los acordes, el camino de progresiones y
-          grabarte tocando son{' '}
+          grabar lo que tocas son{' '}
           <strong className="text-text">gratis y lo van a seguir siendo</strong>: pasan enteros en
           tu navegador, así que servirlos no nos cuesta nada.
         </p>
@@ -55,7 +55,7 @@ export function PlansScreen() {
           {signedIn ? (
             <>
               Ahora mismo tienes el plan <span className="text-text">{actual.name}</span>.{' '}
-              <Link href="/cuenta" className="text-brass-bright hover:text-brass underline">
+              <Link href="/cuenta" className="enlace">
                 Tu cuenta
               </Link>
               .
@@ -63,7 +63,7 @@ export function PlansScreen() {
           ) : (
             <>
               No has entrado, así que estás en el plan gratis.{' '}
-              <Link href="/registro" className="text-brass-bright hover:text-brass underline">
+              <Link href="/registro" className="enlace">
                 Crear una cuenta
               </Link>
               .

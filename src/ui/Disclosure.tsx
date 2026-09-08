@@ -28,6 +28,7 @@ export function Disclosure({
   tone = 'normal',
   className = '',
   abierto = false,
+  tope = false,
   children,
 }: {
   /** El enunciado, lo que se lee con el bloque cerrado. */
@@ -46,6 +47,23 @@ export function Disclosure({
    * manda quien lo abre y lo cierra, no el componente.
    */
   readonly abierto?: boolean;
+  /**
+   * Que lo de dentro **no pueda comerse la pantalla**.
+   *
+   * Hace falta en las pantallas de taller —componer, la unidad—, donde esta barra
+   * vive encima de una caja que crece y se desplaza. La barra es `shrink-0`, así
+   * que si lo que se abre mide más que la pantalla, al que crece le tocan cero
+   * píxeles: en un teléfono, abrir la rueda dejaba el resto de componer con altura
+   * cero y **fuera de alcance**, sin forma de desplazarse hasta ello. No se veía
+   * como un fallo de la rueda, se veía como que la aplicación se había quedado en
+   * blanco.
+   *
+   * Con el tope, lo que se abre se desplaza por dentro y siempre queda pantalla
+   * para lo de abajo. El número —38 de cada 100— sale de medirlo en un teléfono:
+   * con la cabecera de componer envuelta en dos líneas y la barra de
+   * herramientas abajo, es lo que deja sitio para que lo que crece crezca.
+   */
+  readonly tope?: boolean;
   readonly children: ReactNode;
 }) {
   return (
@@ -54,7 +72,7 @@ export function Disclosure({
         className={`min-h-tap flex cursor-pointer list-none items-center gap-2 transition-colors marker:content-none [&::-webkit-details-marker]:hidden ${
           tone === 'grande'
             ? 'text-text text-fluid-subtitle hover:text-brass-bright'
-            : 'text-text-muted hover:text-text font-mono text-xs'
+            : 'text-text-muted hover:text-text text-sm font-medium'
         }`}
       >
         {/* La flecha primero: así todas las filas que se abren empiezan igual y se
@@ -67,7 +85,7 @@ export function Disclosure({
         <span className="min-w-0">{summary}</span>
       </summary>
 
-      {children}
+      {tope ? <div className="max-h-[38dvh] overflow-y-auto">{children}</div> : children}
     </details>
   );
 }

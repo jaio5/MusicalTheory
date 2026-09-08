@@ -61,7 +61,8 @@ describe('sin cuentas configuradas', () => {
   it('se dice, y se dice que lo demás funciona igual', () => {
     pintar({}, false);
 
-    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+    expect(screen.getByText(/no hay cuentas configuradas/i)).toBeInTheDocument();
+    expect(screen.getByText(/se guarda en este navegador/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Entrar' })).not.toBeInTheDocument();
   });
 });

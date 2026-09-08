@@ -125,15 +125,32 @@ export async function createUser(input: {
   }
 }
 
+/**
+ * La base y el correo ya normalizado, o nulo si falta cualquiera de los dos.
+ *
+ * Es la entrada de todo lo que busca una cuenta por su correo, y sin ella cada
+ * sitio repetía las mismas cinco líneas. Devuelve un solo nulo a propósito:
+ * quien pregunta por un correo no puede distinguir «no hay base de datos» de
+ * «ese correo no existe», porque contestar distinto convierte la pantalla en un
+ * buscador de quién tiene cuenta aquí.
+ */
+export function baseYCorreo(
+  rawEmail: unknown,
+): { database: NonNullable<ReturnType<typeof db>>; email: string } | null {
+  const database = db();
+  const email = normalizeEmail(rawEmail);
+  return database === null || email === null ? null : { database, email };
+}
+
 /** La cuenta con su contraseña cifrada. Solo la usa la comprobación al entrar. */
 export async function findUserWithPassword(
   rawEmail: unknown,
 ): Promise<{ user: User; passwordHash: string } | null> {
-  const database = db();
-  const email = normalizeEmail(rawEmail);
-  if (database === null || email === null) {
+  const abierto = baseYCorreo(rawEmail);
+  if (abierto === null) {
     return null;
   }
+  const { database, email } = abierto;
 
   try {
     const [row] = await database.select().from(users).where(eq(users.email, email)).limit(1);

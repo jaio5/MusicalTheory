@@ -116,7 +116,7 @@ describe('Afinador', () => {
   it('explica para qué quiere el micrófono antes de pedirlo', () => {
     renderTuner();
 
-    expect(screen.getByText(/necesitamos el micrófono/i)).toBeInTheDocument();
+    expect(screen.getByText(/necesitamos oírte para afinarte/i)).toBeInTheDocument();
     expect(screen.getByText(/no sale de tu equipo/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toBeInTheDocument();
   });
