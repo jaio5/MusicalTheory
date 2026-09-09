@@ -44,6 +44,15 @@ accesibles de la rueda, el WAV que se repite en bucle—.
 que pasar `pnpm format`, o `format:check` falla. Es el fallo más tonto y el más
 repetido.
 
+**Tailwind escanea los comentarios, así que un ejemplo de clase es una clase.**
+Escribir en un comentario —de `.ts`, de `.tsx` o del propio CSS— algo con pinta de
+utilidad genera esa utilidad de verdad. Un `shadow-[var(--` con puntos suspensivos
+dentro, puesto como ejemplo en un test, se convirtió en `--tw-shadow: var(--...)`,
+que no es CSS válido: **la hoja entera dejó de compilar y las nueve pantallas
+devolvieron 500 con los 2.174 tests en verde**. Un ejemplo dentro de un comentario
+tiene que ser una clase que se pueda generar, o no parecerse a una. Y `pnpm build`
+sí lo caza: si tocas estilos, pásalo.
+
 **Una barra que se abre encima de algo que crece necesita `tope`.** En las
 pantallas de taller, `ui/Disclosure` va con `shrink-0` sobre una caja que crece:
 si lo que se abre mide más que la pantalla, al que crece le tocan **cero píxeles**
@@ -185,7 +194,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                     |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Van veinticuatro.
+descartadas. Van veintisiete.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

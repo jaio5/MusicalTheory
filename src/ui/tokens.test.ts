@@ -102,9 +102,16 @@ describe('el tema oscuro cumple lo que dice el proyecto', () => {
     }
   });
 
-  // Del tema oscuro: es el que tiene la identidad del amplificador.
-  it('el verde es de válvula, no ácido', () => {
-    // El verde ácido tiene el canal verde disparado y los otros dos hundidos.
+  /**
+   * Esto sobrevivió al cambio de estética, y no por nostalgia.
+   *
+   * Nació como «el verde es de válvula», del amplificador que ya no está, pero la
+   * regla que hay debajo no dependía de aquello: un verde con el canal verde
+   * disparado y los otros dos hundidos, puesto al lado de un acento cálido, es lo
+   * que separa una paleta de un semáforo. El verde subió a menta al pasar a
+   * grafito —el apagado de antes se hundía— y sigue por debajo del listón.
+   */
+  it('el verde no es ácido', () => {
     for (const green of [colors.tube, colors.tubeBright]) {
       const red = Number.parseInt(green.slice(1, 3), 16);
       const value = Number.parseInt(green.slice(3, 5), 16);
@@ -112,10 +119,45 @@ describe('el tema oscuro cumple lo que dice el proyecto', () => {
     }
   });
 
-  it('el fondo es negro cálido: más rojo que azul', () => {
+  /**
+   * Y este es el que se dio la vuelta.
+   *
+   * Decía «el fondo es negro cálido: más rojo que azul», que era la identidad del
+   * amplificador escrita en un test. Ahora dice lo contrario, y **eso es lo que
+   * tiene que hacer**: el fondo es grafito frío a propósito
+   * ([adr/0027](../../../docs/adr/0027-grafito-y-ambar.md)), porque un pardo a
+   * esta luminancia se lee como marrón viejo y le come el sitio al único color
+   * cálido que queda, que es el acento. Si alguien vuelve a calentar el fondo,
+   * que falle aquí y no dentro de tres semanas mirando una captura.
+   */
+  it('el fondo es grafito frío: más azul que rojo', () => {
     const red = Number.parseInt(colors.background.slice(1, 3), 16);
     const blue = Number.parseInt(colors.background.slice(5, 7), 16);
-    expect(red).toBeGreaterThan(blue);
+    expect(blue).toBeGreaterThan(red);
+  });
+});
+
+/**
+ * El guardián que le faltaba a [adr/0026](../../../docs/adr/0026-el-blanco-hielo.md).
+ *
+ * La regla es de una línea —**subir es acercarse a la luz en los dos temas**— y
+ * hasta ahora solo vivía escrita. El tema claro la incumplía entero: con blanco
+ * puro de fondo, lo único que podía hacer una caja para verse era oscurecerse, así
+ * que `.superficie-alta` significaba «esto destaca» en oscuro y «esto se apaga» en
+ * claro. Es el tipo de fallo que no se ve en una pantalla suelta, solo comparando
+ * los dos temas, que es justo lo que un test sí puede hacer de un vistazo.
+ */
+describe('las superficies suben hacia la luz', () => {
+  it.each([
+    ['claro', paletaClara],
+    ['oscuro', paletaOscura],
+  ])('en el tema %s, cada escalón es más claro que el de debajo', (_nombre, paleta) => {
+    const fondo = luminancia(paleta.background);
+    const superficie = luminancia(paleta.surface);
+    const alta = luminancia(paleta.surfaceRaised);
+
+    expect(superficie, 'surface no es más clara que background').toBeGreaterThan(fondo);
+    expect(alta, 'surfaceRaised no es más clara que surface').toBeGreaterThan(superficie);
   });
 });
 

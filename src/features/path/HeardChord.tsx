@@ -109,7 +109,7 @@ export function HeardChord({ deps }: { readonly deps?: ListeningDeps } = {}) {
                     why: 'Lo has tocado tú.',
                   })
                 }
-                className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 ml-auto rounded border px-2 py-1 text-xs font-medium"
+                className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 ml-auto rounded-sm border px-2 py-1 text-xs font-medium"
               >
                 Meterlo en el camino
               </button>

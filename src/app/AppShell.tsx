@@ -97,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     //
     // Con esto, cualquier absoluto de dentro se ancla aquí, y aquí hay
     // `overflow-hidden`. Vale para las que hay y para las que se escriban.
-    <div className="bg-background relative flex h-dvh flex-col overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+    <div className="fondo-sala relative flex h-dvh flex-col overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
       {/* Lo primero que se tabula, y no se ve hasta que hace falta.
 
           Antes de esto, llegar al contenido con el teclado costaba ocho paradas

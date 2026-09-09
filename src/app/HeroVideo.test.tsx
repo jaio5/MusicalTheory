@@ -11,8 +11,9 @@ import { HeroVideo } from './HeroVideo';
  *
  * Se prueba una sola cosa, y es la que importa: **solo se descarga si quien mira
  * acepta movimiento**. Para quien ha pedido que no, dos megas de vídeo de adorno
- * son dos megas y un mareo; en ese caso queda el degradado de debajo, que ya da
- * el mismo aire.
+ * son dos megas y un mareo; en ese caso queda el póster, que son 56 kB del mismo
+ * fotograma parado. Lo que no puede quedar es el hueco: el vídeo ya no va detrás
+ * del titular, va en su caja al lado.
  *
  * El origen se pone desde el efecto y no en el JSX porque eso es actualizar un
  * sistema de fuera —el reproductor—, así que mirar el atributo `src` después de
@@ -49,16 +50,17 @@ describe('el video de la portada', () => {
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
   });
 
-  it('con movimiento reducido, no se descarga nada', () => {
+  it('con movimiento reducido, no se descarga nada y queda el poster', () => {
     preferencia(true);
 
     const { container } = render(<HeroVideo />);
 
     expect(container.querySelector('video')).not.toHaveAttribute('src');
+    expect(container.querySelector('video')).toHaveAttribute('poster', '/hero.jpg');
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
   });
 
-  it('si el navegador no deja arrancarlo solo, se queda el degradado y no revienta', () => {
+  it('si el navegador no deja arrancarlo solo, se queda el poster y no revienta', () => {
     // La política de autoreproducción. No es un error: el vídeo es adorno.
     preferencia(false);
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new Error('NotAllowedError'));

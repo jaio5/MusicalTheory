@@ -273,6 +273,58 @@ describe('En toda la interfaz', () => {
   });
 
   /**
+   * Los relieves salen de la paleta, no de un `rgba` escrito dentro de una clase.
+   *
+   * Es el agujero que `ui/tokens.test.ts` **no puede tapar**: aquel compara la
+   * paleta con su espejo en CSS, y un número dentro de una cadena de Tailwind no
+   * es ninguna de las dos cosas. `globals.css` ya avisaba de esto —había cuatro
+   * `shadow-[rgba(216,183,106,0.15)]` con el latón transcrito a mano, y al cambiar
+   * el latón se quedaron del color viejo— y aun así quedaba uno vivo: el cajón de
+   * componer llevaba `shadow-[0_-16px_32px_rgba(0,0,0,0.5)]`, que sobre el tema
+   * hielo es un borrón negro. Ahora es `--sombra-alta-arriba`, que cambia con el
+   * tema como todo lo demás.
+   *
+   * Se permite la forma con `var()` —como la del cajón de componer, que pide
+   * `--sombra-alta-arriba`—: eso **es** pedirle el relieve a la paleta.
+   *
+   * Y un aviso para quien edite este comentario: **Tailwind escanea los
+   * comentarios**. Aquí había escrito un ejemplo de clase con `var(--` y tres
+   * puntos dentro, y Tailwind lo tomó por una clase de verdad y generó
+   * `--tw-shadow: var(--...)`, que no es CSS válido: la hoja entera dejó de
+   * compilar y **las nueve pantallas devolvían 500** con los 2.174 tests en
+   * verde. Un ejemplo de clase dentro de un comentario tiene que ser una clase
+   * que se pueda generar, o no parecerse a una.
+   */
+  it('ninguna sombra lleva un color escrito a mano', () => {
+    const aMano = /shadow-\[[^\]]*(?:rgba?\(|#[0-9a-fA-F])/;
+
+    const pendientes = FICHEROS.filter(({ codigo }) => aMano.test(codigo)).map(({ ruta }) => ruta);
+
+    expect(pendientes).toEqual([]);
+  });
+
+  /**
+   * Y las esquinas salen de la escala, que son cuatro y tienen nombre.
+   *
+   * `rounded` a secas no es `rounded-sm`: es el radio por defecto de Tailwind, que
+   * no sale de `ui/tokens.ts` y por tanto **no se mueve cuando se mueve la
+   * escala**. Se coló en seis sitios —tres pastillas de función armónica, la
+   * cifra de una unidad, un botón del acorde oído y el agarre de una nota del
+   * pentagrama— y no se notó porque el valor por defecto coincidía con el nuestro.
+   * El día que dejaron de coincidir habrían sido seis esquinas sueltas.
+   *
+   * Las de una esquina sola —`rounded-tl-none` de los bocadillos del tutor— no
+   * entran: llevan sufijo, así que están en la escala.
+   */
+  it('ninguna esquina se sale de la escala de los tokens', () => {
+    const pendientes = FICHEROS.filter(({ codigo }) => /\brounded\b(?!-)/.test(codigo)).map(
+      ({ ruta }) => ruta,
+    );
+
+    expect(pendientes).toEqual([]);
+  });
+
+  /**
    * Los emoji no se dejan teñir, así que el estado activo se perdía justo donde se
    * mira para saber dónde estás, y cada sistema los dibuja a su manera.
    */

@@ -40,41 +40,49 @@
   --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 
   /* Tamaños que crecen con el ancho: mínimo legible, máximo sensato. */
-  --text-fluid-hero: clamp(2.75rem, 6.6vw, 7rem);
-  --text-fluid-title: clamp(1.9rem, 4vw, 4rem);
-  --text-fluid-subtitle: clamp(1.2rem, 2vw, 1.9rem);
-  --text-fluid-body: clamp(1rem, 1.15vw, 1.3rem);
+  --text-fluid-hero: clamp(2.5rem, 5.4vw, 5.25rem);
+  --text-fluid-title: clamp(1.75rem, 3.2vw, 3.25rem);
+  --text-fluid-subtitle: clamp(1.15rem, 1.8vw, 1.6rem);
+  --text-fluid-body: clamp(1rem, 0.95vw, 1.15rem);
 
   /* Lo mínimo que mide algo que se pulsa. Espejo de `tap` en tokens.ts. */
   --spacing-tap: 2.75rem;
 
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 12px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
 }
 
 /*
- * El tema claro: blanco, gris cálido y un oro.
+ * El tema claro: **blanco hielo**, gris frío y el mismo latón.
  *
  * Elegante por lo que **no** tiene: un solo acento y tres grises. El oro es el
- * mismo hilo que la aplicación llevaba en oscuro —era un amplificador de latón—,
+ * mismo hilo que la aplicación lleva en oscuro —es un amplificador de latón—,
  * pero bajado hasta #9a5b08, que es lo que hace falta para que un texto de acento
- * llegue a 4,5:1 sobre blanco. El dorado bonito de las paletas, #d4af37, no lo
- * cumple ni de lejos.
+ * llegue a 4,5:1. El dorado bonito de las paletas, #d4af37, no lo cumple ni de
+ * lejos.
  *
- * Los grises son cálidos, no azules: sobre blanco puro, un gris azulado deja la
- * pantalla con aire de hospital.
+ * **El fondo no es blanco: es hielo, y las superficies suben hacia el blanco.**
+ * Con el blanco puro abajo, lo que se elevaba tenía que oscurecerse para verse
+ * —o sea que cuanto más importante era una caja, más sucia se veía—, justo al
+ * revés que en el tema oscuro. Ahora elevarse es acercarse a la luz en los dos.
+ *
+ * Y los grises son fríos, que es lo contrario de lo que ponía aquí. La razón de
+ * entonces —un gris azulado sobre blanco puro deja aire de hospital— valía
+ * **sobre blanco puro**: es ese par el que enfría, no el gris solo. El porqué
+ * entero está en docs/adr/0026-el-blanco-hielo.md.
  */
 :root[data-tema='claro'] {
   color-scheme: light;
 
-  --fondo: #ffffff;
-  --superficie: #faf9f7;
-  --superficie-alta: #f3f1ed;
-  --borde: #e4e0d9;
+  --fondo: #f1f4f8;
+  --superficie: #f8fafc;
+  --superficie-alta: #ffffff;
+  --borde: #dce3ea;
 
-  --texto: #1c1917;
-  --texto-suave: #655c54;
+  --texto: #141a20;
+  --texto-suave: #5a646e;
 
   --laton: #9a5b08;
   --laton-vivo: #7c4a0c;
@@ -86,49 +94,79 @@
   --verde: #15803d;
   --verde-vivo: #166534;
 
-  /* El relieve, en claro, es una sombra suave: el filo de luz blanco de un tema
-     oscuro sobre blanco no se ve, y las sombras negras fuertes ensucian. */
-  --sombra-suave: 0 1px 2px rgb(28 25 23 / 0.06);
-  --sombra-alta: 0 6px 20px rgb(28 25 23 / 0.08);
-  --filo: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  /* El relieve, en claro, es una sombra fría y ancha, no una línea negra: sobre
+     hielo, una sombra parda ensucia y una dura recorta. Y el filo de luz se
+     queda aunque encima haya blanco puro, donde no se ve: cuesta cero y es lo
+     que separa una superficie tintada del fondo. */
+  --sombra-suave: 0 1px 2px rgb(20 26 32 / 0.05);
+  --sombra-alta: 0 12px 32px -12px rgb(20 26 32 / 0.16);
+  /* La misma, del revés. La piden los cajones que suben desde la barra de abajo,
+     y sin ella la única forma de escribirla era a mano: había un
+     `rgba(0,0,0,0.5)` dentro de un `shadow-[...]` en componer, que sobre el
+     hielo es un borrón negro y que ningún test puede ver, porque es un número
+     dentro de una cadena. */
+  --sombra-alta-arriba: 0 -12px 32px -12px rgb(20 26 32 / 0.16);
+  --filo: inset 0 1px 0 rgb(255 255 255 / 0.8);
+
+  /* La luz de la sala. En claro no puede ser ámbar —un lavado amarillo sobre
+     hielo es una mancha— así que es blanco: la esquina se aclara hacia el blanco
+     puro y el resto se queda en hielo. Va hacia arriba y no hacia abajo, como en
+     oscuro: una luz aclara, y un degradado que oscurece la esquina es un viñeteo,
+     que es otra cosa y dice lo contrario. */
+  --resplandor: color-mix(in srgb, #ffffff 70%, transparent);
 }
 
 /*
- * El tema oscuro: **el de la casa y el de partida**.
+ * El tema oscuro: **grafito frío y un ámbar**, y el de partida.
  *
- * No cuelga de `prefers-color-scheme`: esto es negro salvo que se pida claro, y
- * por eso vive en `:root` a secas. La identidad del proyecto es un amplificador
- * visto de noche —está escrita desde la fase 0— y lo que se ofrece es una salida
- * para quien la use de día, no una votación entre dos temas.
+ * No cuelga de `prefers-color-scheme`: esto es oscuro salvo que se pida claro, y
+ * por eso vive en `:root` a secas. Lo que se ofrece es una salida para quien la
+ * use de día, no una votación entre dos temas.
+ *
+ * Era un negro pardo con latón encima —la idea de un amplificador de válvulas
+ * visto de noche, que es de donde vienen los nombres de las variables—. Lo que
+ * tenía de malo no era el color sino lo que arrastraba: un pardo cálido a esa
+ * luminancia se lee como marrón viejo, y contra él un acento cálido queda a un
+ * paso y no destaca. El grafito se lee negro de verdad y deja al ámbar solo en su
+ * temperatura ([adr/0027](../../docs/adr/0027-grafito-y-ambar.md)).
  */
 :root,
 :root[data-tema='oscuro'] {
   color-scheme: dark;
 
-  --fondo: #100d0b;
-  --superficie: #1a1613;
-  --superficie-alta: #26201a;
-  --borde: #3a322a;
+  --fondo: #0b0d11;
+  --superficie: #131720;
+  --superficie-alta: #1c222d;
+  --borde: #2a313d;
 
-  --texto: #f3ece0;
-  --texto-suave: #b3a695;
+  --texto: #f0f3f8;
+  --texto-suave: #98a3b3;
 
-  --laton: #c08a3e;
-  --laton-vivo: #e8b765;
-  --laton-suave: #6e5830;
+  --laton: #d99a45;
+  --laton-vivo: #f0be6e;
+  --laton-suave: #4a3a22;
 
-  /* El tapizado se queda oscuro porque es relleno —el fondo del botón de
-     grabar— y el vivo sube, porque es el que llevan los mensajes de error.
-     `#8c2b31` daba 2,26:1 sobre este negro: la mitad de lo que pide un texto. */
-  --rojo: #6b1f24;
-  --rojo-vivo: #e8878a;
+  /* El rojo oscuro es relleno —el fondo del botón de grabar— y el vivo es el que
+     llevan los mensajes de error. `#8c2b31` daba 2,26:1 sobre el fondo de antes:
+     la mitad de lo que pide un texto. Sube a coral porque sobre grafito el rosa
+     apagado de antes se hundía. */
+  --rojo: #4a1e24;
+  --rojo-vivo: #ff9494;
 
-  --verde: #5c8a5a;
-  --verde-vivo: #86bc82;
+  --verde: #2f6b4e;
+  --verde-vivo: #7fd4a3;
 
-  --sombra-suave: 0 1px 2px rgb(0 0 0 / 0.35);
-  --sombra-alta: 0 4px 16px rgb(0 0 0 / 0.35);
+  /* Sombras largas y suaves en vez de cortas y duras: sobre grafito, una sombra
+     de cuatro píxeles no separa nada, y lo que hace que una tarjeta flote es la
+     caída ancha de debajo, no el filo. */
+  --sombra-suave: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sombra-alta: 0 16px 40px -16px rgb(0 0 0 / 0.7), 0 2px 8px rgb(0 0 0 / 0.3);
+  --sombra-alta-arriba: 0 -16px 40px -16px rgb(0 0 0 / 0.7), 0 -2px 8px rgb(0 0 0 / 0.3);
   --filo: inset 0 1px 0 color-mix(in srgb, var(--texto) 8%, transparent);
+
+  /* La luz de la sala, en ámbar: es lo único cálido de todo el tema, y es lo que
+     impide que el grafito se lea como un panel de administración. */
+  --resplandor: color-mix(in srgb, var(--laton) 6%, transparent);
 }
 
 /*
@@ -218,6 +256,48 @@
     color: var(--color-brass);
   }
 
+  /*
+   * El fondo de la aplicación, con la luz de la sala encendida.
+   *
+   * **Estuvo en el `body` y no se veía.** Tanto `AppShell` como la portada abren
+   * con un `bg-background` opaco que tapa el `body` entero, así que el degradado
+   * llevaba tiempo siendo código muerto: se leía en la hoja de estilos, se
+   * documentaba en dos ADR y no llegaba a ningún píxel. Puesto en la clase que
+   * pinta el fondo de verdad, ya no hay nada encima que lo tape.
+   *
+   * No se ve como una mancha: se nota como que la pantalla tiene una fuente de
+   * luz, que es lo que separa un grafito plano de uno *iluminado* —y un hielo
+   * plano de uno con aire—. Va fijo para que no se mueva con el scroll, como la
+   * luz de una sala.
+   *
+   * El color lo pone `--resplandor`, que cambia con el tema: ámbar en oscuro —lo
+   * único cálido que hay— y un frío tenue en claro, porque sobre el hielo un
+   * lavado amarillo es una mancha y no una luz.
+   */
+  .fondo-sala {
+    background-color: var(--color-background);
+    background-image: radial-gradient(70rem 40rem at 15% -10%, var(--resplandor), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  /*
+   * La luz que se escapa por detrás del vídeo de la portada.
+   *
+   * Va desenfocada y por detrás, no como borde: un borde de color alrededor de
+   * una foto es un marco de los noventa, y lo que se busca es que el aparato
+   * parezca encendido. Sobre el hielo es lo único cálido de esa mitad, y en
+   * oscuro es el mismo resplandor de siempre, así que sale de `--color-brass` y
+   * cambia con el tema sin decir nada más.
+   */
+  .aureola {
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--color-brass) 16%, transparent),
+      transparent
+    );
+    filter: blur(28px);
+  }
+
   /* El aro de lo que está seleccionado en el camino. */
   .halo-latón {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brass-bright) 15%, transparent);
@@ -266,18 +346,6 @@
     background-color: var(--color-background);
     color: var(--color-text);
     font-family: var(--font-sans);
-    /*
-     * Un resplandor de latón arriba a la izquierda, al 4 %. No se ve como una
-     * mancha: se nota como que la pantalla tiene una fuente de luz, que es lo que
-     * separa un fondo negro de un fondo negro *iluminado*. Va fijo para que no se
-     * mueva con el scroll, como la luz de una sala.
-     */
-    background-image: radial-gradient(
-      70rem 40rem at 15% -10%,
-      color-mix(in srgb, var(--color-brass) 5%, transparent),
-      transparent 70%
-    );
-    background-attachment: fixed;
   }
 
   /* El foco siempre se ve, y se ve en latón sobre el negro cálido. */
@@ -337,10 +405,11 @@
   /*
    * El profesor que asoma por la esquina al fallar una pregunta.
    *
-   * Tres animaciones cortas y ninguna en bucle infinito salvo el parpadeo, que
-   * es lo que hace que un muñeco parezca vivo y no una pegatina. La regla de
-   * `prefers-reduced-motion` de abajo las apaga todas de golpe; no hace falta
-   * repetirla aquí.
+   * Cuatro animaciones cortas y solo dos en bucle infinito: el parpadeo, que es
+   * lo que hace que un muñeco parezca vivo y no una pegatina, y la brasa de la
+   * válvula, que solo corre mientras el micrófono está abierto —o sea, mientras
+   * hay algo que decir con ella—. La regla de `prefers-reduced-motion` de abajo
+   * las apaga todas de golpe; no hace falta repetirla aquí.
    */
   @keyframes asomar {
     from {
@@ -361,6 +430,23 @@
     }
     96% {
       transform: scaleY(0.1);
+    }
+  }
+
+  /*
+   * El cristal de la válvula calentándose: respira, no parpadea.
+   *
+   * Opacidad y no tamaño, porque lo que hace un filamento al calentar es teñir
+   * el vidrio de alrededor, no crecer. Y lenta: a la velocidad de la boca
+   * parecería una alarma.
+   */
+  @keyframes brasa {
+    0%,
+    100% {
+      opacity: 0.26;
+    }
+    50% {
+      opacity: 0.46;
     }
   }
 
@@ -388,9 +474,97 @@
     will-change: transform;
   }
 
+  .animate-brasa {
+    animation: brasa 2.6s ease-in-out infinite;
+  }
+
   .animate-hablar {
     animation: hablar 260ms ease-in-out infinite;
     will-change: transform;
+  }
+
+  /*
+   * El movimiento de la portada: **tres animaciones y ninguna con JavaScript**.
+   *
+   * Las dos que dependen del scroll van con `animation-timeline`, que es lo que
+   * lo hace posible sin un `IntersectionObserver`, sin un componente de cliente
+   * y sin el parpadeo que trae: con observador, lo que va a aparecer tiene que
+   * pintarse **invisible** primero, así que un navegador sin JavaScript, o con
+   * él a medio cargar, deja media portada en blanco.
+   *
+   * Y degrada solo, que es lo bonito: donde no hay `animation-timeline`, la
+   * animación se queda sin duración —`auto` computa a cero— y con `both` se
+   * planta en el último fotograma. O sea, **lo de siempre**: todo visible y la
+   * barra opaca. No hace falta un `@supports`.
+   */
+  @keyframes entrar {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* La entrada del encabezado, escalonada con `[animation-delay:...]` desde el
+     JSX: es lo único que cambia entre los cuatro trozos que entran. */
+  .entra {
+    animation: entrar 620ms cubic-bezier(0.22, 0.85, 0.35, 1) both;
+  }
+
+  /*
+   * Lo que aparece al bajar: sube dos centímetros y se enciende.
+   *
+   * El rango empieza en `entry 8%` —apenas asomando— y termina en `cover 26%`,
+   * o sea que está entero mucho antes de llegar al centro de la pantalla. Un
+   * rango largo se lee como que la página va lenta; lo que se busca es que nada
+   * aparezca de golpe, no que haya que esperar a nada.
+   */
+  @keyframes revelar {
+    from {
+      opacity: 0;
+      transform: translateY(1.25rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .revelar {
+    animation: revelar linear both;
+    animation-timeline: view();
+    animation-range: entry 8% cover 26%;
+  }
+
+  /*
+   * La barra de la portada se posa al bajar.
+   *
+   * Arriba del todo no hay barra: hay una marca y tres enlaces flotando sobre el
+   * hielo, que es lo que deja que el encabezado empiece en el borde de arriba y
+   * no debajo de una franja. En cuanto se baja, la barra aparece con su velo y
+   * su línea. La regla del `44 px` no la toca esto: los enlaces siguen midiendo
+   * lo mismo, se vea o no la franja.
+   */
+  @keyframes posarse {
+    from {
+      background-color: transparent;
+      border-bottom-color: transparent;
+      backdrop-filter: blur(0);
+    }
+    to {
+      background-color: color-mix(in srgb, var(--color-background) 82%, transparent);
+      border-bottom-color: var(--color-border);
+      backdrop-filter: blur(14px);
+    }
+  }
+
+  .barra-portada {
+    animation: posarse linear both;
+    animation-timeline: scroll();
+    animation-range: 0 5rem;
   }
 
   /* Quien pide menos movimiento no recibe ninguno. */
@@ -402,6 +576,18 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
+      /*
+       * Y estas dos son las que hacen que apagar el movimiento **no apague el
+       * contenido**. Sin `animation-delay`, un trozo del encabezado con 240 ms
+       * de retardo se queda invisible ese cuarto de segundo antes de saltar a su
+       * sitio: se ha quitado la animación y queda el parpadeo. Y sin devolver la
+       * línea de tiempo al reloj, una animación atada al scroll no la mueve ni la
+       * duración de 0,01 ms: se queda en el primer fotograma —transparente— para
+       * siempre, que es la forma más tonta de dejar una página en blanco a quien
+       * ha pedido calma.
+       */
+      animation-delay: 0s !important;
+      animation-timeline: auto !important;
     }
   }
 }

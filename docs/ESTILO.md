@@ -149,8 +149,29 @@ diagramas grandes, y el significado de un color al lado del color.
 
 ## Los dos temas
 
-**El negro es el de casa.** El claro se elige y se guarda; volver al oscuro borra
+**El oscuro es el de casa.** El claro se elige y se guarda; volver al oscuro borra
 la preferencia. No cuelga de `prefers-color-scheme` a propósito.
+
+**Los dos son la misma paleta con la luz encendida y apagada**: grafito frío y
+ámbar de noche, blanco hielo y el mismo ámbar de día
+([adr/0027](adr/0027-grafito-y-ambar.md)). Y de ahí sale la regla que hay que
+tener delante al colocar una caja: **subir es acercarse a la luz en los dos
+temas** —lo vigila `ui/tokens.test.ts`—. El tema claro iba al revés, con blanco
+puro abajo y grises cada vez más sucios encima, o sea que cuanto más importaba una
+caja, más apagada se veía ([adr/0026](adr/0026-el-blanco-hielo.md)).
+
+**El fondo es frío y el acento es cálido, y ese contraste es el diseño.** El ámbar
+es lo único que tiene temperatura en toda la pantalla, y es eso lo que lo hace
+visible sin subirle la saturación. Cuando el fondo era negro cálido, la aplicación
+entera caía en el mismo cuarto de la rueda de color y el acento solo destacaba por
+claridad, que es la mitad del trabajo que tiene que hacer un acento. Vale para los
+dos temas: en claro, el gris frío hace el mismo papel que el grafito.
+
+**Los nombres de los tokens vienen de un amplificador que ya no está.** `brass`,
+`oxblood` y `tube` salieron de la idea original —uno de válvulas visto de noche— y
+se quedan, porque lo que nombran no es un color sino un papel: el acento, lo que va
+mal y lo que va bien. Ningún componente sabe qué tema hay puesto ni de qué color es
+`brass` hoy.
 
 Los nombres de los tokens no cambian entre uno y otro —`brass` es «el acento»
 valga lo que valga—, así que ningún componente sabe qué tema hay puesto. Pero un
@@ -197,6 +218,34 @@ afinador y el profesor.
 `.superficie-viva` en `globals.css` —fondo, borde, radio, filo de luz y sombra en
 una clase—. Nada de cajas con `border` suelto: un tema oscuro sin relieve se lee
 plano, y lo que da modernidad es que se note qué está encima de qué.
+
+**Y un panel necesita que el fondo de debajo no sea el suyo.** `.superficie` es
+casi blanco en el tema claro, así que puesto sobre una franja blanca se queda
+dibujado por su borde y no se eleva. Le pasó a la portada al alternar franjas: el
+que manda en el reparto no es el orden de las secciones, es **lo que llevan
+dentro**. No lo vigila ningún test; se ve mirando la página.
+
+## El movimiento
+
+**Lo que depende del scroll se hace con `animation-timeline`, no con
+JavaScript.** Es lo que evita el rodeo entero de un `IntersectionObserver`: para
+que algo aparezca, un observador tiene que pintarlo invisible primero, y eso deja
+media página en blanco en un navegador sin JavaScript. Y degrada solo: donde no
+está soportado, la duración es `auto` —que computa a cero— y con `both` el
+elemento se queda en el último fotograma, o sea visible. No hace falta un
+`@supports`.
+
+**Quien pide menos movimiento no recibe ninguno, y eso incluye el retardo y la
+línea de tiempo.** La regla de `prefers-reduced-motion` anula las cuatro cosas:
+duración, repeticiones, transiciones y —desde
+[adr/0026](adr/0026-el-blanco-hielo.md)— `animation-delay` y `animation-timeline`.
+Las dos últimas hacían falta porque sin ellas apagar el movimiento apagaba el
+contenido: un trozo con 240 ms de retardo se queda transparente ese cuarto de
+segundo, y una animación atada al scroll no la mueve una duración de 0,01 ms, así
+que se queda en el primer fotograma para siempre.
+
+Y GSAP no ve esa regla, porque escribe el transform él mismo: quien anime con GSAP
+pregunta en `ui/motion.ts`.
 
 Y una de las de media hora: **`color-scheme: dark` en `:root`** es lo que hace que
 el navegador pinte en oscuro lo que dibuja él y no nosotros —la lista de un

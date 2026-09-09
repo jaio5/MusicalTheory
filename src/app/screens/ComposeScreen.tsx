@@ -337,12 +337,16 @@ export function ComposeScreen() {
             //
             // `bottom-full` lo pega justo encima de la barra de pestañas, y la
             // sombra hacia arriba es lo que dice que hay algo debajo, en vez de
-            // parecer que la pantalla se acaba ahí.
+            // parecer que la pantalla se acaba ahí. Sale de
+            // `--sombra-alta-arriba` y no de un `rgba` escrito aquí: estuvo en
+            // `rgba(0,0,0,0.5)`, que sobre el tema hielo es un borrón negro, y un
+            // número dentro de una cadena no lo ve el test que vigila que los
+            // relieves sigan a la paleta.
             // `surface-raised` y no `surface`: lo que está encima se dice con
             // el tono, no solo con la sombra. Con el mismo fondo que lo de
             // debajo, el cajón parecía el final de la pantalla en vez de una
             // capa, que es justo lo que este proyecto pide de la profundidad.
-            className={`bg-surface-raised border-border absolute inset-x-0 bottom-full z-20 border-t p-3 shadow-[0_-16px_32px_rgba(0,0,0,0.5)] ${
+            className={`bg-surface-raised border-border absolute inset-x-0 bottom-full z-20 border-t p-3 shadow-[var(--sombra-alta-arriba)] ${
               current.fits === true
                 ? 'max-h-[min(62vh,44rem)] overflow-hidden'
                 : 'max-h-[min(58vh,30rem)] overflow-auto'

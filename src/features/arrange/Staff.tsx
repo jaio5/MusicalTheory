@@ -649,7 +649,7 @@ export function Staff({
                 role="button"
                 tabIndex={0}
                 aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}${dudosa ? ', dudosa' : ''}`}
-                className="focus-visible:outline-brass-bright cursor-grab rounded focus-visible:outline-2"
+                className="focus-visible:outline-brass-bright cursor-grab rounded-sm focus-visible:outline-2"
                 style={{ touchAction: 'none' }}
                 onPointerDown={(event) => cogerNota(event, note)}
                 onClick={(event) => {

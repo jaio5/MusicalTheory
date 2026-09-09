@@ -9,11 +9,10 @@
  * forma síncrona en el `<head>`, antes del primer fotograma; con una cookie habría
  * que renderizar el HTML por tema y esta aplicación se sirve igual para todos.
  *
- * **Dos valores, y el oscuro no se guarda.** No hay «sistema»: esto es negro salvo
- * que se pida claro. La identidad del proyecto es un amplificador visto de noche
- * y lo que se ofrece es una salida para quien lo use de día, no una votación. Por
- * eso volver al oscuro **borra** la preferencia en vez de escribir otra: sin nada
- * guardado, lo que sale es lo de la casa.
+ * **Dos valores, y el oscuro no se guarda.** No hay «sistema»: esto es oscuro
+ * salvo que se pida claro, y lo que se ofrece es una salida para quien lo use de
+ * día, no una votación. Por eso volver al oscuro **borra** la preferencia en vez
+ * de escribir otra: sin nada guardado, lo que sale es lo de la casa.
  */
 
 export type Tema = 'claro' | 'oscuro';

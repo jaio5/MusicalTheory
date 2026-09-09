@@ -42,7 +42,7 @@ function RoleBadge({ role }: { role: HarmonicRole }) {
   return (
     <span
       title={`${info.name}. ${info.what} ${info.goes}`}
-      className="border-border text-text-muted mt-0.5 shrink-0 rounded border px-1 font-mono text-xs"
+      className="border-border text-text-muted mt-0.5 shrink-0 rounded-sm border px-1 font-mono text-xs"
     >
       <span aria-hidden="true">{info.short}</span>
       <span className="sr-only">{info.name}</span>
@@ -369,15 +369,15 @@ export function NextChords() {
             alguien te las traduce, y tenerlo delante evita ir a buscarlo. */}
         <p aria-hidden="true" className="text-text-muted flex items-center gap-2 text-xs">
           <span className="flex items-center gap-1">
-            <span className="border-border rounded border px-1 font-mono">T</span>
+            <span className="border-border rounded-sm border px-1 font-mono">T</span>
             reposo
           </span>
           <span className="flex items-center gap-1">
-            <span className="border-border rounded border px-1 font-mono">S</span>
+            <span className="border-border rounded-sm border px-1 font-mono">S</span>
             salida
           </span>
           <span className="flex items-center gap-1">
-            <span className="border-border rounded border px-1 font-mono">D</span>
+            <span className="border-border rounded-sm border px-1 font-mono">D</span>
             tensión
           </span>
         </p>
