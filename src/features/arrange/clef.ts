@@ -22,13 +22,22 @@
  * es lo único que la clave tiene que cumplir: ahí va la línea del Sol. Así,
  * colocarla es trasladar el origen a esa línea, sin restas mágicas.
  *
- * Lo demás son las proporciones de cualquier partitura, contadas desde ese
+ * Lo demás son las proporciones de una clave de imprenta, contadas desde ese
  * origen y en espacios de pentagrama: la punta de arriba a cuatro espacios —un
- * espacio por encima de la quinta línea—, la bolita de abajo a poco más de dos
- * —un espacio por debajo de la primera—, y el bucle abarcando algo más de un
- * espacio a cada lado. Estuvo desplazada hacia abajo: le faltaba arriba y le
- * sobraba de cola, y se veía como una clave a la que alguien había tirado del
- * pie.
+ * espacio por encima de la quinta línea— y la bolita de abajo a poco más de dos
+ * —un espacio por debajo de la primera—.
+ *
+ * **A lo ancho no está centrada, y ese era el error que la hacía irreconocible.**
+ * Una clave de sol de imprenta llega a un espacio escaso por la izquierda del
+ * centro de la espiral y a un espacio y medio largo por la derecha: la masa está
+ * a la derecha, porque ahí va la panza. Esta la tenía al revés —una y media a la
+ * izquierda, una y poco a la derecha—, y con las dos mitades cambiadas de sitio
+ * la silueta que quedaba era la de una clave de fa: un cuenco a la izquierda con
+ * un punto al lado. Ninguna cantidad de retoques en el gancho lo arreglaba,
+ * porque el problema no estaba en el gancho.
+ *
+ * Estuvo además desplazada hacia abajo: le faltaba arriba y le sobraba de cola, y
+ * se veía como una clave a la que alguien había tirado del pie.
  */
 
 /** Lo que mide un espacio del pentagrama en las coordenadas de la clave. */
@@ -41,7 +50,7 @@ export const ESPACIO_CLAVE = 20;
  * apoya y se levanta. Meterla en la línea central obligaría a que el grosor
  * subiera hasta su diámetro y bajara otra vez, y eso deforma la cola entera.
  */
-export const BOLITA = { x: -12, y: 44, r: 5.5 } as const;
+export const BOLITA = { x: -7, y: 49, r: 4.4 } as const;
 
 /**
  * La línea central del trazo: por dónde pasa la pluma y cuánto pesa.
@@ -52,33 +61,36 @@ export const BOLITA = { x: -12, y: 44, r: 5.5 } as const;
  * va más plana.
  */
 export const TRAZO: ReadonlyArray<readonly [number, number, number]> = [
-  [-11, 42, 3.0], // sale de la bolita de abajo
-  [-4, 38, 4.4],
-  [2, 32, 5.6],
-  [5, 24, 6.2], // ya es el mástil
-  [6, 6, 6.4],
-  [6, -18, 6.4],
-  [5, -46, 5.4],
-  [3, -64, 4.0],
-  [-1, -78, 2.6], // la punta de arriba, un espacio por encima de la quinta línea
-  [-8, -74, 3.2], // el gancho, que cae por la izquierda
-  [-14, -63, 4.6],
-  [-14, -49, 6.0],
-  [-9, -36, 7.2], // baja cruzando el mástil: primer cruce
-  [1, -25, 8.4],
-  [13, -12, 9.6],
-  [19, 3, 10.4], // la panza de la derecha, lo más grueso
-  [17, 18, 9.4],
-  [7, 28, 8.2],
-  [-7, 29, 7.0], // vuelve cruzando el mástil por abajo: segundo cruce
-  [-20, 23, 5.8],
-  [-26, 10, 4.8],
-  [-25, -5, 3.9], // y empieza a enroscarse
-  [-13, -14, 3.1],
-  [0, -9, 2.3],
-  [4, 2, 1.6],
-  [-3, 8, 1.0],
-  [-10, 3, 0.6], // muere en el centro, sobre la línea del Sol
+  [-6, 47, 2.8], // sale de la bolita de abajo
+  [1, 44, 4.0],
+  [6, 37, 5.2],
+  [9, 25, 5.9], // ya es el mástil
+  [10, 4, 6.2],
+  [10, -18, 6.2],
+  [9, -42, 5.4],
+  [6, -60, 4.2],
+  [0, -80, 2.6], // la punta de arriba, un espacio por encima de la quinta línea
+  [-9, -76, 3.2], // el gancho, que cae por la izquierda
+  [-17, -66, 4.2],
+  [-20, -52, 5.2],
+  [-16, -38, 6.2],
+  [-5, -28, 7.2],
+  [9, -18, 8.4], // baja cruzando el mástil: primer cruce
+  [23, -2, 9.6],
+  [30, 14, 10.4], // la panza de la derecha, lo más grueso
+  [25, 30, 9.4],
+  [11, 38, 8.2],
+  [-4, 36, 7.0], // vuelve cruzando el mástil por abajo: segundo cruce
+  [-17, 26, 5.8],
+  [-22, 11, 4.8],
+  [-18, -4, 3.8], // y empieza a enroscarse
+  [-9, -14, 3.4],
+  [2, -10, 2.8],
+  // La espiral se queda a la izquierda del mástil: si lo pasa, el trazo lo cruza
+  // dos veces más y deja de haber los dos cruces que hacen la clave.
+  [5, 1, 2.2],
+  [-2, 9, 1.8],
+  [-9, 4, 1.4], // muere en el centro, sobre la línea del Sol
 ];
 
 /** Cuántos puntos se interpolan entre cada par del trazo. */

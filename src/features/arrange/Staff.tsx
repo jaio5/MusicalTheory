@@ -6,6 +6,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import {
   isDoubtfulNote,
   keySignature,
+  MAX_OFFSET,
   offsetOfStep,
   resolveDegree,
   writeNote,
@@ -27,9 +28,15 @@ import { BOLITA, CLAVE_DE_SOL, ESPACIO_CLAVE } from './clef';
  *
  * ## Lo que se dibuja y lo que no
  *
- * Se dibuja lo que el modelo tiene: cinco líneas, la armadura de la tonalidad,
- * barras de compás, los cifrados encima y una figura por nota, de la corchea a la
- * redonda con sus puntillos. **No hay ligaduras, ni tresillos, ni dos voces, ni
+ * Se dibuja lo que el modelo tiene: cinco líneas, la armadura de la tonalidad, la
+ * indicación de compás, barras de compás con su barra final, los cifrados encima y
+ * una figura por nota, de la corchea a la redonda con sus puntillos.
+ *
+ * Las medidas del grabado —cabeza, plica, líneas adicionales— **salen del espacio
+ * del pentagrama y no de píxeles probados a ojo**, y están juntas más abajo con el
+ * porqué de cada una: la cabeza llena el espacio, la plica mide tres espacios y
+ * medio y la adicional sobresale de la cabeza. Puestas a ojo, la partitura se leía
+ * como cinco rayas con puntitos. **No hay ligaduras, ni tresillos, ni dos voces, ni
  * silencios escritos.** No es una renuncia de dibujo: es que el modelo no tiene
  * ninguna de esas cosas, y `melody.ts` limita las duraciones justo a las seis que
  * tienen figura para que nunca haya una nota que no se pueda escribir.
@@ -57,8 +64,14 @@ import { BOLITA, CLAVE_DE_SOL, ESPACIO_CLAVE } from './clef';
  *
  * Entre los dos topes: por debajo del mínimo las notas se pisan, y por encima del
  * máximo cuatro compases se estiran hasta parecer una pancarta.
+ *
+ * **El mínimo sale de una división.** Las notas caen en una rejilla de medio
+ * pulso, así que dos vecinas distan medio pulso de papel; para que no se toquen,
+ * ese medio pulso tiene que medir al menos una cabeza entera. De ahí el 28: con
+ * el 20 de antes, dos corcheas seguidas se solapaban en cuanto la cabeza pasó a
+ * medir lo que mide una cabeza.
  */
-const PULSO_MINIMO = 20;
+const PULSO_MINIMO = 28;
 const PULSO_MAXIMO = 46;
 
 /** Medio espacio del pentagrama: lo que sube una nota al pasar de línea a espacio. */
@@ -73,7 +86,7 @@ const BASE = 82;
  * La clave se ensancha a los dos lados de su espiral; este número es el canto
  * derecho más un respiro.
  */
-const CLAVE_HASTA = 42;
+const CLAVE_HASTA = 44;
 
 /** Lo que ocupa cada alteración de la armadura a lo ancho. */
 const PASO_ARMADURA = 8;
@@ -97,11 +110,61 @@ const ESCALA_CLAVE = (2 * PASO) / ESPACIO_CLAVE;
  *
  * Es el centro y no el canto izquierdo: la clave se ensancha hacia la izquierda
  * con la panza de la espiral, así que este número tiene que dejarle sitio a eso.
+ *
+ * Sale de la caja del contorno, no del gusto: la clave llega a 24,4 unidades por
+ * la izquierda, que al 0,6 de escala son 14,6 píxeles, y las cinco líneas
+ * empiezan en el cuatro. Cada vez que cambie el trazo hay que volver a medirla.
  */
-const MARGEN_CLAVE = 22;
+const MARGEN_CLAVE = 19;
 
 /** El `step` de la línea de abajo del pentagrama en clave de sol: el Mi de la 4.ª. */
 const STEP_BASE = 2;
+
+/**
+ * La cabeza de la nota, en medidas de pentagrama y no en píxeles sueltos.
+ *
+ * Una cabeza negra **llena el espacio**: un espacio de alto —que aquí son dos
+ * pasos, o sea `ry = PASO`— y algo más de ancho, inclinada unos veinte grados.
+ *
+ * Estaba en `ry 3.8` sobre un espacio de doce, o sea al 63 %, y de ahí venía
+ * media impresión de partitura pobre: las notas flotaban en medio del hueco en
+ * vez de ocuparlo, y el pentagrama se leía como cinco rayas con puntitos.
+ */
+const CABEZA_RY = PASO;
+const CABEZA_RX = PASO * 1.32;
+const INCLINACION = 20;
+
+/**
+ * Medio ancho de la cabeza **ya girada**, que no es `CABEZA_RX`.
+ *
+ * De aquí salen la plica —que se pega al canto de la cabeza, no a su centro— y
+ * el puntillo. Girar una elipse la ensancha menos de lo que parece, y ponerlo a
+ * ojo deja la plica despegada o metida dentro de la cabeza.
+ */
+const CABEZA_MEDIO_ANCHO = Math.hypot(
+  CABEZA_RX * Math.cos((INCLINACION * Math.PI) / 180),
+  CABEZA_RY * Math.sin((INCLINACION * Math.PI) / 180),
+);
+
+/**
+ * Medio largo de una línea adicional.
+ *
+ * Sobresale de la cabeza por los dos lados: una adicional que muere justo en el
+ * canto parece un tachón, y es lo que pasaba desde que la cabeza creció —los
+ * ocho píxeles de antes daban para una cabeza de cinco, no para una de siete—.
+ */
+const LARGO_ADICIONAL = CABEZA_MEDIO_ANCHO + 4;
+
+/**
+ * Lo que mide una plica: tres espacios y medio, que es la medida de toda la vida.
+ *
+ * Estaba en 26 píxeles, que sobre un espacio de doce son 2,2 espacios: cortas, y
+ * todas iguales aunque la nota estuviera lejos del pentagrama.
+ */
+const PLICA_LARGO = 3.5 * 2 * PASO;
+
+/** Lo que ocupa la indicación de compás, con su respiro antes de la música. */
+const ANCHO_COMPAS = 24;
 
 /**
  * En qué escalón va cada alteración de la armadura, y **son dos tablas**.
@@ -236,7 +299,40 @@ export function Staff({
    * de las tonalidades con más alteraciones salía ilegible justo por el lado que
    * más hay que leer. Ahora el hueco crece con lo que hay que meter en él.
    */
-  const margen = CLAVE_HASTA + armadura.letters.length * PASO_ARMADURA + 12;
+  const margen = CLAVE_HASTA + armadura.letters.length * PASO_ARMADURA + ANCHO_COMPAS + 12;
+
+  /**
+   * El aire que se abre por arriba cuando la música sube por encima del pentagrama.
+   *
+   * Los cifrados viven en una banda fija sobre las cinco líneas, y una nota con
+   * dos líneas adicionales llega justo ahí: la cabeza salía atravesada por la
+   * línea del cifrado. Se vio en cuanto la cabeza pasó a medir un espacio entero.
+   *
+   * En vez de mover el pentagrama —que obligaría a recalcular todo lo que cuelga
+   * de `BASE`—, **el cuadro crece hacia arriba**: el `viewBox` empieza en negativo
+   * y la banda de cifrados sube con él. Todo lo demás sigue en las coordenadas de
+   * siempre, y lo único que hay que corregir es el clic, que llega en píxeles de
+   * pantalla.
+   *
+   * **El aire está siempre puesto, y lo que mide sale del modelo**: se reserva
+   * hasta donde `MAX_OFFSET` deja escribir, que son dos octavas sobre la tónica.
+   *
+   * Medido con lo que hay escrito en cada momento, la partitura pegaba un salto
+   * hacia abajo justo al escribir una nota aguda —dieciséis píxeles entre donde se
+   * pulsaba y donde aparecía la cabeza—, porque el hueco se abría después del
+   * clic. Con un número fijo a ojo el salto volvía en las tonalidades altas, donde
+   * la misma nota cae más arriba en el pentagrama. Reservando el techo del modelo
+   * no puede pasar en ninguna tonalidad.
+   *
+   * Y además es lo que hace un cancionero: el cifrado va siempre a la misma altura
+   * sobre el pentagrama, no bailando con la melodía.
+   */
+  const escalonMasAlto = writeNote(
+    { id: 'techo', offset: MAX_OFFSET, start: 0, length: 1 },
+    tonic,
+    mode,
+  ).step;
+  const respiro = Math.max(0, 26 - (yDeStep(escalonMasAlto) - CABEZA_RY - 2));
 
   const compases = Math.max(1, bars);
   const pulsos = compases * beatsPerBar;
@@ -279,7 +375,10 @@ export function Staff({
       // píxel del dibujo. Si algún día se escala, aquí hay que dividir por la
       // razón entre `caja.width` y `ancho`.
       const x = clientX - caja.left;
-      const y = clientY - caja.top;
+      // El `viewBox` empieza en `-respiro`, así que el cero de pantalla no es el
+      // cero del dibujo. Sin esta resta, escribir sobre una partitura con notas
+      // agudas pone la nota tantos escalones más abajo como aire se haya abierto.
+      const y = clientY - caja.top - respiro;
       return {
         step: Math.round((BASE - y) / PASO) + STEP_BASE,
         start: Math.max(0, Math.round((x - margen) / porPulso / 0.5) * 0.5),
@@ -288,7 +387,7 @@ export function Staff({
     // El margen entra aquí desde que depende de la tonalidad: en Fa sostenido
     // hay seis sostenidos delante, y con el número de Do mayor cada nota que se
     // escribe caería medio compás a la izquierda de donde se pulsó.
-    [porPulso, margen],
+    [porPulso, margen, respiro],
   );
 
   /**
@@ -424,8 +523,8 @@ export function Staff({
         <svg
           ref={svgRef}
           width={ancho}
-          height={ALTO}
-          viewBox={`0 0 ${ancho} ${ALTO}`}
+          height={ALTO + respiro}
+          viewBox={`0 ${-respiro} ${ancho} ${ALTO + respiro}`}
           role="img"
           aria-label={`Partitura de ${partName}: ${notes.length} notas`}
           className="text-text block"
@@ -504,18 +603,82 @@ export function Staff({
             </text>
           ))}
 
-          {/* Las barras de compás, y el cifrado del acorde encima de cada bloque. */}
-          {Array.from({ length: compases + 1 }, (_, i) => (
+          {/*
+          La indicación de compás.
+
+          Faltaba, y sin ella el pentagrama no dice en cuánto se cuenta: los
+          pulsos por compás se eligen arriba en la barra y la partitura era el
+          único sitio donde ese número no aparecía.
+
+          El de abajo es siempre un cuatro porque el modelo cuenta en negras: un
+          pulso es una negra en `melody.ts`, y mientras eso sea así escribir otra
+          cosa sería mentir. Las dos cifras van centradas en su mitad del
+          pentagrama, que es donde van en cualquier partitura.
+        */}
+          <g aria-hidden fill="currentColor" fillOpacity={0.9}>
+            <text
+              x={margen - ANCHO_COMPAS / 2 - 6}
+              y={BASE - 3 * PASO + 8}
+              fontSize={22}
+              textAnchor="middle"
+            >
+              {beatsPerBar}
+            </text>
+            <text
+              x={margen - ANCHO_COMPAS / 2 - 6}
+              y={BASE - 0 * PASO + 8}
+              fontSize={22}
+              textAnchor="middle"
+            >
+              4
+            </text>
+          </g>
+
+          {/*
+          Las barras de compás.
+
+          Estaban al 0,5 de opacidad, más apagadas que las propias líneas del
+          pentagrama, que van al 0,7. Una divisoria más tenue que aquello que
+          divide no se lee como divisoria: se lee como una raya que sobra.
+
+          Y solo van **entre** compases. Había una pegada al principio, antes de
+          la primera nota, que ninguna partitura impresa lleva: un sistema empieza
+          con la clave y ya está. Con la indicación de compás delante, aquella
+          raya dejaba la música dentro de una caja.
+        */}
+          {Array.from({ length: compases - 1 }, (_, i) => (
             <line
               key={i}
-              x1={margen + i * beatsPerBar * porPulso}
-              x2={margen + i * beatsPerBar * porPulso}
+              x1={margen + (i + 1) * beatsPerBar * porPulso}
+              x2={margen + (i + 1) * beatsPerBar * porPulso}
               y1={BASE - 8 * PASO}
               y2={BASE}
               stroke="currentColor"
-              strokeOpacity={0.5}
+              strokeOpacity={0.7}
             />
           ))}
+
+          {/*
+          La barra final: fina y luego gruesa, que es como acaba una partitura.
+
+          Antes el final era una divisoria más, así que la última parte parecía
+          cortada en vez de terminada.
+        */}
+          <g aria-hidden stroke="currentColor" strokeOpacity={0.85}>
+            <line
+              x1={margen + compases * beatsPerBar * porPulso - 5}
+              x2={margen + compases * beatsPerBar * porPulso - 5}
+              y1={BASE - 8 * PASO}
+              y2={BASE}
+            />
+            <line
+              x1={margen + compases * beatsPerBar * porPulso - 1.5}
+              x2={margen + compases * beatsPerBar * porPulso - 1.5}
+              y1={BASE - 8 * PASO}
+              y2={BASE}
+              strokeWidth={3}
+            />
+          </g>
 
           {/*
           Los cifrados, que aquí **son** los acordes y no su etiqueta.
@@ -525,92 +688,94 @@ export function Staff({
           que un bloque. Debajo lleva una línea que dice hasta dónde llega, que es
           lo que un cifrado suelto no dice y un bloque decía con su ancho.
         */}
-          {
-            blocks.reduce<{ x: number; nodos: React.ReactElement[]; i: number }>(
-              (acumulado, block) => {
-                const indice = acumulado.i;
-                const chord = resolveDegree(tonic, mode, block.degree);
-                const x = margen + acumulado.x * porPulso;
-                const elegido = selectedBlockId === block.id;
+          <g transform={`translate(0 ${-respiro})`}>
+            {
+              blocks.reduce<{ x: number; nodos: React.ReactElement[]; i: number }>(
+                (acumulado, block) => {
+                  const indice = acumulado.i;
+                  const chord = resolveDegree(tonic, mode, block.degree);
+                  const x = margen + acumulado.x * porPulso;
+                  const elegido = selectedBlockId === block.id;
 
-                acumulado.nodos.push(
-                  <g
-                    key={block.id}
-                    role="button"
-                    tabIndex={0}
-                    // El compás es zona de destino: al arrastrar un acorde por
-                    // encima, el hueco que se abre es el de aquí.
-                    data-parte={partId}
-                    data-indice={acumulado.x === 0 ? 0 : indice}
-                    aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
-                    aria-pressed={elegido}
-                    style={{ touchAction: 'none' }}
-                    className={`focus-visible:outline-brass-bright cursor-grab focus-visible:outline-2 ${
-                      elegido ? 'text-brass-bright' : ''
-                    }`}
-                    onPointerDown={(event) => moverAcorde(event, block.id)}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onSelectBlock(block.id);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Delete' || event.key === 'Backspace') {
-                        event.preventDefault();
-                        onRemoveBlock(block.id);
-                      }
-                    }}
-                  >
-                    {/* El cifrado, con peso: en esta vista **es** el acorde, no su
+                  acumulado.nodos.push(
+                    <g
+                      key={block.id}
+                      role="button"
+                      tabIndex={0}
+                      // El compás es zona de destino: al arrastrar un acorde por
+                      // encima, el hueco que se abre es el de aquí.
+                      data-parte={partId}
+                      data-indice={acumulado.x === 0 ? 0 : indice}
+                      aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
+                      aria-pressed={elegido}
+                      style={{ touchAction: 'none' }}
+                      className={`focus-visible:outline-brass-bright cursor-grab focus-visible:outline-2 ${
+                        elegido ? 'text-brass-bright' : ''
+                      }`}
+                      onPointerDown={(event) => moverAcorde(event, block.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectBlock(block.id);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Delete' || event.key === 'Backspace') {
+                          event.preventDefault();
+                          onRemoveBlock(block.id);
+                        }
+                      }}
+                    >
+                      {/* El cifrado, con peso: en esta vista **es** el acorde, no su
                       etiqueta, y a catorce píxeles al 85 % se leía como un pie de
                       foto al lado de un pentagrama que ocupa cinco veces más. */}
-                    <text
-                      x={x}
-                      y={17}
-                      fontSize={15}
-                      fontWeight={600}
-                      fontFamily="ui-monospace, monospace"
-                      fill="currentColor"
-                      fillOpacity={elegido ? 1 : 0.95}
-                    >
-                      {chord.symbol}
-                    </text>
-                    <line
-                      x1={x}
-                      x2={x + block.beats * porPulso - 4}
-                      y1={22}
-                      y2={22}
-                      stroke="currentColor"
-                      strokeOpacity={elegido ? 0.9 : 0.3}
-                      strokeWidth={elegido ? 2 : 1}
-                    />
-                    <rect
-                      x={x - 2}
-                      y={4}
-                      width={Math.max(24, block.beats * porPulso - 14)}
-                      height={22}
-                      fill="transparent"
-                    />
-                    {/* La punta de la línea: de aquí se tira para estirar. */}
-                    <rect
-                      x={x + block.beats * porPulso - 16}
-                      y={4}
-                      width={16}
-                      height={22}
-                      fill="transparent"
-                      className="cursor-ew-resize"
-                      onPointerDown={(event) => estirarAcorde(event, block.id, block.beats)}
-                    />
-                  </g>,
-                );
-                return {
-                  x: acumulado.x + block.beats,
-                  nodos: acumulado.nodos,
-                  i: acumulado.i + 1,
-                };
-              },
-              { x: 0, nodos: [], i: 0 },
-            ).nodos
-          }
+                      <text
+                        x={x}
+                        y={17}
+                        fontSize={15}
+                        fontWeight={600}
+                        fontFamily="ui-monospace, monospace"
+                        fill="currentColor"
+                        fillOpacity={elegido ? 1 : 0.95}
+                      >
+                        {chord.symbol}
+                      </text>
+                      <line
+                        x1={x}
+                        x2={x + block.beats * porPulso - 4}
+                        y1={22}
+                        y2={22}
+                        stroke="currentColor"
+                        strokeOpacity={elegido ? 0.9 : 0.3}
+                        strokeWidth={elegido ? 2 : 1}
+                      />
+                      <rect
+                        x={x - 2}
+                        y={4}
+                        width={Math.max(24, block.beats * porPulso - 14)}
+                        height={22}
+                        fill="transparent"
+                      />
+                      {/* La punta de la línea: de aquí se tira para estirar. */}
+                      <rect
+                        x={x + block.beats * porPulso - 16}
+                        y={4}
+                        width={16}
+                        height={22}
+                        fill="transparent"
+                        className="cursor-ew-resize"
+                        onPointerDown={(event) => estirarAcorde(event, block.id, block.beats)}
+                      />
+                    </g>,
+                  );
+                  return {
+                    x: acumulado.x + block.beats,
+                    nodos: acumulado.nodos,
+                    i: acumulado.i + 1,
+                  };
+                },
+                { x: 0, nodos: [], i: 0 },
+              ).nodos
+            }
+          </g>
 
           {/* La marca de dónde caería el acorde que se arrastra. Va donde empieza
             el compás ante el que se soltaría, que es donde va a aparecer. */}
@@ -640,6 +805,34 @@ export function Staff({
             const y = yDeStep(escrita.step);
             const { hueca, plica, corchete, punto } = figura(note.length);
             const arriba = escrita.step < 6;
+
+            /*
+              Qué alteración se escribe delante de la nota, que **no es la que
+              trae el nombre**.
+
+              La armadura ya altera todas las notas de esas letras, así que un Si
+              bemol en Mi bemol mayor no lleva bemol propio: lo lleva la armadura,
+              y repetirlo delante de cada nota llena el pentagrama de bemoles que
+              un músico no espera. Estaba escribiéndolos todos.
+
+              Y al revés: una letra que la armadura altera, tocada al natural,
+              necesita un becuadro o se lee alterada. No se dibujaba ninguno.
+            */
+            const laArmaduraLaAltera = armadura.letters.includes(escrita.letter);
+            const alteracionDeArmadura = armadura.accidental === 'sharp' ? '#' : 'b';
+            const alteracion = laArmaduraLaAltera
+              ? escrita.accidental === alteracionDeArmadura
+                ? ''
+                : escrita.accidental === ''
+                  ? '♮'
+                  : escrita.accidental === '#'
+                    ? '♯'
+                    : '♭'
+              : escrita.accidental === '#'
+                ? '♯'
+                : escrita.accidental === 'b'
+                  ? '♭'
+                  : '';
             const seleccionada = selectedNoteId === note.id;
             const dudosa = isDoubtfulNote(note);
 
@@ -662,8 +855,8 @@ export function Staff({
                   Array.from({ length: Math.floor((escrita.step - 10) / 2) }, (_, i) => (
                     <line
                       key={`a${i}`}
-                      x1={x - 8}
-                      x2={x + 8}
+                      x1={x - LARGO_ADICIONAL}
+                      x2={x + LARGO_ADICIONAL}
                       y1={yDeStep(12 + i * 2)}
                       y2={yDeStep(12 + i * 2)}
                       stroke="currentColor"
@@ -674,8 +867,8 @@ export function Staff({
                   Array.from({ length: Math.floor((2 - escrita.step) / 2) }, (_, i) => (
                     <line
                       key={`b${i}`}
-                      x1={x - 8}
-                      x2={x + 8}
+                      x1={x - LARGO_ADICIONAL}
+                      x2={x + LARGO_ADICIONAL}
                       y1={yDeStep(0 - i * 2)}
                       y2={yDeStep(0 - i * 2)}
                       stroke="currentColor"
@@ -683,9 +876,9 @@ export function Staff({
                     />
                   ))}
 
-                {escrita.accidental !== '' && (
-                  <text x={x - 18} y={y + 4} fontSize={13} fill="currentColor">
-                    {escrita.accidental === '#' ? '♯' : '♭'}
+                {alteracion !== '' && (
+                  <text x={x - CABEZA_MEDIO_ANCHO - 9} y={y + 5} fontSize={14} fill="currentColor">
+                    {alteracion}
                   </text>
                 )}
 
@@ -705,15 +898,25 @@ export function Staff({
                 <ellipse
                   cx={x}
                   cy={y}
-                  rx={5.2}
-                  ry={3.8}
-                  transform={`rotate(-20 ${x} ${y})`}
+                  rx={CABEZA_RX}
+                  ry={CABEZA_RY}
+                  transform={`rotate(-${INCLINACION} ${x} ${y})`}
                   fill={hueca ? 'none' : 'currentColor'}
                   stroke="currentColor"
                   strokeWidth={hueca ? 1.6 : 1}
                   className={seleccionada ? 'text-brass-bright' : ''}
                 />
-                {punto && <circle cx={x + 9} cy={y - 2} r={1.4} fill="currentColor" />}
+                {/* El puntillo va detrás de la cabeza y **siempre en un espacio**:
+                  puesto sobre una línea se confunde con ella. Si la nota está en
+                  línea —los `step` pares—, sube al espacio de encima. */}
+                {punto && (
+                  <circle
+                    cx={x + CABEZA_MEDIO_ANCHO + 4}
+                    cy={escrita.step % 2 === 0 ? y - PASO : y}
+                    r={1.6}
+                    fill="currentColor"
+                  />
+                )}
 
                 {/* Una nota que llegó sucia se marca con un interrogante pequeño
                   encima, igual que un acorde dudoso lo lleva al lado. No con
@@ -733,20 +936,20 @@ export function Staff({
 
                 {plica && (
                   <line
-                    x1={arriba ? x + 5 : x - 5}
-                    x2={arriba ? x + 5 : x - 5}
+                    x1={arriba ? x + CABEZA_MEDIO_ANCHO : x - CABEZA_MEDIO_ANCHO}
+                    x2={arriba ? x + CABEZA_MEDIO_ANCHO : x - CABEZA_MEDIO_ANCHO}
                     y1={y}
-                    y2={arriba ? y - 26 : y + 26}
+                    y2={arriba ? y - PLICA_LARGO : y + PLICA_LARGO}
                     stroke="currentColor"
-                    strokeWidth={1.2}
+                    strokeWidth={1.3}
                   />
                 )}
                 {corchete && (
                   <path
                     d={
                       arriba
-                        ? `M ${x + 5} ${y - 26} q 8 4 7 12`
-                        : `M ${x - 5} ${y + 26} q 8 -4 7 -12`
+                        ? `M ${x + CABEZA_MEDIO_ANCHO} ${y - PLICA_LARGO} q 9 5 8 14`
+                        : `M ${x - CABEZA_MEDIO_ANCHO} ${y + PLICA_LARGO} q 9 -5 8 -14`
                     }
                     fill="none"
                     stroke="currentColor"
@@ -764,18 +967,18 @@ export function Staff({
                 figura entera, no a la elipse de abajo.
               */}
                 <rect
-                  x={x - 10}
-                  y={y - 9}
-                  width={Math.max(20, note.length * porPulso)}
-                  height={18}
+                  x={x - CABEZA_MEDIO_ANCHO - 3}
+                  y={y - CABEZA_RY - 3}
+                  width={Math.max(CABEZA_MEDIO_ANCHO * 2 + 6, note.length * porPulso)}
+                  height={CABEZA_RY * 2 + 6}
                   fill="transparent"
                 />
                 {plica && (
                   <rect
-                    x={arriba ? x : x - 10}
-                    y={arriba ? y - 28 : y + 10}
-                    width={10}
-                    height={18}
+                    x={arriba ? x : x - CABEZA_MEDIO_ANCHO - 3}
+                    y={arriba ? y - PLICA_LARGO : y}
+                    width={CABEZA_MEDIO_ANCHO + 3}
+                    height={PLICA_LARGO}
                     fill="transparent"
                   />
                 )}
