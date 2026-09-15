@@ -10,18 +10,41 @@ ella.
 
 ## Levantar
 
+Sin base de datos, que es lo que hace falta para mirar una pantalla:
+
 ```bash
 DATABASE_URL= pnpm dev > /tmp/musical-dev.log 2>&1 &
 ```
 
-**La `DATABASE_URL` vacía es lo importante.** El `.env` apunta a un Postgres que
-solo existe dentro de Docker, y Docker no tiene encendida la integración con WSL
-en este equipo. Con la variable puesta y la base caída, la aplicación intenta
-conectar; vacía, cae en el modo anónimo que `CLAUDE.md` describe y todo funciona
-menos las cuentas.
+Con la variable puesta y la base caída, la aplicación intenta conectar; vacía, cae
+en el modo anónimo que `CLAUDE.md` describe y todo funciona menos las cuentas.
 
 Arranca en unos 400 ms en el 3000. El `.env` dice `APP_PORT=3001`, pero eso es
 para `compose`: `pnpm dev` no lo lee.
+
+**Con base de datos**, si hace falta tocar cuentas, IA o guardar canciones:
+`pnpm docker:db` y `pnpm db:migrate`, y ya `pnpm dev` a secas.
+
+### Docker en este equipo, que engaña
+
+Este apartado decía que la integración de Docker con WSL estaba apagada aquí. **Es
+falso, y el mensaje de error es el que engaña.** Con Docker Desktop cerrado,
+`command -v docker` devuelve el `.exe` de Windows y contesta «could not be found
+in this WSL 2 distro», que suena a integración apagada y no lo es. Arrancando
+Docker Desktop —`powershell.exe -Command "Start-Process 'C:\Program
+Files\Docker\Docker\Docker Desktop.exe'"`, unos diez segundos— `docker` pasa a
+ser `/usr/bin/docker`, nativo, y todo funciona.
+
+**El 5432 del equipo lo ocupa un Postgres nativo de Windows** —hay dos servicios,
+`postgresql-x64-13` y `postgresql-x64-18`—, así que el contenedor del proyecto no
+puede publicar ahí: falla con `port is already allocated`. Y desde WSL ese Postgres
+de Windows **no es alcanzable**: el cortafuegos tira las conexiones desde las seis
+IPs del host, comprobado una por una. Por eso el `.env` de aquí lleva
+`POSTGRES_PORT=5434` y la `DATABASE_URL` apuntando al 5434.
+
+`scripts/docker-arriba.sh` rechaza el `docker` de `/mnt/`, así que con Docker
+Desktop cerrado `pnpm docker:up` se niega antes de intentarlo. El remedio es
+encender Docker Desktop, no tocar el script.
 
 **Sin cuenta no hay**: profesor, ideas, salidas, guardar canciones ni registro.
 Todo eso contesta 401 y lo explica en pantalla, que es el comportamiento correcto.

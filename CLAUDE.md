@@ -172,6 +172,11 @@ dos pieles ([adr/0019](docs/adr/0019-punteos-y-partitura.md)). En partitura los
 acordes van dentro, cifrados encima del pentagrama, y se ponen pulsando,
 arrastrando hasta el compás o escribiendo el cifrado.
 
+**El grabado se dibuja aquí y sus medidas salen del espacio del pentagrama**, no
+de píxeles a ojo; las invariantes de la clave las fija `arrange/clef.test.ts`, que
+ya cazó dos errores que la vista dio por buenos. Por qué no lo trae una librería,
+en [adr/0029](docs/adr/0029-la-partitura-se-dibuja-aqui.md).
+
 `/aprender` es **solo el camino**, y cada cosa tiene su dirección:
 `/aprender/[unidad]` y `/aprender/repaso`. Después `/profesor`, `/componer`,
 `/afinar`, `/planes` con `/planes/[plan]`, `/registro`, `/cuenta` con sus cuatro
@@ -197,7 +202,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                     |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Van veintiocho.
+descartadas. Van veintinueve.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

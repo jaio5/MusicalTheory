@@ -293,4 +293,13 @@ confunde con el disminuido entero, que tiene la séptima disminuida y no la meno
 
 - Tensiones por encima de la séptima: novenas, oncenas, trecenas.
 - Acordes de paso, dominantes secundarias y modulación explícita.
-- Ritmo y compás: por ahora nada del dominio conoce el tiempo musical.
+- **Del tiempo musical sabe la mitad.** Sabe pulsos, compases y velocidad:
+  `tempo.ts` acota el pulso por minuto y los pulsos por compás —de uno a seis—,
+  `melody.ts` guarda cada nota en pulsos sobre una rejilla de medio pulso y limita
+  su duración a las seis figuras que tienen dibujo, `arrangement.ts` cuenta
+  compases y `capture.ts` convierte en compases lo que tocas. Lo que **no** tiene:
+  silencios, ligaduras, grupos irregulares, dos voces y anacrusa. Por eso una nota
+  que dura más de lo que le queda al compás se escribe donde empieza y cruza la
+  barra, en vez de partirse con una ligadura.
+- Intervalos como materia: el dominio los calcula en semitonos para sacar acordes
+  y escalas, pero no los nombra —segunda mayor, cuarta aumentada— ni los enseña.

@@ -58,6 +58,7 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Se usa la profundidad que ya estaba escrita: la partitura es hoja y las columnas se separan. |
 | Lo que estaba escrito tres y cinco veces pasa a estarlo una: rutas, oyentes y avisos.        |
 | Componer suma a la racha y a la meta, y una parte dice si es estrofa, estribillo o idea.     |
+| El grabado se mide en espacios de pentagrama, y la clave deja de parecer una clave de fa.    |
 
 ## Los fallos que enseñaron algo
 
@@ -71,6 +72,14 @@ ninguno se veía leyendo el código:
 - **El ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible**
   cuando llevaba dos commits funcionando. De ahí la regla de actualizar el
   documento que describía lo que cambias.
+- **La clave de sol costó tres intentos, y los dos primeros fueron por mirar en
+  vez de medir.** Esta misma tabla decía desde su fase que «por fin se reconoce», y
+  no se reconocía. El primer intento ensanchó el gancho a ojo; el segundo culpó a
+  la regla de relleno —una teoría que se cayó sola al superponer el trazo sobre el
+  dibujo—; el tercero salió en cuanto se contaron las proporciones contra las de
+  una clave de imprenta: la tenía **espejada**, con la masa a la izquierda cuando
+  va a la derecha. Y los dos errores de diseño que quedaban los cazó `clef.test.ts`,
+  no la vista. Dibujar una letra es un oficio con números, no un ajuste fino.
 - **El esquema de las ideas no exigía lo que el validador daba por hecho**, así
   que el modelo devolvía respuestas impecables que se barrían enteras y la ruta
   contestaba 502 con el cupo ya gastado.
