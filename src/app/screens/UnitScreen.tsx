@@ -111,6 +111,8 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
 
       {/* La tonalidad, en una barra que se abre. Cerrada ocupa una línea y dice en
           qué tonalidad estás, que es lo único que hay que saber mientras contestas. */}
+      {/* `shrink-0`: lo que se abre flota sobre la pregunta en vez de quitarle
+          altura, así que la barra mide su rótulo y no negocia nada. */}
       <BarraDeTonalidad className="border-border bg-surface shrink-0 border-b px-4">
         <p className="text-text-muted max-w-prose text-center text-xs">
           Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas

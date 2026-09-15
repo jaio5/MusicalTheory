@@ -28,7 +28,7 @@ export function Disclosure({
   tone = 'normal',
   className = '',
   abierto = false,
-  tope = false,
+  flotante = false,
   children,
 }: {
   /** El enunciado, lo que se lee con el bloque cerrado. */
@@ -48,26 +48,37 @@ export function Disclosure({
    */
   readonly abierto?: boolean;
   /**
-   * Que lo de dentro **no pueda comerse la pantalla**.
+   * Que lo que se abre **flote sobre lo de abajo en vez de empujarlo**.
    *
    * Hace falta en las pantallas de taller —componer, la unidad—, donde esta barra
-   * vive encima de una caja que crece y se desplaza. La barra es `shrink-0`, así
-   * que si lo que se abre mide más que la pantalla, al que crece le tocan cero
-   * píxeles: en un teléfono, abrir la rueda dejaba el resto de componer con altura
-   * cero y **fuera de alcance**, sin forma de desplazarse hasta ello. No se veía
-   * como un fallo de la rueda, se veía como que la aplicación se había quedado en
-   * blanco.
+   * vive encima de una caja que crece. Empujando, lo que se abre le quita altura a
+   * esa caja, y aquí eso tiene dos caras y las dos son malas: si la barra no cede,
+   * al que crece le tocan **cero píxeles** y lo de debajo queda fuera de alcance;
+   * y si cede, la rueda de quintas se queda **partida por una recta**, que no se
+   * lee como «hay más abajo» sino como que algo se ha roto.
    *
-   * Con el tope, lo que se abre se desplaza por dentro y siempre queda pantalla
-   * para lo de abajo. El número —38 de cada 100— sale de medirlo en un teléfono:
-   * con la cabecera de componer envuelta en dos líneas y la barra de
-   * herramientas abajo, es lo que deja sitio para que lo que crece crezca.
+   * Flotando no hay nada que repartir: la barra mide su rótulo y ya, la caja de
+   * abajo conserva su altura entera y la rueda sale redonda y a su tamaño. Medido
+   * en un teléfono: lo que crece pasa de 328 px a 576, y la rueda de un casquete
+   * cortado a 366 px de circunferencia completa.
+   *
+   * Es el mismo trato que ya tiene el cajón de herramientas de componer, que se
+   * abre hacia arriba por encima del lienzo. Aquí se abre hacia abajo.
+   *
+   * **Y por eso quien la monta la deja `shrink-0`**: una barra que flota no
+   * compite por el alto con nada, así que encogerla solo serviría para aplastarle
+   * el rótulo.
    */
-  readonly tope?: boolean;
+  readonly flotante?: boolean;
   readonly children: ReactNode;
 }) {
   return (
-    <details className={`group ${className}`} open={abierto}>
+    <details
+      // `relative` solo cuando flota: es lo que hace que lo de dentro se ancle
+      // aquí y no en la primera caja posicionada que pille por encima.
+      className={`group ${flotante ? 'relative' : ''} ${className}`}
+      open={abierto}
+    >
       <summary
         className={`min-h-tap flex cursor-pointer list-none items-center gap-2 transition-colors marker:content-none [&::-webkit-details-marker]:hidden ${
           tone === 'grande'
@@ -85,7 +96,38 @@ export function Disclosure({
         <span className="min-w-0">{summary}</span>
       </summary>
 
-      {tope ? <div className="max-h-[38dvh] overflow-y-auto">{children}</div> : children}
+      {flotante ? (
+        <div
+          // `surface-alta` y sombra, como el cajón de herramientas: lo que está
+          // encima se dice con el tono y no solo con el borde.
+          //
+          // El tope es **la pantalla menos lo que hay encima y debajo**, y por eso
+          // son dos: en un teléfono hay más marco que en un escritorio.
+          //
+          //   teléfono  61 cabecera + 133 la de pantalla + 44 esta barra
+          //             + 65 navegación abajo = 303 → 20rem
+          //   a partir de `sm`  61 + 85 + 44, y la navegación sube arriba = 12rem
+          //
+          // **La barra de herramientas no se descuenta, se tapa.** Mientras eliges
+          // tonalidad, esa fila no sirve para nada, y reservarle sus sesenta y un
+          // píxeles era justo lo que dejaba la rueda cortada en un teléfono.
+          //
+          // Sigue siendo un número medido, y eso ya caducó una vez —el `38dvh` que
+          // dejó componer en doce píxeles—. La diferencia no es el número: es que
+          // **ahora hay quien lo vigile**. La sonda de `.claude/skills/arrancar`
+          // recorre esta pantalla con la barra abierta en siete tamaños y dice si
+          // algo queda fuera de alcance.
+          //
+          // Sin `top` y con `bottom` no se arregla, aunque lo parezca: el
+          // navegador resuelve entonces el alto por el contenido y sube el panel
+          // hasta taparse el propio rótulo. Probado en la página.
+          className="bg-surface-raised border-border absolute inset-x-0 top-full z-30 max-h-[calc(100dvh-20rem)] overflow-y-auto border-b shadow-[var(--sombra-alta)] sm:max-h-[calc(100dvh-12rem)]"
+        >
+          {children}
+        </div>
+      ) : (
+        children
+      )}
     </details>
   );
 }

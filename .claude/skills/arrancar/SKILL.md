@@ -80,6 +80,36 @@ en cada cambio. Con senos pelados el croma se confunde más que con una guitarra
 - **Tras un arrastre el navegador manda también un `click`.** Si una prueba
   arrastra y luego cuenta elementos, cuenta uno de más.
 
+## Medir si algo se ve entero
+
+`sonda-de-medidas.mjs` recorre el DOM y devuelve **lo que no se puede alcanzar**:
+lo que se sale de la caja que lo recorta sin que ningún ancestro pueda
+desplazarse hasta ello. Se importa y se pasa a `page.evaluate(SONDA)`.
+
+```js
+import { SONDA } from '/home/javie/projects/MusicAlApp/.claude/skills/arrancar/sonda-de-medidas.mjs';
+const problemas = await page.evaluate(SONDA);
+```
+
+Los tamaños que encuentran cosas son **320×568** y **1024×600**: el teléfono
+pequeño y el portátil bajo. Un 1920×1080 no enseña nada que no enseñen esos dos.
+
+Tres cosas que hay que saber o se mide humo:
+
+- **Un `scrollHeight` mayor que el `clientHeight` no prueba nada.** Chromium suma
+  ahí el desborde de descendientes que ya recorta otro ancestro: el marco de la
+  aplicación parecía recortar 186 px y no se escapaba nada. Lo que vale es
+  comparar la geometría contra la caja que de verdad recorta.
+- **Un `<details>` cerrado sigue dando medidas de lo que esconde.** Es
+  `content-visibility`, y por ahí entraron veintitrés falsos positivos. Lo
+  distingue `checkVisibility`, que es lo que usa la sonda.
+- **Lo apartado a propósito no es un fallo.** El «Saltar al contenido» vive fuera
+  de la pantalla hasta que se le da el foco, y Tailwind v4 lo hace con la
+  propiedad `translate` y no con `transform`: hay que mirar las dos.
+
+**Calibra antes de creerte un cero.** Devuelve el fallo con un `addStyleTag` y
+comprueba que la sonda lo ve; si no lo ve, lo que mide es otra cosa.
+
 ## Antes de dar nada por terminado
 
 ```bash

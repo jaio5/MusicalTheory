@@ -200,6 +200,58 @@ describe('Lo que no puede escaparse de la pantalla', () => {
     expect(shell, 'no se encuentra AppShell').toBeTruthy();
     expect(shell!.codigo).toMatch(/className="[^"]*\brelative\b[^"]*\bh-dvh\b/);
   });
+
+  /**
+   * La barra de tonalidad tiene que flotar, no empujar.
+   *
+   * Es el fallo más caro de esta pantalla y ha vuelto dos veces con dos caras
+   * distintas, las dos por lo mismo: la barra vive encima de una caja que crece,
+   * y si lo que se abre reparte altura con ella no hay reparto bueno. Empujando
+   * sin ceder, a la de abajo le tocaban **doce píxeles** y lo que quedaba no se
+   * alcanzaba ni desplazándose; cediendo, la rueda salía **cortada por una
+   * recta**, que no se lee como «hay más» sino como que algo se ha roto.
+   *
+   * Flotando no hay nada que repartir. Se vigila aquí porque es una palabra en un
+   * fichero y se pierde en cualquier retoque, y porque lo que rompe no lo ve
+   * ningún test de los que hay: se ve mirando la pantalla.
+   */
+  it('lo que abre la barra de tonalidad flota, en vez de quitarle sitio a lo de abajo', () => {
+    const barra = FICHEROS.find(({ ruta }) => ruta.endsWith('wheel/BarraDeTonalidad.tsx'));
+
+    expect(barra, 'no se encuentra BarraDeTonalidad').toBeTruthy();
+    expect(barra!.codigo, 'la barra tiene que abrirse flotando').toMatch(/^\s*flotante\s*$/m);
+  });
+
+  /**
+   * Y quien la monta no la encoge.
+   *
+   * Una barra que flota mide su rótulo y no compite por el alto con nadie, así
+   * que dejarla encoger solo sirve para que el flexbox le aplaste el rótulo
+   * cuando lo de abajo pida sitio. Medido: con `min-h-0` se quedaba en 24 px.
+   */
+  it('y quien la monta la deja a su alto, sin encogerla', () => {
+    const montadas = FICHEROS.filter(({ codigo }) => codigo.includes('<BarraDeTonalidad'));
+
+    expect(montadas.length, 'nadie monta la barra de tonalidad').toBeGreaterThan(0);
+
+    for (const { ruta, codigo } of montadas) {
+      // Hasta el cierre de la etiqueta y **ni un carácter más**: con un margen
+      // por detrás, la última clase que se encuentra es la de algo de dentro y
+      // el test pasa siempre. Comprobado devolviendo el fallo a mano.
+      const inicio = codigo.indexOf('<BarraDeTonalidad');
+      const hasta = codigo.slice(0, codigo.indexOf('>', inicio));
+      const clases = [...hasta.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)].map(
+        (m) => m[1] ?? m[2] ?? '',
+      );
+      const marco = clases.at(-1) ?? '';
+
+      expect(marco, `${ruta}: no encuentro el marco de la barra`).not.toBe('');
+      expect(marco, `${ruta}: con min-h-0 el flexbox le aplasta el rótulo`).not.toMatch(
+        /\bmin-h-0\b/,
+      );
+      expect(marco, `${ruta}: una barra que flota se queda a su alto`).toMatch(/\bshrink-0\b/);
+    }
+  });
 });
 
 describe('En toda la interfaz', () => {
