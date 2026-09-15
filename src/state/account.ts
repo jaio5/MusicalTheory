@@ -13,6 +13,8 @@ import {
   type PlanId,
 } from '@core/billing';
 
+import { apiErrorFrom, apiErrorOf } from './api-error';
+
 /**
  * La cuenta, para el navegador.
  *
@@ -168,6 +170,22 @@ export interface RegisterResult {
   readonly message?: string;
 }
 
+/**
+ * Una petición con cuerpo JSON, que es la forma de las cuatro de aquí.
+ *
+ * Eran cuatro copias del mismo `fetch` —mismo encabezado, mismo `JSON.stringify`—
+ * y lo único que cambiaba era la dirección, el verbo y qué se manda. Lo que se
+ * gana no es escribir menos: es que el día que haya que añadir algo a todas las
+ * peticiones de la cuenta haya **un** sitio donde añadirlo.
+ */
+async function pedir(url: string, method: string, body: unknown): Promise<Response> {
+  return fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 /** Crear la cuenta y entrar con ella, que es lo que espera quien se registra. */
 export async function registerAccount(
   email: string,
@@ -175,19 +193,19 @@ export async function registerAccount(
   name?: string,
 ): Promise<RegisterResult> {
   try {
-    const response = await fetch('/api/cuenta', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, ...(name === undefined ? {} : { name }) }),
+    const response = await pedir('/api/cuenta', 'POST', {
+      email,
+      password,
+      ...(name === undefined ? {} : { name }),
     });
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
+      // `apiErrorFrom` es quien sabe leer el sobre que contestan todas las rutas
+      // de esta aplicación. Estaba escrito a mano aquí cuatro veces, una por
+      // función, justo en el fichero que aquel módulo decía tener en cuenta.
       return {
         ok: false,
-        message: body?.error?.message ?? 'No hemos podido crear la cuenta.',
+        message: (await apiErrorFrom(response, 'No hemos podido crear la cuenta.')).message,
       };
     }
 
@@ -224,17 +242,13 @@ export async function updateAccount(changes: {
   readonly passwordNueva?: string;
 }): Promise<ProfileResult> {
   try {
-    const response = await fetch('/api/cuenta', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(changes),
-    });
+    const response = await pedir('/api/cuenta', 'PATCH', changes);
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      return { ok: false, message: body?.error?.message ?? 'No hemos podido guardar el cambio.' };
+      return {
+        ok: false,
+        message: (await apiErrorFrom(response, 'No hemos podido guardar el cambio.')).message,
+      };
     }
     return { ok: true };
   } catch {
@@ -251,17 +265,13 @@ export async function updateAccount(changes: {
  */
 export async function deleteAccount(password: string): Promise<ProfileResult> {
   try {
-    const response = await fetch('/api/cuenta', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
+    const response = await pedir('/api/cuenta', 'DELETE', { password });
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      return { ok: false, message: body?.error?.message ?? 'No hemos podido borrar la cuenta.' };
+      return {
+        ok: false,
+        message: (await apiErrorFrom(response, 'No hemos podido borrar la cuenta.')).message,
+      };
     }
     return { ok: true };
   } catch {
@@ -302,16 +312,17 @@ export type ChangePlanResult =
  */
 export async function changePlan(plan: PlanId): Promise<ChangePlanResult> {
   try {
-    const response = await fetch('/api/plan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan }),
-    });
+    const response = await pedir('/api/plan', 'POST', { plan });
+    // Aquí se interpreta el cuerpo una sola vez porque el camino bueno también lo
+    // necesita, así que el error se lee con `apiErrorOf` —el de un cuerpo ya
+    // interpretado— y no con `apiErrorFrom`, que volvería a leer la respuesta.
     const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 
     if (!response.ok) {
-      const error = body?.['error'] as { message?: string } | undefined;
-      return { kind: 'error', message: error?.message ?? 'No hemos podido cambiar el plan.' };
+      return {
+        kind: 'error',
+        message: apiErrorOf(body, 'No hemos podido cambiar el plan.').message,
+      };
     }
     if (body?.['kind'] === 'ir-a-pagar' && typeof body['url'] === 'string') {
       return { kind: 'ir-a-pagar', url: body['url'] };

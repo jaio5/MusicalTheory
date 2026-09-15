@@ -53,12 +53,12 @@ devolvieron 500 con los 2.174 tests en verde**. Un ejemplo dentro de un comentar
 tiene que ser una clase que se pueda generar, o no parecerse a una. Y `pnpm build`
 sí lo caza: si tocas estilos, pásalo.
 
-**Una barra que se abre encima de algo que crece necesita `tope`.** En las
-pantallas de taller, `ui/Disclosure` va con `shrink-0` sobre una caja que crece:
-si lo que se abre mide más que la pantalla, al que crece le tocan **cero píxeles**
-y lo de debajo se queda fuera de alcance, sin scroll que valga. En un teléfono,
-abrir la rueda de quintas vaciaba componer. El `tope` lo acota y lo desplaza por
-dentro; y lo que se abre para elegir algo se pliega solo al elegirlo.
+**Una barra que se abre encima de algo que crece no empuja: flota.** Empujando no
+hay reparto bueno y las dos salidas son malas —si la barra no cede, a la caja de
+abajo le tocan **doce píxeles**; si cede, la rueda de quintas sale **cortada por
+una recta** y parece rota—. `ui/Disclosure` con `flotante` la saca del flujo, como
+ya hace el cajón de herramientas de componer. Lo vigila `screens/coherencia`, y el
+porqué está en el propio componente.
 
 **El micrófono es uno, y lo sujeta el módulo `state/use-listening.ts`, no el
 componente.** Dos botones lo abren —el del afinador y el de la barra— y el estado
@@ -141,6 +141,9 @@ renombrado no puede degradar a quien había pagado.
 | La armadura de una tonalidad, y qué nota va en cada línea | `core/music/circle-of-fifths.ts`               |
 | Planes, permisos y si una unidad la abre el plan          | `src/core/billing/` (`plans.ts`, `access.ts`)  |
 | Meta diaria, racha, medallas, punto de partida            | `core/music/progress.ts`                       |
+| Lo que suma componer, y por qué tiene tope                | `progress.ts` (`practiceCompose`)              |
+| Qué papel hace una parte: estrofa, estribillo, idea       | `core/music/song.ts` (`ROLES`, `roleOf`)       |
+| Que lo compuesto llegue al avance sin saltarse capas      | `state/hechos-de-componer.ts`                  |
 | La cola de repaso de lo fallado                           | `core/music/review.ts`                         |
 | Guardar y abrir tus canciones                             | `features/songs/`, `src/app/api/canciones`     |
 | Salidas de lo que tocas, y su verificación                | `features/versions/` (se llamará `salidas/`)   |
@@ -194,7 +197,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/adr/`                | Decisiones con sus alternativas descartadas                     |
 
 **Toda decisión con alternativas reales se escribe como ADR**, numerado y con sus
-descartadas. Van veintisiete.
+descartadas. Van veintiocho.
 
 **Cuando cambies comportamiento, actualiza el documento que lo describía.** El
 ROADMAP llegó a afirmar que el reconocimiento de acordes era imposible cuando

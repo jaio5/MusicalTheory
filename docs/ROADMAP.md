@@ -90,8 +90,15 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
 - **Las lecciones no explican lo que propone la IA.** Cuando una salida declara
   un préstamo modal, la unidad que lo enseña está a dos pantallas y hay que
   buscarla. Enlazarlas es lo que convierte dos productos en uno.
-- **Lo que compones no cuenta como avance.** El XP, la racha y las medallas solo
-  se ganan haciendo unidades; componer una canción entera con ayuda no suma nada.
+- **Componer ya cuenta, y lo que devuelve el modelo con el papel puesto no está
+  medido.** Cuatro hechos suman a la meta del día y mantienen la racha
+  ([adr/0028](./adr/0028-componer-tambien-cuenta.md)), y una parte dice ahora si
+  es estrofa, estribillo o solo una idea, que es lo que viaja al prompt. Que la
+  frase llega, lo dice un test; que cambie lo que contesta, no lo sabe nadie
+  hasta medir contra la API, que es lo primero de esta lista.
+- **El papel de una parte no lo lee nada más que la IA.** Ni las lecciones, ni la
+  partitura, ni las salidas ya recibidas. Un estribillo y una estrofa se dibujan
+  igual y se tratan igual en todo lo demás.
 
 ## 5. Que no estorbe
 

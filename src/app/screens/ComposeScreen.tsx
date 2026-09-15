@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { keyName } from '@core/music';
 import { ArrangeCanvas } from '@features/arrange';
 import { FretboardPanel } from '@features/fretboard';
+import { GananciaAlComponer, useProgress } from '@features/learn';
 import { IdeasPanel } from '@features/ideas';
 import { Metronome } from '@features/metronome';
 import { CurrentChord, HeardChord, NextChords, Voicings } from '@features/path';
@@ -120,6 +121,16 @@ export function ComposeScreen() {
   const [extra, setExtra] = useState<ExtraId | null>(null);
   const current = EXTRAS.find((candidate) => candidate.id === extra) ?? null;
 
+  /**
+   * Componer cuenta como practicar, y esta es la única pantalla que lo escucha.
+   *
+   * `escuchaComponer` va encendido aquí y en ningún sitio más: cada llamada a
+   * `useProgress` tiene su propia copia del avance, así que dos apuntados
+   * sumarían dos veces el mismo hecho y se pisarían al guardar. Aquí es donde se
+   * compone, así que aquí es donde se cuenta.
+   */
+  const { composeGain, dismissComposeGain } = useProgress({ escuchaComponer: true });
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* El metrónomo va **dentro** del encabezado, en el hueco de acciones
@@ -181,7 +192,13 @@ export function ComposeScreen() {
           En pantalla ancha no se pliega nada: ahí la rueda vive en su columna.
         */}
       <div
-        className={`border-border shrink-0 border-b px-3 ${cara === 'montar' ? '' : 'lg:hidden'}`}
+        // `shrink-0` y `bg-surface`: la barra es una fila de rótulo y ya, porque
+        // lo que se abre **flota** sobre el lienzo en vez de empujarlo. Mientras
+        // empujaba había que dejarla encoger y aun así la rueda salía cortada;
+        // ahora no compite por el alto con nadie.
+        className={`border-border bg-surface shrink-0 border-b px-3 ${
+          cara === 'montar' ? '' : 'lg:hidden'
+        }`}
       >
         <BarraDeTonalidad>
           <Settings />
@@ -245,9 +262,15 @@ export function ComposeScreen() {
             {activeKey === null ? (
               <section
                 aria-label="Por dónde se empieza"
-                className="border-border flex min-h-0 items-center justify-center overflow-y-auto border-t lg:col-span-2 lg:border-t-0"
+                // `my-auto` en el hijo y no `justify-center` aquí, que es la
+                // regla de la casa: centrar en la caja que se desplaza saca lo
+                // que no cabe por los dos lados y deja la mitad de arriba fuera
+                // de alcance.
+                className="border-border flex min-h-0 flex-col overflow-y-auto border-t lg:col-span-2 lg:border-t-0"
               >
-                <EmpezarPorTonalidad />
+                <div className="my-auto">
+                  <EmpezarPorTonalidad />
+                </div>
               </section>
             ) : (
               <>
@@ -359,6 +382,13 @@ export function ComposeScreen() {
             <current.render />
           </div>
         )}
+
+        {/* Dentro de la barra, que es la caja `relative` de esta pantalla, y
+            saliendo hacia arriba desde ella: así queda por encima de las
+            herramientas en el escritorio y por encima de las **dos** barras en
+            un teléfono, sin que nadie tenga que adivinar cuánto miden. No empuja
+            nada: flota. */}
+        <GananciaAlComponer gain={composeGain} onDismiss={dismissComposeGain} />
       </section>
     </div>
   );

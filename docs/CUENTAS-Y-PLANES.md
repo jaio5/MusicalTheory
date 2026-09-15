@@ -304,7 +304,11 @@ Qué hace la fusión (`mergeProgress`, en el dominio y con tests):
   un mes no es una racha viva, y no revive al fusionar.
 - **Todas las medallas**, en el orden del catálogo.
 - **Del XP del día, el mayor y no la suma.** Sumar dos aparatos que estuvieron
-  abiertos a la vez inventaría trabajo que no se hizo.
+  abiertos a la vez inventaría trabajo que no se hizo. Y lo mismo con **lo que de
+  ese XP salió de componer**, que se guarda aparte porque tiene su propio tope
+  diario ([adr/0028](./adr/0028-componer-tambien-cuenta.md)): con la suma, dos
+  navegadores abiertos a la vez gastarían un tope que nadie llegó a gastar dos
+  veces.
 - **De la cola de repaso, lo peor de cada una.** Si un aparato dice que la pregunta
   se sabe y el otro que se acaba de fallar, lo cierto es que se falló: dar por
   sabido lo que no se sabe es el único error que esa cola no puede permitirse.
@@ -334,8 +338,10 @@ Cinco tablas y nada más (`src/server/db/schema.ts`):
 
 **Ni una muestra de audio.** Eso no sale del equipo, y las
 cuentas no han cambiado eso: lo que viaja del progreso son identificadores de
-unidad, números y fechas, y lo que viaja de una canción son grados, un número y
-nombres de sección.
+unidad, números y fechas, y lo que viaja de una canción son grados, un número,
+nombres de sección y —desde
+[adr/0028](./adr/0028-componer-tambien-cuenta.md)— qué papel hace cada parte,
+que es uno de ocho valores escritos en el código y no texto libre.
 
 ### Las contraseñas
 

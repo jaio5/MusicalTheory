@@ -38,6 +38,12 @@ diagramas grandes, y el significado de un color al lado del color.
   que la copia escondía era peor: **ninguno llegaba a los 44 px**. El ancho se pide
   (`completo`, `auto`, `crece`); heredarlo llenaba una barra de herramientas con un
   desplegable de un dígito y doce rem.
+- **En `WorkHeader`, el rótulo y su línea comparten fila.** La línea va con base
+  cero (`flex-1 basis-0 truncate`) y no solo con `min-w-0`: `flex-wrap` decide
+  dónde parte **antes** de encoger a nadie y mira el tamaño natural del texto, así
+  que una frase de trescientos píxeles al lado de un rótulo de ochenta se bajaba y
+  se quedaba una fila entera para ella. En componer eso eran 153 px de 640 en un
+  teléfono —casi una cuarta parte de la pantalla— para decir dónde estás.
 - **Toda pantalla entra por `ui/Screen`** —o por `WorkHeader` si es de taller— y
   ninguna se escribe su propio ancho, relleno ni `h1`. Lo vigilan dos tests que
   leen los ficheros (`app/screens/coherencia.test.ts`), porque la coherencia solo
@@ -213,6 +219,23 @@ alta de la pantalla —que es donde tiene que estar lo que se mira mientras se
 toca—. Se abren solas mientras falten, con `abierto` de `ui/Disclosure`, y se
 cierran a una línea que dice cuál está puesta. Lo usan componer, la unidad, el
 afinador y el profesor.
+
+**Y si debajo hay algo que crece y no se desplaza, lo que se abre flota en vez de
+empujar** —`flotante` de `ui/Disclosure`—. Empujando hay que repartir el alto
+entre los dos y no hay reparto bueno: si la barra no cede, a lo de abajo le tocan
+cero píxeles; si cede, la rueda de quintas se queda **cortada por una recta**, que
+no se lee como «hay más» sino como que algo se ha roto. Flotando no hay nada que
+repartir —la rueda sale redonda y el lienzo no pierde un píxel— y es el mismo
+trato que ya tenía el cajón de herramientas de componer. Donde debajo hay una
+columna que sí se desplaza —el afinador, el profesor— empujar está bien y no hace
+falta.
+
+**Y el panel se reparte en fila en cuanto hay ancho.** Apilado, lo que acompaña a
+la rueda son otros doscientos treinta píxeles y obligaba a desplazar incluso en un
+escritorio con sitio de sobra a los lados; en fila la altura la pone la rueda sola.
+De paso, el tope del panel **no le reserva sitio a la barra de herramientas, la
+tapa**: mientras eliges tonalidad esa fila no sirve para nada, y reservarle sus
+sesenta y un píxeles era justo lo que dejaba la rueda cortada en un teléfono.
 
 **La profundidad se pide por su nombre**: `.superficie`, `.superficie-alta` y
 `.superficie-viva` en `globals.css` —fondo, borde, radio, filo de luz y sombra en

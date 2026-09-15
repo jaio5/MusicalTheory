@@ -1,7 +1,17 @@
 import type { NextResponse } from 'next/server';
 
 import { TOKEN_BUDGETS } from '@core/billing';
-import { degreesFor, MOVES, PATHS, PATHS_BY_KIND, graphText, type PathKind } from '@core/music';
+import {
+  DEFAULT_ROLE,
+  MOVES,
+  PATHS,
+  PATHS_BY_KIND,
+  degreesFor,
+  graphText,
+  roleInfo,
+  type PathKind,
+  type SectionRole,
+} from '@core/music';
 
 import {
   parseVersionsRequest,
@@ -65,6 +75,23 @@ function movesText(): string {
   return MOVES.map((move) => `- ${move.id}: ${move.why}`).join('\n');
 }
 
+/**
+ * Qué es lo que le mandan, en una línea.
+ *
+ * La frase sale de `ROLES` y no se escribe aquí, por lo mismo que el catálogo de
+ * salidas y el de movimientos: **lo que entiende quien compone y lo que entiende
+ * el modelo tienen que salir del mismo sitio.** Escribirla otra vez aquí es
+ * firmar que dentro de tres meses digan cosas distintas.
+ *
+ * Una idea se dice igual de claro que un estribillo. No decir nada haría que el
+ * modelo diera por hecho que es una canción a medias, que es lo que venía
+ * suponiendo y por lo que continuaba siempre por lo obvio.
+ */
+function queEs(role: SectionRole = DEFAULT_ROLE): string {
+  const info = roleInfo(role);
+  return `Lo que te mandan es ${info.name.toLowerCase()}: ${info.what}`;
+}
+
 function buildPrompt(request: VersionsRequest): string {
   const { mode } = request.key;
   const progresion = request.progression.map((step) => `${step.degree} x${step.beats}`).join(' | ');
@@ -78,6 +105,7 @@ function buildPrompt(request: VersionsRequest): string {
     // el validador va a comprobar, en vez de pedírselo en prosa.
     `Mapa de saltos (de cada grado, a dónde puedes ir):\n${graphText(mode, degreesFor(mode))}`,
     `Lo que lleva tocado (grado y pulsos): ${progresion}`,
+    queEs(request.role),
   ];
 
   lines.push(

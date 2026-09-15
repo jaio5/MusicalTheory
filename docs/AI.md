@@ -449,6 +449,21 @@ y retocar exactamente una— y eso un esquema JSON no lo puede condicionar a un
 campo que el propio modelo rellena. Con el camino libre: cero salidas válidas de
 cuatro peticiones. Eligiendo antes: tres de tres.
 
+**Y se le dice qué parte le mandas**, que es la otra mitad de la pregunta: no es
+lo mismo continuar una estrofa —que tiene que poder repetirse con otra letra— que
+continuar un estribillo, que tiene que levantar y cerrar. El campo es `role` y
+toma uno de los ocho valores de `ROLES`, en `core/music/song.ts`. Ausente quiere
+decir `idea`, y **una idea también se le dice**: saber que unos compases todavía
+no tienen sitio en ninguna canción es información, y callarlo dejaba al modelo
+suponiendo que era una canción a medias. La frase que va al prompt se genera desde
+el catálogo, como la de las salidas y la de los movimientos, para que no puedan
+decir cosas distintas. El porqué, en
+[adr/0028](./adr/0028-componer-tambien-cuenta.md).
+
+**Lo que no se sabe todavía es si cambia lo que devuelve.** Que la frase llega al
+prompt lo dice un test; si mejora la respuesta solo puede decirlo una medición
+contra la API, que sigue pendiente.
+
 **Tus compases no se le piden.** Al continuar, el modelo devuelve solo lo que
 añade y el contrato pone tu parte delante. Pedirle que la copiara era la causa de
 que se cayera todo, y repetirla solo gastaba tokens.

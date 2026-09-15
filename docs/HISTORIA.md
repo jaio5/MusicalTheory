@@ -57,6 +57,7 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | La clave de sol se dibuja de su trazo y por fin se reconoce; la armadura deja de pisarla.    |
 | Se usa la profundidad que ya estaba escrita: la partitura es hoja y las columnas se separan. |
 | Lo que estaba escrito tres y cinco veces pasa a estarlo una: rutas, oyentes y avisos.        |
+| Componer suma a la racha y a la meta, y una parte dice si es estrofa, estribillo o idea.     |
 
 ## Los fallos que enseñaron algo
 
@@ -120,6 +121,41 @@ ninguno se veía leyendo el código:
   clásica de flexbox: cuando el contenido no cabe se sale por los dos lados y no
   hay forma de bajar hasta lo que sobra. Se arregló el mismo día que se introdujo,
   y solo porque una sonda midió qué elementos no alcanzaba ningún ancestro.
+- **Un botón que suma dos no puede vivir sobre un dominio que acota.** Los
+  compases de una parte se alargaban de dos en dos, y `setBars` no deja bajar de
+  lo que hay escrito: pegado a ese suelo, el «−» movía **uno** en vez de dos, y
+  desde el suelo mismo no movía nada. El número saltaba distinto según lo que
+  hubiera dentro, que es la peor clase de fallo porque parece capricho. De uno en
+  uno no puede pasar: el tope solo corta cuando de verdad no queda sitio, y
+  entonces el botón ya está apagado. De paso, el número se escribe —de cuatro a
+  dieciséis eran doce pulsaciones— y lo tecleado se valida **al salir** y no a
+  cada tecla, o borrar el campo para poner «10» lo dejaba en el mínimo al primer
+  dígito y el segundo ya no entraba.
+- **Y la barra que se abre encima de algo que crece no debía repartir, sino
+  flotar.** Arreglado el reparto, la rueda de quintas salía **cortada por una
+  recta** —lo que toca no es «hay más abajo», es «esto está roto»—. Sacándola del
+  flujo no hay nada que repartir: la rueda sale redonda y el lienzo pasa de 328 px
+  a 576. Es lo que ya hacía el cajón de herramientas de esa misma pantalla, que se
+  abre hacia arriba; esta se abre hacia abajo.
+- **Un tope en `vh` es una medida que caduca.** El `max-h-[38dvh]` que impedía
+  que la rueda abierta se comiera componer se midió a ojo en un teléfono, y dejó
+  de valer en cuanto la cabecera creció al ganar el conmutador de caras: 153 px
+  de cabecera más 288 de barra más 61 de herramientas en 514 de pantalla dejaban
+  **doce píxeles** para componer, con los 2.230 tests en verde. El número no
+  estaba mal elegido, estaba condenado: dependía de lo que midieran sus vecinos.
+  Lo reparte flexbox, que sí lo sabe.
+- **Y el scroll no se puede poner en el hijo de un `<details>`.** El navegador
+  mete `::details-content` por medio, así que el hijo con `min-h-0` no se entera
+  de que su abuelo se ha encogido: el `<details>` se quedaba en 158 px y lo de
+  dentro seguía midiendo 468 y saliéndose. Se probaron cuatro CSS distintos en la
+  página de verdad antes de dar con el que funciona, que es poner el scroll en el
+  propio `<details>`.
+- **Medir una pantalla pide distinguir lo que no se está dibujando.** La sonda
+  que recorre las pantallas daba veintitrés falsos positivos en 1920: eran los
+  contenidos de un `<details>` **cerrado**, porque Chrome sigue devolviendo sus
+  tamaños aunque no los pinte. Lo resuelve `checkVisibility`. Un medidor sin
+  calibrar es peor que ninguno, así que ahora se comprueba devolviendo el fallo:
+  con él detecta trece problemas, sin él cero.
 - **Extraer una pieza compartida deja dos rastros que ningún test ve.** Al sacar
   el reproductor de progresiones a un hook, los tres sitios que lo usaban se
   quedaron con `useEffect` y `useRef` importados y sin usar, y con dos listas de

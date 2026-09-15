@@ -1,6 +1,7 @@
 'use client';
 
 import { accidentalForKey, noteName } from '@core/music';
+import { apuntarHecho } from '@state/hechos-de-componer';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
 import { Button } from '@ui/Button';
@@ -100,15 +101,20 @@ export function HeardChord({ deps }: { readonly deps?: ListeningDeps } = {}) {
             {!already && (
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
                   actions.pushChord({
                     symbol: chord.symbol,
                     label: 'lo que suena',
                     root: chord.root,
                     notes: chord.notes,
                     why: 'Lo has tocado tú.',
-                  })
-                }
+                  });
+                  // Confirmar lo que oyó el micro cuenta como practicar, y es lo
+                  // que esta aplicación dice de sí misma en la portada. Vale la
+                  // mitad que los demás hechos porque es el más barato de
+                  // repetir: se toca un acorde y se pulsa.
+                  apuntarHecho('oido');
+                }}
                 className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 ml-auto rounded-sm border px-2 py-1 text-xs font-medium"
               >
                 Meterlo en el camino

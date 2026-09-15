@@ -19,6 +19,7 @@ import {
 } from '@core/music';
 import { apiErrorFrom } from '@state/api-error';
 import { useAccount } from '@state/account';
+import { apuntarHecho } from '@state/hechos-de-componer';
 import { useArrangementStore } from '@state/arrangement-store';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
@@ -186,6 +187,10 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       }
 
       setName('');
+      // Guardar una canción cuenta como practicar: suma a la meta del día y
+      // mantiene la racha. Se apunta aquí y no antes de la petición porque una
+      // canción que no llegó a guardarse no es una canción compuesta.
+      apuntarHecho('cancion');
       // Lo que se ha quedado fuera se dice **después** de guardar y como aviso,
       // no como error: la canción está guardada, y callarlo haría que al abrirla
       // apareciera una progresión más corta sin explicación.

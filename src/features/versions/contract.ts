@@ -18,8 +18,10 @@
 
 import { MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
 import {
+  DEFAULT_ROLE,
   degreesFor,
   parseKey,
+  isSectionRole,
   kindOfPath,
   moveById,
   songProblem,
@@ -35,6 +37,7 @@ import {
   type ProposedSection,
   type PathKind,
   type ProposedStep,
+  type SectionRole,
 } from '@core/music';
 import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
 import { isRecord } from '@core/parse';
@@ -80,6 +83,21 @@ export interface VersionsRequest {
    * validador comprueba —que es la regla que ya costó una vez, con las ideas—.
    */
   readonly kind: PathKind;
+  /**
+   * Qué es lo que le mandas: el estribillo, una estrofa, o solo una idea.
+   *
+   * Es la diferencia entre pedirle «continúa esto» y pedirle «continúa **el
+   * estribillo**», y no es la misma petición: un estribillo tiene que levantar y
+   * cerrar, una estrofa tiene que poder repetirse con otra letra, y un puente
+   * tiene que irse a otro sitio. Sin esto el modelo solo puede adivinar, y
+   * adivina lo mismo siempre.
+   *
+   * Ausente quiere decir `idea`, que es la respuesta honesta cuando todavía no
+   * se ha decidido. **Y `idea` también se le dice**, no se calla: saber que esto
+   * aún no tiene sitio en ninguna canción es información, y es la que le permite
+   * proponer sitios distintos en vez de continuar por lo obvio.
+   */
+  readonly role?: SectionRole;
 }
 
 /** Un compás de una salida: qué grado va ahora y de dónde sale. */
@@ -216,11 +234,17 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
     return null;
   }
 
+  // Un papel que no se reconoce se lee como idea, que es lo que era antes de que
+  // existiera este campo: una petición vieja o de otra versión sigue valiendo.
+  const crudo = body['role'];
+  const role = isSectionRole(crudo) ? crudo : DEFAULT_ROLE;
+
   const request: {
     key: { tonic: NoteName; mode: KeyMode };
     progression: VersionStep[];
     kind: PathKind;
-  } = { key: { tonic, mode }, progression, kind };
+    role: SectionRole;
+  } = { key: { tonic, mode }, progression, kind, role };
 
   return request;
 }

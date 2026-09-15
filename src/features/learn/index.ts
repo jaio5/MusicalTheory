@@ -1,5 +1,6 @@
 export * from './Badges';
 export * from './DailyGoal';
+export * from './GananciaAlComponer';
 export * from './LearnPanel';
 export * from './LearnPath';
 export * from './Question';

@@ -37,9 +37,94 @@ import {
 } from './progressions';
 import { clampBpm } from './tempo';
 
+/**
+ * Qué papel hace una parte dentro de la canción.
+ *
+ * Hasta ahora una parte solo tenía nombre, y el nombre era texto libre: «Parte
+ * 2», «lo del puente», «asdf». Eso vale para encontrarla en una lista y no vale
+ * para nada más. En concreto no vale para lo único que importa aquí, que es que
+ * **la IA sepa qué le estás pidiendo**: una estrofa que continúa y un estribillo
+ * que tiene que levantar no son la misma petición, y con un nombre libre el
+ * modelo solo puede adivinar.
+ *
+ * `idea` es el que se pone solo, y es un papel de verdad y no un «sin
+ * clasificar»: la mayoría de lo que se graba aquí son cuatro compases que
+ * todavía no saben dónde van, y forzar a decidirlo antes de tiempo es pedir una
+ * decisión que nadie tiene tomada.
+ */
+export type SectionRole =
+  'idea' | 'intro' | 'estrofa' | 'pre' | 'estribillo' | 'puente' | 'solo' | 'final';
+
+export interface Role {
+  readonly id: SectionRole;
+  /** Cómo se llama en pantalla. */
+  readonly name: string;
+  /**
+   * Qué es, en una frase.
+   *
+   * Se lee en pantalla **y** se le manda al modelo, igual que `why` en los
+   * caminos de `paths.ts`: así lo que entiende quien compone y lo que entiende
+   * el modelo salen del mismo sitio y no pueden separarse.
+   */
+  readonly what: string;
+}
+
+/**
+ * Los ocho, en el orden en que suelen aparecer en una canción.
+ *
+ * `idea` va primero por ser el que se pone solo, no por ir primero en la
+ * canción. Los otros siete siguen el orden de una canción normal, que es el
+ * orden en el que alguien los busca en una lista.
+ */
+export const ROLES: readonly Role[] = [
+  {
+    id: 'idea',
+    name: 'Una idea',
+    what: 'Unos compases que se te han quedado dando vueltas y todavía no saben dónde van.',
+  },
+  { id: 'intro', name: 'Intro', what: 'Lo que abre la canción y deja puesto el tono.' },
+  { id: 'estrofa', name: 'Estrofa', what: 'Cuenta lo que pasa. Se repite con letra distinta.' },
+  {
+    id: 'pre',
+    name: 'Pre-estribillo',
+    what: 'El empujón de tres o cuatro compases que deja el estribillo servido.',
+  },
+  {
+    id: 'estribillo',
+    name: 'Estribillo',
+    what: 'Lo que se canta a gritos: suele ser lo más alto y lo más simple de la canción.',
+  },
+  {
+    id: 'puente',
+    name: 'Puente',
+    what: 'Se va a otro sitio para que la vuelta al estribillo suene a vuelta.',
+  },
+  {
+    id: 'solo',
+    name: 'Solo',
+    what: 'Sitio para tocar por encima, casi siempre sobre acordes que ya han sonado.',
+  },
+  {
+    id: 'final',
+    name: 'Final',
+    what: 'Cómo se cierra: resolviendo, repitiendo hasta apagarse, o cortando en seco.',
+  },
+];
+
+/** El papel que se pone cuando no se ha dicho nada. */
+export const DEFAULT_ROLE: SectionRole = 'idea';
+
 /** Un tramo con nombre: la estrofa, el estribillo, el puente. */
 export interface SongSection {
   readonly name: string;
+  /**
+   * Qué papel hace dentro de la canción.
+   *
+   * Opcional, y ausente quiere decir `idea`. Las canciones de antes no lo
+   * tienen y no están rotas: eran ideas, que es exactamente lo que dice el
+   * valor por omisión.
+   */
+  readonly role?: SectionRole;
   readonly degrees: readonly DegreeSymbol[];
   /**
    * El punteo, como ternas `[semitonos sobre la tónica, pulso de entrada, pulsos
@@ -121,9 +206,72 @@ export const MAX_SONGS = 50;
 /** El nombre que se pone cuando no se ha puesto ninguno. */
 export const UNNAMED_SONG = 'Sin título';
 
-/** El nombre de una sección nueva, numerada por su sitio. */
+/**
+ * El nombre de una parte nueva, numerada por su sitio.
+ *
+ * **Uno solo para el lienzo y para la canción guardada**, aunque cada capa las
+ * llame de otra manera. Estuvo escrito dos veces —`defaultPartName` allí y esto
+ * aquí, idénticos— y eso no era ahorro de una línea: `nameForRole` decide si un
+ * nombre lo puso la aplicación **comparándolo con este**, así que en cuanto los
+ * dos se separasen, ponerle papel a una parte del lienzo dejaría de renombrarla
+ * y nada lo diría.
+ */
 export function defaultSectionName(index: number): string {
   return `Parte ${index + 1}`;
+}
+
+/**
+ * El papel de una parte, con el valor por omisión ya resuelto.
+ *
+ * Pide lo único que mira y no una `SongSection` entera, porque lo mismo vale
+ * para una `Part` del lienzo: las dos guardan el papel igual, y son las dos
+ * caras de lo mismo. Pedir la sección obligaría al lienzo a fabricar una falsa
+ * con los grados vacíos solo para preguntar.
+ */
+export function roleOf(section: { readonly role?: SectionRole }): SectionRole {
+  return section.role ?? DEFAULT_ROLE;
+}
+
+/**
+ * Si eso es uno de los ocho papeles.
+ *
+ * Guarda de tipo y no una comprobación suelta, como `isDay` o `isHeptatonic`: lo
+ * preguntan este fichero al leer una canción guardada y el contrato de las
+ * salidas al leer una petición, y las dos estaban escribiendo el mismo
+ * `ROLES.some(...)` seguido del mismo cast. Con la guarda, TypeScript lo estrecha
+ * solo y no hay nada que afirmar a mano.
+ */
+export function isSectionRole(value: unknown): value is SectionRole {
+  return ROLES.some((role) => role.id === value);
+}
+
+/** La ficha de un papel. Nunca es nula: un papel desconocido cae en `idea`. */
+export function roleInfo(role: SectionRole): Role {
+  return ROLES.find((candidate) => candidate.id === role) ?? ROLES[0]!;
+}
+
+/**
+ * El nombre que le toca a una parte cuando le pones un papel.
+ *
+ * **Lo que escribiste tú no se pisa nunca.** Solo se cambia el nombre que puso
+ * la aplicación sola —«Parte 3»— o el que se dejó vacío, porque ese no es un
+ * nombre: es el hueco de un nombre. Renombrar «lo del puente de Marta» a
+ * «Estribillo» por tocar un desplegable sería borrar lo único que había escrito
+ * una persona.
+ *
+ * Y al volver a `idea` se vuelve al nombre numerado, que es de donde se venía.
+ */
+export function nameForRole(current: string, index: number, role: SectionRole): string {
+  const puesto = current.trim();
+  const automatico =
+    puesto === '' ||
+    puesto === defaultSectionName(index) ||
+    ROLES.some((candidate) => candidate.name === puesto);
+
+  if (!automatico) {
+    return current;
+  }
+  return role === DEFAULT_ROLE ? defaultSectionName(index) : roleInfo(role).name;
 }
 
 function trimTo(value: unknown, limit: number): string {
@@ -224,6 +372,11 @@ function asLead(value: unknown): LeadTriple[] {
   return salida;
 }
 
+/** El papel guardado, o `idea`. Un papel retirado se olvida sin romper nada. */
+function asRole(value: unknown): SectionRole {
+  return isSectionRole(value) ? value : DEFAULT_ROLE;
+}
+
 /** De dónde salió cada grado. Lo que no se reconoce se lee como escrito a mano. */
 function asSources(value: unknown, cuantos: number): BlockSource[] {
   const crudas = Array.isArray(value) ? value : [];
@@ -246,6 +399,7 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
           unknown
         >;
         const name = trimTo(record['name'], MAX_SECTION_NAME);
+        const role = asRole(record['role']);
         const degrees = asDegrees(record['degrees'], mode);
         const lead = asLead(record['lead']);
         const sources = asSources(record['sources'], degrees.length);
@@ -256,6 +410,9 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
         // abre y se vuelve a guardar sin tocarla.
         return {
           name: name === '' ? defaultSectionName(index) : name,
+          // `idea` se omite por ser el valor por omisión, como el resto de este
+          // fichero: leer y volver a guardar tiene que dar lo mismo.
+          ...(role === DEFAULT_ROLE ? {} : { role }),
           degrees,
           ...(typeof bars === 'number' && Number.isFinite(bars) && bars > 0
             ? { bars: Math.min(MAX_BARS, Math.round(bars)) }

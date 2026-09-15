@@ -12,7 +12,7 @@ import { eq } from 'drizzle-orm';
 
 import { MAX_NAME_LENGTH, MIN_PASSWORD_LENGTH, planOf, type PlanId } from '@core/billing';
 
-import { db } from './db/client';
+import { db, type Database } from './db/client';
 import { users } from './db/schema';
 import { hashPassword, verifyPassword } from './password';
 
@@ -166,7 +166,7 @@ export async function findUserById(id: string): Promise<User | null> {
     return null;
   }
   try {
-    const [row] = await database.select().from(users).where(eq(users.id, id)).limit(1);
+    const row = await leerCuenta(database, id);
     return row === undefined ? null : toUser(row);
   } catch {
     return null;
@@ -195,6 +195,48 @@ export async function setName(userId: string, rawName: unknown): Promise<User | 
   } catch {
     return null;
   }
+}
+
+/**
+ * La cuenta, solo si la contraseña que dan es la suya.
+ *
+ * Lo piden las dos cosas que no se pueden hacer con la cookie a secas —cambiar
+ * la contraseña y borrar la cuenta— y lo pedían **con el mismo bloque escrito
+ * dos veces**: leer la fila, ver si existe, comparar el hash. Dos copias de una
+ * comprobación de contraseña es justo donde un arreglo se aplica a una y se
+ * olvida en la otra, y aquí eso significa dejar una puerta abierta.
+ *
+ * Devuelve la fila y no un booleano porque quien cambia la contraseña necesita
+ * `sessionVersion` de esa misma lectura: con un `true` habría que volver a
+ * buscarla, y entre las dos lecturas cabe un cambio.
+ *
+ * No distingue «no existe» de «no coincide» hacia fuera por casualidad: cada
+ * quien llama decide qué contesta, porque no contestan lo mismo.
+ */
+type FilaDeCuenta = Awaited<ReturnType<typeof leerCuenta>>;
+
+async function leerCuenta(database: Database, userId: string) {
+  const [row] = await database.select().from(users).where(eq(users.id, userId)).limit(1);
+  return row;
+}
+
+async function cuentaSiLaContrasenaEsEsa(
+  database: Database,
+  userId: string,
+  password: unknown,
+): Promise<
+  | { readonly kind: 'ok'; readonly row: NonNullable<FilaDeCuenta> }
+  | { readonly kind: 'no-existe' }
+  | { readonly kind: 'no-coincide' }
+> {
+  const row = await leerCuenta(database, userId);
+  if (row === undefined) {
+    return { kind: 'no-existe' };
+  }
+  // La cadena vacía cuando no mandan una de verdad: así se compara igual y no se
+  // contesta antes de tiempo, que es lo que diría si la cuenta existe.
+  const ok = await verifyPassword(typeof password === 'string' ? password : '', row.passwordHash);
+  return ok ? { kind: 'ok', row } : { kind: 'no-coincide' };
 }
 
 export type ChangePasswordResult =
@@ -233,13 +275,11 @@ export async function changePassword(
   }
 
   try {
-    const [row] = await database.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (row === undefined) {
+    const cuenta = await cuentaSiLaContrasenaEsEsa(database, userId, actual);
+    if (cuenta.kind === 'no-existe') {
       return { kind: 'error' };
     }
-
-    const ok = await verifyPassword(typeof actual === 'string' ? actual : '', row.passwordHash);
-    if (!ok) {
+    if (cuenta.kind === 'no-coincide') {
       return { kind: 'no-coincide' };
     }
 
@@ -251,7 +291,7 @@ export async function changePassword(
         // misma sentencia que la contraseña: si fueran dos, entre una y otra
         // habría un instante con la contraseña nueva y las sesiones viejas
         // todavía buenas.
-        sessionVersion: row.sessionVersion + 1,
+        sessionVersion: cuenta.row.sessionVersion + 1,
       })
       .where(eq(users.id, userId));
     return { kind: 'ok' };
@@ -288,13 +328,11 @@ export async function deleteAccount(
   }
 
   try {
-    const [row] = await database.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (row === undefined) {
+    const cuenta = await cuentaSiLaContrasenaEsEsa(database, userId, password);
+    if (cuenta.kind === 'no-existe') {
       return 'error';
     }
-
-    const ok = await verifyPassword(typeof password === 'string' ? password : '', row.passwordHash);
-    if (!ok) {
+    if (cuenta.kind === 'no-coincide') {
       return 'no-coincide';
     }
 

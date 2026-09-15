@@ -3,8 +3,9 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
-import { EMPTY_PROGRESS, UNIT_ORDER } from '@core/music';
+import { COMPOSE_XP, EMPTY_PROGRESS, MAX_COMPOSE_XP, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
+import { apuntarHecho } from '@state/hechos-de-componer';
 import { loadProgress } from '@state/learn-progress';
 
 import { useProgress } from './use-progress';
@@ -43,8 +44,8 @@ const CON_SINCRONIA: Account = {
 
 const fetchFalso = vi.fn();
 
-function montar(account: Account = ANONYMOUS) {
-  return renderHook(() => useProgress(), {
+function montar(account: Account = ANONYMOUS, escuchaComponer = false) {
+  return renderHook(() => useProgress({ escuchaComponer }), {
     wrapper: ({ children }) => (
       <AccountProvider account={account} accounts>
         {children}
@@ -260,5 +261,89 @@ describe('con cuenta que sincroniza', () => {
   it('dice que esta sincronizando, que es lo que la pantalla enseña', () => {
     expect(montar(CON_SINCRONIA).result.current.syncing).toBe(true);
     expect(montar().result.current.syncing).toBe(false);
+  });
+});
+
+describe('componer cuenta como practicar', () => {
+  it('un hecho apuntado suma y queda guardado en el equipo', () => {
+    const { result } = montar(ANONYMOUS, true);
+
+    act(() => {
+      apuntarHecho('cancion');
+    });
+
+    expect(result.current.progress.xpToday).toBe(COMPOSE_XP.cancion);
+    expect(result.current.progress.streak).toBe(1);
+    expect(loadProgress().composeToday).toBe(COMPOSE_XP.cancion);
+  });
+
+  it('y lo cuenta en pantalla, con la medalla que acabe de salir', () => {
+    const { result } = montar(ANONYMOUS, true);
+
+    act(() => {
+      apuntarHecho('cancion');
+    });
+
+    expect(result.current.composeGain).toMatchObject({
+      deed: 'cancion',
+      xp: COMPOSE_XP.cancion,
+      newBadges: ['primera-cancion'],
+    });
+  });
+
+  it('el aviso se puede quitar sin deshacer lo ganado', () => {
+    const { result } = montar(ANONYMOUS, true);
+
+    act(() => {
+      apuntarHecho('oido');
+    });
+    act(() => {
+      result.current.dismissComposeGain();
+    });
+
+    expect(result.current.composeGain).toBeNull();
+    expect(result.current.progress.xpToday).toBe(COMPOSE_XP.oido);
+  });
+
+  it('quien no escucha no suma, aunque se apunte un hecho', () => {
+    // Es la razón de que `escuchaComponer` exista: hay varias pantallas
+    // llamando a este gancho a la vez, y con dos apuntados el mismo hecho
+    // sumaría dos veces y las dos copias se pisarían al guardar.
+    const { result } = montar();
+
+    act(() => {
+      apuntarHecho('cancion');
+    });
+
+    expect(result.current.progress).toEqual(EMPTY_PROGRESS);
+  });
+
+  it('con el tope lleno deja de sumar y no enseña un aviso de cero', () => {
+    const { result } = montar(ANONYMOUS, true);
+
+    act(() => {
+      for (let i = 0; i < 10; i += 1) {
+        apuntarHecho('cancion');
+      }
+    });
+    act(() => {
+      result.current.dismissComposeGain();
+    });
+    act(() => {
+      apuntarHecho('cancion');
+    });
+
+    expect(result.current.progress.composeToday).toBe(MAX_COMPOSE_XP);
+    expect(result.current.composeGain).toBeNull();
+  });
+
+  it('y al desmontar la pantalla se da de baja', () => {
+    const { result, unmount } = montar(ANONYMOUS, true);
+    const antes = result.current.progress.xpToday;
+
+    unmount();
+    apuntarHecho('cancion');
+
+    expect(loadProgress().xpToday).toBe(antes);
   });
 });

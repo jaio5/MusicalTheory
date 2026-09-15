@@ -12,13 +12,16 @@ import {
   isGoalMet,
   missQuestion,
   parseProgress,
+  practiceCompose,
   practiceReview,
   startAt,
   streakAfter,
   type BadgeId,
+  type ComposeDeed,
   type Progress,
 } from '@core/music';
 import { useAccount } from '@state/account';
+import { hechosDeComponer } from '@state/hechos-de-componer';
 import { clearProgress, loadProgress, saveProgress, today as todayOf } from '@state/learn-progress';
 import { useIsomorphicLayoutEffect } from '@ui/use-isomorphic-layout-effect';
 
@@ -49,7 +52,40 @@ export interface Celebration {
   readonly flawless: boolean;
 }
 
-export function useProgress() {
+/**
+ * Lo que ha dado componer algo.
+ *
+ * Es hermano de `Celebration` y no lo mismo, a propósito: terminar una unidad
+ * tiene un final y una pantalla, y componer no tiene final ninguno. Lo que se
+ * puede enseñar sin estorbar es un aviso pequeño que aparece y se va, así que
+ * esto lleva lo justo para escribirlo y nada de lo que pide una pantalla.
+ *
+ * `xp` puede venir a cero cuando el tope del día ya está lleno, y entonces no
+ * hay nada que enseñar: se ha practicado igual y la racha lo recoge, pero un
+ * «+0 XP» flotando en la pantalla solo sirve para recordarte un techo.
+ */
+export interface ComposeGain {
+  readonly deed: ComposeDeed;
+  readonly xp: number;
+  readonly newBadges: readonly BadgeId[];
+  readonly goalJustMet: boolean;
+}
+
+/** Lo que se le puede pedir al gancho. Hoy solo una cosa, y opcional. */
+export interface ProgressOptions {
+  /**
+   * Si este gancho se apunta a los hechos de componer.
+   *
+   * Apagado por omisión **porque hay varias pantallas que llaman a `useProgress`
+   * a la vez** —la cuenta, el camino, una unidad— y cada una tiene su copia del
+   * avance. Con dos apuntados, guardar una canción sumaría dos veces y las dos
+   * copias se pisarían al escribir. Lo enciende solo la pantalla donde se
+   * compone.
+   */
+  readonly escuchaComponer?: boolean;
+}
+
+export function useProgress({ escuchaComponer = false }: ProgressOptions = {}) {
   const { signedIn, account } = useAccount();
   const [progress, setProgress] = useState<Progress>(EMPTY_PROGRESS);
   const [loaded, setLoaded] = useState(false);
@@ -57,6 +93,7 @@ export function useProgress() {
   // otro, y la racha parpadearía al hidratar.
   const [day, setDay] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const [composeGain, setComposeGain] = useState<ComposeGain | null>(null);
 
   const sincroniza = signedIn && can(account.plan, 'sincronizar');
 
@@ -190,6 +227,51 @@ export function useProgress() {
     [push],
   );
 
+  /**
+   * Apunta que se ha compuesto algo: suma a la meta del día y mantiene la racha.
+   *
+   * Sube igual que una unidad terminada, y no como un fallo apuntado: componer
+   * sí cambia el avance —la racha, la meta, las medallas— y dejarlo solo en este
+   * navegador lo perdería al abrir la aplicación en otro sitio. Son cuatro
+   * subidas como mucho al día, que es lo que pone el tope.
+   */
+  const compose = useCallback(
+    (deed: ComposeDeed) => {
+      const hoy = todayOf();
+      setProgress((current) => {
+        const next = practiceCompose(current, hoy, deed);
+        const ganado = next.xpToday - (current.lastDay === hoy ? current.xpToday : 0);
+
+        // Con el tope lleno no se enseña nada: el hecho cuenta para la racha,
+        // que ya está guardada, y un aviso de cero puntos solo sería un techo
+        // recordándose a sí mismo.
+        const nuevas = next.badges.filter((badge) => !current.badges.includes(badge));
+        if (ganado > 0 || nuevas.length > 0) {
+          setComposeGain({
+            deed,
+            xp: ganado,
+            newBadges: nuevas,
+            goalJustMet: isGoalMet(next, hoy) && !isGoalMet(current, hoy),
+          });
+        }
+
+        push(next);
+        return next;
+      });
+    },
+    [push],
+  );
+
+  // Solo cuando se pide, y solo después de haber leído lo guardado: apuntarse
+  // antes dejaría que un hecho muy temprano sumara sobre el avance vacío y luego
+  // lo pisara la lectura del `localStorage`.
+  useEffect(() => {
+    if (!escuchaComponer || !loaded) {
+      return;
+    }
+    return hechosDeComponer.suscribir(compose);
+  }, [escuchaComponer, loaded, compose]);
+
   /** Mueve el punto de partida. No borra nada ni da nada por hecho. */
   const chooseStart = useCallback(
     (courseId: string | null) => {
@@ -208,6 +290,7 @@ export function useProgress() {
     clearProgress();
     setProgress(EMPTY_PROGRESS);
     setCelebration(null);
+    setComposeGain(null);
   }, []);
 
   return {
@@ -219,6 +302,9 @@ export function useProgress() {
     goal: DAILY_GOAL_XP,
     celebration,
     dismissCelebration: useCallback(() => setCelebration(null), []),
+    composeGain,
+    dismissComposeGain: useCallback(() => setComposeGain(null), []),
+    compose,
     complete,
     miss,
     hit,

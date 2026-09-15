@@ -97,6 +97,35 @@ describe('parseVersionsRequest', () => {
         { degree: 'I', beats: 4 },
         { degree: 'V', beats: 2 },
       ],
+      // Sin decir qué es, es una idea: unos compases que todavía no saben dónde
+      // van. Se normaliza aquí para que el prompt pueda decirlo siempre.
+      role: 'idea',
+    });
+  });
+
+  describe('qué parte le mandas', () => {
+    /** La petición mínima, con el papel que se quiera. */
+    function pedir(role?: unknown) {
+      return parseVersionsRequest({
+        kind: 'retocar',
+        key: { tonic: 'C', mode: 'major' },
+        progression: [
+          { degree: 'I', beats: 4 },
+          { degree: 'V', beats: 2 },
+        ],
+        ...(role === undefined ? {} : { role }),
+      });
+    }
+
+    it('el papel viaja tal cual', () => {
+      expect(pedir('estribillo')?.role).toBe('estribillo');
+    });
+
+    it('y uno inventado se lee como idea, no tumba la petición', () => {
+      // Una petición de otra versión de la aplicación tiene que seguir valiendo:
+      // lo que no se reconoce vuelve a lo que había antes de este campo.
+      expect(pedir('coda-rara')?.role).toBe('idea');
+      expect(pedir(42)?.role).toBe('idea');
     });
   });
 

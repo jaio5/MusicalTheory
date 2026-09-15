@@ -1,6 +1,6 @@
 'use client';
 
-import { BADGES, DAILY_GOAL_XP, goalCompletion, type Progress } from '@core/music';
+import { badgesOf, DAILY_GOAL_XP, goalCompletion, type Progress } from '@core/music';
 import { Button } from '@ui/Button';
 
 import type { Celebration } from './use-progress';
@@ -33,7 +33,7 @@ export function UnitDone({
   /** Qué dice el botón: casi siempre «Seguir», y otra cosa al terminar el grado. */
   readonly nextLabel: string;
 }) {
-  const nuevas = BADGES.filter((badge) => celebration.newBadges.includes(badge.id));
+  const nuevas = badgesOf(celebration.newBadges);
   const parte = day === null ? 0 : goalCompletion(progress, day);
 
   return (

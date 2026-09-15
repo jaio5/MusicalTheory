@@ -20,6 +20,7 @@ vi.mock('@server/ask-model', () => ({
 }));
 
 const { POST } = await import('./route');
+const { roleInfo } = await import('@core/music');
 
 let direccion = 0;
 function pedir(body: unknown): Request {
@@ -284,5 +285,31 @@ describe('la tonalidad se le dice en español', () => {
     );
 
     expect(llamada().prompt).toContain('C mayor');
+  });
+});
+
+describe('qué parte le mandan llega al prompt', () => {
+  it('un estribillo se dice que es un estribillo, y se explica qué es', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'continuar', role: 'estribillo' }));
+
+    const { prompt } = llamada();
+
+    expect(prompt).toContain('Lo que te mandan es estribillo');
+    // La frase sale del catálogo de `ROLES` y no se escribe en la ruta: si se
+    // escribiera dos veces, dentro de tres meses dirían cosas distintas.
+    expect(prompt).toContain(roleInfo('estribillo').what);
+  });
+
+  it('y una idea también se dice, en vez de callarse', async () => {
+    // Callarlo dejaba al modelo suponiendo que es una canción a medias, que es
+    // por lo que continuaba siempre por lo obvio. Que no tenga sitio todavía es
+    // información, no una ausencia.
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
+
+    expect(llamada().prompt).toContain('Lo que te mandan es una idea');
   });
 });

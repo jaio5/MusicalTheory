@@ -5,10 +5,14 @@ import { LESSONS, lessonNotes } from './lessons';
 import { pitchClassFromName } from './notes';
 import {
   BADGES,
+  badgesOf,
+  COMPOSE_XP,
   DAILY_GOAL_XP,
   EMPTY_PROGRESS,
+  MAX_COMPOSE_XP,
   REVIEW_XP,
   completeUnit,
+  practiceCompose,
   courseCompletion,
   currentStreak,
   goalCompletion,
@@ -29,6 +33,7 @@ import {
   startIndex,
   streakAfter,
   xpEarnedOn,
+  type BadgeId,
   type Progress,
 } from './progress';
 import { isUnitCracked, MASTERED_HITS } from './review';
@@ -764,5 +769,203 @@ describe('las medallas que da un repaso', () => {
 
     expect(despues.badges).toContain('meta-diaria');
     expect(despues.badges).toContain('repaso-al-dia');
+  });
+});
+
+describe('componer cuenta como practicar', () => {
+  const HOY = '2026-09-13';
+
+  it('suma a la meta del día y enciende la racha', () => {
+    const despues = practiceCompose(EMPTY_PROGRESS, HOY, 'cancion');
+
+    expect(despues.xpToday).toBe(COMPOSE_XP.cancion);
+    expect(despues.streak).toBe(1);
+    expect(despues.lastDay).toBe(HOY);
+  });
+
+  it('y no toca el XP del temario', () => {
+    // No es un olvido: `xp` se recalcula desde las unidades hechas al fusionar y
+    // al leer, así que cualquier punto sumado ahí se perdería al entrar en la
+    // cuenta desde otro aparato. Componer mide el día, no el temario.
+    const conUnidad = avanzar(1);
+    const despues = practiceCompose(conUnidad, HOY, 'parte');
+
+    expect(despues.xp).toBe(conUnidad.xp);
+  });
+
+  it('mantiene la racha igual que un repaso, sin unidades de por medio', () => {
+    const ayer: Progress = { ...EMPTY_PROGRESS, lastDay: '2026-09-12', streak: 4, bestStreak: 4 };
+
+    const despues = practiceCompose(ayer, HOY, 'oido');
+
+    expect(despues.streak).toBe(5);
+    expect(despues.bestStreak).toBe(5);
+  });
+
+  describe('el tope del día', () => {
+    /** Compone hasta que el tope no deje sumar más. */
+    function hastaElTope(day = HOY): Progress {
+      let progress = EMPTY_PROGRESS;
+      for (let i = 0; i < 20; i += 1) {
+        progress = practiceCompose(progress, day, 'cancion');
+      }
+      return progress;
+    }
+
+    it('corta en el tope por mucho que se insista', () => {
+      const lleno = hastaElTope();
+
+      expect(lleno.composeToday).toBe(MAX_COMPOSE_XP);
+      expect(lleno.xpToday).toBe(MAX_COMPOSE_XP);
+
+      // Y una vuelta más no mueve nada: el tope está lleno de verdad.
+      expect(practiceCompose(lleno, HOY, 'cancion').xpToday).toBe(MAX_COMPOSE_XP);
+    });
+
+    it('y el último que cabe se recorta, no se descarta entero', () => {
+      // Con el tope a uno de llenarse, un hecho de quince puntos tiene que dar
+      // uno y dejarlo lleno. Descartarlo entero regalaría el hueco.
+      const casi: Progress = {
+        ...EMPTY_PROGRESS,
+        lastDay: HOY,
+        streak: 1,
+        xpToday: MAX_COMPOSE_XP - 1,
+        composeToday: MAX_COMPOSE_XP - 1,
+      };
+
+      const despues = practiceCompose(casi, HOY, 'cancion');
+
+      expect(despues.composeToday).toBe(MAX_COMPOSE_XP);
+      expect(despues.xpToday).toBe(MAX_COMPOSE_XP);
+    });
+
+    it('pero seguir componiendo con el tope lleno no rompe la racha', () => {
+      // Lo importante de este: quien lleva cuatro horas componiendo no ha dejado
+      // de practicar porque el contador esté lleno.
+      const lleno = hastaElTope('2026-09-12');
+
+      const manana = practiceCompose(lleno, HOY, 'cancion');
+
+      expect(manana.streak).toBe(2);
+    });
+
+    it('y al día siguiente el tope vuelve a estar entero', () => {
+      const lleno = hastaElTope('2026-09-12');
+
+      const manana = practiceCompose(lleno, HOY, 'salida');
+
+      expect(manana.composeToday).toBe(COMPOSE_XP.salida);
+      expect(manana.xpToday).toBe(COMPOSE_XP.salida);
+    });
+
+    it('no deja que componer tape lo ganado con unidades', () => {
+      // El tope es de lo que da componer, no del día: quien haya hecho dos
+      // unidades y además componga tiene que pasar de la meta, no quedarse en
+      // ella.
+      const conUnidades = avanzar(2, HOY);
+      const antes = conUnidades.xpToday;
+
+      const despues = practiceCompose(conUnidades, HOY, 'cancion');
+
+      expect(despues.xpToday).toBe(antes + COMPOSE_XP.cancion);
+      expect(despues.composeToday).toBe(COMPOSE_XP.cancion);
+    });
+  });
+
+  describe('las medallas que da componer', () => {
+    it('guardar una canción da la primera', () => {
+      expect(practiceCompose(EMPTY_PROGRESS, HOY, 'cancion').badges).toContain('primera-cancion');
+    });
+
+    it('meter un acorde que oyó el micro da la suya', () => {
+      expect(practiceCompose(EMPTY_PROGRESS, HOY, 'oido').badges).toContain('de-oido');
+    });
+
+    it('quedarse con una salida de la IA da la suya', () => {
+      expect(practiceCompose(EMPTY_PROGRESS, HOY, 'salida').badges).toContain('a-tu-manera');
+    });
+
+    it('y cerrar una parte no da ninguna propia: es el hecho más corriente', () => {
+      const despues = practiceCompose(EMPTY_PROGRESS, HOY, 'parte');
+
+      expect(despues.badges).toEqual([]);
+    });
+
+    it('llegar a la meta del día componiendo da la de la meta', () => {
+      const casi: Progress = {
+        ...EMPTY_PROGRESS,
+        lastDay: HOY,
+        streak: 1,
+        xpToday: DAILY_GOAL_XP - 1,
+        composeToday: 0,
+      };
+
+      expect(practiceCompose(casi, HOY, 'oido').badges).toContain('meta-diaria');
+    });
+
+    it('y llegar a siete días componiendo también cuenta', () => {
+      const seguido: Progress = {
+        ...EMPTY_PROGRESS,
+        lastDay: '2026-09-12',
+        streak: 6,
+        bestStreak: 6,
+      };
+
+      expect(practiceCompose(seguido, HOY, 'parte').badges).toContain('racha-siete');
+    });
+  });
+
+  describe('lo compuesto al fusionar y al leer', () => {
+    it('de dos aparatos se queda el mayor, no la suma', () => {
+      const uno: Progress = { ...EMPTY_PROGRESS, lastDay: HOY, streak: 1, composeToday: 25 };
+      const otro: Progress = { ...EMPTY_PROGRESS, lastDay: HOY, streak: 1, composeToday: 15 };
+
+      expect(mergeProgress(uno, otro).composeToday).toBe(25);
+    });
+
+    it('y sin último día no hay nada compuesto hoy', () => {
+      expect(mergeProgress(EMPTY_PROGRESS, EMPTY_PROGRESS).composeToday).toBe(0);
+    });
+
+    it('lo guardado se acota al tope, que lo escribió un navegador', () => {
+      const leido = parseProgress({ lastDay: HOY, streak: 1, composeToday: 9999 });
+
+      expect(leido.composeToday).toBe(MAX_COMPOSE_XP);
+    });
+
+    it('un número imposible se lee como cero', () => {
+      expect(parseProgress({ lastDay: HOY, streak: 1, composeToday: -40 }).composeToday).toBe(0);
+      expect(parseProgress({ lastDay: HOY, streak: 1, composeToday: 'mucho' }).composeToday).toBe(
+        0,
+      );
+    });
+
+    it('y sin último día tampoco, aunque venga escrito', () => {
+      expect(parseProgress({ composeToday: 30 }).composeToday).toBe(0);
+    });
+  });
+});
+
+describe('las medallas de una lista de identificadores', () => {
+  it('salen en el orden del catálogo, no en el que se den', () => {
+    // Lo preguntan la pantalla de fin de unidad y el aviso de componer, y cada
+    // una lo resolvía a su manera —una filtrando, la otra buscando de una en
+    // una— con dos órdenes distintos para la misma pregunta. El del catálogo es
+    // el que sigue el resto del fichero: una lista que baila según cuándo se
+    // ganaron no se puede leer dos veces igual.
+    const enOrden = BADGES.map((badge) => badge.id);
+    const revueltas = [...enOrden].reverse();
+
+    expect(badgesOf(revueltas).map((badge) => badge.id)).toEqual(enOrden);
+  });
+
+  it('y lo que no existe se cae, en vez de dejar un hueco sin nombre', () => {
+    expect(badgesOf(['primer-paso', 'medalla-retirada' as BadgeId])).toEqual([
+      BADGES.find((badge) => badge.id === 'primer-paso'),
+    ]);
+  });
+
+  it('sin nada que buscar, ninguna', () => {
+    expect(badgesOf([])).toEqual([]);
   });
 });

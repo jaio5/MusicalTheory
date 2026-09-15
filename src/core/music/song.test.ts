@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_ROLE,
+  ROLES,
+  defaultSectionName,
   degreesFromPath,
   describeSong,
+  nameForRole,
+  roleInfo,
+  roleOf,
   MAX_SECTION_DEGREES,
   MAX_SECTIONS,
   MAX_SONG_NAME,
@@ -296,5 +302,92 @@ describe('el punteo y la procedencia, guardados', () => {
   it('una canción sin punteo ni procedencia se lee sin añadirle nada', () => {
     const song = parseSong({ mode: 'major', sections: [{ name: 'A', degrees: ['I'] }] }, 'x');
     expect(song?.sections[0]).toEqual({ name: 'A', degrees: ['I'] });
+  });
+});
+
+describe('el papel de cada parte', () => {
+  it('una parte sin papel es una idea', () => {
+    expect(roleOf({})).toBe('idea');
+    expect(roleOf({ role: undefined })).toBe('idea');
+    expect(DEFAULT_ROLE).toBe('idea');
+  });
+
+  it('los ocho papeles se explican, y la explicación se le manda al modelo', () => {
+    // Misma regla que los caminos de `paths.ts`: el catálogo del prompt sale de
+    // aquí, así que un papel sin frase es un papel que el modelo no entiende.
+    for (const role of ROLES) {
+      expect(role.name.length).toBeGreaterThan(0);
+      expect(role.what.length).toBeGreaterThan(0);
+    }
+    expect(new Set(ROLES.map((role) => role.id)).size).toBe(ROLES.length);
+  });
+
+  it('un papel desconocido cae en idea en vez de reventar', () => {
+    expect(roleInfo('lo-que-sea' as never).id).toBe('idea');
+  });
+
+  describe('al guardar y volver a leer', () => {
+    it('el papel sobrevive', () => {
+      const leida = parseSong(
+        {
+          name: 'Una',
+          tonic: 0,
+          mode: 'major',
+          sections: [{ degrees: ['I'], role: 'estribillo' }],
+        },
+        'x',
+      );
+
+      expect(leida?.sections[0]?.role).toBe('estribillo');
+    });
+
+    it('idea no se escribe, porque es el valor por omisión', () => {
+      // Leer y volver a guardar tiene que dar lo mismo, o una canción crecería
+      // sola cada vez que se abre. Es la regla del resto del fichero.
+      const leida = parseSong(
+        { name: 'Una', tonic: 0, mode: 'major', sections: [{ degrees: ['I'], role: 'idea' }] },
+        'x',
+      );
+
+      expect(leida?.sections[0]).not.toHaveProperty('role');
+    });
+
+    it('y un papel inventado se lee como idea, no tira la canción', () => {
+      const leida = parseSong(
+        { name: 'Una', tonic: 0, mode: 'major', sections: [{ degrees: ['I'], role: 'coda-rara' }] },
+        'x',
+      );
+
+      expect(leida?.sections).toHaveLength(1);
+      expect(roleOf(leida!.sections[0]!)).toBe('idea');
+    });
+  });
+
+  describe('el nombre que acompaña al papel', () => {
+    it('un nombre puesto por la aplicación sí se cambia', () => {
+      expect(nameForRole(defaultSectionName(2), 2, 'estribillo')).toBe('Estribillo');
+    });
+
+    it('y un hueco vacío también', () => {
+      expect(nameForRole('   ', 0, 'puente')).toBe('Puente');
+    });
+
+    it('pero lo que escribió una persona no se pisa nunca', () => {
+      expect(nameForRole('lo del puente de Marta', 1, 'estribillo')).toBe('lo del puente de Marta');
+    });
+
+    it('cambiar de papel dos veces seguidas no deja el nombre anterior pegado', () => {
+      // Sin esto, «Estribillo» contaría como nombre escrito a mano y pasar a
+      // puente lo dejaría llamándose «Estribillo» para siempre.
+      const primero = nameForRole(defaultSectionName(0), 0, 'estribillo');
+
+      expect(nameForRole(primero, 0, 'puente')).toBe('Puente');
+    });
+
+    it('y volver a idea devuelve el nombre numerado', () => {
+      const conPapel = nameForRole(defaultSectionName(3), 3, 'solo');
+
+      expect(nameForRole(conPapel, 3, 'idea')).toBe('Parte 4');
+    });
   });
 });

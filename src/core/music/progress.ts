@@ -44,6 +44,9 @@ export type BadgeId =
   | 'curso-completo'
   | 'elemental-superado'
   | 'profesional-superado'
+  | 'primera-cancion'
+  | 'de-oido'
+  | 'a-tu-manera'
   | 'racha-siete'
   | 'repaso-al-dia'
   | 'meta-diaria';
@@ -79,10 +82,42 @@ export const BADGES: readonly Badge[] = [
     name: 'Grado Profesional',
     how: 'Termina los seis cursos del Grado Profesional.',
   },
+  {
+    id: 'primera-cancion',
+    name: 'Primera canción',
+    how: 'Guarda tu primera canción.',
+  },
+  {
+    id: 'de-oido',
+    name: 'De oído',
+    how: 'Mete en una canción un acorde que te oyó el micro.',
+  },
+  {
+    id: 'a-tu-manera',
+    name: 'A tu manera',
+    how: 'Quédate con una salida que te propuso la IA.',
+  },
   { id: 'racha-siete', name: 'Siete días', how: 'Practica siete días seguidos.' },
   { id: 'repaso-al-dia', name: 'Nada pendiente', how: 'Termina un repaso y deja la cola vacía.' },
   { id: 'meta-diaria', name: 'Meta del día', how: 'Llega a la meta de XP de un día.' },
 ];
+
+/**
+ * Las medallas que hay detrás de una lista de identificadores.
+ *
+ * **En el orden del catálogo, y no en el que llegaron**, que es la misma regla
+ * que sigue `orderBadges` con las que se tienen: una lista que baila según el
+ * orden en que se ganaron no se puede leer dos veces igual. Y lo que no existe se
+ * cae, para que una medalla retirada no deje un hueco con el nombre vacío.
+ *
+ * Vive aquí y no en quien la pinta porque lo preguntan dos pantallas —la de fin
+ * de unidad y el aviso de componer— y cada una lo estaba resolviendo a su manera:
+ * una filtrando el catálogo y la otra buscando de uno en uno, con dos órdenes
+ * distintos para la misma pregunta.
+ */
+export function badgesOf(ids: readonly BadgeId[]): readonly Badge[] {
+  return BADGES.filter((badge) => ids.includes(badge.id));
+}
 
 export interface Progress {
   /** Unidades superadas. El orden no importa: lo que importa es si están. */
@@ -103,6 +138,21 @@ export interface Progress {
    * la meta y no añade ninguna unidad, así que si no se guarda, se pierde.
    */
   readonly xpToday: number;
+  /**
+   * De ese XP de hoy, cuánto salió de componer.
+   *
+   * Se guarda aparte por una sola razón: **hay un tope diario para lo que da
+   * componer**, y sin este número no hay forma de saber cuánto queda. `xpToday`
+   * no sirve porque mezcla las tres procedencias —unidades, repaso y componer— y
+   * un día de dos unidades dejaría el tope de componer ya gastado sin haber
+   * compuesto nada.
+   *
+   * El tope existe porque componer no se puede medir como una unidad: una unidad
+   * se termina una vez y ya, pero guardar una canción se puede pulsar cincuenta
+   * veces seguidas. Sin tope, la racha y la meta diaria se ganan con el ratón, y
+   * un marcador que se gana con el ratón no mide nada.
+   */
+  readonly composeToday: number;
   /** Las preguntas falladas esperando repaso. */
   readonly review: ReviewQueue;
   /**
@@ -131,6 +181,7 @@ export const EMPTY_PROGRESS: Progress = {
   lastDay: null,
   badges: [],
   xpToday: 0,
+  composeToday: 0,
   review: EMPTY_REVIEW,
   startCourse: null,
 };
@@ -146,6 +197,52 @@ export const DAILY_GOAL_XP = 40;
 
 /** Lo que se gana por terminar un repaso. No suma al total del temario. */
 export const REVIEW_XP = 10;
+
+/**
+ * Las cuatro cosas que cuentan como componer.
+ *
+ * Son cuatro y no una porque componer no tiene final: una unidad se termina, y
+ * una canción se deja. Lo que sí tiene son **momentos en los que has decidido
+ * algo**, y esos son los que se premian. Ninguno se puede conseguir mirando la
+ * pantalla:
+ *
+ * - `parte`: le has dicho a una parte qué papel hace —estrofa, estribillo, puente—.
+ * - `cancion`: has guardado una canción.
+ * - `salida`: te has quedado con una de las que propuso la IA.
+ * - `oido`: has metido en la canción un acorde que oyó el micro.
+ *
+ * `parte` premia decir qué es lo que acabas de tocar, y no «tener cuatro
+ * compases»: tener compases pasa solo, decidir que eso es el estribillo es una
+ * decisión. Además es la que hace que el modelo sepa qué le estás pidiendo
+ * —`SectionRole` en `song.ts`—, así que es la que más mejora lo que te devuelve.
+ *
+ * `oido` vale la mitad que los demás y está a propósito: es el más barato de
+ * repetir —se toca un acorde y se confirma— y el que más cerca está de lo que
+ * esta aplicación quiere que hagas, así que se premia sin convertirlo en la vía
+ * rápida.
+ */
+export type ComposeDeed = 'parte' | 'cancion' | 'salida' | 'oido';
+
+export const COMPOSE_XP: Readonly<Record<ComposeDeed, number>> = {
+  parte: 10,
+  cancion: 15,
+  salida: 10,
+  oido: 5,
+};
+
+/**
+ * Lo más que puede dar componer en un día.
+ *
+ * Es la meta diaria entera, y eso es la decisión: **una tarde componiendo vale
+ * tanto como una tarde de unidades.** Decir lo contrario —que solo el temario
+ * cuenta de verdad— convertiría la mitad que más importa de esta aplicación en
+ * un entretenimiento sin marcador.
+ *
+ * Que sea un tope y no una barra libre es lo que separa «he compuesto» de «he
+ * pulsado guardar». Pasado el tope se sigue componiendo igual y el día sigue
+ * contando para la racha: lo único que deja de subir es el número.
+ */
+export const MAX_COMPOSE_XP = DAILY_GOAL_XP;
 
 export function isUnitDone(progress: Progress, unitId: string): boolean {
   return progress.done.includes(unitId);
@@ -484,6 +581,69 @@ export function practiceReview(
 }
 
 /**
+ * Lo que se llevaba ganado componiendo en un día concreto.
+ *
+ * Misma regla que `xpEarnedOn`: solo se sabe del último día con actividad, y de
+ * cualquier otro la única verdad que se puede afirmar es cero.
+ */
+function composeEarnedOn(progress: Progress, day: string): number {
+  return progress.lastDay === day ? progress.composeToday : 0;
+}
+
+/** Lo que todavía puede dar componer hoy. Cero cuando ya se llegó al tope. */
+export function composeRoomOn(progress: Progress, day: string): number {
+  return Math.max(0, MAX_COMPOSE_XP - composeEarnedOn(progress, day));
+}
+
+/**
+ * Apunta que se ha compuesto algo.
+ *
+ * Componer cuenta como practicar, exactamente igual que repasar: **mantiene la
+ * racha y suma a la meta del día, y no toca el XP del temario.** Lo segundo no es
+ * un olvido, es lo único que puede ser: `mergeProgress` y `parseProgress`
+ * recalculan `xp` desde las unidades hechas, así que cualquier XP que se sumara
+ * ahí desaparecería en cuanto alguien entrara en su cuenta desde otro aparato.
+ * Y aunque se pudiera, no debería: el temario mide el temario.
+ *
+ * Pasado el tope del día el hecho sigue valiendo para la racha y ya no suma
+ * puntos. Es deliberado: quien lleve cuatro horas componiendo no ha dejado de
+ * practicar porque el contador esté lleno, y devolver el progreso sin tocar le
+ * rompería la racha por haber compuesto de más.
+ */
+export function practiceCompose(progress: Progress, day: string, deed: ComposeDeed): Progress {
+  const ganado = Math.min(COMPOSE_XP[deed], composeRoomOn(progress, day));
+  const streak = streakAfter(progress, day);
+  const xpToday = xpEarnedOn(progress, day) + ganado;
+
+  const badges = new Set<BadgeId>(progress.badges);
+  if (deed === 'cancion') {
+    badges.add('primera-cancion');
+  }
+  if (deed === 'oido') {
+    badges.add('de-oido');
+  }
+  if (deed === 'salida') {
+    badges.add('a-tu-manera');
+  }
+  if (streak >= 7) {
+    badges.add('racha-siete');
+  }
+  if (xpToday >= DAILY_GOAL_XP) {
+    badges.add('meta-diaria');
+  }
+
+  return {
+    ...progress,
+    streak,
+    bestStreak: Math.max(progress.bestStreak, streak),
+    lastDay: day,
+    xpToday,
+    composeToday: composeEarnedOn(progress, day) + ganado,
+    badges: orderBadges(badges),
+  };
+}
+
+/**
  * Junta el avance de la cuenta con el que hubiera en este navegador.
  *
  * Hace falta la primera vez que alguien entra en una cuenta desde un aparato
@@ -514,6 +674,10 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
     lastDay,
     badges: orderBadges(new Set([...a.badges, ...b.badges])),
     xpToday: lastDay === null ? 0 : Math.max(xpEarnedOn(a, lastDay), xpEarnedOn(b, lastDay)),
+    // El mayor y no la suma, igual que `xpToday`: dos aparatos abiertos a la vez
+    // sumarían un tope de componer que nadie llegó a gastar dos veces.
+    composeToday:
+      lastDay === null ? 0 : Math.max(composeEarnedOn(a, lastDay), composeEarnedOn(b, lastDay)),
     review: mergeReview(a.review, b.review),
     startCourse: mergeStartCourse(a, b),
   };
@@ -624,6 +788,10 @@ export function parseProgress(raw: unknown): Progress {
     badges,
     // Y sin último día tampoco puede haber XP de hoy.
     xpToday: lastDay === null ? 0 : asCount(record['xpToday']),
+    // Acotado al tope: lo guardado viene de un `localStorage` que cualquiera
+    // puede editar, y un número mayor que el tope dejaría `composeRoomOn` sin
+    // sentido en vez de simplemente a cero.
+    composeToday: lastDay === null ? 0 : Math.min(MAX_COMPOSE_XP, asCount(record['composeToday'])),
     review: asReviewQueue(record['review']),
     startCourse: asCourseId(record['startCourse']),
   };

@@ -44,16 +44,40 @@ const QUALITY_SUFFIX: Readonly<Record<ChordQuality, string>> = {
 const ROMAN_NUMERALS: readonly string[] = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
 /**
+ * Las cuatro tríadas, por lo que miden su tercera y su quinta.
+ *
+ * **Escrito una sola vez**, y esto es lo que arregla: estaba aquí como cuatro
+ * `if` y otra vez en `capture.ts` como una tabla, las dos diciendo lo mismo —que
+ * un acorde mayor es 0-4-7— en dos ficheros que no se miran. Dos sitios donde
+ * vive un hecho musical son dos sitios que se pueden contradecir.
+ *
+ * **El orden importa**, y no es alfabético ni casual: `major` va antes que
+ * `minor` porque quien busca la tríada que hay *dentro* de un acorde con
+ * tensiones se queda con la primera que encaja, y un `7#9` lleva dentro la
+ * tercera mayor y la menor. Es un acorde mayor con una tensión, no uno menor.
+ */
+export const TRIADS: ReadonlyArray<{
+  readonly third: number;
+  readonly fifth: number;
+  readonly quality: ChordQuality;
+}> = [
+  { third: 4, fifth: 7, quality: 'major' },
+  { third: 3, fifth: 7, quality: 'minor' },
+  { third: 3, fifth: 6, quality: 'diminished' },
+  { third: 4, fifth: 8, quality: 'augmented' },
+];
+
+/**
  * Deduce la especie a partir de los dos intervalos que forman la tríada.
  * Cualquier otra combinación no es una tríada por terceras y es un error de
  * quien la construyó, no una entrada del usuario.
  */
 function qualityFromIntervals(third: number, fifth: number): ChordQuality {
-  if (third === 4 && fifth === 7) return 'major';
-  if (third === 3 && fifth === 7) return 'minor';
-  if (third === 3 && fifth === 6) return 'diminished';
-  if (third === 4 && fifth === 8) return 'augmented';
-  throw new RangeError(`Los intervalos ${third} y ${fifth} no forman una tríada por terceras.`);
+  const triada = TRIADS.find((candidate) => candidate.third === third && candidate.fifth === fifth);
+  if (triada === undefined) {
+    throw new RangeError(`Los intervalos ${third} y ${fifth} no forman una tríada por terceras.`);
+  }
+  return triada.quality;
 }
 
 export function chordSymbol(

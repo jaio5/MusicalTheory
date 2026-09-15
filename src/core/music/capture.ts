@@ -16,7 +16,7 @@
  * su reparto en el tiempo, que es justo lo que hace falta para rearmonizar.
  */
 
-import { chordSymbol, type ChordQuality } from './chords';
+import { chordSymbol, TRIADS, type ChordQuality } from './chords';
 import { accidentalForKey } from './circle-of-fifths';
 import type { KeyMode } from './keys';
 import { normalizePitchClass, type PitchClass } from './notes';
@@ -115,33 +115,41 @@ export interface Capture {
   readonly bars: number;
 }
 
-const CALIDADES: ReadonlyArray<{
-  readonly intervals: readonly number[];
-  readonly quality: ChordQuality;
-}> = [
-  { intervals: [0, 4, 7], quality: 'major' },
-  { intervals: [0, 3, 7], quality: 'minor' },
-  { intervals: [0, 3, 6], quality: 'diminished' },
-  { intervals: [0, 4, 8], quality: 'augmented' },
-];
+/**
+ * Lo que suena, medido desde la fundamental y sin repetir.
+ *
+ * Conjunto y no lista porque el croma devuelve las notas en el orden en que
+ * salen del vector, no en el de la partitura.
+ */
+function intervalosDesde(root: PitchClass, notes: readonly PitchClass[]): ReadonlySet<number> {
+  return new Set(notes.map((note) => normalizePitchClass(note - root)));
+}
+
+/**
+ * La primera tríada del catálogo que está entera ahí dentro.
+ *
+ * El catálogo es `TRIADS`, de `chords.ts`, y **no una copia**: que un acorde
+ * mayor sea 0-4-7 se escribe en un sitio. Que sea la primera que encaja y no la
+ * que mejor encaje también viene de allí, con su porqué.
+ */
+function triadaDentro(relativos: ReadonlySet<number>): ChordQuality | null {
+  const found = TRIADS.find(
+    (candidate) =>
+      relativos.has(0) && relativos.has(candidate.third) && relativos.has(candidate.fifth),
+  );
+  return found?.quality ?? null;
+}
 
 /**
  * Qué especie de tríada forman esas notas sobre esa fundamental.
  *
- * Compara conjuntos y no listas porque el croma devuelve las notas en el orden
- * que salen del vector, no en el de la partitura. Una cuatríada devuelve nulo: la
- * séptima todavía no tiene grado en el catálogo, y adivinar la tríada de dentro
- * sería tirar la nota que más define el acorde.
+ * Una cuatríada devuelve nulo: la séptima todavía no tiene grado en el catálogo,
+ * y adivinar la tríada de dentro sería tirar la nota que más define el acorde.
+ * Eso —y solo eso— es lo que la separa de `triadInside`.
  */
 export function triadQuality(root: PitchClass, notes: readonly PitchClass[]): ChordQuality | null {
-  const relativos = new Set(notes.map((note) => normalizePitchClass(note - root)));
-  if (relativos.size !== 3) {
-    return null;
-  }
-  const found = CALIDADES.find((candidate) =>
-    candidate.intervals.every((interval) => relativos.has(interval as PitchClass)),
-  );
-  return found?.quality ?? null;
+  const relativos = intervalosDesde(root, notes);
+  return relativos.size === 3 ? triadaDentro(relativos) : null;
 }
 
 /**
@@ -153,18 +161,14 @@ export function triadQuality(root: PitchClass, notes: readonly PitchClass[]): Ch
  * `Am`, y un `C7b9` tiene cinco y sigue siendo el I.
  *
  * Se busca la primera calidad cuyos intervalos estén todos presentes, y por eso
- * el orden de `CALIDADES` importa: un `7#9` lleva dentro la tercera mayor y la
+ * el orden de `TRIADS` importa: un `7#9` lleva dentro la tercera mayor y la
  * menor, y es un acorde mayor con una tensión, no un acorde menor.
  *
  * No vale mirar las tres primeras notas: van ordenadas por semitono, así que las
  * tres primeras de un `add9` son la fundamental, la novena y la tercera.
  */
 export function triadInside(root: PitchClass, notes: readonly PitchClass[]): ChordQuality | null {
-  const relativos = new Set(notes.map((note) => normalizePitchClass(note - root)));
-  const found = CALIDADES.find((candidate) =>
-    candidate.intervals.every((interval) => relativos.has(interval as PitchClass)),
-  );
-  return found?.quality ?? null;
+  return triadaDentro(intervalosDesde(root, notes));
 }
 
 /** Si dos acordes oídos son el mismo. El croma no distingue inversiones. */

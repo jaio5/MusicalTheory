@@ -5,19 +5,24 @@ import { useMemo, useState } from 'react';
 import { can, cheapestPlanWith, MAX_VERSION_DEGREES } from '@core/billing';
 import {
   captureProgression,
+  DEFAULT_ROLE,
   DUDOSO,
+  ROLES,
   degreesFromPath,
   moveById,
   noteName,
   resolveDegree,
+  roleInfo,
   scheduleProgression,
   type CapturedStep,
   type PathKind,
+  type SectionRole,
 } from '@core/music';
 import { analyzeRecording } from '@audio/analyze-recording';
 import { canRecord } from '@audio/recorder';
 import type { ProgressionPlayer } from '@audio/progression-player';
 import { useAccount } from '@state/account';
+import { apuntarHecho } from '@state/hechos-de-componer';
 import { useProgressionPlayer } from '@state/use-progression-player';
 import { entradaActiva } from '@state/use-listening';
 import { apiErrorOf } from '@state/api-error';
@@ -25,6 +30,7 @@ import { apiErrorOf } from '@state/api-error';
 import { Salida } from './Salida';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { Field } from '@ui/Field';
 import { PlanLock } from '@ui/PlanLock';
 
 import {
@@ -96,6 +102,15 @@ export function VersionsPanel({
    * válidas a tres de tres. El porqué está en `core/music/paths.ts`.
    */
   const [kind, setKind] = useState<PathKind>('continuar');
+  /**
+   * Qué es lo que le mandas, dicho antes de mandarlo.
+   *
+   * Empieza en `idea` y **no se adivina**. Se podría intentar —cuatro compases
+   * que vuelven a la tónica se parecen a un estribillo— y sería adivinar sobre
+   * lo único que esta pantalla no puede saber: si eso es el estribillo lo sabe
+   * quien lo ha tocado, no el que cuenta los grados.
+   */
+  const [role, setRole] = useState<SectionRole>(DEFAULT_ROLE);
 
   const { pedir: player, parar } = useProgressionPlayer(createPlayer);
 
@@ -255,6 +270,7 @@ export function VersionsPanel({
         ...(deLoGrabado && 'confidence' in paso && paso.confidence < DUDOSO ? { heard: true } : {}),
       })),
       kind,
+      role,
     };
 
     try {
@@ -301,6 +317,11 @@ export function VersionsPanel({
       });
     }
     actions.setCurrentDegree(version.steps.at(-1)?.degree ?? null);
+
+    // Quedarse con una salida cuenta como practicar. Es **quedársela** y no
+    // pedirla: pedir cuatro propuestas y no usar ninguna no es haber compuesto
+    // nada, y premiar la petición premiaría gastar IA.
+    apuntarHecho('salida');
   }
 
   if (!puedePedir) {
@@ -358,6 +379,27 @@ export function VersionsPanel({
             </Button>
           ))}
         </span>
+
+        {/* Qué parte es esto, junto a lo que se le pide y no escondido en otro
+            sitio: son la misma decisión partida en dos mitades —«qué te mando»
+            y «qué quiero»— y tomarlas separadas hace que casi nadie tome la
+            primera. La explicación del papel va en el `title`, que es donde ya
+            vive la de los compases del lienzo. */}
+        <Field
+          label="Qué parte es esto"
+          compact
+          ancho="auto"
+          value={role}
+          onChange={(event) => setRole(event.target.value as SectionRole)}
+          disabled={pending || analizando}
+          title={roleInfo(role).what}
+        >
+          {ROLES.map((candidato) => (
+            <option key={candidato.id} value={candidato.id}>
+              {candidato.name}
+            </option>
+          ))}
+        </Field>
 
         {deLoGrabado && !capturing && (
           <Button variant="quiet" onClick={() => useSessionStore.getState().actions.clearCapture()}>
