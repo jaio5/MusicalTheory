@@ -41,6 +41,17 @@ export function BarraDeTonalidad({
   return (
     <Disclosure
       abierto={activeKey === null}
+      /*
+        Flota **siempre**, y se probó a que no.
+
+        La idea era que sin tonalidad no hay nada debajo que proteger, así que
+        podía empujar y dejar ver el aviso de «elige una tonalidad» que hoy queda
+        detrás del panel. Empujando, en un teléfono la rueda **no cabe**: el marco
+        de la aplicación no desplaza —`main` recorta— y la sonda encontró trece
+        elementos inalcanzables, la rueda entera entre ellos. Flotar es lo que la
+        salva, y por eso vuelve. El aviso tapado se arregla en la pantalla que lo
+        pinta, no aquí.
+      */
       flotante
       {...(className === undefined ? {} : { className })}
       summary={

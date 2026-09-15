@@ -3,14 +3,18 @@
 import { useMemo, useState } from 'react';
 
 import {
+  accidentalForKey,
   degreeOfChord,
   keyName,
   resolveDegree,
+  seventhFromSuffix,
+  seventhSymbol,
   suggestChordSymbols,
   triadInside,
   type DegreeSymbol,
   type KeyMode,
   type PitchClass,
+  type SeventhQuality,
 } from '@core/music';
 import { TextField } from '@ui/TextField';
 
@@ -34,7 +38,7 @@ import { TextField } from '@ui/TextField';
 export interface ChordEntryProps {
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
-  readonly onPick: (degree: DegreeSymbol) => void;
+  readonly onPick: (degree: DegreeSymbol, seventh?: SeventhQuality) => void;
 }
 
 /** Cuántos candidatos se enseñan. Con la fundamental escrita salen de sobra. */
@@ -71,15 +75,39 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
         // llegan al mismo grado sin una tabla de sufijos aparte.
         const quality = triadInside(chord.root, chord.notes);
         const degree = quality === null ? null : degreeOfChord(tonic, mode, chord.root, quality);
+        // Y la séptima sale del sufijo, que es lo único que la distingue: un
+        // `Cmaj7` y un `C7` tienen la misma tríada dentro.
+        const seventh = seventhFromSuffix(chord.shape.suffix);
         return {
           escrito: chord.symbol,
-          // La clave de deduplicado: el grado si cabe, y si no el propio cifrado.
-          clave: degree ?? chord.symbol,
+          seventh,
+          /*
+            La clave de deduplicado: el grado **y su séptima**.
+
+            Solo con el grado, escribir `E7` ofrecía un único botón que ponía
+            «E»: las cuatro especies de la misma fundamental se agrupaban en una
+            y la séptima se perdía por el camino sin avisar. Ahora un `E` y un
+            `E7` son dos cosas que se pueden poner, porque el bloque sabe
+            guardar las dos.
+          */
+          clave: degree === null ? chord.symbol : `${degree}|${seventh ?? ''}`,
           // **Lo que se va a poner de verdad.** El montaje guarda grados y un grado
           // es una tríada, así que un `Am7` entra como `Am`. Se enseña el que va a
           // quedar, no el que se ha escrito: enterarse después, con el acorde ya
           // puesto, es peor que verlo antes.
-          symbol: degree === null ? chord.symbol : resolveDegree(tonic, mode, degree).symbol,
+          symbol:
+            degree === null
+              ? chord.symbol
+              : seventh === null
+                ? resolveDegree(tonic, mode, degree).symbol
+                : // El acorde ya resuelto sabe escribir su fundamental en esta
+                  // tonalidad —un bIII de Do es «Eb» y no «D#»—, así que la
+                  // séptima se escribe sobre esa y no sobre la que se tecleó.
+                  seventhSymbol(
+                    resolveDegree(tonic, mode, degree).root,
+                    seventh,
+                    accidentalForKey(tonic, mode),
+                  ),
           degree,
         };
       })
@@ -94,6 +122,15 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
   }, [mode, texto, tonic]);
 
   const ningunoCabe = candidatos.length > 0 && candidatos.every((c) => c.degree === null);
+
+  /**
+   * Cuáles de los que se ofrecen no caben, para poder decirlo **en pantalla**.
+   *
+   * El motivo estaba solo en el `title` de cada botón, o sea **solo con ratón**:
+   * en un teléfono se veían tres cifrados apagados y no había manera de saber por
+   * qué. Lo apagado sin explicación se lee como que la aplicación está rota.
+   */
+  const noCaben = candidatos.filter((c) => c.degree === null).map((c) => c.escrito);
 
   return (
     <div>
@@ -115,7 +152,7 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
                 disabled={candidato.degree === null}
                 onClick={() => {
                   if (candidato.degree !== null) {
-                    onPick(candidato.degree);
+                    onPick(candidato.degree, candidato.seventh ?? undefined);
                     setTexto('');
                   }
                 }}
@@ -124,7 +161,7 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
                     ? `${candidato.escrito} no es un grado de ${keyName(tonic, mode)}`
                     : candidato.symbol === candidato.escrito
                       ? `${candidato.symbol}, grado ${candidato.degree}`
-                      : `${candidato.escrito} entra como ${candidato.symbol}, grado ${candidato.degree}: se guardan tríadas`
+                      : `${candidato.escrito} entra como ${candidato.symbol}, grado ${candidato.degree}`
                 }
                 className="border-border text-text hover:border-brass-dim hover:bg-surface-raised min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-sm font-medium disabled:opacity-35"
               >
@@ -139,6 +176,15 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
         <p className="text-text-muted mt-2 text-xs">
           Ninguno de esos es un grado de {keyName(tonic, mode)}. Se guardan grados y no cifrados,
           que es lo que permite cambiar la canción entera de tonalidad.
+        </p>
+      )}
+
+      {!ningunoCabe && noCaben.length > 0 && (
+        <p className="text-text-muted mt-2 text-xs">
+          {noCaben.length === 1
+            ? `${noCaben[0]} está apagado: no es un grado de `
+            : `${noCaben.slice(0, -1).join(', ')} y ${noCaben.at(-1)} están apagados: no son grados de `}
+          {keyName(tonic, mode)}.
         </p>
       )}
     </div>

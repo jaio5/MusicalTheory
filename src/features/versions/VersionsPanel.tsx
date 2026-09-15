@@ -20,6 +20,7 @@ import {
 } from '@core/music';
 import { analyzeRecording } from '@audio/analyze-recording';
 import { canRecord } from '@audio/recorder';
+import { useListening } from '@state/use-listening';
 import type { ProgressionPlayer } from '@audio/progression-player';
 import { useAccount } from '@state/account';
 import { apuntarHecho } from '@state/hechos-de-componer';
@@ -86,6 +87,14 @@ export function VersionsPanel({
   const capturing = useSessionStore((state) => state.capturing);
   const captured = useSessionStore((state) => state.captured);
   const captureEndedAt = useSessionStore((state) => state.captureEndedAt);
+
+  /**
+   * Para poder abrir el micrófono desde aquí si no lo está.
+   *
+   * `chords: true` porque lo que este panel quiere oír son acordes: es lo mismo
+   * que piden el acorde oído del camino y la pantalla de empezar por tonalidad.
+   */
+  const { start: abrirMicro } = useListening({ chords: true });
   const bpm = useSessionStore((state) => state.bpm);
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
 
@@ -213,16 +222,32 @@ export function VersionsPanel({
    */
   async function grabar(): Promise<void> {
     const { actions } = useSessionStore.getState();
-    const entrada = getInput();
 
     if (!capturing) {
+      /*
+        Si el micrófono no está abierto, lo abre.
+
+        Este botón promete grabar un trozo de lo que tocas, y sin entrada no
+        grababa nada: `canRecord(null)` es falso, así que se saltaba la grabación
+        **en silencio** y al parar no había acordes. El panel se quedaba diciendo
+        «encadena al menos dos acordes» sin que nadie supiera por qué.
+
+        Se abre por el mismo sitio que los demás botones de escuchar —el módulo
+        es el dueño del micro, no el componente—, así que no se le quita a nadie
+        y se suelta cuando no quede ningún consumidor montado.
+      */
+      if (getInput() === null) {
+        await abrirMicro();
+      }
+      const recienAbierta = getInput();
       actions.startCapture(now());
-      if (canRecord(entrada)) {
-        entrada.startRecording();
+      if (canRecord(recienAbierta)) {
+        recienAbierta.startRecording();
       }
       return;
     }
 
+    const entrada = getInput();
     actions.stopCapture(now());
     if (!canRecord(entrada)) {
       return;

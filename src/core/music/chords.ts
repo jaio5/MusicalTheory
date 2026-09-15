@@ -13,6 +13,7 @@ import {
   type NoteName,
   type PitchClass,
 } from './notes';
+import { CHORD_SHAPES } from './chord-symbols';
 import { scaleNotes, type HeptatonicScaleId } from './scales';
 
 export type ChordQuality = 'major' | 'minor' | 'diminished' | 'augmented';
@@ -220,6 +221,34 @@ const SEVENTH_SUFFIX: Readonly<Record<SeventhQuality, string>> = {
   minorMajor7: 'mMaj7',
   augmentedMajor7: 'maj7#5',
 };
+
+/**
+ * La especie de séptima de un sufijo de cifrado, si es una.
+ *
+ * Es el puente entre lo que alguien escribe —`E7`, `Cmaj7`, `Am7`— y lo que el
+ * montaje guarda. Sale de **invertir** `SEVENTH_SUFFIX` y no de una lista nueva,
+ * para que no haya dos tablas que se puedan desincronizar.
+ */
+export function seventhFromSuffix(suffix: string): SeventhQuality | null {
+  const encontrada = (Object.entries(SEVENTH_SUFFIX) as Array<[SeventhQuality, string]>).find(
+    ([, escrito]) => escrito === suffix,
+  );
+  return encontrada?.[0] ?? null;
+}
+
+/**
+ * Las notas de una cuatríada suelta, que es lo que suena cuando alguien escribe
+ * un cifrado en vez de coger un grado de la escala.
+ *
+ * Los intervalos **salen del catálogo de cifrados**, no de una tabla nueva: ese
+ * catálogo es el que ya usa el buscador, y dos listas de lo mismo acaban
+ * diciendo cosas distintas. Si una especie no estuviera allí, se cae a la tríada
+ * mayor, que suena mal pero no revienta.
+ */
+export function seventhNotes(root: PitchClass, quality: SeventhQuality): PitchClass[] {
+  const intervals = CHORD_SHAPES[SEVENTH_SUFFIX[quality]]?.intervals ?? [0, 4, 7];
+  return intervals.map((paso) => normalizePitchClass(root + paso));
+}
 
 /** Cómo se escribe cada especie en números romanos. */
 const SEVENTH_ROMAN: Readonly<Record<SeventhQuality, { upper: boolean; suffix: string }>> = {

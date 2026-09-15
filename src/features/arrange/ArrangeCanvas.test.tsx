@@ -249,21 +249,33 @@ describe('escribir un acorde', () => {
   });
 
   /**
-   * El montaje guarda grados y un grado es una tríada, así que un `Am7` entra
-   * como `Am`. Se enseña el cifrado que va a quedar y no el que se ha escrito:
-   * enterarse después, con el acorde ya puesto, es peor que verlo antes.
+   * Una cuatríada entra como cuatríada, y la tríada sigue estando al lado.
+   *
+   * Antes no: el bloque solo sabía guardar el grado, un grado es una tríada, y
+   * las cuatro especies de la misma fundamental se agrupaban en un botón que
+   * ponía «Am». Escribir `Am7` metía un `Am` y la séptima se caía sin decirlo.
+   * Ahora el bloque guarda además la especie, así que las dos son cosas
+   * distintas que se pueden poner.
    */
-  it('una cuatríada se ofrece como la tríada que va a entrar', async () => {
+  it('una cuatríada entra como cuatríada', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
 
     await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'Am7');
+    await userEvent.click(screen.getByRole('button', { name: 'Am7' }));
 
-    expect(screen.getByRole('button', { name: 'Am' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Am' })).toHaveAttribute(
-      'title',
-      expect.stringContaining('Am7 entra como Am'),
-    );
+    expect(acordesDe('Estrofa')).toEqual(['Am7']);
+  });
+
+  /** Y la tríada sigue siendo otra cosa que se puede poner, con el mismo grado. */
+  it('la tríada del mismo grado entra aparte', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'Am');
+    await userEvent.click(screen.getByRole('button', { name: 'Am' }));
+
+    expect(acordesDe('Estrofa')).toEqual(['Am']);
   });
 
   /**

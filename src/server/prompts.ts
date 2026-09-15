@@ -107,6 +107,7 @@ Te dan unos compases en grados con sus pulsos y devuelves salidas: por donde
 podria tirar eso. No son versiones de la misma cancion, son caminos distintos
 para elegir. Que no se parezcan entre si.
 
+
 Cada salida declara cual de las salidas de la lista ha tomado, con ese nombre
 exacto. Se comprueba contra sus reglas y la que no cuadre se descarta.
 
@@ -169,6 +170,21 @@ export function versionsSchema(mode: KeyMode, kind: PathKind): Record<string, un
     properties: {
       versions: {
         type: 'array',
+        /*
+          Una, y el suelo **no se sube aunque de una sola no haya nada que elegir**.
+
+          Se probo a ponerlo en dos y con el modelo de casa —qwen3:8b por Ollama—
+          la peticion se pasaba de los ciento veinte segundos del tope y moria
+          entera: dos de dos intentos, 502. Sin el suelo, el mismo modelo tarda
+          entre nueve y ochenta y tres segundos y devuelve **una o dos segun le
+          da**. O sea que puede con dos; lo que no aguanta es que se le exijan,
+          porque entonces las escribe las dos enteras antes de contestar nada.
+
+          Una salida es peor que dos; ninguna es peor que una, y eso es lo que da
+          subir el suelo con un modelo pequeno detras. Donde esto se arregla es en
+          la velocidad —con clave de API la respuesta no tarda un minuto— o
+          haciendo mas pequena la forma de una salida, no en este numero.
+        */
         minItems: 1,
         maxItems: MAX_VERSIONS,
         items: {

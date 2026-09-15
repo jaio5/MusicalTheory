@@ -9,7 +9,7 @@ import {
   drawnBars,
   isDoubtful,
   partLength,
-  resolveDegree,
+  blockChord,
   roleInfo,
   roleOf,
   type KeyMode,
@@ -321,7 +321,7 @@ export function PartRow({
           )}
 
           {part.blocks.map((block, indice) => {
-            const chord = resolveDegree(tonic, mode, block.degree);
+            const chord = blockChord(tonic, mode, block);
             return (
               <li key={block.id} data-parte={part.id} data-indice={indice} className="flex">
                 {/* El hueco donde caería lo que se arrastra. Se abre antes del

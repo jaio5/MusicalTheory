@@ -24,10 +24,12 @@ import {
   lastDegreeOf,
   nextDegrees,
   keyName,
+  blockChord,
   resolveDegree,
   type Capture,
   type DegreeSymbol,
   type MelodyCapture,
+  type SeventhQuality,
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
@@ -639,7 +641,9 @@ export function ArrangeCanvas() {
     if (selectedBlockId !== null) {
       const sitio = findBlock(arrangement, selectedBlockId);
       if (sitio !== null && tonic !== null) {
-        const chord = resolveDegree(tonic, mode, sitio.block.degree);
+        // Con `blockChord`: el panel enseñaba «Am» teniendo un «Am7» elegido,
+        // porque resolvía solo el grado y la séptima se quedaba por el camino.
+        const chord = blockChord(tonic, mode, sitio.block);
         return {
           que: 'acorde' as const,
           id: selectedBlockId,
@@ -676,16 +680,51 @@ export function ArrangeCanvas() {
     }
   }, [acciones, elegido, setSelectedBlockId, setSelectedNoteId]);
 
+  /**
+   * Devuelve la canción a la pantalla después de poner un acorde.
+   *
+   * En ancho no hace nada, porque el lienzo y el carril de acordes son dos
+   * columnas con su propio desplazamiento. En estrecho **son la misma columna**,
+   * así que al pulsar un acorde del carril el navegador lo trae a la vista y se
+   * lleva la canción por encima del borde: se medía en −117 píxeles después del
+   * primer acorde, o sea que en un teléfono ponías tu primer acorde y no lo veías.
+   *
+   * Se espera un fotograma porque el bloque nuevo todavía no está pintado cuando
+   * esto se llama, y se mira antes de mover: si ya se ve, no se toca la vista de
+   * nadie.
+   */
+  const traerLaCancionALaVista = useCallback(() => {
+    requestAnimationFrame(() => {
+      const caja = listaRef.current;
+      if (caja === null) {
+        return;
+      }
+      const { top } = caja.getBoundingClientRect();
+      if (top < 0) {
+        caja.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    });
+  }, []);
+
   const ponerAcorde = useCallback(
-    (degree: DegreeSymbol) => {
+    (degree: DegreeSymbol, seventh?: SeventhQuality) => {
       const donde = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
       const partId = donde?.part.id ?? parteDestino?.id ?? acciones.addPart('Estrofa');
       const at = donde === null ? null : donde.index + 1;
 
-      setSelectedBlockId(acciones.addBlock(partId, degree, beatsPerBar, at));
+      setSelectedBlockId(acciones.addBlock(partId, degree, beatsPerBar, at, seventh));
       setActivePartId(partId);
+      traerLaCancionALaVista();
     },
-    [acciones, arrangement, beatsPerBar, parteDestino, selectedBlockId, setSelectedBlockId],
+    [
+      acciones,
+      arrangement,
+      beatsPerBar,
+      parteDestino,
+      selectedBlockId,
+      setSelectedBlockId,
+      traerLaCancionALaVista,
+    ],
   );
 
   /**

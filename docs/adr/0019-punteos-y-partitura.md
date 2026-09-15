@@ -88,8 +88,16 @@ arrastrar después, que son dos gestos para una cosa; y sobre una partitura,
 soltar encima de un compás y ver el acorde aparecer cuatro más allá se lee como
 que el gesto no ha funcionado. Lo escrito se convierte en
 el grado que le toca y el botón enseña **el cifrado que va a quedar**, no el que
-se tecleó: un `Am7` entra como `Am` porque un grado es una tríada, y enterarse
-después —con el acorde ya puesto— es peor que verlo antes.
+se tecleó, porque enterarse después —con el acorde ya puesto— es peor que verlo
+antes.
+
+Aquí decía que un `Am7` entraba como `Am` «porque un grado es una tríada», y era
+verdad: el bloque guardaba el grado y nada más, así que la séptima se caía sin
+avisar en todos los acordes, no solo en los raros. **Ya no.** El bloque guarda
+además la especie, así que un `Am7` entra como `Am7`, se escribe con su séptima y
+suena con ella. El grado sigue diciendo **cuál** es el acorde en esta tonalidad
+—que es lo que permite cambiar la canción entera de tono— y la especie dice
+**qué** acorde es; son dos preguntas distintas y ahora hay sitio para las dos.
 
 **Arrastrar es por escalones en la partitura y por filas en la rejilla.** Subir
 una nota en el pentagrama la lleva a la línea de encima, y qué nota es esa lo

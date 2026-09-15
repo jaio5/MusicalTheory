@@ -123,6 +123,21 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
         </div>
       </div>
 
+      {/*
+        Escondidos por debajo de 640, y **no es que sobren**: en un teléfono no hay
+        manera de salir del 4/4, y la partitura escribe el compás en grande al
+        principio del pentagrama.
+
+        Se probó a sacar el selector de compás y sale caro: en un móvil la
+        cabecera gana una fila de cuarenta y pico píxeles, y entonces **el panel
+        de la rueda deja de caber** —acaba en 538 con el marco cortando en 503— y
+        la sonda lo marca como inalcanzable. El marco de la aplicación no
+        desplaza, así que lo que no cabe se pierde.
+
+        Sacarlo pide antes que esta cabecera no crezca hacia abajo en estrecho
+        —desplazarse a lo largo, como ya hace la barra del lienzo—, y eso mueve el
+        conmutador Tocar/Montar fuera de la vista, que es otra decisión.
+      */}
       <div className="hidden items-center gap-2 sm:flex">
         <Chip onClick={tap} tone="quiet">
           Marcar

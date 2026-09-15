@@ -13,10 +13,25 @@ import type { KeyMode } from './keys';
 
 /** Grados sobre tonalidad mayor, incluidos los tres prestados de rigor. */
 export type MajorDegreeSymbol =
-  'I' | 'ii' | 'iii' | 'IV' | 'V' | 'vi' | 'vii°' | 'bII' | 'bIII' | 'bVI' | 'bVII';
+  | 'I'
+  | 'ii'
+  | 'iii'
+  | 'IV'
+  | 'V'
+  | 'vi'
+  | 'vii°'
+  | 'bII'
+  | 'bIII'
+  | 'bVI'
+  | 'bVII'
+  | 'V/ii'
+  | 'V/iii'
+  | 'V/V'
+  | 'V/vi';
 
 /** Grados sobre tonalidad menor, con las dos dominantes y el napolitano. */
-export type MinorDegreeSymbol = 'i' | 'ii°' | 'bII' | 'III' | 'iv' | 'v' | 'V' | 'VI' | 'VII';
+export type MinorDegreeSymbol =
+  'i' | 'ii°' | 'bII' | 'III' | 'iv' | 'v' | 'V' | 'VI' | 'VII' | 'V/iv' | 'V/V';
 
 export type DegreeSymbol = MajorDegreeSymbol | MinorDegreeSymbol;
 
@@ -26,6 +41,17 @@ interface DegreeShape {
   readonly quality: ChordQuality;
   /** Por qué se usa, en una frase de músico. */
   readonly role: string;
+  /**
+   * Si es una dominante secundaria, o sea un acorde que apunta a otro grado.
+   *
+   * Está marcado porque **no todas las preguntas que se le hacen a esta tabla las
+   * admiten**. «¿Qué acorde es este en esta tonalidad?» sí: un E7 en Re menor es
+   * la dominante de la dominante. «¿Cuál es el préstamo modal de este grado?» no:
+   * un préstamo viene del modo paralelo, y una dominante secundaria no viene de
+   * ningún modo. Sin la marca, la rearmonización empezó a contestar `V/iii` a una
+   * pregunta que no tiene respuesta, y lo cazaron sus tests.
+   */
+  readonly secundaria?: boolean;
 }
 
 const MAJOR_DEGREES: Readonly<Record<MajorDegreeSymbol, DegreeShape>> = {
@@ -52,6 +78,45 @@ const MAJOR_DEGREES: Readonly<Record<MajorDegreeSymbol, DegreeShape>> = {
   },
   bVI: { offset: 8, quality: 'major', role: 'Prestado del menor. Oscurece de golpe.' },
   bVII: { offset: 10, quality: 'major', role: 'El giro mixolidio. Vuelve a I sin sensible.' },
+  /*
+    Las dominantes secundarias: acordes mayores sobre grados que en la tonalidad
+    son menores, y que apuntan al grado siguiente en vez de a la tónica.
+
+    No estaban, y no por olvido: el dominio guardaba solo lo que sale de la
+    escala más los prestados. Pero un E7 en Re menor —la dominante de la
+    dominante— es idioma corriente en el blues y en cualquier estándar, y sin
+    ellas la aplicación decía «ese acorde no existe aquí» a algo que existe.
+
+    **Se distinguen por la especie de la tríada**, que es como `degreeOfChord`
+    busca: donde la tonalidad tiene un acorde menor o disminuido, el mayor con
+    la misma fundamental está libre y no pisa a nadie. Por eso están estas cuatro
+    y no las demás: la del IV es un I mayor con séptima, y esa **solo se
+    distingue por la séptima**, que hoy no entra en el cálculo del grado.
+  */
+  'V/ii': {
+    secundaria: true,
+    offset: 9,
+    quality: 'major',
+    role: 'Dominante del ii: lo convierte en llegada.',
+  },
+  'V/iii': {
+    secundaria: true,
+    offset: 11,
+    quality: 'major',
+    role: 'Dominante del iii. Empuja al grado más oscuro.',
+  },
+  'V/V': {
+    secundaria: true,
+    offset: 2,
+    quality: 'major',
+    role: 'Dominante de la dominante: aprieta antes del V.',
+  },
+  'V/vi': {
+    secundaria: true,
+    offset: 4,
+    quality: 'major',
+    role: 'Dominante de la relativa menor.',
+  },
 };
 
 const MINOR_DEGREES: Readonly<Record<MinorDegreeSymbol, DegreeShape>> = {
@@ -72,6 +137,28 @@ const MINOR_DEGREES: Readonly<Record<MinorDegreeSymbol, DegreeShape>> = {
   },
   VI: { offset: 8, quality: 'major', role: 'Descanso luminoso dentro del menor.' },
   VII: { offset: 10, quality: 'major', role: 'Escalón hacia i o hacia III.' },
+  /*
+    Las dos dominantes secundarias que caben en menor sin pisar a nadie.
+
+    `V/V` es el caso que destapó esto: un E7 en Re menor, que resuelve al A7 y de
+    ahí a la tónica. `V/iv` es el I mayor del blues menor, que tira al iv.
+
+    Las otras dos que se usarían —la del III y la del VI— caen encima del VII y
+    del III, que ya son acordes mayores con esa misma fundamental, así que solo
+    se separarían mirando la séptima.
+  */
+  'V/iv': {
+    secundaria: true,
+    offset: 0,
+    quality: 'major',
+    role: 'El I mayor del blues: tira hacia el iv.',
+  },
+  'V/V': {
+    secundaria: true,
+    offset: 2,
+    quality: 'major',
+    role: 'Dominante de la dominante: aprieta antes del V.',
+  },
 };
 
 export interface DegreeMove {
@@ -139,6 +226,24 @@ const MAJOR_MOVES: Readonly<Record<MajorDegreeSymbol, readonly DegreeMove[]>> = 
     { to: 'IV', weight: 0.6, why: 'Se queda fuera un compás más.' },
     { to: 'bVI', weight: 0.3, why: 'Sigue bajando por tonos.' },
   ],
+  /*
+    A dónde va una dominante secundaria: **a lo suyo**.
+
+    Se declaran sus salidas y no se tocan las de los demás grados a propósito. El
+    que quiera una la escribe, y entonces el dominio ya sabe qué espera de ella;
+    meterlas además como propuesta desde cada grado cambiaría lo que la
+    aplicación ofrece a quien no las ha pedido, y eso es otra decisión.
+  */
+  'V/ii': [
+    { to: 'ii', weight: 0.95, why: 'Resuelve al ii, que es a lo que apuntaba.' },
+    { to: 'V', weight: 0.3, why: 'Se salta el ii y va directo a la dominante.' },
+  ],
+  'V/iii': [{ to: 'iii', weight: 0.95, why: 'Resuelve al iii, que es a lo que apuntaba.' }],
+  'V/V': [
+    { to: 'V', weight: 0.95, why: 'Resuelve a la dominante, que es lo que venía a preparar.' },
+    { to: 'I', weight: 0.2, why: 'Se salta la dominante y cae en casa.' },
+  ],
+  'V/vi': [{ to: 'vi', weight: 0.95, why: 'Resuelve a la relativa menor.' }],
 };
 
 const MINOR_MOVES: Readonly<Record<MinorDegreeSymbol, readonly DegreeMove[]>> = {
@@ -186,6 +291,12 @@ const MINOR_MOVES: Readonly<Record<MinorDegreeSymbol, readonly DegreeMove[]>> = 
     { to: 'i', weight: 0.9, why: 'Cierra el descenso.' },
     { to: 'III', weight: 0.5, why: 'Sube a la relativa mayor.' },
     { to: 'VI', weight: 0.4, why: 'Se queda dando vueltas fuera de casa.' },
+  ],
+  /* Las mismas dos salidas de siempre: cada dominante secundaria va a lo suyo. */
+  'V/iv': [{ to: 'iv', weight: 0.95, why: 'Resuelve al iv, que es a lo que apuntaba.' }],
+  'V/V': [
+    { to: 'V', weight: 0.95, why: 'Resuelve a la dominante mayor, que es lo que preparaba.' },
+    { to: 'v', weight: 0.4, why: 'Cae en la dominante menor, sin sensible.' },
   ],
 };
 
@@ -341,11 +452,20 @@ export function degreeOfChord(
   mode: KeyMode,
   root: PitchClass,
   quality: ChordQuality,
+  /**
+   * Si cuentan las dominantes secundarias. Por defecto sí, que es lo que quiere
+   * quien escribe un acorde; la rearmonización pide que no, porque pregunta otra
+   * cosa. El porqué está en `DegreeShape.secundaria`.
+   */
+  conSecundarias = true,
 ): DegreeSymbol | null {
   const offset = normalizePitchClass(root - tonic);
   const table = mode === 'major' ? MAJOR_DEGREES : MINOR_DEGREES;
 
   for (const [degree, shape] of Object.entries(table)) {
+    if (shape.secundaria === true && !conSecundarias) {
+      continue;
+    }
     if (shape.offset === offset && shape.quality === quality) {
       return degree as DegreeSymbol;
     }

@@ -292,7 +292,15 @@ confunde con el disminuido entero, que tiene la séptima disminuida y no la meno
 ## Lo que este dominio todavía no hace
 
 - Tensiones por encima de la séptima: novenas, oncenas, trecenas.
-- Acordes de paso, dominantes secundarias y modulación explícita.
+- **Las dominantes secundarias, a medias.** Están las que se distinguen por la
+  especie de su tríada, que son las que más se usan: en mayor `V/ii`, `V/iii`,
+  `V/V` y `V/vi`; en menor `V/iv` y `V/V` —el `E7` de Re menor, que es lo que
+  destapó que faltaban—. **No están las que chocan con un grado mayor que ya
+  existe**: la del IV en mayor es un I con séptima, y la del VI en menor es el
+  III con séptima, y el grado se calcula de la tríada a propósito para que un
+  `Cmaj7` y un `C` sean el mismo. Esas dos piden que el grado sepa mirar la
+  séptima, que es otra cosa.
+- Acordes de paso y modulación explícita.
 - **Del tiempo musical sabe la mitad.** Sabe pulsos, compases y velocidad:
   `tempo.ts` acota el pulso por minuto y los pulsos por compás —de uno a seis—,
   `melody.ts` guarda cada nota en pulsos sobre una rejilla de medio pulso y limita

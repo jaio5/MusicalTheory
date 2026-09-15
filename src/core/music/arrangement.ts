@@ -28,9 +28,11 @@
  */
 
 import type { KeyMode } from './keys';
+import { seventhNotes, seventhSymbol, type SeventhQuality } from './chords';
+import { accidentalForKey } from './circle-of-fifths';
 import type { PitchClass } from './notes';
 import { voiceForPlayback, type PlaybackStep, type TimedEvent } from './playback';
-import { degreesFor, resolveDegree, type DegreeSymbol } from './progressions';
+import { degreesFor, resolveDegree, type DegreeSymbol, type ResolvedChord } from './progressions';
 import type { CapturedStep } from './capture';
 import {
   clampOffset,
@@ -68,6 +70,19 @@ export type BlockSource = 'heard' | 'written' | 'fixed';
 export interface Block {
   readonly id: string;
   readonly degree: DegreeSymbol;
+  /**
+   * La séptima, si la tiene. Sin ella el bloque es la tríada del grado.
+   *
+   * **El grado dice cuál es el acorde y la séptima qué especie es**, que son dos
+   * preguntas distintas: un `Cmaj7` y un `C7` son el mismo grado con distinta
+   * séptima, y por eso el grado se calcula de la tríada. Hasta ahora no había
+   * dónde guardar la segunda, así que escribir `E7` metía un `E` y la séptima se
+   * caía sin decirlo.
+   *
+   * Opcional a propósito: un montaje guardado antes de esto no la trae, y un
+   * bloque sin séptima sigue siendo exactamente lo que era.
+   */
+  readonly seventh?: SeventhQuality;
   /** Pulsos. Siempre uno o más. */
   readonly beats: number;
   readonly source: BlockSource;
@@ -96,14 +111,43 @@ export interface Block {
 export const DUDOSO = 0.06;
 
 /** Un bloque escrito a mano: sin duda y sin alternativas que ofrecer. */
-export function writtenBlock(id: string, degree: DegreeSymbol, beats: number): Block {
+export function writtenBlock(
+  id: string,
+  degree: DegreeSymbol,
+  beats: number,
+  seventh?: SeventhQuality,
+): Block {
   return {
     id,
     degree,
+    // Sin séptima el campo no se escribe, para que un bloque de tríada siga
+    // siendo byte a byte lo que era y las comparaciones de los tests no cambien.
+    ...(seventh === undefined ? {} : { seventh }),
     beats: clampBeats(beats),
     source: 'written',
     confidence: 1,
     alternatives: [],
+  };
+}
+
+/**
+ * El acorde de un bloque, con su séptima si la lleva.
+ *
+ * **Un solo sitio que sepa escribirlo y sonarlo.** El grado resuelto ya sabe
+ * escribir su fundamental en esta tonalidad —el bIII de Do es «Eb» y no «D#»—,
+ * así que la séptima se escribe encima de esa y no de la que se tecleó. Sin
+ * séptima devuelve exactamente lo que devolvía `resolveDegree`, que es lo que
+ * hace que un montaje viejo no cambie en nada.
+ */
+export function blockChord(tonic: PitchClass, mode: KeyMode, block: Block): ResolvedChord {
+  const chord = resolveDegree(tonic, mode, block.degree);
+  if (block.seventh === undefined) {
+    return chord;
+  }
+  return {
+    ...chord,
+    symbol: seventhSymbol(chord.root, block.seventh, accidentalForKey(tonic, mode)),
+    notes: seventhNotes(chord.root, block.seventh),
   };
 }
 
@@ -562,7 +606,7 @@ export function playbackStepsOf(
 
   return partes.flatMap((part) =>
     part.blocks.map((block) => {
-      const chord = resolveDegree(tonic, mode, block.degree);
+      const chord = blockChord(tonic, mode, block);
       return { notes: chord.notes, root: chord.root, beats: block.beats };
     }),
   );
@@ -605,7 +649,9 @@ export function soundOf(
   for (const part of partes) {
     let enPulsos = desde;
     for (const block of part.blocks) {
-      const chord = resolveDegree(tonic, mode, block.degree);
+      // Con `blockChord` y no con el grado a secas: si el bloque lleva séptima,
+      // tiene que sonar la séptima. Es todo lo que hacía falta para que se oiga.
+      const chord = blockChord(tonic, mode, block);
       events.push({
         startBeat: enPulsos,
         beats: block.beats,

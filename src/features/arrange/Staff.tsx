@@ -8,7 +8,7 @@ import {
   keySignature,
   MAX_OFFSET,
   offsetOfStep,
-  resolveDegree,
+  blockChord,
   writeNote,
   type Block,
   type KeyMode,
@@ -693,7 +693,7 @@ export function Staff({
               blocks.reduce<{ x: number; nodos: React.ReactElement[]; i: number }>(
                 (acumulado, block) => {
                   const indice = acumulado.i;
-                  const chord = resolveDegree(tonic, mode, block.degree);
+                  const chord = blockChord(tonic, mode, block);
                   const x = margen + acumulado.x * porPulso;
                   const elegido = selectedBlockId === block.id;
 

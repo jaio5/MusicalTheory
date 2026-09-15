@@ -53,7 +53,10 @@ function shapeOf(
 
 /** El grado que corresponde a esos semitonos y esa especie, o nulo si no hay. */
 function degreeAt(mode: KeyMode, offset: number, quality: ChordQuality): DegreeSymbol | null {
-  return degreeOfChord(0, mode, normalizePitchClass(offset), quality);
+  // Sin dominantes secundarias: aquí se pregunta en qué grado diatónico o
+  // prestado se convierte un acorde, y una dominante secundaria no es ninguna de
+  // las dos cosas.
+  return degreeOfChord(0, mode, normalizePitchClass(offset), quality, false);
 }
 
 /** La especie contraria, que es lo que distingue un relativo de un traslado. */
