@@ -56,12 +56,23 @@ papel. Es una medida de papel y no de sonido: alargar una parte no le añade
 silencio al final. Y no se puede acortar por debajo de lo que hay escrito, porque
 un botón que borra compases con acordes dentro borra trabajo sin decirlo.
 
-**El pentagrama se justifica al ancho**, entre veinte y cuarenta y seis píxeles
-por pulso. En la tira de bloques la medida es fija, porque allí la anchura de una
-caja **es** su duración y hay que poder compararlas de un vistazo; una partitura
-no funciona así —un sistema ocupa la línea entera tenga cuatro compases u ocho—.
-Con la medida fija, una parte corta salía como un sello en la esquina de una
-pantalla vacía.
+**Las dos se justifican al ancho, y no de la misma manera.** El pentagrama
+reparte los pulsos de **su** parte en la línea, porque un sistema ocupa el papel
+entero tenga cuatro compases u ocho; con medida fija, una parte corta salía como
+un sello en la esquina de una pantalla vacía.
+
+La tira de bloques necesita lo contrario: allí la anchura de una caja **es** su
+duración y hay que poder compararlas de un vistazo, también **entre partes**. Así
+que se justifica una vez para todo el lienzo, a partir de la parte más larga, y
+ese mismo número lo usan todas: una parte de ocho compases sigue midiendo el doble
+que una de cuatro.
+
+Fija estuvo, en veinticuatro píxeles por pulso, y no valía: cuatro compases
+ocupaban 384 píxeles de los mil y pico de un portátil y el resto era hueco. Y la
+medida fija tampoco cumplía lo que prometía, porque un bloque nunca baja de
+sesenta y ocho píxeles para que el cifrado se lea: por debajo de tres pulsos, dos
+duraciones distintas ya se dibujaban igual. Calculada al ancho, el suelo se pisa
+mucho menos.
 
 **Es la vista por defecto**, y no un extra detrás de un conmutador. Es donde se
 escribe: los acordes van encima, las notas dentro, y las dos cosas se arrastran.

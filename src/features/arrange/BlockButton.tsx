@@ -30,8 +30,28 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
  * arrastre por sí solo nunca es accesible.
  */
 
-/** Cuántos píxeles ocupa un pulso. Cuatro pulsos —un compás de 4/4— son 96. */
+/**
+ * Cuántos píxeles ocupa un pulso **cuando no se ha medido la pantalla**.
+ *
+ * Es el valor de partida y el que usan los tests; el de verdad lo calcula el
+ * lienzo al ancho que tenga, entre `PULSO_MINIMO` y `PULSO_MAXIMO`, y lo reparte
+ * a todas las partes. **Una sola escala para todo el lienzo y no una por parte**,
+ * porque lo que el ancho de una caja tiene que decir es su duración: con una
+ * escala por fila, una parte de ocho compases mediría lo mismo que una de cuatro
+ * y eso es justo lo que el carril de bloques existe para no hacer.
+ */
 export const PX_POR_PULSO = 24;
+
+/**
+ * Los dos topes de esa escala.
+ *
+ * Por debajo del mínimo un compás de cuatro pulsos no llega ni al ancho de un
+ * cifrado; por encima del máximo, cuatro compases se estiran hasta que hay que
+ * mover la cabeza para leerlos. Son los mismos dos topes que la partitura, que
+ * lleva justificándose al ancho desde que existe.
+ */
+export const PULSO_MINIMO = 18;
+export const PULSO_MAXIMO = 64;
 
 /** Lo más estrecho que puede ser un bloque sin que el cifrado deje de leerse. */
 export const ANCHO_MINIMO_PX = 68;
@@ -39,8 +59,22 @@ export const ANCHO_MINIMO_PX = 68;
 /** Por dónde hay que coger un bloque para estirarlo, en píxeles desde su borde. */
 export const ZONA_ESTIRAR_PX = 16;
 
-export function anchoDeBloque(beats: number): number {
-  return Math.max(ANCHO_MINIMO_PX, beats * PX_POR_PULSO);
+export function anchoDeBloque(beats: number, porPulso: number = PX_POR_PULSO): number {
+  return Math.max(ANCHO_MINIMO_PX, beats * porPulso);
+}
+
+/**
+ * La escala que cabe: lo que puede medir un pulso para que la parte más larga
+ * quepa entera en el ancho disponible.
+ *
+ * Sin ancho medido todavía —el primer pintado— devuelve el de partida, que es lo
+ * que hace que no haya un salto visible al montar.
+ */
+export function pulsoQueCabe(disponible: number, pulsosDeLaMasLarga: number): number {
+  if (disponible <= 0 || pulsosDeLaMasLarga <= 0) {
+    return PX_POR_PULSO;
+  }
+  return Math.min(PULSO_MAXIMO, Math.max(PULSO_MINIMO, disponible / pulsosDeLaMasLarga));
 }
 
 /**
@@ -77,6 +111,14 @@ export interface BlockButtonProps {
   readonly doubtful?: boolean;
   /** Para decir cuántos compases ocupa: en 3/4 no son los mismos que en 4/4. */
   readonly beatsPerBar: number;
+  /**
+   * Lo que mide un pulso, que lo decide el lienzo midiendo su ancho.
+   *
+   * Llega desde arriba y no se importa aquí para que todas las partes usen el
+   * mismo número: es lo único que hace que el ancho de una caja signifique su
+   * duración también **entre** partes, y no solo dentro de una.
+   */
+  readonly porPulso?: number;
   /** Encendido mientras suena, para que se vea por dónde va. */
   readonly playing?: boolean;
   readonly selected?: boolean;
@@ -92,6 +134,7 @@ export function BlockButton({
   degree,
   beats,
   beatsPerBar,
+  porPulso = PX_POR_PULSO,
   doubtful = false,
   playing = false,
   selected = false,
@@ -118,7 +161,7 @@ export function BlockButton({
               ? 'border-brass-dim'
               : 'hover:border-brass-dim'
       }`}
-      style={{ width: anchoDeBloque(beats), touchAction: 'none' }}
+      style={{ width: anchoDeBloque(beats, porPulso), touchAction: 'none' }}
       aria-label={`${symbol}, grado ${degree}, ${info.name.toLowerCase()}, ${beats} pulsos${
         doubtful ? ', dudoso' : ''
       }`}

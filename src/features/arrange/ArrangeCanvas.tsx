@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
@@ -11,6 +11,8 @@ import {
   captureMelody,
   captureProgression,
   degreesFor,
+  drawnBars,
+  NOTE_LENGTHS,
   SCALES,
   chordAt,
   findBlock,
@@ -36,10 +38,11 @@ import { IconoCanciones } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
 
 import { arrastrar } from './arrastrar';
-import { PX_POR_PULSO, ZONA_ESTIRAR_PX, anchoDeBloque } from './BlockButton';
+import { ZONA_ESTIRAR_PX, anchoDeBloque, pulsoQueCabe } from './BlockButton';
 import { Marca } from '@ui/Marca';
 
 import { ChordEntry } from './ChordEntry';
+import { Figura, nombreDeFigura } from './Figura';
 import { PartRow, type Punteo } from './PartRow';
 import { useArrangementPlayer } from './use-arrangement-player';
 import { useBlockDrag, type Medida } from './use-block-drag';
@@ -227,6 +230,40 @@ export function ArrangeCanvas() {
   // una que desafine. Es el mismo eje que separa los bloques de la partitura.
   const [onlyScale, setOnlyScale] = useState(true);
   const listaRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * El ancho del lienzo, medido, y la escala que sale de él.
+   *
+   * Los bloques y el punteo medían un pulso en veinticuatro píxeles fijos, así
+   * que una parte de cuatro compases ocupaba 384 de los mil y pico que hay en un
+   * portátil y el resto era hueco. Ahora se mide y se reparte.
+   *
+   * **Una escala para todo el lienzo, sacada de la parte más larga**, y no una
+   * por fila: si cada parte se justificara a su ancho, una de ocho compases
+   * mediría lo mismo que una de cuatro y el carril de bloques dejaría de decir
+   * con su tamaño lo que dura cada cosa, que es para lo que está.
+   */
+  const anchoRef = useRef<HTMLDivElement | null>(null);
+  const [disponible, setDisponible] = useState(0);
+  useEffect(() => {
+    const caja = anchoRef.current;
+    if (caja === null || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observador = new ResizeObserver(([entrada]) => {
+      setDisponible(entrada?.contentRect.width ?? 0);
+    });
+    observador.observe(caja);
+    return () => observador.disconnect();
+  }, []);
+
+  const pulsosDeLaMasLarga = arrangement.parts.reduce(
+    (largo, part) => Math.max(largo, drawnBars(part, beatsPerBar) * beatsPerBar),
+    beatsPerBar,
+  );
+  // El respiro es el de la propia fila: sin descontarlo, la parte más larga sale
+  // justa y aparece una barra de desplazamiento que no hacía falta.
+  const porPulso = pulsoQueCabe(disponible - 32, pulsosDeLaMasLarga);
   /** Sobre qué parte se está soltando, y si el gesto llegó a ser un arrastre. */
   const destinoRef = useRef<{ partId: string; at: number | null } | null>(null);
   const arrastradaRef = useRef(false);
@@ -242,12 +279,35 @@ export function ArrangeCanvas() {
    * Dura un pulso por omisión: es la negra, la figura con la que se escribe casi
    * todo, y estirarla es un gesto más corto que elegir la duración antes.
    */
+  /**
+   * Con qué figura se escribe la nota siguiente.
+   *
+   * Antes toda nota nacía negra y para hacer una blanca había que estirarla —con
+   * el ratón por su borde, o con `Shift` y las flechas, que no está escrito en
+   * ninguna parte—. Elegir antes de escribir es como se monta un punteo: se
+   * decide la duración y se pone, no se pone y se arregla.
+   *
+   * La misma elección sirve para cambiar la nota que esté seleccionada, que es lo
+   * que uno espera al pulsar una figura teniendo una nota elegida.
+   */
+  const [figura, setFigura] = useState<number>(1);
+
   const escribirNota = useCallback(
     (partId: string, offset: number, start: number) => {
-      setSelectedNoteId(acciones.addNote(partId, offset, start, 1));
+      setSelectedNoteId(acciones.addNote(partId, offset, start, figura));
       setActivePartId(partId);
     },
-    [acciones, setSelectedNoteId],
+    [acciones, figura, setSelectedNoteId],
+  );
+
+  const elegirFigura = useCallback(
+    (length: number) => {
+      setFigura(length);
+      if (selectedNoteId !== null) {
+        acciones.resizeNote(selectedNoteId, length);
+      }
+    },
+    [acciones, selectedNoteId],
   );
 
   /**
@@ -358,7 +418,7 @@ export function ArrangeCanvas() {
 
       const mover = (e: PointerEvent) => {
         e.preventDefault();
-        acciones.resizeBlock(blockId, pulsosIniciales + (e.clientX - inicioX) / PX_POR_PULSO);
+        acciones.resizeBlock(blockId, pulsosIniciales + (e.clientX - inicioX) / porPulso);
       };
       const fin = () => {
         window.removeEventListener('pointermove', mover);
@@ -369,7 +429,7 @@ export function ArrangeCanvas() {
       window.addEventListener('pointerup', fin);
       window.addEventListener('pointercancel', fin);
     },
-    [acciones, arrangement, start],
+    [acciones, arrangement, porPulso, start],
   );
 
   /**
@@ -764,7 +824,18 @@ export function ArrangeCanvas() {
 
   return (
     <div className="flex min-h-0 grow flex-col">
-      <div className="border-border flex flex-wrap items-center gap-2 border-b px-3 py-2">
+      {/*
+        En pantalla ancha se envuelve; en estrecha **se desplaza a lo largo**.
+
+        Envolviéndose siempre, esta barra crecía hacia abajo, y el hueco del
+        lienzo en un teléfono son doscientos y pico píxeles: con las figuras
+        dentro, la barra medía 235 en una caja de 203 y la última fila se metía
+        debajo del cajón de herramientas —«Deshacer» dejaba de poder pulsarse—.
+        Al no envolverse mide una fila y siempre cabe, y lo que no entra se
+        alcanza arrastrando, que es lo que hace cualquier barra de herramientas
+        en un móvil. `shrink-0` para que la fila no ceda su altura.
+      */}
+      <div className="border-border flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2 sm:flex-wrap sm:overflow-x-visible [&>*]:shrink-0 sm:[&>*]:shrink">
         <Button
           onClick={() => player.toggle(null)}
           disabled={pulsos === 0}
@@ -777,7 +848,10 @@ export function ArrangeCanvas() {
           {pulsos === 0 ? 'sin nada todavía' : barsLabel(pulsos, beatsPerBar)}
         </span>
 
-        <span className="ml-auto flex flex-wrap gap-1">
+        {/* Sin envolver en estrecho, por lo mismo que la barra que lo contiene:
+              envolviéndose aquí dentro, el grupo crecía hacia abajo y se llevaba
+              por delante lo que la barra acababa de arreglar. */}
+        <span className="ml-auto flex gap-1 sm:flex-wrap">
           <span className="flex gap-1" role="group" aria-label="Cómo llevar el punteo">
             {PUNTEOS.map((candidato) => (
               <Chip
@@ -825,6 +899,32 @@ export function ArrangeCanvas() {
             </Chip>
           )}
 
+          {/* Las seis figuras que el modelo sabe escribir. Se ven en las dos
+              pieles del punteo porque en las dos se escriben notas. */}
+          {punteo !== 'oculto' && (
+            <span
+              role="group"
+              aria-label="Duración de la nota"
+              className="border-border flex items-center gap-0.5 rounded-md border px-1"
+            >
+              {NOTE_LENGTHS.map((length) => (
+                <button
+                  key={length}
+                  type="button"
+                  onClick={() => elegirFigura(length)}
+                  aria-pressed={figura === length}
+                  aria-label={nombreDeFigura(length)}
+                  title={nombreDeFigura(length)}
+                  className={`focus-visible:outline-brass-bright min-h-tap cursor-pointer rounded-sm px-1 focus-visible:outline-2 ${
+                    figura === length ? 'text-brass-bright' : 'text-text-muted hover:text-text'
+                  }`}
+                >
+                  <Figura length={length} />
+                </button>
+              ))}
+            </span>
+          )}
+
           <Chip
             onClick={() => acciones.undo()}
             tone="quiet"
@@ -858,7 +958,10 @@ export function ArrangeCanvas() {
             en el pentagrama la nota es un `<g>` de SVG, y un grupo de SVG no
             recibe el foco igual en todos los navegadores. */}
         <div
-          ref={listaRef}
+          ref={(nodo) => {
+            listaRef.current = nodo;
+            anchoRef.current = nodo;
+          }}
           className="min-h-0 shrink-0 grow lg:shrink lg:overflow-y-auto"
           onKeyDown={teclaEnPunteo}
           role="presentation"
@@ -877,6 +980,7 @@ export function ArrangeCanvas() {
                 tonic={tonic}
                 mode={mode}
                 beatsPerBar={beatsPerBar}
+                porPulso={porPulso}
                 playing={player.playing && player.playingPartId === part.id}
                 playingBlockId={player.currentBlockId}
                 selectedBlockId={selectedBlockId}
@@ -1155,9 +1259,9 @@ export function ArrangeCanvas() {
           // fantasma midiera siempre lo mismo, arrastrar uno de dos compases
           // mentiría sobre el hueco que va a ocupar.
           style={{
-            left: (drag?.x ?? 0) - anchoDeBloque(arrastrado.block.beats) / 2,
+            left: (drag?.x ?? 0) - anchoDeBloque(arrastrado.block.beats, porPulso) / 2,
             top: (drag?.y ?? 0) - 22,
-            width: anchoDeBloque(arrastrado.block.beats),
+            width: anchoDeBloque(arrastrado.block.beats, porPulso),
           }}
         >
           <div className="superficie-viva border-brass-bright text-text min-h-tap flex items-center justify-center rounded-md font-mono">

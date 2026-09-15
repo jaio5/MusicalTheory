@@ -48,6 +48,11 @@ export interface MelodyLaneProps {
   readonly scaleId: ScaleId;
   /** Solo las notas de la escala, que es como no hay forma de desafinar. */
   readonly onlyScale: boolean;
+  /**
+   * Lo que mide un pulso. El mismo número que usan los acordes de arriba, o una
+   * nota dejaría de caer debajo del acorde sobre el que suena.
+   */
+  readonly porPulso?: number;
   readonly selectedNoteId: string | null;
   readonly partName: string;
   readonly onAdd: (offset: number, start: number) => void;
@@ -66,6 +71,7 @@ export function MelodyLane({
   tonic,
   scaleId,
   onlyScale,
+  porPulso = PX_POR_PULSO,
   selectedNoteId,
   partName,
   onAdd,
@@ -112,7 +118,7 @@ export function MelodyLane({
     return todas;
   }, [onlyScale, scaleId, tonic]);
 
-  const anchoTotal = Math.max(beats, beatsPerBar) * PX_POR_PULSO;
+  const anchoTotal = Math.max(beats, beatsPerBar) * porPulso;
 
   /**
    * Cuántas notas no tienen fila donde dibujarse.
@@ -136,10 +142,10 @@ export function MelodyLane({
       if (offset === undefined) {
         return null;
       }
-      const pulsos = (clientX - caja.left) / PX_POR_PULSO;
+      const pulsos = (clientX - caja.left) / porPulso;
       return { offset, start: Math.max(0, Math.floor(pulsos / GRID) * GRID) };
     },
-    [filas],
+    [filas, porPulso],
   );
 
   /**
@@ -164,7 +170,7 @@ export function MelodyLane({
         arrastrar({
           mover: (x) => {
             arrastradaRef.current = true;
-            onResize(note.id, note.length + (x - inicioX) / PX_POR_PULSO);
+            onResize(note.id, note.length + (x - inicioX) / porPulso);
           },
           soltar: onGestureEnd,
         });
@@ -187,7 +193,7 @@ export function MelodyLane({
         soltar: onGestureEnd,
       });
     },
-    [casillaEn, onGestureEnd, onGestureStart, onMove, onResize, onSelect],
+    [casillaEn, onGestureEnd, onGestureStart, onMove, onResize, onSelect, porPulso],
   );
 
   return (
@@ -256,12 +262,12 @@ export function MelodyLane({
 
           {/* Las divisiones de compás, por encima de las filas y por debajo de
               las notas: son referencia, no contenido. */}
-          {Array.from({ length: Math.ceil(anchoTotal / (beatsPerBar * PX_POR_PULSO)) }, (_, i) => (
+          {Array.from({ length: Math.ceil(anchoTotal / (beatsPerBar * porPulso)) }, (_, i) => (
             <span
               key={i}
               aria-hidden
               className="bg-border absolute top-0 bottom-0 w-px"
-              style={{ left: i * beatsPerBar * PX_POR_PULSO }}
+              style={{ left: i * beatsPerBar * porPulso }}
             />
           ))}
 
@@ -290,13 +296,23 @@ export function MelodyLane({
                   isDoubtfulNote(note) ? 'opacity-50' : ''
                 } ${selectedNoteId === note.id ? 'ring-brass-bright ring-2' : ''}`}
                 style={{
-                  left: note.start * PX_POR_PULSO,
+                  left: note.start * porPulso,
                   top: fila * ALTO_FILA + 3,
-                  width: Math.max(8, note.length * PX_POR_PULSO - 2),
+                  width: Math.max(8, note.length * porPulso - 2),
                   height: ALTO_FILA - 6,
                   touchAction: 'none',
                 }}
-              />
+              >
+                {/* La franja de estirar, que aquí faltaba: los bloques de acorde
+                    la tienen desde el principio y las notas no, así que estirar
+                    una nota era un gesto que no se anunciaba. Solo cambia el
+                    cursor —el `pointerdown` lo sigue recogiendo la nota entera—,
+                    y no se dibuja en las notas que no dan de sí: en una corchea a
+                    la escala mínima, seis píxeles serían la nota entera. */}
+                {note.length * porPulso >= 20 && (
+                  <span aria-hidden className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize" />
+                )}
+              </button>
             );
           })}
         </div>

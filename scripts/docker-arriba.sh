@@ -90,6 +90,25 @@ fi
 # aparte porque pide una gráfica NVIDIA, y `docker compose up` tiene que seguir
 # funcionando en un equipo que no la tenga.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# El modelo de casa que ya corre en el equipo, si lo hay.
+#
+# Dentro del contenedor `localhost` es el propio contenedor, asi que la
+# `OLLAMA_URL` del `.env` —que apunta al bucle local para `pnpm dev`— no vale
+# aqui. Y la IP de la maquina cambia al reiniciar, asi que se calcula ahora en
+# lugar de escribirse a mano en un fichero que caduca.
+#
+# Si no contesta nadie, no se pone nada: la aplicacion dira que no hay modelo
+# configurado, que es el comportamiento correcto y no un fallo.
+# ---------------------------------------------------------------------------
+if [[ -z "${OLLAMA_URL_DOCKER:-}" ]]; then
+  ip_equipo=$(ip -4 addr show eth0 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1)
+  if [[ -n "$ip_equipo" ]] && curl -sf --max-time 2 "http://$ip_equipo:11434/api/tags" >/dev/null 2>&1; then
+    export OLLAMA_URL_DOCKER="http://$ip_equipo:11434"
+    gris "Modelo de casa encontrado en $OLLAMA_URL_DOCKER; la aplicación lo usará."
+  fi
+fi
+
 ficheros=(-f compose.yml)
 resto=()
 mensaje='Levantando Postgres, aplicando migraciones y arrancando la aplicación...'

@@ -45,6 +45,8 @@ export interface PartRowProps {
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
   readonly beatsPerBar: number;
+  /** Lo que mide un pulso, decidido por el lienzo al medir su ancho. */
+  readonly porPulso: number;
   readonly playing: boolean;
   readonly playingBlockId: string | null;
   readonly selectedBlockId: string | null;
@@ -86,6 +88,7 @@ export function PartRow({
   tonic,
   mode,
   beatsPerBar,
+  porPulso,
   playing,
   playingBlockId,
   selectedBlockId,
@@ -311,7 +314,7 @@ export function PartRow({
               data-parte={part.id}
               data-indice={0}
               className="border-border text-text-muted min-h-tap flex items-center rounded-md border border-dashed px-4 text-xs"
-              style={{ minWidth: anchoDeBloque(beatsPerBar) }}
+              style={{ minWidth: anchoDeBloque(beatsPerBar, porPulso) }}
             >
               Suelta aquí un acorde
             </li>
@@ -333,6 +336,7 @@ export function PartRow({
                   degree={block.degree}
                   beats={block.beats}
                   beatsPerBar={beatsPerBar}
+                  porPulso={porPulso}
                   playing={playingBlockId === block.id}
                   selected={selectedBlockId === block.id}
                   dragging={draggingBlockId === block.id}
@@ -357,6 +361,7 @@ export function PartRow({
           notes={part.notes}
           beats={compases * beatsPerBar}
           beatsPerBar={beatsPerBar}
+          porPulso={porPulso}
           tonic={tonic}
           scaleId={scaleId}
           onlyScale={onlyScale}

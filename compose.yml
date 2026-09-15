@@ -19,6 +19,9 @@ name: caos-ordenado
 services:
   db:
     image: postgres:17-alpine
+    # Vuelve sola al encender Docker, pero no si la paraste a mano. Es lo que hace
+    # que este proyecto esté donde lo dejaste en vez de haber que acordarse.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-caos}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caos}
@@ -60,6 +63,7 @@ services:
     build:
       context: .
       target: run
+    restart: unless-stopped
     environment:
       # Dentro de la red de compose la base de datos se llama `db`. Desde el
       # equipo es `localhost`, y por eso esta cadena se pone aquí y no en `.env`:
@@ -72,6 +76,17 @@ services:
       # La IA es opcional: sin clave, el profesor y las ideas contestan que no hay
       # modelo configurado y todo lo demás funciona igual.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # El modelo de casa que ya corre en el equipo, si lo hay.
+      #
+      # **No sale de `OLLAMA_URL` del `.env`**, y por eso tiene otro nombre: aquella
+      # dice `localhost` porque la usa `pnpm dev`, y dentro de un contenedor
+      # `localhost` es el propio contenedor. La calcula `scripts/docker-arriba.sh`,
+      # porque la IP de la máquina cambia al reiniciar y escrita a mano caduca.
+      #
+      # Con `pnpm docker:ia` esto lo pisa `compose.ia.yml`, que levanta su propio
+      # Ollama y no depende de nada del equipo.
+      OLLAMA_URL: ${OLLAMA_URL_DOCKER:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5}
       # El servidor standalone de Next escucha en la interfaz que se le diga; sin
       # esto se queda en el bucle local del contenedor y desde fuera no contesta.
