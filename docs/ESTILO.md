@@ -248,6 +248,24 @@ dibujado por su borde y no se eleva. Le pasó a la portada al alternar franjas: 
 que manda en el reparto no es el orden de las secciones, es **lo que llevan
 dentro**. No lo vigila ningún test; se ve mirando la página.
 
+## Un ejemplo escrito en un comentario es una clase de verdad
+
+Tailwind v4 escanea **los comentarios** igual que el código: de `.ts`, de `.tsx` y
+del propio CSS. Escribir ahí algo con pinta de utilidad genera esa utilidad.
+
+Costó las nueve pantallas. Un `shadow-[var(--` con puntos suspensivos dentro,
+puesto como ejemplo dentro de un comentario de un test, se convirtió en una regla
+con `--tw-shadow: var(--...)`, que no es CSS válido: **la hoja entera dejó de
+compilar y la aplicación devolvió 500 en todas partes con los 2.174 tests en
+verde.** Ningún test toca la hoja compilada, así que ninguno lo vio.
+
+La regla es: un ejemplo dentro de un comentario **o es una clase que se pueda
+generar, o no se parece a una**. Nada de utilidades a medias ni con puntos
+suspensivos dentro de los corchetes.
+
+Y quien lo caza es `pnpm build`, que compila la hoja de verdad. Si tocas estilos
+—o comentarios que hablan de estilos—, pásalo antes de dar nada por terminado.
+
 ## El movimiento
 
 **Lo que depende del scroll se hace con `animation-timeline`, no con
