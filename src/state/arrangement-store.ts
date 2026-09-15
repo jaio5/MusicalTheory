@@ -36,6 +36,7 @@ import {
   removePart,
   writtenBlock,
   renamePart,
+  setPartRole,
   resizeBlock,
   resizeNote,
   setBars,
@@ -44,7 +45,10 @@ import {
   type DegreeSymbol,
   type LeadNote,
   type KeyMode,
+  type SectionRole,
 } from '@core/music';
+
+import { apuntarHecho } from './hechos-de-componer';
 
 /**
  * Cuántos pasos atrás se guardan.
@@ -59,6 +63,8 @@ export interface ArrangementActions {
   addPart(name?: string): string;
   removePart(partId: string): void;
   renamePart(partId: string, name: string): void;
+  /** Dice qué papel hace la parte. Ajusta el nombre si lo puso la aplicación. */
+  setPartRole(partId: string, role: SectionRole): void;
   movePart(partId: string, to: number): void;
   /** Alarga o acorta una parte, en compases. Nunca por debajo de lo que hay. */
   setBars(partId: string, bars: number, beatsPerBar: number): void;
@@ -182,6 +188,13 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
       },
       renamePart(partId, name) {
         cambiar((actual) => renamePart(actual, partId, name));
+      },
+      setPartRole(partId, role) {
+        cambiar((actual) => setPartRole(actual, partId, role));
+        // Decir qué es lo que acabas de tocar cuenta como practicar: es la
+        // decisión que convierte cuatro compases en una parte de una canción, y
+        // es el dato con el que la IA sabe qué le estás pidiendo.
+        apuntarHecho('parte');
       },
       movePart(partId, to) {
         cambiar((actual) => movePart(actual, partId, to));

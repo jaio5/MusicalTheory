@@ -4,18 +4,22 @@ import { useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
-  BARS_QUE_AÑADE,
   MAX_BARS,
+  ROLES,
   drawnBars,
   isDoubtful,
   partLength,
   resolveDegree,
+  roleInfo,
+  roleOf,
   type KeyMode,
   type Part,
   type PitchClass,
   type ScaleId,
+  type SectionRole,
 } from '@core/music';
 import { Chip } from '@ui/Chip';
+import { Field } from '@ui/Field';
 import { TextField } from '@ui/TextField';
 
 import { BlockButton, anchoDeBloque } from './BlockButton';
@@ -57,6 +61,7 @@ export interface PartRowProps {
   readonly selectedNoteId: string | null;
   readonly onPlay: () => void;
   readonly onRename: (name: string) => void;
+  readonly onSetRole: (role: SectionRole) => void;
   readonly onRemove: () => void;
   readonly onSetBars: (bars: number) => void;
   readonly onBlockPointerDown: (
@@ -94,6 +99,7 @@ export function PartRow({
   selectedNoteId,
   onPlay,
   onRename,
+  onSetRole,
   onRemove,
   onSetBars,
   onBlockPointerDown,
@@ -110,6 +116,14 @@ export function PartRow({
   onGestureEnd,
 }: PartRowProps) {
   const [editando, setEditando] = useState(false);
+  /**
+   * Lo que hay tecleado en el campo de compases mientras se teclea, o nulo.
+   *
+   * Nulo quiere decir «lo que manda es la parte». Hace falta porque el valor
+   * bueno se acota por abajo y por arriba, y acotar a cada tecla impide escribir
+   * un número de dos cifras.
+   */
+  const [escribiendo, setEscribiendo] = useState<string | null>(null);
   const compases = drawnBars(part, beatsPerBar);
   // No se puede acortar por debajo de lo que hay dentro: un botón que borra
   // compases con acordes borra trabajo sin decirlo.
@@ -151,6 +165,40 @@ export function PartRow({
         )}
 
         {/*
+          Qué parte es, y no solo cómo se llama.
+
+          Un nombre libre sirve para encontrarla en una lista y no sirve para lo
+          que importa: **que la IA sepa qué le estás pidiendo.** Una estrofa que
+          continúa y un estribillo que tiene que levantar no son la misma
+          petición, y con «Parte 2» el modelo solo puede adivinar.
+
+          Va aquí, pegado al nombre, porque es la misma pregunta: lo que acabas
+          de tocar, qué es. Y se queda en «Una idea» mientras no lo decidas, que
+          es la respuesta honesta la mayoría de las veces.
+        */}
+        <Field
+          label={`Papel de ${part.name}`}
+          compact
+          ancho="auto"
+          value={roleOf(part)}
+          onChange={(event) => onSetRole(event.target.value as SectionRole)}
+          // Solo el tamaño de letra. **Sin `min-h-0`**, que es lo que había: la
+          // clase decía una cosa y el navegador hacía otra —el `min-h-tap` de
+          // `ui/Field` ganaba por el orden del CSS, no por diseño—, y si algún
+          // día ganara la mía, este selector bajaría de los 44 px que pide la
+          // regla de esta interfaz. Que salga bien por casualidad no es que
+          // salga bien.
+          className="text-xs"
+          title={roleInfo(roleOf(part)).what}
+        >
+          {ROLES.map((role) => (
+            <option key={role.id} value={role.id}>
+              {role.name}
+            </option>
+          ))}
+        </Field>
+
+        {/*
           Los compases, con el número **entre** los dos botones.
           
           «4 compases» al lado de un menos y un más decía lo mismo dos veces y en
@@ -158,13 +206,9 @@ export function PartRow({
           igual de claro, ocupa un tercio y se entiende sin instrucciones qué
           hacen los botones de al lado.
         */}
-        <span
-          className="flex items-center gap-1"
-          role="group"
-          aria-label={`Compases de ${part.name}`}
-        >
+        <span className="flex items-center gap-1">
           <Chip
-            onClick={() => onSetBars(compases - BARS_QUE_AÑADE)}
+            onClick={() => onSetBars(compases - 1)}
             tone="quiet"
             disabled={compases <= minimoBars}
             ariaLabel={`Acortar ${part.name}`}
@@ -174,21 +218,52 @@ export function PartRow({
             title={
               compases <= minimoBars
                 ? 'No se puede acortar más sin borrar lo que hay escrito'
-                : `Quitar ${BARS_QUE_AÑADE} compases`
+                : 'Un compás menos'
             }
             className="px-3"
           >
             −
           </Chip>
-          <span className="text-text-muted w-6 text-center font-mono text-xs tabular-nums">
-            {compases}
-          </span>
+
+          {/*
+            El número **se escribe**, no solo se mira.
+
+            Para llegar de cuatro a dieciséis había que pulsar seis veces, y de
+            treinta y dos a cuatro otras catorce. Escribirlo es un gesto.
+
+            Y lo que se teclea no se valida a cada tecla, se valida al salir:
+            `onSetBars` acota por abajo a lo que hay escrito, así que borrar el
+            campo para poner «10» lo dejaría en el mínimo al primer dígito y ya
+            no habría forma de escribir el segundo. Con el texto a medias en
+            local y la validación en el `blur`, se puede teclear.
+          */}
+          <input
+            type="number"
+            inputMode="numeric"
+            min={minimoBars}
+            max={MAX_BARS}
+            value={escribiendo ?? compases}
+            aria-label={`Compases de ${part.name}`}
+            onChange={(event) => setEscribiendo(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            onBlur={(event) => {
+              onSetBars(Number(event.target.value));
+              setEscribiendo(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === 'Escape') {
+                event.currentTarget.blur();
+              }
+            }}
+            className="border-border bg-surface text-text hover:border-brass-dim focus:border-brass-dim min-h-tap w-12 rounded-md border px-1 text-center font-mono text-xs tabular-nums"
+          />
+
           <Chip
-            onClick={() => onSetBars(compases + BARS_QUE_AÑADE)}
+            onClick={() => onSetBars(compases + 1)}
             tone="quiet"
             disabled={compases >= MAX_BARS}
             ariaLabel={`Alargar ${part.name}`}
-            title={`Añadir ${BARS_QUE_AÑADE} compases`}
+            title="Un compás más"
             className="px-3"
           >
             +

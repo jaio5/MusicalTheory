@@ -40,7 +40,17 @@ import {
   MAX_LEAD_NOTES,
   type LeadNote,
 } from './melody';
-import { MAX_BARS, MAX_SECTIONS, MAX_SECTION_DEGREES, type Song, type SongSection } from './song';
+import {
+  DEFAULT_ROLE,
+  MAX_BARS,
+  MAX_SECTIONS,
+  MAX_SECTION_DEGREES,
+  defaultSectionName,
+  nameForRole,
+  type SectionRole,
+  type Song,
+  type SongSection,
+} from './song';
 import { DEFAULT_BEATS_PER_BAR } from './tempo';
 
 /**
@@ -130,6 +140,16 @@ export interface Part {
    * donde escribir.
    */
   readonly bars: number;
+  /**
+   * Qué papel hace dentro de la canción.
+   *
+   * Es el mismo `SectionRole` que guarda `song.ts` y no una copia: el lienzo y
+   * la canción guardada tienen que decir lo mismo, o al guardar se perdería
+   * justo el dato que hace que la IA entienda lo que le pides.
+   *
+   * Opcional y ausente quiere decir `idea`, igual que allí.
+   */
+  readonly role?: SectionRole;
 }
 
 export interface Arrangement {
@@ -157,14 +177,21 @@ export const MIN_BLOCK_BEATS = 1;
 export const MAX_BLOCK_BEATS = 16;
 
 /**
- * Los compases que trae una parte nueva, y los que añade el botón de alargar.
+ * Los compases que trae una parte nueva.
  *
  * Cuatro, porque cuatro compases es una frase: es lo que dura casi cualquier
  * idea que se le ocurre a alguien con una guitarra en la mano, y es lo que
  * llena la mayoría de las estrofas de dos en dos.
+ *
+ * **Lo que ya no hay es un paso para alargar.** Estuvo en dos, y dos no cabía:
+ * `setBars` no deja bajar de lo que hay escrito, así que pegado a ese suelo el
+ * botón de acortar movía **uno** en vez de dos —de 8 a 7 cuando dentro había
+ * siete— y desde el propio suelo no movía nada. El número saltaba de forma
+ * distinta según lo que hubiera dentro, que es exactamente lo que nadie entiende.
+ * De uno en uno no puede pasar: el tope solo corta cuando de verdad no queda
+ * sitio, y entonces el botón ya está apagado.
  */
 export const BARS_POR_DEFECTO = 4;
-export const BARS_QUE_AÑADE = 2;
 
 /**
  * Los pulsos de un bloque, siempre dentro de lo que se puede dibujar.
@@ -182,11 +209,6 @@ export function clampBeats(beats: number): number {
 }
 
 export const EMPTY_ARRANGEMENT: Arrangement = { parts: [] };
-
-/** El nombre de una parte nueva, numerada por su sitio. */
-export function defaultPartName(index: number): string {
-  return `Parte ${index + 1}`;
-}
 
 /** Cuántos pulsos ocupa una parte. */
 export function partBeats(part: Part): number {
@@ -335,7 +357,7 @@ export function addPart(arrangement: Arrangement, id: string, name?: string): Ar
       ...arrangement.parts,
       {
         id,
-        name: nombre === '' ? defaultPartName(arrangement.parts.length) : nombre,
+        name: nombre === '' ? defaultSectionName(arrangement.parts.length) : nombre,
         blocks: [],
         notes: [],
         bars: BARS_POR_DEFECTO,
@@ -354,6 +376,30 @@ export function renamePart(arrangement: Arrangement, partId: string, name: strin
   return mapPart(arrangement, partId, (part) =>
     nombre === '' || nombre === part.name ? part : { ...part, name: nombre },
   );
+}
+
+/**
+ * Le dice a una parte qué papel hace, y le ajusta el nombre si procede.
+ *
+ * Las dos cosas juntas y no dos acciones: quien elige «Estribillo» en una parte
+ * que se llama «Parte 2» espera que pase a llamarse Estribillo, y dejarlo en dos
+ * pasos significa que casi nadie da el segundo. Lo que escribió una persona no
+ * se toca —de eso se encarga `nameForRole`—.
+ */
+export function setPartRole(
+  arrangement: Arrangement,
+  partId: string,
+  role: SectionRole,
+): Arrangement {
+  const index = arrangement.parts.findIndex((part) => part.id === partId);
+  if (index === -1) {
+    return arrangement;
+  }
+  return mapPart(arrangement, partId, (part) => ({
+    ...part,
+    role,
+    name: nameForRole(part.name, index, role),
+  }));
 }
 
 export function movePart(arrangement: Arrangement, partId: string, to: number): Arrangement {
@@ -854,6 +900,9 @@ export function sectionsFromArrangement(
       return {
         name: part.name,
         degrees,
+        // `idea` no se escribe, por lo mismo que el resto: es el valor por
+        // omisión y escribirlo haría crecer la canción sin decir nada.
+        ...(part.role === undefined || part.role === DEFAULT_ROLE ? {} : { role: part.role }),
         // Solo si se ha alargado a mano: una parte de cuatro compases es lo de
         // fábrica y no hace falta escribirlo.
         ...(part.bars === BARS_POR_DEFECTO ? {} : { bars: part.bars }),

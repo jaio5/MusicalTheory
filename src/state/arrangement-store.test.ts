@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { EMPTY_ARRANGEMENT, arrangementLength, findBlock, findNote } from '@core/music';
 
 import { MAX_UNDO, nuevoId, selectCanUndo, useArrangementStore } from './arrangement-store';
+import { hechosDeComponer } from './hechos-de-componer';
 
 function acciones() {
   return useArrangementStore.getState().actions;
@@ -164,5 +165,33 @@ describe('un gesto entero es un paso atrás', () => {
     const antes = useArrangementStore.getState().past.length;
     acciones().moveNote(nota, 2, 2);
     expect(useArrangementStore.getState().past.length).toBe(antes + 1);
+  });
+});
+
+describe('decir qué parte es', () => {
+  it('lo apunta como un hecho de componer, para que el avance se entere', () => {
+    // El emisor existe por las capas: quien sabe que has decidido esto es el
+    // lienzo, y quien lleva la racha es `features/learn`, que no se pueden
+    // importar entre sí.
+    const oido: string[] = [];
+    const baja = hechosDeComponer.suscribir((hecho) => oido.push(hecho));
+    const { actions } = useArrangementStore.getState();
+    const id = actions.addPart();
+
+    actions.setPartRole(id, 'estribillo');
+    baja();
+
+    expect(oido).toEqual(['parte']);
+    expect(useArrangementStore.getState().arrangement.parts[0]?.role).toBe('estribillo');
+  });
+
+  it('y se puede deshacer, como cualquier otro cambio del lienzo', () => {
+    const { actions } = useArrangementStore.getState();
+    const id = actions.addPart();
+    actions.setPartRole(id, 'puente');
+
+    useArrangementStore.getState().actions.undo();
+
+    expect(useArrangementStore.getState().arrangement.parts[0]?.role).toBeUndefined();
   });
 });

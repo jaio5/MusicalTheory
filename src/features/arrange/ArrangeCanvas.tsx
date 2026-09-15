@@ -749,8 +749,15 @@ export function ArrangeCanvas() {
 
   if (tonic === null) {
     return (
-      <div className="flex min-h-0 grow items-center justify-center">
-        <EmpezarPorTonalidad />
+      // Se centra con `my-auto` **en el hijo**, que es como lo hace el afinador y
+      // lo que pide `docs/ESTILO.md`: con `justify-center` en la caja que se
+      // desplaza, lo que no cabe se sale por los dos lados y no hay forma de
+      // bajar hasta ello. Con el margen automático se centra cuando sobra sitio y
+      // se desplaza cuando falta.
+      <div className="flex min-h-0 grow flex-col overflow-y-auto p-3">
+        <div className="my-auto">
+          <EmpezarPorTonalidad />
+        </div>
       </div>
     );
   }
@@ -883,6 +890,7 @@ export function ArrangeCanvas() {
                 selectedNoteId={selectedNoteId}
                 onPlay={() => player.toggle(part.id)}
                 onRename={(name) => acciones.renamePart(part.id, name)}
+                onSetRole={(role) => acciones.setPartRole(part.id, role)}
                 onRemove={() => acciones.removePart(part.id)}
                 onSetBars={(bars) => acciones.setBars(part.id, bars, beatsPerBar)}
                 onBlockPointerDown={cogerBloque}

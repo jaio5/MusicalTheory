@@ -25,8 +25,8 @@ import {
   partFromCapture,
   partLength,
   playbackStepsOf,
+  setPartRole,
   BARS_POR_DEFECTO,
-  BARS_QUE_AÑADE,
   DUDOSO,
   drawnBars,
   setBars,
@@ -648,10 +648,17 @@ describe('los compases de una parte', () => {
     expect(drawnBars(a.parts[0]!, 4)).toBe(BARS_POR_DEFECTO);
   });
 
-  it('se alarga y se acorta de dos en dos', () => {
+  it('se alarga y se acorta de uno en uno', () => {
+    // De dos en dos no cabía: pegado al suelo de lo que hay escrito, el botón de
+    // acortar movía uno en vez de dos, así que el número saltaba distinto según
+    // lo que hubiera dentro.
     let a = addPart(EMPTY_ARRANGEMENT, 'p');
-    a = setBars(a, 'p', BARS_POR_DEFECTO + BARS_QUE_AÑADE, 4);
-    expect(a.parts[0]?.bars).toBe(6);
+
+    a = setBars(a, 'p', BARS_POR_DEFECTO + 1, 4);
+    expect(a.parts[0]?.bars).toBe(5);
+
+    a = setBars(a, 'p', 4, 4);
+    expect(a.parts[0]?.bars).toBe(4);
   });
 
   // Un botón que borra compases con acordes dentro borra trabajo sin decirlo.
@@ -704,5 +711,48 @@ describe('los compases de una parte', () => {
       4,
     );
     expect(vuelta.parts[0]?.bars).toBe(8);
+  });
+});
+
+describe('qué papel hace cada parte del lienzo', () => {
+  /** Un montaje con una parte que tiene un acorde dentro. */
+  function conUnaParte() {
+    return addBlock(addPart(EMPTY_ARRANGEMENT, 'p1'), 'p1', writtenBlock('b1', 'I', 4));
+  }
+
+  it('se le pone el papel y el nombre se ajusta solo', () => {
+    const puesto = setPartRole(conUnaParte(), 'p1', 'estribillo');
+
+    expect(puesto.parts[0]?.role).toBe('estribillo');
+    expect(puesto.parts[0]?.name).toBe('Estribillo');
+  });
+
+  it('pero un nombre escrito a mano no se pisa', () => {
+    const conNombre = renamePart(conUnaParte(), 'p1', 'lo del puente de Marta');
+
+    const puesto = setPartRole(conNombre, 'p1', 'estribillo');
+
+    expect(puesto.parts[0]?.name).toBe('lo del puente de Marta');
+    expect(puesto.parts[0]?.role).toBe('estribillo');
+  });
+
+  it('una parte que no existe no cambia nada', () => {
+    const antes = conUnaParte();
+
+    expect(setPartRole(antes, 'no-esta', 'puente')).toBe(antes);
+  });
+
+  it('y el papel viaja a la canción al guardar', () => {
+    // Es el punto de todo esto: si se perdiera aquí, la IA volvería a recibir
+    // una progresión sin saber qué le están pidiendo.
+    const puesto = setPartRole(conUnaParte(), 'p1', 'puente');
+
+    expect(sectionsFromArrangement(puesto)[0]?.role).toBe('puente');
+  });
+
+  it('salvo cuando es una idea, que es lo que se supone sin decir nada', () => {
+    const secciones = sectionsFromArrangement(conUnaParte());
+
+    expect(secciones[0]).not.toHaveProperty('role');
   });
 });

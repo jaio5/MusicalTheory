@@ -5,7 +5,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { EMPTY_ARRANGEMENT, pitchClassFromName, type CapturedChord } from '@core/music';
+import { EMPTY_ARRANGEMENT, MAX_BARS, pitchClassFromName, type CapturedChord } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
@@ -657,21 +657,52 @@ describe('la longitud de la partitura', () => {
    * rellenar antes los tres primeros: al revés de como se escribe música, donde
    * primero hay papel y luego se llena.
    */
+  /** El campo donde se leen y se escriben los compases de una parte. */
+  function compases(parte = 'Parte 1'): HTMLInputElement {
+    return screen.getByRole('spinbutton', { name: `Compases de ${parte}` });
+  }
+
   it('una parte nueva ya trae compases donde escribir', async () => {
     await conUnaParte();
     expect(screen.getByRole('img', { name: /Partitura de Parte 1/ })).toBeInTheDocument();
-    expect(
-      within(screen.getByRole('group', { name: /Compases de Parte 1/ })).getByText('4'),
-    ).toBeInTheDocument();
+    expect(compases()).toHaveValue(4);
   });
 
-  it('el más la alarga sin tocar lo que hay dentro', async () => {
+  it('el más y el menos van de uno en uno', async () => {
+    // De dos en dos el número saltaba distinto según lo que hubiera escrito
+    // dentro, porque el tope de abajo recortaba el salto a la mitad.
     await conUnaParte();
-    await userEvent.click(screen.getByRole('button', { name: 'Alargar Parte 1' }));
 
-    expect(
-      within(screen.getByRole('group', { name: /Compases de Parte 1/ })).getByText('6'),
-    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Alargar Parte 1' }));
+    expect(compases()).toHaveValue(5);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Alargar Parte 1' }));
+    expect(compases()).toHaveValue(6);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Acortar Parte 1' }));
+    expect(compases()).toHaveValue(5);
+  });
+
+  it('y el número se escribe, para no pulsar doce veces', async () => {
+    await conUnaParte();
+
+    await userEvent.clear(compases());
+    await userEvent.type(compases(), '10');
+    await userEvent.tab();
+
+    expect(compases()).toHaveValue(10);
+  });
+
+  it('lo que se teclea se acota al salir, no a cada tecla', async () => {
+    // Acotando a cada tecla, borrar el campo para escribir «10» lo dejaba en el
+    // mínimo al primer dígito y el segundo ya no entraba.
+    await conUnaParte();
+
+    await userEvent.clear(compases());
+    await userEvent.type(compases(), '99');
+    await userEvent.tab();
+
+    expect(compases()).toHaveValue(MAX_BARS);
   });
 
   // Un botón que borra compases con acordes dentro borra trabajo sin decirlo.

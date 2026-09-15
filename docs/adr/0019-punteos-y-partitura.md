@@ -46,7 +46,10 @@ pulso. La partitura es la que sale al entrar:**
   estiran tirando de la punta de su línea.
 
 **Una parte tiene sitio antes de tener contenido.** Trae cuatro compases —una
-frase— y se alarga de dos en dos con un botón. Antes el pentagrama medía lo que
+frase—, se alarga y se acorta de uno en uno, y el número se escribe si el sitio
+que hace falta está lejos. De dos en dos estuvo y no cabía: como no se puede bajar
+de lo que hay escrito, pegado a ese suelo el botón movía uno en vez de dos y desde
+el suelo mismo no movía nada. Antes el pentagrama medía lo que
 hubiera dentro, así que la única manera de escribir en el compás cuatro era
 rellenar los tres primeros: al revés de como se escribe música, donde primero hay
 papel. Es una medida de papel y no de sonido: alargar una parte no le añade
