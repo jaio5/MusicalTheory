@@ -186,17 +186,25 @@ export function ComposeScreen() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {/* Los espacios de trabajo antes que el metrónomo: son lo que cambia
                 la pantalla entera, y lo que cambia más cosas va primero. */}
-            <span className="flex gap-1" role="group" aria-label="Espacio de trabajo">
+            {/* Envuelve, porque son tres y en un teléfono de 320 no caben en una
+                línea al lado del metrónomo: sin esto el tercero se iba por la
+                derecha y el marco recorta, así que «Ensayar» dejaba de existir. */}
+            <span className="flex flex-wrap gap-1" role="group" aria-label="Espacio de trabajo">
               {ESPACIOS.map((candidato) => (
                 <Chip
                   key={candidato.id}
                   onClick={() => accionesDelBanco.espacio(candidato.id)}
                   pressed={espacio === candidato.id}
                   tone="quiet"
-                  className="px-3 text-xs"
+                  ariaLabel={candidato.name}
+                  className="px-2 text-xs sm:px-3"
                 >
                   <candidato.Icono />
-                  {candidato.name}
+                  {/* En un teléfono, solo el icono. Con los tres rótulos la fila
+                      se parte en dos, y de la altura de esta cabecera cuelga la
+                      del panel de la rueda: al crecer una fila, la rueda dejaba
+                      de caber y se salía por abajo sin manera de alcanzarla. */}
+                  <span className="hidden sm:inline">{candidato.name}</span>
                 </Chip>
               ))}
             </span>

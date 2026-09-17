@@ -116,8 +116,10 @@ describe('Las areas del banco', () => {
 
     render(<ComposeScreen />);
 
-    expect(screen.getByLabelText('Tocando')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Arreglo')).not.toBeInTheDocument();
+    // Por región y no por etiqueta: «Tocando» es a la vez el área y la pastilla
+    // que la abre, y las dos tienen ese nombre a propósito.
+    expect(screen.getByRole('region', { name: 'Tocando' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Arreglo' })).not.toBeInTheDocument();
   });
 
   it('y de ahi se pasa a escribir, que es la misma cancion por bloques', async () => {
