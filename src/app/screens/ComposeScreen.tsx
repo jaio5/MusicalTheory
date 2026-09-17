@@ -175,7 +175,11 @@ export function ComposeScreen() {
   } as CSSProperties;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    // Las medidas van aquí y no en la fila del banco: el área de abajo es
+    // **hermana** de esa fila, no hija, así que allí no heredaba
+    // `--banco-alto` y se quedaba con el alto que le sobrara. El mástil, que se
+    // ajusta a su caja, salía entonces del tamaño de un sello.
+    <div className="flex h-full min-h-0 flex-col" style={medidas}>
       <WorkHeader
         title="Componer"
         lead={
@@ -244,10 +248,7 @@ export function ComposeScreen() {
           debajo de otra y en una ventana baja no caben, así que quien se
           desplaza es esta caja. En el banco cada área se apaña con su hueco, que
           es de lo que va un banco de trabajo. */}
-      <div
-        className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
-        style={medidas}
-      >
+      <div className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
         <Area
           titulo="Tonalidad"
           icono={<IconoAfinar />}
@@ -283,15 +284,26 @@ export function ComposeScreen() {
           />
         )}
 
-        {/* El centro: lo único que crece cuando crece la pantalla. */}
-        <div className="flex min-h-0 grow flex-col">
+        {/* El centro: lo único que crece cuando crece la pantalla.
+
+            `min-w-0` no es decoración. Un hijo de `flex` tiene `min-width: auto`,
+            que es el ancho de su contenido, y aquí dentro hay una barra larga
+            —«Escuchar la canción», las vistas, «Traer lo grabado», las figuras,
+            «Deshacer»—. Sin esto, el centro se planta en lo que mide esa barra y
+            **empuja la columna del acorde fuera de la pantalla**: el área se
+            queda en ciento sesenta píxeles y su texto sale cortado por el borde
+            derecho. Se vio en una captura, no midiendo: la medida solo lo enseña
+            cuando la barra está en su versión larga. */}
+        <div className="flex min-h-0 min-w-0 grow flex-col">
           <Area
             titulo={espacio === 'tocando' ? 'Tocando' : 'Arreglo'}
             icono={espacio === 'tocando' ? <IconoMicro /> : <IconoComponer />}
             scroll={false}
             // Suelo, porque es lo único que no se desplaza por dentro: lo que
             // no le quepa al lienzo se recorta y deja su barra sin alcanzar.
-            className="grow lg:min-h-56"
+            // Diez rem y no catorce: es lo que deja sitio al área de abajo para
+            // que el mástil se vea a un tamaño en el que se lee.
+            className="grow lg:min-h-40"
           >
             {activeKey === null ? (
               // `my-auto` en el hijo y no `justify-center` aquí, que es la regla
@@ -394,7 +406,14 @@ export function ComposeScreen() {
           // debajo de su suelo y lo de dentro sin alcanzar. Lo que hay aquí
           // sabe encogerse —el mástil se ajusta a su caja, lo demás se
           // desplaza—, así que ceder no esconde nada.
-          className="border-border max-h-[60vh] min-h-32 shrink border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]"
+          // **Conserva su alto, y el que cede es el centro.** Cediendo ella, el
+          // mástil se quedaba en un dibujo de cien píxeles con media franja
+          // vacía a los lados: se ajusta a su caja, así que una caja aplastada
+          // da un mástil ilegible. Es lo que este proyecto ya había decidido
+          // —«perder la mitad de la pantalla mientras está abierto es un precio
+          // que se paga solo mientras se mira»—, y el tope en `vh` impide que en
+          // una pantalla baja se lo lleve todo.
+          className="border-border max-h-[60vh] shrink-0 border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]"
           mandos={
             <button
               type="button"
