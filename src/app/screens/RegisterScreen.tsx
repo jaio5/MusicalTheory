@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
 import { displayName, monthlyAiRequests } from '@core/billing';
 import { AccessForm } from '@features/account';
@@ -33,24 +34,57 @@ import { Screen } from '@ui/Screen';
  * Si ya has entrado no se pinta el formulario. Un formulario de registro delante
  * de quien ya tiene la sesión abierta es una invitación a crear una segunda cuenta
  * sin querer y perder el avance de la primera.
+ *
+ * **Y esa pantalla sin formulario dice dos cosas distintas**, porque se llega a
+ * ella por dos sitios: acabando de crear la cuenta aquí mismo, o entrando con la
+ * sesión ya abierta. Al segundo se le explica por qué no hay nada que rellenar;
+ * al primero se le confirma que salió bien y se le manda al camino, que es a lo
+ * que venía. Las dos daban el mismo «no hay nada que crear aquí»: un acierto
+ * contado con la cara de un tropiezo.
  */
 export function RegisterScreen() {
   const { account, accounts, signedIn } = useAccount();
+  // Acabar de crearla aquí y llegar con la sesión ya abierta terminan los dos en
+  // la misma rama, y no son lo mismo: al primero hay que darle la enhorabuena y
+  // el siguiente paso, y al segundo explicarle por qué no hay formulario. Sin
+  // esto, quien pulsaba «Crear la cuenta» recibía «no hay nada que crear aquí»,
+  // que es la frase de un tropiezo puesta encima de un acierto.
+  const [reciencreada, setReciencreada] = useState(false);
 
   if (signedIn) {
     return (
       <Screen
-        title="Ya tienes cuenta"
-        lead={`Estás dentro como ${displayName(account)}, así que no hay nada que crear aquí.`}
+        title={reciencreada ? 'Tu cuenta está lista' : 'Ya tienes cuenta'}
+        lead={
+          reciencreada
+            ? `Estás dentro como ${displayName(account)}. Tu avance deja de vivir en este navegador y te sigue a donde estudies.`
+            : `Estás dentro como ${displayName(account)}, así que no hay nada que crear aquí.`
+        }
         ancho="lectura"
       >
+        {/* Recién creada, lo primero es ir a estudiar: es a lo que se venía, y la
+            cuenta no hay nada que mirarle todavía. Quien ya estaba dentro sí
+            viene a mirar la suya, así que ahí manda la otra. */}
         <div className="flex flex-wrap gap-2">
-          <Link href="/cuenta" className={estiloBoton('primary')}>
-            Tu cuenta
-          </Link>
-          <Link href="/aprender" className={estiloBoton('quiet')}>
-            Ir al camino
-          </Link>
+          {reciencreada ? (
+            <>
+              <Link href="/aprender" className={estiloBoton('primary')}>
+                Empezar a aprender
+              </Link>
+              <Link href="/cuenta" className={estiloBoton('quiet')}>
+                Tu cuenta
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/cuenta" className={estiloBoton('primary')}>
+                Tu cuenta
+              </Link>
+              <Link href="/aprender" className={estiloBoton('quiet')}>
+                Ir al camino
+              </Link>
+            </>
+          )}
         </div>
       </Screen>
     );
@@ -75,7 +109,7 @@ export function RegisterScreen() {
           <div className="absolute -top-6 left-5">
             <Mascota className="size-16" />
           </div>
-          <AccessForm inicial="crear" />
+          <AccessForm inicial="crear" onDone={() => setReciencreada(true)} />
         </section>
 
         {accounts && (

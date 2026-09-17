@@ -10,10 +10,15 @@ import type { ReactNode } from 'react';
  * una grabación. Antes cada uno se escribía sus clases y salían de veintiséis, de
  * treinta y cuatro y de treinta y ocho píxeles de alto según el sitio.
  *
- * **Cuarenta y cuatro de alto, siempre.** Es el mínimo con el que un dedo acierta,
- * y aquí no es un número de guía de estilo: esta aplicación se usa con la guitarra
- * puesta, mirando de reojo y dando al botón sin apuntar. Lo que cambia entre unos
- * y otros es el relleno de los lados y la letra, no el alto.
+ * **Cuarenta y cuatro, y también de ancho.** Es el mínimo con el que un dedo
+ * acierta, y aquí no es un número de guía de estilo: esta aplicación se usa con la
+ * guitarra puesta, mirando de reojo y dando al botón sin apuntar. Lo que cambia
+ * entre unos y otros es el relleno de los lados y la letra, no la medida.
+ *
+ * El ancho hacía falta decirlo aparte porque el alto lo fijaba el `min-h` y el
+ * ancho lo ponía el contenido: los del metrónomo, que son **un solo glifo** —«−»
+ * y «+»—, salían de cuarenta y dos con el relleno incluido. Dos píxeles de menos
+ * en los dos únicos botones que se dan a ciegas mientras suena el clic.
  *
  * El estado va en `aria-pressed` y no solo en el color, porque un lector de
  * pantalla no ve el borde de latón. `acierto` y `fallo` son los dos colores que
@@ -79,7 +84,7 @@ export function Chip({
       // entonces, y quedaban por debajo del contraste mínimo. Se apaga lo que ya
       // no dice nada —las opciones que ni eran ni se eligieron— y se queda a todo
       // color lo que corrige.
-      className={`min-h-tap inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border px-3.5 text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 enabled:active:translate-y-px disabled:cursor-default ${
+      className={`min-h-tap min-w-tap inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border px-3.5 text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 enabled:active:translate-y-px disabled:cursor-default ${
         corregido ? '' : 'disabled:opacity-40'
       } ${
         marcado ? 'border-brass-bright text-brass-bright bg-surface-raised filo-latón' : TONOS[tone]

@@ -105,7 +105,10 @@ export function AccessForm({
               setNuevo(option.key);
               setError(null);
             }}
-            className={`px-3 py-1.5 ${
+            // Del alto de lo que se pulsa, como todo lo demás: con `py-1.5` se
+            // quedaba en treinta y dos píxeles, y es el primer control del
+            // formulario y de los pocos que se dan con el pulgar en un móvil.
+            className={`min-h-tap px-3 ${
               nuevo === option.key
                 ? 'bg-surface-raised text-brass-bright'
                 : 'text-text-muted hover:text-text'

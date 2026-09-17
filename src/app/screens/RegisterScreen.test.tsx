@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
+import type * as Cuenta from '@state/account';
 import { AccountProvider } from '@state/account';
 
 import { RegisterScreen } from './RegisterScreen';
@@ -12,6 +14,13 @@ import { RegisterScreen } from './RegisterScreen';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
   usePathname: () => '/registro',
+}));
+
+const registerAccount = vi.fn();
+
+vi.mock('@state/account', async (original) => ({
+  ...(await original<typeof Cuenta>()),
+  registerAccount: (...a: unknown[]) => registerAccount(...a),
 }));
 
 /**
@@ -41,6 +50,11 @@ function pintar(account: Account = ANONYMOUS, accounts = true) {
     </AccountProvider>,
   );
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  registerAccount.mockReset();
+});
 
 describe('Crear la cuenta', () => {
   it('enseña el formulario a quien no ha entrado', () => {
@@ -77,5 +91,34 @@ describe('Crear la cuenta', () => {
 
     expect(screen.getByRole('link', { name: /Tu cuenta/ })).toHaveAttribute('href', '/cuenta');
     expect(screen.getByRole('link', { name: /Ir al camino/ })).toHaveAttribute('href', '/aprender');
+  });
+
+  /**
+   * Acabar de crearla y llegar con la sesión puesta caen en la misma rama sin
+   * formulario, y durante un tiempo dijeron lo mismo: «no hay nada que crear
+   * aquí» justo después de pulsar «Crear la cuenta». Esto separa los dos.
+   */
+  it('recién creada, lo cuenta como un acierto y manda al camino', async () => {
+    registerAccount.mockResolvedValue({ ok: true });
+    // `refresh` relee la cuenta del servidor: es lo que enciende `signedIn` sin
+    // recargar, y sin ello la pantalla se quedaría en el formulario.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ account: DENTRO }) })),
+    );
+
+    pintar();
+    const usuario = userEvent.setup();
+    await usuario.type(screen.getByLabelText(/Correo/), 'javier@example.com');
+    await usuario.type(screen.getByLabelText(/Contraseña/), 'ContrasenaLarga123');
+    await usuario.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /Tu cuenta está lista/ })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole('link', { name: /Empezar a aprender/ })).toHaveAttribute(
+      'href',
+      '/aprender',
+    );
   });
 });
