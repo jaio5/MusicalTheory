@@ -194,6 +194,22 @@ export interface Part {
    * Opcional y ausente quiere decir `idea`, igual que allí.
    */
   readonly role?: SectionRole;
+  /**
+   * Cuántas vueltas se da a la parte al tocarla: el `|: :|` de toda la vida.
+   *
+   * **Una vuelta es sonido, no papel.** Repetir no añade bloques ni compases
+   * donde escribir: los mismos ocho compases suenan dos veces. Por eso lo que
+   * cambia es lo que se oye —`soundOf`, `playbackStepsOf`— y no lo que se
+   * dibuja, que sigue midiendo `partLength`.
+   *
+   * Es lo único que le faltaba al arreglo para que una canción de rock quepa
+   * entera. Sin esto, un estribillo que va dos veces son dos partes iguales con
+   * el doble de bloques, y cambiar un acorde obliga a cambiarlo dos veces.
+   *
+   * Opcional y ausente quiere decir una, como `role` quiere decir idea. Así lo
+   * guardado antes de existir esto se sigue leyendo sin tocarlo.
+   */
+  readonly repeats?: number;
 }
 
 export interface Arrangement {
@@ -254,14 +270,59 @@ export function clampBeats(beats: number): number {
 
 export const EMPTY_ARRANGEMENT: Arrangement = { parts: [] };
 
-/** Cuántos pulsos ocupa una parte. */
+/**
+ * Cuántas veces suena una parte. Sin decir nada, una.
+ *
+ * Se acota al leer y no solo al escribir: un montaje puede llegar de una canción
+ * guardada o de una versión anterior del fichero, y un `repeats` de cero dejaría
+ * una parte muda sin que nada lo explicara.
+ */
+export function repeatsOf(part: Part): number {
+  const vueltas = part.repeats ?? 1;
+  return Math.min(MAX_REPEATS, Math.max(1, Math.round(vueltas)));
+}
+
+/**
+ * Las vueltas que caben.
+ *
+ * Cuatro, y no más, por lo mismo que las partes son ocho: es lo que hace falta
+ * para una canción, y un número grande aquí solo sirve para dejar sonando diez
+ * minutos de lo mismo sin querer.
+ */
+export const MAX_REPEATS = 4;
+
+/** Cuántos pulsos ocupa una parte **escrita**, sin contar las vueltas. */
 export function partBeats(part: Part): number {
   return part.blocks.reduce((total, block) => total + block.beats, 0);
 }
 
-/** Cuántos pulsos ocupa el montaje entero. */
+/** Y cuántos suenan, que con vueltas no es lo mismo. */
+export function partPlayBeats(part: Part): number {
+  return partBeats(part) * repeatsOf(part);
+}
+
+/**
+ * Cuántos pulsos dura el montaje entero al tocarlo.
+ *
+ * Cuenta las vueltas: es lo que se oye, que es lo que dice el rótulo de la
+ * cabecera al lado del botón de escuchar. Lo que se escribe —el papel— se mide
+ * con `partBeats` y con `drawnBars`.
+ */
 export function arrangementBeats(arrangement: Arrangement): number {
-  return arrangement.parts.reduce((total, part) => total + partBeats(part), 0);
+  return arrangement.parts.reduce((total, part) => total + partPlayBeats(part), 0);
+}
+
+/**
+ * Cambia las vueltas de una parte.
+ *
+ * Como todo lo demás aquí: si no cambia nada, devuelve el mismo montaje, que es
+ * de lo que cuelgan el deshacer y los repintados.
+ */
+export function setRepeats(arrangement: Arrangement, partId: string, repeats: number): Arrangement {
+  return mapPart(arrangement, partId, (part) => {
+    const siguiente = Math.min(MAX_REPEATS, Math.max(1, Math.round(repeats)));
+    return siguiente === repeatsOf(part) ? part : { ...part, repeats: siguiente };
+  });
 }
 
 /**
@@ -604,12 +665,22 @@ export function playbackStepsOf(
   const partes =
     partId === null ? arrangement.parts : arrangement.parts.filter((part) => part.id === partId);
 
+  // Las vueltas se recorren aquí, igual que en `soundOf` y en `blocksInOrder`:
+  // los tres tienen que dar la misma lista en el mismo orden o el bloque que se
+  // enciende en pantalla deja de ser el que suena.
   return partes.flatMap((part) =>
-    part.blocks.map((block) => {
-      const chord = blockChord(tonic, mode, block);
-      return { notes: chord.notes, root: chord.root, beats: block.beats };
-    }),
+    vueltasDe(part).flatMap(() =>
+      part.blocks.map((block) => {
+        const chord = blockChord(tonic, mode, block);
+        return { notes: chord.notes, root: chord.root, beats: block.beats };
+      }),
+    ),
   );
+}
+
+/** Un elemento por vuelta, para recorrerlas con un `flatMap`. */
+function vueltasDe(part: Part): readonly number[] {
+  return Array.from({ length: repeatsOf(part) }, (_, vuelta) => vuelta);
 }
 
 /**
@@ -647,32 +718,37 @@ export function soundOf(
   // mover una parte de sitio se lleva su melodía con ella.
   let desde = 0;
   for (const part of partes) {
-    let enPulsos = desde;
-    for (const block of part.blocks) {
-      // Con `blockChord` y no con el grado a secas: si el bloque lleva séptima,
-      // tiene que sonar la séptima. Es todo lo que hacía falta para que se oiga.
-      const chord = blockChord(tonic, mode, block);
-      events.push({
-        startBeat: enPulsos,
-        beats: block.beats,
-        midis: voiceForPlayback(chord.root, chord.notes, baseMidi),
-      });
-      owners.push(block.id);
-      enPulsos += block.beats;
-    }
-
-    if (withMelody) {
-      for (const note of part.notes) {
+    // Cada vuelta empieza donde acabó la anterior, y el punteo se repite con
+    // ella: una parte que va dos veces se toca dos veces entera, solo que no
+    // ocupa el doble de papel.
+    for (let vuelta = 0; vuelta < repeatsOf(part); vuelta += 1) {
+      let enPulsos = desde;
+      for (const block of part.blocks) {
+        // Con `blockChord` y no con el grado a secas: si el bloque lleva séptima,
+        // tiene que sonar la séptima. Es todo lo que hacía falta para que se oiga.
+        const chord = blockChord(tonic, mode, block);
         events.push({
-          startBeat: desde + note.start,
-          beats: note.length,
-          midis: [midiOf(note, tonic)],
+          startBeat: enPulsos,
+          beats: block.beats,
+          midis: voiceForPlayback(chord.root, chord.notes, baseMidi),
         });
-        owners.push(null);
+        owners.push(block.id);
+        enPulsos += block.beats;
       }
-    }
 
-    desde += partLength(part);
+      if (withMelody) {
+        for (const note of part.notes) {
+          events.push({
+            startBeat: desde + note.start,
+            beats: note.length,
+            midis: [midiOf(note, tonic)],
+          });
+          owners.push(null);
+        }
+      }
+
+      desde += partLength(part);
+    }
   }
 
   // Se ordenan a la vez que sus dueños: `scheduleEvents` también ordena, y si
@@ -702,8 +778,12 @@ export function blocksInOrder(
   const partes =
     partId === null ? arrangement.parts : arrangement.parts.filter((part) => part.id === partId);
 
+  // Con las vueltas dentro: quien reproduce cuenta sonidos, y en la segunda
+  // vuelta el tercer sonido vuelve a ser el primer bloque de la parte.
   return partes.flatMap((part) =>
-    part.blocks.map((block) => ({ partId: part.id, blockId: block.id })),
+    vueltasDe(part).flatMap(() =>
+      part.blocks.map((block) => ({ partId: part.id, blockId: block.id })),
+    ),
   );
 }
 

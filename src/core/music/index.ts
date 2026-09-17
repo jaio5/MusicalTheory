@@ -31,5 +31,6 @@ export * from './song';
 export * from './melody';
 export * from './melody-suggestions';
 export * from './arrangement';
+export * from './ensayo';
 export * from './capture';
 export * from './playback';

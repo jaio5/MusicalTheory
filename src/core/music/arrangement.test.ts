@@ -14,6 +14,11 @@ import {
   findBlock,
   findNote,
   translateToMode,
+  setRepeats,
+  repeatsOf,
+  partPlayBeats,
+  partBeats,
+  MAX_REPEATS,
   lastDegreeOf,
   melodyEnd,
   MAX_BLOCK_BEATS,
@@ -301,6 +306,70 @@ describe('partFromCapture', () => {
       alternatives: [],
     }));
     expect(partFromCapture(muchos, 'g', 'G').blocks).toHaveLength(MAX_PART_BLOCKS);
+  });
+});
+
+/**
+ * Las vueltas: el `|: :|` de toda la vida.
+ *
+ * Lo que se prueba con cuidado no es el número, es **que repetir es sonido y no
+ * papel**. Sin esto, un estribillo que va dos veces son dos partes iguales y
+ * cambiar un acorde obliga a cambiarlo en las dos.
+ */
+describe('las vueltas de una parte', () => {
+  const conVueltas = (vueltas: number): Arrangement => setRepeats(montaje(), 'estrofa', vueltas);
+
+  it('sin decir nada, una', () => {
+    expect(repeatsOf(montaje().parts[0]!)).toBe(1);
+    expect(partPlayBeats(montaje().parts[0]!)).toBe(partBeats(montaje().parts[0]!));
+  });
+
+  it('suena el doble y se escribe igual', () => {
+    const a = conVueltas(2);
+
+    expect(partPlayBeats(a.parts[0]!)).toBe(partBeats(a.parts[0]!) * 2);
+    // El papel no se mueve: los mismos bloques y los mismos compases.
+    expect(a.parts[0]?.blocks).toHaveLength(montaje().parts[0]!.blocks.length);
+    expect(a.parts[0]?.bars).toBe(montaje().parts[0]?.bars);
+  });
+
+  it('el montaje entero dura lo que se oye, vueltas incluidas', () => {
+    // 12 pulsos la estrofa y 4 el estribillo; con la estrofa dos veces, 28.
+    expect(arrangementBeats(montaje())).toBe(16);
+    expect(arrangementBeats(conVueltas(2))).toBe(28);
+  });
+
+  it('se acota al escribir y al leer, que puede llegar de una cancion guardada', () => {
+    expect(repeatsOf({ ...montaje().parts[0]!, repeats: 0 })).toBe(1);
+    expect(repeatsOf({ ...montaje().parts[0]!, repeats: 99 })).toBe(MAX_REPEATS);
+    expect(repeatsOf(conVueltas(99).parts[0]!)).toBe(MAX_REPEATS);
+  });
+
+  /**
+   * Los tres recorridos —lo que suena, los pasos y la lista de bloques— tienen
+   * que dar lo mismo en el mismo orden, o el bloque que se enciende en pantalla
+   * deja de ser el que suena. Con vueltas hay tres sitios donde descuadrarlo.
+   */
+  it('lo que suena, los pasos y los bloques siguen cuadrando', () => {
+    const a = conVueltas(3);
+
+    const pasos = playbackStepsOf(a, 0, 'major');
+    const orden = blocksInOrder(a);
+    const sonido = soundOf(a, 0, 'major', null, false);
+
+    expect(pasos).toHaveLength(orden.length);
+    expect(sonido.events).toHaveLength(orden.length);
+    expect(sonido.owners).toEqual(orden.map((sitio) => sitio.blockId));
+  });
+
+  it('cada vuelta empieza donde acabo la anterior', () => {
+    const a = setRepeats({ parts: [montaje().parts[0]!] }, 'estrofa', 2);
+    const largo = partLength(a.parts[0]!);
+
+    const inicios = soundOf(a, 0, 'major', null, false).events.map((e) => e.startBeat);
+    const mitad = inicios.length / 2;
+
+    expect(inicios.slice(mitad)).toEqual(inicios.slice(0, mitad).map((x) => x + largo));
   });
 });
 
