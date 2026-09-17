@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
 import { keyName, type ScaleId } from '@core/music';
 import { ArrangeCanvas, TocarParaEscribir } from '@features/arrange';
@@ -37,6 +37,7 @@ import {
   IconoTocar,
 } from '@ui/icons';
 import { WorkHeader } from '@ui/Screen';
+import { useHayBanco } from '@ui/use-hay-banco';
 
 interface Editor {
   readonly id: EditorDeAbajo;
@@ -131,6 +132,18 @@ export function ComposeScreen() {
   const plegadaDerecha = useBancoStore(selectPlegada('derecha'));
   const plegadoElCamino = useBancoStore(selectPlegada('camino'));
   const accionesDelBanco = useBancoStore((state) => state.actions);
+
+  /**
+   * Por debajo de `lg` no hay banco: **una sola área a la vez, con pestañas**.
+   *
+   * No es el mismo árbol con otro reparto. Apiladas, las tres áreas dejaban la
+   * canción en una rendija y el inspector del acorde llevándose media pantalla;
+   * y plegar, que arriba es un gesto útil, ahí solo añade tiras que ocupan sin
+   * enseñar nada. Se elige con el pulgar, como el resto de la aplicación en
+   * pantalla estrecha.
+   */
+  const hayBanco = useHayBanco();
+  const [areaMovil, setAreaMovil] = useState<'arreglo' | 'camino' | 'acorde'>('arreglo');
 
   // El reparto guardado se recupera después de pintar, como el tema: leerlo
   // durante el render daría un HTML distinto en servidor y en cliente.
@@ -244,6 +257,36 @@ export function ComposeScreen() {
         </BarraDeTonalidad>
       </div>
 
+      {/* Las pestañas de las áreas, solo en estrecho y solo con tonalidad: sin
+          ella la pantalla dice una sola cosa y no hay entre qué elegir. Con las
+          áreas apiladas, la canción quedaba en una rendija; aquí se ve una a la
+          vez y entera. */}
+      {!hayBanco && activeKey !== null && (
+        <div
+          role="group"
+          aria-label="Qué se ve"
+          className="border-border bg-surface flex shrink-0 gap-1 overflow-x-auto border-b px-3 py-1"
+        >
+          {(
+            [
+              ['arreglo', espacio === 'tocando' ? 'Tocando' : 'Arreglo'],
+              ['camino', 'A dónde ir'],
+              ['acorde', 'Acorde'],
+            ] as const
+          ).map(([id, nombre]) => (
+            <Chip
+              key={id}
+              onClick={() => setAreaMovil(id)}
+              pressed={areaMovil === id}
+              tone="quiet"
+              className="shrink-0 px-3 text-xs"
+            >
+              {nombre}
+            </Chip>
+          ))}
+        </div>
+      )}
+
       {/* Apilado se desplaza y en el banco no: abajo de `lg` las áreas van una
           debajo de otra y en una ventana baja no caben, así que quien se
           desplaza es esta caja. En el banco cada área se apaña con su hueco, que
@@ -294,15 +337,23 @@ export function ComposeScreen() {
             queda en ciento sesenta píxeles y su texto sale cortado por el borde
             derecho. Se vio en una captura, no midiendo: la medida solo lo enseña
             cuando la barra está en su versión larga. */}
-        <div className="flex min-h-0 min-w-0 grow flex-col">
+        <div
+          className={`flex min-h-0 min-w-0 grow flex-col ${
+            hayBanco || areaMovil === 'arreglo' ? '' : 'hidden'
+          }`}
+        >
           <Area
             titulo={espacio === 'tocando' ? 'Tocando' : 'Arreglo'}
             icono={espacio === 'tocando' ? <IconoMicro /> : <IconoComponer />}
             scroll={false}
+            sinCabecera={!hayBanco}
             // Suelo, porque es lo único que no se desplaza por dentro: lo que
             // no le quepa al lienzo se recorta y deja su barra sin alcanzar.
-            // Diez rem y no catorce: es lo que deja sitio al área de abajo para
-            // que el mástil se vea a un tamaño en el que se lee.
+            // Diez rem en el banco —es lo que deja sitio al área de abajo para
+            // que el mástil se lea—, y **veintiséis apiladas**: ahí el alto no
+            // lo reparte nadie, cada área toma el suyo, y sin suelo el arreglo
+            // se quedaba en una rendija con la partitura cortada mientras el
+            // acorde de debajo se llevaba media pantalla.
             className="grow lg:min-h-40"
           >
             {activeKey === null ? (
@@ -326,13 +377,14 @@ export function ComposeScreen() {
               mira **mientras** se escribe, no una consulta aparte. De alto fijo y
               con su propio desplazamiento, para que la lista no le robe sitio a
               la canción por venir larga. */}
-          {activeKey !== null && (
+          {activeKey !== null && (hayBanco || areaMovil === 'camino') && (
             <Area
               titulo="A dónde ir"
               icono={<IconoTocar />}
-              plegada={plegadoElCamino}
-              onPlegar={() => accionesDelBanco.plegar('camino')}
+              plegada={hayBanco && plegadoElCamino}
+              onPlegar={hayBanco ? () => accionesDelBanco.plegar('camino') : undefined}
               pliegue="horizontal"
+              sinCabecera={!hayBanco}
               // Pide trece rem, pero **cede**: al abrir el área de abajo el alto
               // no da para todos, y lo que no puede encogerse es el arreglo.
               // Esta lista se desplaza por dentro, así que perder altura aquí no
@@ -359,14 +411,17 @@ export function ComposeScreen() {
           />
         )}
 
-        {activeKey !== null && (
+        {activeKey !== null && (hayBanco || areaMovil === 'acorde') && (
           <Area
             titulo="Acorde"
             icono={<IconoMastil />}
-            plegada={plegadaDerecha}
-            onPlegar={() => accionesDelBanco.plegar('derecha')}
-            className={`border-border border-t lg:shrink-0 lg:border-t-0 lg:border-l ${
-              plegadaDerecha ? '' : 'lg:w-[var(--banco-derecha)]'
+            plegada={hayBanco && plegadaDerecha}
+            onPlegar={hayBanco ? () => accionesDelBanco.plegar('derecha') : undefined}
+            sinCabecera={!hayBanco}
+            // Apilada tiene tope: es una consulta, no el trabajo, y sin él se
+            // llevaba más alto que la propia canción.
+            className={`border-border border-t max-lg:grow lg:shrink-0 lg:border-t-0 lg:border-l ${
+              hayBanco && plegadaDerecha ? '' : 'lg:w-[var(--banco-derecha)]'
             }`}
           >
             {/* Arriba lo que has elegido tú, abajo lo que estás tocando. Cada

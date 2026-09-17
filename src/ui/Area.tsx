@@ -38,6 +38,7 @@ export function Area({
   plegada = false,
   onPlegar,
   pliegue = 'vertical',
+  sinCabecera = false,
 }: {
   readonly titulo: string;
   /** El dibujo del área, si lo tiene. Es decoración que orienta. */
@@ -62,6 +63,14 @@ export function Area({
    * barra tumbada.
    */
   readonly pliegue?: 'vertical' | 'horizontal';
+  /**
+   * Sin cabecera, para cuando algo de fuera ya la hace.
+   *
+   * En estrecho las áreas se eligen con pestañas, y la pestaña marcada ya dice
+   * el nombre: repetirlo justo debajo son veintiocho píxeles y una palabra de
+   * más en la pantalla donde menos sitio hay.
+   */
+  readonly sinCabecera?: boolean;
 }) {
   if (plegada && onPlegar !== undefined) {
     const depie = pliegue === 'vertical';
@@ -97,29 +106,31 @@ export function Area({
       aria-label={titulo}
       className={`bg-surface flex min-h-0 min-w-0 flex-col ${className}`}
     >
-      <header className="border-border text-text-muted flex h-7 shrink-0 items-center gap-2 border-b px-2">
-        {icono !== undefined && (
-          <span aria-hidden="true" className="shrink-0 opacity-70 [&_svg]:size-3.5">
-            {icono}
-          </span>
-        )}
-        <h2 className="min-w-0 truncate text-xs font-medium">{titulo}</h2>
-        <div className="ml-auto flex shrink-0 items-center gap-1">
-          {mandos}
-          {onPlegar !== undefined && (
-            <button
-              type="button"
-              onClick={onPlegar}
-              aria-expanded
-              aria-label={`Plegar ${titulo}`}
-              title={`Plegar ${titulo}`}
-              className="hover:text-brass-bright inline-flex cursor-pointer items-center px-1"
-            >
-              <Chevron className={`size-3 ${pliegue === 'vertical' ? 'rotate-90' : ''}`} />
-            </button>
+      {sinCabecera ? null : (
+        <header className="border-border text-text-muted flex h-7 shrink-0 items-center gap-2 border-b px-2">
+          {icono !== undefined && (
+            <span aria-hidden="true" className="shrink-0 opacity-70 [&_svg]:size-3.5">
+              {icono}
+            </span>
           )}
-        </div>
-      </header>
+          <h2 className="min-w-0 truncate text-xs font-medium">{titulo}</h2>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {mandos}
+            {onPlegar !== undefined && (
+              <button
+                type="button"
+                onClick={onPlegar}
+                aria-expanded
+                aria-label={`Plegar ${titulo}`}
+                title={`Plegar ${titulo}`}
+                className="hover:text-brass-bright inline-flex cursor-pointer items-center px-1"
+              >
+                <Chevron className={`size-3 ${pliegue === 'vertical' ? 'rotate-90' : ''}`} />
+              </button>
+            )}
+          </div>
+        </header>
+      )}
 
       {/* Columna flexible y no un bloque: lo que va dentro de un área suele ser
           una pieza que quiere ocupar el hueco —el lienzo del arreglo es un
