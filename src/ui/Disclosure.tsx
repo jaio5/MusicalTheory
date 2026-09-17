@@ -104,9 +104,17 @@ export function Disclosure({
           // El tope es **la pantalla menos lo que hay encima y debajo**, y por eso
           // son dos: en un teléfono hay más marco que en un escritorio.
           //
-          //   teléfono  61 cabecera + 133 la de pantalla + 44 esta barra
+          //   estrecho  61 cabecera + 133 la de pantalla + 44 esta barra
           //             + 65 navegación abajo = 303 → 20rem
-          //   a partir de `sm`  61 + 85 + 44, y la navegación sube arriba = 12rem
+          //   a partir de `md`  61 + 85 + 44, y la navegación sube arriba = 12rem
+          //
+          // **El corte es `md` y no `sm` porque es donde la navegación cambia de
+          // sitio**, y este número solo dice cuánto marco hay. Estuvo en `sm`
+          // mientras la barra de abajo se iba en 640; al llevarla a 768 —abajo de
+          // eso la cabecera no cabía y se comía el botón de la cuenta— este tope
+          // se quedó descontando una navegación que seguía ahí, y la rueda volvía
+          // a salirse entre 640 y 767 con la ventana baja. Si un día vuelve a
+          // moverse dónde está la navegación, esto se mueve con ella.
           //
           // **La barra de herramientas no se descuenta, se tapa.** Mientras eliges
           // tonalidad, esa fila no sirve para nada, y reservarle sus sesenta y un
@@ -121,7 +129,7 @@ export function Disclosure({
           // Sin `top` y con `bottom` no se arregla, aunque lo parezca: el
           // navegador resuelve entonces el alto por el contenido y sube el panel
           // hasta taparse el propio rótulo. Probado en la página.
-          className="bg-surface-raised border-border absolute inset-x-0 top-full z-30 max-h-[calc(100dvh-20rem)] overflow-y-auto border-b shadow-[var(--sombra-alta)] sm:max-h-[calc(100dvh-12rem)]"
+          className="bg-surface-raised border-border absolute inset-x-0 top-full z-30 max-h-[calc(100dvh-20rem)] overflow-y-auto border-b shadow-[var(--sombra-alta)] md:max-h-[calc(100dvh-12rem)]"
         >
           {children}
         </div>

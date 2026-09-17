@@ -52,8 +52,8 @@ diagramas grandes, y el significado de un color al lado del color.
   cumplían desde que existen, pero los botones sin texto no pasan por ellos y nadie
   los miraba: el conmutador de tema y los dos de la cuenta medían 36 px y el de
   grabar 32, los tres al lado de uno de 44 en la misma barra, y los enlaces de la
-  barra de pantallas se quedaban en 26 a partir de los 640 px, que es donde entran
-  las tabletas. Se piden con `size-tap`, que es el mismo `--spacing-tap` que
+  barra de pantallas se quedaban en 26 a partir de los 768 px, que es donde esa
+  barra entra. Se piden con `size-tap`, que es el mismo `--spacing-tap` que
   `min-h-tap`, y lo vigila `coherencia.test.ts` leyendo la clase **propia** de cada
   `<button>` y cada `<Link>` —la de dentro no, que un icono de `size-5` está bien—.
 - **Los 44 px valen también fuera de la aplicación y dentro de un SVG.** Es donde

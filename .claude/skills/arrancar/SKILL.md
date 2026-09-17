@@ -114,8 +114,17 @@ import { SONDA } from '/home/javie/projects/MusicAlApp/.claude/skills/arrancar/s
 const problemas = await page.evaluate(SONDA);
 ```
 
-Los tamaños que encuentran cosas son **320×568** y **1024×600**: el teléfono
-pequeño y el portátil bajo. Un 1920×1080 no enseña nada que no enseñen esos dos.
+Los tamaños que encuentran cosas son **320×568**, **700×600** y **1024×600**: el
+teléfono pequeño, la franja de la tableta y el portátil bajo. Un 1920×1080 no
+enseña nada que no enseñen esos tres.
+
+**El de en medio se añadió tarde y costó caro que faltara.** Aquí ponía que con el
+teléfono y el portátil bastaba, y no bastaba: entre 640 y 767 la cabecera de
+escritorio salía entera sin caber, se llevaba el botón de la cuenta por la derecha
+—el marco recorta y no desplaza— y **no había manera de cerrar la sesión** en toda
+esa franja. Ninguno de los dos tamaños de aquí pasaba por ahí. Lo que hay que
+recorrer no son los extremos, sino **los dos lados de cada punto de corte**: 640 y
+768 son donde esta aplicación cambia de navegación.
 
 Tres cosas que hay que saber o se mide humo:
 

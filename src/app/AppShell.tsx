@@ -126,7 +126,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           Caos ordenado
         </Link>
 
-        <nav aria-label="Pantallas" className="hidden items-center gap-1 sm:flex">
+        {/* Desde 768 y no desde 640, que es donde estaba y no cabía.
+
+            Entre los dos, la barra de arriba salía entera —marca, cuatro
+            pantallas con su rótulo y los tres botones redondos— y pedía unos
+            setecientos cincuenta píxeles. Lo que sobraba se iba por la derecha,
+            y como el marco de la aplicación recorta y no desplaza, **el botón de
+            la cuenta dejaba de existir**: en todo el tramo de 640 a 750 no había
+            manera de abrir tu cuenta ni de cerrar la sesión. Cae ahí una tableta
+            en vertical o media pantalla de un portátil, y también un 1280 con el
+            zoom al 200%, que en píxeles CSS son 640.
+
+            No hacía falta inventar nada: la barra de abajo ya es la navegación
+            de lo estrecho. Solo estaba cediéndole el sitio demasiado pronto. */}
+        <nav aria-label="Pantallas" className="hidden items-center gap-1 md:flex">
           {SCREENS.map((screen) => (
             <Link
               key={screen.href}
@@ -162,7 +175,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           anuncie dos veces la misma lista. */}
       <nav
         aria-label="Pantallas, abajo"
-        className="border-border bg-surface flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
+        className="border-border bg-surface flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {SCREENS.map((screen) => (
           <Link
