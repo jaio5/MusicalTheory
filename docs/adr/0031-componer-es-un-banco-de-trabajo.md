@@ -45,10 +45,19 @@ Tres cosas que hacen que esto no sea la cuadrícula de antes con otro nombre:
 - **Los controles de una cosa viven en esa cosa.** Cada área lleva su cabecera con
   su nombre y sus dos o tres mandos, en vez de un ajustes común donde hay que
   buscar de qué es cada interruptor.
-- **Los espacios de trabajo son modos, no solo disposiciones.** `Escribir` y
-  `Ensayar` cambian a la vez el reparto y lo que la pantalla hace, que es lo que
-  da una razón para volver: escribes una progresión y luego la tocas contra el
-  metrónomo.
+- **Los espacios de trabajo son modos, no solo disposiciones.** `Tocando`,
+  `Escribir` y `Ensayar` cambian a la vez el reparto y lo que la pantalla hace,
+  que es lo que da una razón para volver: escribes una progresión y luego la
+  tocas contra el metrónomo.
+- **Cada espacio trae su reparto de fábrica, y las áreas se pliegan.** Es lo que
+  arregla el problema que apareció en cuanto estuvo montado: con las cinco áreas
+  abiertas la pantalla se lee como un panel de control —cinco cosas pidiendo la
+  mirada y ninguna mandando—. Tocando hacen falta la rueda y el botón;
+  escribiendo, la canción, a dónde seguir y el acorde; ensayando, solo la
+  canción. Lo que sobra queda en una tira con su icono, a un clic de volver, y
+  lo que se mueva se recuerda **por espacio**. Quien no quiera montarse nada no
+  tiene que tocar un divisor en su vida; quien quiera, tiene «Reordenar» para
+  volver a como venía.
 
 **Lo que 0018 decidió sigue en pie.** El lienzo de bloques, las duraciones, las
 partes con su papel y las dos vistas del punteo de [ADR 0019](./0019-punteos-y-partitura.md)

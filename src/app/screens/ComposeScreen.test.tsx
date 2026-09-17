@@ -6,9 +6,9 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { pitchClassFromName } from '@core/music';
-import { useBancoStore } from '@state/banco';
+import { selectReparto, useBancoStore } from '@state/banco';
 import { useSessionStore } from '@state/session-store';
-import { DEFAULT_BANCO, loadPreferences } from '@state/workspace';
+import { loadPreferences, REPARTOS_DE_FABRICA } from '@state/workspace';
 
 import { ComposeScreen } from './ComposeScreen';
 
@@ -139,7 +139,9 @@ describe('Las areas del banco', () => {
     expect(screen.getByLabelText('Arreglo')).toBeInTheDocument();
     expect(screen.getByLabelText('Acorde')).toBeInTheDocument();
     expect(screen.getByLabelText('A dónde ir')).toBeInTheDocument();
-    expect(screen.getByLabelText('Tonalidad')).toBeInTheDocument();
+    // La tonalidad viene plegada en este espacio: el tono se elige una vez, y
+    // su tira sigue ahí para volver a abrirla de un clic.
+    expect(screen.getByRole('button', { name: 'Desplegar Tonalidad' })).toBeInTheDocument();
   });
 
   // Ya no hay conmutador: es lo que se retira, y si volviera sin querer este
@@ -205,7 +207,7 @@ describe('Repartir el banco', () => {
     divisor.focus();
     await userEvent.keyboard('{ArrowRight}');
 
-    expect(useBancoStore.getState().izquierda).toBe(antes + 1);
+    expect(selectReparto(useBancoStore.getState()).izquierda).toBe(antes + 1);
   });
 
   it('y el reparto se recuerda de una vez para otra', async () => {
@@ -215,7 +217,10 @@ describe('Repartir el banco', () => {
     divisor.focus();
     await userEvent.keyboard('{ArrowLeft}');
 
-    expect(loadPreferences().banco.izquierda).toBe(useBancoStore.getState().izquierda);
+    const espacio = useBancoStore.getState().espacio;
+    expect(loadPreferences().banco.repartos[espacio].izquierda).toBe(
+      selectReparto(useBancoStore.getState()).izquierda,
+    );
   });
 
   // `Inicio` y el doble clic hacen lo mismo: devolver la medida de fábrica.
@@ -226,7 +231,9 @@ describe('Repartir el banco', () => {
     divisor.focus();
     await userEvent.keyboard('{ArrowRight}{ArrowRight}{Home}');
 
-    expect(useBancoStore.getState().izquierda).toBe(DEFAULT_BANCO.izquierda);
+    expect(selectReparto(useBancoStore.getState()).izquierda).toBe(
+      REPARTOS_DE_FABRICA.tocando.izquierda,
+    );
   });
 });
 
@@ -305,6 +312,8 @@ describe('El area de abajo', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Sesiones' }));
 
-    expect(loadPreferences().banco.abajo).toBe('sesiones');
+    expect(loadPreferences().banco.repartos[useBancoStore.getState().espacio].abajo).toBe(
+      'sesiones',
+    );
   });
 });

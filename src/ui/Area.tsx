@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { Chevron } from './Chevron';
+
 /**
  * Un área del banco de trabajo: su cabecera fina y lo que hay dentro.
  *
@@ -18,6 +20,13 @@ import type { ReactNode } from 'react';
  * El `<section>` va con su nombre accesible aunque el título se vea: quien
  * navega por regiones necesita poder saltar de un área a otra, que es como se
  * usa esto con teclado.
+ *
+ * **Y se pliega a una tira.** Con las cinco áreas abiertas la pantalla se lee
+ * como un panel de control: cinco cosas pidiendo la mirada a la vez y ninguna
+ * mandando. Plegada, un área queda en una tira con su icono —lo justo para
+ * saber que está ahí y volver a abrirla de un clic— y le devuelve el sitio a lo
+ * que se está haciendo. Lo que decide cuáles vienen plegadas es el espacio de
+ * trabajo, que trae su reparto de fábrica.
  */
 export function Area({
   titulo,
@@ -26,6 +35,9 @@ export function Area({
   children,
   className = '',
   scroll = true,
+  plegada = false,
+  onPlegar,
+  pliegue = 'vertical',
 }: {
   readonly titulo: string;
   /** El dibujo del área, si lo tiene. Es decoración que orienta. */
@@ -41,7 +53,45 @@ export function Area({
    * que es una decisión que ya estaba tomada y aquí se respeta.
    */
   readonly scroll?: boolean;
+  /** Si está plegada a su tira. Lo decide quien la monta. */
+  readonly plegada?: boolean;
+  /** Plegarla y desplegarla. Sin esto, el área no se pliega. */
+  readonly onPlegar?: () => void;
+  /**
+   * Hacia dónde se pliega: una columna deja una tira de pie y una fila deja una
+   * barra tumbada.
+   */
+  readonly pliegue?: 'vertical' | 'horizontal';
 }) {
+  if (plegada && onPlegar !== undefined) {
+    const depie = pliegue === 'vertical';
+    return (
+      <button
+        type="button"
+        onClick={onPlegar}
+        aria-expanded={false}
+        aria-label={`Desplegar ${titulo}`}
+        title={`Desplegar ${titulo}`}
+        // La tira mide lo mismo que una cabecera, para que plegar no mueva de
+        // sitio las líneas de la pantalla. Y lleva `size-tap` de fondo: es un
+        // botón, y aquí los botones se pulsan con el dedo.
+        className={`bg-surface border-border text-text-muted hover:text-brass-bright hover:bg-surface-raised flex shrink-0 cursor-pointer items-center justify-center gap-2 transition-colors ${
+          depie ? 'min-w-tap w-7 flex-col border-r py-2' : 'min-h-tap w-full border-t px-2'
+        } ${className}`}
+      >
+        <span aria-hidden="true" className="[&_svg]:size-3.5">
+          {icono}
+        </span>
+        <span
+          aria-hidden="true"
+          className={`text-xs whitespace-nowrap ${depie ? '[writing-mode:vertical-rl]' : ''}`}
+        >
+          {titulo}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <section
       aria-label={titulo}
@@ -54,9 +104,21 @@ export function Area({
           </span>
         )}
         <h2 className="min-w-0 truncate text-xs font-medium">{titulo}</h2>
-        {mandos !== undefined && (
-          <div className="ml-auto flex shrink-0 items-center gap-1">{mandos}</div>
-        )}
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          {mandos}
+          {onPlegar !== undefined && (
+            <button
+              type="button"
+              onClick={onPlegar}
+              aria-expanded
+              aria-label={`Plegar ${titulo}`}
+              title={`Plegar ${titulo}`}
+              className="hover:text-brass-bright inline-flex cursor-pointer items-center px-1"
+            >
+              <Chevron className={`size-3 ${pliegue === 'vertical' ? 'rotate-90' : ''}`} />
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Columna flexible y no un bloque: lo que va dentro de un área suele ser

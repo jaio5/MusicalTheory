@@ -15,7 +15,7 @@ import { SongsPanel } from '@features/songs';
 import { VersionsPanel } from '@features/versions';
 import { BarraDeTonalidad, KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
-import { useBancoStore, type EditorDeAbajo } from '@state/banco';
+import { selectPlegada, selectReparto, useBancoStore, type EditorDeAbajo } from '@state/banco';
 import { useMontajeEnSuModo } from '@state/montaje-en-su-modo';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { TOPES_DEL_BANCO } from '@state/workspace';
@@ -124,11 +124,12 @@ export function ComposeScreen() {
 
   // Por porciones y no el objeto entero: el motor entrega veinte lecturas por
   // segundo y esta pantalla no puede repintarse veinte veces por segundo.
-  const izquierda = useBancoStore((state) => state.izquierda);
-  const derecha = useBancoStore((state) => state.derecha);
-  const alto = useBancoStore((state) => state.alto);
-  const abajo = useBancoStore((state) => state.abajo);
   const espacio = useBancoStore((state) => state.espacio);
+  const reparto = useBancoStore(selectReparto);
+  const { izquierda, derecha, alto, abajo } = reparto;
+  const plegadaIzquierda = useBancoStore(selectPlegada('izquierda'));
+  const plegadaDerecha = useBancoStore(selectPlegada('derecha'));
+  const plegadoElCamino = useBancoStore(selectPlegada('camino'));
   const accionesDelBanco = useBancoStore((state) => state.actions);
 
   // El reparto guardado se recupera después de pintar, como el tema: leerlo
@@ -167,7 +168,7 @@ export function ComposeScreen() {
   // mismo árbol sirve para el banco y para la columna apilada, y es Tailwind
   // quien decide cuál manda con su punto de corte. Con un `style` por columna
   // habría que pintar dos árboles y montar dos veces lo que hay dentro.
-  const reparto = {
+  const medidas = {
     '--banco-izquierda': `${izquierda}rem`,
     '--banco-derecha': `${derecha}rem`,
     '--banco-alto': `${alto}rem`,
@@ -209,6 +210,19 @@ export function ComposeScreen() {
               ))}
             </span>
             <Metronome />
+
+            {/* La salida para quien se lo ha dejado imposible. Un banco que se
+                mueve necesita una manera de volver, o plegar y arrastrar dan
+                miedo; y como el reparto es de este espacio, devolverlo no toca
+                los otros dos. */}
+            <button
+              type="button"
+              onClick={() => accionesDelBanco.devolverElReparto()}
+              className="text-text-muted hover:text-brass-bright min-h-tap hidden cursor-pointer items-center px-2 text-xs lg:inline-flex"
+              title="Devolver las áreas a como venían en este espacio"
+            >
+              Reordenar
+            </button>
           </div>
         }
       />
@@ -232,12 +246,16 @@ export function ComposeScreen() {
           es de lo que va un banco de trabajo. */}
       <div
         className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
-        style={reparto}
+        style={medidas}
       >
         <Area
           titulo="Tonalidad"
           icono={<IconoAfinar />}
-          className="border-border hidden lg:flex lg:w-[var(--banco-izquierda)] lg:shrink-0 lg:border-r"
+          plegada={plegadaIzquierda}
+          onPlegar={() => accionesDelBanco.plegar('izquierda')}
+          className={`border-border hidden lg:flex lg:shrink-0 lg:border-r ${
+            plegadaIzquierda ? '' : 'lg:w-[var(--banco-izquierda)]'
+          }`}
         >
           <div className="flex flex-col items-center gap-2 p-3 [&>*]:shrink-0">
             <KeyPanel compact />
@@ -250,16 +268,20 @@ export function ComposeScreen() {
           </div>
         </Area>
 
-        <Divisor
-          orientacion="vertical"
-          valor={izquierda}
-          min={TOPES_DEL_BANCO.izquierda.min}
-          max={TOPES_DEL_BANCO.izquierda.max}
-          etiqueta="Ancho de la tonalidad"
-          onCambio={(rem) => accionesDelBanco.mover('izquierda', rem)}
-          onDevolver={() => accionesDelBanco.devolver('izquierda')}
-          className="hidden lg:block"
-        />
+        {/* El divisor solo existe si hay algo que repartir: plegada, el área es
+            una tira fija y arrastrarla no significaría nada. */}
+        {!plegadaIzquierda && (
+          <Divisor
+            orientacion="vertical"
+            valor={izquierda}
+            min={TOPES_DEL_BANCO.izquierda.min}
+            max={TOPES_DEL_BANCO.izquierda.max}
+            etiqueta="Ancho de la tonalidad"
+            onCambio={(rem) => accionesDelBanco.mover('izquierda', rem)}
+            onDevolver={() => accionesDelBanco.devolver('izquierda')}
+            className="hidden lg:block"
+          />
+        )}
 
         {/* El centro: lo único que crece cuando crece la pantalla. */}
         <div className="flex min-h-0 grow flex-col">
@@ -296,35 +318,44 @@ export function ComposeScreen() {
             <Area
               titulo="A dónde ir"
               icono={<IconoTocar />}
+              plegada={plegadoElCamino}
+              onPlegar={() => accionesDelBanco.plegar('camino')}
+              pliegue="horizontal"
               // Pide trece rem, pero **cede**: al abrir el área de abajo el alto
               // no da para todos, y lo que no puede encogerse es el arreglo.
               // Esta lista se desplaza por dentro, así que perder altura aquí no
               // esconde nada; plantarse dejaba el lienzo en setenta píxeles y su
               // barra fuera de alcance.
-              className="border-border min-h-16 shrink basis-52 border-t"
+              className={plegadoElCamino ? '' : 'border-border min-h-16 shrink basis-52 border-t'}
             >
               <NextChords />
             </Area>
           )}
         </div>
 
-        <Divisor
-          orientacion="vertical"
-          valor={derecha}
-          min={TOPES_DEL_BANCO.derecha.min}
-          max={TOPES_DEL_BANCO.derecha.max}
-          sentido={-1}
-          etiqueta="Ancho del acorde"
-          onCambio={(rem) => accionesDelBanco.mover('derecha', rem)}
-          onDevolver={() => accionesDelBanco.devolver('derecha')}
-          className="hidden lg:block"
-        />
+        {!plegadaDerecha && activeKey !== null && (
+          <Divisor
+            orientacion="vertical"
+            valor={derecha}
+            min={TOPES_DEL_BANCO.derecha.min}
+            max={TOPES_DEL_BANCO.derecha.max}
+            sentido={-1}
+            etiqueta="Ancho del acorde"
+            onCambio={(rem) => accionesDelBanco.mover('derecha', rem)}
+            onDevolver={() => accionesDelBanco.devolver('derecha')}
+            className="hidden lg:block"
+          />
+        )}
 
         {activeKey !== null && (
           <Area
             titulo="Acorde"
             icono={<IconoMastil />}
-            className="border-border border-t lg:w-[var(--banco-derecha)] lg:shrink-0 lg:border-t-0 lg:border-l"
+            plegada={plegadaDerecha}
+            onPlegar={() => accionesDelBanco.plegar('derecha')}
+            className={`border-border border-t lg:shrink-0 lg:border-t-0 lg:border-l ${
+              plegadaDerecha ? '' : 'lg:w-[var(--banco-derecha)]'
+            }`}
           >
             {/* Arriba lo que has elegido tú, abajo lo que estás tocando. Cada
                 cosa tiene su sitio fijo, así que al soltar las cuerdas nada se

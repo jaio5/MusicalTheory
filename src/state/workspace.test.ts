@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_BANCO, DEFAULT_PREFERENCES, parsePreferences } from './workspace';
+import {
+  DEFAULT_BANCO,
+  DEFAULT_PREFERENCES,
+  parsePreferences,
+  REPARTOS_DE_FABRICA,
+} from './workspace';
 
 describe('Preferencias', () => {
   it('recupera estilo, escala y afinación', () => {
@@ -67,11 +72,17 @@ describe('Preferencias', () => {
    */
   it('del reparto guardado se queda lo que vale y lo demas sale de fabrica', () => {
     const banco = parsePreferences({
-      banco: { izquierda: 26, derecha: 'ancha', espacio: 'inventado' },
+      banco: {
+        espacio: 'inventado',
+        repartos: { escribir: { izquierda: 26, derecha: 'ancha', plegadas: ['inventada'] } },
+      },
     }).banco;
 
-    expect(banco.izquierda).toBe(26);
-    expect(banco.derecha).toBe(DEFAULT_BANCO.derecha);
+    expect(banco.repartos.escribir.izquierda).toBe(26);
+    expect(banco.repartos.escribir.derecha).toBe(REPARTOS_DE_FABRICA.escribir.derecha);
+    expect(banco.repartos.escribir.plegadas).toEqual([]);
     expect(banco.espacio).toBe(DEFAULT_BANCO.espacio);
+    // Y los espacios que no venían guardados salen de fábrica, no vacíos.
+    expect(banco.repartos.tocando).toEqual(REPARTOS_DE_FABRICA.tocando);
   });
 });

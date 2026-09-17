@@ -32,44 +32,62 @@ export interface PinnedKey {
  * Los anchos van en **rem y no en píxeles** porque lo que hay dentro se mide en
  * rem: guardando píxeles, quien sube el tamaño de letra del navegador se
  * encuentra las columnas donde estaban y el contenido sin caber.
+ *
+ * **Y hay un reparto por espacio de trabajo, no uno solo.** Las tres maneras de
+ * escribir no necesitan lo mismo delante: tocando hace falta la rueda y poco
+ * más; escribiendo, la canción y a dónde seguir; ensayando, solo la canción. Con
+ * un reparto único, cada modo enseñaba las cinco áreas y la pantalla se leía
+ * como un panel de control. Es la idea de los espacios de trabajo de siempre:
+ * **vienen repartidos de fábrica** para quien no quiere montarse nada, y quien
+ * quiera los mueve y se le recuerdan.
  */
-export interface BancoLayout {
-  /**
-   * En cuál de las tres maneras de escribir estás: tocando, por bloques y
-   * partitura, o ensayando lo escrito.
-   */
-  readonly espacio: 'tocando' | 'escribir' | 'ensayar';
+export type EspacioDeTrabajo = 'tocando' | 'escribir' | 'ensayar';
+
+/** Las áreas que se pueden plegar a su tira. La de abajo se cierra, no se pliega. */
+export type AreaPlegable = 'izquierda' | 'derecha' | 'camino';
+
+export interface RepartoDeAreas {
   readonly izquierda: number;
   readonly derecha: number;
+  readonly alto: number;
   /** Qué editor hay abierto abajo, o nulo si está cerrada. */
   readonly abajo: string | null;
-  readonly alto: number;
+  /** Las que están plegadas a su tira de icono. */
+  readonly plegadas: readonly AreaPlegable[];
 }
 
-export interface WorkspacePreferences {
-  readonly styleId: StyleId;
-  readonly scaleId: ScaleId;
-  readonly tuningId: TuningId;
-  readonly pinnedKey: PinnedKey | null;
-  readonly banco: BancoLayout;
+export interface BancoLayout {
+  readonly espacio: EspacioDeTrabajo;
+  readonly repartos: Readonly<Record<EspacioDeTrabajo, RepartoDeAreas>>;
 }
+
+/** Las medidas, que son las mismas en los tres espacios. */
+const MEDIDAS = { izquierda: 20, derecha: 23, alto: 16 } as const;
 
 /**
- * El reparto de fábrica.
+ * Los tres repartos de fábrica, y por qué cada uno enseña lo que enseña.
  *
- * El área de abajo empieza **cerrada** y no con el mástil puesto: en un portátil
- * de 768 de alto son doscientos y pico píxeles que no ha pedido nadie, y abrirla
- * cuesta un clic. Lo que no cuesta un clic es entender por qué la canción se ve
- * a la mitad la primera vez que entras.
+ * El área de abajo empieza **cerrada** en los tres: en un portátil de 768 de
+ * alto son doscientos y pico píxeles que no ha pedido nadie, y abrirla cuesta un
+ * clic. Lo que no cuesta un clic es entender por qué la canción se ve a la mitad
+ * la primera vez que entras.
  */
+export const REPARTOS_DE_FABRICA: Readonly<Record<EspacioDeTrabajo, RepartoDeAreas>> = {
+  // Tocando solo hace falta saber en qué tonalidad estás y darle al botón. El
+  // acorde y a dónde ir son para cuando ya hay algo escrito.
+  tocando: { ...MEDIDAS, abajo: null, plegadas: ['derecha', 'camino'] },
+  // Escribiendo manda la canción, y al lado lo que se mira mientras se escribe:
+  // el acorde y a dónde seguir. La rueda ya cumplió: el tono se elige una vez.
+  escribir: { ...MEDIDAS, abajo: null, plegadas: ['izquierda'] },
+  // Ensayando no se decide nada: se toca lo que hay. Todo lo demás estorba.
+  ensayar: { ...MEDIDAS, abajo: null, plegadas: ['izquierda', 'derecha', 'camino'] },
+};
+
 export const DEFAULT_BANCO: BancoLayout = {
   // Se entra por tocar: es por donde se empieza una canción, y es la manera que
   // este proyecto tenía construida y escondida detrás de dos pasos.
   espacio: 'tocando',
-  izquierda: 20,
-  derecha: 23,
-  abajo: null,
-  alto: 16,
+  repartos: REPARTOS_DE_FABRICA,
 };
 
 /** Lo que puede medir cada área, en rem. Fuera de esto no se guarda. */
@@ -78,6 +96,14 @@ export const TOPES_DEL_BANCO = {
   derecha: { min: 15, max: 38 },
   alto: { min: 9, max: 32 },
 } as const;
+
+export interface WorkspacePreferences {
+  readonly styleId: StyleId;
+  readonly scaleId: ScaleId;
+  readonly tuningId: TuningId;
+  readonly pinnedKey: PinnedKey | null;
+  readonly banco: BancoLayout;
+}
 
 export const DEFAULT_PREFERENCES: WorkspacePreferences = {
   styleId: 'rock',
@@ -130,17 +156,58 @@ function parseBanco(raw: unknown): BancoLayout {
   }
   const record = raw as Record<string, unknown>;
   const espacio = record['espacio'];
-  const abajo = record['abajo'];
+  const guardados = record['repartos'];
+  const repartos =
+    typeof guardados === 'object' && guardados !== null && !Array.isArray(guardados)
+      ? (guardados as Record<string, unknown>)
+      : {};
 
   return {
-    espacio:
-      espacio === 'ensayar' || espacio === 'escribir' || espacio === 'tocando'
-        ? espacio
-        : DEFAULT_BANCO.espacio,
-    izquierda: medida(record['izquierda'], TOPES_DEL_BANCO.izquierda, DEFAULT_BANCO.izquierda),
-    derecha: medida(record['derecha'], TOPES_DEL_BANCO.derecha, DEFAULT_BANCO.derecha),
+    espacio: esEspacio(espacio) ? espacio : DEFAULT_BANCO.espacio,
+    repartos: {
+      tocando: parseReparto(repartos['tocando'], REPARTOS_DE_FABRICA.tocando),
+      escribir: parseReparto(repartos['escribir'], REPARTOS_DE_FABRICA.escribir),
+      ensayar: parseReparto(repartos['ensayar'], REPARTOS_DE_FABRICA.ensayar),
+    },
+  };
+}
+
+function esEspacio(raw: unknown): raw is EspacioDeTrabajo {
+  return raw === 'tocando' || raw === 'escribir' || raw === 'ensayar';
+}
+
+const PLEGABLES: readonly AreaPlegable[] = ['izquierda', 'derecha', 'camino'];
+
+/**
+ * Un reparto guardado, medida a medida.
+ *
+ * Cada una se comprueba y se acota por separado en vez de descartar el objeto
+ * entero: si un día se añade un área más, lo guardado por la versión anterior
+ * **sigue valiendo para las que ya había**. Descartarlo entero convertiría cada
+ * campo nuevo en un reparto perdido para todo el mundo.
+ *
+ * Y se acota al leer, no solo al escribir: un ancho de nueve mil deja un área
+ * que tapa la pantalla y ningún divisor a mano para arreglarlo.
+ */
+function parseReparto(raw: unknown, porDefecto: RepartoDeAreas): RepartoDeAreas {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return porDefecto;
+  }
+  const record = raw as Record<string, unknown>;
+  const abajo = record['abajo'];
+  const plegadas = record['plegadas'];
+
+  return {
+    izquierda: medida(record['izquierda'], TOPES_DEL_BANCO.izquierda, porDefecto.izquierda),
+    derecha: medida(record['derecha'], TOPES_DEL_BANCO.derecha, porDefecto.derecha),
+    alto: medida(record['alto'], TOPES_DEL_BANCO.alto, porDefecto.alto),
     abajo: typeof abajo === 'string' && abajo !== '' ? abajo : null,
-    alto: medida(record['alto'], TOPES_DEL_BANCO.alto, DEFAULT_BANCO.alto),
+    // Lo que no se reconozca se cae, y lo que se repita cuenta una vez: un área
+    // plegada dos veces no es nada, pero un nombre inventado dejaría una tira
+    // sin nada que desplegar.
+    plegadas: Array.isArray(plegadas)
+      ? PLEGABLES.filter((area) => plegadas.includes(area))
+      : porDefecto.plegadas,
   };
 }
 
