@@ -82,9 +82,18 @@ En marcha. Lo decidido está en [adr/0031](./adr/0031-componer-es-un-banco-de-tr
 [adr/0033](./adr/0033-el-copiloto-propone-y-no-escribe.md); esto es lo que queda
 por hacer, en el orden en que se hace.
 
-- **Repeticiones por parte en el dominio.** `|: :|` con vueltas, contadas por
-  `arrangementBeats`. Es lo único que le falta al arreglo para que una canción de
-  rock quepa entera.
+- ~~**Repeticiones por parte en el dominio.**~~ Hecho: `|: :|` con vueltas,
+  contadas por `arrangementBeats`, y repetir es sonido y no papel.
+- **Componer tocando, en un solo gesto.** Está construido entero y no se
+  encuentra: `captureProgression`, `captureMelody` y `partFromCapture` ya
+  convierten lo que suena en una parte con sus acordes y su punteo, pero detrás
+  de un botón del lienzo llamado «apuntar» y en dos pasos. Sube a la barra de
+  arriba como espacio de trabajo, se pulsa una vez y de paso **se graba el
+  sonido** ([adr/0034](./adr/0034-tres-maneras-de-escribir-la-misma-cancion.md)).
+- **Un micrófono compartido entre analizar y grabar.** Hoy son dos
+  `getUserMedia`: `audio/` abre el suyo para el tono y el croma, y `media/` el
+  suyo para los bytes. Funciona y no empeora nada, pero lo correcto es que las
+  dos capas compartan un `MediaStream`. Es fontanería y tiene su propio paso.
 - **La puntuación del ensayo, en `core/`.** Dado el arreglo y lo que oyó el
   croma: acertados sobre el total, racha más larga y el compás peor. Puro, se
   prueba sin React y sin audio.

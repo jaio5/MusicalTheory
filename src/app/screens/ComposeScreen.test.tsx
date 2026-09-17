@@ -100,9 +100,34 @@ describe('Componer en una pantalla estrecha', () => {
  * ([adr/0031](../../../docs/adr/0031-componer-es-un-banco-de-trabajo.md)).
  */
 describe('Las areas del banco', () => {
+  /**
+   * Con tonalidad y **en `Escribir`**: se entra por `Tocando`, que es donde se
+   * empieza una canción, y allí el centro es el micro y no el arreglo.
+   */
   function conTonalidad(): void {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
   }
+
+  // Por donde se entra: componer tocando estaba construido y escondido detrás de
+  // dos pasos, y ahora es la primera puerta.
+  it('se entra por tocando, que es por donde se empieza una cancion', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    render(<ComposeScreen />);
+
+    expect(screen.getByLabelText('Tocando')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Arreglo')).not.toBeInTheDocument();
+  });
+
+  it('y de ahi se pasa a escribir, que es la misma cancion por bloques', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Escribir' }));
+
+    expect(screen.getByLabelText('Arreglo')).toBeInTheDocument();
+  });
 
   it('la cancion, el acorde y a donde ir se ven a la vez', () => {
     conTonalidad();
@@ -150,6 +175,7 @@ describe('Las areas del banco', () => {
    */
   it('sin tonalidad, solo se dice por donde empezar', () => {
     useSessionStore.getState().actions.reset();
+    useBancoStore.getState().actions.espacio('escribir');
 
     render(<ComposeScreen />);
 

@@ -5,11 +5,8 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
   GRID,
-  DUDOSO,
   arrangementBeats,
   barsLabel,
-  captureMelody,
-  captureProgression,
   degreesFor,
   drawnBars,
   NOTE_LENGTHS,
@@ -23,14 +20,12 @@ import {
   nextNotes,
   lastDegreeOf,
   nextDegrees,
-  keyName,
   blockChord,
   resolveDegree,
-  type Capture,
   type DegreeSymbol,
-  type MelodyCapture,
   type SeventhQuality,
 } from '@core/music';
+import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
 import { Button } from '@ui/Button';
@@ -72,76 +67,6 @@ import { useBlockDrag, type Medida } from './use-block-drag';
  * cara. Cambiar de tonalidad en la rueda cambia todos los bloques a la vez sin
  * tocar el montaje, porque lo que hay guardado son grados.
  */
-
-/**
- * Qué contar de una grabación recién traída.
- *
- * **Lo que no se pudo leer importa más que lo que sí.** Un compás que se cayó es
- * un agujero en la canción que nadie va a notar mirando el lienzo, porque lo que
- * falta no se ve; y cuando lo que se cae son varios acordes con la misma pinta,
- * casi siempre significa lo mismo: la tonalidad que se detectó no es la que se
- * estaba tocando. Decirlo aquí ahorra volver a grabar sin saber por qué salió
- * mal.
- *
- * Lo dudoso se cuenta aparte y sin alarmar: esos sí están en el lienzo, marcados
- * y con su corrección a un toque.
- */
-function avisoDeLaCaptura(
-  capture: Capture,
-  punteo: MelodyCapture,
-  tonalidad: string,
-): string | null {
-  const partes: string[] = [];
-
-  if (punteo.notes.length > 0) {
-    partes.push(
-      punteo.notes.length === 1
-        ? 'He apuntado 1 nota de punteo.'
-        : `He apuntado ${punteo.notes.length} notas de punteo.`,
-    );
-  }
-
-  if (capture.unread.length > 0) {
-    const fuera = capture.unread.filter((tramo) => tramo.reason === 'fuera');
-    const cifrados = [...new Set(fuera.map((tramo) => tramo.symbol))].filter(
-      (symbol): symbol is string => symbol !== null,
-    );
-
-    if (cifrados.length > 0) {
-      partes.push(
-        `${fuera.length === 1 ? 'Un acorde no cabe' : `${fuera.length} acordes no caben`} en ` +
-          `${tonalidad}: ${cifrados.join(', ')}. Si ${fuera.length === 1 ? 'lo tocaste' : 'los tocaste'} ` +
-          'a propósito, prueba a cambiar la tonalidad y a traerlo otra vez.',
-      );
-    }
-
-    const ilegibles = capture.unread.length - fuera.length;
-    if (ilegibles > 0) {
-      partes.push(
-        ilegibles === 1
-          ? 'Hubo un momento que no se parecía a ningún acorde y se ha quedado fuera.'
-          : `Hubo ${ilegibles} momentos que no se parecían a ningún acorde y se han quedado fuera.`,
-      );
-    }
-  }
-
-  if (punteo.outOfRange > 0) {
-    partes.push(
-      `${punteo.outOfRange === 1 ? 'Una nota se salía' : `${punteo.outOfRange} notas se salían`} ` +
-        'de lo que cabe en el pentagrama y no se ha escrito.',
-    );
-  }
-
-  const dudosos = capture.steps.filter((step) => step.confidence < DUDOSO).length;
-  if (dudosos > 0) {
-    partes.push(
-      `${dudosos === 1 ? 'Hay 1 acorde' : `Hay ${dudosos} acordes`} de los que no estoy seguro: ` +
-        'salen marcados con «?» y se corrigen pulsándolos.',
-    );
-  }
-
-  return partes.length === 0 ? null : partes.join(' ');
-}
 
 /** Cuántos acordes se proponen. Más de seis dejan de mirarse. */
 const CUANTAS_SUGERENCIAS = 6;
@@ -762,43 +687,15 @@ export function ArrangeCanvas() {
     if (tonic === null) {
       return;
     }
-    const capture = captureProgression(captured, {
-      tonic,
-      mode,
-      bpm,
-      endedAt: captureEndedAt,
-      beatsPerBar,
-    });
-    /**
-     * El punteo se lee del historial de notas, que el motor de tono viene
-     * llenando desde que se abre el micro. Se recorta al tramo apuntado: lo que
-     * sonó antes de darle a apuntar no es parte de esta grabación.
-     */
-    const punteo = captureMelody(noteHistory, {
-      tonic,
-      bpm,
-      startedAt: captureStartedAt,
-      endedAt: captureEndedAt,
-    });
-
-    if (capture.steps.length === 0 && punteo.notes.length === 0) {
-      setAviso('No he podido leer ni un acorde ni una nota de lo que has tocado.');
-      return;
+    // La conversión vive en `state/apuntar-lo-tocado.ts` porque la comparten dos
+    // entradas: este botón y el espacio de trabajo de tocar. Escrita dos veces,
+    // una de las dos se quedaría sin la corrección del día que haga falta.
+    const { partId, aviso } = apuntarLoTocado({ tonic, mode, bpm, beatsPerBar });
+    if (partId !== null) {
+      setActivePartId(partId);
     }
-
-    setActivePartId(acciones.addRecorded(capture.steps, 'Lo que has tocado', punteo.notes));
-    setAviso(avisoDeLaCaptura(capture, punteo, keyName(tonic, mode)));
-  }, [
-    acciones,
-    beatsPerBar,
-    bpm,
-    captureEndedAt,
-    captureStartedAt,
-    captured,
-    mode,
-    noteHistory,
-    tonic,
-  ]);
+    setAviso(aviso);
+  }, [beatsPerBar, bpm, mode, tonic]);
 
   /**
    * El bloque elegido, si es uno del que hay que preguntar.

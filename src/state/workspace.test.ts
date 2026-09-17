@@ -72,6 +72,6 @@ describe('Preferencias', () => {
 
     expect(banco.izquierda).toBe(26);
     expect(banco.derecha).toBe(DEFAULT_BANCO.derecha);
-    expect(banco.espacio).toBe('escribir');
+    expect(banco.espacio).toBe(DEFAULT_BANCO.espacio);
   });
 });

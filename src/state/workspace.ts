@@ -34,7 +34,11 @@ export interface PinnedKey {
  * encuentra las columnas donde estaban y el contenido sin caber.
  */
 export interface BancoLayout {
-  readonly espacio: 'escribir' | 'ensayar';
+  /**
+   * En cuál de las tres maneras de escribir estás: tocando, por bloques y
+   * partitura, o ensayando lo escrito.
+   */
+  readonly espacio: 'tocando' | 'escribir' | 'ensayar';
   readonly izquierda: number;
   readonly derecha: number;
   /** Qué editor hay abierto abajo, o nulo si está cerrada. */
@@ -59,7 +63,9 @@ export interface WorkspacePreferences {
  * a la mitad la primera vez que entras.
  */
 export const DEFAULT_BANCO: BancoLayout = {
-  espacio: 'escribir',
+  // Se entra por tocar: es por donde se empieza una canción, y es la manera que
+  // este proyecto tenía construida y escondida detrás de dos pasos.
+  espacio: 'tocando',
   izquierda: 20,
   derecha: 23,
   abajo: null,
@@ -127,7 +133,10 @@ function parseBanco(raw: unknown): BancoLayout {
   const abajo = record['abajo'];
 
   return {
-    espacio: espacio === 'ensayar' ? 'ensayar' : DEFAULT_BANCO.espacio,
+    espacio:
+      espacio === 'ensayar' || espacio === 'escribir' || espacio === 'tocando'
+        ? espacio
+        : DEFAULT_BANCO.espacio,
     izquierda: medida(record['izquierda'], TOPES_DEL_BANCO.izquierda, DEFAULT_BANCO.izquierda),
     derecha: medida(record['derecha'], TOPES_DEL_BANCO.derecha, DEFAULT_BANCO.derecha),
     abajo: typeof abajo === 'string' && abajo !== '' ? abajo : null,

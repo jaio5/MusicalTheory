@@ -3,7 +3,7 @@
 import { useEffect, type CSSProperties } from 'react';
 
 import { keyName, type ScaleId } from '@core/music';
-import { ArrangeCanvas } from '@features/arrange';
+import { ArrangeCanvas, TocarParaEscribir } from '@features/arrange';
 import { FretboardPanel } from '@features/fretboard';
 import { GananciaAlComponer, useProgress } from '@features/learn';
 import { IdeasPanel } from '@features/ideas';
@@ -30,6 +30,7 @@ import {
   IconoComponer,
   IconoIdeas,
   IconoMastil,
+  IconoMicro,
   IconoPunto,
   IconoSalidas,
   IconoSesiones,
@@ -72,7 +73,16 @@ const EDITORES: readonly Editor[] = [
   { id: 'sesiones', name: 'Sesiones', Icono: IconoSesiones, render: SessionsPanel },
 ];
 
+/**
+ * Los espacios de trabajo: **tres maneras de escribir la misma canción**.
+ *
+ * `Tocando` va primero porque es por donde se empieza y porque es la que estaba
+ * construida y escondida
+ * ([adr/0034](../../../docs/adr/0034-tres-maneras-de-escribir-la-misma-cancion.md)).
+ * No son vistas distintas de la canción: son entradas distintas a la misma.
+ */
 const ESPACIOS = [
+  { id: 'tocando', name: 'Tocando', Icono: IconoMicro },
   { id: 'escribir', name: 'Escribir', Icono: IconoComponer },
   { id: 'ensayar', name: 'Ensayar', Icono: IconoTocar },
 ] as const;
@@ -167,7 +177,11 @@ export function ComposeScreen() {
     <div className="flex h-full min-h-0 flex-col">
       <WorkHeader
         title="Componer"
-        lead="Escribe la canción, mírala acorde a acorde y escúchala."
+        lead={
+          espacio === 'tocando'
+            ? 'Toca, y lo que suena se escribe solo.'
+            : 'Escribe la canción, mírala acorde a acorde y escúchala.'
+        }
         actions={
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {/* Los espacios de trabajo antes que el metrónomo: son lo que cambia
@@ -242,8 +256,8 @@ export function ComposeScreen() {
         {/* El centro: lo único que crece cuando crece la pantalla. */}
         <div className="flex min-h-0 grow flex-col">
           <Area
-            titulo="Arreglo"
-            icono={<IconoComponer />}
+            titulo={espacio === 'tocando' ? 'Tocando' : 'Arreglo'}
+            icono={espacio === 'tocando' ? <IconoMicro /> : <IconoComponer />}
             scroll={false}
             // Suelo, porque es lo único que no se desplaza por dentro: lo que
             // no le quepa al lienzo se recorta y deja su barra sin alcanzar.
@@ -259,6 +273,8 @@ export function ComposeScreen() {
                   <EmpezarPorTonalidad />
                 </div>
               </div>
+            ) : espacio === 'tocando' ? (
+              <TocarParaEscribir onEscrito={() => accionesDelBanco.espacio('escribir')} />
             ) : (
               <ArrangeCanvas />
             )}
