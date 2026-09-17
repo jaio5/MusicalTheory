@@ -156,6 +156,8 @@ export function CurrentChord({
   const current = path.at(-1) ?? null;
 
   const [sonando, setSonando] = useState(false);
+  /** Por qué acorde va la reproducción, para encenderlo en la tira. */
+  const [pasoSonando, setPasoSonando] = useState<number | null>(null);
 
   const { pedir, parar } = useProgressionPlayer(createPlayer);
 
@@ -174,16 +176,22 @@ export function CurrentChord({
     if (sonando) {
       parar();
       setSonando(false);
+      setPasoSonando(null);
       return;
     }
 
     setSonando(true);
+    setPasoSonando(null);
     await pedir().play(
       scheduleProgression(
         path.map((chord) => ({ root: chord.root, notes: chord.notes, beats: 2 })),
         bpm,
       ),
+      // El reproductor ya dice por qué acorde va: se usa para encenderlo en la
+      // tira. Estaba llegando y se tiraba, y mirar una progresión sonar sin ver
+      // dónde va es la mitad de la gracia de poder oírla.
       (index) => {
+        setPasoSonando(index);
         if (index === null) {
           setSonando(false);
         }
@@ -244,22 +252,55 @@ export function CurrentChord({
             aria-label="Progresión"
             className="flex min-w-0 grow items-center gap-1 overflow-x-auto"
           >
-            {path.map((chord, index) => (
-              <li key={`${chord.symbol}-${index}`} className="flex shrink-0 items-center gap-1">
-                {index > 0 && <span className="text-text-muted text-xs">→</span>}
-                <button
-                  type="button"
-                  onClick={() => actions.trimPath(index)}
-                  className={`cursor-pointer px-1 py-0.5 font-mono text-sm ${
-                    index === path.length - 1
-                      ? 'text-brass-bright'
-                      : 'text-text-muted hover:text-text'
-                  }`}
-                >
-                  {chord.symbol}
-                </button>
-              </li>
-            ))}
+            {path.map((chord, index) => {
+              const ultimo = index === path.length - 1;
+              const suena = pasoSonando === index;
+              return (
+                <li key={`${chord.symbol}-${index}`} className="flex shrink-0 items-center gap-1">
+                  {index > 0 && (
+                    <span className="text-text-muted text-xs" aria-hidden="true">
+                      →
+                    </span>
+                  )}
+                  {/*
+                    Cada acorde, del tamaño de un dedo y diciendo qué pasa al
+                    pulsarlo.
+
+                    Medían **dieciséis por veinticuatro**, sin nombre propio, y
+                    al pulsarlos cortan la progresión por ahí. Tres cosas malas a
+                    la vez: en un teléfono no se aciertan; si se aciertan, se
+                    pierde la cola sin haber pedido nada; y quien no ve la
+                    pantalla solo oía la letra del acorde, que no dice que sea un
+                    botón de cortar.
+
+                    El grado debajo no es adorno: es el vocabulario que esta
+                    aplicación enseña, y aquí sale gratis decirlo.
+                  */}
+                  <button
+                    type="button"
+                    onClick={() => actions.trimPath(index)}
+                    aria-label={
+                      ultimo
+                        ? `${chord.symbol}, ${chord.label}, el último`
+                        : `Cortar después de ${chord.symbol}, ${chord.label}`
+                    }
+                    title={ultimo ? chord.why : `Cortar aquí y quitar lo que viene después`}
+                    className={`min-h-tap min-w-tap flex cursor-pointer flex-col items-center justify-center rounded-md px-2 leading-tight transition-colors ${
+                      suena
+                        ? 'bg-brass-dim/30 text-brass-bright'
+                        : ultimo
+                          ? 'text-brass-bright hover:bg-surface-raised'
+                          : 'text-text-muted hover:text-text hover:bg-surface-raised'
+                    }`}
+                  >
+                    <span className="font-mono text-sm">{chord.symbol}</span>
+                    <span className="font-mono text-[10px] opacity-70" aria-hidden="true">
+                      {chord.label}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ol>
           <button
             type="button"

@@ -6,8 +6,9 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import type { Account } from '@core/billing';
-import { pitchClassFromName } from '@core/music';
+import { pitchClassFromName, type ScaleId } from '@core/music';
 import { AccountProvider } from '@state/account';
+import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
 import { ideasError, type IdeasRequest } from './contract';
@@ -107,7 +108,11 @@ describe('Panel de ideas', () => {
     await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
 
     expect(await screen.findByText('Bajar por tonos')).toBeInTheDocument();
-    expect(screen.getByText('Am · G · F')).toBeInTheDocument();
+    // Cada acorde va en su propio hueco, que es lo que permite encender el que
+    // suena mientras se escucha la idea.
+    for (const acorde of ['Am', 'G', 'F']) {
+      expect(screen.getByText(acorde)).toBeInTheDocument();
+    }
     expect(screen.getByText(/evita la sensible/i)).toBeInTheDocument();
   });
 
@@ -338,5 +343,126 @@ describe('mientras piensa', () => {
 
     expect(screen.getByRole('button', { name: /pensando/i })).toBeDisabled();
     contestar(respondWith({ ideas: [] }));
+  });
+});
+
+/**
+ * La escala que propone una idea, dibujada y pulsable.
+ *
+ * Era una línea de texto: «Pentatónica menor de La». Para probarla había que
+ * salir de aquí, abrir el mástil y buscarla en el desplegable, y a quien no se
+ * sabe las escalas de memoria el nombre solo no le decía nada.
+ */
+describe('la escala que se propone', () => {
+  const IDEA_DE_ESCALA = {
+    ideas: [{ title: 'Prueba la menor armónica', why: 'El V aprieta.', scale: 'harmonicMinor' }],
+  };
+
+  async function pedirLaEscala(onIrALaEscala?: (scaleId: ScaleId) => void) {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+    render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={async () => respondWith(IDEA_DE_ESCALA)}
+          {...(onIrALaEscala === undefined ? {} : { onIrALaEscala })}
+        />,
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /qué escala meter encima/i }));
+  }
+
+  it('se ve dibujada, y el dibujo dice cuál es para quien no la ve', async () => {
+    await pedirLaEscala(() => undefined);
+
+    expect(
+      await screen.findByRole('img', {
+        name: /menor armónica de A, en los cinco primeros trastes/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('al pulsarla, quien monta el panel se entera de a cuál hay que ir', async () => {
+    const ido: ScaleId[] = [];
+    await pedirLaEscala((scaleId) => ido.push(scaleId));
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /ponerla y verla en el mástil/i }),
+    );
+
+    expect(ido).toEqual(['harmonicMinor']);
+  });
+
+  // Fuera de componer no hay mástil que abrir, así que se queda en el nombre y
+  // no se ofrece un botón que no llevaría a ninguna parte.
+  it('sin sitio a donde ir, se dice con palabras y no se finge un botón', async () => {
+    await pedirLaEscala();
+
+    expect(await screen.findByText(/menor armónica de A/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /ponerla y verla en el mástil/i }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Una idea que no se puede probar no es una idea, es un párrafo.
+ *
+ * La IA proponía tres progresiones razonadas y ahí se acababa todo: para oír una
+ * había que ir pulsándola a mano en la rueda, acorde por acorde, y para quedarse
+ * con ella había que montarla otra vez en el lienzo.
+ */
+describe('probar una progresión propuesta', () => {
+  const UNA = {
+    ideas: [
+      {
+        title: 'El bucle girado',
+        why: 'Empieza por el vi.',
+        degrees: ['vi', 'IV', 'I', 'V'],
+        chords: ['Am', 'F', 'C', 'G'],
+      },
+    ],
+  };
+
+  async function pedirla() {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    const sonadas: unknown[][] = [];
+    render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={async () => respondWith(UNA)}
+          createPlayer={() => ({
+            play: async (steps) => {
+              sonadas.push([...steps]);
+            },
+            stop: () => undefined,
+            dispose: async () => undefined,
+          })}
+        />,
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+    return sonadas;
+  }
+
+  it('se escucha en la tonalidad que hay puesta, no en una de libro', async () => {
+    const sonadas = await pedirla();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Escuchar' }));
+
+    // Cuatro acordes, y el primero es el vi de Do mayor: La menor.
+    expect(sonadas).toHaveLength(1);
+    expect(sonadas[0]).toHaveLength(4);
+  });
+
+  it('entra en la canción como una parte nueva, sin llevarse nada por delante', async () => {
+    const antes = useArrangementStore.getState().arrangement.parts.length;
+    await pedirla();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'A la canción' }));
+
+    const partes = useArrangementStore.getState().arrangement.parts;
+    expect(partes).toHaveLength(antes + 1);
+    expect(partes[partes.length - 1]?.blocks.map((b) => b.degree)).toEqual(['vi', 'IV', 'I', 'V']);
+    expect(screen.getByRole('status')).toHaveTextContent(/puesta en montar/i);
   });
 });

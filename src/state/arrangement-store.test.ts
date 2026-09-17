@@ -104,17 +104,20 @@ describe('deshacer', () => {
 });
 
 describe('cambiar de modo', () => {
-  it('deja fuera los grados que el modo nuevo no tiene', () => {
+  it('dice cada grado en el modo nuevo en vez de tirarlo', () => {
     const parte = acciones().addPart();
     acciones().addBlock(parte, 'I', 4);
     acciones().addBlock(parte, 'V', 4);
 
     acciones().keepMode('minor');
-    expect(montaje().parts[0]?.blocks.map((b) => b.degree)).toEqual(['V']);
+    // El I pasa a i: la casa sigue siendo la casa. Filtrando, como se hacía
+    // antes, el primer bloque desaparecía y la canción se quedaba coja.
+    expect(montaje().parts[0]?.blocks.map((b) => b.degree)).toEqual(['i', 'V']);
   });
 
-  // Pasar de mayor a mayor, o de un montaje que ya cuadra, no es un cambio: si
-  // gastara un paso, el deshacer se llenaría de pasos que no hicieron nada.
+  // Un montaje que ya cuadra no es un cambio: si gastara un paso, el deshacer se
+  // llenaría de pasos que no hicieron nada. Importa más que antes, porque ahora
+  // esto lo llama una vigilancia que salta con cada cambio de montaje.
   it('si no se cae nada, no gasta un paso del deshacer', () => {
     const parte = acciones().addPart();
     acciones().addBlock(parte, 'V', 4);

@@ -432,6 +432,77 @@ export function nextDegrees(mode: KeyMode, from: DegreeSymbol): DegreeMove[] {
   return [...moves].sort((a, b) => b.weight - a.weight);
 }
 
+/**
+ * El mismo grado, dicho en el otro modo.
+ *
+ * Los dos modos no nombran los mismos grados —en mayor hay `I`, `IV` y `vi`; en
+ * menor, `i`, `iv` y `VI`—, así que un montaje escrito en mayor **no se puede
+ * leer en menor tal cual**: `resolveDegree` y `nextDegrees` lanzan `RangeError`
+ * con un grado que no les toca, y eso reventaba la pantalla entera de componer
+ * en cuanto alguien cambiaba de tonalidad con la canción empezada.
+ *
+ * Se traduce **por función y no por sonido**, que es la regla que ya sigue todo
+ * esto: un montaje son grados y el tono lo pone la rueda, así que la casa sigue
+ * siendo la casa. El `I` de Do mayor pasa a ser el `i` de La menor: suena otro
+ * acorde, sí, pero es que has cambiado de tonalidad; lo que no cambia es que sea
+ * el sitio al que todo vuelve.
+ *
+ * Lo que no tiene contraparte son **tres dominantes secundarias de mayor** —la
+ * del ii, la del iii y la del vi—, que caen en grados que el menor no tiene.
+ * Esas devuelven `null` y quien llame decide; aquí no se inventa un acorde que
+ * nadie ha pedido.
+ */
+const A_MENOR: Readonly<Partial<Record<MajorDegreeSymbol, MinorDegreeSymbol>>> = {
+  I: 'i',
+  ii: 'ii°',
+  iii: 'III',
+  IV: 'iv',
+  // El menor tiene las dos dominantes: se conserva la que aprieta, que es la
+  // que alguien puso a propósito al escribir `V` en mayor.
+  V: 'V',
+  vi: 'VI',
+  'vii°': 'VII',
+  // Los prestados ya eran del menor: allí son grados de pleno derecho y pierden
+  // el bemol del nombre, que solo decía «esto viene de fuera».
+  bII: 'bII',
+  bIII: 'III',
+  bVI: 'VI',
+  bVII: 'VII',
+  'V/V': 'V/V',
+};
+
+const A_MAYOR: Readonly<Partial<Record<MinorDegreeSymbol, MajorDegreeSymbol>>> = {
+  i: 'I',
+  'ii°': 'ii',
+  bII: 'bII',
+  III: 'bIII',
+  iv: 'IV',
+  // Las dos dominantes del menor caen en la única que hay en mayor.
+  v: 'V',
+  V: 'V',
+  VI: 'bVI',
+  VII: 'bVII',
+  'V/V': 'V/V',
+  // El I mayor del blues menor es, en mayor, el I de toda la vida.
+  'V/iv': 'I',
+};
+
+/**
+ * Traduce un grado al modo pedido. `null` si ese grado no existe allí.
+ *
+ * Con el modo que ya tiene devuelve el mismo grado, para que quien llame no
+ * tenga que comprobar antes si hay algo que hacer.
+ */
+export function degreeInMode(degree: DegreeSymbol, to: KeyMode): DegreeSymbol | null {
+  const tabla = to === 'minor' ? MINOR_DEGREES : MAJOR_DEGREES;
+  if (degree in tabla) {
+    return degree;
+  }
+  const traduccion =
+    to === 'minor' ? A_MENOR[degree as MajorDegreeSymbol] : A_MAYOR[degree as MinorDegreeSymbol];
+  return traduccion ?? null;
+}
+
 export function degreesFor(mode: KeyMode): DegreeSymbol[] {
   return mode === 'major'
     ? (Object.keys(MAJOR_DEGREES) as MajorDegreeSymbol[])

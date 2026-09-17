@@ -42,6 +42,11 @@ hacerlo.
   (`docs/ESTILO.md`). Lo caza `pnpm build`: si tocas estilos, pásalo.
 - **Una barra que se abre encima de algo que crece flota, no empuja**:
   `ui/Disclosure` con `flotante`, vigilado por `screens/coherencia`.
+- **La navegación cambia de sitio en `md` (768), y hay dos sitios que lo saben**:
+  `AppShell` —arriba o abajo— y el tope del panel flotante de `ui/Disclosure`, que
+  descuenta la barra de abajo mientras exista. Si uno se mueve, el otro también:
+  separados, la rueda se sale por abajo y nadie lo ve. **Ningún test lo vigila**;
+  lo caza la sonda del skill `arrancar` a los dos lados de 640 y de 768.
 - **El micrófono es uno, y lo sujeta `state/use-listening.ts`**, no el componente:
   quien monte otro botón de escuchar **no guarda la entrada**.
 - **La monoespaciada es solo para lo que se alinea en columna** —notas, cents, XP,
@@ -51,6 +56,9 @@ hacerlo.
 - **El grabado se mide en espacios de pentagrama**, y las invariantes de la clave
   las fija `arrange/clef.test.ts`
   ([adr/0029](docs/adr/0029-la-partitura-se-dibuja-aqui.md)).
+- **Un montaje son grados, y los grados no se llaman igual en mayor que en menor**:
+  `state/montaje-en-su-modo.ts` lo traduce en cuanto cambia la tonalidad, y sin eso
+  componer se cae entera ([adr/0030](docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)).
 
 ## Las capas y quién importa a quién
 
@@ -155,7 +163,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
 | `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
 | `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van veintinueve     |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van treinta         |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

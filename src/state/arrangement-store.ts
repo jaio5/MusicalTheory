@@ -27,7 +27,7 @@ import {
   EMPTY_ARRANGEMENT,
   findBlock,
   fixBlock,
-  keepDegreesOfMode,
+  translateToMode,
   moveBlock,
   moveNote,
   movePart,
@@ -103,7 +103,13 @@ export interface ArrangementActions {
 
   /** Abre un montaje entero: al cargar una canción, o al deshacerlo todo. */
   replace(arrangement: Arrangement): void;
-  /** Deja fuera los grados que ese modo no tiene. Lo llama el cambio de rueda. */
+  /**
+   * Pasa el montaje al modo pedido, traduciendo cada grado por su función.
+   *
+   * Lo llama `montaje-en-su-modo.ts`, que vigila la tonalidad: aquí no se sabe
+   * cuál hay puesta, y durante un tiempo esto estuvo escrito y sin que lo
+   * llamara nadie, que es como se cayó la pantalla de componer.
+   */
   keepMode(mode: KeyMode): void;
 
   /**
@@ -280,7 +286,7 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
         cambiar(() => arrangement);
       },
       keepMode(mode) {
-        cambiar((actual) => keepDegreesOfMode(actual, mode));
+        cambiar((actual) => translateToMode(actual, mode));
       },
 
       beginGesture() {

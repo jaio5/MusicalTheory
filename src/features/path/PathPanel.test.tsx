@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -27,6 +27,10 @@ class ReproductorFalso implements ProgressionPlayer {
   /** Lo que hace el reproductor de verdad al llegar al final. */
   terminar() {
     this.#avisar?.(null);
+  }
+  /** Y lo que hace al entrar en cada acorde. */
+  vaPor(index: number) {
+    this.#avisar?.(index);
   }
 }
 
@@ -113,13 +117,60 @@ describe('El acorde actual', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('recorta la progresión al pulsar un acorde anterior', () => {
+  /**
+   * Y el botón **dice que corta**, que no es un detalle.
+   *
+   * Medían dieciséis por veinticuatro píxeles y se llamaban «Am»: en un teléfono
+   * no se aciertan, y quien los acierta pierde la cola de la progresión sin
+   * haber pedido nada. Quien no ve la pantalla oía la letra del acorde, que no
+   * dice en ninguna parte que eso sea un botón de cortar.
+   */
+  it('recorta la progresión al pulsar un acorde anterior, y lo avisa', () => {
     play(AM, G);
     render(<CurrentChord />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Am' }));
+    fireEvent.click(screen.getByRole('button', { name: /cortar después de Am/i }));
 
     expect(useSessionStore.getState().path).toEqual([AM]);
+  });
+
+  it('el último no promete cortar nada, porque detrás no hay nada', () => {
+    play(AM, G);
+    render(<CurrentChord />);
+
+    expect(screen.getByRole('button', { name: /^G, bVII, el último$/ })).toBeInTheDocument();
+  });
+
+  // El grado es el vocabulario que esta aplicación enseña, y en la tira sale
+  // gratis decirlo: se lee el acorde y debajo qué papel hace.
+  it('cada acorde lleva su grado debajo', () => {
+    play(AM, G);
+    render(<CurrentChord />);
+
+    expect(screen.getByRole('button', { name: /cortar después de Am/i })).toHaveTextContent('i');
+  });
+
+  /**
+   * El reproductor ya decía por qué acorde iba y aquí se tiraba ese aviso: solo
+   * se miraba si había terminado. Mirar una progresión sonar sin ver dónde va es
+   * la mitad de la gracia de poder oírla.
+   */
+  it('mientras suena, se enciende el acorde que va sonando', async () => {
+    play(AM, G);
+    const player = new ReproductorFalso();
+    render(<CurrentChord createPlayer={() => player} />);
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la progresión/i }));
+
+    const segundo = screen.getByRole('button', { name: /^G, bVII, el último$/ });
+    expect(segundo.className).not.toContain('bg-brass-dim/30');
+
+    await act(async () => {
+      player.vaPor(1);
+    });
+
+    expect(screen.getByRole('button', { name: /^G, bVII, el último$/ }).className).toContain(
+      'bg-brass-dim/30',
+    );
   });
 
   it('deja limpiar la progresión entera', () => {

@@ -13,7 +13,7 @@ import {
   EMPTY_ARRANGEMENT,
   findBlock,
   findNote,
-  keepDegreesOfMode,
+  translateToMode,
   lastDegreeOf,
   melodyEnd,
   MAX_BLOCK_BEATS,
@@ -304,21 +304,51 @@ describe('partFromCapture', () => {
   });
 });
 
-describe('keepDegreesOfMode', () => {
-  // Cambiar de mayor a menor con el lienzo lleno dejaría grados que no existen
-  // en el modo nuevo, y `resolveDegree` lanza con uno de esos al ir a pintarlo.
-  it('los grados que no existen en el modo se caen, y los que sí se quedan', () => {
-    // De I, vi, IV y V, en menor solo existe el V: las dos dominantes están en
-    // el catálogo de menor a propósito, y los otros tres no.
-    const a = keepDegreesOfMode(montaje(), 'minor');
-    expect(a.parts[0]?.blocks).toHaveLength(0);
+describe('translateToMode', () => {
+  /**
+   * Cambiar de modo con el lienzo lleno dejaba grados que el modo nuevo no
+   * nombra, y `resolveDegree` y `nextDegrees` lanzan con uno de esos al ir a
+   * pintarlo: la pantalla de componer entera se caía con un «This page couldn't
+   * load» encima del trabajo de media hora.
+   *
+   * Y filtrarlos, que fue lo primero que se hizo, cambiaba el fallo por otro:
+   * de `I`, `vi` y `IV` no sobrevive ninguno en menor, así que el lienzo se
+   * quedaba en blanco sin avisar. Por eso se traduce por función.
+   */
+  it('cada grado se dice en el modo nuevo, y no se pierde ninguno', () => {
+    const a = translateToMode(montaje(), 'minor');
+
+    // I, vi y IV pasan a i, VI y iv: la casa sigue siendo la casa.
+    expect(a.parts[0]?.blocks.map((b) => b.degree)).toEqual(['i', 'VI', 'iv']);
     expect(a.parts[1]?.blocks.map((b) => b.degree)).toEqual(['V']);
+  });
+
+  it('y se vuelve del menor al mayor por el mismo camino', () => {
+    const enMenor = translateToMode(montaje(), 'minor');
+
+    // El vi vuelve como bVI: en menor el sexto grado es mayor, y al volver se
+    // dice con su bemol. Suena el mismo acorde que sonaba en menor.
+    expect(translateToMode(enMenor, 'major').parts[0]?.blocks.map((b) => b.degree)).toEqual([
+      'I',
+      'bVI',
+      'IV',
+    ]);
+  });
+
+  // Las tres dominantes secundarias de mayor que el menor no tiene son lo único
+  // que se cae, y se cae porque allí no existe ese acorde.
+  it('lo que de verdad no existe en el modo nuevo se queda fuera', () => {
+    const conSecundaria = addBlock(montaje(), 'estrofa', bloque('z', 'V/ii'));
+
+    const a = translateToMode(conSecundaria, 'minor');
+    expect(a.parts[0]?.blocks.map((b) => b.degree)).not.toContain('V/ii');
+    expect(a.parts[0]?.blocks).toHaveLength(3);
   });
 
   // La parte se queda aunque se vacíe: borrarla haría desaparecer un nombre que
   // alguien escribió por cambiar de modo en la rueda.
-  it('una parte que se queda sin bloques sigue existiendo', () => {
-    expect(keepDegreesOfMode(montaje(), 'minor').parts).toHaveLength(2);
+  it('las partes siguen siendo las mismas', () => {
+    expect(translateToMode(montaje(), 'minor').parts).toHaveLength(2);
   });
 });
 
@@ -341,7 +371,7 @@ describe('lo que no cambia devuelve lo mismo', () => {
     ['mover una parte a donde ya está', () => movePart(a, 'estrofa', 0)],
     ['soltar un bloque donde ya estaba', () => moveBlock(a, 'a', 'estrofa', 0)],
     ['añadir a una parte que no existe', () => addBlock(a, 'nada', bloque('z', 'I'))],
-    ['un modo que no deja fuera nada', () => keepDegreesOfMode(a, 'major')],
+    ['pasar al modo que ya tenía', () => translateToMode(a, 'major')],
   ])('%s', (_, operacion) => {
     expect(operacion()).toBe(a);
   });

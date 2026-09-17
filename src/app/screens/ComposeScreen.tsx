@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { keyName } from '@core/music';
+import { keyName, type ScaleId } from '@core/music';
 import { ArrangeCanvas } from '@features/arrange';
 import { FretboardPanel } from '@features/fretboard';
 import { GananciaAlComponer, useProgress } from '@features/learn';
@@ -15,6 +15,7 @@ import { SongsPanel } from '@features/songs';
 import { VersionsPanel } from '@features/versions';
 import { BarraDeTonalidad, KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
+import { useMontajeEnSuModo } from '@state/montaje-en-su-modo';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Chip } from '@ui/Chip';
 import { EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
@@ -101,7 +102,12 @@ const EXTRAS: readonly Extra[] = [
  * ([adr/0023](../../../docs/adr/0023-grabar-solo-el-sonido.md)).
  */
 export function ComposeScreen() {
+  // El montaje se escribe en grados, y los grados no se llaman igual en mayor
+  // que en menor: sin esto, cambiar de tonalidad con la canción empezada tumba
+  // la pantalla entera. Vive en `state/` porque son dos almacenes hablándose.
+  useMontajeEnSuModo();
   const activeKey = useSessionStore(selectActiveKey);
+  const accionesDeSesion = useSessionStore((state) => state.actions);
   /**
    * Si todavía no se ha elegido ningún acorde, y con eso **qué va primero en el
    * móvil**.
@@ -120,6 +126,21 @@ export function ComposeScreen() {
   const [cara, setCara] = useState<Cara>('tocar');
   const [extra, setExtra] = useState<ExtraId | null>(null);
   const current = EXTRAS.find((candidate) => candidate.id === extra) ?? null;
+
+  /**
+   * Ir a la escala que propone una idea.
+   *
+   * Las dos cosas y en este orden: ponerla, y abrir el mástil, que es donde una
+   * escala se ve. Ponerla y quedarse en Ideas dejaría el cambio sin enseñar, y
+   * abrir el mástil sin ponerla enseñaría la que ya había.
+   *
+   * Vive aquí y no en `features/ideas` porque cambiar de herramienta abierta es
+   * cosa de esta pantalla, y un feature no importa de otro.
+   */
+  function irALaEscala(scaleId: ScaleId): void {
+    accionesDeSesion.setScale(scaleId);
+    setExtra('fretboard');
+  }
 
   /**
    * Componer cuenta como practicar, y esta es la única pantalla que lo escucha.
@@ -379,7 +400,16 @@ export function ComposeScreen() {
               <current.Icono />
               {current.name}
             </h2>
-            <current.render />
+            {/* Ideas es la única que necesita algo de la pantalla: llevarte a
+                la escala que propone, que es poner la escala y abrir el mástil.
+                Se le pasa aquí y no por la tabla de arriba porque los otros
+                cinco paneles ya traen sus propias props y no hay un tipo común
+                que valga para los seis sin mentir. */}
+            {current.id === 'ideas' ? (
+              <IdeasPanel onIrALaEscala={irALaEscala} />
+            ) : (
+              <current.render />
+            )}
           </div>
         )}
 

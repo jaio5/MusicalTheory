@@ -32,7 +32,7 @@ import { seventhNotes, seventhSymbol, type SeventhQuality } from './chords';
 import { accidentalForKey } from './circle-of-fifths';
 import type { PitchClass } from './notes';
 import { voiceForPlayback, type PlaybackStep, type TimedEvent } from './playback';
-import { degreesFor, resolveDegree, type DegreeSymbol, type ResolvedChord } from './progressions';
+import { degreeInMode, resolveDegree, type DegreeSymbol, type ResolvedChord } from './progressions';
 import type { CapturedStep } from './capture';
 import {
   clampOffset,
@@ -994,18 +994,51 @@ export function partFromCapture(
 }
 
 /**
- * Quita del montaje los grados que no existen en ese modo.
+ * Pasa el montaje entero al otro modo, traduciendo cada grado.
  *
- * Hace falta al cambiar de mayor a menor con el lienzo lleno: los grados no son
- * los mismos y `resolveDegree` lanza `RangeError` con uno que no le toca, que es
- * un error en el sitio equivocado —lo dice `song.ts` de su propio filtro—. Un
- * bloque que no sobrevive se cae, y quien llama sabe cuántos por la diferencia
- * de longitud.
+ * Hace falta al cambiar de tonalidad con el lienzo lleno: los dos modos no
+ * nombran los mismos grados, y `resolveDegree` y `nextDegrees` lanzan
+ * `RangeError` con uno que no les toca. No era un error de dominio en el sitio
+ * equivocado: **tumbaba la pantalla de componer entera**, con un «This page
+ * couldn't load» encima de media hora de trabajo.
+ *
+ * **Traduce, no tira.** Esto empezó filtrando —se quedaban solo los grados que
+ * el modo nuevo ya tenía— y eso convertía el fallo en otro peor: pasar de Do
+ * mayor a La menor dejaba el lienzo en blanco sin avisar, porque de `I`, `IV` y
+ * `vi` no sobrevivía ninguno. Ahora cada grado se dice en el modo nuevo por su
+ * función —`I` es `i`, `IV` es `iv`, la casa sigue siendo la casa—, que es la
+ * misma regla por la que un montaje son grados y el tono lo pone la rueda.
+ *
+ * Solo se cae lo que de verdad no existe allí: las tres dominantes secundarias
+ * de mayor que el menor no tiene. Quien llama las cuenta por la diferencia de
+ * longitud, que es como se sabe si hay algo que contarle a quien compone.
  */
-export function keepDegreesOfMode(arrangement: Arrangement, mode: KeyMode): Arrangement {
-  const conocidos = new Set<string>(degreesFor(mode));
+export function translateToMode(arrangement: Arrangement, mode: KeyMode): Arrangement {
   return mapParts(arrangement, (part) => {
-    const blocks = part.blocks.filter((block) => conocidos.has(block.degree));
-    return blocks.length === part.blocks.length ? part : { ...part, blocks };
+    let cambiado = false;
+    const blocks: Block[] = [];
+    for (const block of part.blocks) {
+      const degree = degreeInMode(block.degree, mode);
+      if (degree === null) {
+        cambiado = true;
+        continue;
+      }
+      if (degree === block.degree) {
+        blocks.push(block);
+        continue;
+      }
+      cambiado = true;
+      // Las alternativas que trae un bloque oído son grados del modo viejo: se
+      // traducen igual, y la que no exista allí se cae y ya está.
+      blocks.push({
+        ...block,
+        degree,
+        alternatives: block.alternatives.flatMap((alternativa) => {
+          const otro = degreeInMode(alternativa, mode);
+          return otro === null ? [] : [otro];
+        }),
+      });
+    }
+    return cambiado ? { ...part, blocks } : part;
   });
 }
