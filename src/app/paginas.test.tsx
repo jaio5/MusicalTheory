@@ -205,3 +205,21 @@ describe('la portada', () => {
     expect(screen.getByText(/0 bytes de audio enviados/)).toBeInTheDocument();
   });
 });
+
+describe('una direccion que no lleva a ninguna parte', () => {
+  /**
+   * Sin `not-found.tsx` contesta la de Next: «This page could not be found», en
+   * inglés, sin barra de navegación y sin una salida. Se llega ahí por un enlace
+   * viejo o una letra de más, y eso no es motivo para echar a nadie de la
+   * aplicación.
+   */
+  it('se queda dentro de la aplicacion y dice por donde seguir', async () => {
+    const { default: NoEncontrada, metadata } = await import('./not-found');
+
+    pintar(NoEncontrada());
+
+    expect(screen.getByRole('heading', { name: /no existe/ })).toBeInTheDocument();
+    expect(metadata.title).toMatch(/Caos ordenado/);
+    expect(screen.getByRole('link', { name: 'Ir al camino' })).toHaveAttribute('href', '/aprender');
+  });
+});
