@@ -75,7 +75,41 @@ la manera normal de componer aquí.
   parte se reordenan arrastrando el cifrado; para llevárselo al estribillo hay que
   pasar a la vista de bloques, que es donde se ven las dos partes a la vez.
 
-## 4. Que aprender y componer sean lo mismo
+## 4. Que componer sea un banco de trabajo, y no dos caras
+
+En marcha. Lo decidido está en [adr/0031](./adr/0031-componer-es-un-banco-de-trabajo.md),
+[adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md) y
+[adr/0033](./adr/0033-el-copiloto-propone-y-no-escribe.md); esto es lo que queda
+por hacer, en el orden en que se hace.
+
+- **Repeticiones por parte en el dominio.** `|: :|` con vueltas, contadas por
+  `arrangementBeats`. Es lo único que le falta al arreglo para que una canción de
+  rock quepa entera.
+- **La puntuación del ensayo, en `core/`.** Dado el arreglo y lo que oyó el
+  croma: acertados sobre el total, racha más larga y el compás peor. Puro, se
+  prueba sin React y sin audio.
+- **El armazón de áreas.** Cabeceras finas, divisores de Pointer Events con tope
+  mínimo y doble clic al preset, espacios de trabajo y la disposición guardada en
+  `state/workspace.ts`. Al terminar esto no se ha perdido ninguna función: el
+  contenido de hoy entra dentro tal cual.
+- **Fundir `path` con el arreglo.** Es el paso ancho: `path` lo leen siete
+  sitios. Pasa a ser el cursor de escritura y deja de ser la canción.
+- **El copiloto en línea.** Bloques fantasma al final del arreglo, `Tab` acepta y
+  `Esc` descarta, el cupo restante en la barra de arriba y los cinco estados de
+  error con su sitio.
+- **El modo ensayar.** El metrónomo arranca, el compás actual se enciende, el
+  croma valida y al final salen los números. Sin castigo: fallar ilumina el
+  compás y sigue, que es la regla que ya tiene aprender.
+- **El móvil no es un banco de trabajo.** Por debajo de 1024 px, una columna y
+  pestañas abajo. Áreas que se arrastran con el dedo es lo que hace tedioso un
+  editor.
+
+Y dos cosas que este trabajo **no** hace, escritas aquí para no volver a
+proponerlas: no hay pistas, ni automatización, ni MIDI, ni exportación de audio
+—esto es un cuaderno de progresiones que se toca con una guitarra de verdad—, y
+el copiloto no escribe solo en tu canción.
+
+## 5. Que aprender y componer sean lo mismo
 
 - **Las seis unidades de oído no se han probado con oídos ajenos**
   ([adr/0022](./adr/0022-aprender-de-oido.md)). Los ejercicios suenan con
@@ -100,7 +134,7 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
   partitura, ni las salidas ya recibidas. Un estribillo y una estrofa se dibujan
   igual y se tratan igual en todo lo demás.
 
-## 5. Que no estorbe
+## 6. Que no estorbe
 
 - **Renombrar `versiones` a `salidas` por dentro.** La ruta, la carpeta y la
   capacidad del plan siguen con el nombre viejo, que ya no es el que se ve en
