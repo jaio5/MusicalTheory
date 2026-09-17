@@ -20,7 +20,10 @@ export function FretboardPanel() {
   const elegido = useSessionStore((state) => state.path.at(-1) ?? null);
 
   return (
-    <div className="flex min-h-0 flex-col">
+    // `grow`, para que el hueco del área llegue hasta el dibujo: el mástil se
+    // acota con `max-h-full`, y un porcentaje no resuelve contra un padre de
+    // alto automático —se quedaba en catorce píxeles—.
+    <div className="flex min-h-0 grow flex-col">
       {activeKey === null ? (
         <p className="text-text-muted mt-6 shrink-0">
           Toca unas notas sueltas o elige una tonalidad arriba, y aquí sale la escala sobre el
@@ -50,11 +53,12 @@ export function FretboardPanel() {
             </p>
           </div>
 
-          {/* El alto lo pone el propio dibujo a partir de su proporción, no el
-              hueco disponible. Estirándolo hasta el hueco, el mástil —casi
-              cuatro veces más ancho que alto— se quedaba centrado con franjas
-              muertas arriba y abajo. */}
-          <div className="mt-3">
+          {/* El alto lo pone el propio dibujo a partir de su proporción, y el
+              hueco solo pone el techo. Estirándolo hasta el hueco, el mástil
+              —casi cuatro veces más ancho que alto— se quedaba centrado con
+              franjas muertas arriba y abajo; sin techo, en un área ancha y baja
+              se salía por debajo. */}
+          <div className="mt-3 flex min-h-0 grow flex-col">
             <Fretboard
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}

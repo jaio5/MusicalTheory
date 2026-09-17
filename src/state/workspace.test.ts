@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_PREFERENCES, parsePreferences } from './workspace';
+import { DEFAULT_BANCO, DEFAULT_PREFERENCES, parsePreferences } from './workspace';
 
 describe('Preferencias', () => {
   it('recupera estilo, escala y afinación', () => {
@@ -9,6 +9,7 @@ describe('Preferencias', () => {
       scaleId: 'dorian',
       tuningId: 'dropD',
       pinnedKey: null,
+      banco: DEFAULT_BANCO,
     });
   });
 
@@ -56,5 +57,21 @@ describe('Preferencias', () => {
     expect(parsePreferences(null)).toEqual(DEFAULT_PREFERENCES);
     expect(parsePreferences('{}')).toEqual(DEFAULT_PREFERENCES);
     expect(parsePreferences([1, 2, 3])).toEqual(DEFAULT_PREFERENCES);
+  });
+
+  /**
+   * El reparto se lee medida a medida y no de golpe: si un día se añade un área
+   * más, lo guardado por la versión anterior sigue valiendo para las que ya
+   * había. Descartarlo entero convertiría cada campo nuevo en un reparto perdido
+   * para todo el mundo.
+   */
+  it('del reparto guardado se queda lo que vale y lo demas sale de fabrica', () => {
+    const banco = parsePreferences({
+      banco: { izquierda: 26, derecha: 'ancha', espacio: 'inventado' },
+    }).banco;
+
+    expect(banco.izquierda).toBe(26);
+    expect(banco.derecha).toBe(DEFAULT_BANCO.derecha);
+    expect(banco.espacio).toBe('escribir');
   });
 });

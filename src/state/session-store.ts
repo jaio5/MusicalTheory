@@ -274,7 +274,12 @@ const EMPTY = {
  * hacia el equipo, y va aquí y no en cada acción para que ninguna se olvide.
  */
 function remember(state: SessionState, patch: Partial<WorkspacePreferences>): void {
+  // Se parte de lo guardado y no de un objeto escrito aquí a mano: esta función
+  // sabe de tonalidad, estilo, escala y afinación, y las preferencias tienen
+  // además el reparto del banco de trabajo, que este almacén no lleva. Sin
+  // partir de lo que hay, cambiar de escala borraba el reparto de alguien.
   savePreferences({
+    ...loadPreferences(),
     styleId: state.styleId,
     scaleId: state.scaleId,
     tuningId: state.tuningId,

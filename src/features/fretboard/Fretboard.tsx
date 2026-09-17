@@ -62,14 +62,23 @@ export function Fretboard({
   const positions = fretboardPositions().filter((position) => notes.includes(position.pitchClass));
   const stringIndex = new Map(STANDARD_TUNING.map((string, index) => [string.number, index]));
 
-  // El alto sale de la proporción del dibujo y no del hueco disponible, así que
-  // no sobra ni falta sitio. El tope es para las pantallas muy anchas: sin él,
-  // a 2560 px el mástil pediría media pantalla de alto solo por ser ancha.
+  // El alto sale de la proporción del dibujo, así que no sobra ni falta sitio a
+  // los lados; el tope es lo que impide que en un área ancha y baja el dibujo
+  // pida más alto del que hay.
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       preserveAspectRatio="xMidYMid meet"
-      className="h-auto max-h-[min(60vh,38rem)] w-full"
+      // **Se ajusta a su caja**, no a la ventana.
+      //
+      // El tope era `60vh`, y con el mástil en su propia área del banco de
+      // trabajo eso deja de valer: el dibujo mide cuatro veces más de ancho que
+      // de alto, así que en un área ancha y baja pedía trescientos y pico
+      // píxeles dentro de doscientos cincuenta y la parte de abajo se salía sin
+      // manera de alcanzarla. Con `max-h-full` y el `preserveAspectRatio` que ya
+      // tenía, lo que hace es encogerse: **sigue viéndose entero**, que es la
+      // promesa, y el alto lo decide quien arrastra el divisor.
+      className="h-auto max-h-full w-full"
       role="img"
       aria-label={
         hayAcorde

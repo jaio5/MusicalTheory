@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { pitchClassFromName } from '@core/music';
+import { useBancoStore } from '@state/banco';
 import { useSessionStore } from '@state/session-store';
+import { DEFAULT_BANCO, loadPreferences } from '@state/workspace';
 
 import { ComposeScreen } from './ComposeScreen';
 
@@ -75,63 +77,6 @@ describe('Componer en una pantalla estrecha', () => {
   });
 
   /**
-   * El hueco fantasma: con el mástil abierto se podía bajar hasta una franja
-   * donde no hay nada. Sale de pedir alturas de columna donde no hay columnas —en
-   * el móvil las filas se miden por su contenido— y de un tope de 72vh que en un
-   * teléfono es la pantalla entera.
-   */
-  /**
-   * El hueco fantasma y el solape son **el mismo fallo**: filas que se estiran
-   * para repartirse el alto. Si el contenido crece —al elegir un acorde salen sus
-   * formas— se sale de su fila y se monta encima de la siguiente; si mengua, deja
-   * hueco por el que desplazarse. Medidas por su contenido, ninguna de las dos.
-   */
-  it('en móvil las filas se miden por su contenido, no por el hueco', () => {
-    const { container } = render(<ComposeScreen />);
-
-    const rejilla = container.querySelector('.grid');
-    expect(rejilla?.className, 'sin esto, las filas se estiran y el contenido se monta').toContain(
-      'auto-rows-min',
-    );
-    expect(rejilla?.className, 'en columnas sí se estiran').toContain('lg:auto-rows-auto');
-  });
-
-  /**
-   * La herramienta abierta es un **cajón**, no una franja más.
-   *
-   * Empujando, se llevaba una tajada del alto y las tres columnas se apretaban:
-   * en un portátil, la rueda salía cortada por la mitad y la lista de acordes a
-   * media fila. Al ponerles suelo, el que desaparecía era el panel. No hay
-   * reparto bueno cuando son cinco franjas peleando por el mismo alto.
-   */
-  it('la herramienta abierta se superpone en vez de encoger las columnas', async () => {
-    const { container } = render(<ComposeScreen />);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
-
-    const panel = container.querySelector('#herramienta-abierta');
-    expect(panel, 'el mástil tendría que haberse abierto').not.toBeNull();
-    // `absolute` + `bottom-full`: sale hacia arriba desde la barra de pestañas.
-    expect(panel?.className, 'sin absolute vuelve a empujar').toContain('absolute');
-    expect(panel?.className).toContain('bottom-full');
-    // Y con tope, que taparlo todo tampoco vale.
-    expect(panel?.className).toMatch(/max-h-\[min\(\d+vh/);
-  });
-
-  it('el cajón se lee como una capa encima, no como el final de la pantalla', async () => {
-    // Con el mismo fondo que lo de debajo parecía que la pantalla acababa ahí.
-    // Es la regla de profundidad del proyecto: se nota qué está encima de qué.
-    const { container } = render(<ComposeScreen />);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Ideas' }));
-
-    const panel = container.querySelector('#herramienta-abierta');
-    expect(panel, 'las ideas tendrían que haberse abierto').not.toBeNull();
-    expect(panel?.className).toContain('bg-surface-raised');
-    expect(panel?.className).toContain('shadow-');
-  });
-
-  /**
    * El título y el metrónomo comparten fila.
    *
    * Eran dos franjas fijas de unos 110 px juntas, y en un portátil eso es justo
@@ -144,65 +89,116 @@ describe('Componer en una pantalla estrecha', () => {
     const encabezado = container.querySelector('h1')?.parentElement;
     expect(encabezado?.textContent, 'el metrónomo no está en la fila del título').toContain('bpm');
   });
+});
 
-  // Lo que se mira mientras tocas sigue estando en las dos anchuras.
-  it('el acorde y a dónde ir no se sacrifican', () => {
-    // Con tonalidad puesta: sin ella las dos columnas se juntan a propósito en
-    // una sola cosa que decir, que es por dónde se empieza.
+/**
+ * El banco de trabajo.
+ *
+ * Lo que se prueba aquí es **que no hay que elegir**: antes eran dos caras con un
+ * conmutador, y ver el acorde mientras escribías la canción costaba un salto y
+ * volver a encontrar dónde estabas
+ * ([adr/0031](../../../docs/adr/0031-componer-es-un-banco-de-trabajo.md)).
+ */
+describe('Las areas del banco', () => {
+  function conTonalidad(): void {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+  }
+
+  it('la cancion, el acorde y a donde ir se ven a la vez', () => {
+    conTonalidad();
 
     render(<ComposeScreen />);
 
-    expect(screen.getByLabelText('El acorde y sus formas')).toBeInTheDocument();
-    expect(screen.getByLabelText('A dónde puedes ir')).toBeInTheDocument();
+    expect(screen.getByLabelText('Arreglo')).toBeInTheDocument();
+    expect(screen.getByLabelText('Acorde')).toBeInTheDocument();
+    expect(screen.getByLabelText('A dónde ir')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tonalidad')).toBeInTheDocument();
+  });
+
+  // Ya no hay conmutador: es lo que se retira, y si volviera sin querer este
+  // test lo diría.
+  it('no queda conmutador entre dos caras', () => {
+    conTonalidad();
+
+    render(<ComposeScreen />);
+
+    expect(screen.queryByRole('group', { name: 'Cómo componer' })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Espacio de trabajo' })).toBeInTheDocument();
   });
 
   /**
-   * Qué va primero cuando se apilan.
-   *
-   * En pantalla ancha son tres columnas y no hay «antes»; apiladas en un
-   * teléfono sí, y salían en el orden de la pantalla ancha. Sin acorde elegido,
-   * las dos primeras franjas son invitaciones —«elige uno», «abre el micro»— así
-   * que había que pasar por delante de setecientos píxeles de sugerencias para
-   * llegar a lo único que se puede hacer, que es la lista. Con acorde el orden es
-   * el bueno, y se deja.
+   * Cada área lleva su cabecera con su nombre: es lo que sustituye a los rótulos
+   * sueltos encima de cada bloque, y lo que hace que los mandos de una cosa vivan
+   * en esa cosa.
    */
-  it('sin acorde elegido, en el móvil la lista va antes que las invitaciones', () => {
-    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+  it('cada area lleva su cabecera con su nombre', () => {
+    conTonalidad();
 
     render(<ComposeScreen />);
 
-    expect(screen.getByLabelText('A dónde puedes ir').className).toContain('order-1');
-    expect(screen.getByLabelText('El acorde y sus formas').className).toContain('order-2');
-  });
-
-  it('con acorde elegido vuelve el orden de siempre: primero cómo se hace', () => {
-    const { actions } = useSessionStore.getState();
-    actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
-    actions.pushChord({ symbol: 'C', label: 'I', root: 0, notes: [0, 4, 7], why: 'La casa.' });
-
-    render(<ComposeScreen />);
-
-    expect(screen.getByLabelText('El acorde y sus formas').className).toContain('order-1');
-    expect(screen.getByLabelText('A dónde puedes ir').className).toContain('order-2');
+    for (const nombre of ['Arreglo', 'Acorde', 'A dónde ir']) {
+      expect(
+        within(screen.getByLabelText(nombre)).getByRole('heading', { name: nombre }),
+      ).toBeInTheDocument();
+    }
   });
 
   /**
-   * Y sin tonalidad, **una sola**.
-   *
-   * Eran tres paneles diciendo cada uno su versión de «elige una tonalidad»: uno
-   * centrado a media pantalla, otro debajo del rótulo «Elegido» y un tercero en
-   * la columna de al lado. Tres veces lo mismo en una pantalla vacía se lee como
-   * una pantalla rota, no como una que espera.
+   * Sin tonalidad no hay nada que inspeccionar, así que la pantalla dice **una
+   * sola cosa**. Tres paneles repitiendo cada uno su versión de «elige una
+   * tonalidad» se leen como una pantalla rota, no como una que espera.
    */
-  it('sin tonalidad, las dos columnas se juntan en una sola cosa que decir', () => {
+  it('sin tonalidad, solo se dice por donde empezar', () => {
     useSessionStore.getState().actions.reset();
 
     render(<ComposeScreen />);
 
-    expect(screen.getByLabelText('Por dónde se empieza')).toBeInTheDocument();
-    expect(screen.queryByLabelText('El acorde y sus formas')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('A dónde puedes ir')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Arreglo')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Acorde')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('A dónde ir')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Los divisores.
+ *
+ * Se prueba el teclado y no el arrastre: jsdom no tiene punteros de verdad, y lo
+ * que de verdad se olvida al escribir un divisor es que se pueda mover sin
+ * ratón. Un editor que solo se reparte arrastrando es un editor a medias.
+ */
+describe('Repartir el banco', () => {
+  it('los divisores se mueven con el teclado y dicen cuanto miden', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+
+    const divisor = screen.getByRole('separator', { name: 'Ancho de la tonalidad' });
+    const antes = Number(divisor.getAttribute('aria-valuenow'));
+
+    divisor.focus();
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(useBancoStore.getState().izquierda).toBe(antes + 1);
+  });
+
+  it('y el reparto se recuerda de una vez para otra', async () => {
+    render(<ComposeScreen />);
+
+    const divisor = screen.getByRole('separator', { name: 'Ancho de la tonalidad' });
+    divisor.focus();
+    await userEvent.keyboard('{ArrowLeft}');
+
+    expect(loadPreferences().banco.izquierda).toBe(useBancoStore.getState().izquierda);
+  });
+
+  // `Inicio` y el doble clic hacen lo mismo: devolver la medida de fábrica.
+  it('Inicio devuelve la medida de fabrica', async () => {
+    render(<ComposeScreen />);
+    const divisor = screen.getByRole('separator', { name: 'Ancho de la tonalidad' });
+
+    divisor.focus();
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{Home}');
+
+    expect(useBancoStore.getState().izquierda).toBe(DEFAULT_BANCO.izquierda);
   });
 });
 
@@ -252,17 +248,35 @@ describe('La tonalidad que se está usando', () => {
   });
 });
 
-describe('Las herramientas del cajón', () => {
-  it('pulsar la que está abierta la cierra', async () => {
-    // El mismo botón para las dos cosas: con el cajón abierto, lo que se quiere
+describe('El area de abajo', () => {
+  it('pulsar la que esta abierta la cierra', async () => {
+    // El mismo botón para las dos cosas: con el área abierta, lo que se quiere
     // hacer con la pestaña que está puesta es cerrarla.
-    const { container } = render(<ComposeScreen />);
+    render(<ComposeScreen />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
-    expect(container.querySelector('#herramienta-abierta')).not.toBeNull();
+    expect(screen.getByLabelText('Mástil')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
 
-    expect(container.querySelector('#herramienta-abierta')).toBeNull();
+    expect(screen.queryByLabelText('Mástil')).not.toBeInTheDocument();
+  });
+
+  it('y tambien se cierra desde su propia cabecera', async () => {
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ideas' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar Ideas' }));
+
+    expect(screen.queryByLabelText('Ideas')).not.toBeInTheDocument();
+  });
+
+  // Qué editor había abierto es reparto, y el reparto se recuerda.
+  it('que editor habia abierto se recuerda', async () => {
+    render(<ComposeScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sesiones' }));
+
+    expect(loadPreferences().banco.abajo).toBe('sesiones');
   });
 });

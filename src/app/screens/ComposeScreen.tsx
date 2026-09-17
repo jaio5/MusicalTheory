@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 
 import { keyName, type ScaleId } from '@core/music';
 import { ArrangeCanvas } from '@features/arrange';
@@ -15,91 +15,94 @@ import { SongsPanel } from '@features/songs';
 import { VersionsPanel } from '@features/versions';
 import { BarraDeTonalidad, KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
+import { useBancoStore, type EditorDeAbajo } from '@state/banco';
 import { useMontajeEnSuModo } from '@state/montaje-en-su-modo';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { TOPES_DEL_BANCO } from '@state/workspace';
+import { Area } from '@ui/Area';
 import { Chip } from '@ui/Chip';
+import { Divisor } from '@ui/Divisor';
 import { EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
 import {
+  IconoAfinar,
   IconoCanciones,
   IconoCerrar,
+  IconoComponer,
   IconoIdeas,
   IconoMastil,
   IconoPunto,
   IconoSalidas,
   IconoSesiones,
+  IconoTocar,
 } from '@ui/icons';
 import { WorkHeader } from '@ui/Screen';
 
-/**
- * Las dos caras de componer.
- *
- * `tocar` responde a «qué acorde tengo delante» —la rueda, sus formas, a dónde
- * ir— y `montar` a «cómo va mi canción», que es una pregunta horizontal y en el
- * tiempo. Son dos caras y no dos zonas de la misma pantalla a propósito: metida
- * entre las tres columnas, la línea de tiempo habría dejado seis franjas
- * peleando por el alto de un portátil, y este fichero ya explicaba más abajo que
- * con cinco no hay reparto bueno.
- *
- * Lo que no se duplica es nada: las dos caras leen la misma tonalidad, el mismo
- * tempo y el mismo estado de sesión, y la barra de herramientas de abajo es la
- * de siempre en las dos.
- */
-type Cara = 'tocar' | 'montar';
-
-type ExtraId = 'fretboard' | 'grabar' | 'ideas' | 'versions' | 'songs' | 'sessions';
-
-interface Extra {
-  readonly id: ExtraId;
+interface Editor {
+  readonly id: EditorDeAbajo;
   readonly name: string;
-  /**
-   * El dibujo de la pastilla.
-   *
-   * Antes eran cinco rótulos en fila —«Mástil», «Ideas», «Salidas», «Canciones»,
-   * «Sesiones»— que había que leer enteros para elegir uno, y en el móvil el
-   * quinto se salía por la derecha sin que nada dijera que seguía habiendo más.
-   */
   readonly Icono: () => React.ReactElement;
   readonly render: () => React.ReactElement;
   /**
    * Si lo de dentro se dibuja entero o hay que desplazarlo. El mástil se dibuja
    * entero y no hace scroll nunca; lo demás es texto, y el texto se lee
    * desplazándolo.
-   *
-   * En los dos casos la altura la pone el contenido y el tope solo recorta.
-   * Con un alto fijo, el mástil —que es casi cuatro veces más ancho que alto—
-   * dejaba cien píxeles muertos arriba y abajo, y sin tonalidad elegida dejaba
-   * la franja entera vacía.
    */
-  readonly fits?: boolean;
+  readonly entero?: boolean;
 }
 
-const EXTRAS: readonly Extra[] = [
-  { id: 'fretboard', name: 'Mástil', Icono: IconoMastil, render: FretboardPanel, fits: true },
-  // Grabar es una herramienta más y no una franja fija arriba, que es lo que
-  // era cuando grababa vídeo: se abre, se graba, se oye y se cierra.
-  { id: 'grabar', name: 'Grabar', Icono: IconoPunto, render: Grabadora, fits: true },
+/**
+ * Los editores que caben en el área de abajo.
+ *
+ * Es el único sitio donde se elige **qué** se ve, que es lo que en un editor con
+ * áreas hace el selector de tipo: el resto de la pantalla siempre enseña lo
+ * mismo, y lo que cambia es el reparto.
+ */
+const EDITORES: readonly Editor[] = [
+  { id: 'mastil', name: 'Mástil', Icono: IconoMastil, render: FretboardPanel, entero: true },
+  { id: 'grabar', name: 'Grabar', Icono: IconoPunto, render: Grabadora, entero: true },
   { id: 'ideas', name: 'Ideas', Icono: IconoIdeas, render: IdeasPanel },
-  // Versiones al lado de Ideas porque las dos preguntan al modelo, y las dos
+  // Salidas al lado de Ideas porque las dos preguntan al modelo, y las dos
   // cuestan una petición del cupo: tenerlas juntas dice sin decirlo cuáles son
   // las que gastan.
-  { id: 'versions', name: 'Salidas', Icono: IconoSalidas, render: VersionsPanel },
+  { id: 'salidas', name: 'Salidas', Icono: IconoSalidas, render: VersionsPanel },
   // Canciones antes que Sesiones porque no son lo mismo y se confunden: una
   // canción se guarda a propósito y con nombre, y una sesión es el rastro de lo
   // que se tocó. Lo que se busca a menudo va primero.
-  { id: 'songs', name: 'Canciones', Icono: IconoCanciones, render: SongsPanel },
-  { id: 'sessions', name: 'Sesiones', Icono: IconoSesiones, render: SessionsPanel },
+  { id: 'canciones', name: 'Canciones', Icono: IconoCanciones, render: SongsPanel },
+  { id: 'sesiones', name: 'Sesiones', Icono: IconoSesiones, render: SessionsPanel },
 ];
 
+const ESPACIOS = [
+  { id: 'escribir', name: 'Escribir', Icono: IconoComponer },
+  { id: 'ensayar', name: 'Ensayar', Icono: IconoTocar },
+] as const;
+
 /**
- * Componer: la rueda para elegir tonalidad, la progresión que llevas, a dónde
- * puedes ir y de cuántas maneras se hace cada acorde.
+ * Componer: un banco de trabajo de cuatro áreas.
  *
- * **Ya no envuelve a nadie.** Estuvo metida dentro del grabador de vídeo, que
- * necesitaba ponerse por detrás de la pantalla entera para que te vieras tocando;
- * eso se llevaba una franja fija arriba y dejaba la aplicación en contorno
- * mientras durase. Grabando solo el sonido no hace falta nada de eso: la
- * grabadora es una herramienta más de la fila de abajo
- * ([adr/0023](../../../docs/adr/0023-grabar-solo-el-sonido.md)).
+ * **Una sola pantalla repartida, y no dos caras con un conmutador.** Lo segundo
+ * es lo que había, y existía por un motivo que este mismo fichero documentaba:
+ * «no hay reparto bueno en un portátil, son cinco franjas peleando por el mismo
+ * alto». Deja de ser cierto cuando el reparto lo mueve quien mira
+ * ([adr/0031](../../../docs/adr/0031-componer-es-un-banco-de-trabajo.md)), y a
+ * cambio se acaba el salto que había que dar para ver un acorde mientras
+ * escribes la canción: las dos preguntas de componer —qué acorde tengo delante y
+ * cómo va mi canción— no son sucesivas, son simultáneas.
+ *
+ * Cuatro áreas y una regla para cada una:
+ *
+ * - **Izquierda: lo que decides.** La rueda, la escala, el estilo y la
+ *   afinación. Se elige una vez y no se vuelve.
+ * - **Centro: lo que haces.** El arreglo arriba y, debajo, a dónde puedes ir
+ *   desde el acorde que tienes. Es lo único que crece cuando crece la pantalla.
+ * - **Derecha: lo que hay seleccionado.** El acorde con sus formas, y lo que se
+ *   está oyendo.
+ * - **Abajo: un área con selector de tipo.** Mástil, grabar, ideas, salidas,
+ *   canciones o sesiones.
+ *
+ * **Y por debajo de `lg` no hay banco de trabajo**, y no se disimula: las áreas
+ * se apilan en una columna. Divisores que se arrastran con el dedo es lo que
+ * convierte un editor en una pelea.
  */
 export function ComposeScreen() {
   // El montaje se escribe en grados, y los grados no se llaman igual en mayor
@@ -108,24 +111,23 @@ export function ComposeScreen() {
   useMontajeEnSuModo();
   const activeKey = useSessionStore(selectActiveKey);
   const accionesDeSesion = useSessionStore((state) => state.actions);
-  /**
-   * Si todavía no se ha elegido ningún acorde, y con eso **qué va primero en el
-   * móvil**.
-   *
-   * Apiladas, las tres franjas salían en el orden de la pantalla ancha: el acorde
-   * elegido, lo que suena y, al final, la lista. Sin acorde las dos primeras son
-   * invitaciones —«elige uno», «abre el micro»— así que en un teléfono había que
-   * pasar por delante de setecientos píxeles de sugerencias para llegar a lo
-   * único que se puede hacer. Con acorde el orden es el bueno: lo primero que se
-   * mira es cómo se hace el que acabas de elegir.
-   *
-   * En pantalla ancha no se toca nada: allí son columnas, y las columnas no
-   * tienen «antes».
-   */
-  const sinAcorde = useSessionStore((state) => state.path.length === 0);
-  const [cara, setCara] = useState<Cara>('tocar');
-  const [extra, setExtra] = useState<ExtraId | null>(null);
-  const current = EXTRAS.find((candidate) => candidate.id === extra) ?? null;
+
+  // Por porciones y no el objeto entero: el motor entrega veinte lecturas por
+  // segundo y esta pantalla no puede repintarse veinte veces por segundo.
+  const izquierda = useBancoStore((state) => state.izquierda);
+  const derecha = useBancoStore((state) => state.derecha);
+  const alto = useBancoStore((state) => state.alto);
+  const abajo = useBancoStore((state) => state.abajo);
+  const espacio = useBancoStore((state) => state.espacio);
+  const accionesDelBanco = useBancoStore((state) => state.actions);
+
+  // El reparto guardado se recupera después de pintar, como el tema: leerlo
+  // durante el render daría un HTML distinto en servidor y en cliente.
+  useEffect(() => {
+    accionesDelBanco.cargar();
+  }, [accionesDelBanco]);
+
+  const editor = EDITORES.find((candidato) => candidato.id === abajo) ?? null;
 
   /**
    * Ir a la escala que propone una idea.
@@ -134,12 +136,12 @@ export function ComposeScreen() {
    * escala se ve. Ponerla y quedarse en Ideas dejaría el cambio sin enseñar, y
    * abrir el mástil sin ponerla enseñaría la que ya había.
    *
-   * Vive aquí y no en `features/ideas` porque cambiar de herramienta abierta es
-   * cosa de esta pantalla, y un feature no importa de otro.
+   * Vive aquí y no en `features/ideas` porque cambiar de área abierta es cosa de
+   * esta pantalla, y un feature no importa de otro.
    */
   function irALaEscala(scaleId: ScaleId): void {
     accionesDeSesion.setScale(scaleId);
-    setExtra('fretboard');
+    accionesDelBanco.abrirAbajo('mastil');
   }
 
   /**
@@ -147,50 +149,42 @@ export function ComposeScreen() {
    *
    * `escuchaComponer` va encendido aquí y en ningún sitio más: cada llamada a
    * `useProgress` tiene su propia copia del avance, así que dos apuntados
-   * sumarían dos veces el mismo hecho y se pisarían al guardar. Aquí es donde se
-   * compone, así que aquí es donde se cuenta.
+   * sumarían dos veces el mismo hecho y se pisarían al guardar.
    */
   const { composeGain, dismissComposeGain } = useProgress({ escuchaComponer: true });
 
+  // Los anchos viajan como variables CSS y no como `style` en cada área: así el
+  // mismo árbol sirve para el banco y para la columna apilada, y es Tailwind
+  // quien decide cuál manda con su punto de corte. Con un `style` por columna
+  // habría que pintar dos árboles y montar dos veces lo que hay dentro.
+  const reparto = {
+    '--banco-izquierda': `${izquierda}rem`,
+    '--banco-derecha': `${derecha}rem`,
+    '--banco-alto': `${alto}rem`,
+  } as CSSProperties;
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* El metrónomo va **dentro** del encabezado, en el hueco de acciones
-            que `WorkHeader` ya tenía. Eran dos franjas fijas de unos 110 px
-            juntas, y en un portátil eso es justo lo que le falta al mástil para
-            verse entero. La pantalla sigue teniendo su `h1` y su línea, que es
-            lo que pide la regla; lo que se ha ido es la fila de más. */}
       <WorkHeader
         title="Componer"
-        lead={
-          cara === 'tocar'
-            ? 'Tonalidad, acordes, a dónde ir y grabar lo que tocas.'
-            : 'La canción por bloques: arrástralos, estíralos y escúchala.'
-        }
+        lead="Escribe la canción, mírala acorde a acorde y escúchala."
         actions={
-          // El hueco de acciones de `WorkHeader` es un bloque, no una fila: sin
-          // esta caja, el conmutador y el metrónomo se apilaban y la cabecera
-          // crecía cincuenta píxeles, que es justo lo que este fichero se
-          // esforzó en ahorrarle al mástil.
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {/* El conmutador antes que el metrónomo: es lo que cambia la
-                  pantalla entera, y lo que cambia más cosas va primero. */}
-            <span className="flex gap-1" role="group" aria-label="Cómo componer">
-              <Chip
-                onClick={() => setCara('tocar')}
-                pressed={cara === 'tocar'}
-                tone="quiet"
-                className="px-3 text-xs"
-              >
-                Tocar
-              </Chip>
-              <Chip
-                onClick={() => setCara('montar')}
-                pressed={cara === 'montar'}
-                tone="quiet"
-                className="px-3 text-xs"
-              >
-                Montar
-              </Chip>
+            {/* Los espacios de trabajo antes que el metrónomo: son lo que cambia
+                la pantalla entera, y lo que cambia más cosas va primero. */}
+            <span className="flex gap-1" role="group" aria-label="Espacio de trabajo">
+              {ESPACIOS.map((candidato) => (
+                <Chip
+                  key={candidato.id}
+                  onClick={() => accionesDelBanco.espacio(candidato.id)}
+                  pressed={espacio === candidato.id}
+                  tone="quiet"
+                  className="px-3 text-xs"
+                >
+                  <candidato.Icono />
+                  {candidato.name}
+                </Chip>
+              ))}
             </span>
             <Metronome />
           </div>
@@ -198,226 +192,204 @@ export function ComposeScreen() {
       />
 
       {/* Se ofrece la última sesión, no se pone. Desaparece sola en cuanto
-            eliges tonalidad o tocas algo. */}
+          eliges tonalidad o tocas algo. */}
       <ResumeLast />
 
-      {/*
-          En el móvil, la tonalidad se pliega.
-
-          La rueda de quintas y los ajustes ocupan media pantalla de teléfono y son
-          justo lo que se toca **una vez** al empezar: se elige el tono y ya no se
-          vuelve. Plegada deja a la vista lo que se mira todo el rato —el acorde,
-          sus formas y a dónde ir— y dice en una línea en qué tonalidad estás, que
-          es lo único que hay que saber mientras tanto.
-
-          En pantalla ancha no se pliega nada: ahí la rueda vive en su columna.
-        */}
-      <div
-        // `shrink-0` y `bg-surface`: la barra es una fila de rótulo y ya, porque
-        // lo que se abre **flota** sobre el lienzo en vez de empujarlo. Mientras
-        // empujaba había que dejarla encoger y aun así la rueda salía cortada;
-        // ahora no compite por el alto con nadie.
-        className={`border-border bg-surface shrink-0 border-b px-3 ${
-          cara === 'montar' ? '' : 'lg:hidden'
-        }`}
-      >
+      {/* En estrecho la tonalidad se pliega a una línea: la rueda ocupa media
+          pantalla de teléfono y es justo lo que se toca una vez al empezar. En
+          el banco vive en su área y esta barra no existe. */}
+      <div className="border-border bg-surface shrink-0 border-b px-3 lg:hidden">
         <BarraDeTonalidad>
           <Settings />
         </BarraDeTonalidad>
       </div>
 
-      {/* Una cara o la otra, nunca las dos: lo que se gana montando es
-            que la canción ocupe la pantalla, y eso no cabe si al lado sigue
-            estando el inspector de un acorde. */}
-      {cara === 'montar' ? (
-        <ArrangeCanvas />
-      ) : (
-        <>
-          {/*
-            `auto-rows-min` es lo que arregla las dos cosas a la vez en el móvil.
+      {/* Apilado se desplaza y en el banco no: abajo de `lg` las áreas van una
+          debajo de otra y en una ventana baja no caben, así que quien se
+          desplaza es esta caja. En el banco cada área se apaña con su hueco, que
+          es de lo que va un banco de trabajo. */}
+      <div
+        className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
+        style={reparto}
+      >
+        <Area
+          titulo="Tonalidad"
+          icono={<IconoAfinar />}
+          className="border-border hidden lg:flex lg:w-[var(--banco-izquierda)] lg:shrink-0 lg:border-r"
+        >
+          <div className="flex flex-col items-center gap-2 p-3 [&>*]:shrink-0">
+            <KeyPanel compact />
+            <p className="text-text-muted text-center text-xs">
+              {activeKey === null
+                ? 'Pulsa una tonalidad para empezar'
+                : keyName(activeKey.tonic, activeKey.mode)}
+            </p>
+            <Settings />
+          </div>
+        </Area>
 
-            Apiladas, las filas se estiraban hasta repartirse el alto disponible: si
-            el contenido de una crecía —al elegir un acorde salen sus formas— se
-            salía de su fila y **se montaba encima de la siguiente**, y si menguaba
-            quedaba hueco vacío por el que desplazarse. Con las filas medidas por su
-            contenido no hay ni lo uno ni lo otro: cada cosa ocupa lo suyo y quien se
-            desplaza es esta caja.
+        <Divisor
+          orientacion="vertical"
+          valor={izquierda}
+          min={TOPES_DEL_BANCO.izquierda.min}
+          max={TOPES_DEL_BANCO.izquierda.max}
+          etiqueta="Ancho de la tonalidad"
+          onCambio={(rem) => accionesDelBanco.mover('izquierda', rem)}
+          onDevolver={() => accionesDelBanco.devolver('izquierda')}
+          className="hidden lg:block"
+        />
 
-            En pantalla ancha vuelven a estirarse, que es lo que quieren tres
-            columnas de la misma altura.
-          */}
-          <div className="grid min-h-0 grow auto-rows-min grid-cols-1 gap-px overflow-y-auto lg:auto-rows-auto lg:grid-cols-[16rem_minmax(0,1fr)_19rem] lg:overflow-hidden xl:grid-cols-[20rem_minmax(0,1fr)_23rem]">
-            {/* Cada cosa con su tamaño y la columna con scroll: si se dejan
-                encoger, con el mástil abierto la rueda se queda en un botón. */}
-            {/*
-              Las dos columnas de los lados van sobre `surface` y la del medio
-              sobre el fondo.
-
-              Estaban las tres sobre el mismo negro, separadas por una línea de un
-              píxel, y desde lejos eso es **una pared plana**: no se veía que la
-              rueda y la lista de acordes son lo que se consulta y el medio es
-              donde se trabaja. Es lo que este proyecto ya dice de la profundidad
-              —«lo que da modernidad no es más color, es que se note qué está
-              encima de qué»— y lo que hasta ahora no se aplicaba justo en la
-              pantalla que más se mira.
-            */}
-            <section
-              aria-label="Tonalidad"
-              className="border-border bg-surface hidden min-h-0 flex-col items-center gap-2 overflow-y-auto border-r p-3 lg:flex [&>*]:shrink-0"
-            >
-              <KeyPanel compact />
-              <p className="text-text-muted text-center text-xs">
-                {activeKey === null
-                  ? 'Pulsa una tonalidad para empezar'
-                  : keyName(activeKey.tonic, activeKey.mode)}
-              </p>
-              <Settings />
-            </section>
-
-            {/* Sin tonalidad, las dos columnas de la derecha **son una sola cosa
-                que decir**: que hay que elegir una y por qué. Tres paneles
-                repitiendo cada uno su versión de «elige una tonalidad» —uno
-                centrado a media pantalla, otro bajo el rótulo «Elegido» y un
-                tercero en la columna de al lado— es lo que dejaba componer
-                pareciendo una pantalla rota en vez de una que espera. */}
+        {/* El centro: lo único que crece cuando crece la pantalla. */}
+        <div className="flex min-h-0 grow flex-col">
+          <Area
+            titulo="Arreglo"
+            icono={<IconoComponer />}
+            scroll={false}
+            // Suelo, porque es lo único que no se desplaza por dentro: lo que
+            // no le quepa al lienzo se recorta y deja su barra sin alcanzar.
+            className="grow lg:min-h-56"
+          >
             {activeKey === null ? (
-              <section
-                aria-label="Por dónde se empieza"
-                // `my-auto` en el hijo y no `justify-center` aquí, que es la
-                // regla de la casa: centrar en la caja que se desplaza saca lo
-                // que no cabe por los dos lados y deja la mitad de arriba fuera
-                // de alcance.
-                className="border-border flex min-h-0 flex-col overflow-y-auto border-t lg:col-span-2 lg:border-t-0"
-              >
+              // `my-auto` en el hijo y no `justify-center` aquí, que es la regla
+              // de la casa: centrar en la caja que se desplaza saca lo que no
+              // cabe por los dos lados y deja la mitad de arriba fuera de
+              // alcance.
+              <div className="flex h-full min-h-0 flex-col overflow-y-auto">
                 <div className="my-auto">
                   <EmpezarPorTonalidad />
                 </div>
-              </section>
+              </div>
             ) : (
-              <>
-                <section
-                  aria-label="El acorde y sus formas"
-                  className={`flex min-h-0 flex-col lg:order-none lg:overflow-y-auto ${
-                    sinAcorde ? 'order-2' : 'order-1'
-                  }`}
-                >
-                  {/* Arriba lo que has elegido tú, abajo lo que estás tocando.
-                      Cada cosa tiene su sitio fijo, así que al soltar las cuerdas
-                      nada se mueve: solo cambia el rótulo de «Suena» a «Último». */}
-                  <CurrentChord />
-                  <Voicings />
-                  <HeardChord />
-                </section>
-
-                <section
-                  aria-label="A dónde puedes ir"
-                  className={`border-border lg:bg-surface flex min-h-0 flex-col overflow-hidden border-t lg:order-none lg:border-t-0 lg:border-l ${
-                    sinAcorde ? 'order-1 border-t-0 border-b lg:border-b-0' : 'order-2'
-                  }`}
-                >
-                  <NextChords />
-                </section>
-              </>
+              <ArrangeCanvas />
             )}
-          </div>
-        </>
-      )}
+          </Area>
 
-      {/* Abajo y a todo lo ancho: el mástil son seis cuerdas y quince trastes,
-            y en una columna estrecha no se lee. La altura la pone el contenido
-            hasta un tope, así que el mástil se estira y las sesiones no dejan
-            medio hueco vacío debajo. */}
-      <section
-        aria-label="Herramientas"
-        // `relative`, porque lo que se abre se ancla aquí y sale hacia arriba.
-        className="border-border relative flex shrink-0 flex-col border-t"
-      >
-        {/* La fila se desplaza a lo ancho en el móvil y no se parte en dos:
-              seis pastillas envueltas dejaban la barra a dos alturas justo donde
-              menos alto hay. `scrollbar-none` no existe aquí, así que la barra se
-              ve —y es correcto: dice que hay más a la derecha, que era lo que
-              faltaba cuando «Sesiones» se salía por el borde sin avisar. */}
-        <div className="flex gap-1.5 overflow-x-auto px-3 py-2">
-          {EXTRAS.map((candidate) => (
-            <Chip
-              key={candidate.id}
-              onClick={() => setExtra(extra === candidate.id ? null : candidate.id)}
-              pressed={extra === candidate.id}
-              tone="quiet"
-              className="shrink-0 text-xs"
+          {/* A dónde ir, debajo del arreglo y a lo ancho del centro: es lo que se
+              mira **mientras** se escribe, no una consulta aparte. De alto fijo y
+              con su propio desplazamiento, para que la lista no le robe sitio a
+              la canción por venir larga. */}
+          {activeKey !== null && (
+            <Area
+              titulo="A dónde ir"
+              icono={<IconoTocar />}
+              // Pide trece rem, pero **cede**: al abrir el área de abajo el alto
+              // no da para todos, y lo que no puede encogerse es el arreglo.
+              // Esta lista se desplaza por dentro, así que perder altura aquí no
+              // esconde nada; plantarse dejaba el lienzo en setenta píxeles y su
+              // barra fuera de alcance.
+              className="border-border min-h-16 shrink basis-52 border-t"
             >
-              <candidate.Icono />
-              {candidate.name}
-            </Chip>
-          ))}
-
-          {current !== null && (
-            <button
-              type="button"
-              onClick={() => setExtra(null)}
-              aria-label={`Cerrar ${current.name}`}
-              title="Cerrar"
-              className="text-text-muted hover:text-oxblood-bright min-h-tap ml-auto inline-flex shrink-0 cursor-pointer items-center px-2"
-            >
-              <IconoCerrar />
-            </button>
+              <NextChords />
+            </Area>
           )}
         </div>
 
-        {current !== null && (
-          <div
-            id="herramienta-abierta"
-            // **Se abre encima, no empuja.** Antes se llevaba una tajada del
-            // alto y las tres columnas se apretaban: la rueda salía cortada por
-            // la mitad y la lista de acordes a media fila. Al ponerles suelo, el
-            // que desaparecía era el panel. No hay reparto bueno en un portátil:
-            // son cinco franjas peleando por el mismo alto.
-            //
-            // Como cajón, no se encoge nadie. Y encaja con lo que esto es: el
-            // mástil se mira un momento mientras tocas, no convive con la rueda.
-            // «Perder la mitad de la pantalla mientras está abierto es un precio
-            // que se paga solo mientras se mira», que es lo que el proyecto ya
-            // decía del mástil.
-            //
-            // `bottom-full` lo pega justo encima de la barra de pestañas, y la
-            // sombra hacia arriba es lo que dice que hay algo debajo, en vez de
-            // parecer que la pantalla se acaba ahí. Sale de
-            // `--sombra-alta-arriba` y no de un `rgba` escrito aquí: estuvo en
-            // `rgba(0,0,0,0.5)`, que sobre el tema hielo es un borrón negro, y un
-            // número dentro de una cadena no lo ve el test que vigila que los
-            // relieves sigan a la paleta.
-            // `surface-raised` y no `surface`: lo que está encima se dice con
-            // el tono, no solo con la sombra. Con el mismo fondo que lo de
-            // debajo, el cajón parecía el final de la pantalla en vez de una
-            // capa, que es justo lo que este proyecto pide de la profundidad.
-            className={`bg-surface-raised border-border absolute inset-x-0 bottom-full z-20 border-t p-3 shadow-[var(--sombra-alta-arriba)] ${
-              current.fits === true
-                ? 'max-h-[min(62vh,44rem)] overflow-hidden'
-                : 'max-h-[min(58vh,30rem)] overflow-auto'
-            }`}
+        <Divisor
+          orientacion="vertical"
+          valor={derecha}
+          min={TOPES_DEL_BANCO.derecha.min}
+          max={TOPES_DEL_BANCO.derecha.max}
+          sentido={-1}
+          etiqueta="Ancho del acorde"
+          onCambio={(rem) => accionesDelBanco.mover('derecha', rem)}
+          onDevolver={() => accionesDelBanco.devolver('derecha')}
+          className="hidden lg:block"
+        />
+
+        {activeKey !== null && (
+          <Area
+            titulo="Acorde"
+            icono={<IconoMastil />}
+            className="border-border border-t lg:w-[var(--banco-derecha)] lg:shrink-0 lg:border-t-0 lg:border-l"
           >
-            <h2 className="rotulo mb-2 flex items-center gap-2">
-              <current.Icono />
-              {current.name}
-            </h2>
-            {/* Ideas es la única que necesita algo de la pantalla: llevarte a
-                la escala que propone, que es poner la escala y abrir el mástil.
-                Se le pasa aquí y no por la tabla de arriba porque los otros
-                cinco paneles ya traen sus propias props y no hay un tipo común
-                que valga para los seis sin mentir. */}
-            {current.id === 'ideas' ? (
-              <IdeasPanel onIrALaEscala={irALaEscala} />
-            ) : (
-              <current.render />
-            )}
-          </div>
+            {/* Arriba lo que has elegido tú, abajo lo que estás tocando. Cada
+                cosa tiene su sitio fijo, así que al soltar las cuerdas nada se
+                mueve: solo cambia el rótulo de «Suena» a «Último». */}
+            <CurrentChord />
+            <Voicings />
+            <HeardChord />
+          </Area>
         )}
+      </div>
+
+      {editor !== null && (
+        <Divisor
+          orientacion="horizontal"
+          valor={alto}
+          min={TOPES_DEL_BANCO.alto.min}
+          max={TOPES_DEL_BANCO.alto.max}
+          sentido={-1}
+          etiqueta={`Alto de ${editor.name}`}
+          onCambio={(rem) => accionesDelBanco.mover('alto', rem)}
+          onDevolver={() => accionesDelBanco.devolver('alto')}
+          className="hidden lg:block"
+        />
+      )}
+
+      {editor !== null && (
+        <Area
+          titulo={editor.name}
+          icono={<editor.Icono />}
+          scroll={editor.entero !== true}
+          // El tope en `vh` manda sobre el alto guardado: en una pantalla baja,
+          // dieciséis rem guardados en un monitor grande dejan el arreglo sin
+          // sitio, y el reparto se guarda en rem a propósito.
+          // **También cede**, y por eso no es `shrink-0`: con el alto guardado
+          // en un monitor grande, abrirla en un portátil dejaba al arreglo por
+          // debajo de su suelo y lo de dentro sin alcanzar. Lo que hay aquí
+          // sabe encogerse —el mástil se ajusta a su caja, lo demás se
+          // desplaza—, así que ceder no esconde nada.
+          className="border-border max-h-[60vh] min-h-32 shrink border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]"
+          mandos={
+            <button
+              type="button"
+              onClick={() => accionesDelBanco.abrirAbajo(null)}
+              aria-label={`Cerrar ${editor.name}`}
+              title="Cerrar"
+              className="text-text-muted hover:text-oxblood-bright inline-flex cursor-pointer items-center px-1"
+            >
+              <IconoCerrar />
+            </button>
+          }
+        >
+          {/* El relleno del área, y **parte del reparto**: como bloque suelto se
+              quedaba con su alto natural dentro de una caja más baja, y lo que
+              llevaba dentro —el mástil— se salía por abajo sin manera de
+              alcanzarlo. */}
+          <div className="flex min-h-0 grow flex-col p-3">
+            {/* Ideas es la única que necesita algo de la pantalla: llevarte a la
+                escala que propone. Se le pasa aquí y no por la tabla de arriba
+                porque los otros cinco ya traen sus propias props y no hay un tipo
+                común que valga para los seis sin mentir. */}
+            {editor.id === 'ideas' ? <IdeasPanel onIrALaEscala={irALaEscala} /> : <editor.render />}
+          </div>
+        </Area>
+      )}
+
+      {/* La fila se desplaza a lo ancho y no se parte en dos: seis pastillas
+          envueltas dejaban la barra a dos alturas justo donde menos alto hay. */}
+      <section
+        aria-label="Qué se ve abajo"
+        className="border-border relative flex shrink-0 flex-col border-t"
+      >
+        <div className="flex gap-1.5 overflow-x-auto px-3 py-2">
+          {EDITORES.map((candidato) => (
+            <Chip
+              key={candidato.id}
+              onClick={() => accionesDelBanco.abrirAbajo(candidato.id)}
+              pressed={abajo === candidato.id}
+              tone="quiet"
+              className="shrink-0 text-xs"
+            >
+              <candidato.Icono />
+              {candidato.name}
+            </Chip>
+          ))}
+        </div>
 
         {/* Dentro de la barra, que es la caja `relative` de esta pantalla, y
-            saliendo hacia arriba desde ella: así queda por encima de las
-            herramientas en el escritorio y por encima de las **dos** barras en
-            un teléfono, sin que nadie tenga que adivinar cuánto miden. No empuja
-            nada: flota. */}
+            saliendo hacia arriba desde ella: así queda por encima de todo sin que
+            nadie tenga que adivinar cuánto mide. No empuja nada: flota. */}
         <GananciaAlComponer gain={composeGain} onDismiss={dismissComposeGain} />
       </section>
     </div>
