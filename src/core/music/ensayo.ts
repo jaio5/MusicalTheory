@@ -1,5 +1,6 @@
 import { blocksInOrder, findBlock, repeatsOf, type Arrangement } from './arrangement';
-import type { DegreeSymbol } from './progressions';
+import type { PitchClass } from './notes';
+import type { DegreeSymbol, ResolvedChord } from './progressions';
 
 /**
  * Ensayar lo que has escrito: el guion y la puntuación.
@@ -175,4 +176,47 @@ export function ensayoTerminado(
   resultados: readonly Acierto[],
 ): boolean {
   return guion.length > 0 && resultados.length >= guion.length;
+}
+
+/**
+ * Si lo que se oyó es el acorde que tocaba.
+ *
+ * Compara **la clase de acorde y no la digitación**: las mismas notas, sin
+ * mirar la octava ni cuál va en el bajo. No es una simplificación cómoda, es
+ * hasta donde llega el motor —el croma olvida la octava a propósito
+ * ([adr/0004](../../../docs/adr/0004-reconocimiento-de-acordes-por-croma.md))—,
+ * así que `C/E` y `C` son el mismo vector y darlos por distintos sería prometer
+ * una precisión que aquí no existe.
+ *
+ * Nada de acordes parecidos: un `Am7` no vale por un `Am`. Quien ensaya está
+ * comprobando que toca **lo que escribió**, y aflojar eso convierte el número
+ * de aciertos en un número que no mide nada.
+ */
+export function suenaComo(
+  esperado: ResolvedChord,
+  oido: { readonly root: PitchClass; readonly notes: readonly PitchClass[] } | null,
+): boolean {
+  if (oido === null || oido.root !== esperado.root) {
+    return false;
+  }
+  const suyas = new Set(oido.notes);
+  return (
+    suyas.size === new Set(esperado.notes).size && esperado.notes.every((nota) => suyas.has(nota))
+  );
+}
+
+/**
+ * Qué salió en un compás, sabiendo cuándo se oyó lo que tocaba.
+ *
+ * **Tres resultados porque hay dos maneras de salir mal.** Acertar es haber
+ * puesto el acorde bueno *a tiempo*, y a tiempo quiere decir en la primera
+ * mitad: un acorde que aparece cuando el compás se acaba no se tocó con el
+ * metrónomo, se tocó detrás de él. Es lo que distingue «mira el mástil» de
+ * «baja diez pulsos y vuelve», y juntarlos en «mal» borra justo el consejo.
+ */
+export function comoSalio(pulsosDelPaso: number, pulsoEnQueSono: number | null): Acierto {
+  if (pulsoEnQueSono === null) {
+    return 'fallado';
+  }
+  return pulsoEnQueSono <= pulsosDelPaso / 2 ? 'acertado' : 'tarde';
 }

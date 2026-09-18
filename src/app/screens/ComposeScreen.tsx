@@ -3,7 +3,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 
 import { keyName, type ScaleId } from '@core/music';
-import { ArrangeCanvas, TocarParaEscribir } from '@features/arrange';
+import { ArrangeCanvas, Ensayo, TocarParaEscribir } from '@features/arrange';
 import { FretboardPanel } from '@features/fretboard';
 import { GananciaAlComponer, useProgress } from '@features/learn';
 import { IdeasPanel } from '@features/ideas';
@@ -198,7 +198,9 @@ export function ComposeScreen() {
         lead={
           espacio === 'tocando'
             ? 'Toca, y lo que suena se escribe solo.'
-            : 'Escribe la canción, mírala acorde a acorde y escúchala.'
+            : espacio === 'ensayar'
+              ? 'Tócala contra el metrónomo, y te digo cómo ha ido.'
+              : 'Escribe la canción, mírala acorde a acorde y escúchala.'
         }
         actions={
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -269,7 +271,10 @@ export function ComposeScreen() {
         >
           {(
             [
-              ['arreglo', espacio === 'tocando' ? 'Tocando' : 'Arreglo'],
+              [
+                'arreglo',
+                espacio === 'tocando' ? 'Tocando' : espacio === 'ensayar' ? 'Ensayo' : 'Arreglo',
+              ],
               ['camino', 'A dónde ir'],
               ['acorde', 'Acorde'],
             ] as const
@@ -343,8 +348,18 @@ export function ComposeScreen() {
           }`}
         >
           <Area
-            titulo={espacio === 'tocando' ? 'Tocando' : 'Arreglo'}
-            icono={espacio === 'tocando' ? <IconoMicro /> : <IconoComponer />}
+            titulo={
+              espacio === 'tocando' ? 'Tocando' : espacio === 'ensayar' ? 'Ensayo' : 'Arreglo'
+            }
+            icono={
+              espacio === 'tocando' ? (
+                <IconoMicro />
+              ) : espacio === 'ensayar' ? (
+                <IconoTocar />
+              ) : (
+                <IconoComponer />
+              )
+            }
             scroll={false}
             sinCabecera={!hayBanco}
             // Suelo, porque es lo único que no se desplaza por dentro: lo que
@@ -354,7 +369,10 @@ export function ComposeScreen() {
             // lo reparte nadie, cada área toma el suyo, y sin suelo el arreglo
             // se quedaba en una rendija con la partitura cortada mientras el
             // acorde de debajo se llevaba media pantalla.
-            className="grow lg:min-h-40"
+            // Suelo también apilado: con pestañas solo se ve un área, así que
+            // puede pedir alto, y quien se desplaza es la columna. Sin él, el
+            // lienzo se quedaba en ochenta píxeles con su barra fuera.
+            className="min-h-[26rem] grow lg:min-h-40"
           >
             {activeKey === null ? (
               // `my-auto` en el hijo y no `justify-center` aquí, que es la regla
@@ -368,6 +386,8 @@ export function ComposeScreen() {
               </div>
             ) : espacio === 'tocando' ? (
               <TocarParaEscribir onEscrito={() => accionesDelBanco.espacio('escribir')} />
+            ) : espacio === 'ensayar' ? (
+              <Ensayo />
             ) : (
               <ArrangeCanvas />
             )}

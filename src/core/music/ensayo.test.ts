@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { setRepeats, writtenBlock, type Arrangement } from './arrangement';
-import { ensayoTerminado, guionDeEnsayo, largoDelEnsayo, puntuar, type Acierto } from './ensayo';
+import { resolveDegree } from './progressions';
+import {
+  comoSalio,
+  ensayoTerminado,
+  guionDeEnsayo,
+  largoDelEnsayo,
+  puntuar,
+  suenaComo,
+  type Acierto,
+} from './ensayo';
 
 /**
  * Ensayar lo que has escrito.
@@ -143,5 +152,46 @@ describe('la puntuacion', () => {
 
     expect(ensayoTerminado(guion, ['fallado', 'fallado', 'fallado', 'fallado'])).toBe(true);
     expect(ensayoTerminado([], [])).toBe(false);
+  });
+});
+
+/**
+ * Comparar lo que sonó con lo que tocaba.
+ *
+ * Se compara la **clase de acorde** y no la digitación: el croma olvida la
+ * octava a propósito, así que pedir que coincida el bajo sería prometer una
+ * precisión que este motor no tiene.
+ */
+describe('si lo que se oyo era lo que tocaba', () => {
+  const doMayor = resolveDegree(0, 'major', 'I');
+
+  it('las mismas notas valen, venga el bajo que venga', () => {
+    expect(suenaComo(doMayor, { root: 0, notes: [0, 4, 7] })).toBe(true);
+    // La misma clase con las notas en otro orden es el mismo acorde.
+    expect(suenaComo(doMayor, { root: 0, notes: [7, 0, 4] })).toBe(true);
+  });
+
+  it('otro acorde no vale, ni aunque se parezca', () => {
+    expect(suenaComo(doMayor, { root: 9, notes: [9, 0, 4] })).toBe(false);
+    // Un Cmaj7 no es un C: quien ensaya comprueba que toca lo que escribió.
+    expect(suenaComo(doMayor, { root: 0, notes: [0, 4, 7, 11] })).toBe(false);
+  });
+
+  it('y sin oir nada, no', () => {
+    expect(suenaComo(doMayor, null)).toBe(false);
+  });
+});
+
+describe('a tiempo o tarde', () => {
+  // A tiempo es en la primera mitad del compás: un acorde que aparece cuando el
+  // compás se acaba no se tocó con el metrónomo, se tocó detrás de él.
+  it('en la primera mitad es acertado, despues es tarde', () => {
+    expect(comoSalio(4, 0)).toBe('acertado');
+    expect(comoSalio(4, 2)).toBe('acertado');
+    expect(comoSalio(4, 3)).toBe('tarde');
+  });
+
+  it('y no sonar nunca es fallado', () => {
+    expect(comoSalio(4, null)).toBe('fallado');
   });
 });

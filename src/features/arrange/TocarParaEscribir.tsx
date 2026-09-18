@@ -77,10 +77,17 @@ export function TocarParaEscribir({
 
   if (activeKey === null) {
     return (
-      <Vacio icono={<IconoMicro />} titulo="Elige una tonalidad y toca">
-        Lo que toques se escribe en grados sobre la tonalidad que tengas puesta, así que hace falta
-        saber cuál es antes de empezar.
-      </Vacio>
+      // Dentro de una caja que se desplaza, como todo lo que puede no caber: un
+      // estado vacío centrado en una caja que recorta se sale por arriba y por
+      // abajo en cuanto la ventana es baja.
+      <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+        <div className="my-auto">
+          <Vacio icono={<IconoMicro />} titulo="Elige una tonalidad y toca">
+            Lo que toques se escribe en grados sobre la tonalidad que tengas puesta, así que hace
+            falta saber cuál es antes de empezar.
+          </Vacio>
+        </div>
+      </div>
     );
   }
 
@@ -120,85 +127,92 @@ export function TocarParaEscribir({
   const tocando = fase === 'tocando';
 
   return (
-    <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 p-4 text-center">
-      <Button
-        onClick={() => void (tocando ? pararYEscribir() : empezar())}
-        disabled={fase === 'preparando'}
-        variant={tocando ? 'quiet' : 'primary'}
-        className="min-w-56"
-      >
-        {tocando ? <IconoParar /> : <IconoMicro />}
-        {fase === 'preparando' ? 'Abriendo el micro…' : tocando ? 'Parar y escribirlo' : 'Tocar'}
-      </Button>
+    // `my-auto` en el hijo y no `justify-center` aquí, que es la regla de la
+    // casa: centrar en una caja que recorta saca lo que no cabe **por los dos
+    // lados**, y en una ventana baja el botón se iba por arriba sin manera de
+    // alcanzarlo. Así se centra mientras sobra sitio y se desplaza cuando no.
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+      <div className="my-auto flex flex-col items-center gap-4 p-4 text-center">
+        <Button
+          onClick={() => void (tocando ? pararYEscribir() : empezar())}
+          disabled={fase === 'preparando'}
+          variant={tocando ? 'quiet' : 'primary'}
+          className="min-w-56"
+        >
+          {tocando ? <IconoParar /> : <IconoMicro />}
+          {fase === 'preparando' ? 'Abriendo el micro…' : tocando ? 'Parar y escribirlo' : 'Tocar'}
+        </Button>
 
-      {tocando ? (
-        // Las tres señales de que te está oyendo, y ninguna más: el acorde que
-        // reconoce, cuántos lleva y cuánto tiempo. Un medidor de nivel aquí
-        // sería una cuarta cosa mirando a la vez y ninguna se leería.
-        <div className="flex flex-col items-center gap-2">
-          <p className="font-display text-brass-bright text-4xl leading-none" aria-live="polite">
-            {heardChord?.symbol ?? '—'}
-          </p>
-          <p className="text-text-muted font-mono text-xs">
-            {apuntados === 1 ? '1 acorde apuntado' : `${apuntados} acordes apuntados`} · {segundos}s
-          </p>
+        {tocando ? (
+          // Las tres señales de que te está oyendo, y ninguna más: el acorde que
+          // reconoce, cuántos lleva y cuánto tiempo. Un medidor de nivel aquí
+          // sería una cuarta cosa mirando a la vez y ninguna se leería.
+          <div className="flex flex-col items-center gap-2">
+            <p className="font-display text-brass-bright text-4xl leading-none" aria-live="polite">
+              {heardChord?.symbol ?? '—'}
+            </p>
+            <p className="text-text-muted font-mono text-xs">
+              {apuntados === 1 ? '1 acorde apuntado' : `${apuntados} acordes apuntados`} ·{' '}
+              {segundos}s
+            </p>
+            <p className="text-text-muted max-w-prose text-sm">
+              Toca en {keyName(activeKey.tonic, activeKey.mode)}. Al parar, esto entra en la canción
+              como una parte y se puede seguir por bloques o en la partitura.
+            </p>
+          </div>
+        ) : (
           <p className="text-text-muted max-w-prose text-sm">
-            Toca en {keyName(activeKey.tonic, activeKey.mode)}. Al parar, esto entra en la canción
-            como una parte y se puede seguir por bloques o en la partitura.
+            Se abre el micro, se graba el sonido y se apunta lo que suena. Al parar, lo tocado entra
+            en la canción con sus acordes y su punteo.
           </p>
-        </div>
-      ) : (
-        <p className="text-text-muted max-w-prose text-sm">
-          Se abre el micro, se graba el sonido y se apunta lo que suena. Al parar, lo tocado entra
-          en la canción con sus acordes y su punteo.
-        </p>
-      )}
+        )}
 
-      <Aviso mensaje={mensaje} />
+        <Aviso mensaje={mensaje} />
 
-      {/* Lo primero que hay que decir al parar es **que ha entrado**, y dónde.
+        {/* Lo primero que hay que decir al parar es **que ha entrado**, y dónde.
           El aviso de la captura cuenta lo que se perdió, que importa, pero
           después: sin esta línea, parar dejaba la canción escrita y a quien la
           escribió mirando la misma pantalla de antes. */}
-      {escrito && (
-        <div className="flex flex-col items-center gap-2" role="status">
-          <p className="text-tube-bright text-sm">Ya está en la canción.</p>
-          {onEscrito !== undefined && (
-            <Chip tone="quiet" className="px-3 text-xs" onClick={onEscrito}>
-              Verlo en la partitura
-            </Chip>
-          )}
-        </div>
-      )}
+        {escrito && (
+          <div className="flex flex-col items-center gap-2" role="status">
+            <p className="text-tube-bright text-sm">Ya está en la canción.</p>
+            {onEscrito !== undefined && (
+              <Chip tone="quiet" className="px-3 text-xs" onClick={onEscrito}>
+                Verlo en la partitura
+              </Chip>
+            )}
+          </div>
+        )}
 
-      <Aviso mensaje={aviso} tono="hecho" anuncio="ninguno" />
+        <Aviso mensaje={aviso} tono="hecho" anuncio="ninguno" />
 
-      {/* La toma se queda al lado de lo transcrito, y no es adorno: transcribir
+        {/* La toma se queda al lado de lo transcrito, y no es adorno: transcribir
           pierde cosas a propósito —dos notas iguales seguidas se funden, el
           croma olvida la octava— y el sonido de verdad es lo que permite
           comprobar qué se perdió. */}
-      {toma !== null && !tocando && (
-        <div className="border-border flex flex-wrap items-center justify-center gap-2 border-t pt-4">
-          <span className="text-text-muted text-xs">Lo que sonó de verdad:</span>
-          <audio
-            src={toma.url}
-            controls
-            className="h-8"
-            aria-label="La toma que acabas de grabar"
-          />
-          <Chip tone="quiet" className="px-3 text-xs" onClick={descargar}>
-            <IconoDescargar />
-            Descargar
-          </Chip>
-        </div>
-      )}
+        {toma !== null && !tocando && (
+          <div className="border-border flex flex-wrap items-center justify-center gap-2 border-t pt-4">
+            <span className="text-text-muted text-xs">Lo que sonó de verdad:</span>
+            <audio
+              src={toma.url}
+              controls
+              className="h-8"
+              aria-label="La toma que acabas de grabar"
+            />
+            <Chip tone="quiet" className="px-3 text-xs" onClick={descargar}>
+              <IconoDescargar />
+              Descargar
+            </Chip>
+          </div>
+        )}
 
-      {!tocando && toma === null && (
-        <p className="text-text-muted flex items-center gap-1 text-xs">
-          <IconoSonar />
-          El sonido no sale de tu equipo.
-        </p>
-      )}
+        {!tocando && toma === null && (
+          <p className="text-text-muted flex items-center gap-1 text-xs">
+            <IconoSonar />
+            El sonido no sale de tu equipo.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
