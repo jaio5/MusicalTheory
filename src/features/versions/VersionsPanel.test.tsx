@@ -68,6 +68,13 @@ function componiendo(labels: readonly string[]) {
 
 beforeEach(() => {
   useSessionStore.getState().actions.reset();
+  // Y el montaje, que desde el ADR 0032 es de donde salen las salidas: sin esto,
+  // lo que escribe una prueba se lo encuentra la siguiente.
+  useArrangementStore.setState({
+    arrangement: { parts: [] },
+    past: [],
+    selectedBlockId: null,
+  });
 });
 
 describe('sin el plan que las incluye', () => {
@@ -160,8 +167,16 @@ describe('lo que se enseña', () => {
   });
 });
 
-describe('ponerla en el camino', () => {
-  it('deja la versión tocable, con los acordes resueltos por el dominio', async () => {
+describe('quedarse con una salida', () => {
+  /**
+   * La deja **en la canción**, con sus partes.
+   *
+   * La dejaba en el camino, que era la segunda canción paralela
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)):
+   * te quedabas con una salida y tu canción seguía siendo la de antes, así que
+   * para tenerla de verdad había que volver a escribirla a mano.
+   */
+  it('deja la version escrita en la cancion, con sus partes', async () => {
     const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V']);
@@ -169,16 +184,37 @@ describe('ponerla en el camino', () => {
     await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
     await userEvent.click(await screen.findByRole('button', { name: /Quedarme con esta/ }));
 
-    const state = useSessionStore.getState();
-    expect(state.path.map((chord) => chord.symbol)).toEqual(['C', 'Db']);
-    // Las notas se resuelven, no se copian vacías: son las que dibujan el mástil.
-    expect(state.path[1]!.notes.length).toBeGreaterThan(0);
-    // El porqué del compás cambiado es el del movimiento que lo puso ahí.
-    expect(state.path[1]!.why).toMatch(/tritono/);
-    expect(state.currentDegree).toBe('bII');
+    const partes = useArrangementStore.getState().arrangement.parts;
+    expect(partes.map((parte) => parte.name)).toEqual(['Lo que llevas']);
+    expect(partes[0]?.blocks.map((b) => b.degree)).toEqual(['I', 'bII']);
+    expect(useSessionStore.getState().currentDegree).toBe('bII');
+    // Y el camino queda limpio: la canción ya no vive ahí.
+    expect(useSessionStore.getState().path).toEqual([]);
   });
 
-  it('ponerla dos veces no encadena dos copias', async () => {
+  /**
+   * Pisa lo que hay, que es lo que significa quedársela, **y se deshace**: el
+   * `replace` pasa por el mismo sitio que todo lo demás, así que arrepentirse
+   * cuesta una tecla.
+   */
+  it('pisa lo que habia, y el deshacer lo devuelve', async () => {
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
+    componiendo(['I', 'V']);
+    const mia = useArrangementStore.getState().actions.addPart('Lo mío');
+    useArrangementStore.getState().actions.addBlock(mia, 'vi', 4);
+    useArrangementStore.getState().actions.addBlock(mia, 'IV', 4);
+
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Quedarme con esta/ }));
+    expect(useArrangementStore.getState().arrangement.parts[0]?.name).toBe('Lo que llevas');
+
+    useArrangementStore.getState().actions.undo();
+
+    expect(useArrangementStore.getState().arrangement.parts[0]?.name).toBe('Lo mío');
+  });
+
+  it('quedarsela dos veces no encadena dos copias', async () => {
     const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
     render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
     componiendo(['I', 'V']);
@@ -188,7 +224,9 @@ describe('ponerla en el camino', () => {
     await userEvent.click(poner);
     await userEvent.click(poner);
 
-    expect(useSessionStore.getState().path).toHaveLength(2);
+    expect(
+      useArrangementStore.getState().arrangement.parts.flatMap((parte) => parte.blocks),
+    ).toHaveLength(2);
   });
 });
 

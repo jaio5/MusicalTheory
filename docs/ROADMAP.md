@@ -103,6 +103,15 @@ Lo que queda, en el orden en que se hace:
   aparezca, el ADR 0035 se amplía con la medida delante
   ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
 
+- **El `iv` prestado no existe en tonalidad mayor**, y es el préstamo más común
+  de la música pop —la cadencia plagal menor, `I–iv–I`—. El catálogo tiene bIII,
+  bVI y bVII, que es lo que `docs/DOMAIN-MUSIC.md` dice y por tanto no miente,
+  pero en Do mayor **no se puede escribir un Fm**: no tiene grado, así que la
+  lista lo marca como «probarlo» y la IA no lo puede proponer. Se vio al mandarle
+  a la pantalla una salida inventada que lo usaba: la ruta la habría descartado
+  antes de llegar, y con razón. Añadirlo toca las tablas de grados, los
+  movimientos, el contrato de la IA y sus prompts: va con su ADR.
+
 - **El parpadeo del primer fotograma en un teléfono.** `useHayBanco` contesta que
   sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
   hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;

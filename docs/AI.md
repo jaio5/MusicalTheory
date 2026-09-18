@@ -283,8 +283,8 @@ pagar por tokens.
 **Lo que devuelve sale del dominio.** Las versiones se construyen aplicando
 movimientos de verdad de `core/music/reharmonization.ts` a la progresión que se
 manda, así que pasan la misma verificación que pasaría una respuesta del modelo.
-Eso permite probar la pantalla, la reproducción y «ponerla en el camino» sin
-gastar un céntimo.
+Eso permite probar la pantalla, la reproducción y «quedarme con esta» sin gastar
+un céntimo.
 
 Lo que **no** prueba: si el modelo de verdad devuelve versiones que valgan la
 pena. Eso no lo puede decir nada que no sea el modelo. Por eso todo lo que sale de

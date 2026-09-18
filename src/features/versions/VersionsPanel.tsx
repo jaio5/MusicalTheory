@@ -9,9 +9,9 @@ import {
   DUDOSO,
   ROLES,
   degreesFromPath,
-  moveById,
   noteName,
   resolveDegree,
+  writtenBlock,
   roleInfo,
   scheduleProgression,
   type CapturedStep,
@@ -86,6 +86,7 @@ export function VersionsPanel({
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
   const montaje = useArrangementStore((state) => state.arrangement);
+  const accionesMontaje = useArrangementStore((state) => state.actions);
   const capturing = useSessionStore((state) => state.capturing);
   const captured = useSessionStore((state) => state.captured);
   const captureEndedAt = useSessionStore((state) => state.captureEndedAt);
@@ -352,7 +353,22 @@ export function VersionsPanel({
     }
   }
 
-  /** Deja esa versión puesta en el camino, para poder tocarla. */
+  /**
+   * Deja esa versión puesta **en la canción**, con sus partes.
+   *
+   * La dejaba en el camino, que era la segunda canción paralela
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)):
+   * te quedabas con una salida y tu canción seguía siendo la de antes, así que
+   * para tenerla de verdad había que volver a escribirla a mano.
+   *
+   * **Pisa lo que hay, y eso es lo que significa quedársela.** El deshacer lo
+   * cubre —`replace` pasa por el mismo sitio que todo lo demás—, así que
+   * arrepentirse cuesta una tecla.
+   *
+   * Las salidas que continúan lo que llevas traen varias partes: la tuya
+   * primero y lo que sigue después, cada una con su nombre. Entran tal cual, que
+   * es de lo que va tener partes.
+   */
   function use(version: Version) {
     if (activeKey === null) {
       return;
@@ -360,23 +376,22 @@ export function VersionsPanel({
     const { actions } = useSessionStore.getState();
     actions.clearPath();
 
-    for (const step of version.steps) {
-      const move = step.move === null ? null : moveById(step.move);
-      // La fundamental y las notas se resuelven aquí y no se copian del paso:
-      // son las que usan el mástil y las formas del acorde, y mandarlas vacías
-      // dejaría la columna del medio sin nada que dibujar.
-      const chord = resolveDegree(activeKey.tonic, activeKey.mode, step.degree);
+    const secciones =
+      version.sections.length > 0
+        ? version.sections
+        : [{ name: 'Estrofa', yours: false, steps: version.steps }];
 
-      actions.pushChord({
-        symbol: chord.symbol,
-        label: step.degree,
-        root: chord.root,
-        notes: chord.notes,
-        // El porqué es el del movimiento que lo puso ahí, que dice más que el
-        // papel del grado: cuenta qué ha cambiado respecto a lo que tocabas.
-        why: move === null ? chord.role : move.why,
-      });
-    }
+    accionesMontaje.replace({
+      parts: secciones.map((seccion, parte) => ({
+        id: `v${parte}`,
+        name: seccion.name,
+        blocks: seccion.steps.map((step, bloque) =>
+          writtenBlock(`v${parte}b${bloque}`, step.degree, step.beats),
+        ),
+        notes: [],
+        bars: Math.max(1, Math.ceil(seccion.steps.length)),
+      })),
+    });
     actions.setCurrentDegree(version.steps.at(-1)?.degree ?? null);
 
     // Quedarse con una salida cuenta como practicar. Es **quedársela** y no

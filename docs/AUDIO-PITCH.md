@@ -225,7 +225,9 @@ y al cambiar de acorde la media móvil ve los dos a la vez —de C a Am se ve un
 C6, que es literalmente cierto—. El suavizado y las confirmaciones se ajustan
 juntos para que ese acorde de paso no llegue a confirmarse.
 
-**Lo que no hace.** No entra solo en el camino: se propone y lo confirmas tú.
+**Lo que no hace.** No entra solo en la canción: se propone y lo confirmas tú, y
+al confirmarlo entra como bloque —con su especie si la tiene— y no en una lista
+aparte ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
 Acierta con tríadas y séptimas sostenidas en limpio; con inversiones y omitidos
 duda —C sin fundamental es Em—, y con distorsión fuerte el espectro se llena de
 basura y falla. Es un detector de plantillas, no una red entrenada.
