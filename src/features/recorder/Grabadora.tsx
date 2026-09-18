@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { reloj } from '@core/reloj';
 import { BrowserMicInput } from '@media/browser-mic-input';
 import type { MicInput } from '@media/mic-input';
 import type { Recording, SessionRecorder } from '@media/session-recorder';
@@ -241,10 +242,4 @@ export function Grabadora({ createMic, createRecorder }: GrabadoraProps = {}) {
       <Aviso mensaje={message} anuncio="urgente" />
     </div>
   );
-}
-
-/** Minutos y segundos, que es como se lee una toma. */
-function reloj(segundos: number): string {
-  const minutos = Math.floor(segundos / 60);
-  return `${minutos}:${String(segundos % 60).padStart(2, '0')}`;
 }

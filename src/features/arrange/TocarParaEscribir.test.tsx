@@ -271,6 +271,10 @@ describe('Tocar para escribir', () => {
 
     expect(screen.getByLabelText('La toma que acabas de grabar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Descargar/ })).toBeInTheDocument();
+    // Y cuánto dura, dicho por nosotros: el WebM de `MediaRecorder` no lleva la
+    // duración en la cabecera, así que el reproductor enseña «0:00» de total
+    // hasta que la toma se reproduce entera.
+    expect(screen.getByText('0:04')).toBeInTheDocument();
   });
 
   it('y lleva a verlo escrito, que es a donde se va despues', async () => {

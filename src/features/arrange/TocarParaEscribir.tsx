@@ -9,6 +9,7 @@ import { useTocarYApuntar, type TocarDeps, type Toma } from '@state/use-tocar-y-
 import { Aviso } from '@ui/Aviso';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
+import { reloj } from '@core/reloj';
 import { IconoDescargar, IconoMicro, IconoParar, IconoSonar } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
 
@@ -199,6 +200,15 @@ export function TocarParaEscribir({
               className="h-8"
               aria-label="La toma que acabas de grabar"
             />
+            {/* Cuánto dura, dicho aquí y no dejado al reproductor: el WebM que
+              escribe `MediaRecorder` **no lleva la duración en la cabecera**, así
+              que el navegador enseña «0:00» de total hasta que la toma se
+              reproduce entera. Quien acaba de tocar no puede saber si se grabó un
+              compás o los ocho. El número bueno lo tiene la grabación, que lo
+              midió mientras grababa. */}
+            <span className="text-text-muted font-mono text-xs tabular-nums">
+              {reloj(toma.recording.durationMs / 1000)}
+            </span>
             <Chip tone="quiet" className="px-3 text-xs" onClick={descargar}>
               <IconoDescargar />
               Descargar
