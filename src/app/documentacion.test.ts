@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { dailyAiRequests, monthlyAiRequests } from '@core/billing';
 import { BADGES } from '@core/music';
 
 /**
@@ -67,6 +68,35 @@ describe('lo que la documentación cuenta', () => {
       .sort((a, b) => a - b);
 
     expect(numeros).toEqual(numeros.map((_, indice) => indice + 1));
+  });
+
+  /**
+   * **Los cupos que promete la página de los planes son los que da el código.**
+   *
+   * Ese documento dice de sí mismo que los cupos «no están escritos en ninguna
+   * parte: se calculan», y que si no coinciden manda el código. No coincidían:
+   * prometía 147, 181 y 271 peticiones al mes con Opus 5 y el código daba 73, 90
+   * y 135 —la mitad—, porque las peticiones se encarecieron y la tabla se quedó
+   * donde estaba. Es la página del dinero: el número de más no lo paga nadie.
+   */
+  it('los cupos de la pagina de planes son los que calcula el codigo', () => {
+    const texto = leer('docs/CUENTAS-Y-PLANES.md');
+
+    for (const plan of ['basico', 'medio', 'pro'] as const) {
+      const mes = monthlyAiRequests(plan, 'claude-opus-5');
+      const dia = dailyAiRequests(plan, 'claude-opus-5');
+      expect(texto, `el cupo mensual de ${plan}`).toContain(`${mes}/mes · ${dia}/día`);
+    }
+
+    // Y la fila de arriba del todo, que es la que se lee antes de pagar.
+    const [basico, medio, pro] = (['basico', 'medio', 'pro'] as const).map((plan) =>
+      monthlyAiRequests(plan, 'claude-opus-5'),
+    );
+    expect(texto).toMatch(
+      new RegExp(
+        `Peticiones a la IA al mes\\s*\\|\\s*15\\s*\\|\\s*${basico}\\s*\\|\\s*${medio}\\s*\\|\\s*${pro}`,
+      ),
+    );
   });
 
   // La pantalla de medallas dice «de quince», y quince son las que hay.

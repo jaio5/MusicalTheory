@@ -35,7 +35,7 @@ coinciden, manda el código y este documento está mal.
 | Ideas de progresión            | —        | —      | sí     | sí      |
 | Versiones de tus canciones     | —        | —      | —      | sí      |
 | El profesor sabe por dónde vas | —        | —      | —      | sí      |
-| Peticiones a la IA al mes      | 15       | 147    | 181    | 271     |
+| Peticiones a la IA al mes      | 15       | 73     | 90     | 135     |
 
 **Los cupos de esa última fila no están escritos en ninguna parte: se calculan.**
 Son los que salen con `claude-opus-5`, que es el modelo por defecto; con otro salen
@@ -236,16 +236,16 @@ cupo mensual = (precio del plan × 40 %) / coste del peor caso de una petición
 
 Con eso, y los precios de la API a 30 de julio de 2026:
 
-|                          | Opus 5 (5/25 $)  | Sonnet 5 (3/15 $) | Haiku 4.5 (1/5 $) |
+|                          | Opus 5 (5/25 $)  | Sonnet 5 (2/10 $) | Haiku 4.5 (1/5 $) |
 | ------------------------ | ---------------- | ----------------- | ----------------- |
-| Una pregunta al profesor | 1,35 cts         | 0,81 cts          | 0,27 cts          |
-| Una tanda de ideas       | 2,20 cts         | 1,32 cts          | 0,44 cts          |
-| Una tanda de versiones   | 2,95 cts         | 1,77 cts          | 0,59 cts          |
-| Básico                   | 147/mes · 24/día | 246 · 40          | 739 · 120         |
-| Medio                    | 181/mes · 30/día | 302 · 49          | 908 · 147         |
-| Pro                      | 271/mes · 44/día | 451 · 73          | 1355 · 219        |
+| Una pregunta al profesor | 2,70 cts         | 1,08 cts          | 0,54 cts          |
+| Una tanda de ideas       | 4,40 cts         | 1,76 cts          | 0,88 cts          |
+| Una tanda de versiones   | 5,90 cts         | 2,36 cts          | 1,18 cts          |
+| Básico                   | 73/mes · 12/día  | 184 · 30          | 369 · 60          |
+| Medio                    | 90/mes · 15/día  | 227 · 37          | 454 · 74          |
+| Pro                      | 135/mes · 22/día | 338 · 55          | 677 · 110         |
 
-**El cupo de Pro baja de 363 a 271 al añadirse las versiones, y eso está bien.** El
+**El cupo de Pro es el más caro de sus tres peticiones, y eso está bien.** El
 cupo de un plan es su presupuesto dividido entre **su petición más cara**, y desde
 que Pro incluye versiones, su petición más cara ya no son las ideas. Dejar el 363
 sería prometer un número que el dinero no paga: es exactamente el fallo que este
