@@ -30,6 +30,22 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
   const actions = useSessionStore(selectActions);
   const [running, setRunning] = useState(false);
   const [beat, setBeat] = useState(0);
+  /**
+   * Lo que hay escrito en el campo mientras se escribe, que **no siempre es un
+   * tempo**.
+   *
+   * Sin esto el campo no se podía teclear. Iba pegado al store y cada pulsación
+   * pasaba por `clampBpm`: al borrarlo saltaba a 30 —el mínimo—, y el siguiente
+   * dígito se escribía detrás, así que «130» se tecleaba como «301» y quedaba en
+   * 300. Cualquier tempo que no salga de los botones era inalcanzable.
+   *
+   * Un «1» a medio escribir no es un tempo de 1: es un tempo sin terminar. Así
+   * que mientras se escribe manda el texto, al store solo sube lo que ya cabe en
+   * el rango, y al salir del campo se acota y se normaliza. Nulo quiere decir
+   * «nadie está escribiendo»: entonces lo que se ve es el tempo de verdad, y por
+   * eso `change` lo devuelve a nulo —si no, pulsar «+» no movería el número.
+   */
+  const [escrito, setEscrito] = useState<string | null>(null);
 
   const engineRef = useRef<MetronomeEngine | null>(null);
   const tapsRef = useRef<number[]>([]);
@@ -65,8 +81,29 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
 
   function change(next: number): void {
     const value = clampBpm(next);
+    setEscrito(null);
     actions.setTempo(value, beatsPerBar);
     engineRef.current?.setBpm(value);
+  }
+
+  /** Lo que se teclea: al store solo sube lo que ya es un tempo. */
+  function tecleando(texto: string): void {
+    setEscrito(texto);
+    const numero = Number(texto);
+    if (texto.trim() !== '' && Number.isFinite(numero) && numero === clampBpm(numero)) {
+      actions.setTempo(numero, beatsPerBar);
+      engineRef.current?.setBpm(numero);
+    }
+  }
+
+  /** Al salir del campo se acota lo que quedara a medias, o se deja como estaba. */
+  function terminarDeEscribir(): void {
+    const numero = Number(escrito);
+    if (escrito !== null && escrito.trim() !== '' && Number.isFinite(numero)) {
+      change(numero);
+      return;
+    }
+    setEscrito(null);
   }
 
   function tap(): void {
@@ -106,8 +143,12 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
             inputMode="numeric"
             min={MIN_BPM}
             max={MAX_BPM}
-            value={bpm}
-            onChange={(event) => change(Number(event.target.value))}
+            value={escrito ?? bpm}
+            onChange={(event) => tecleando(event.target.value)}
+            onBlur={terminarDeEscribir}
+            // Enter cierra lo escrito sin tener que salir del campo, que es lo
+            // que hace cualquiera al terminar de poner un tempo.
+            onKeyDown={(event) => event.key === 'Enter' && terminarDeEscribir()}
             className="border-border bg-surface text-text focus:border-brass-dim min-h-tap w-16 rounded-md border px-2 text-center font-mono text-lg tabular-nums"
           />
           <span className="text-text-muted font-mono text-xs">bpm</span>

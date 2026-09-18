@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Metronome as MetronomeEngine, MetronomeOptions } from '@audio/metronome';
+
+import { useSessionStore } from '@state/session-store';
 
 import { Metronome } from './Metronome';
 
@@ -31,6 +33,12 @@ class FakeMetronome implements MetronomeEngine {
     this.running = false;
   }
 }
+
+// El tempo vive en el store y no se rehace entre pruebas: sin esto, la que sube
+// a 102 le deja el tempo puesto a la siguiente.
+beforeEach(() => {
+  useSessionStore.getState().actions.setTempo(100, 4);
+});
 
 function renderMetronome() {
   const engine = new FakeMetronome();
@@ -75,14 +83,83 @@ describe('Metrónomo', () => {
     expect(engine.running).toBe(true);
   });
 
+  /**
+   * Se acota **al salir del campo, no en cada tecla**. Acotando al teclear, el
+   * campo no se podía escribir: al borrarlo saltaba al mínimo y el dígito
+   * siguiente se escribía detrás.
+   */
   it('no deja pasar de lo que se puede seguir', () => {
     renderMetronome();
+    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: /pulsos por minuto/i }), {
-      target: { value: '9000' },
-    });
+    fireEvent.change(campo, { target: { value: '9000' } });
+    fireEvent.blur(campo);
 
-    expect(screen.getByRole('spinbutton', { name: /pulsos por minuto/i })).toHaveValue(300);
+    expect(campo).toHaveValue(300);
+  });
+
+  /**
+   * Escribir un tempo, dígito a dígito, como se escribe de verdad.
+   *
+   * Es un fallo que se vio tecleando y ningún test cazaba: el campo iba pegado al
+   * store y cada pulsación pasaba por el acotado, así que «130» se tecleaba como
+   * «301» y quedaba en 300. Cualquier tempo que no saliera de los botones era
+   * inalcanzable.
+   */
+  it('se puede escribir un tempo digito a digito', () => {
+    renderMetronome();
+    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+
+    fireEvent.change(campo, { target: { value: '' } });
+    expect(campo).toHaveValue(null);
+
+    // Un «1» a medio escribir no es un tempo de 1: es un tempo sin terminar, así
+    // que se queda en pantalla y no sube al store.
+    fireEvent.change(campo, { target: { value: '1' } });
+    expect(campo).toHaveValue(1);
+    expect(useSessionStore.getState().bpm).toBe(100);
+
+    fireEvent.change(campo, { target: { value: '13' } });
+    fireEvent.change(campo, { target: { value: '130' } });
+
+    expect(campo).toHaveValue(130);
+    expect(useSessionStore.getState().bpm).toBe(130);
+  });
+
+  // Al salir, lo que quedó a medias se acota: un «1» escrito y abandonado no
+  // puede dejar el metrónomo en un tempo que no existe.
+  it('lo que queda a medias se acota al salir del campo', () => {
+    renderMetronome();
+    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+
+    fireEvent.change(campo, { target: { value: '1' } });
+    fireEvent.blur(campo);
+
+    expect(campo).toHaveValue(30);
+  });
+
+  // Y si se borra y se va sin escribir nada, se vuelve al que había: un campo
+  // vacío no es un tempo de cero.
+  it('borrarlo y salir devuelve el tempo que habia', () => {
+    renderMetronome();
+    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+
+    fireEvent.change(campo, { target: { value: '' } });
+    fireEvent.blur(campo);
+
+    expect(campo).toHaveValue(100);
+  });
+
+  // Los botones mandan sobre lo que hubiera escrito a medias: si no, pulsar «+»
+  // no movería el número que se ve.
+  it('los botones ganan a lo que quedara escrito', () => {
+    renderMetronome();
+    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+
+    fireEvent.change(campo, { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: /dos pulsos más/i }));
+
+    expect(campo).toHaveValue(102);
   });
 
   it('se calla al salir de la pantalla', () => {
