@@ -92,10 +92,12 @@ Lo que queda, en el orden en que se hace:
   lo mismo —«a dónde ir» viene plegada y, abierta, **escribe en la canción**: lo
   que tiene grado entra como bloque con su séptima y lo que no lo tiene lleva al
   camino, diciéndolo antes de pulsar—. Lo que oye el micro también entra en la
-  canción, y la columna del acorde sigue al bloque que eliges, no al último que
-  se probó. Lo que falta es lo de dentro: `path` todavía lo leen `versions`,
-  `songs`, `sessions`, `fretboard` y `ResumeLast`, y ahí sigue siendo una segunda
-  canción con su propio formato al guardar
+  canción, y la columna del acorde, el mástil, las salidas y «añadir parte» siguen
+  a la canción y no al camino. Lo que queda de `path` es **lo que no cabe en un
+  bloque** —un `C5` no tiene tercera, un `Fsus2` la cambia por la segunda—, que
+  se prueba y no se escribe. Falta decidir qué pasa con eso: o el bloque aprende
+  a guardar esas especies, o el camino se retira y con él la manera de probarlas.
+  Es una decisión con alternativas y va con su ADR
   ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
 - **El parpadeo del primer fotograma en un teléfono.** `useHayBanco` contesta que
   sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
