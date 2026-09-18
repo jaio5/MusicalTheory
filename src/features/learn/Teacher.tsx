@@ -162,8 +162,14 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
         </p>
       )}
 
-      {/* La IA pide cuenta, y hay que decirlo donde se intenta usar. */}
-      {!signedIn && (
+      {/* La IA pide cuenta, y hay que decirlo donde se intenta usar.
+
+          Pero **no dos veces**: al preguntar sin cuenta, la ruta contesta lo
+          mismo con otras palabras —«Entra con tu cuenta… La IA se cuenta por
+          cuenta, no por navegador»— y quedaban dos líneas seguidas, una gris y
+          otra roja, diciendo lo mismo. Se queda la roja, que es la que contesta
+          a lo que se acaba de pulsar, y se lleva el enlace. */}
+      {!signedIn && message?.code !== 'account_required' && (
         <p className="text-text-muted text-xs">
           El profesor pide cuenta: es lo que permite contar el gasto por persona y no por navegador.{' '}
           <Link href="/cuenta" className="enlace">
@@ -213,6 +219,13 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
               donde se ve qué trae cada uno. */}
           {seArreglaConPlan(message.code, account.plan) && (
             <PlansLink className="mt-1 inline-block" />
+          )}
+          {/* Y la salida de este, que es entrar. Va aquí y no arriba porque
+              arriba ya no está: es la misma línea, no una segunda. */}
+          {message.code === 'account_required' && (
+            <Link href="/cuenta" className="enlace mt-1 inline-block text-xs">
+              Entrar con tu cuenta
+            </Link>
           )}
         </div>
       )}

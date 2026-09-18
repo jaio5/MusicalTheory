@@ -236,6 +236,40 @@ describe('el cupo', () => {
     expect(screen.queryByText(/Quedan/)).not.toBeInTheDocument();
     expect(screen.getByText(/El profesor pide cuenta/)).toBeInTheDocument();
   });
+
+  /**
+   * Y al preguntar sin cuenta **no se dice dos veces**.
+   *
+   * La ruta contesta lo mismo con otras palabras —«Entra con tu cuenta… La IA
+   * se cuenta por cuenta, no por navegador»— y quedaban dos líneas seguidas,
+   * una gris y otra roja, diciendo lo mismo. Se queda la roja, que es la que
+   * contesta a lo que se acaba de pulsar, y se lleva el enlace.
+   */
+  it('y al preguntar sin cuenta no se dice dos veces', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          error: { code: 'account_required', message: 'Entra con tu cuenta.' },
+        }),
+      })),
+    );
+    conTonalidad();
+    pintar(ANONYMOUS);
+
+    await userEvent.type(screen.getByRole('textbox'), '¿Por qué el V pide volver?');
+    await userEvent.click(screen.getByRole('button', { name: 'Preguntar' }));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/El profesor pide cuenta/)).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('link', { name: /Entrar con tu cuenta/ })).toHaveAttribute(
+      'href',
+      '/cuenta',
+    );
+  });
 });
 
 describe('las preguntas de arranque', () => {
