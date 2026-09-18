@@ -93,55 +93,62 @@ nombres viejos de los planes**.
 
 ## Dónde está cada cosa
 
-| Busco...                                                 | Está en                                                |
-| -------------------------------------------------------- | ------------------------------------------------------ |
-| Teoría musical: escalas, acordes, grados, tonalidad      | `src/core/music/`                                      |
-| Funciones armónicas y sustitución (T/S/D)                | `core/music/harmonic-function.ts`                      |
-| Qué acorde proponer y en qué orden                       | `core/music/suggestions.ts` + `styles.ts`              |
-| Con qué se rearmoniza, y cómo se comprueba               | `core/music/reharmonization.ts`                        |
-| Por dónde puede tirar lo que tocas, y qué lo valida      | `core/music/paths.ts`                                  |
-| Lo que tocas, convertido en compases                     | `core/music/capture.ts`                                |
-| La armadura, y qué nota va en cada línea                 | `core/music/circle-of-fifths.ts`                       |
-| El punteo: alturas, figuras y cómo se escribe cada nota  | `core/music/melody.ts`                                 |
-| Detección de tono (autocorrelación)                      | `src/audio/autocorrelation.ts`                         |
-| Detección de acordes en vivo (croma + plantillas)        | `audio/chroma.ts`, `audio/chord-engine.ts`             |
-| Volver a escuchar lo grabado, con calma                  | `audio/offline-chords.ts`, `audio/fft.ts`              |
-| Abrir y cerrar el `AudioContext`, en un solo sitio       | `audio/audio-context.ts`                               |
-| Mástil, afinaciones, formas de acorde                    | `src/core/instrument/`                                 |
-| Estado de sesión y persistencia                          | `src/state/` (IndexedDB)                               |
-| Lo que se recuerda de una vez para otra                  | `state/workspace.ts` (tono, estilo, escala)            |
-| Quién abre el micro, y por qué es uno solo               | `state/use-listening.ts`                               |
-| Oír una progresión desde un componente                   | `state/use-progression-player.ts`                      |
-| Un estado que se mira y al que uno se apunta             | `core/estado-observable.ts` (`Emisor`)                 |
-| Grabar el sonido y descargarlo                           | `src/media/`, `features/recorder/`                     |
-| Rutas de servidor de la IA                               | `app/api/ideas`, `/teacher`, `/versiones`              |
-| El cuerpo común de las tres rutas, y sus puertas         | `server/ai-route.ts`, `server/ai-gate.ts`              |
-| La llamada al modelo, y el único sitio con el SDK        | `server/ask-model.ts`                                  |
-| Quién contesta —API, modelo de casa o dominio—           | `server/ai-model.ts`, `local-model.ts`                 |
-| Por dónde entra texto libre, y qué lo acota              | `features/learn/teacher-contract.ts`                   |
-| Una canción guardada, y qué papel hace cada parte        | `core/music/song.ts` (`ROLES`), `server/songs-repo.ts` |
-| El montaje por bloques, y lo que dura cada acorde        | `core/music/arrangement.ts` + `state/`                 |
-| El lienzo: arrastrar bloques, estirarlos, escucharlos    | `features/arrange/`                                    |
-| El pentagrama, y la clave de sol dibujada                | `arrange/Staff.tsx` + `arrange/clef.ts`                |
-| Guardar y abrir tus canciones                            | `features/songs/`, `src/app/api/canciones`             |
-| Salidas de lo que tocas, y su verificación               | `features/versions/` (se llamará `salidas/`)           |
-| Planes, permisos y si una unidad la abre el plan         | `src/core/billing/` (`plans.ts`, `access.ts`)          |
-| Meta diaria, racha, medallas, y lo que suma componer     | `core/music/progress.ts` (`practiceCompose`)           |
-| Que lo compuesto llegue al avance sin saltarse capas     | `state/hechos-de-componer.ts`                          |
-| La cola de repaso de lo fallado                          | `core/music/review.ts`                                 |
-| Cuentas, contraseñas, base de datos y cupos              | `src/server/`                                          |
-| El marco de una pantalla y sus apartados                 | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)           |
-| Lo que se ve cuando todavía no hay nada                  | `src/ui/Vacio.tsx`, `ui/EmpezarPorTonalidad`           |
-| Un formulario, y el error que se anuncia                 | `src/ui/Formulario.tsx`, `src/ui/Aviso.tsx`            |
-| La tonalidad plegada en una línea, con su rueda          | `features/wheel/BarraDeTonalidad.tsx`                  |
-| Leer lo que llega de fuera, y el error que contestó      | `core/parse.ts`, `state/api-error.ts`                  |
-| Tokens de diseño y las dos paletas                       | `src/ui/tokens.ts` (+ espejo en `globals.css`)         |
-| El rótulo de un apartado y un enlace dentro de una frase | `.rotulo` y `.enlace` en `app/globals.css`             |
+| Busco...                                                 | Está en                                                   |
+| -------------------------------------------------------- | --------------------------------------------------------- |
+| Teoría musical: escalas, acordes, grados, tonalidad      | `src/core/music/`                                         |
+| Funciones armónicas y sustitución (T/S/D)                | `core/music/harmonic-function.ts`                         |
+| Qué acorde proponer y en qué orden                       | `core/music/suggestions.ts` + `styles.ts`                 |
+| Con qué se rearmoniza, y cómo se comprueba               | `core/music/reharmonization.ts`                           |
+| Por dónde puede tirar lo que tocas, y qué lo valida      | `core/music/paths.ts`                                     |
+| Lo que tocas, convertido en compases                     | `core/music/capture.ts`                                   |
+| La armadura, y qué nota va en cada línea                 | `core/music/circle-of-fifths.ts`                          |
+| El punteo: alturas, figuras y cómo se escribe cada nota  | `core/music/melody.ts`                                    |
+| Detección de tono (autocorrelación)                      | `src/audio/autocorrelation.ts`                            |
+| Detección de acordes en vivo (croma + plantillas)        | `audio/chroma.ts`, `audio/chord-engine.ts`                |
+| Volver a escuchar lo grabado, con calma                  | `audio/offline-chords.ts`, `audio/fft.ts`                 |
+| Abrir y cerrar el `AudioContext`, en un solo sitio       | `audio/audio-context.ts`                                  |
+| Mástil, afinaciones, formas de acorde                    | `src/core/instrument/`                                    |
+| Estado de sesión y persistencia                          | `src/state/` (IndexedDB)                                  |
+| Lo que se recuerda de una vez para otra                  | `state/workspace.ts` (tono, estilo, escala)               |
+| Quién abre el micro, y por qué es uno solo               | `state/use-listening.ts`                                  |
+| Oír una progresión desde un componente                   | `state/use-progression-player.ts`                         |
+| Un estado que se mira y al que uno se apunta             | `core/estado-observable.ts` (`Emisor`)                    |
+| Grabar el sonido y descargarlo                           | `src/media/`, `features/recorder/`                        |
+| Rutas de servidor de la IA                               | `app/api/ideas`, `/teacher`, `/versiones`                 |
+| El cuerpo común de las tres rutas, y sus puertas         | `server/ai-route.ts`, `server/ai-gate.ts`                 |
+| La llamada al modelo, y el único sitio con el SDK        | `server/ask-model.ts`                                     |
+| Quién contesta —API, modelo de casa o dominio—           | `server/ai-model.ts`, `local-model.ts`                    |
+| Por dónde entra texto libre, y qué lo acota              | `features/learn/teacher-contract.ts`                      |
+| Una canción guardada, y qué papel hace cada parte        | `core/music/song.ts` (`ROLES`), `server/songs-repo.ts`    |
+| El montaje por bloques, y lo que dura cada acorde        | `core/music/arrangement.ts` + `state/`                    |
+| El lienzo: arrastrar bloques, estirarlos, escucharlos    | `features/arrange/`                                       |
+| Componer tocando: el micro escribe lo que suena          | `arrange/TocarParaEscribir` + `state/use-tocar-y-apuntar` |
+| Lo tocado convertido en una parte, para los dos sitios   | `state/apuntar-lo-tocado.ts`                              |
+| Ensayar lo escrito y puntuarlo                           | `core/music/ensayo.ts` + `state/use-ensayo.ts`            |
+| El reparto del banco: áreas, divisores, espacios         | `state/banco.ts`, `ui/Area`, `ui/Divisor`                 |
+| El pentagrama, y la clave de sol dibujada                | `arrange/Staff.tsx` + `arrange/clef.ts`                   |
+| Guardar y abrir tus canciones                            | `features/songs/`, `src/app/api/canciones`                |
+| Salidas de lo que tocas, y su verificación               | `features/versions/` (se llamará `salidas/`)              |
+| Planes, permisos y si una unidad la abre el plan         | `src/core/billing/` (`plans.ts`, `access.ts`)             |
+| Meta diaria, racha, medallas, y lo que suma componer     | `core/music/progress.ts` (`practiceCompose`)              |
+| Que lo compuesto llegue al avance sin saltarse capas     | `state/hechos-de-componer.ts`                             |
+| La cola de repaso de lo fallado                          | `core/music/review.ts`                                    |
+| Cuentas, contraseñas, base de datos y cupos              | `src/server/`                                             |
+| El marco de una pantalla y sus apartados                 | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)              |
+| Lo que se ve cuando todavía no hay nada                  | `src/ui/Vacio.tsx`, `ui/EmpezarPorTonalidad`              |
+| Un formulario, y el error que se anuncia                 | `src/ui/Formulario.tsx`, `src/ui/Aviso.tsx`               |
+| La tonalidad plegada en una línea, con su rueda          | `features/wheel/BarraDeTonalidad.tsx`                     |
+| Leer lo que llega de fuera, y el error que contestó      | `core/parse.ts`, `state/api-error.ts`                     |
+| Tokens de diseño y las dos paletas                       | `src/ui/tokens.ts` (+ espejo en `globals.css`)            |
+| El rótulo de un apartado y un enlace dentro de una frase | `.rotulo` y `.enlace` en `app/globals.css`                |
 
-**`/componer` tiene dos caras y un conmutador**, nunca las dos a la vez: `Tocar`
-([adr/0018](docs/adr/0018-el-lienzo-de-montar.md)) y `Montar`, donde la partitura y
-los bloques son la misma canción con dos pieles
-([adr/0019](docs/adr/0019-punteos-y-partitura.md)). `/aprender` es **solo el
+**`/componer` es un banco de trabajo de áreas** que se pliegan y se arrastran, con
+**tres espacios de trabajo que son tres maneras de escribir la misma canción**:
+`Tocando` —el micro escribe lo que suena—, `Escribir` —bloques y partitura, las dos
+pieles de lo mismo ([adr/0019](docs/adr/0019-punteos-y-partitura.md))— y `Ensayar`,
+que la toca contra el metrónomo y la puntúa. Cada espacio trae su reparto de fábrica
+([adr/0031](docs/adr/0031-componer-es-un-banco-de-trabajo.md),
+[adr/0034](docs/adr/0034-tres-maneras-de-escribir-la-misma-cancion.md)). `/aprender` es **solo el
 camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 `/afinar`, `/planes` con `/planes/[plan]`, `/registro`, `/cuenta` con sus anclas
 —`#perfil`, `#suscripcion`, `#contrasena`, `#privacidad`— y la portada `/`.

@@ -21,10 +21,14 @@ Cada pantalla hace una cosa:
   validadas por el micro.
 - **Profesor** — pregunta lo que sea de teoría y te lo explica en tres frases con los
   acordes de tu tonalidad.
-- **Componer** — eliges tonalidad en la rueda, encadenas acordes y los oyes, y ves
-  de cuántas maneras se hacen a lo largo del mástil y a dónde puedes ir desde ahí.
-  Reconoce el acorde que estás tocando y lleva metrónomo. Además monta la canción
-  por bloques, en partitura o arrastrándolos. Y **graba un trozo**: solo el sonido,
+- **Componer** — un banco de trabajo con áreas que se pliegan y se arrastran, y
+  **tres maneras de escribir la misma canción**: _tocando_ —abres el micro, tocas, y
+  lo que suena entra con sus acordes, sus duraciones y su punteo, con la toma de
+  audio al lado—, _escribiendo_ por bloques o en la partitura, y _ensayando_, que la
+  toca contra el metrónomo y te dice cuántos compases salieron, tu racha y cuál se
+  te atragantó. Al lado, la rueda para elegir tonalidad, de cuántas maneras se hace
+  cada acorde a lo largo del mástil y a dónde puedes ir desde ahí. Y **graba un
+  trozo**: solo el sonido,
   que te suena ahí mismo y te descargas si vale; al parar lo vuelve a escuchar
   entero con calma y te ofrece salidas —canciones distintas que arrancan de lo que
   llevas, con sus partes—, comprobadas contra la teoría antes de enseñártelas.

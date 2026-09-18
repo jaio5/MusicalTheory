@@ -127,8 +127,12 @@ tempo está en `core/`, el pulso —osciladores y relojes— en `audio/`, y el f
 solo pone botones. Así el tempo se prueba sin audio y el pulso se puede sustituir
 por un doble en los tests de interfaz.
 
-`recorder` es el caso curioso: envuelve a la pantalla de componer con
-`children`, así que la enseña entera sin saber qué hay dentro.
+`recorder` **ya no envuelve nada**, y eso es lo que queda de una decisión: cuando
+grababa vídeo tenía que ponerse por detrás de la pantalla entera con `children`
+para que se te viera tocando, y con la cámara se fue esa forma
+([adr/0023](./adr/0023-grabar-solo-el-sonido.md)). Hoy es un panel más del área de
+abajo de componer, y quien graba el sonido mientras escribes tocando es
+`state/use-tocar-y-apuntar.ts`, que abre las dos cosas con una sola pulsación.
 
 ### `ui/`
 

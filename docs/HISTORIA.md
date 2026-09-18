@@ -59,6 +59,9 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Lo que estaba escrito tres y cinco veces pasa a estarlo una: rutas, oyentes y avisos.        |
 | Componer suma a la racha y a la meta, y una parte dice si es estrofa, estribillo o idea.     |
 | El grabado se mide en espacios de pentagrama, y la clave deja de parecer una clave de fa.    |
+| Componer pasa a ser un banco de areas que se pliegan, con su reparto por espacio de trabajo. |
+| Se compone tocando: el micro escribe acordes y punteo, y la toma de audio se queda al lado.  |
+| Ensayar lo escrito cuenta compases, racha y cual se atraganta, sin castigar por fallar.      |
 
 ## Los fallos que enseñaron algo
 
@@ -172,3 +175,23 @@ ninguno se veía leyendo el código:
   import del nuevo módulo con un script, cayó **dentro** de un `import` de varias
   líneas y rompió el fichero. Un `assert` de lo que se sustituye no basta: hay que
   mirar dónde acaba lo que se añade.
+- **Un arreglo escrito y sin enchufar tumbaba una pantalla entera.** Cambiar a una
+  tonalidad menor con bloques puestos lanzaba `RangeError` —los dos modos no
+  nombran los mismos grados— y React tiraba el árbol encima de media hora de
+  trabajo. La acción que lo arreglaba llevaba tiempo escrita, probada, y con un
+  comentario que decía «lo llama el cambio de rueda»: no lo llamaba nadie.
+- **Tres fallos de maquetación que ningún test veía y una captura sí.** La columna
+  del acorde se salía de la pantalla porque un hijo de `flex` tiene
+  `min-width: auto` y el centro se plantaba en lo que medía su barra; el mástil
+  salía del tamaño de un sello porque las variables del reparto colgaban de una
+  fila de la que el área de abajo era **hermana**, no hija; y en un teléfono la
+  canción quedaba en una rendija con el inspector del acorde llevándose media
+  pantalla. Los cinco comandos pasaban en los tres casos.
+- **Centrar en una caja que recorta saca lo que no cabe por los dos lados.** Está
+  escrito en el repositorio desde hace tiempo y se volvió a caer en ello dos veces
+  seguidas, en tocar y en ensayar: `justify-center` dentro de un `overflow-hidden`
+  deja el botón fuera de alcance en cuanto la ventana es baja.
+- **Preguntarle a lo que todavía no existe.** El ensayo miraba su propio guion
+  —que no se construye hasta empezar— para saber si había algo que ensayar, y
+  decía «no hay nada» con la canción escrita delante. Había que preguntarle al
+  montaje.
