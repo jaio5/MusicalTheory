@@ -35,19 +35,34 @@ export function CupoDeIA({ className = '' }: { readonly className?: string }) {
       href="/cuenta#suscripcion"
       // Enlace y no texto: el número solo sirve si desde él se puede hacer algo,
       // y lo que se hace con «no me queda» es mirar el plan.
+      // El rótulo es corto porque vive en una barra llena; el `title` lo
+      // deletrea, que «IA: 8 · 45» a secas no dice qué es cada número.
       title={
         agotado
           ? 'Se te han acabado las peticiones a la IA de hoy'
-          : 'Peticiones a la IA que te quedan'
+          : `Te quedan ${account.aiLeftToday} peticiones a la IA hoy${
+              account.aiLeftMonth === null ? '' : ` y ${account.aiLeftMonth} este mes`
+            }`
       }
       className={`min-h-tap inline-flex items-center font-mono text-xs tabular-nums ${
         agotado ? 'text-oxblood-bright' : 'text-text-muted hover:text-brass-bright'
       } ${className}`}
     >
-      {agotado ? 'Sin IA hoy' : `IA: ${account.aiLeftToday}`}
-      {account.aiLeftMonth !== null && !agotado && (
-        <span className="opacity-70">&nbsp;·&nbsp;{account.aiLeftMonth}</span>
-      )}
+      <span aria-hidden="true">
+        {agotado ? 'Sin IA hoy' : `IA: ${account.aiLeftToday}`}
+        {account.aiLeftMonth !== null && !agotado && (
+          <span className="opacity-70">&nbsp;·&nbsp;{account.aiLeftMonth}</span>
+        )}
+      </span>
+      {/* Lo que oye quien no ve los números: «IA dos punto cuarenta y cinco» no
+        es un cupo. El rótulo corto se queda para los ojos. */}
+      <span className="sr-only">
+        {agotado
+          ? 'Se te han acabado las peticiones a la IA de hoy'
+          : `Te quedan ${account.aiLeftToday} peticiones a la IA hoy${
+              account.aiLeftMonth === null ? '' : ` y ${account.aiLeftMonth} este mes`
+            }`}
+      </span>
     </Link>
   );
 }
