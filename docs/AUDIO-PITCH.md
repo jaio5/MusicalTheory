@@ -160,6 +160,12 @@ no sirve. Por eso el modo componer no le pregunta a este motor qué acorde suena
 lo saca de otro análisis distinto, el de «[Reconocer acordes](#reconocer-acordes)»
 más abajo.
 
+Y **el afinador lo dice cuando pasa**: con señal entrando y ninguna lectura, en
+vez de «esperando a que suene algo» —que se contradecía con el medidor de nivel
+lleno dos líneas más abajo— dice que te oye y no engancha, y que pruebes una
+cuerda sola. Es la misma regla de decir cuándo se duda que sigue el
+reconocimiento de acordes.
+
 **La distorsión la confunde.** Un previo saturado genera armónicos que pueden
 superar en energía a la fundamental. Cuando el segundo armónico domina, la
 autocorrelación encuentra un pico igual de bueno en la mitad del periodo y

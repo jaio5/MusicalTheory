@@ -246,6 +246,26 @@ describe('medidor de nivel', () => {
 
     expect(await screen.findByText(/llega poca señal/i)).toBeInTheDocument();
   });
+
+  /**
+   * Con señal entrando no se puede decir «esperando a que suene algo»: algo
+   * está sonando, y el medidor lo enseña dos líneas más abajo. Se veía
+   * rasgueando un acorde al afinador —el motor de tono es monofónico, así que
+   * no saca ninguna nota— y las dos frases se contradecían en la misma
+   * pantalla.
+   */
+  it('con senal y sin nota dice que oye y no engancha, no que espera', async () => {
+    const engine = new FakeEngine();
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => engine} />);
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    engine.emitLevel(0.05);
+
+    expect(await screen.findByText(/no engancho la nota/i)).toBeInTheDocument();
+    expect(screen.queryByText(/esperando a que suene algo/i)).not.toBeInTheDocument();
+    // Y dice por qué pasa casi siempre, que es lo único accionable.
+    expect(screen.getByText(/una sola al aire/i)).toBeInTheDocument();
+  });
 });
 
 describe('selector de entrada', () => {

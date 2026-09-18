@@ -1,5 +1,6 @@
 'use client';
 
+import { DEFAULT_PITCH_ENGINE_OPTIONS } from '@audio/pitch-engine';
 import { nearestString, semitonesFromString, TUNINGS, type TuningId } from '@core/instrument';
 import { noteName, type PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
@@ -165,12 +166,25 @@ function Listening({
   // Solo antes de la primera nota. En cuanto suena algo, el afinador se queda
   // en pantalla: al callar se apaga, no desaparece.
   if (reading === null) {
+    // Con señal entrando no se puede decir «esperando a que suene algo»: algo
+    // está sonando, y el medidor de abajo lo está enseñando en la misma
+    // pantalla. Lo honesto es decir que se oye y no se engancha, y por qué
+    // pasa casi siempre: **el motor de tono es monofónico**
+    // (`docs/AUDIO-PITCH.md`), así que rasgueando no saca ninguna nota. Decir
+    // cuándo duda es lo que hace esta aplicación en el resto de sitios
+    // ([adr/0020](../../../docs/adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md)).
+    const oyendo = level >= DEFAULT_PITCH_ENGINE_OPTIONS.rmsThreshold;
+
     return (
       <div className="mt-6 flex min-h-40 flex-col justify-center gap-6">
         <div>
-          <p className="text-text-muted text-lg">Esperando a que suene algo…</p>
+          <p className="text-text-muted text-lg">
+            {oyendo ? 'Te oigo, pero no engancho la nota…' : 'Esperando a que suene algo…'}
+          </p>
           <p className="text-text-muted mt-2 text-sm">
-            Toca una cuerda al aire y deja que suene un momento.
+            {oyendo
+              ? 'Voy cuerda a cuerda y solo sé leer una nota cada vez: si estás rasgueando, toca una sola al aire y déjala sonar.'
+              : 'Toca una cuerda al aire y deja que suene un momento.'}
           </p>
         </div>
         <LevelMeter rms={level} />
