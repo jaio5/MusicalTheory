@@ -3,12 +3,13 @@ import '@testing-library/jest-dom/vitest';
 
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { Account } from '@core/billing';
 import { pitchClassFromName, type ScaleId } from '@core/music';
 import { AccountProvider } from '@state/account';
 import { useArrangementStore } from '@state/arrangement-store';
+import { usePedidoDeIdeas } from '@state/pedido-de-ideas';
 import { usePropuestaStore } from '@state/propuesta';
 import { useSessionStore } from '@state/session-store';
 
@@ -488,5 +489,81 @@ describe('probar una progresión propuesta', () => {
     expect(partes).toHaveLength(1);
     expect(partes[0]?.blocks).toEqual([]);
     expect(usePropuestaStore.getState().propuesta?.partId).toBe(partes[0]?.id);
+  });
+});
+
+/**
+ * Pedida desde el lienzo, la idea sale **ya propuesta**.
+ *
+ * El fantasma es la confirmación, y hacer que además haya que pulsar «probarla»
+ * sería el panel intermedio que
+ * [adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md) se
+ * quitó de en medio.
+ */
+describe('pedida desde el lienzo', () => {
+  beforeEach(() => {
+    usePedidoDeIdeas.setState({ pendiente: false });
+    usePropuestaStore.getState().acciones.descartar();
+  });
+
+  function idea() {
+    return respondWith({
+      ideas: [
+        {
+          title: 'Bajar por tonos',
+          why: 'Mantiene el centro.',
+          degrees: ['vi', 'VII', 'i'],
+          chords: ['F', 'G', 'Am'],
+        },
+      ],
+    });
+  }
+
+  it('llega propuesta sin tener que pulsar nada mas', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+    usePedidoDeIdeas.getState().acciones.pedirProgresion();
+
+    render(conCuenta(<IdeasPanel fetchIdeas={async () => idea()} />));
+
+    await screen.findByText('Bajar por tonos');
+    expect(usePropuestaStore.getState().propuesta?.degrees).toEqual(['vi', 'VII', 'i']);
+  });
+
+  /**
+   * Y **una sola vez**: la bandera se consume al leerla. Si se quedara puesta,
+   * volver a abrir el panel gastaría otra petición del cupo sin pedirlo.
+   */
+  it('y no se vuelve a pedir al reabrir el panel', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+    usePedidoDeIdeas.getState().acciones.pedirProgresion();
+    let peticiones = 0;
+
+    const { unmount } = render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={async () => {
+            peticiones += 1;
+            return idea();
+          }}
+        />,
+      ),
+    );
+    await screen.findByText('Bajar por tonos');
+    unmount();
+    render(conCuenta(<IdeasPanel fetchIdeas={async () => idea()} />));
+
+    expect(peticiones).toBe(1);
+  });
+
+  // Pedida desde el propio panel no se propone sola: entonces se está mirando
+  // la lista, y una lista que además escribe en la canción asusta.
+  it('pedida desde el panel, no se propone sola', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: A, mode: 'minor' });
+    render(conCuenta(<IdeasPanel fetchIdeas={async () => idea()} />));
+
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+    await screen.findByText('Bajar por tonos');
+
+    expect(usePropuestaStore.getState().propuesta).toBeNull();
   });
 });

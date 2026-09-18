@@ -93,12 +93,6 @@ Lo que queda, en el orden en que se hace:
   empezar» abajo, que son la misma lista de acordes dicha dos veces. `path` lo
   leen siete sitios; pasa a ser el cursor de escritura y deja de ser la canción
   ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
-- **El copiloto en línea, lo que le queda.** Ya propone en la canción —bloques
-  fantasma al final de la última parte, `Tab` acepta, `Esc` descarta— y el cupo
-  restante se ve en la barra de arriba
-  ([adr/0033](./adr/0033-el-copiloto-propone-y-no-escribe.md)). Lo que falta es
-  **pedirlo desde el lienzo**: hoy se pide desde el panel de ideas del área de
-  abajo, que hay que abrir, y la gracia es no tener que ir a buscarlo.
 - **El parpadeo del primer fotograma en un teléfono.** `useHayBanco` contesta que
   sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
   hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;

@@ -89,9 +89,14 @@ descarta; aceptar de golpe es **un** paso de deshacer. Y el cupo está en la bar
 de arriba (`ui/CupoDeIA.tsx`), solo con cuenta, porque sin ella el servidor cuenta
 por dirección y no hay número que prometer.
 
-**Falta: pedirlo desde el lienzo.** Hoy la propuesta se pide desde el panel de
-ideas del área de abajo, que hay que abrir, y la gracia del copiloto es no tener
-que ir a buscarlo.
+**Y se pide desde el lienzo.** «Pídeme una idea» sale en la barra del arreglo en
+cuanto hay algo escrito, y lo pedido así llega **ya propuesto**: el fantasma es
+la confirmación, y pedir además un «probarla» sería el paso intermedio que este
+documento se quitó de en medio. No llama al modelo desde ahí —quien sabe pedirlo
+es `features/ideas` y un feature no importa de otro—: deja el pedido en
+`state/pedido-de-ideas.ts` y abre el panel, que lo recoge al ponerse delante. La
+bandera **se consume al leerla**, o reabrir el panel gastaría otra petición del
+cupo sin que nadie lo pidiera.
 
 ## Consecuencias
 

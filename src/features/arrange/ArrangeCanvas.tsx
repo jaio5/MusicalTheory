@@ -29,6 +29,8 @@ import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
 import { useAtajosDeLaPropuesta } from '@state/atajos-de-la-propuesta';
+import { useBancoStore } from '@state/banco';
+import { usePedidoDeIdeas } from '@state/pedido-de-ideas';
 import { usePropuestaStore } from '@state/propuesta';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
@@ -842,6 +844,30 @@ export function ArrangeCanvas() {
           <Chip onClick={anadirParte} tone="quiet" className="px-3 text-xs">
             + Parte
           </Chip>
+
+          {/* Pedirle una idea sin ir a buscarla, que es la mitad de lo que el
+            copiloto tenía que arreglar
+            ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)):
+            estaba detrás de un botón gris del área de abajo, entre «Salidas» y
+            «Sesiones», y había que abrirlo para llegar.
+
+            No llama al modelo desde aquí —quien sabe pedirlo es `features/ideas`,
+            y un feature no importa de otro—: deja el pedido en `state/` y abre el
+            panel, que lo recoge al ponerse delante. Y sale **con la canción
+            empezada**, que es cuando hay algo sobre lo que proponer. */}
+          {propuesta === null && arrangement.parts.some((part) => part.blocks.length > 0) && (
+            <Chip
+              onClick={() => {
+                usePedidoDeIdeas.getState().acciones.pedirProgresion();
+                useBancoStore.getState().actions.abrirAbajo('ideas');
+              }}
+              tone="quiet"
+              className="px-3 text-xs"
+              title="Que el copiloto proponga por dónde seguir"
+            >
+              Pídeme una idea
+            </Chip>
+          )}
 
           {/* Lo propuesto se acepta o se descarta **desde aquí también**, y no
             solo con las teclas: un atajo que es la única manera de hacer algo no

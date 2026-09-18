@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { can, cheapestPlanWith } from '@core/billing';
 import {
@@ -14,6 +14,7 @@ import {
 import { useAccount } from '@state/account';
 import { apiErrorOf } from '@state/api-error';
 import { useArrangementStore } from '@state/arrangement-store';
+import { usePedidoDeIdeas } from '@state/pedido-de-ideas';
 import { usePropuestaStore } from '@state/propuesta';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useProgressionPlayer } from '@state/use-progression-player';
@@ -146,7 +147,27 @@ export function IdeasPanel({
     setMetida(title);
   }
 
-  async function ask(kind: IdeaKind) {
+  /**
+   * Si el lienzo dejó pedida una progresión, se pide al abrirse.
+   *
+   * La bandera **se consume al leerla** (`state/pedido-de-ideas.ts`): si se
+   * quedara puesta, cada vez que se volviera a abrir este panel se gastaría otra
+   * petición del cupo sin que nadie lo hubiera pedido.
+   */
+  const pedidoPendiente = usePedidoDeIdeas((estado) => estado.pendiente);
+  useEffect(() => {
+    if (!pedidoPendiente || activeKey === null) {
+      return;
+    }
+    if (usePedidoDeIdeas.getState().acciones.consumir()) {
+      void ask('progression', true);
+    }
+    // `ask` cambia en cada render y no hace falta en las dependencias: lo que
+    // dispara esto es la bandera, y solo una vez porque se consume.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidoPendiente, activeKey]);
+
+  async function ask(kind: IdeaKind, proponerLaPrimera = false): Promise<void> {
     if (activeKey === null) {
       return;
     }
@@ -172,7 +193,19 @@ export function IdeasPanel({
         return;
       }
 
-      setIdeas((payload as { ideas: readonly Idea[] }).ideas);
+      const llegadas = (payload as { ideas: readonly Idea[] }).ideas;
+      setIdeas(llegadas);
+
+      // Pedida desde el lienzo, la primera sale **ya propuesta**: el fantasma
+      // es la confirmación, y hacer que además haya que pulsar «probarla»
+      // sería el panel intermedio que el ADR 0033 se quitó de en medio. Pedida
+      // desde aquí no, que entonces se está mirando la lista.
+      const primera = proponerLaPrimera
+        ? llegadas.find((idea) => idea.degrees !== undefined && idea.degrees.length > 0)
+        : undefined;
+      if (primera?.degrees !== undefined) {
+        proponer(primera.title, primera.degrees);
+      }
     } catch {
       setError({ code: 'model_unavailable', message: ERROR_MESSAGES.model_unavailable });
       setIdeas([]);
