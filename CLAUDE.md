@@ -37,6 +37,11 @@ hacerlo.
 
 - **Después de tocar cualquier `.md`, `pnpm format`**, o `format:check` falla. Es
   el fallo más tonto y el más repetido del repositorio.
+- **`pnpm test` quiere la máquina tranquila.** `audio/main-thread-cost.test.ts`
+  mide milisegundos de verdad, y con Docker o el servidor de desarrollo al lado
+  se pasa del tope y sale rojo sin que nada esté roto. Medido: 53 y 57 ms contra
+  un tope de 50, y verde en cuanto se para Postgres. Si ese es el único que
+  falla, para lo que sobre y vuelve a pasarlo antes de buscar la causa.
 - **Un ejemplo de clase escrito en un comentario es una clase de verdad**, y una
   mal formada tumba la hoja entera con todos los tests en verde
   (`docs/ESTILO.md`). Lo caza `pnpm build`: si tocas estilos, pásalo.

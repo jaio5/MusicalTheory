@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Account } from '@core/billing';
 import { normalizePitchClass, pitchClassFromName, type PitchClass } from '@core/music';
 import { AccountProvider } from '@state/account';
+import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
 import { versionsError, type Version, type VersionsRequest } from './contract';
@@ -81,7 +82,7 @@ describe('cuándo se puede pedir', () => {
   it('sin nada dice que se grabe o se encadene', async () => {
     render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} />));
 
-    expect(await screen.findByRole('status')).toHaveTextContent(/Graba un trozo o encadena/);
+    expect(await screen.findByRole('status')).toHaveTextContent(/Graba un trozo o escribe/);
   });
 
   it('con un solo acorde no se pide, y se dice por qué', async () => {
@@ -278,7 +279,7 @@ describe('grabar un trozo', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Parar de grabar' }));
     await userEvent.click(screen.getByRole('button', { name: /Olvidar lo grabado/ }));
 
-    expect(screen.getByRole('status')).toHaveTextContent('Del camino que llevas: vi · IV.');
+    expect(screen.getByRole('status')).toHaveTextContent('De lo que llevas probando: vi · IV.');
   });
 
   it('grabar sin tocar nada no rompe nada: se sigue pudiendo usar el camino', async () => {
@@ -290,7 +291,7 @@ describe('grabar un trozo', () => {
     reloj = 5000;
     await userEvent.click(screen.getByRole('button', { name: 'Parar de grabar' }));
 
-    expect(screen.getByRole('status')).toHaveTextContent('Del camino que llevas: I · V.');
+    expect(screen.getByRole('status')).toHaveTextContent('De lo que llevas probando: I · V.');
   });
 });
 
@@ -488,5 +489,59 @@ describe('qué se le pide, elegido antes de pedirlo', () => {
       'aria-pressed',
       'false',
     );
+  });
+});
+
+/**
+ * Las salidas salen de **la canción**, no del camino.
+ *
+ * Salían del camino, y el camino dejó de ser donde se escribe
+ * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)):
+ * con tres acordes escritos, este panel decía «encadena al menos dos acordes» y
+ * no dejaba pedir nada. Se vio abriendo el panel con una canción delante.
+ */
+describe('de donde salen las salidas', () => {
+  it('de lo escrito en la cancion, con los pulsos de cada bloque', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    const parte = useArrangementStore.getState().actions.addPart('Estrofa');
+    useArrangementStore.getState().actions.addBlock(parte, 'I', 4);
+    useArrangementStore.getState().actions.addBlock(parte, 'IV', 8);
+
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
+
+    expect(screen.getByRole('status')).toHaveTextContent('De lo que llevas escrito: I · IV.');
+    await userEvent.click(screen.getByRole('button', { name: 'Salidas de esto' }));
+
+    const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
+    // Los pulsos salen del bloque y no de un cuatro fijo: un acorde que dura dos
+    // compases no es lo mismo que dos acordes.
+    expect(request.progression.map((paso) => [paso.degree, paso.beats])).toEqual([
+      ['I', 4],
+      ['IV', 8],
+    ]);
+  });
+});
+
+/**
+ * Un 200 con el cuerpo cambiado no puede dejar la pantalla en blanco.
+ *
+ * Pasaba: el panel leía `versions.length` de un `undefined` y se caía entero.
+ * Un proxy que contesta otra cosa, o una ruta y un cliente desincronizados al
+ * desplegar, bastan. Se comprueba lo que llega y se dice, que es lo que ya hace
+ * el panel de ideas con esto mismo.
+ */
+describe('lo que llega mal', () => {
+  it('un 200 sin salidas se dice, y no tumba el panel', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    componiendo(['I', 'V']);
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ otraCosa: true }));
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
+
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Vuelve a pedirlo/);
+    // Y el panel sigue en pie: se puede volver a pedir.
+    expect(screen.getByRole('button', { name: /Salidas de esto/ })).toBeInTheDocument();
   });
 });

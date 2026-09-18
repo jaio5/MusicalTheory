@@ -29,6 +29,7 @@ import { entradaActiva } from '@state/use-listening';
 import { apiErrorOf } from '@state/api-error';
 
 import { Salida } from './Salida';
+import { useArrangementStore } from '@state/arrangement-store';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { Field } from '@ui/Field';
@@ -84,6 +85,7 @@ export function VersionsPanel({
   const { account, signedIn } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
+  const montaje = useArrangementStore((state) => state.arrangement);
   const capturing = useSessionStore((state) => state.capturing);
   const captured = useSessionStore((state) => state.captured);
   const captureEndedAt = useSessionStore((state) => state.captureEndedAt);
@@ -192,6 +194,24 @@ export function VersionsPanel({
     [activeKey, captured, captureEndedAt, bpm, beatsPerBar],
   );
 
+  /**
+   * Lo escrito en la canción, que es de donde salen las salidas cuando no hay
+   * nada grabado.
+   *
+   * Salía del **camino**, y el camino dejó de ser donde se escribe
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)):
+   * con tres acordes en la canción, este panel decía «encadena al menos dos
+   * acordes» y no dejaba pedir nada. Lo que se manda son los grados y sus
+   * pulsos, así que los pulsos salen del bloque y no de un cuatro fijo.
+   */
+  const delMontaje = useMemo(
+    () =>
+      montaje.parts.flatMap((part) =>
+        part.blocks.map((block) => ({ degree: block.degree, beats: block.beats })),
+      ),
+    [montaje],
+  );
+
   const delCamino = useMemo(
     () =>
       degreesFromPath(
@@ -201,7 +221,8 @@ export function VersionsPanel({
     [path, activeKey],
   );
 
-  const progresion = grabado.length > 0 ? grabado : delCamino;
+  const escrito = delMontaje.length > 0 ? delMontaje : delCamino;
+  const progresion = grabado.length > 0 ? grabado : escrito;
   const deLoGrabado = grabado.length > 0;
 
   // Con un acorde no hay nada que rearmonizar, y el contrato ya lo rechaza. Se
@@ -307,7 +328,22 @@ export function VersionsPanel({
         setVersions([]);
         return;
       }
-      setVersions((payload as { versions: readonly Version[] }).versions);
+      // Se comprueba lo que llega en vez de creérselo. Un 200 con el cuerpo
+      // cambiado —un proxy que contesta otra cosa, una ruta y un cliente que se
+      // han desincronizado al desplegar— dejaba la pantalla **en blanco**: el
+      // panel entero se caía al leer `versions.length` de un `undefined`. Con la
+      // comprobación sale el mismo aviso que ya tiene el panel de ideas para
+      // esto, que es lo que se puede hacer al respecto.
+      const llegadas = (payload as { versions?: unknown }).versions;
+      if (!Array.isArray(llegadas)) {
+        setError({
+          code: 'unparseable_response',
+          message: ERROR_MESSAGES.unparseable_response,
+        });
+        setVersions([]);
+        return;
+      }
+      setVersions(llegadas as readonly Version[]);
     } catch {
       setError({ code: 'model_unavailable', message: ERROR_MESSAGES.model_unavailable });
       setVersions([]);
@@ -440,10 +476,15 @@ export function VersionsPanel({
         {capturing
           ? 'Grabando lo que tocas. Se apuntan los acordes y cuánto dura cada uno, no el sonido.'
           : !sePuedePedir
-            ? 'Graba un trozo o encadena al menos dos acordes: con uno solo no hay por dónde tirar.'
+            ? 'Graba un trozo o escribe al menos dos acordes: con uno solo no hay por dónde tirar.'
             : deLoGrabado
               ? `De lo que has grabado: ${progresion.map((step) => step.degree).join(' · ')}.`
-              : `Del camino que llevas: ${progresion.map((step) => step.degree).join(' · ')}.`}
+              : // De la canción y no «del camino que llevas», que es lo que decía
+                // cuando salía del camino. Un rótulo que nombra el sitio
+                // equivocado manda a mirar donde no está lo que se va a mandar.
+                `De ${delMontaje.length > 0 ? 'lo que llevas escrito' : 'lo que llevas probando'}: ${progresion
+                  .map((step) => step.degree)
+                  .join(' · ')}.`}
       </p>
 
       <p className="text-text-muted mt-2 text-sm">
