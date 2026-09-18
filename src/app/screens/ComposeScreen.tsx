@@ -16,6 +16,7 @@ import { VersionsPanel } from '@features/versions';
 import { BarraDeTonalidad, KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
 import { ATAJOS, useAtajosDelBanco } from '@state/atajos-del-banco';
+import { useArrangementStore } from '@state/arrangement-store';
 import { selectPlegada, selectReparto, useBancoStore, type EditorDeAbajo } from '@state/banco';
 import { useMontajeEnSuModo } from '@state/montaje-en-su-modo';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
@@ -441,7 +442,20 @@ export function ComposeScreen() {
               // barra fuera de alcance.
               className={plegadoElCamino ? '' : 'border-border min-h-16 shrink basis-52 border-t'}
             >
-              <NextChords />
+              {/* Lo que cabe en un bloque entra en la canción, al final de la
+                  última parte, que es donde encaja una propuesta
+                  ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+                  Sin partes todavía se crea una: poner el primer acorde es lo
+                  que crea la primera parte en todo el resto de la pantalla. */}
+              <NextChords
+                onPoner={(degree, seventh) => {
+                  const acciones = useArrangementStore.getState().actions;
+                  const montaje = useArrangementStore.getState().arrangement;
+                  const parte = montaje.parts.at(-1)?.id ?? acciones.addPart('Estrofa');
+                  const pulsos = useSessionStore.getState().beatsPerBar;
+                  acciones.elegirBloque(acciones.addBlock(parte, degree, pulsos, null, seventh));
+                }}
+              />
             </Area>
           )}
         </div>

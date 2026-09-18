@@ -5,15 +5,20 @@ import { useMemo, useState } from 'react';
 import { chordVoicings } from '@core/instrument';
 import {
   accidentalForKey,
+  degreeOfChord,
   HARMONIC_ROLES,
   noteName,
   scaleNotes,
   scheduleProgression,
+  seventhInside,
   suggestChords,
   suggestTransitions,
+  triadInside,
+  type DegreeSymbol,
   type HarmonicRole,
   type ParsedChord,
   type PitchClass,
+  type SeventhQuality,
 } from '@core/music';
 import { useAcordeElegido } from '@state/acorde-elegido';
 import { useArrangementStore } from '@state/arrangement-store';
@@ -359,7 +364,15 @@ export function Voicings() {
   );
 }
 
-export function NextChords() {
+export function NextChords({
+  onPoner,
+}: {
+  /**
+   * Qué hacer con un acorde que cabe en la canción. Sin esto, la lista solo
+   * lleva al camino, que es lo que hace donde no hay montaje que escribir.
+   */
+  readonly onPoner?: (degree: DegreeSymbol, seventh?: SeventhQuality) => void;
+} = {}) {
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
   const actions = useSessionStore((state) => state.actions);
@@ -448,6 +461,26 @@ export function NextChords() {
       <ul className="min-h-0 grow space-y-0.5 overflow-y-auto p-2">
         {options.map((option, indice) => {
           /**
+           * Si este acorde se puede escribir en la canción, y cómo.
+           *
+           * Un bloque guarda **un grado y su séptima**, así que un `Fmaj7` cabe
+           * entero y un `F5` no: sin tercera no hay grado que guardar. Lo que no
+           * cabe se queda en el camino, que es para lo que está el camino
+           * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+           *
+           * Las dos piezas son las mismas que usa el buscador del lienzo, y por
+           * lo mismo: la tríada sale de las notas y la séptima también, así que
+           * no hace falta una tabla de sufijos aparte que se pueda desincronizar.
+           */
+          const triada = activeKey === null ? null : triadInside(option.root, option.notes);
+          const degree =
+            activeKey === null || triada === null
+              ? null
+              : degreeOfChord(activeKey.tonic, activeKey.mode, option.root, triada);
+          const seventh = seventhInside(option.root, option.notes);
+          const sePuedeEscribir = onPoner !== undefined && degree !== null;
+
+          /**
            * El porqué se dice una vez por fundamental, no una por variante.
            *
            * El motivo del encadenado depende del **movimiento del bajo**, así que
@@ -479,15 +512,29 @@ export function NextChords() {
               <button
                 type="button"
                 onClick={() => {
-                  // Pinchar aquí es **irse a probar**, no escribir: un bloque
-                  // guarda un grado y esta lista propone especies —`Fmaj7`,
-                  // `F5`— que un grado no sabe guardar. Así que se suelta lo
-                  // elegido y el camino sigue desde ahí; escribir en la canción
-                  // se hace en el lienzo, que es donde se arrastra.
+                  // Lo que cabe en un bloque **entra en la canción**, que es lo
+                  // que decidió el ADR 0032: esta lista ya está en su sitio y
+                  // solo falta decir que sí. Lo que no cabe —un `F5`, un
+                  // `Fsus2`— sigue el camino de siempre: se suelta lo elegido y
+                  // se prueba, que para eso está el camino.
+                  if (sePuedeEscribir) {
+                    onPoner(degree, seventh ?? undefined);
+                    return;
+                  }
                   acciones.elegirBloque(null);
                   actions.pushChord(option);
                 }}
-                aria-label={`${option.symbol}, ${option.label}`}
+                // Se dice qué va a pasar al pulsarlo, que son dos cosas
+                // distintas: unos entran en la canción y otros solo se prueban.
+                // Sin decirlo, la misma lista hace dos cosas sin avisar.
+                aria-label={`${option.symbol}, ${option.label}. ${
+                  sePuedeEscribir ? 'Ponerlo en la canción' : 'Probarlo'
+                }`}
+                title={
+                  sePuedeEscribir
+                    ? `Poner ${option.symbol} en la canción`
+                    : `Probar ${option.symbol}. No entra en la canción: el montaje guarda grados, y este acorde no tiene uno.`
+                }
                 className="hover:bg-surface-raised focus-visible:bg-surface-raised block w-full cursor-pointer rounded-md px-3 py-2 text-left transition-colors"
               >
                 {/*

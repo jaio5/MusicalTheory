@@ -87,13 +87,18 @@ columna del acorde enseña las formas del bloque que eliges —el rótulo cambia
 decir «Por dónde empezar» con media canción escrita delante. `path` sigue de
 respaldo mientras quede algo que solo sepa llenarlo a él.
 
-**Falta, y no por olvido: escribir desde «a dónde ir».** Un bloque guarda **un
-grado** y esa lista propone **especies** —`Fmaj7`, `F5`, `Fsus2`—, que un grado
-no sabe guardar. Para que pulsar ahí escriba en la canción hace falta antes que
-un bloque lleve especie, que es un cambio del dominio con su propio ADR. Hasta
-entonces, pulsar una propuesta **suelta el bloque elegido y sigue por el
-camino**: es irse a probar, y escribir se hace en el lienzo, que es donde se
-arrastra.
+**Hecho: «a dónde ir» escribe en la canción.** Aquí este documento estuvo
+diciendo que no se podía —que un bloque guarda un grado y la lista propone
+especies— y era **falso**: un bloque guarda un grado **y su séptima**, así que un
+`Fmaj7` cabe entero. Las dos piezas que faltaban ya existían para el buscador del
+lienzo —`triadInside` saca la tríada de las notas y `degreeOfChord` su grado— y
+la tercera, `seventhInside`, se escribió contra la tabla que ya sabe qué notas
+tiene cada especie, para que no haya dos que se puedan desincronizar.
+
+Lo que **de verdad** no cabe es lo que no tiene grado: un `C5` no tiene tercera y
+un `Fsus2` la cambia por la segunda. Eso sigue llevando al camino, y el botón lo
+dice antes de pulsarlo —«Ponerlo en la canción» o «Probarlo»—, que una lista que
+hace dos cosas distintas sin avisar es peor que dos listas.
 
 ## Consecuencias
 

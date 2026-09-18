@@ -205,7 +205,12 @@ describe('Por dónde empezar', () => {
     render(<NextChords />);
 
     const options = screen.getAllByRole('button');
-    const first = options.slice(0, 3).map((button) => button.getAttribute('aria-label'));
+    // El rótulo lleva además qué pasa al pulsar —entra en la canción o solo se
+    // prueba—, que son dos cosas distintas y la lista no puede hacerlas sin
+    // avisar. Lo que se comprueba aquí es el orden.
+    const first = options
+      .slice(0, 3)
+      .map((button) => button.getAttribute('aria-label')?.split('.')[0]);
     expect(first).toEqual(['C, I', 'F, IV', 'G, V']);
   });
 
@@ -397,6 +402,54 @@ describe('el acorde elegido es el de la cancion', () => {
     await userEvent.click(screen.getAllByRole('button')[1]!);
 
     expect(useArrangementStore.getState().selectedBlockId).toBeNull();
+    expect(useSessionStore.getState().path).toHaveLength(1);
+  });
+});
+
+/**
+ * «A dónde ir» escribe en la canción, que es lo que decidió
+ * [adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md):
+ * la lista ya está en su sitio y solo falta decir que sí.
+ *
+ * Y lo que **no cabe en un bloque** —un `F5` no tiene tercera, así que no tiene
+ * grado— sigue el camino de siempre. Eso no es una limitación escondida: el
+ * botón lo dice antes de pulsarlo.
+ */
+describe('poner lo propuesto en la cancion', () => {
+  function enDoMayor(): void {
+    const { actions } = useSessionStore.getState();
+    actions.clearPath();
+    actions.pinKey({ tonic: 0, mode: 'major' });
+  }
+
+  it('un acorde con grado entra en la cancion, con su septima', async () => {
+    enDoMayor();
+    const puestos: Array<[string, string | undefined]> = [];
+    render(<NextChords onPoner={(degree, seventh) => puestos.push([degree, seventh])} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^C, I\./ }));
+
+    expect(puestos).toEqual([['I', undefined]]);
+    // Y no se va al camino: ya está donde tenía que ir.
+    expect(useSessionStore.getState().path).toEqual([]);
+  });
+
+  it('y el boton dice que va a entrar, antes de pulsarlo', () => {
+    enDoMayor();
+    render(<NextChords onPoner={() => {}} />);
+
+    expect(
+      screen.getByRole('button', { name: /^C, I\. Ponerlo en la canción/ }),
+    ).toBeInTheDocument();
+  });
+
+  // Sin sitio donde escribir, la lista hace lo de siempre: llevar al camino.
+  it('sin donde escribir, sigue llevando al camino', async () => {
+    enDoMayor();
+    render(<NextChords />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^C, I\. Probarlo/ }));
+
     expect(useSessionStore.getState().path).toHaveLength(1);
   });
 });

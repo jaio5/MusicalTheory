@@ -88,11 +88,14 @@ reparto de fábrica. El porqué está en
 
 Lo que queda, en el orden en que se hace:
 
-- **Fundir `path` con el arreglo.** Es el paso ancho y el único que se nota
-  mirando: en `Escribir` conviven «Para empezar» en el centro y «Por dónde
-  empezar» abajo, que son la misma lista de acordes dicha dos veces. `path` lo
-  leen siete sitios; pasa a ser el cursor de escritura y deja de ser la canción
-  ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+- **Fundir `path` con el arreglo, lo que le queda.** Ya no se ven dos listas de
+  lo mismo —«a dónde ir» viene plegada y, abierta, **escribe en la canción**: lo
+  que tiene grado entra como bloque con su séptima y lo que no lo tiene lleva al
+  camino, diciéndolo antes de pulsar—. Y la columna del acorde sigue al bloque
+  que eliges, no al último que se probó. Lo que falta es lo de dentro: `path`
+  todavía lo leen `versions`, `songs`, `sessions`, `fretboard`, `HeardChord` y
+  `ResumeLast`, y ahí sigue siendo una segunda canción con su propio formato al
+  guardar ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
 - **El parpadeo del primer fotograma en un teléfono.** `useHayBanco` contesta que
   sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
   hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;

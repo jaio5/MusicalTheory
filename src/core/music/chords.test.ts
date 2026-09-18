@@ -9,6 +9,7 @@ import {
   seventhRoman,
   triadNotes,
   triadQualityOf,
+  seventhInside,
   type Degree,
 } from './chords';
 import { pitchClassFromName } from './notes';
@@ -241,5 +242,44 @@ describe('un grado que no es un grado', () => {
 
   it('y pedir el acorde de ese grado, igual', () => {
     expect(() => chordForDegree(C, fuera)).toThrow(RangeError);
+  });
+});
+
+/**
+ * Qué séptima hay dentro de unas notas.
+ *
+ * Es el gemelo de `triadInside`, y las dos juntas son lo que permite convertir
+ * **un acorde cualquiera en un bloque**: un bloque guarda un grado y su séptima,
+ * y un `Fmaj7` sin la séptima entraría como un `F` sin que nadie avisara.
+ */
+describe('la septima que hay dentro', () => {
+  const F = pitchClassFromName('F');
+
+  it('reconoce las especies que el montaje sabe guardar', () => {
+    // Fmaj7: F A C E
+    expect(seventhInside(F, [5, 9, 0, 4])).toBe('major7');
+    // F7: F A C Eb
+    expect(seventhInside(F, [5, 9, 0, 3])).toBe('dominant7');
+    // Fm7: F Ab C Eb
+    expect(seventhInside(F, [5, 8, 0, 3])).toBe('minor7');
+    // Fm7b5: F Ab B Eb
+    expect(seventhInside(F, [5, 8, 11, 3])).toBe('halfDiminished7');
+  });
+
+  it('el orden de las notas da igual, que el croma no lo conserva', () => {
+    expect(seventhInside(F, [4, 0, 9, 5])).toBe('major7');
+  });
+
+  /**
+   * Lo que no sabe guardar dice que no, y eso es correcto y no una limitación
+   * escondida: una tríada no es una cuatríada, y un `F5` no tiene tercera.
+   */
+  it('lo que no es una septima suya, no', () => {
+    expect(seventhInside(F, [5, 9, 0])).toBeNull();
+    expect(seventhInside(F, [5, 0])).toBeNull();
+    // Fmaj7 con la fundamental repetida sigue siendo cuatro clases distintas.
+    expect(seventhInside(F, [5, 9, 0, 4, 5])).toBe('major7');
+    // Cuatro notas que no forman ninguna especie del catálogo.
+    expect(seventhInside(F, [5, 6, 7, 8])).toBeNull();
   });
 });

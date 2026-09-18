@@ -245,6 +245,39 @@ export function seventhFromSuffix(suffix: string): SeventhQuality | null {
  * diciendo cosas distintas. Si una especie no estuviera allí, se cae a la tríada
  * mayor, que suena mal pero no revienta.
  */
+/**
+ * Qué séptima hay dentro de estas notas, si hay alguna.
+ *
+ * Es el gemelo de `triadInside`: aquélla saca la tríada y ésta la cuatríada. Las
+ * dos hacen falta para convertir **un acorde cualquiera en un bloque**, porque un
+ * bloque guarda un grado y su séptima, y un `Fmaj7` sin la séptima entraría como
+ * un `F` sin que nadie avisara.
+ *
+ * Se comprueba contra `seventhNotes`, que es la tabla que ya sabe qué notas tiene
+ * cada especie: una lista nueva aquí sería una segunda tabla que se puede
+ * desincronizar de aquélla.
+ *
+ * Nulo si no son cuatro notas distintas, o si no son las de ninguna especie que
+ * este proyecto sepa guardar —un `F5` no tiene tercera y un `Fsus2` la cambia por
+ * la segunda—. Eso es correcto y no una limitación escondida: lo que no se sabe
+ * guardar, no se dice que se guarda.
+ */
+export function seventhInside(
+  root: PitchClass,
+  notes: readonly PitchClass[],
+): SeventhQuality | null {
+  const suyas = new Set(notes);
+  if (suyas.size !== 4) {
+    return null;
+  }
+  for (const quality of Object.keys(SEVENTH_SUFFIX) as SeventhQuality[]) {
+    if (seventhNotes(root, quality).every((nota) => suyas.has(nota))) {
+      return quality;
+    }
+  }
+  return null;
+}
+
 export function seventhNotes(root: PitchClass, quality: SeventhQuality): PitchClass[] {
   const intervals = CHORD_SHAPES[SEVENTH_SUFFIX[quality]]?.intervals ?? [0, 4, 7];
   return intervals.map((paso) => normalizePitchClass(root + paso));
