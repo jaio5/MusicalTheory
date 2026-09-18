@@ -102,6 +102,14 @@ Lo que queda, en el orden en que se hace:
   hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;
   aquí no vale, porque no es un atributo sino otro árbol.
 
+  **Medido antes de ponerse:** las pestañas tardan unos 300 ms en aparecer en un
+  portátil, pero eso es lo de menos. El servidor **no puede saber la tonalidad**
+  —vive en el navegador—, así que el primer fotograma dice «sin elegir» y enseña
+  la rueda abierta pase lo que pase, y al cargar el estado cambia media pantalla.
+  Arreglar solo el banco deja el parpadeo grande igual. Lo que resolvería los dos
+  es pintar el marco y esperar al estado, y eso es una decisión con alternativas:
+  va con su ADR.
+
 ## 5. Que aprender y componer sean lo mismo
 
 - **Las seis unidades de oído no se han probado con oídos ajenos**
