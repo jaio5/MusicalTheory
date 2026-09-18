@@ -59,6 +59,14 @@ hacerlo.
 - **Un montaje son grados, y los grados no se llaman igual en mayor que en menor**:
   `state/montaje-en-su-modo.ts` lo traduce en cuanto cambia la tonalidad, y sin eso
   componer se cae entera ([adr/0030](docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)).
+- **La barra de tonalidad flota y se abre sola cuando no hay tonalidad**, así que
+  **lo que pongas debajo no se ve**: un aviso que dijera «elígela en la rueda de
+  aquí arriba» quedaba detrás de la rueda que lo tapaba. Ha mordido en la unidad y
+  en componer estrecho. Lo que cabe ahí abajo es `ui/CuatroTonalidades`, y flotar
+  no se toca: está peleado dos veces y lo vigila `screens/coherencia`.
+- **Las burbujas de validación del navegador salen en su idioma**, no en el de la
+  aplicación. Por eso `ui/Formulario` va con `noValidate` y lo que falta se dice
+  con `ui/Aviso`. Un `<form>` escrito a mano vuelve a traerlas.
 
 ## Las capas y quién importa a quién
 
@@ -111,6 +119,9 @@ nombres viejos de los planes**.
 | Estado de sesión y persistencia                          | `src/state/` (IndexedDB)                                  |
 | Lo que se recuerda de una vez para otra                  | `state/workspace.ts` (tono, estilo, escala)               |
 | Quién abre el micro, y por qué es uno solo               | `state/use-listening.ts`                                  |
+| Cómo se presta ese micro a quien graba                   | `audio/stream-source.ts` (`StreamSource`)                 |
+| El acorde del bloque que tienes elegido                  | `state/acorde-elegido.ts`                                 |
+| Las teclas del banco de componer                         | `state/atajos-del-banco.ts` (`ATAJOS`)                    |
 | Oír una progresión desde un componente                   | `state/use-progression-player.ts`                         |
 | Un estado que se mira y al que uno se apunta             | `core/estado-observable.ts` (`Emisor`)                    |
 | Grabar el sonido y descargarlo                           | `src/media/`, `features/recorder/`                        |
