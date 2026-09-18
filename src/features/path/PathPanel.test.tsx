@@ -97,7 +97,7 @@ describe('El acorde actual', () => {
     const player = new ReproductorFalso();
     render(<CurrentChord createPlayer={() => player} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /escuchar la progresión/i }));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar lo que estás probando/i }));
 
     expect(player.sonadas).toHaveLength(1);
     expect(player.sonadas[0]).toHaveLength(2);
@@ -110,11 +110,13 @@ describe('El acorde actual', () => {
     const player = new ReproductorFalso();
     render(<CurrentChord createPlayer={() => player} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /escuchar la progresión/i }));
-    await userEvent.click(screen.getByRole('button', { name: /parar la progresión/i }));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar lo que estás probando/i }));
+    await userEvent.click(screen.getByRole('button', { name: /parar lo que estás probando/i }));
 
     expect(player.paradas).toBe(1);
-    expect(screen.getByRole('button', { name: /escuchar la progresión/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /escuchar lo que estás probando/i }),
+    ).toBeInTheDocument();
   });
 
   it('sin progresión no hay nada que oír, y el botón no está', () => {
@@ -123,7 +125,7 @@ describe('El acorde actual', () => {
     render(<CurrentChord />);
 
     expect(
-      screen.queryByRole('button', { name: /escuchar la progresión/i }),
+      screen.queryByRole('button', { name: /escuchar lo que estás probando/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -169,7 +171,7 @@ describe('El acorde actual', () => {
     play(AM, G);
     const player = new ReproductorFalso();
     render(<CurrentChord createPlayer={() => player} />);
-    await userEvent.click(screen.getByRole('button', { name: /escuchar la progresión/i }));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar lo que estás probando/i }));
 
     const segundo = screen.getByRole('button', { name: /^G, bVII, el último$/ });
     expect(segundo.className).not.toContain('bg-brass-dim/30');
@@ -187,7 +189,7 @@ describe('El acorde actual', () => {
     play(AM, G);
     render(<CurrentChord />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Limpiar la progresión' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Limpiar lo que estás probando' }));
 
     expect(useSessionStore.getState().path).toEqual([]);
   });

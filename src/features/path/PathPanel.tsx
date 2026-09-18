@@ -149,6 +149,16 @@ export function VoicingList({ chord }: { chord: ShowableChord }) {
  * sonar progresiones —lo hacen el lienzo de montar, las salidas y las preguntas
  * de oído— y aquí no se le había pedido.
  */
+/**
+ * La tira de lo que estás probando, y el botón de oírla.
+ *
+ * **No es tu canción**, y por eso ya no se llama progresión: la canción vive en
+ * el lienzo desde el [adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md),
+ * y aquí queda lo que se prueba sin escribir —los acordes que no caben en un
+ * bloque, como un `C5`... o lo que cabía antes de que un bloque supiera guardar
+ * especies—. Llamarlo progresión era nombrar dos cosas igual en la misma
+ * pantalla.
+ */
 export function CurrentChord({
   createPlayer,
 }: {
@@ -255,14 +265,14 @@ export function CurrentChord({
             pressed={sonando}
             tone="quiet"
             className="shrink-0 px-2"
-            ariaLabel={sonando ? 'Parar la progresión' : 'Escuchar la progresión'}
-            title={sonando ? 'Parar' : 'Escuchar lo que llevas'}
+            ariaLabel={sonando ? 'Parar lo que estás probando' : 'Escuchar lo que estás probando'}
+            title={sonando ? 'Parar' : 'Escuchar lo que estás probando'}
           >
             {sonando ? <IconoParar /> : <IconoSonar />}
           </Chip>
 
           <ol
-            aria-label="Progresión"
+            aria-label="Lo que estás probando"
             className="flex min-w-0 grow items-center gap-1 overflow-x-auto"
           >
             {path.map((chord, index) => {
@@ -318,7 +328,7 @@ export function CurrentChord({
           <button
             type="button"
             onClick={() => actions.clearPath()}
-            aria-label="Limpiar la progresión"
+            aria-label="Limpiar lo que estás probando"
             title="Limpiar"
             className="text-text-muted hover:text-oxblood-bright min-h-tap inline-flex shrink-0 cursor-pointer items-center px-1"
           >
