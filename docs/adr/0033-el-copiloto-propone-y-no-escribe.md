@@ -76,6 +76,23 @@ romper la regla de arriba, y además es la salida que peor se le da a todos los
 modelos según `docs/ROADMAP.md`. Si algún día se hace, se hará proponiendo una
 parte nueva al lado, no pisando la que hay.
 
+## Por dónde va
+
+**Hecho: propone y no escribe.** Lo propuesto vive en `state/propuesta.ts` —no en
+`core/music/arrangement.ts`, que es la parte de la decisión que más se nota: si
+viviera en el montaje sonaría al pulsar «Escuchar la canción», entraría en el
+guion del ensayo y se guardaría con la canción—. Sale punteado al final de la
+última parte, en su propia tira y no dentro de la de acordes, así que se ve
+también en la vista de partitura y se lee sin dudar dónde acaba tu canción.
+Pulsar un fantasma acepta hasta ahí, `Tab` acepta todo, `Mayús+Tab` uno y `Esc`
+descarta; aceptar de golpe es **un** paso de deshacer. Y el cupo está en la barra
+de arriba (`ui/CupoDeIA.tsx`), solo con cuenta, porque sin ella el servidor cuenta
+por dirección y no hay número que prometer.
+
+**Falta: pedirlo desde el lienzo.** Hoy la propuesta se pide desde el panel de
+ideas del área de abajo, que hay que abrir, y la gracia del copiloto es no tener
+que ir a buscarlo.
+
 ## Consecuencias
 
 - El arreglo gana un estado que **no es parte de la canción**: los bloques

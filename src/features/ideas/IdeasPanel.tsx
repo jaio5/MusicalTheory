@@ -14,6 +14,7 @@ import {
 import { useAccount } from '@state/account';
 import { apiErrorOf } from '@state/api-error';
 import { useArrangementStore } from '@state/arrangement-store';
+import { usePropuestaStore } from '@state/propuesta';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useProgressionPlayer } from '@state/use-progression-player';
 import { Button } from '@ui/Button';
@@ -72,6 +73,8 @@ export function IdeasPanel({
   const history = useSessionStore((state) => state.noteHistory);
   const bpm = useSessionStore((state) => state.bpm);
   const accionesDelMontaje = useArrangementStore((state) => state.actions);
+  const montaje = useArrangementStore((state) => state.arrangement);
+  const accionesDeLaPropuesta = usePropuestaStore((state) => state.acciones);
   const { pedir: reproductor, parar } = useProgressionPlayer(createPlayer);
 
   // El mismo permiso que comprueba la ruta antes de gastar dinero. Preguntando
@@ -122,17 +125,24 @@ export function IdeasPanel({
   }
 
   /**
-   * Meterla en la canción, como una parte nueva.
+   * Ponerla **al final de la canción, como propuesta**, no escribirla.
    *
-   * Parte nueva y no encima de lo que haya: una idea es una idea, y machacar
-   * media hora de montaje por probar una sugerencia es exactamente lo que nadie
-   * espera de un botón que dice «añadir». Si no gusta, se quita la parte.
+   * Escribía: creaba una parte nueva y metía los acordes. Eso es lo que decidió
+   * dejar de hacer
+   * [adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md):
+   * aquí se viene a componer, y una herramienta que cambia tu canción por su
+   * cuenta convierte el trabajo en algo que hay que revisar en vez de algo que
+   * es tuyo. La diferencia no se ve en un uso y se ve en diez.
+   *
+   * Ahora entra como bloques fantasma al final de la última parte: se ven en su
+   * sitio, se oyen antes de decir que sí y se descartan sin pulsar nada. Con la
+   * canción en blanco hace falta una parte donde ponerlos, y crearla no es
+   * escribir música: sigue sin haber ni un acorde que nadie haya aceptado.
    */
-  function anadir(title: string, degrees: readonly DegreeSymbol[]) {
-    const parte = accionesDelMontaje.addPart(title.slice(0, 40));
-    for (const degree of degrees) {
-      accionesDelMontaje.addBlock(parte, degree, 4);
-    }
+  function proponer(title: string, degrees: readonly DegreeSymbol[]) {
+    const ultima = montaje.parts.at(-1);
+    const parte = ultima?.id ?? accionesDelMontaje.addPart('Estrofa');
+    accionesDeLaPropuesta.proponer(parte, degrees, title.slice(0, 40));
     setMetida(title);
   }
 
@@ -273,19 +283,19 @@ export function IdeasPanel({
                     >
                       {sonando?.title === idea.title ? 'Parar' : 'Escuchar'}
                     </Chip>
-                    {/* «A la canción» y no «añadir»: dice a dónde va, que es lo
-                        que hay que saber antes de pulsar. Entra como una parte
-                        nueva, así que no se lleva nada por delante. */}
+                    {/* «Probarla en la canción» y no «a la canción»: no entra,
+                        se propone. Sale punteada al final de lo que llevas, y
+                        hasta que no la aceptes no es tuya. */}
                     <Chip
                       tone="quiet"
                       className="px-3 text-xs"
-                      onClick={() => anadir(idea.title, idea.degrees ?? [])}
+                      onClick={() => proponer(idea.title, idea.degrees ?? [])}
                     >
-                      A la canción
+                      Probarla en la canción
                     </Chip>
                     {metida === idea.title && (
                       <span className="text-tube-bright text-xs" role="status">
-                        Puesta en Montar, como parte nueva
+                        Puesta al final, punteada: acéptala o descártala allí
                       </span>
                     )}
                   </div>

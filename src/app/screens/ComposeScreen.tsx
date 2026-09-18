@@ -24,6 +24,7 @@ import { Area } from '@ui/Area';
 import { Chip } from '@ui/Chip';
 import { Divisor } from '@ui/Divisor';
 import { CuatroTonalidades, EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
+import { CupoDeIA } from '@ui/CupoDeIA';
 import {
   IconoAfinar,
   IconoCanciones,
@@ -237,6 +238,12 @@ export function ComposeScreen() {
                 mueve necesita una manera de volver, o plegar y arrastrar dan
                 miedo; y como el reparto es de este espacio, devolverlo no toca
                 los otros dos. */}
+            {/* Lo que queda de IA, a la vista antes de gastarlo: estaba solo
+                dentro del panel que lo gasta, así que para saberlo había que
+                abrir el que ibas a usar
+                ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)). */}
+            <CupoDeIA className="px-2" />
+
             <button
               type="button"
               onClick={() => accionesDelBanco.devolverElReparto()}

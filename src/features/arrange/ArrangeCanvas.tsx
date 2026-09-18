@@ -28,6 +28,8 @@ import {
 import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
+import { useAtajosDeLaPropuesta } from '@state/atajos-de-la-propuesta';
+import { usePropuestaStore } from '@state/propuesta';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
 import { EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
@@ -107,6 +109,9 @@ export function ArrangeCanvas() {
   const listening = useSessionStore((state) => state.listening);
 
   const arrangement = useArrangementStore((state) => state.arrangement);
+  const propuesta = usePropuestaStore((state) => state.propuesta);
+  useAtajosDeLaPropuesta();
+  const accionesDeLaPropuesta = usePropuestaStore((state) => state.acciones);
   const puedeDeshacer = useArrangementStore(selectCanUndo);
   const acciones = useArrangementStore((state) => state.actions);
 
@@ -837,6 +842,37 @@ export function ArrangeCanvas() {
           <Chip onClick={anadirParte} tone="quiet" className="px-3 text-xs">
             + Parte
           </Chip>
+
+          {/* Lo propuesto se acepta o se descarta **desde aquí también**, y no
+            solo con las teclas: un atajo que es la única manera de hacer algo no
+            es un atajo, es un requisito. Y dice de dónde salió, que es lo que
+            permite saber si fiarse
+            ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)). */}
+          {propuesta !== null && (
+            <span
+              role="group"
+              aria-label="Lo que propone el copiloto"
+              className="border-brass-dim ml-auto flex items-center gap-2 rounded-md border border-dashed px-2 py-1"
+            >
+              <span className="text-text-muted text-xs">{propuesta.titulo}</span>
+              <Chip
+                onClick={accionesDeLaPropuesta.aceptarTodo}
+                tone="quiet"
+                atajo="Tab"
+                className="px-3 text-xs"
+              >
+                Aceptar {propuesta.degrees.length}
+              </Chip>
+              <Chip
+                onClick={accionesDeLaPropuesta.descartar}
+                tone="quiet"
+                atajo="Esc"
+                className="px-3 text-xs"
+              >
+                Descartar
+              </Chip>
+            </span>
+          )}
           {punteo === 'bloques' && (
             <Chip
               onClick={() => setOnlyScale(!onlyScale)}
@@ -967,6 +1003,8 @@ export function ArrangeCanvas() {
                 onSelectNote={setSelectedNoteId}
                 onMoveNote={acciones.moveNote}
                 onResizeNote={acciones.resizeNote}
+                propuesta={propuesta?.partId === part.id ? propuesta.degrees : undefined}
+                onAceptarPropuesta={accionesDeLaPropuesta.aceptar}
                 onGestureStart={acciones.beginGesture}
                 onGestureEnd={acciones.endGesture}
               />

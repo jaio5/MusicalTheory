@@ -5,8 +5,15 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { EMPTY_ARRANGEMENT, MAX_BARS, pitchClassFromName, type CapturedChord } from '@core/music';
+import {
+  EMPTY_ARRANGEMENT,
+  MAX_BARS,
+  pitchClassFromName,
+  type CapturedChord,
+  type DegreeSymbol,
+} from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
+import { usePropuestaStore } from '@state/propuesta';
 import { useSessionStore } from '@state/session-store';
 
 import { ArrangeCanvas } from './ArrangeCanvas';
@@ -62,9 +69,15 @@ function tiraDe(parte: string) {
  */
 function acordesDe(parte: string): string[] {
   const seccion = screen.getByRole('region', { name: parte });
-  return within(seccion)
-    .queryAllByLabelText(/, grado /)
-    .map((nodo) => nodo.getAttribute('aria-label')?.split(',')[0] ?? '');
+  return (
+    within(seccion)
+      .queryAllByLabelText(/, grado /)
+      // Los fantasmas del copiloto también dicen su grado, y **no son de la
+      // canción**: quedan fuera de esta cuenta a propósito, que si entraran
+      // cualquier prueba de poner acordes pasaría con acordes que nadie aceptó.
+      .filter((nodo) => nodo.closest('[aria-label^="Lo propuesto"]') === null)
+      .map((nodo) => nodo.getAttribute('aria-label')?.split(',')[0] ?? '')
+  );
 }
 
 describe('sin tonalidad', () => {
@@ -819,5 +832,74 @@ describe('quitar lo que has puesto', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
 
     expect(notasDe('Estrofa')).toHaveLength(1);
+  });
+});
+
+/**
+ * Lo que el copiloto propone, en el lienzo.
+ *
+ * Punteado al final de la parte, sin el filo de color de seguridad, y **nada
+ * entra hasta que alguien dice que sí**
+ * ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)).
+ */
+describe('los bloques fantasma', () => {
+  function conPropuesta(degrees: readonly DegreeSymbol[] = ['IV', 'V']): string {
+    conTonalidad();
+    const id = useArrangementStore.getState().actions.addPart('Estrofa');
+    useArrangementStore.getState().actions.addBlock(id, 'I', 4);
+    usePropuestaStore.getState().acciones.proponer(id, degrees, 'Bajar por tonos');
+    return id;
+  }
+
+  it('salen al final de la parte, y se dicen como propuestos', () => {
+    conPropuesta();
+    render(<ArrangeCanvas />);
+
+    expect(
+      screen.getByRole('button', { name: /Aceptar F, grado IV\. Propuesto, 1 de 2\./ }),
+    ).toBeInTheDocument();
+    // Y la canción sigue teniendo un solo acorde: los fantasmas no son suyos.
+    expect(acordesDe('Estrofa')).toEqual(['C']);
+  });
+
+  // Pulsar el segundo acepta los dos: se acepta «hasta aquí», que es como se
+  // lee una fila de acordes.
+  it('pulsar uno acepta hasta ahi', async () => {
+    conPropuesta();
+    render(<ArrangeCanvas />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Aceptar G, grado V/ }));
+
+    expect(acordesDe('Estrofa')).toEqual(['C', 'F', 'G']);
+    expect(usePropuestaStore.getState().propuesta).toBeNull();
+  });
+
+  it('y hay botones a la vista para aceptarlo todo o tirarlo', async () => {
+    conPropuesta();
+    render(<ArrangeCanvas />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Descartar/ }));
+
+    expect(usePropuestaStore.getState().propuesta).toBeNull();
+    expect(acordesDe('Estrofa')).toEqual(['C']);
+  });
+
+  /**
+   * `Tab` acepta y `Esc` descarta, que es lo que ya tiene aprendido quien usa un
+   * copiloto. **Solo mientras hay algo propuesto**: quedarse con `Tab` para
+   * siempre dejaría la pantalla sin poder recorrerse con el teclado.
+   */
+  it('Tab acepta lo propuesto, y Esc lo descarta', async () => {
+    conPropuesta();
+    render(<ArrangeCanvas />);
+
+    await userEvent.keyboard('{Tab}');
+
+    expect(acordesDe('Estrofa')).toEqual(['C', 'F', 'G']);
+
+    conPropuesta(['vi']);
+    await userEvent.keyboard('{Escape}');
+
+    expect(usePropuestaStore.getState().propuesta).toBeNull();
   });
 });

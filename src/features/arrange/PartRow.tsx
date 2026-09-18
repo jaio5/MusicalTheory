@@ -10,8 +10,10 @@ import {
   isDoubtful,
   partLength,
   blockChord,
+  resolveDegree,
   roleInfo,
   roleOf,
+  type DegreeSymbol,
   type KeyMode,
   type Part,
   type PitchClass,
@@ -23,6 +25,7 @@ import { Field } from '@ui/Field';
 import { TextField } from '@ui/TextField';
 
 import { BlockButton, anchoDeBloque } from './BlockButton';
+import { BloqueFantasma } from './BloqueFantasma';
 import { MelodyLane } from './MelodyLane';
 import { Staff } from './Staff';
 
@@ -37,6 +40,9 @@ import { Staff } from './Staff';
  * «renombrar» al lado habría metido un tercer control de cuarenta y cuatro
  * píxeles en cada fila, y son doce filas como mucho.
  */
+/** Una sola lista vacía: devolver `[]` nueva en cada render repinta siempre. */
+const SIN_PROPUESTA: readonly DegreeSymbol[] = [];
+
 /** Cómo se enseña el punteo: en bloques, escrito, o nada. */
 export type Punteo = 'bloques' | 'partitura' | 'oculto';
 
@@ -81,6 +87,10 @@ export interface PartRowProps {
   readonly onMoveBlock: (partId: string, blockId: string, to: number) => void;
   readonly onGestureStart: () => void;
   readonly onGestureEnd: () => void;
+  /** Lo que el copiloto propone para esta parte, y todavía no es de la canción. */
+  readonly propuesta?: readonly DegreeSymbol[];
+  /** Acepta los `cuantos` primeros propuestos. */
+  readonly onAceptarPropuesta?: (cuantos: number) => void;
 }
 
 export function PartRow({
@@ -117,6 +127,8 @@ export function PartRow({
   onMoveBlock,
   onGestureStart,
   onGestureEnd,
+  propuesta = SIN_PROPUESTA,
+  onAceptarPropuesta = () => {},
 }: PartRowProps) {
   const [editando, setEditando] = useState(false);
   /**
@@ -398,6 +410,41 @@ export function PartRow({
           onGestureStart={onGestureStart}
           onGestureEnd={onGestureEnd}
         />
+      )}
+
+      {/*
+        Lo que propone el copiloto, al final de lo que llevas y sin ser tuyo
+        todavía ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)).
+
+        **En su propia tira y no dentro de la de acordes**, y eso arregla dos
+        cosas de una: en partitura no hay tira de bloques —los acordes se leen
+        encima del pentagrama— así que dentro no se habrían visto en la vista por
+        defecto; y separados se lee sin dudar dónde acaba tu canción y dónde
+        empieza lo que alguien te ofrece.
+
+        Aquí y no en un panel aparte porque leer cuatro acordes en una lista y
+        buscarles sitio a mano es justo el trabajo que el copiloto debería
+        ahorrarte.
+      */}
+      {propuesta.length > 0 && (
+        <ul
+          aria-label={`Lo propuesto para ${part.name}`}
+          className="mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
+        >
+          {propuesta.map((degree, indice) => (
+            <li key={`fantasma-${indice}`} className="flex">
+              <BloqueFantasma
+                symbol={resolveDegree(tonic, mode, degree).symbol}
+                degree={degree}
+                beats={beatsPerBar}
+                porPulso={porPulso}
+                orden={indice + 1}
+                total={propuesta.length}
+                onAceptar={() => onAceptarPropuesta(indice + 1)}
+              />
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

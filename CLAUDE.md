@@ -122,6 +122,7 @@ nombres viejos de los planes**.
 | Cómo se presta ese micro a quien graba                   | `audio/stream-source.ts` (`StreamSource`)                 |
 | El acorde del bloque que tienes elegido                  | `state/acorde-elegido.ts`                                 |
 | Las teclas del banco de componer                         | `state/atajos-del-banco.ts` (`ATAJOS`)                    |
+| Lo que el copiloto propone y nadie ha aceptado           | `state/propuesta.ts`, `arrange/BloqueFantasma`            |
 | Oír una progresión desde un componente                   | `state/use-progression-player.ts`                         |
 | Un estado que se mira y al que uno se apunta             | `core/estado-observable.ts` (`Emisor`)                    |
 | Grabar el sonido y descargarlo                           | `src/media/`, `features/recorder/`                        |

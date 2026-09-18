@@ -9,6 +9,7 @@ import type { Account } from '@core/billing';
 import { pitchClassFromName, type ScaleId } from '@core/music';
 import { AccountProvider } from '@state/account';
 import { useArrangementStore } from '@state/arrangement-store';
+import { usePropuestaStore } from '@state/propuesta';
 import { useSessionStore } from '@state/session-store';
 
 import { ideasError, type IdeasRequest } from './contract';
@@ -454,15 +455,38 @@ describe('probar una progresión propuesta', () => {
     expect(sonadas[0]).toHaveLength(4);
   });
 
-  it('entra en la canción como una parte nueva, sin llevarse nada por delante', async () => {
-    const antes = useArrangementStore.getState().arrangement.parts.length;
+  /**
+   * **Se propone, no se escribe.**
+   *
+   * Escribía: creaba una parte y metía los cuatro acordes. Es lo que dejó de
+   * hacer [adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md):
+   * una herramienta que cambia tu canción por su cuenta convierte el trabajo en
+   * algo que hay que revisar en vez de algo que es tuyo.
+   */
+  it('se propone al final de la cancion, y no escribe ni un acorde', async () => {
     await pedirla();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'A la canción' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Probarla en la canción/ }));
+
+    // Ni un bloque en la canción: lo propuesto vive aparte hasta que se acepta.
+    const partes = useArrangementStore.getState().arrangement.parts;
+    expect(partes.flatMap((parte) => parte.blocks)).toEqual([]);
+    expect(usePropuestaStore.getState().propuesta?.degrees).toEqual(['vi', 'IV', 'I', 'V']);
+    expect(screen.getByRole('status')).toHaveTextContent(/punteada/i);
+  });
+
+  /**
+   * Con la canción en blanco hace falta una parte donde ponerlos, y crearla no
+   * es escribir música: sigue sin haber ni un acorde que nadie haya aceptado.
+   */
+  it('con la cancion en blanco crea la parte, pero vacia', async () => {
+    await pedirla();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Probarla en la canción/ }));
 
     const partes = useArrangementStore.getState().arrangement.parts;
-    expect(partes).toHaveLength(antes + 1);
-    expect(partes[partes.length - 1]?.blocks.map((b) => b.degree)).toEqual(['vi', 'IV', 'I', 'V']);
-    expect(screen.getByRole('status')).toHaveTextContent(/puesta en montar/i);
+    expect(partes).toHaveLength(1);
+    expect(partes[0]?.blocks).toEqual([]);
+    expect(usePropuestaStore.getState().propuesta?.partId).toBe(partes[0]?.id);
   });
 });
