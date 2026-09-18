@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { pitchClassFromName } from './notes';
 import {
+  degreeInMode,
   degreeOfChord,
   degreesFor,
   nextDegrees,
@@ -136,5 +137,37 @@ describe('los grados prestados se escriben con bemol', () => {
     // Mi mayor lleva sostenidos, y su IV es La, no Si bemol menor de nada.
     expect(resolveDegree(4, 'major', 'V').symbol).toBe('B');
     expect(resolveDegree(4, 'major', 'ii').symbol).toBe('F#m');
+  });
+});
+
+/**
+ * El cuarto menor prestado, y cómo se llega a él.
+ *
+ * El sugeridor ya lo proponía —`iv`, prestado— y el catálogo de grados no lo
+ * tenía, así que la pantalla ofrecía un acorde que luego no dejaba escribir
+ * ([adr/0036](../../../docs/adr/0036-el-cuarto-menor-prestado.md)).
+ */
+describe('el cuarto menor prestado', () => {
+  it('es un grado de la tonalidad mayor, y es menor', () => {
+    expect(resolveDegree(0, 'major', 'iv').symbol).toBe('Fm');
+  });
+
+  // El giro clásico: el mismo acorde con la tercera bajada.
+  it('se llega desde el IV, que es el giro de toda la vida', () => {
+    expect(nextDegrees('major', 'IV').map((move) => move.to)).toContain('iv');
+  });
+
+  /**
+   * Y un Fa menor oído en Do mayor ya sabe dónde ponerse: antes no tenía grado,
+   * así que el micro que lo oía no podía meterlo en la canción.
+   */
+  it('un acorde menor sobre el cuarto grado ya tiene grado', () => {
+    expect(degreeOfChord(0, 'major', 5, 'minor')).toBe('iv');
+  });
+
+  // Y al cambiar de modo se queda: en menor se llama igual.
+  it('en menor se llama igual, asi que no hay nada que traducir', () => {
+    expect(degreeInMode('iv', 'minor')).toBe('iv');
+    expect(degreeInMode('iv', 'major')).toBe('iv');
   });
 });
