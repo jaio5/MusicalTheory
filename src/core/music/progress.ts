@@ -110,7 +110,16 @@ export const BADGES: readonly Badge[] = [
     how: 'Termina un ensayo con todos los compases a tiempo.',
   },
   { id: 'racha-siete', name: 'Siete días', how: 'Practica siete días seguidos.' },
-  { id: 'repaso-al-dia', name: 'Nada pendiente', how: 'Termina un repaso y deja la cola vacía.' },
+  {
+    id: 'repaso-al-dia',
+    name: 'Nada pendiente',
+    // «Para hoy» y no «la cola vacía», que es lo que decía y no era: se gana al
+    // terminar un repaso sin fallar ninguna, y entonces lo acertado espera al
+    // día siguiente pero sigue en la cola. Con el texto de antes, la medalla se
+    // encendía en la misma pantalla que decía «tienes una pregunta para
+    // repasar».
+    how: 'Termina un repaso sin dejarte nada pendiente para hoy.',
+  },
   { id: 'meta-diaria', name: 'Meta del día', how: 'Llega a la meta de XP de un día.' },
 ];
 

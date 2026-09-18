@@ -1009,3 +1009,29 @@ describe('ensayar suma como componer', () => {
     ]);
   });
 });
+
+/**
+ * La medalla del repaso dice lo que premia.
+ *
+ * Decía «deja la cola vacía» y se gana al terminar un repaso sin fallar
+ * ninguna: lo acertado espera al día siguiente, pero sigue en la cola. Con el
+ * texto de antes, la medalla se encendía en la misma pantalla que decía «tienes
+ * una pregunta para repasar».
+ */
+describe('la medalla del repaso', () => {
+  const HOY = '2026-09-19';
+
+  it('se gana al no dejar nada pendiente para hoy, y lo dice asi', () => {
+    const limpio = practiceReview(EMPTY_PROGRESS, HOY, { cleared: true });
+
+    expect(limpio.badges).toContain('repaso-al-dia');
+    expect(badgesOf(['repaso-al-dia'])[0]?.how).toMatch(/pendiente para hoy/);
+    expect(badgesOf(['repaso-al-dia'])[0]?.how).not.toMatch(/cola vacía/);
+  });
+
+  it('y fallando alguna no se gana', () => {
+    expect(practiceReview(EMPTY_PROGRESS, HOY, { cleared: false }).badges).not.toContain(
+      'repaso-al-dia',
+    );
+  });
+});
