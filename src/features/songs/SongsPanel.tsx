@@ -13,7 +13,6 @@ import {
   MAX_SECTIONS,
   MAX_SONG_NAME,
   parseSong,
-  resolveDegree,
   sortSongs,
   type Song,
 } from '@core/music';
@@ -304,33 +303,31 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
   /**
    * Deja la canción puesta en el modo componer.
    *
-   * Fija la tonalidad y rehace el camino desde los grados, así que el porqué de
-   * cada acorde vuelve a salir del dominio y no de lo que se guardó: si mañana
-   * se escribe mejor el papel del cuarto grado, las canciones viejas lo
-   * aprovechan sin migrar nada.
+   * Fija la tonalidad y deja el montaje, con sus partes, su punteo y de dónde
+   * salió cada acorde. El porqué de cada acorde **no se guarda**: sale del
+   * dominio cada vez que se pinta, así que si mañana se escribe mejor el papel
+   * del cuarto grado, las canciones viejas lo aprovechan sin migrar nada.
+   *
+   * **Y no se rehace el camino.** Se rehacía, y era la segunda canción paralela
+   * que el ADR 0032 se propuso retirar: con las especies guardadas además
+   * mentía, porque el camino se llenaba con la tríada de cada grado y una
+   * canción de quintas volvía como una de tríadas. Lo que se abre es la canción.
    */
   function open(song: Song) {
     const { actions } = useSessionStore.getState();
     actions.pinKey({ tonic: song.tonic, mode: song.mode });
     actions.clearPath();
+    actions.setCurrentDegree(song.sections.flatMap((section) => section.degrees).at(-1) ?? null);
 
-    const degrees = song.sections.flatMap((section) => section.degrees);
-    for (const degree of degrees) {
-      const chord = resolveDegree(song.tonic, song.mode, degree);
-      actions.pushChord({
-        symbol: chord.symbol,
-        label: degree,
-        root: chord.root,
-        notes: chord.notes,
-        why: chord.role,
-      });
+    const montaje = arrangementFromSong(song, beatsPerBar);
+    accionesMontaje.replace(montaje);
+    // Con el primer acorde elegido: es de lo que habla la columna de al lado, y
+    // abrir una canción y no tener nada elegido deja esa columna pidiendo que
+    // elijas un acorde con la canción entera delante.
+    const primero = montaje.parts[0]?.blocks[0]?.id;
+    if (primero !== undefined) {
+      accionesMontaje.elegirBloque(primero);
     }
-    actions.setCurrentDegree(degrees.at(-1) ?? null);
-
-    // Y en el lienzo, con sus partes, su punteo y de dónde salió cada acorde.
-    // Abrir una canción tiene que dejarla puesta en las dos caras: son la misma
-    // canción vista de dos maneras, no dos sitios distintos.
-    accionesMontaje.replace(arrangementFromSong(song, beatsPerBar));
 
     setNote(`«${song.name}» puesta en ${keyName(song.tonic, song.mode)}.`);
   }

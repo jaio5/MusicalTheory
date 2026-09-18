@@ -198,7 +198,15 @@ describe('guardar', () => {
 });
 
 describe('abrir', () => {
-  it('deja la tonalidad y el camino puestos en el modo componer', async () => {
+  /**
+   * Lo que se abre es **la canción**, no el camino.
+   *
+   * Se rehacía el camino desde los grados, y era la segunda canción paralela que
+   * el ADR 0032 se propuso retirar: con las especies guardadas además mentía,
+   * porque el camino se llenaba con la tríada de cada grado y una canción de
+   * quintas volvía como una de tríadas.
+   */
+  it('deja la tonalidad y la cancion puestas, y el camino vacio', async () => {
     const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
     render(conCuenta(<SongsPanel request={request} />));
 
@@ -206,9 +214,25 @@ describe('abrir', () => {
 
     const state = useSessionStore.getState();
     expect(state.pinnedKey).toEqual({ tonic: C, mode: 'major' });
-    // Los cifrados salen del dominio al abrir, no de lo que se guardó.
-    expect(state.path.map((chord) => chord.symbol)).toEqual(['C', 'G', 'Am', 'F']);
+    expect(state.path).toEqual([]);
     expect(state.currentDegree).toBe('IV');
+    expect(
+      useArrangementStore
+        .getState()
+        .arrangement.parts.flatMap((p) => p.blocks.map((b) => b.degree)),
+    ).toEqual(['I', 'V', 'vi', 'IV']);
+  });
+
+  // Con el primero elegido: abrir una canción y no tener nada elegido deja la
+  // columna del acorde pidiendo que elijas uno con la canción entera delante.
+  it('y con el primer acorde elegido', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir' }));
+
+    const primero = useArrangementStore.getState().arrangement.parts[0]?.blocks[0]?.id;
+    expect(useArrangementStore.getState().selectedBlockId).toBe(primero);
   });
 
   it('abrir dos veces no encadena las dos canciones', async () => {
@@ -219,7 +243,9 @@ describe('abrir', () => {
     await userEvent.click(abrir);
     await userEvent.click(abrir);
 
-    expect(useSessionStore.getState().path).toHaveLength(4);
+    expect(useArrangementStore.getState().arrangement.parts.flatMap((p) => p.blocks)).toHaveLength(
+      4,
+    );
   });
 });
 
