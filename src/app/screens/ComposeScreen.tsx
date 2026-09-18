@@ -23,7 +23,7 @@ import { TOPES_DEL_BANCO } from '@state/workspace';
 import { Area } from '@ui/Area';
 import { Chip } from '@ui/Chip';
 import { Divisor } from '@ui/Divisor';
-import { EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
+import { CuatroTonalidades, EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
 import {
   IconoAfinar,
   IconoCanciones,
@@ -259,7 +259,24 @@ export function ComposeScreen() {
           el banco vive en su área y esta barra no existe. */}
       <div className="border-border bg-surface shrink-0 border-b px-3 lg:hidden">
         <BarraDeTonalidad>
-          <Settings />
+          {/*
+            Sin tonalidad, aquí van las cuatro de salida; con ella, los ajustes.
+
+            No es por sitio, es que **lo de debajo no se ve**: esta barra flota
+            sobre la pantalla y se abre ella sola mientras no hay tonalidad, así
+            que en un teléfono el estado vacío de componer —con sus cuatro
+            botones y el micro— quedaba entero detrás del panel. Los atajos para
+            quien no sabe cuál elegir eran justo lo inalcanzable.
+
+            Y se turnan en vez de apilarse porque el panel no cabe con las dos
+            cosas: el estilo y la escala no deciden nada hasta que hay una
+            tonalidad sobre la que suenen.
+          */}
+          {activeKey === null ? (
+            <CuatroTonalidades>Empieza por una:</CuatroTonalidades>
+          ) : (
+            <Settings />
+          )}
         </BarraDeTonalidad>
       </div>
 

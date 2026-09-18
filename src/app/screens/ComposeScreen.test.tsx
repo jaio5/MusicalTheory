@@ -109,6 +109,32 @@ describe('Las areas del banco', () => {
     useBancoStore.getState().actions.espacio('escribir');
   }
 
+  /**
+   * En estrecho, la barra de la tonalidad **flota sobre la pantalla y se abre
+   * sola** mientras no hay ninguna puesta, así que en un teléfono el estado
+   * vacío de componer —con sus cuatro tonalidades y el micro— quedaba entero
+   * detrás del panel: los atajos para quien no sabe cuál elegir eran justo lo
+   * inalcanzable. Van dentro de la barra, y se turnan con los ajustes porque el
+   * estilo y la escala no deciden nada hasta que hay tonalidad.
+   */
+  it('sin tonalidad, la barra de estrecho ofrece cuatro con las que empezar', () => {
+    render(<ComposeScreen />);
+
+    expect(screen.getByRole('group', { name: 'Tonalidades para empezar' })).toBeInTheDocument();
+  });
+
+  // Y se van en cuanto hay una: entonces el sitio es de los ajustes, que ya
+  // deciden sobre algo.
+  it('y con tonalidad puesta se quitan de en medio', () => {
+    conTonalidad();
+
+    render(<ComposeScreen />);
+
+    expect(
+      screen.queryByRole('group', { name: 'Tonalidades para empezar' }),
+    ).not.toBeInTheDocument();
+  });
+
   // Por donde se entra: componer tocando estaba construido y escondido detrás de
   // dos pasos, y ahora es la primera puerta.
   it('se entra por tocando, que es por donde se empieza una cancion', () => {
