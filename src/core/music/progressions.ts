@@ -22,6 +22,7 @@ export type MajorDegreeSymbol =
   | 'vii°'
   | 'bII'
   | 'bIII'
+  | 'iv'
   | 'bVI'
   | 'bVII'
   | 'V/ii'
@@ -75,6 +76,18 @@ const MAJOR_DEGREES: Readonly<Record<MajorDegreeSymbol, DegreeShape>> = {
     offset: 3,
     quality: 'major',
     role: 'Prestado del menor. Sube el riff sin salir del tono.',
+  },
+  /*
+    El cuarto menor, que es el préstamo que más se usa y el único de los cuatro
+    que es **menor**: los otros tres —bIII, bVI, bVII— son mayores. La cadencia
+    plagal menor `I–iv–I` está en media discografía de los sesenta en adelante, y
+    el giro `IV–iv–I` es idioma corriente en pop y en soul
+    ([adr/0036](../../../docs/adr/0036-el-cuarto-menor-prestado.md)).
+  */
+  iv: {
+    offset: 5,
+    quality: 'minor',
+    role: 'El cuarto menor, prestado. El amén que se nubla.',
   },
   bVI: { offset: 8, quality: 'major', role: 'Prestado del menor. Oscurece de golpe.' },
   bVII: { offset: 10, quality: 'major', role: 'El giro mixolidio. Vuelve a I sin sensible.' },
@@ -190,8 +203,14 @@ const MAJOR_MOVES: Readonly<Record<MajorDegreeSymbol, readonly DegreeMove[]>> = 
   IV: [
     { to: 'I', weight: 0.9, why: 'La cadencia plagal, el amén del rock.' },
     { to: 'V', weight: 0.8, why: 'Escalón hacia la tensión máxima.' },
+    { to: 'iv', weight: 0.5, why: 'El mismo acorde con la tercera bajada: se nubla de golpe.' },
     { to: 'vi', weight: 0.4, why: 'Sigue el bucle sin volver a casa.' },
     { to: 'bVII', weight: 0.3, why: 'Baja un tono y suena a riff.' },
+  ],
+  iv: [
+    { to: 'I', weight: 0.9, why: 'La cadencia plagal menor: el amén, pero nublado.' },
+    { to: 'V', weight: 0.4, why: 'Recupera la tensión después del préstamo.' },
+    { to: 'bVII', weight: 0.3, why: 'Sigue por el terreno prestado.' },
   ],
   V: [
     { to: 'I', weight: 0.95, why: 'La resolución esperada.' },
@@ -466,6 +485,9 @@ const A_MENOR: Readonly<Partial<Record<MajorDegreeSymbol, MinorDegreeSymbol>>> =
   // el bemol del nombre, que solo decía «esto viene de fuera».
   bII: 'bII',
   bIII: 'III',
+  // El cuarto menor prestado ya **es** el cuarto de la tonalidad menor: mismo
+  // acorde y misma función, así que no hay nada que traducir.
+  iv: 'iv',
   bVI: 'VI',
   bVII: 'VII',
   'V/V': 'V/V',
@@ -494,6 +516,21 @@ const A_MAYOR: Readonly<Partial<Record<MinorDegreeSymbol, MajorDegreeSymbol>>> =
  * tenga que comprobar antes si hay algo que hacer.
  */
 export function degreeInMode(degree: DegreeSymbol, to: KeyMode): DegreeSymbol | null {
+  /*
+    **Lo que ya vale en el modo destino se queda**, y solo se traduce lo que no.
+
+    Es lo que permite que esto se llame siempre y no solo al cambiar de modo, que
+    es como lo llama `state/montaje-en-su-modo.ts`: traducir de más tiene que ser
+    no hacer nada. Se probó al revés —que la tabla mandara— para que el `iv` de
+    una tonalidad menor volviera a mayor como `IV`, y el resultado fue que un
+    `iv` prestado escrito en mayor se convertía en `IV` en cuanto se tocaba la
+    rueda, o sea que no se podía escribir
+    ([adr/0036](../../../docs/adr/0036-el-cuarto-menor-prestado.md)).
+
+    La consecuencia es que un `iv` de menor se queda `iv` al pasar a mayor, y eso
+    es lo que ya hace el `vi`: va a `VI` y vuelve como `bVI`. **Suena el mismo
+    acorde**, que es el trato de esta traducción desde el principio.
+  */
   const tabla = to === 'minor' ? MINOR_DEGREES : MAJOR_DEGREES;
   if (degree in tabla) {
     return degree;

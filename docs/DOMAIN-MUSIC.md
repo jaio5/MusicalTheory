@@ -130,8 +130,11 @@ uso. El criterio es de rock, no de coral a cuatro voces. En la práctica:
   A mayor aprieta más porque trae la sensible del menor armónico.
 - **V – IV** existe y se usa constantemente en blues, aunque en armonía clásica
   se considere una retrogradación.
-- Los **prestados del menor** (bIII, bVI, bVII en tonalidad mayor) están en el
-  mapa desde el principio, y el napolitano (bII) en menor por el color frigio.
+- Los **prestados del menor** en tonalidad mayor son cuatro: bIII, bVI y bVII
+  —mayores— y el **`iv`**, que es menor y el que más se usa: la cadencia plagal
+  menor `I–iv–I` y el giro `IV–iv–I` son idioma corriente en pop y en soul
+  ([adr/0036](./adr/0036-el-cuarto-menor-prestado.md)). El napolitano (bII) está
+  en menor por el color frigio.
 - El **vii°** casi no se usa: aparece marcado con peso bajo y con la nota de
   que en rock se sustituye por V.
 

@@ -32,8 +32,21 @@ describe('caminos entre grados', () => {
     expect([...weights].sort((a, b) => b - a)).toEqual(weights);
   });
 
+  /**
+   * El ejemplo era el `iv`, y dejó de servir cuando el cuarto menor entró en el
+   * catálogo mayor ([adr/0036](../../../docs/adr/0036-el-cuarto-menor-prestado.md)).
+   * El `i` sigue sin existir en mayor: una tónica menor en tonalidad mayor no es
+   * un préstamo, es otra tonalidad.
+   */
   it('protesta si el grado no existe en ese modo', () => {
-    expect(() => nextDegrees('major', 'iv')).toThrow(RangeError);
+    expect(() => nextDegrees('major', 'i')).toThrow(RangeError);
+    expect(() => nextDegrees('minor', 'vi')).toThrow(RangeError);
+  });
+
+  // Y el cuarto menor prestado sí tiene a dónde ir: sin movimientos, elegirlo
+  // tumbaba la pantalla de componer, que es como se cayó al añadir los modos.
+  it('el cuarto menor prestado sale a casa', () => {
+    expect(nextDegrees('major', 'iv')[0]).toMatchObject({ to: 'I' });
   });
 });
 

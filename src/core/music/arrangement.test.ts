@@ -398,10 +398,15 @@ describe('translateToMode', () => {
 
     // El vi vuelve como bVI: en menor el sexto grado es mayor, y al volver se
     // dice con su bemol. Suena el mismo acorde que sonaba en menor.
+    //
+    // Y el `iv` vuelve como `iv`, por lo mismo: desde que el cuarto menor existe
+    // en mayor —el préstamo, [adr/0036](../../../docs/adr/0036-el-cuarto-menor-prestado.md)—
+    // no hay que cambiarlo de nombre para decirlo, así que el Fa menor que
+    // sonaba en menor sigue sonando.
     expect(translateToMode(enMenor, 'major').parts[0]?.blocks.map((b) => b.degree)).toEqual([
       'I',
       'bVI',
-      'IV',
+      'iv',
     ]);
   });
 
