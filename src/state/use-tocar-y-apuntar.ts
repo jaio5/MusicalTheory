@@ -7,7 +7,9 @@ import type { MicInput } from '@media/mic-input';
 import type { Recording, SessionRecorder } from '@media/session-recorder';
 import { StreamRecorder } from '@media/stream-recorder';
 
-import { useListening, type ListeningDeps } from './use-listening';
+import { canShareStream } from '@audio/stream-source';
+
+import { entradaActiva, useListening, type ListeningDeps } from './use-listening';
 import { useSessionStore } from './session-store';
 
 /**
@@ -25,11 +27,14 @@ import { useSessionStore } from './session-store';
  * falta hacer con lo apuntado —convertirlo en una parte— lo hace
  * `apuntar-lo-tocado.ts`, que es lo que comparte con el botón de siempre.
  *
- * **Son dos micrófonos y se sabe.** `audio/` abre el suyo para el tono y el
- * croma, y `media/` el suyo para los bytes; juntarlos pide que las dos capas
- * compartan un `MediaStream`, que es fontanería con su propio paso en el
- * roadmap. Abrir dos es lo que ya hace hoy quien usa las dos herramientas a la
- * vez, así que esto no empeora nada.
+ * **Es un micrófono, no dos.** Lo fueron: `audio/` abría el suyo para el tono y
+ * el croma y `media/` otro para los bytes, y dos `getUserMedia` sobre el mismo
+ * aparato son dos permisos y dos pilotos —y en un iPhone, el segundo puede
+ * quedarse con el dispositivo y dejar al primero sin señal—. No hacía falta:
+ * el grabador de `media/` **recibe** un `MediaStream`, no lo pide, así que aquí
+ * se le presta el que ya está abierto (`audio/stream-source.ts`). Si la entrada
+ * no tiene flujo que prestar —los dobles de los tests no lo tienen— se abre el
+ * de `media/` como antes.
  *
  * **Y el sonido no sale de aquí.** Se graba para poder oírlo y descargarlo, como
  * ya hacía la grabadora.
@@ -57,6 +62,17 @@ export interface TocarYApuntar {
 export interface TocarDeps extends ListeningDeps {
   readonly createMic?: () => MicInput;
   readonly createRecorder?: () => SessionRecorder;
+}
+
+/**
+ * El flujo del micro que ya está abierto para analizar, si lo hay.
+ *
+ * Nulo cuando la entrada no puede prestarlo: los dobles de los tests no tienen
+ * `MediaStream` detrás, y entonces se abre el de `media/` como siempre.
+ */
+function flujoPrestado(): MediaStream | null {
+  const entrada = entradaActiva();
+  return canShareStream(entrada) ? entrada.stream : null;
 }
 
 export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
@@ -109,25 +125,42 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       return;
     }
 
-    const mic = fabricas.current.createMic?.() ?? new BrowserMicInput();
-    micRef.current = mic;
-    await mic.start();
+    // El micro de análisis ya está abierto: se le pide prestado el flujo en vez
+    // de abrir otro. Solo si no tiene —una entrada de mentira en un test, o un
+    // navegador raro— se cae al micrófono de `media/`, que es lo que se hacía
+    // siempre.
+    const prestado = flujoPrestado();
+    let flujo = prestado;
+    let motivo: string | null = null;
 
-    if (mic.state === 'running' && mic.stream !== null) {
-      const grabador = fabricas.current.createRecorder?.() ?? new StreamRecorder();
-      grabadorRef.current = grabador;
-      await grabador.start({ audio: mic.stream });
-      if (grabador.state !== 'recording') {
-        // Se sigue: lo que se viene a hacer es escribir la canción, y quedarse
-        // sin la toma de audio no impide ninguna de las dos cosas.
-        setMensaje(grabador.errorMessage ?? 'No he podido grabar el sonido, pero te sigo oyendo.');
-        grabadorRef.current = null;
-        await mic.stop();
+    if (flujo === null) {
+      const mic = fabricas.current.createMic?.() ?? new BrowserMicInput();
+      micRef.current = mic;
+      await mic.start();
+      if (mic.state === 'running' && mic.stream !== null) {
+        flujo = mic.stream;
+      } else {
+        motivo = mic.errorMessage;
         micRef.current = null;
       }
-    } else {
-      setMensaje(mic.errorMessage ?? 'No he podido grabar el sonido, pero te sigo oyendo.');
-      micRef.current = null;
+    }
+
+    if (flujo !== null) {
+      const grabador = fabricas.current.createRecorder?.() ?? new StreamRecorder();
+      grabadorRef.current = grabador;
+      await grabador.start({ audio: flujo });
+      if (grabador.state !== 'recording') {
+        motivo = grabador.errorMessage;
+        grabadorRef.current = null;
+        await micRef.current?.stop();
+        micRef.current = null;
+      }
+    }
+
+    if (grabadorRef.current === null) {
+      // Se sigue: lo que se viene a hacer es escribir la canción, y quedarse sin
+      // la toma de audio no impide ninguna de las dos cosas.
+      setMensaje(motivo ?? 'No he podido grabar el sonido, pero te sigo oyendo.');
     }
 
     // **`performance.now` y no `Date.now`.** Es el reloj con el que se apuntan
@@ -140,23 +173,22 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
 
   const parar = useCallback(async (): Promise<Toma | null> => {
     acciones.stopCapture(performance.now());
-    await escucha.stop();
 
     const grabador = grabadorRef.current;
     grabadorRef.current = null;
     const mic = micRef.current;
     micRef.current = null;
 
+    // **El grabador primero y la escucha después**, que es lo que cambia al
+    // compartir el micro: ahora graba sobre el flujo de la entrada de análisis,
+    // y cerrarla antes le cortaba la toma por el final.
+    const recording = grabador === null ? null : await grabador.stop();
+
+    await escucha.stop();
+    await mic?.stop();
     setFase('quieto');
 
-    if (grabador === null) {
-      await mic?.stop();
-      return null;
-    }
-
-    const recording = await grabador.stop();
-    await mic?.stop();
-    return { recording, url: URL.createObjectURL(recording.blob) };
+    return recording === null ? null : { recording, url: URL.createObjectURL(recording.blob) };
   }, [acciones, escucha]);
 
   // Irse de la pantalla en mitad de una toma no puede dejar el micrófono

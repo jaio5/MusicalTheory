@@ -97,10 +97,6 @@ Lo que queda, en el orden en que se hace:
   `Esc` descarta, el cupo restante en la barra de arriba y los cinco estados de
   error con su sitio ([adr/0033](./adr/0033-el-copiloto-propone-y-no-escribe.md)).
   Hoy las ideas siguen en su panel del área de abajo.
-- **Un micrófono compartido entre analizar y grabar.** Hoy son dos
-  `getUserMedia`: `audio/` abre el suyo para el tono y el croma, y `media/` el
-  suyo para los bytes. Funciona y no empeora nada, pero lo correcto es que las
-  dos capas compartan un `MediaStream`. Es fontanería y tiene su propio paso.
 - **El parpadeo del primer fotograma en un teléfono.** `useHayBanco` contesta que
   sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
   hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;

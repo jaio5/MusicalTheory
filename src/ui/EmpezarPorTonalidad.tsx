@@ -100,7 +100,13 @@ export function EmpezarPorTonalidad({ deps }: { readonly deps?: ListeningDeps } 
       titulo="Empieza eligiendo la tonalidad"
       accion={
         <div className="flex flex-col items-center gap-3">
-          <div className="flex flex-wrap justify-center gap-2">
+          {/* Con nombre, igual que la versión de una línea: al lado hay
+              veinticuatro botones de la rueda que dicen casi lo mismo. */}
+          <div
+            role="group"
+            aria-label="Tonalidades para empezar"
+            className="flex flex-wrap justify-center gap-2"
+          >
             {DE_SALIDA.map(({ nota, modo }) => {
               const tonic = pitchClassFromName(nota);
               return (

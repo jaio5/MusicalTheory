@@ -55,11 +55,22 @@ Adaptadores. Exponen interfaces (`AudioInput`, `PitchEngine`, `MicInput`,
 Un componente pide un `PitchEngine`, se suscribe y recibe hercios; no construye
 nunca un `AnalyserNode`.
 
-**Las dos abren el micrófono, y son dos flujos distintos.** `audio/` lo abre para
-analizar —mide el tono, saca el croma y no guarda nada— y `media/` para grabar a
-fichero. Tienen vidas distintas: dejar de grabar no debería dejar de escuchar. Lo
-que `media/` ya no hace es vídeo: la cámara, la composición en canvas y el overlay
-se fueron enteros ([adr/0023](./adr/0023-grabar-solo-el-sonido.md)).
+**Las dos saben abrir el micrófono, pero no lo abren dos veces.** `audio/` lo
+abre para analizar —mide el tono, saca el croma y no guarda nada— y `media/` para
+grabar a fichero, y cada una puede vivir sin la otra: dejar de grabar no deja de
+escuchar. Cuando las dos cosas pasan a la vez —componer tocando—, `audio/`
+**presta su flujo** por el puerto `StreamSource` y `media/` graba sobre él, que
+es lo que siempre pudo hacer: `SessionRecorder.start` **recibe** un `MediaStream`,
+no lo pide. Dos `getUserMedia` sobre el mismo aparato son dos permisos y dos
+pilotos, y en un iPhone el segundo puede quedarse con el dispositivo y dejar al
+primero sin señal.
+
+Prestar no es ceder: quien recibe el flujo no cierra las pistas. Las suelta quien
+las abrió, al pararse. Y por eso, al parar de tocar, **se para el grabador antes
+que la escucha**: al revés, cerrar la entrada le cortaba la toma por el final.
+
+Lo que `media/` ya no hace es vídeo: la cámara, la composición en canvas y el
+overlay se fueron enteros ([adr/0023](./adr/0023-grabar-solo-el-sonido.md)).
 
 ### `server/`
 

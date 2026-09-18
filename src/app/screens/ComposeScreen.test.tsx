@@ -117,10 +117,13 @@ describe('Las areas del banco', () => {
    * inalcanzable. Van dentro de la barra, y se turnan con los ajustes porque el
    * estilo y la escala no deciden nada hasta que hay tonalidad.
    */
+  // Dos: el de la barra de estrecho y el del estado vacío del centro, que es el
+  // de ancho. Conviven en el árbol y el CSS enseña uno; lo que importa aquí es
+  // que el de la barra exista, porque es el que estaba tapado.
   it('sin tonalidad, la barra de estrecho ofrece cuatro con las que empezar', () => {
     render(<ComposeScreen />);
 
-    expect(screen.getByRole('group', { name: 'Tonalidades para empezar' })).toBeInTheDocument();
+    expect(screen.getAllByRole('group', { name: 'Tonalidades para empezar' })).toHaveLength(2);
   });
 
   // Y se van en cuanto hay una: entonces el sitio es de los ajustes, que ya
@@ -130,9 +133,7 @@ describe('Las areas del banco', () => {
 
     render(<ComposeScreen />);
 
-    expect(
-      screen.queryByRole('group', { name: 'Tonalidades para empezar' }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('group', { name: 'Tonalidades para empezar' })).toHaveLength(0);
   });
 
   // Por donde se entra: componer tocando estaba construido y escondido detrás de

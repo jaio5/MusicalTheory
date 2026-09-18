@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AudioInput, AudioInputState } from '@audio/audio-input';
+import type { StreamSource } from '@audio/stream-source';
 import type { ChordEngine } from '@audio/chord-engine';
 import type { PitchEngine } from '@audio/pitch-engine';
 import { pitchClassFromName } from '@core/music';
@@ -65,6 +66,25 @@ class EntradaFalsa implements AudioInput {
   }
 }
 
+/**
+ * Una entrada que **sí tiene flujo que prestar**, como la de verdad.
+ *
+ * `WebAudioInput` implementa `StreamSource`: guarda el `MediaStream` que abrió y
+ * se lo presta a quien grabe. Con ésta se prueba el camino bueno —un micrófono,
+ * no dos—; con `EntradaFalsa`, el de respaldo.
+ */
+class EntradaQuePresta extends EntradaFalsa implements StreamSource {
+  stream: MediaStream | null = null;
+  override async start(): Promise<void> {
+    await super.start();
+    this.stream = { id: 'el-de-analizar' } as MediaStream;
+  }
+  override async stop(): Promise<void> {
+    await super.stop();
+    this.stream = null;
+  }
+}
+
 class MotorFalso implements PitchEngine {
   readonly options = {} as PitchEngine['options'];
   running = false;
@@ -108,8 +128,11 @@ class MicFalso implements MicInput {
 class GrabadorFalso implements SessionRecorder {
   state: RecorderState = 'idle';
   errorMessage: string | null = null;
-  async start() {
+  /** Con qué flujo arrancó: es lo que dice si se compartió el micro o no. */
+  conFlujo: MediaStream | null = null;
+  async start(options: { readonly audio: MediaStream }) {
     this.state = 'recording';
+    this.conFlujo = options.audio;
   }
   pause(): void {}
   resume(): void {}
@@ -261,5 +284,56 @@ describe('Tocar para escribir', () => {
     await userEvent.click(screen.getByRole('button', { name: /Verlo en la partitura/ }));
 
     expect(ido).toEqual(['escribir']);
+  });
+});
+
+/**
+ * Un micrófono, no dos.
+ *
+ * Lo fueron: `audio/` abría el suyo para el tono y el croma y `media/` otro para
+ * los bytes. Dos `getUserMedia` sobre el mismo aparato son dos permisos y dos
+ * pilotos, y en un iPhone el segundo puede quedarse con el dispositivo y dejar
+ * al primero sin señal, que es la mitad de la aplicación apagándose sola.
+ */
+describe('el microfono se comparte', () => {
+  it('graba sobre el flujo que ya abrio el analisis, sin pedir otro', async () => {
+    const mic = new MicFalso();
+    const grabador = new GrabadorFalso();
+    const entrada = new EntradaQuePresta();
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(
+      <TocarParaEscribir
+        deps={{
+          ...DEPS,
+          createInput: () => entrada,
+          createMic: () => mic,
+          createRecorder: () => grabador,
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    expect(grabador.conFlujo).toBe(entrada.stream);
+    // Y el de `media/` ni se toca: ése es el segundo permiso que ya no se pide.
+    expect(mic.state).toBe('idle');
+  });
+
+  // Una entrada sin flujo que prestar —un doble, un navegador raro— sigue
+  // teniendo su camino: quedarse sin la toma no puede ser la respuesta.
+  it('y si no hay flujo que prestar, se abre el de media como siempre', async () => {
+    const mic = new MicFalso();
+    const grabador = new GrabadorFalso();
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(
+      <TocarParaEscribir
+        deps={{ ...DEPS, createMic: () => mic, createRecorder: () => grabador }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    expect(mic.state).toBe('running');
+    expect(grabador.conFlujo).toBe(mic.stream);
   });
 });

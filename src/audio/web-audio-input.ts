@@ -1,12 +1,17 @@
 /**
  * Entrada de audio sobre Web Audio.
  *
- * Es el único sitio del proyecto que llama a getUserMedia y que construye un
- * AudioContext. Todo lo demás habla con la interfaz AudioInput.
+ * Es el único sitio del proyecto que construye un AudioContext, y el único que
+ * llama a getUserMedia **para analizar**. Todo lo demás habla con la interfaz
+ * AudioInput.
+ *
+ * Presta su flujo a quien grabe (`stream-source.ts`), y por eso componer tocando
+ * ya no abre un segundo micrófono para quedarse con la toma.
  */
 
 import { EstadoObservable, type Oyente } from '@core/estado-observable';
 import { MAX_RECORDING_SECONDS, type AudioRecorder, type Recording } from './recorder';
+import type { StreamSource } from './stream-source';
 import type {
   AudioInput,
   AudioInputError,
@@ -23,7 +28,7 @@ export const DEFAULT_FRAME_SIZE = 2048;
  */
 export const DEFAULT_SPECTRUM_SIZE = 8192;
 
-export class WebAudioInput implements AudioInput, AudioRecorder {
+export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
   readonly frameSize: number;
   readonly spectrumSize: number;
 
@@ -60,6 +65,16 @@ export class WebAudioInput implements AudioInput, AudioRecorder {
   /** No se conoce hasta arrancar: la decide el navegador, no nosotros. */
   get sampleRate(): number {
     return this.#context?.sampleRate ?? 0;
+  }
+
+  /**
+   * El flujo abierto, para prestárselo a quien grabe.
+   *
+   * Prestar no es ceder: quien lo recibe **no cierra las pistas**. Las suelta
+   * esta entrada al pararse, que es quien las abrió.
+   */
+  get stream(): MediaStream | null {
+    return this.#stream;
   }
 
   async start(): Promise<void> {
