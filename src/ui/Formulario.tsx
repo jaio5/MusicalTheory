@@ -26,6 +26,16 @@ export function Formulario({
 }) {
   return (
     <form
+      // **Sin la validación del navegador**, que la escribe en su idioma: encima
+      // de un formulario en español salía «Please fill out this field». Esa
+      // burbuja no se puede traducir ni colocar, así que aquí no sale ninguna y
+      // lo que falta se dice con `ui/Aviso`, como se dice todo lo demás.
+      //
+      // No se pierde nada: los cinco formularios de la cuenta ya tienen su propia
+      // condición para poder enviarse, y quien decide de verdad es el servidor.
+      // `required` se queda en los campos —un lector de pantalla lo anuncia— y
+      // deja de ser lo que aborta el envío.
+      noValidate
       className={`flex max-w-sm flex-col gap-3 ${className}`}
       onSubmit={(event) => {
         event.preventDefault();
