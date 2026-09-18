@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { keySignature } from './circle-of-fifths';
+import { keyName } from './keys';
 import { LESSONS, lessonNotes, type LessonId } from './lessons';
-import { pitchClassFromName } from './notes';
+import { pitchClassFromName, type PitchClass } from './notes';
 
 const C = pitchClassFromName('C');
 const A = pitchClassFromName('A');
@@ -124,6 +126,37 @@ describe('Lecciones', () => {
 
   it('el bVII de C mayor es Bb', () => {
     expect(answerOf('borrowed', 0)).toBe('Bb');
+  });
+
+  /**
+   * La armadura que se enseña es la de la tonalidad, y se comprueba contra la
+   * que dibuja el pentagrama.
+   *
+   * Se preguntaba por la posición de la **nota** en la rueda, que es otra cosa:
+   * La está en la mitad de sostenidos, pero La menor no lleva ninguna
+   * alteración. Ocho de las veinticuatro contestaban mal, y entre ellas las dos
+   * con las que arranca la aplicación —Do mayor y La menor—, así que era la
+   * primera pregunta de armadura que veía casi todo el mundo. A quien acertaba
+   * se le decía que no, que en una aplicación que enseña es el peor fallo que
+   * hay.
+   */
+  it('en las veinticuatro tonalidades, la armadura que se pregunta es la de verdad', () => {
+    for (let tonic = 0; tonic < 12; tonic++) {
+      for (const mode of ['major', 'minor'] as const) {
+        const firma = keySignature(tonic as PitchClass, mode);
+        const debida =
+          firma.letters.length === 0
+            ? 'Sin alteraciones'
+            : firma.accidental === 'sharp'
+              ? 'Con sostenidos'
+              : 'Con bemoles';
+
+        expect(
+          answerOf('circle', 2, tonic as PitchClass, mode),
+          keyName(tonic as PitchClass, mode),
+        ).toBe(debida);
+      }
+    }
   });
 
   it('las lecciones no se repiten', () => {

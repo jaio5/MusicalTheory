@@ -8,7 +8,7 @@
  */
 
 import { diatonicSevenths, diatonicTriads, chordSymbol } from './chords';
-import { accidentalForKey, circlePosition, relativeMajor, relativeMinor } from './circle-of-fifths';
+import { accidentalForKey, keySignature, relativeMajor, relativeMinor } from './circle-of-fifths';
 import type { KeyMode } from './keys';
 import { keyName } from './keys';
 import { normalizePitchClass, noteName, type PitchClass } from './notes';
@@ -203,7 +203,25 @@ function circleLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
       : { tonic: relativeMajor(tonic), mode: 'major' as const };
   const fifthUp = up(tonic, 7);
   const fifthDown = up(tonic, 5);
-  const position = circlePosition(tonic);
+  /*
+    La armadura de la **tonalidad**, no la posición de su nota en la rueda.
+
+    Aquí se preguntaba por `circlePosition(tonic)`, y eso es otra cosa: la nota
+    La está en la mitad de sostenidos de la rueda, pero La **menor** no lleva
+    ninguna alteración. De las veinticuatro tonalidades, ocho contestaban mal
+    —entre ellas Do mayor y La menor, que son con las que arranca la aplicación—,
+    y a quien acertaba se le decía que no.
+  */
+  const firma = keySignature(tonic, mode);
+  const armadura =
+    firma.letters.length === 0
+      ? 'Sin alteraciones'
+      : firma.accidental === 'sharp'
+        ? 'Con sostenidos'
+        : 'Con bemoles';
+  const otras = ['Sin alteraciones', 'Con sostenidos', 'Con bemoles', 'Con los dos'].filter(
+    (opcion) => opcion !== armadura,
+  );
 
   return {
     points: [
@@ -232,16 +250,13 @@ function circleLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
       },
       {
         prompt: `¿Con qué se escribe ${keyName(tonic, mode)}?`,
-        choices: choices(
-          position <= 6 ? 'Con sostenidos' : 'Con bemoles',
-          position <= 6
-            ? ['Con bemoles', 'Con los dos', 'Sin alteraciones']
-            : ['Con sostenidos', 'Con los dos', 'Sin alteraciones'],
-        ),
+        choices: choices(armadura, otras),
         why:
-          position <= 6
-            ? 'Está en la mitad de sostenidos de la rueda, así que sus alteraciones se escriben con #.'
-            : 'Está en la mitad de bemoles de la rueda, así que sus alteraciones se escriben con b.',
+          firma.letters.length === 0
+            ? 'No lleva ninguna: es el punto de partida de la rueda, y de ahí salen todas las demás.'
+            : `Su armadura son ${firma.letters.length} ${
+                firma.accidental === 'sharp' ? 'sostenidos' : 'bemoles'
+              }: ${firma.letters.join(', ')}.`,
       },
     ],
   };
