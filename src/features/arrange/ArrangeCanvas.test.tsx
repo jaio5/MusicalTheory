@@ -294,6 +294,26 @@ describe('escribir un acorde', () => {
     expect(acordesDe('Estrofa')).toEqual(['Am7']);
   });
 
+  /**
+   * Y un acorde de quinta también entra, que es lo que no podía.
+   *
+   * El buscador lo ofrecía **apagado** mientras la lista de al lado ya lo
+   * escribía: un `C5` tiene grado —el de su fundamental— y no tiene tríada
+   * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+   */
+  it('un acorde de quinta entra, y no sale apagado', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'C5');
+    const boton = screen.getByRole('button', { name: 'C5' });
+
+    expect(boton).toBeEnabled();
+    await userEvent.click(boton);
+
+    expect(acordesDe('Estrofa')).toEqual(['C5']);
+  });
+
   /** Y la tríada sigue siendo otra cosa que se puede poner, con el mismo grado. */
   it('la tríada del mismo grado entra aparte', async () => {
     conTonalidad();

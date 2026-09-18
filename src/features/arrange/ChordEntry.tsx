@@ -3,18 +3,15 @@
 import { useMemo, useState } from 'react';
 
 import {
-  accidentalForKey,
-  degreeOfChord,
+  blockChord,
+  comoBloque,
   keyName,
-  resolveDegree,
-  seventhFromSuffix,
-  seventhSymbol,
   suggestChordSymbols,
-  triadInside,
+  writtenBlock,
   type DegreeSymbol,
+  type EspecieDeBloque,
   type KeyMode,
   type PitchClass,
-  type SeventhQuality,
 } from '@core/music';
 import { TextField } from '@ui/TextField';
 
@@ -38,7 +35,7 @@ import { TextField } from '@ui/TextField';
 export interface ChordEntryProps {
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
-  readonly onPick: (degree: DegreeSymbol, seventh?: SeventhQuality) => void;
+  readonly onPick: (degree: DegreeSymbol, especie?: EspecieDeBloque) => void;
 }
 
 /** Cuántos candidatos se enseñan. Con la fundamental escrita salen de sobra. */
@@ -71,16 +68,17 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
 
     return suggestChordSymbols(texto, CUANTOS * 3)
       .map((chord) => {
-        // La especie sale de las notas y no del sufijo, así que un `Cmaj7` y un `C`
-        // llegan al mismo grado sin una tabla de sufijos aparte.
-        const quality = triadInside(chord.root, chord.notes);
-        const degree = quality === null ? null : degreeOfChord(tonic, mode, chord.root, quality);
-        // Y la séptima sale del sufijo, que es lo único que la distingue: un
-        // `Cmaj7` y un `C7` tienen la misma tríada dentro.
-        const seventh = seventhFromSuffix(chord.shape.suffix);
+        // La traducción la hace el dominio, en un solo sitio: el grado sale de
+        // la tríada, y si no la hay —un `C5`— de la fundamental. Aquí se hacía a
+        // mano, así que el buscador ofrecía `C5` **apagado** mientras la lista de
+        // al lado ya lo escribía
+        // ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+        const puesto = comoBloque(tonic, mode, chord.root, chord.notes);
+        const degree = puesto?.degree ?? null;
+        const especie = puesto?.especie ?? null;
         return {
           escrito: chord.symbol,
-          seventh,
+          especie,
           /*
             La clave de deduplicado: el grado **y su séptima**.
 
@@ -90,24 +88,19 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
             `E7` son dos cosas que se pueden poner, porque el bloque sabe
             guardar las dos.
           */
-          clave: degree === null ? chord.symbol : `${degree}|${seventh ?? ''}`,
+          clave: degree === null ? chord.symbol : `${degree}|${especie ?? ''}`,
           // **Lo que se va a poner de verdad.** El montaje guarda grados y un grado
           // es una tríada, así que un `Am7` entra como `Am`. Se enseña el que va a
           // quedar, no el que se ha escrito: enterarse después, con el acorde ya
           // puesto, es peor que verlo antes.
+          // El acorde ya resuelto sabe escribir su fundamental en esta tonalidad
+          // —un bIII de Do es «Eb» y no «D#»—, así que la especie se escribe
+          // sobre esa y no sobre la que se tecleó. Lo hace `blockChord`, que es
+          // el único sitio que traduce un bloque en acorde.
           symbol:
             degree === null
               ? chord.symbol
-              : seventh === null
-                ? resolveDegree(tonic, mode, degree).symbol
-                : // El acorde ya resuelto sabe escribir su fundamental en esta
-                  // tonalidad —un bIII de Do es «Eb» y no «D#»—, así que la
-                  // séptima se escribe sobre esa y no sobre la que se tecleó.
-                  seventhSymbol(
-                    resolveDegree(tonic, mode, degree).root,
-                    seventh,
-                    accidentalForKey(tonic, mode),
-                  ),
+              : blockChord(tonic, mode, writtenBlock('x', degree, 4, especie ?? undefined)).symbol,
           degree,
         };
       })
@@ -152,7 +145,7 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
                 disabled={candidato.degree === null}
                 onClick={() => {
                   if (candidato.degree !== null) {
-                    onPick(candidato.degree, candidato.seventh ?? undefined);
+                    onPick(candidato.degree, candidato.especie ?? undefined);
                     setTexto('');
                   }
                 }}

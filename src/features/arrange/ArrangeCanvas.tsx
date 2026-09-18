@@ -23,7 +23,7 @@ import {
   blockChord,
   resolveDegree,
   type DegreeSymbol,
-  type SeventhQuality,
+  type EspecieDeBloque,
 } from '@core/music';
 import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
@@ -653,12 +653,12 @@ export function ArrangeCanvas() {
   }, []);
 
   const ponerAcorde = useCallback(
-    (degree: DegreeSymbol, seventh?: SeventhQuality) => {
+    (degree: DegreeSymbol, especie?: EspecieDeBloque) => {
       const donde = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
       const partId = donde?.part.id ?? parteDestino?.id ?? acciones.addPart('Estrofa');
       const at = donde === null ? null : donde.index + 1;
 
-      setSelectedBlockId(acciones.addBlock(partId, degree, beatsPerBar, at, seventh));
+      setSelectedBlockId(acciones.addBlock(partId, degree, beatsPerBar, at, especie));
       setActivePartId(partId);
       traerLaCancionALaVista();
     },
