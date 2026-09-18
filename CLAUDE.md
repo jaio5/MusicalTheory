@@ -150,6 +150,7 @@ nombres viejos de los planes**.
 | Meta diaria, racha, medallas, y lo que suma componer     | `core/music/progress.ts` (`practiceCompose`)              |
 | Que lo compuesto llegue al avance sin saltarse capas     | `state/hechos-de-componer.ts`                             |
 | La cola de repaso de lo fallado                          | `core/music/review.ts`                                    |
+| Por qué una pregunta sale o vuelve a la cola             | `core/music/review.ts` (`mergeReview` manda)              |
 | Cuentas, contraseñas, base de datos y cupos              | `src/server/`                                             |
 | El marco de una pantalla y sus apartados                 | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)              |
 | Lo que se ve cuando todavía no hay nada                  | `src/ui/Vacio.tsx`, `ui/EmpezarPorTonalidad`              |
