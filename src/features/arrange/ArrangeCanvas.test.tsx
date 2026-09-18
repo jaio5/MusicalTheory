@@ -76,6 +76,20 @@ describe('sin tonalidad', () => {
 });
 
 describe('montar', () => {
+  /**
+   * Cada propuesta se dice entera, y de una pieza.
+   *
+   * Los tres trozos —cifrado, grado y porqué— van pegados en el marcado, así
+   * que un lector de pantalla leía «CICasa.» de corrido. Es el mismo rótulo que
+   * ya lleva la lista de «a dónde ir».
+   */
+  it('cada propuesta se anuncia con su cifrado, su grado y su porque', () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    expect(propuestas()[0]!).toHaveAccessibleName('C, I. Casa.');
+  });
+
   it('el primer acorde crea la primera parte', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);

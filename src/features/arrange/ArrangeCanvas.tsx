@@ -1114,6 +1114,10 @@ export function ArrangeCanvas() {
                     onPointerDown={(event) =>
                       arrastrarPropuesta(event, sugerencia.degree, chord.symbol)
                     }
+                    // Con rótulo, porque los tres trozos van pegados: un lector
+                    // de pantalla leía «CICasa.» de corrido. Es el mismo formato
+                    // que ya usa la lista de «a dónde ir».
+                    aria-label={`${chord.symbol}, ${sugerencia.degree}. ${sugerencia.why}`}
                     style={{ touchAction: 'none' }}
                     className="border-border hover:border-brass-dim hover:bg-surface-raised min-h-tap flex w-full cursor-grab items-baseline gap-3 rounded-md border px-3 py-2 text-left"
                   >
