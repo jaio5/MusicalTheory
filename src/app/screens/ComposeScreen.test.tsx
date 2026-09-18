@@ -360,3 +360,31 @@ describe('El area de abajo', () => {
     );
   });
 });
+
+/**
+ * El aviso de lo ganado sale **por encima del editor de abajo**, no dentro.
+ *
+ * Estaba anclado a la barra de herramientas y salía hacia arriba desde ella, que
+ * es lo correcto con el área de abajo cerrada. Con un editor abierto, «encima de
+ * la barra» es **dentro** del editor: al guardar una canción el aviso caía sobre
+ * su fila y tapaba «Renombrar» y «Borrar» durante los cuatro segundos en que se
+ * está mirando justo eso. Se vio guardando una canción de verdad.
+ */
+describe('el aviso de lo ganado', () => {
+  it('sale desde una caja que envuelve tambien al editor de abajo', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+    useBancoStore.getState().actions.abrirAbajo('mastil');
+
+    render(<ComposeScreen />);
+
+    const editor = screen.getByRole('region', { name: 'Mástil' });
+    const barra = screen.getByRole('region', { name: 'Qué se ve abajo' });
+    // El ancla es la caja `relative` desde la que sale el aviso: tiene que
+    // contener a los dos, o volverá a caer dentro del editor.
+    const ancla = barra.closest('.relative');
+
+    expect(ancla).not.toBeNull();
+    expect(ancla!.contains(editor)).toBe(true);
+  });
+});

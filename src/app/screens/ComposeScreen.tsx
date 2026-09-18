@@ -498,79 +498,95 @@ export function ComposeScreen() {
         />
       )}
 
-      {editor !== null && (
-        <Area
-          titulo={editor.name}
-          icono={<editor.Icono />}
-          scroll={editor.entero !== true}
-          // El tope en `vh` manda sobre el alto guardado: en una pantalla baja,
-          // dieciséis rem guardados en un monitor grande dejan el arreglo sin
-          // sitio, y el reparto se guarda en rem a propósito.
-          // **También cede**, y por eso no es `shrink-0`: con el alto guardado
-          // en un monitor grande, abrirla en un portátil dejaba al arreglo por
-          // debajo de su suelo y lo de dentro sin alcanzar. Lo que hay aquí
-          // sabe encogerse —el mástil se ajusta a su caja, lo demás se
-          // desplaza—, así que ceder no esconde nada.
-          // **Conserva su alto, y el que cede es el centro.** Cediendo ella, el
-          // mástil se quedaba en un dibujo de cien píxeles con media franja
-          // vacía a los lados: se ajusta a su caja, así que una caja aplastada
-          // da un mástil ilegible. Es lo que este proyecto ya había decidido
-          // —«perder la mitad de la pantalla mientras está abierto es un precio
-          // que se paga solo mientras se mira»—, y el tope en `vh` impide que en
-          // una pantalla baja se lo lleve todo.
-          className="border-border max-h-[60vh] shrink-0 border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]"
-          mandos={
-            <button
-              type="button"
-              onClick={() => accionesDelBanco.abrirAbajo(null)}
-              aria-label={`Cerrar ${editor.name}`}
-              title="Cerrar"
-              className="text-text-muted hover:text-oxblood-bright inline-flex cursor-pointer items-center px-1"
-            >
-              <IconoCerrar />
-            </button>
-          }
-        >
-          {/* El relleno del área, y **parte del reparto**: como bloque suelto se
+      {/*
+        El aviso de lo ganado, anclado **encima del editor y de la barra**, no
+        solo de la barra.
+
+        Estaba dentro de la barra de herramientas y salía hacia arriba desde
+        ella, que es lo correcto con el área de abajo cerrada. Con un editor
+        abierto, «encima de la barra» **es dentro del editor**: al guardar una
+        canción el aviso caía justo sobre su fila y tapaba «Renombrar» y
+        «Borrar» durante los cuatro segundos en que se está mirando eso.
+
+        Envolviendo los dos, sale por encima del que esté arriba sin que nadie
+        tenga que adivinar cuánto miden. Sigue sin empujar nada: flota.
+      */}
+      <div className="relative flex min-h-0 shrink-0 flex-col">
+        <GananciaAlComponer gain={composeGain} onDismiss={dismissComposeGain} />
+
+        {editor !== null && (
+          <Area
+            titulo={editor.name}
+            icono={<editor.Icono />}
+            scroll={editor.entero !== true}
+            // El tope en `vh` manda sobre el alto guardado: en una pantalla baja,
+            // dieciséis rem guardados en un monitor grande dejan el arreglo sin
+            // sitio, y el reparto se guarda en rem a propósito.
+            // **También cede**, y por eso no es `shrink-0`: con el alto guardado
+            // en un monitor grande, abrirla en un portátil dejaba al arreglo por
+            // debajo de su suelo y lo de dentro sin alcanzar. Lo que hay aquí
+            // sabe encogerse —el mástil se ajusta a su caja, lo demás se
+            // desplaza—, así que ceder no esconde nada.
+            // **Conserva su alto, y el que cede es el centro.** Cediendo ella, el
+            // mástil se quedaba en un dibujo de cien píxeles con media franja
+            // vacía a los lados: se ajusta a su caja, así que una caja aplastada
+            // da un mástil ilegible. Es lo que este proyecto ya había decidido
+            // —«perder la mitad de la pantalla mientras está abierto es un precio
+            // que se paga solo mientras se mira»—, y el tope en `vh` impide que en
+            // una pantalla baja se lo lleve todo.
+            className="border-border max-h-[60vh] shrink-0 border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]"
+            mandos={
+              <button
+                type="button"
+                onClick={() => accionesDelBanco.abrirAbajo(null)}
+                aria-label={`Cerrar ${editor.name}`}
+                title="Cerrar"
+                className="text-text-muted hover:text-oxblood-bright inline-flex cursor-pointer items-center px-1"
+              >
+                <IconoCerrar />
+              </button>
+            }
+          >
+            {/* El relleno del área, y **parte del reparto**: como bloque suelto se
               quedaba con su alto natural dentro de una caja más baja, y lo que
               llevaba dentro —el mástil— se salía por abajo sin manera de
               alcanzarlo. */}
-          <div className="flex min-h-0 grow flex-col p-3">
-            {/* Ideas es la única que necesita algo de la pantalla: llevarte a la
+            <div className="flex min-h-0 grow flex-col p-3">
+              {/* Ideas es la única que necesita algo de la pantalla: llevarte a la
                 escala que propone. Se le pasa aquí y no por la tabla de arriba
                 porque los otros cinco ya traen sus propias props y no hay un tipo
                 común que valga para los seis sin mentir. */}
-            {editor.id === 'ideas' ? <IdeasPanel onIrALaEscala={irALaEscala} /> : <editor.render />}
-          </div>
-        </Area>
-      )}
+              {editor.id === 'ideas' ? (
+                <IdeasPanel onIrALaEscala={irALaEscala} />
+              ) : (
+                <editor.render />
+              )}
+            </div>
+          </Area>
+        )}
 
-      {/* La fila se desplaza a lo ancho y no se parte en dos: seis pastillas
+        {/* La fila se desplaza a lo ancho y no se parte en dos: seis pastillas
           envueltas dejaban la barra a dos alturas justo donde menos alto hay. */}
-      <section
-        aria-label="Qué se ve abajo"
-        className="border-border relative flex shrink-0 flex-col border-t"
-      >
-        <div className="flex gap-1.5 overflow-x-auto px-3 py-2">
-          {EDITORES.map((candidato) => (
-            <Chip
-              key={candidato.id}
-              onClick={() => accionesDelBanco.abrirAbajo(candidato.id)}
-              pressed={abajo === candidato.id}
-              tone="quiet"
-              className="shrink-0 text-xs"
-            >
-              <candidato.Icono />
-              {candidato.name}
-            </Chip>
-          ))}
-        </div>
-
-        {/* Dentro de la barra, que es la caja `relative` de esta pantalla, y
-            saliendo hacia arriba desde ella: así queda por encima de todo sin que
-            nadie tenga que adivinar cuánto mide. No empuja nada: flota. */}
-        <GananciaAlComponer gain={composeGain} onDismiss={dismissComposeGain} />
-      </section>
+        <section
+          aria-label="Qué se ve abajo"
+          className="border-border flex shrink-0 flex-col border-t"
+        >
+          <div className="flex gap-1.5 overflow-x-auto px-3 py-2">
+            {EDITORES.map((candidato) => (
+              <Chip
+                key={candidato.id}
+                onClick={() => accionesDelBanco.abrirAbajo(candidato.id)}
+                pressed={abajo === candidato.id}
+                tone="quiet"
+                className="shrink-0 text-xs"
+              >
+                <candidato.Icono />
+                {candidato.name}
+              </Chip>
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
