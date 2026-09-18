@@ -127,14 +127,36 @@ describe('El acorde que suena', () => {
     expect(screen.getByRole('list', { name: /formas de hacer am/i })).toBeInTheDocument();
   });
 
-  it('no lo mete solo en el camino: lo propone', () => {
+  /**
+   * No entra solo, y **entra en la canción** cuando hay dónde escribirla: tocar
+   * un acorde y quedárselo es componer, no explorar
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+   */
+  it('no lo mete solo, y con sitio donde escribir va a la cancion', () => {
+    // Con tonalidad: un acorde solo tiene grado dentro de una, y sin grado no
+    // hay bloque que escribir.
+    useSessionStore.getState().actions.pinKey({ tonic: 9, mode: 'minor' });
+    escuchando();
+    useSessionStore.getState().actions.setHeardChord(AM);
+    const puestos: Array<[string, string | undefined]> = [];
+    render(<HeardChord onPoner={(degree, seventh) => puestos.push([degree, seventh])} />);
+
+    expect(puestos).toEqual([]);
+
+    fireEvent.click(screen.getByRole('button', { name: /meterlo en la canción/i }));
+
+    // La menor en La menor es el grado i, y sin séptima.
+    expect(puestos).toEqual([['i', undefined]]);
+    expect(useSessionStore.getState().path).toEqual([]);
+  });
+
+  // Sin sitio donde escribir hace lo de siempre: al camino, a probarlo.
+  it('sin donde escribir, sigue yendo al camino', () => {
     escuchando();
     useSessionStore.getState().actions.setHeardChord(AM);
     render(<HeardChord />);
 
-    expect(useSessionStore.getState().path).toEqual([]);
-
-    fireEvent.click(screen.getByRole('button', { name: /meterlo en el camino/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Probarlo$/ }));
 
     expect(useSessionStore.getState().path.at(-1)?.symbol).toBe('Am');
   });
@@ -143,9 +165,9 @@ describe('El acorde que suena', () => {
     escuchando();
     useSessionStore.getState().actions.setHeardChord(AM);
     render(<HeardChord />);
-    fireEvent.click(screen.getByRole('button', { name: /meterlo en el camino/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Probarlo$/ }));
 
-    expect(screen.queryByRole('button', { name: /meterlo en el camino/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Probarlo$/ })).not.toBeInTheDocument();
   });
 });
 
@@ -175,7 +197,7 @@ describe('El último acorde tocado se mantiene', () => {
     silencio();
     render(<HeardChord />);
 
-    fireEvent.click(screen.getByRole('button', { name: /meterlo en el camino/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Probarlo$/ }));
 
     expect(useSessionStore.getState().path.at(-1)?.symbol).toBe('Am');
   });

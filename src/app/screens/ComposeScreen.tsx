@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 
-import { keyName, type ScaleId } from '@core/music';
+import { keyName, type DegreeSymbol, type ScaleId, type SeventhQuality } from '@core/music';
 import { ArrangeCanvas, Ensayo, TocarParaEscribir } from '@features/arrange';
 import { FretboardPanel } from '@features/fretboard';
 import { GananciaAlComponer, useProgress } from '@features/learn';
@@ -180,6 +180,23 @@ export function ComposeScreen() {
    */
   const { composeGain, dismissComposeGain } = useProgress({ escuchaComponer: true });
   useAtajosDelBanco(hayBanco);
+
+  /**
+   * Poner un acorde al final de la canción.
+   *
+   * Lo comparten «a dónde ir» y lo que oye el micro, que son los dos sitios
+   * desde los que se pone un acorde sin arrastrarlo
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+   * Sin partes todavía se crea una: poner el primer acorde es lo que crea la
+   * primera parte en todo el resto de la pantalla.
+   */
+  const ponerEnLaCancion = useCallback((degree: DegreeSymbol, seventh?: SeventhQuality) => {
+    const acciones = useArrangementStore.getState().actions;
+    const montaje = useArrangementStore.getState().arrangement;
+    const parte = montaje.parts.at(-1)?.id ?? acciones.addPart('Estrofa');
+    const pulsos = useSessionStore.getState().beatsPerBar;
+    acciones.elegirBloque(acciones.addBlock(parte, degree, pulsos, null, seventh));
+  }, []);
 
   // Los anchos viajan como variables CSS y no como `style` en cada área: así el
   // mismo árbol sirve para el banco y para la columna apilada, y es Tailwind
@@ -447,15 +464,7 @@ export function ComposeScreen() {
                   ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
                   Sin partes todavía se crea una: poner el primer acorde es lo
                   que crea la primera parte en todo el resto de la pantalla. */}
-              <NextChords
-                onPoner={(degree, seventh) => {
-                  const acciones = useArrangementStore.getState().actions;
-                  const montaje = useArrangementStore.getState().arrangement;
-                  const parte = montaje.parts.at(-1)?.id ?? acciones.addPart('Estrofa');
-                  const pulsos = useSessionStore.getState().beatsPerBar;
-                  acciones.elegirBloque(acciones.addBlock(parte, degree, pulsos, null, seventh));
-                }}
-              />
+              <NextChords onPoner={ponerEnLaCancion} />
             </Area>
           )}
         </div>
@@ -493,7 +502,9 @@ export function ComposeScreen() {
                 mueve: solo cambia el rótulo de «Suena» a «Último». */}
             <CurrentChord />
             <Voicings />
-            <HeardChord />
+            {/* Y lo que se oye también entra en la canción, no en el camino:
+                tocar un acorde y quedárselo es componer. */}
+            <HeardChord onPoner={ponerEnLaCancion} />
           </Area>
         )}
       </div>

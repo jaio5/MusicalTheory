@@ -95,6 +95,9 @@ lienzo —`triadInside` saca la tríada de las notas y `degreeOfChord` su grado�
 la tercera, `seventhInside`, se escribió contra la tabla que ya sabe qué notas
 tiene cada especie, para que no haya dos que se puedan desincronizar.
 
+Y **lo que oye el micro, igual**: tocar un acorde y quedárselo es componer, no
+explorar, así que «meterlo en el camino» pasa a ser «meterlo en la canción».
+
 Lo que **de verdad** no cabe es lo que no tiene grado: un `C5` no tiene tercera y
 un `Fsus2` la cambia por la segunda. Eso sigue llevando al camino, y el botón lo
 dice antes de pulsarlo —«Ponerlo en la canción» o «Probarlo»—, que una lista que

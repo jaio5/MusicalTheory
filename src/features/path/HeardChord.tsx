@@ -1,6 +1,14 @@
 'use client';
 
-import { accidentalForKey, noteName } from '@core/music';
+import {
+  accidentalForKey,
+  degreeOfChord,
+  noteName,
+  seventhInside,
+  triadInside,
+  type DegreeSymbol,
+  type SeventhQuality,
+} from '@core/music';
 import { apuntarHecho } from '@state/hechos-de-componer';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
@@ -31,7 +39,17 @@ import { VoicingList } from './PathPanel';
  * porque el micrófono es uno solo y lo sujeta `state/use-listening`: da igual
  * qué botón se pulse.
  */
-export function HeardChord({ deps }: { readonly deps?: ListeningDeps } = {}) {
+export function HeardChord({
+  deps,
+  onPoner,
+}: {
+  readonly deps?: ListeningDeps;
+  /**
+   * Qué hacer con el acorde oído si cabe en la canción. Sin esto va al camino,
+   * que es lo que hace donde no hay montaje que escribir.
+   */
+  readonly onPoner?: (degree: DegreeSymbol, seventh?: SeventhQuality) => void;
+} = {}) {
   const heard = useSessionStore((state) => state.heardChord);
   const last = useSessionStore((state) => state.lastHeardChord);
   const listening = useSessionStore((state) => state.listening);
@@ -43,6 +61,15 @@ export function HeardChord({ deps }: { readonly deps?: ListeningDeps } = {}) {
 
   const chord = heard ?? last;
   const sounding = heard !== null;
+
+  // Las mismas tres piezas que usan el buscador del lienzo y «a dónde ir»: la
+  // tríada sale de las notas, el grado de la tríada y la séptima de las notas.
+  const triada = chord === null || activeKey === null ? null : triadInside(chord.root, chord.notes);
+  const degree =
+    chord === null || activeKey === null || triada === null
+      ? null
+      : degreeOfChord(activeKey.tonic, activeKey.mode, chord.root, triada);
+  const seventh = chord === null ? null : seventhInside(chord.root, chord.notes);
 
   // Sin nada oído y con el micro cerrado, lo que toca es ofrecerlo. Antes se
   // devolvía nulo y la columna acababa en blanco.
@@ -102,13 +129,21 @@ export function HeardChord({ deps }: { readonly deps?: ListeningDeps } = {}) {
               <button
                 type="button"
                 onClick={() => {
-                  actions.pushChord({
-                    symbol: chord.symbol,
-                    label: 'lo que suena',
-                    root: chord.root,
-                    notes: chord.notes,
-                    why: 'Lo has tocado tú.',
-                  });
+                  // Lo que se oye **entra en la canción** si tiene grado, que es
+                  // lo que decidió el ADR 0032: tocar un acorde y quedárselo es
+                  // componer, no explorar. Un acorde sin tercera no tiene grado
+                  // y sigue yendo al camino.
+                  if (degree !== null && onPoner !== undefined) {
+                    onPoner(degree, seventh ?? undefined);
+                  } else {
+                    actions.pushChord({
+                      symbol: chord.symbol,
+                      label: 'lo que suena',
+                      root: chord.root,
+                      notes: chord.notes,
+                      why: 'Lo has tocado tú.',
+                    });
+                  }
                   // Confirmar lo que oyó el micro cuenta como practicar, y es lo
                   // que esta aplicación dice de sí misma en la portada. Vale la
                   // mitad que los demás hechos porque es el más barato de
@@ -117,7 +152,7 @@ export function HeardChord({ deps }: { readonly deps?: ListeningDeps } = {}) {
                 }}
                 className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 ml-auto rounded-sm border px-2 py-1 text-xs font-medium"
               >
-                Meterlo en el camino
+                {degree !== null && onPoner !== undefined ? 'Meterlo en la canción' : 'Probarlo'}
               </button>
             )}
           </>

@@ -91,11 +91,12 @@ Lo que queda, en el orden en que se hace:
 - **Fundir `path` con el arreglo, lo que le queda.** Ya no se ven dos listas de
   lo mismo —«a dónde ir» viene plegada y, abierta, **escribe en la canción**: lo
   que tiene grado entra como bloque con su séptima y lo que no lo tiene lleva al
-  camino, diciéndolo antes de pulsar—. Y la columna del acorde sigue al bloque
-  que eliges, no al último que se probó. Lo que falta es lo de dentro: `path`
-  todavía lo leen `versions`, `songs`, `sessions`, `fretboard`, `HeardChord` y
-  `ResumeLast`, y ahí sigue siendo una segunda canción con su propio formato al
-  guardar ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+  camino, diciéndolo antes de pulsar—. Lo que oye el micro también entra en la
+  canción, y la columna del acorde sigue al bloque que eliges, no al último que
+  se probó. Lo que falta es lo de dentro: `path` todavía lo leen `versions`,
+  `songs`, `sessions`, `fretboard` y `ResumeLast`, y ahí sigue siendo una segunda
+  canción con su propio formato al guardar
+  ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
 - **El parpadeo del primer fotograma en un teléfono.** `useHayBanco` contesta que
   sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
   hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;
