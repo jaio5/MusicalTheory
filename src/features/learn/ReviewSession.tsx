@@ -15,8 +15,7 @@ import {
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
-import { IconoGrieta } from '@ui/icons';
-import { Vacio } from '@ui/Vacio';
+import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
 
 import { createExercise, type ExerciseStep } from './exercise';
 import { PlayNote } from './PlayNote';
@@ -81,11 +80,15 @@ export function ReviewSession({
   );
 
   if (activeKey === null) {
+    // La barra de la tonalidad **flota sobre esta caja** y se abre sola cuando no
+    // hay ninguna puesta, así que un aviso pegado arriba cae justo debajo de
+    // ella. Y decía «está en la rueda de aquí arriba», debajo de la rueda que lo
+    // tapaba: señalar no es ofrecer. Cuatro botones caben y resuelven el paso,
+    // como en la unidad y en componer.
     return (
-      <Vacio icono={<IconoGrieta />} titulo="Elige una tonalidad para repasar">
-        Las preguntas se vuelven a generar con sus acordes, así que sin tonalidad no hay acordes con
-        los que preguntar. Está en la rueda de aquí arriba.
-      </Vacio>
+      <div className="flex h-full min-h-0 flex-col justify-end">
+        <CuatroTonalidades>Elige una tonalidad para repasar:</CuatroTonalidades>
+      </div>
     );
   }
 

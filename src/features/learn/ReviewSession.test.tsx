@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -169,10 +169,21 @@ describe('Sin tonalidad', () => {
     useSessionStore.setState({ pinnedKey: null, keyCandidates: [] });
   });
 
-  it('lo explica en vez de enseñar una pregunta vacía', () => {
+  /**
+   * Y **ofrece cuáles**, no señala la rueda. Esa barra flota sobre esta caja y
+   * se abre ella sola sin tonalidad, así que el aviso decía «está en la rueda de
+   * aquí arriba» debajo de la rueda que lo tapaba: es el mismo fallo que ya se
+   * arregló en la unidad y en componer.
+   */
+  it('ofrece cuatro tonalidades en vez de senalar la rueda', () => {
     pintar(conUnFallo(0));
 
     expect(screen.getByText(/Elige una tonalidad para repasar/)).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('group', { name: 'Tonalidades para empezar' })).getByRole('button', {
+        name: 'C mayor',
+      }),
+    ).toBeInTheDocument();
   });
 });
 
