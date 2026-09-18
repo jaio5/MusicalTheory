@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { setRepeats, writtenBlock, type Arrangement } from './arrangement';
+import { blockChord, setRepeats, writtenBlock, type Arrangement } from './arrangement';
 import { resolveDegree } from './progressions';
 import {
   comoSalio,
@@ -193,5 +193,38 @@ describe('a tiempo o tarde', () => {
 
   it('y no sonar nunca es fallado', () => {
     expect(comoSalio(4, null)).toBe('fallado');
+  });
+});
+
+/**
+ * Un riff de quintas se ensaya como un riff de quintas.
+ *
+ * El croma oyendo un `C5` entrega dos notas; comparándolo contra la tríada del
+ * `I`, un riff bien tocado contaría como fallo
+ * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+ */
+describe('el ensayo de lo que no lleva tercera', () => {
+  it('el guion se lleva la especie, no solo el grado', () => {
+    const riff: Arrangement = {
+      parts: [
+        {
+          id: 'e',
+          name: 'Riff',
+          blocks: [writtenBlock('a', 'I', 4, 'quinta'), writtenBlock('b', 'IV', 4)],
+          notes: [],
+          bars: 2,
+        },
+      ],
+    };
+
+    expect(guionDeEnsayo(riff, 4).map((paso) => paso.especie)).toEqual(['quinta', undefined]);
+  });
+
+  it('y una quinta oida cuenta como acertada', () => {
+    const quinta = blockChord(0, 'major', writtenBlock('a', 'I', 4, 'quinta'));
+
+    expect(suenaComo(quinta, { root: 0, notes: [0, 7] })).toBe(true);
+    // Y la tríada entera no es esa quinta: son acordes distintos.
+    expect(suenaComo(quinta, { root: 0, notes: [0, 4, 7] })).toBe(false);
   });
 });

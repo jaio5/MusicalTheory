@@ -16,11 +16,18 @@
  * su reparto en el tiempo, que es justo lo que hace falta para rearmonizar.
  */
 
-import { chordSymbol, TRIADS, type ChordQuality } from './chords';
+import {
+  chordSymbol,
+  esQuinta,
+  seventhInside,
+  TRIADS,
+  type ChordQuality,
+  type EspecieDeBloque,
+} from './chords';
 import { accidentalForKey } from './circle-of-fifths';
 import type { KeyMode } from './keys';
 import { normalizePitchClass, type PitchClass } from './notes';
-import { degreeOfChord, type DegreeSymbol } from './progressions';
+import { degreeOfChord, gradoDeLaFundamental, type DegreeSymbol } from './progressions';
 import { MAX_SECTION_DEGREES } from './song';
 import { clampBpm, DEFAULT_BEATS_PER_BAR, msPerBeat } from './tempo';
 
@@ -167,6 +174,43 @@ export function triadQuality(root: PitchClass, notes: readonly PitchClass[]): Ch
  * No vale mirar las tres primeras notas: van ordenadas por semitono, así que las
  * tres primeras de un `add9` son la fundamental, la novena y la tercera.
  */
+/**
+ * Un acorde cualquiera convertido en **lo que un bloque sabe guardar**: su grado
+ * y su especie.
+ *
+ * Existe porque tres sitios hacían la misma cuenta a mano —la lista de «a dónde
+ * ir», su buscador y lo que oye el micro—, y tres copias de la misma traducción
+ * son tres maneras de que un día no coincidan.
+ *
+ * Y porque la cuenta tiene **dos caminos**: con tercera, el grado sale de la
+ * tríada (`triadInside` y `degreeOfChord`); sin ella —un `C5`— no hay tríada que
+ * mirar y el grado sale de la fundamental
+ * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+ *
+ * Nulo cuando no hay grado: lo que no cabe en la tonalidad, y lo que no es ni
+ * tríada ni quinta —un `Fsus2` cambia la tercera por la segunda—. Eso es correcto
+ * y no una limitación escondida: quien pregunta lo dice antes de ofrecerlo.
+ */
+export function comoBloque(
+  tonic: PitchClass,
+  mode: KeyMode,
+  root: PitchClass,
+  notes: readonly PitchClass[],
+): { degree: DegreeSymbol; especie?: EspecieDeBloque } | null {
+  if (esQuinta(root, notes)) {
+    const degree = gradoDeLaFundamental(tonic, mode, root);
+    return degree === null ? null : { degree, especie: 'quinta' };
+  }
+
+  const triada = triadInside(root, notes);
+  const degree = triada === null ? null : degreeOfChord(tonic, mode, root, triada);
+  if (degree === null) {
+    return null;
+  }
+  const septima = seventhInside(root, notes);
+  return septima === null ? { degree } : { degree, especie: septima };
+}
+
 export function triadInside(root: PitchClass, notes: readonly PitchClass[]): ChordQuality | null {
   return triadaDentro(intervalosDesde(root, notes));
 }

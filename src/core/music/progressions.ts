@@ -518,6 +518,24 @@ export function progressionsFor(mode: KeyMode): ProgressionTemplate[] {
  * sugerir a dónde ir desde ahí. Devuelve null si el acorde no encaja en la
  * tonalidad ni entre los prestados habituales.
  */
+/**
+ * El grado diatónico de una fundamental, sin mirar de qué calidad es el acorde.
+ *
+ * Hace falta para las quintas: sin tercera no se sabe si el acorde es mayor o
+ * menor, pero **la tonalidad sí lo sabe**. En Do mayor, un `D5` es el `ii`, que
+ * es el grado que hay sobre esa fundamental; tocarlo sin tercera no lo cambia de
+ * sitio.
+ */
+export function gradoDeLaFundamental(
+  tonic: PitchClass,
+  mode: KeyMode,
+  root: PitchClass,
+): DegreeSymbol | null {
+  return (
+    degreesFor(mode).find((degree) => resolveDegree(tonic, mode, degree).root === root) ?? null
+  );
+}
+
 export function degreeOfChord(
   tonic: PitchClass,
   mode: KeyMode,

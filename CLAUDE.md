@@ -56,6 +56,10 @@ hacerlo.
 - **El grabado se mide en espacios de pentagrama**, y las invariantes de la clave
   las fija `arrange/clef.test.ts`
   ([adr/0029](docs/adr/0029-la-partitura-se-dibuja-aqui.md)).
+- **Un bloque guarda un grado y una especie** —una séptima, o `quinta`—, y quien
+  lo traduce a acorde es `blockChord`, no `resolveDegree`: con el grado a secas,
+  un `C5` se enseña, se ensaya y se dibuja como un `C`
+  ([adr/0035](docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
 - **Un montaje son grados, y los grados no se llaman igual en mayor que en menor**:
   `state/montaje-en-su-modo.ts` lo traduce en cuanto cambia la tonalidad, y sin eso
   componer se cae entera ([adr/0030](docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)).
@@ -132,6 +136,7 @@ nombres viejos de los planes**.
 | Quién contesta —API, modelo de casa o dominio—           | `server/ai-model.ts`, `local-model.ts`                    |
 | Por dónde entra texto libre, y qué lo acota              | `features/learn/teacher-contract.ts`                      |
 | Una canción guardada, y qué papel hace cada parte        | `core/music/song.ts` (`ROLES`), `server/songs-repo.ts`    |
+| Un acorde cualquiera, convertido en bloque               | `core/music/capture.ts` (`comoBloque`)                    |
 | El montaje por bloques, y lo que dura cada acorde        | `core/music/arrangement.ts` + `state/`                    |
 | El lienzo: arrastrar bloques, estirarlos, escucharlos    | `features/arrange/`                                       |
 | Componer tocando: el micro escribe lo que suena          | `arrange/TocarParaEscribir` + `state/use-tocar-y-apuntar` |

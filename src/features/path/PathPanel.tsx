@@ -5,20 +5,18 @@ import { useMemo, useState } from 'react';
 import { chordVoicings } from '@core/instrument';
 import {
   accidentalForKey,
-  degreeOfChord,
+  comoBloque,
   HARMONIC_ROLES,
   noteName,
   scaleNotes,
   scheduleProgression,
-  seventhInside,
   suggestChords,
   suggestTransitions,
-  triadInside,
   type DegreeSymbol,
+  type EspecieDeBloque,
   type HarmonicRole,
   type ParsedChord,
   type PitchClass,
-  type SeventhQuality,
 } from '@core/music';
 import { useAcordeElegido } from '@state/acorde-elegido';
 import { useArrangementStore } from '@state/arrangement-store';
@@ -371,7 +369,7 @@ export function NextChords({
    * Qué hacer con un acorde que cabe en la canción. Sin esto, la lista solo
    * lleva al camino, que es lo que hace donde no hay montaje que escribir.
    */
-  readonly onPoner?: (degree: DegreeSymbol, seventh?: SeventhQuality) => void;
+  readonly onPoner?: (degree: DegreeSymbol, especie?: EspecieDeBloque) => void;
 } = {}) {
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
@@ -420,13 +418,12 @@ export function NextChords({
             tiene grado sigue yendo al camino, igual que ahí. */}
         <ChordSearch
           onPick={(chord) => {
-            const triada = activeKey === null ? null : triadInside(chord.root, chord.notes);
-            const degree =
-              activeKey === null || triada === null
+            const puesto =
+              activeKey === null
                 ? null
-                : degreeOfChord(activeKey.tonic, activeKey.mode, chord.root, triada);
-            if (degree !== null && onPoner !== undefined) {
-              onPoner(degree, seventhInside(chord.root, chord.notes) ?? undefined);
+                : comoBloque(activeKey.tonic, activeKey.mode, chord.root, chord.notes);
+            if (puesto !== null && onPoner !== undefined) {
+              onPoner(puesto.degree, puesto.especie);
               return;
             }
             actions.pushChord(fromSearch(chord));
@@ -488,13 +485,11 @@ export function NextChords({
            * lo mismo: la tríada sale de las notas y la séptima también, así que
            * no hace falta una tabla de sufijos aparte que se pueda desincronizar.
            */
-          const triada = activeKey === null ? null : triadInside(option.root, option.notes);
-          const degree =
-            activeKey === null || triada === null
+          const bloque =
+            activeKey === null
               ? null
-              : degreeOfChord(activeKey.tonic, activeKey.mode, option.root, triada);
-          const seventh = seventhInside(option.root, option.notes);
-          const sePuedeEscribir = onPoner !== undefined && degree !== null;
+              : comoBloque(activeKey.tonic, activeKey.mode, option.root, option.notes);
+          const sePuedeEscribir = onPoner !== undefined && bloque !== null;
 
           /**
            * El porqué se dice una vez por fundamental, no una por variante.
@@ -534,7 +529,7 @@ export function NextChords({
                   // `Fsus2`— sigue el camino de siempre: se suelta lo elegido y
                   // se prueba, que para eso está el camino.
                   if (sePuedeEscribir) {
-                    onPoner(degree, seventh ?? undefined);
+                    onPoner(bloque.degree, bloque.especie);
                     return;
                   }
                   acciones.elegirBloque(null);

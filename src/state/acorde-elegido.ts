@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { findBlock, resolveDegree, type ResolvedChord } from '@core/music';
+import { blockChord, findBlock, type ResolvedChord } from '@core/music';
 
 import { useArrangementStore } from './arrangement-store';
 import { selectActiveKey, useSessionStore } from './session-store';
@@ -36,6 +36,10 @@ export function useAcordeElegido(): ResolvedChord | null {
     if (sitio === null) {
       return null;
     }
-    return resolveDegree(activeKey.tonic, activeKey.mode, sitio.block.degree);
+    // `blockChord` y no `resolveDegree`: el bloque puede llevar especie, y con el
+    // grado a secas la columna enseñaba las formas de un `F` teniendo elegido un
+    // `F5` —con su tercera, que es justo la nota que no se toca—
+    // ([adr/0035](../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+    return blockChord(activeKey.tonic, activeKey.mode, sitio.block);
   }, [activeKey, arrangement, selectedBlockId]);
 }

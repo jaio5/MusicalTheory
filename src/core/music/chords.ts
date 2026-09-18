@@ -252,6 +252,41 @@ export function seventhFromSuffix(suffix: string): SeventhQuality | null {
  * versión anterior, o tocada a mano—: lo que no reconozca no es una séptima, es
  * una tríada, y eso es lo que se guarda.
  */
+/**
+ * Lo que un bloque puede llevar encima de su grado.
+ *
+ * Una de las siete séptimas, o **`quinta`: la tríada sin la tercera**. Un acorde
+ * de quinta tiene grado —el de su fundamental— y no tiene tríada, que es justo
+ * lo que hacía que no se pudiera escribir
+ * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+ *
+ * Una sola especie y no un campo por familia: al guardar la canción viajan en
+ * una lista paralela a los grados, y dos listas que hay que mantener alineadas
+ * son dos maneras de desalinearlas.
+ */
+export type EspecieDeBloque = SeventhQuality | 'quinta';
+
+/** Las notas de una quinta: la fundamental y su quinta justa, y nada más. */
+export function quintaNotes(root: PitchClass): PitchClass[] {
+  return [root, normalizePitchClass(root + 7)];
+}
+
+/**
+ * Si estas notas son un acorde de quinta: la fundamental y su quinta justa.
+ *
+ * Dos clases y nada más. Con la tercera dentro ya es una tríada, y de eso se
+ * encarga `triadInside`.
+ */
+export function esQuinta(root: PitchClass, notes: readonly PitchClass[]): boolean {
+  const suyas = new Set(notes);
+  return suyas.size === 2 && suyas.has(root) && suyas.has(normalizePitchClass(root + 7));
+}
+
+/** Si un valor cualquiera es una especie que un bloque sabe guardar. */
+export function esEspecieDeBloque(value: unknown): value is EspecieDeBloque {
+  return value === 'quinta' || esSeventhQuality(value);
+}
+
 export function esSeventhQuality(value: unknown): value is SeventhQuality {
   return typeof value === 'string' && Object.hasOwn(SEVENTH_SUFFIX, value);
 }

@@ -19,7 +19,7 @@
  */
 
 import type { BlockSource } from './arrangement';
-import { esSeventhQuality, type SeventhQuality } from './chords';
+import { esEspecieDeBloque, type EspecieDeBloque } from './chords';
 import type { KeyMode } from './keys';
 import {
   clampOffset,
@@ -151,7 +151,8 @@ export interface SongSection {
    */
   readonly sources?: readonly BlockSource[];
   /**
-   * La séptima de cada grado, en el mismo orden que `degrees`, o nula.
+   * La especie de cada grado —su séptima, o `quinta`—, en el mismo orden que
+   * `degrees`, o nula.
    *
    * Sin esto, un `Fmaj7` se guardaba como `IV` y volvía como un `F`: escribías
    * un acorde, lo guardabas y te devolvían otro. Un bloque sabe guardar su
@@ -162,7 +163,7 @@ export interface SongSection {
    * antes no lo tienen y no están rotas —eran tríadas—, y leer y volver a
    * guardar sin tocar nada tiene que dar lo mismo.
    */
-  readonly sevenths?: readonly (SeventhQuality | null)[];
+  readonly especies?: readonly (EspecieDeBloque | null)[];
   /**
    * Compases que ocupa la parte, aunque no estén llenos.
    *
@@ -400,11 +401,11 @@ function asSources(value: unknown, cuantos: number): BlockSource[] {
   });
 }
 
-/** Las séptimas guardadas, una por grado. Lo que no reconozca, ninguna. */
-function asSevenths(value: unknown, cuantos: number): (SeventhQuality | null)[] {
+/** Las especies guardadas, una por grado. Lo que no reconozca, ninguna. */
+function asEspecies(value: unknown, cuantos: number): (EspecieDeBloque | null)[] {
   const crudas = Array.isArray(value) ? value : [];
   return Array.from({ length: cuantos }, (_, indice) =>
-    esSeventhQuality(crudas[indice]) ? crudas[indice] : null,
+    esEspecieDeBloque(crudas[indice]) ? crudas[indice] : null,
   );
 }
 
@@ -425,7 +426,7 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
         const degrees = asDegrees(record['degrees'], mode);
         const lead = asLead(record['lead']);
         const sources = asSources(record['sources'], degrees.length);
-        const sevenths = asSevenths(record['sevenths'], degrees.length);
+        const especies = asEspecies(record['especies'], degrees.length);
         const bars = record['bars'];
 
         // Se omite lo que no dice nada, igual que al escribir. Leer y guardar
@@ -442,7 +443,7 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
             : {}),
           ...(lead.length > 0 ? { lead } : {}),
           ...(sources.some((source) => source !== 'written') ? { sources } : {}),
-          ...(sevenths.some((seventh) => seventh !== null) ? { sevenths } : {}),
+          ...(especies.some((especie) => especie !== null) ? { especies } : {}),
         };
       })
       // Una sección sin un solo acorde no es una sección: es una fila vacía que

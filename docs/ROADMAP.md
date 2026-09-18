@@ -93,12 +93,16 @@ Lo que queda, en el orden en que se hace:
   que tiene grado entra como bloque con su séptima y lo que no lo tiene lleva al
   camino, diciéndolo antes de pulsar—. Lo que oye el micro también entra en la
   canción, y la columna del acorde, el mástil, las salidas y «añadir parte» siguen
-  a la canción y no al camino. Lo que queda de `path` es **lo que no cabe en un
-  bloque** —un `C5` no tiene tercera, un `Fsus2` la cambia por la segunda—, que
-  se prueba y no se escribe. Falta decidir qué pasa con eso: o el bloque aprende
-  a guardar esas especies, o el camino se retira y con él la manera de probarlas.
-  Es una decisión con alternativas y va con su ADR
+  a la canción y no al camino. Y lo que la aplicación propone **se puede escribir
+  entero**: medido, de los catorce acordes de la lista no quedaba fuera ninguno
+  en los seis estilos, desde que un bloque sabe que no lleva tercera
+  ([adr/0035](./adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+
+  Lo que queda del camino es lo que no es ni tríada ni quinta —un `Fsus2` cambia
+  la tercera por la segunda—, que hoy no se propone en ningún estilo. Cuando
+  aparezca, el ADR 0035 se amplía con la medida delante
   ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+
 - **El parpadeo del primer fotograma en un teléfono.** `useHayBanco` contesta que
   sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
   hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;

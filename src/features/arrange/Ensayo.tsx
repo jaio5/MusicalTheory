@@ -1,6 +1,6 @@
 'use client';
 
-import { largoDelEnsayo, resolveDegree } from '@core/music';
+import { blockChord, largoDelEnsayo, writtenBlock } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useArrangementStore } from '@state/arrangement-store';
 import { useEnsayo, type EnsayoDeps } from '@state/use-ensayo';
@@ -70,10 +70,20 @@ export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
     );
   }
 
-  const cifrado = (indice: number): string =>
-    guion[indice] === undefined
-      ? ''
-      : resolveDegree(activeKey.tonic, activeKey.mode, guion[indice].degree).symbol;
+  /**
+   * El cifrado de un paso, **con su especie**: lo que se enciende grande tiene
+   * que ser lo que hay que tocar. Con `resolveDegree` a secas, un `C5` se
+   * enseñaba como `C` y un `Fmaj7` como `F`, y se ensayaba otra cosa.
+   */
+  const cifrado = (indice: number): string => {
+    const paso = guion[indice];
+    if (paso === undefined) {
+      return '';
+    }
+    return blockChord(activeKey.tonic, activeKey.mode, {
+      ...writtenBlock(paso.blockId, paso.degree, paso.beats, paso.especie),
+    }).symbol;
+  };
 
   const ensayando = fase === 'ensayando';
 
@@ -152,7 +162,11 @@ export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
                 <div>
                   <dt className="text-xs">El que se atragantó</dt>
                   <dd className="text-text font-mono text-lg">
-                    {resolveDegree(activeKey.tonic, activeKey.mode, resultado.peor.degree).symbol}
+                    {
+                      blockChord(activeKey.tonic, activeKey.mode, {
+                        ...writtenBlock('peor', resultado.peor.degree, 4, resultado.peor.especie),
+                      }).symbol
+                    }
                     <span className="text-text-muted ml-2 text-xs">
                       compás {resultado.peor.bar}, {resultado.peor.fallos} de {resultado.peor.veces}
                     </span>

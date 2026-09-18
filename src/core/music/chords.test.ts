@@ -9,6 +9,7 @@ import {
   seventhRoman,
   triadNotes,
   triadQualityOf,
+  esQuinta,
   seventhInside,
   type Degree,
 } from './chords';
@@ -281,5 +282,30 @@ describe('la septima que hay dentro', () => {
     expect(seventhInside(F, [5, 9, 0, 4, 5])).toBe('major7');
     // Cuatro notas que no forman ninguna especie del catálogo.
     expect(seventhInside(F, [5, 6, 7, 8])).toBeNull();
+  });
+});
+
+/**
+ * Un acorde de quinta: la fundamental y su quinta justa, y nada más.
+ *
+ * Hace falta para poder escribirlo: sin tercera no hay tríada, así que
+ * `triadInside` no dice nada y el grado hay que sacarlo de la fundamental
+ * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+ */
+describe('si unas notas son una quinta', () => {
+  const C = pitchClassFromName('C');
+
+  it('la fundamental y su quinta, en cualquier orden', () => {
+    expect(esQuinta(C, [0, 7])).toBe(true);
+    expect(esQuinta(C, [7, 0])).toBe(true);
+  });
+
+  it('con tercera ya no lo es: es una triada', () => {
+    expect(esQuinta(C, [0, 4, 7])).toBe(false);
+  });
+
+  it('ni una sola nota, ni una quinta de otro', () => {
+    expect(esQuinta(C, [0])).toBe(false);
+    expect(esQuinta(C, [5, 0])).toBe(false);
   });
 });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 
-import { keyName, type DegreeSymbol, type ScaleId, type SeventhQuality } from '@core/music';
+import { keyName, type DegreeSymbol, type EspecieDeBloque, type ScaleId } from '@core/music';
 import { ArrangeCanvas, Ensayo, TocarParaEscribir } from '@features/arrange';
 import { FretboardPanel } from '@features/fretboard';
 import { GananciaAlComponer, useProgress } from '@features/learn';
@@ -190,12 +190,12 @@ export function ComposeScreen() {
    * Sin partes todavía se crea una: poner el primer acorde es lo que crea la
    * primera parte en todo el resto de la pantalla.
    */
-  const ponerEnLaCancion = useCallback((degree: DegreeSymbol, seventh?: SeventhQuality) => {
+  const ponerEnLaCancion = useCallback((degree: DegreeSymbol, especie?: EspecieDeBloque) => {
     const acciones = useArrangementStore.getState().actions;
     const montaje = useArrangementStore.getState().arrangement;
     const parte = montaje.parts.at(-1)?.id ?? acciones.addPart('Estrofa');
     const pulsos = useSessionStore.getState().beatsPerBar;
-    acciones.elegirBloque(acciones.addBlock(parte, degree, pulsos, null, seventh));
+    acciones.elegirBloque(acciones.addBlock(parte, degree, pulsos, null, especie));
   }, []);
 
   // Los anchos viajan como variables CSS y no como `style` en cada área: así el

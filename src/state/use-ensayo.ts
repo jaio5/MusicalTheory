@@ -7,10 +7,11 @@ import { WebAudioMetronome } from '@audio/metronome';
 import {
   comoSalio,
   ensayoTerminado,
+  blockChord,
   guionDeEnsayo,
   puntuar,
-  resolveDegree,
   suenaComo,
+  writtenBlock,
   type Acierto,
   type Arrangement,
   type KeyMode,
@@ -141,7 +142,14 @@ export function useEnsayo(
 
     if (estado.acertadoEn === null) {
       const oido = useSessionStore.getState().heardChord;
-      if (suenaComo(resolveDegree(tonic, mode, actual.degree), oido)) {
+      // Con `blockChord` y no con `resolveDegree`: un paso con especie —un `C5`,
+      // un `Fmaj7`— suena distinto de su tríada, y comparándolo contra ella un
+      // riff bien tocado contaría como fallo
+      // ([adr/0035](../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+      const esperado = blockChord(tonic, mode, {
+        ...writtenBlock(actual.blockId, actual.degree, actual.beats, actual.especie),
+      });
+      if (suenaComo(esperado, oido)) {
         estado.acertadoEn = estado.pulsosDelPaso;
       }
     }

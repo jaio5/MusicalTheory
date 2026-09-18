@@ -406,7 +406,7 @@ describe('el papel de cada parte', () => {
  * bloque sabe guardar su séptima desde que se puede escribir «Am7» en el
  * buscador; lo que faltaba era que saliera de la aplicación con ella.
  */
-describe('las septimas al guardar una cancion', () => {
+describe('las especies al guardar una cancion', () => {
   function conSeptima(): Arrangement {
     return {
       parts: [
@@ -429,7 +429,7 @@ describe('las septimas al guardar una cancion', () => {
     const [seccion] = sectionsFromArrangement(conSeptima(), 4);
 
     expect(seccion?.degrees).toEqual(['I', 'IV', 'V']);
-    expect(seccion?.sevenths).toEqual([null, 'major7', 'dominant7']);
+    expect(seccion?.especies).toEqual([null, 'major7', 'dominant7']);
   });
 
   it('y vuelven al abrir la cancion', () => {
@@ -445,7 +445,7 @@ describe('las septimas al guardar una cancion', () => {
 
     const vuelta = arrangementFromSong(song, 4);
 
-    expect(vuelta.parts[0]?.blocks.map((b) => b.seventh)).toEqual([
+    expect(vuelta.parts[0]?.blocks.map((b) => b.especie)).toEqual([
       undefined,
       'major7',
       'dominant7',
@@ -464,7 +464,7 @@ describe('las septimas al guardar una cancion', () => {
       ],
     };
 
-    expect(sectionsFromArrangement(llano, 4)[0]).not.toHaveProperty('sevenths');
+    expect(sectionsFromArrangement(llano, 4)[0]).not.toHaveProperty('especies');
   });
 
   // Y una canción vieja, sin el campo, se abre como lo que era: tríadas.
@@ -482,8 +482,8 @@ describe('las septimas al guardar una cancion', () => {
       's',
     );
 
-    expect(vieja?.sections[0]).not.toHaveProperty('sevenths');
-    expect(arrangementFromSong(vieja!, 4).parts[0]?.blocks.map((b) => b.seventh)).toEqual([
+    expect(vieja?.sections[0]).not.toHaveProperty('especies');
+    expect(arrangementFromSong(vieja!, 4).parts[0]?.blocks.map((b) => b.especie)).toEqual([
       undefined,
       undefined,
     ]);
@@ -498,12 +498,12 @@ describe('las septimas al guardar una cancion', () => {
         tonic: 0,
         mode: 'major',
         bpm: 100,
-        sections: [{ name: 'Estrofa', degrees: ['I'], sevenths: ['noExiste'] }],
+        sections: [{ name: 'Estrofa', degrees: ['I'], especies: ['noExiste'] }],
         updatedAt: 0,
       },
       's',
     );
 
-    expect(raro?.sections[0]).not.toHaveProperty('sevenths');
+    expect(raro?.sections[0]).not.toHaveProperty('especies');
   });
 });

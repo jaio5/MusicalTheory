@@ -39,6 +39,7 @@ import {
   isDoubtful,
   removeBlock,
   removeNote,
+  blockChord,
   writtenBlock,
   soundOf,
   removePart,
@@ -853,5 +854,43 @@ describe('qué papel hace cada parte del lienzo', () => {
     const secciones = sectionsFromArrangement(conUnaParte());
 
     expect(secciones[0]).not.toHaveProperty('role');
+  });
+});
+
+/**
+ * Un bloque de quinta: la tríada sin la tercera.
+ *
+ * Un `C5` **tiene grado** —el de su fundamental— y no tiene tríada, que es lo
+ * que hacía que no se pudiera escribir, y un riff de rock es una sucesión de
+ * quintas ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+ */
+describe('un bloque sin tercera', () => {
+  it('suena a dos notas y se cifra con el cinco', () => {
+    const chord = blockChord(0, 'major', writtenBlock('a', 'I', 4, 'quinta'));
+
+    expect(chord.symbol).toBe('C5');
+    expect(chord.notes).toEqual([0, 7]);
+  });
+
+  /**
+   * Y sigue siendo un grado, así que cambiar de tonalidad lo traduce sin tocar
+   * el bloque: el `I5` de Do es un `C5` y el de La es un `A5`.
+   */
+  it('se traduce con la tonalidad, como cualquier grado', () => {
+    const bloque = writtenBlock('a', 'I', 4, 'quinta');
+
+    expect(blockChord(9, 'major', bloque).symbol).toBe('A5');
+    expect(blockChord(3, 'major', bloque).symbol).toBe('Eb5');
+  });
+
+  // Un grado menor tocado sin tercera es la misma quinta: eso es lo que pasa al
+  // tocarlo, y por eso el cifrado no lleva la «m».
+  it('el grado menor sin tercera se cifra igual, que es lo que suena', () => {
+    expect(blockChord(0, 'major', writtenBlock('a', 'vi', 4, 'quinta')).symbol).toBe('A5');
+  });
+
+  it('sin especie, un bloque es exactamente lo que era', () => {
+    expect(writtenBlock('a', 'I', 4)).not.toHaveProperty('especie');
+    expect(blockChord(0, 'major', writtenBlock('a', 'I', 4)).notes).toEqual([0, 4, 7]);
   });
 });

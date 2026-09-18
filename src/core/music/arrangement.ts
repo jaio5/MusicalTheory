@@ -28,9 +28,9 @@
  */
 
 import type { KeyMode } from './keys';
-import { seventhNotes, seventhSymbol, type SeventhQuality } from './chords';
+import { quintaNotes, seventhNotes, seventhSymbol, type EspecieDeBloque } from './chords';
 import { accidentalForKey } from './circle-of-fifths';
-import type { PitchClass } from './notes';
+import { noteName, type PitchClass } from './notes';
 import { voiceForPlayback, type PlaybackStep, type TimedEvent } from './playback';
 import { degreeInMode, resolveDegree, type DegreeSymbol, type ResolvedChord } from './progressions';
 import type { CapturedStep } from './capture';
@@ -79,10 +79,15 @@ export interface Block {
    * dónde guardar la segunda, así que escribir `E7` metía un `E` y la séptima se
    * caía sin decirlo.
    *
+   * **Y `quinta`, que es la tríada sin la tercera.** Un `C5` tiene grado —el de
+   * su fundamental— y no tiene tríada, así que sin esto no había manera de
+   * escribirlo, y un riff de rock es una sucesión de quintas
+   * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+   *
    * Opcional a propósito: un montaje guardado antes de esto no la trae, y un
-   * bloque sin séptima sigue siendo exactamente lo que era.
+   * bloque sin especie sigue siendo exactamente lo que era, una tríada.
    */
-  readonly seventh?: SeventhQuality;
+  readonly especie?: EspecieDeBloque;
   /** Pulsos. Siempre uno o más. */
   readonly beats: number;
   readonly source: BlockSource;
@@ -115,14 +120,14 @@ export function writtenBlock(
   id: string,
   degree: DegreeSymbol,
   beats: number,
-  seventh?: SeventhQuality,
+  especie?: EspecieDeBloque,
 ): Block {
   return {
     id,
     degree,
-    // Sin séptima el campo no se escribe, para que un bloque de tríada siga
+    // Sin especie el campo no se escribe, para que un bloque de tríada siga
     // siendo byte a byte lo que era y las comparaciones de los tests no cambien.
-    ...(seventh === undefined ? {} : { seventh }),
+    ...(especie === undefined ? {} : { especie }),
     beats: clampBeats(beats),
     source: 'written',
     confidence: 1,
@@ -141,13 +146,22 @@ export function writtenBlock(
  */
 export function blockChord(tonic: PitchClass, mode: KeyMode, block: Block): ResolvedChord {
   const chord = resolveDegree(tonic, mode, block.degree);
-  if (block.seventh === undefined) {
+  if (block.especie === undefined) {
     return chord;
+  }
+  // La quinta es la tríada **sin la tercera**: dos notas, y el cifrado con el 5
+  // pegado a la fundamental ya bien escrita por el grado resuelto.
+  if (block.especie === 'quinta') {
+    return {
+      ...chord,
+      symbol: `${noteName(chord.root, accidentalForKey(tonic, mode))}5`,
+      notes: quintaNotes(chord.root),
+    };
   }
   return {
     ...chord,
-    symbol: seventhSymbol(chord.root, block.seventh, accidentalForKey(tonic, mode)),
-    notes: seventhNotes(chord.root, block.seventh),
+    symbol: seventhSymbol(chord.root, block.especie, accidentalForKey(tonic, mode)),
+    notes: seventhNotes(chord.root, block.especie),
   };
 }
 
@@ -966,7 +980,7 @@ export function arrangementFromSong(
           idDePosicion(prefijo, parte, bloque),
           degree,
           porCompas,
-          section.sevenths?.[bloque] ?? undefined,
+          section.especies?.[bloque] ?? undefined,
         ),
         // De dónde salió cada acorde vuelve tal cual. Lo que se guardó como
         // oído sigue siendo oído al reabrirlo: si no, guardar y volver a abrir
@@ -1010,7 +1024,7 @@ export function sectionsFromArrangement(
     .map((part) => {
       const degrees: DegreeSymbol[] = [];
       const sources: BlockSource[] = [];
-      const sevenths: (SeventhQuality | null)[] = [];
+      const especies: (EspecieDeBloque | null)[] = [];
       for (const block of part.blocks) {
         // Al menos una vez: un bloque más corto que el compás sigue siendo un
         // acorde de la canción, y redondear a cero lo borraría sin decirlo.
@@ -1022,7 +1036,7 @@ export function sectionsFromArrangement(
           sources.push(block.source);
           // Y la séptima igual. Sin esto, un `Fmaj7` se guardaba como `IV` y
           // volvía como un `F`: escribías un acorde y te devolvían otro.
-          sevenths.push(block.seventh ?? null);
+          especies.push(block.especie ?? null);
         }
       }
       const lead = part.notes.map((note) => [note.offset, note.start, note.length] as const);
@@ -1043,7 +1057,7 @@ export function sectionsFromArrangement(
         ...(part.bars === BARS_POR_DEFECTO ? {} : { bars: part.bars }),
         ...(lead.length > 0 ? { lead } : {}),
         ...(sources.some((source) => source !== 'written') ? { sources } : {}),
-        ...(sevenths.some((seventh) => seventh !== null) ? { sevenths } : {}),
+        ...(especies.some((especie) => especie !== null) ? { especies } : {}),
       };
     })
     .filter((section) => section.degrees.length > 0);

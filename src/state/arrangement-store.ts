@@ -43,7 +43,7 @@ import {
   type Arrangement,
   type CapturedStep,
   type DegreeSymbol,
-  type SeventhQuality,
+  type EspecieDeBloque,
   type LeadNote,
   type KeyMode,
   type SectionRole,
@@ -76,7 +76,7 @@ export interface ArrangementActions {
     degree: DegreeSymbol,
     beats: number,
     at?: number | null,
-    seventh?: SeventhQuality,
+    especie?: EspecieDeBloque,
   ): string;
   removeBlock(blockId: string): void;
   /** Cambia el acorde de un bloque y lo da por bueno: es la corrección. */
@@ -233,9 +233,9 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
         cambiar((actual) => setBars(actual, partId, bars, beatsPerBar));
       },
 
-      addBlock(partId, degree, beats, at = null, seventh) {
+      addBlock(partId, degree, beats, at = null, especie) {
         const id = nuevoId('bloque');
-        cambiar((actual) => addBlock(actual, partId, writtenBlock(id, degree, beats, seventh), at));
+        cambiar((actual) => addBlock(actual, partId, writtenBlock(id, degree, beats, especie), at));
         return id;
       },
       removeBlock(blockId) {

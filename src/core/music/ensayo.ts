@@ -1,4 +1,5 @@
 import { blocksInOrder, findBlock, repeatsOf, type Arrangement } from './arrangement';
+import type { EspecieDeBloque } from './chords';
 import type { PitchClass } from './notes';
 import type { DegreeSymbol, ResolvedChord } from './progressions';
 
@@ -32,6 +33,14 @@ export interface PasoDeEnsayo {
    */
   readonly blockId: string;
   readonly degree: DegreeSymbol;
+  /**
+   * La especie, si el bloque llevaba una.
+   *
+   * Hace falta para **comparar bien**: el croma oyendo un `C5` entrega dos
+   * notas, y comparándolo contra la tríada del `I` un riff bien tocado contaría
+   * como fallo ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+   */
+  readonly especie?: EspecieDeBloque;
   /** En qué compás entra, contando desde uno. Es lo que se dice en pantalla. */
   readonly bar: number;
   readonly beats: number;
@@ -60,6 +69,7 @@ export interface ResultadoDelEnsayo {
   readonly peor: {
     readonly blockId: string;
     readonly degree: DegreeSymbol;
+    readonly especie?: EspecieDeBloque;
     readonly bar: number;
     readonly veces: number;
     readonly fallos: number;
@@ -89,6 +99,7 @@ export function guionDeEnsayo(
     const paso: PasoDeEnsayo = {
       blockId: sitio.blockId,
       degree: encontrado.block.degree,
+      ...(encontrado.block.especie === undefined ? {} : { especie: encontrado.block.especie }),
       bar: Math.floor(pulsos / porCompas) + 1,
       beats: encontrado.block.beats,
     };
@@ -157,7 +168,16 @@ export function puntuar(
       continue;
     }
     if (peor === null || fallos > peor.fallos || (fallos === peor.fallos && paso.bar < peor.bar)) {
-      peor = { blockId: paso.blockId, degree: paso.degree, bar: paso.bar, veces, fallos };
+      peor = {
+        blockId: paso.blockId,
+        degree: paso.degree,
+        // Con su especie: el que se atragantó se dice con el cifrado que se
+        // estaba tocando, no con el de su tríada.
+        ...(paso.especie === undefined ? {} : { especie: paso.especie }),
+        bar: paso.bar,
+        veces,
+        fallos,
+      };
     }
   }
 

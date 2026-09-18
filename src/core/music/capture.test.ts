@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   captureProgression,
+  comoBloque,
   capturedDegrees,
   triadInside,
   triadQuality,
@@ -306,5 +307,51 @@ describe('lo que no se pudo leer', () => {
       endedAt: 2000,
     });
     expect(capture.unread[0]).toMatchObject({ symbol: null, reason: 'ilegible' });
+  });
+});
+
+/**
+ * Un acorde cualquiera convertido en lo que un bloque sabe guardar.
+ *
+ * Es la traducción que hacían a mano tres sitios —la lista de «a dónde ir», su
+ * buscador y lo que oye el micro—, y tiene **dos caminos**: con tercera el grado
+ * sale de la tríada, y sin ella —un `C5`— de la fundamental
+ * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+ */
+describe('un acorde, como bloque', () => {
+  it('una triada es su grado, sin especie', () => {
+    expect(comoBloque(0, 'major', 5, [5, 9, 0])).toEqual({ degree: 'IV' });
+  });
+
+  it('una septima trae su especie', () => {
+    expect(comoBloque(0, 'major', 5, [5, 9, 0, 4])).toEqual({
+      degree: 'IV',
+      especie: 'major7',
+    });
+  });
+
+  /**
+   * Y una quinta también, que es lo que no se podía antes: sin tercera no hay
+   * tríada que mirar, pero la fundamental sigue cayendo en un grado.
+   */
+  it('una quinta es el grado de su fundamental', () => {
+    expect(comoBloque(0, 'major', 0, [0, 7])).toEqual({ degree: 'I', especie: 'quinta' });
+    // Y sobre un grado menor, el grado menor: tocarlo sin tercera no lo mueve.
+    expect(comoBloque(0, 'major', 2, [2, 9])).toEqual({ degree: 'ii', especie: 'quinta' });
+  });
+
+  /**
+   * Y el catálogo es más ancho de lo que parece: un `Db` en Do mayor **sí** es
+   * un grado —el napolitano, `bII`— y por eso entra. Lo que no cabe es lo que no
+   * tiene grado en ninguna lectura.
+   */
+  it('lo prestado que el catalogo conoce si cabe', () => {
+    expect(comoBloque(0, 'major', 1, [1, 5, 8])).toEqual({ degree: 'bII' });
+  });
+
+  // Lo que no es ni tríada ni quinta tampoco: un sus2 cambia la tercera por la
+  // segunda, y eso el montaje no sabe guardarlo.
+  it('un suspendido no es un bloque, y se dice diciendo que no', () => {
+    expect(comoBloque(0, 'major', 0, [0, 2, 7])).toBeNull();
   });
 });

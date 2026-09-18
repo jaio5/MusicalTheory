@@ -2,12 +2,10 @@
 
 import {
   accidentalForKey,
-  degreeOfChord,
+  comoBloque,
   noteName,
-  seventhInside,
-  triadInside,
   type DegreeSymbol,
-  type SeventhQuality,
+  type EspecieDeBloque,
 } from '@core/music';
 import { apuntarHecho } from '@state/hechos-de-componer';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
@@ -48,7 +46,7 @@ export function HeardChord({
    * Qué hacer con el acorde oído si cabe en la canción. Sin esto va al camino,
    * que es lo que hace donde no hay montaje que escribir.
    */
-  readonly onPoner?: (degree: DegreeSymbol, seventh?: SeventhQuality) => void;
+  readonly onPoner?: (degree: DegreeSymbol, especie?: EspecieDeBloque) => void;
 } = {}) {
   const heard = useSessionStore((state) => state.heardChord);
   const last = useSessionStore((state) => state.lastHeardChord);
@@ -62,14 +60,13 @@ export function HeardChord({
   const chord = heard ?? last;
   const sounding = heard !== null;
 
-  // Las mismas tres piezas que usan el buscador del lienzo y «a dónde ir»: la
-  // tríada sale de las notas, el grado de la tríada y la séptima de las notas.
-  const triada = chord === null || activeKey === null ? null : triadInside(chord.root, chord.notes);
-  const degree =
-    chord === null || activeKey === null || triada === null
+  // La misma traducción que usan el buscador del lienzo y «a dónde ir», y en un
+  // solo sitio: tres copias de la misma cuenta son tres maneras de que un día no
+  // coincidan.
+  const bloque =
+    chord === null || activeKey === null
       ? null
-      : degreeOfChord(activeKey.tonic, activeKey.mode, chord.root, triada);
-  const seventh = chord === null ? null : seventhInside(chord.root, chord.notes);
+      : comoBloque(activeKey.tonic, activeKey.mode, chord.root, chord.notes);
 
   // Sin nada oído y con el micro cerrado, lo que toca es ofrecerlo. Antes se
   // devolvía nulo y la columna acababa en blanco.
@@ -133,8 +130,8 @@ export function HeardChord({
                   // lo que decidió el ADR 0032: tocar un acorde y quedárselo es
                   // componer, no explorar. Un acorde sin tercera no tiene grado
                   // y sigue yendo al camino.
-                  if (degree !== null && onPoner !== undefined) {
-                    onPoner(degree, seventh ?? undefined);
+                  if (bloque !== null && onPoner !== undefined) {
+                    onPoner(bloque.degree, bloque.especie);
                   } else {
                     actions.pushChord({
                       symbol: chord.symbol,
@@ -152,7 +149,7 @@ export function HeardChord({
                 }}
                 className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 ml-auto rounded-sm border px-2 py-1 text-xs font-medium"
               >
-                {degree !== null && onPoner !== undefined ? 'Meterlo en la canción' : 'Probarlo'}
+                {bloque !== null && onPoner !== undefined ? 'Meterlo en la canción' : 'Probarlo'}
               </button>
             )}
           </>

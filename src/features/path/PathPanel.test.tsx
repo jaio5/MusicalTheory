@@ -468,3 +468,35 @@ describe('poner lo propuesto en la cancion', () => {
     expect(useSessionStore.getState().path).toHaveLength(1);
   });
 });
+
+/**
+ * La columna del acorde enseña **el bloque**, con su especie.
+ *
+ * Con el grado a secas enseñaba las formas de un `F` teniendo elegido un `F5`:
+ * con su tercera, que es justo la nota que no se toca
+ * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+ */
+describe('el acorde elegido lleva su especie', () => {
+  it('un bloque de quinta se enseña como quinta', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: 0, mode: 'major' });
+    useArrangementStore.setState({
+      arrangement: {
+        parts: [
+          {
+            id: 'e',
+            name: 'Riff',
+            blocks: [writtenBlock('a', 'IV', 4, 'quinta')],
+            notes: [],
+            bars: 1,
+          },
+        ],
+      },
+      past: [],
+      selectedBlockId: 'a',
+    });
+
+    render(<Voicings />);
+
+    expect(screen.getByRole('list', { name: /formas de hacer f5/i })).toBeInTheDocument();
+  });
+});
