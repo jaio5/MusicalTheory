@@ -247,9 +247,10 @@ Con eso, y los precios de la API a 30 de julio de 2026:
 
 **El cupo de Pro es el más caro de sus tres peticiones, y eso está bien.** El
 cupo de un plan es su presupuesto dividido entre **su petición más cara**, y desde
-que Pro incluye versiones, su petición más cara ya no son las ideas. Dejar el 363
-sería prometer un número que el dinero no paga: es exactamente el fallo que este
-fichero vino a arreglar, y por eso `worstFeature` no tiene ninguna excepción.
+que Pro incluye versiones, su petición más cara ya no son las ideas. Dividir entre
+las ideas sería prometer un número que el dinero no paga: es exactamente el fallo
+que este fichero vino a arreglar, y por eso `worstFeature` no tiene ninguna
+excepción.
 
 **Cambiar `ANTHROPIC_MODEL` multiplica los cupos sin tocar una línea de código**, y
 la pantalla enseña los del modelo que haya puesto. Es potente y es un cañón: bajar de

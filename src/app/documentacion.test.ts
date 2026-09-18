@@ -99,6 +99,24 @@ describe('lo que la documentación cuenta', () => {
     );
   });
 
+  /**
+   * Y la tabla de despliegue también, que es la que se mira **antes de cambiar
+   * `ANTHROPIC_MODEL`**: si miente, alguien baja de modelo creyendo que
+   * multiplica los cupos por un número que no es.
+   */
+  it('la tabla de cupos por modelo del despliegue tambien', () => {
+    const texto = leer('docs/DESPLIEGUE.md');
+
+    for (const modelo of ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5']) {
+      const fila = (['basico', 'medio', 'pro'] as const).map(
+        (plan) => `${monthlyAiRequests(plan, modelo)}/mes`,
+      );
+      for (const celda of fila) {
+        expect(texto, `${modelo}: ${celda}`).toContain(celda);
+      }
+    }
+  });
+
   // La pantalla de medallas dice «de quince», y quince son las que hay.
   it('el catálogo de medallas y lo que dicen los documentos coinciden', () => {
     expect(leer('docs/adr/0028-componer-tambien-cuenta.md')).toContain(

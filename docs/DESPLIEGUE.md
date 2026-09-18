@@ -227,11 +227,11 @@ dividiendo lo que se puede gastar de cada plan entre lo que cuesta una petición
 modelo configurado ([adr/0008](./adr/0008-los-cupos-salen-del-precio.md)), así que
 cambiar `ANTHROPIC_MODEL` los multiplica sin tocar código:
 
-| `ANTHROPIC_MODEL`             | Básico  | Medio   | Pro      |
-| ----------------------------- | ------- | ------- | -------- |
-| `claude-opus-5` (por defecto) | 147/mes | 181/mes | 363/mes  |
-| `claude-sonnet-5`             | 246/mes | 302/mes | 605/mes  |
-| `claude-haiku-4-5`            | 739/mes | 908/mes | 1817/mes |
+| `ANTHROPIC_MODEL`             | Básico  | Medio   | Pro     |
+| ----------------------------- | ------- | ------- | ------- |
+| `claude-opus-5` (por defecto) | 73/mes  | 90/mes  | 135/mes |
+| `claude-sonnet-5`             | 184/mes | 227/mes | 338/mes |
+| `claude-haiku-4-5`            | 369/mes | 454/mes | 677/mes |
 
 Es potente y es un cañón: bajar de modelo sube los cupos y baja la calidad de las
 respuestas, y de lo segundo no avisa nada. Un modelo que no esté en la tabla de precios

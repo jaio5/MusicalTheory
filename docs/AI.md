@@ -134,8 +134,8 @@ la clave, ni la URL del proveedor, ni la traza.
 
 **`plan_required` y `quota_exhausted` llegan con el mensaje ya escrito por la ruta**,
 con el plan y el número concretos: «Las ideas de la IA entran en el plan Medio:
-9,99 € al mes», «Se te han acabado las 181 peticiones a la IA de este mes: se renuevan
-el día uno, y con el plan Pro son 363 al mes». La frase la construye
+9,99 € al mes», «Se te han acabado las 90 peticiones a la IA de este mes: se renuevan
+el día uno, y con el plan Pro son 135 al mes». La frase la construye
 `core/billing/messages.ts`, que es la misma que usa la pantalla para pintar el
 candado, y por eso el cliente **prefiere el mensaje del servidor** al genérico de su
 contrato cuando viene uno.
