@@ -128,15 +128,27 @@ describe('plegar un area', () => {
 
 /**
  * Cada espacio de trabajo trae **su** reparto, y por eso los tres no enseñan lo
- * mismo: tocando hace falta la rueda; escribiendo, la canción y a dónde seguir;
+ * mismo: tocando hace falta la rueda; escribiendo, la canción y el acorde;
  * ensayando, solo la canción. Con un reparto único, los tres enseñaban las cinco
  * áreas a la vez.
  */
 describe('un reparto por espacio', () => {
   it('cada espacio viene repartido de fabrica a su manera', () => {
     expect(REPARTOS_DE_FABRICA.tocando.plegadas).toEqual(['derecha', 'camino']);
-    expect(REPARTOS_DE_FABRICA.escribir.plegadas).toEqual(['izquierda']);
+    expect(REPARTOS_DE_FABRICA.escribir.plegadas).toEqual(['izquierda', 'camino']);
     expect(REPARTOS_DE_FABRICA.ensayar.plegadas).toEqual(['izquierda', 'derecha', 'camino']);
+  });
+
+  /**
+   * «A dónde ir» viene plegada en los tres, y no es pereza: el lienzo ya lleva
+   * su propia lista de acordes. Abiertas las dos, «Para empezar» y «Por dónde
+   * empezar» son la misma lista dos veces en la misma pantalla
+   * ([adr/0032](../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+   */
+  it('a donde ir no compite con la lista del lienzo', () => {
+    for (const espacio of ['tocando', 'escribir', 'ensayar'] as const) {
+      expect(REPARTOS_DE_FABRICA[espacio].plegadas).toContain('camino');
+    }
   });
 
   it('mover un area en uno no toca la del otro', () => {

@@ -49,6 +49,7 @@ export function Chip({
   disabled = false,
   tone = 'normal',
   title,
+  atajo,
   className = '',
   ariaLabel,
 }: {
@@ -60,6 +61,15 @@ export function Chip({
   /** `quiet` para lo secundario de una fila; `acierto`/`fallo` para lo corregido. */
   readonly tone?: ChipTone;
   readonly title?: string;
+  /**
+   * La tecla que hace esto, si la hay.
+   *
+   * Sale en el `title` y en `aria-keyshortcuts`, que son los dos sitios donde se
+   * busca: el ratón parándose encima y el lector de pantalla al llegar al botón.
+   * Un atajo que no se anuncia en ninguno de los dos no existe para nadie que no
+   * se haya leído el código.
+   */
+  readonly atajo?: string;
   /** Para colocarlo en su fila —`ml-auto`— o cambiarle la letra. */
   readonly className?: string;
   readonly ariaLabel?: string;
@@ -76,7 +86,8 @@ export function Chip({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={pressed}
-      title={title}
+      title={atajo === undefined ? title : `${title ?? ariaLabel ?? ''} · ${atajo}`.trim()}
+      aria-keyshortcuts={atajo}
       aria-label={ariaLabel}
       // **Lo corregido no se apaga.** Al contestar, las opciones se desactivan y
       // el `disabled:opacity-40` las dejaba todas al cuarenta por ciento: la

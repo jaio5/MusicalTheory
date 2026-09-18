@@ -106,4 +106,10 @@ hay que acordarse de salir.
 - El conmutador `Tocar`/`Montar` desaparece de la interfaz y de los tests que lo
   nombran.
 - Los atajos de teclado pasan a ser parte del producto y no un extra: si las
-  áreas se encogen, tiene que haber una tecla que las devuelva.
+  áreas se encogen, tiene que haber una tecla que las devuelva. Son `1`, `2` y
+  `3` para los espacios, `[` y `]` para plegar cada lado y `\` para devolver el
+  reparto entero; van sin modificador porque se usan con la guitarra puesta y una
+  mano libre, y por eso se apagan mientras el foco está en un campo. Cada botón
+  dice el suyo en su `title` y en `aria-keyshortcuts`, que son los dos sitios
+  donde se busca: un atajo que no se anuncia no existe para quien no leyó el
+  código.

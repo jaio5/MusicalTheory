@@ -131,17 +131,33 @@ describe('Las areas del banco', () => {
     expect(screen.getByLabelText('Arreglo')).toBeInTheDocument();
   });
 
-  it('la cancion, el acorde y a donde ir se ven a la vez', () => {
+  it('la cancion y el acorde se ven a la vez', () => {
     conTonalidad();
 
     render(<ComposeScreen />);
 
     expect(screen.getByLabelText('Arreglo')).toBeInTheDocument();
     expect(screen.getByLabelText('Acorde')).toBeInTheDocument();
-    expect(screen.getByLabelText('A dónde ir')).toBeInTheDocument();
     // La tonalidad viene plegada en este espacio: el tono se elige una vez, y
     // su tira sigue ahí para volver a abrirla de un clic.
     expect(screen.getByRole('button', { name: 'Desplegar Tonalidad' })).toBeInTheDocument();
+  });
+
+  /**
+   * «A dónde ir» también viene plegada, y ésa no es por sitio: **el lienzo ya
+   * lleva su propia lista de acordes**. Abiertas las dos, «Para empezar» y «Por
+   * dónde empezar» son la misma lista dos veces en la misma pantalla
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+   */
+  it('a donde ir viene plegada, y su tira la devuelve', async () => {
+    conTonalidad();
+
+    render(<ComposeScreen />);
+
+    expect(screen.queryByLabelText('A dónde ir')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Desplegar A dónde ir' }));
+
+    expect(screen.getByLabelText('A dónde ir')).toBeInTheDocument();
   });
 
   // Ya no hay conmutador: es lo que se retira, y si volviera sin querer este

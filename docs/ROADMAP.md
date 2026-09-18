@@ -105,9 +105,6 @@ Lo que queda, en el orden en que se hace:
   sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
   hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;
   aquí no vale, porque no es un atributo sino otro árbol.
-- **Atajos de teclado, y que se vean.** Los divisores ya se mueven con las
-  flechas, pero no hay teclas para los espacios de trabajo ni para plegar, y
-  ningún botón enseña la suya.
 
 ## 5. Que aprender y componer sean lo mismo
 

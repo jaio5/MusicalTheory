@@ -15,6 +15,7 @@ import { SongsPanel } from '@features/songs';
 import { VersionsPanel } from '@features/versions';
 import { BarraDeTonalidad, KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
+import { ATAJOS, useAtajosDelBanco } from '@state/atajos-del-banco';
 import { selectPlegada, selectReparto, useBancoStore, type EditorDeAbajo } from '@state/banco';
 import { useMontajeEnSuModo } from '@state/montaje-en-su-modo';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
@@ -83,9 +84,9 @@ const EDITORES: readonly Editor[] = [
  * No son vistas distintas de la canción: son entradas distintas a la misma.
  */
 const ESPACIOS = [
-  { id: 'tocando', name: 'Tocando', Icono: IconoMicro },
-  { id: 'escribir', name: 'Escribir', Icono: IconoComponer },
-  { id: 'ensayar', name: 'Ensayar', Icono: IconoTocar },
+  { id: 'tocando', name: 'Tocando', Icono: IconoMicro, atajo: ATAJOS.tocando },
+  { id: 'escribir', name: 'Escribir', Icono: IconoComponer, atajo: ATAJOS.escribir },
+  { id: 'ensayar', name: 'Ensayar', Icono: IconoTocar, atajo: ATAJOS.ensayar },
 ] as const;
 
 /**
@@ -176,6 +177,7 @@ export function ComposeScreen() {
    * sumarían dos veces el mismo hecho y se pisarían al guardar.
    */
   const { composeGain, dismissComposeGain } = useProgress({ escuchaComponer: true });
+  useAtajosDelBanco(hayBanco);
 
   // Los anchos viajan como variables CSS y no como `style` en cada área: así el
   // mismo árbol sirve para el banco y para la columna apilada, y es Tailwind
@@ -217,6 +219,7 @@ export function ComposeScreen() {
                   pressed={espacio === candidato.id}
                   tone="quiet"
                   ariaLabel={candidato.name}
+                  atajo={candidato.atajo}
                   className="px-2 text-xs sm:px-3"
                 >
                   <candidato.Icono />
@@ -238,7 +241,8 @@ export function ComposeScreen() {
               type="button"
               onClick={() => accionesDelBanco.devolverElReparto()}
               className="text-text-muted hover:text-brass-bright min-h-tap hidden cursor-pointer items-center px-2 text-xs lg:inline-flex"
-              title="Devolver las áreas a como venían en este espacio"
+              title={`Devolver las áreas a como venían en este espacio · ${ATAJOS.devolver}`}
+              aria-keyshortcuts={ATAJOS.devolver}
             >
               Reordenar
             </button>
@@ -302,6 +306,7 @@ export function ComposeScreen() {
           icono={<IconoAfinar />}
           plegada={plegadaIzquierda}
           onPlegar={() => accionesDelBanco.plegar('izquierda')}
+          atajo={ATAJOS.izquierda}
           className={`border-border hidden lg:flex lg:shrink-0 lg:border-r ${
             plegadaIzquierda ? '' : 'lg:w-[var(--banco-izquierda)]'
           }`}
@@ -437,6 +442,7 @@ export function ComposeScreen() {
             icono={<IconoMastil />}
             plegada={hayBanco && plegadaDerecha}
             onPlegar={hayBanco ? () => accionesDelBanco.plegar('derecha') : undefined}
+            atajo={hayBanco ? ATAJOS.derecha : undefined}
             sinCabecera={!hayBanco}
             // Apilada tiene tope: es una consulta, no el trabajo, y sin él se
             // llevaba más alto que la propia canción.

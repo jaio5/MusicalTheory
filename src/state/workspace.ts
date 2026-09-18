@@ -76,9 +76,14 @@ export const REPARTOS_DE_FABRICA: Readonly<Record<EspacioDeTrabajo, RepartoDeAre
   // Tocando solo hace falta saber en qué tonalidad estás y darle al botón. El
   // acorde y a dónde ir son para cuando ya hay algo escrito.
   tocando: { ...MEDIDAS, abajo: null, plegadas: ['derecha', 'camino'] },
-  // Escribiendo manda la canción, y al lado lo que se mira mientras se escribe:
-  // el acorde y a dónde seguir. La rueda ya cumplió: el tono se elige una vez.
-  escribir: { ...MEDIDAS, abajo: null, plegadas: ['izquierda'] },
+  // Escribiendo manda la canción, y al lado el acorde: cómo se toca el que
+  // eliges. La rueda ya cumplió —el tono se elige una vez— y «a dónde ir» viene
+  // plegada **porque el lienzo ya lleva su propia lista**: abiertas las dos,
+  // «Para empezar» y «Por dónde empezar» son la misma lista dos veces en la
+  // misma pantalla. La de dentro es la que escribe en la canción; ésta es para
+  // irse a probar, y se abre cuando hace falta
+  // ([adr/0032](../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+  escribir: { ...MEDIDAS, abajo: null, plegadas: ['izquierda', 'camino'] },
   // Ensayando no se decide nada: se toca lo que hay. Todo lo demás estorba.
   ensayar: { ...MEDIDAS, abajo: null, plegadas: ['izquierda', 'derecha', 'camino'] },
 };

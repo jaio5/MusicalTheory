@@ -37,6 +37,7 @@ export function Area({
   scroll = true,
   plegada = false,
   onPlegar,
+  atajo,
   pliegue = 'vertical',
   sinCabecera = false,
 }: {
@@ -59,6 +60,15 @@ export function Area({
   /** Plegarla y desplegarla. Sin esto, el área no se pliega. */
   readonly onPlegar?: () => void;
   /**
+   * La tecla que la pliega y la devuelve, si la tiene.
+   *
+   * Un área que se puede esconder **tiene que decir cómo se devuelve**
+   * ([adr/0031](../../docs/adr/0031-componer-es-un-banco-de-trabajo.md)), y la
+   * tira plegada es justo donde se busca: es lo único que queda en pantalla de
+   * ella. Va en el `title` y en `aria-keyshortcuts`.
+   */
+  readonly atajo?: string;
+  /**
    * Hacia dónde se pliega: una columna deja una tira de pie y una fila deja una
    * barra tumbada.
    */
@@ -80,7 +90,8 @@ export function Area({
         onClick={onPlegar}
         aria-expanded={false}
         aria-label={`Desplegar ${titulo}`}
-        title={`Desplegar ${titulo}`}
+        title={atajo === undefined ? `Desplegar ${titulo}` : `Desplegar ${titulo} · ${atajo}`}
+        aria-keyshortcuts={atajo}
         // La tira mide lo mismo que una cabecera, para que plegar no mueva de
         // sitio las líneas de la pantalla. Y lleva `size-tap` de fondo: es un
         // botón, y aquí los botones se pulsan con el dedo.
@@ -122,7 +133,8 @@ export function Area({
                 onClick={onPlegar}
                 aria-expanded
                 aria-label={`Plegar ${titulo}`}
-                title={`Plegar ${titulo}`}
+                title={atajo === undefined ? `Plegar ${titulo}` : `Plegar ${titulo} · ${atajo}`}
+                aria-keyshortcuts={atajo}
                 className="hover:text-brass-bright inline-flex cursor-pointer items-center px-1"
               >
                 <Chevron className={`size-3 ${pliegue === 'vertical' ? 'rotate-90' : ''}`} />

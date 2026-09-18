@@ -224,9 +224,8 @@ export function CurrentChord({
     <div className="flex flex-col gap-2 p-3">
       {current === null ? (
         <Vacio icono={<IconoMastil />} titulo="Elige el primer acorde">
-          Están en la lista de acordes —a la derecha en pantalla ancha, aquí abajo en el móvil—,
-          ordenados por lo bien que entran en tu tonalidad. Al pulsar uno sale cómo se hace traste a
-          traste y a dónde puede seguir.
+          Ponlo desde la lista que hay junto a la canción, ordenada por lo bien que entra en tu
+          tonalidad. Al pulsar uno aquí sale cómo se hace, traste a traste.
         </Vacio>
       ) : (
         <>
