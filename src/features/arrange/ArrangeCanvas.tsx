@@ -116,22 +116,36 @@ export function ArrangeCanvas() {
    * Eran dos estados sueltos y podían estar los dos puestos a la vez, así que
    * «quitar lo elegido» no tenía respuesta. Elegir una cosa suelta la otra.
    */
-  const [selectedBlockId, setSelectedBlockIdCrudo] = useState<string | null>(null);
+  /**
+   * El bloque elegido vive en el store y la nota no.
+   *
+   * No es una asimetría gratuita: al bloque elegido lo miran **desde fuera** la
+   * columna del acorde —que enseña cómo se toca— y las propuestas, que salen
+   * desde él. La nota elegida no sale de aquí.
+   */
+  const selectedBlockId = useArrangementStore((state) => state.selectedBlockId);
+  const setSelectedBlockIdCrudo = useArrangementStore((state) => state.actions.elegirBloque);
   const [selectedNoteId, setSelectedNoteIdCrudo] = useState<string | null>(null);
 
-  const setSelectedBlockId = useCallback((id: string | null) => {
-    setSelectedBlockIdCrudo(id);
-    if (id !== null) {
-      setSelectedNoteIdCrudo(null);
-    }
-  }, []);
+  const setSelectedBlockId = useCallback(
+    (id: string | null) => {
+      setSelectedBlockIdCrudo(id);
+      if (id !== null) {
+        setSelectedNoteIdCrudo(null);
+      }
+    },
+    [setSelectedBlockIdCrudo],
+  );
 
-  const setSelectedNoteId = useCallback((id: string | null) => {
-    setSelectedNoteIdCrudo(id);
-    if (id !== null) {
-      setSelectedBlockIdCrudo(null);
-    }
-  }, []);
+  const setSelectedNoteId = useCallback(
+    (id: string | null) => {
+      setSelectedNoteIdCrudo(id);
+      if (id !== null) {
+        setSelectedBlockIdCrudo(null);
+      }
+    },
+    [setSelectedBlockIdCrudo],
+  );
   const [activePartId, setActivePartId] = useState<string | null>(null);
   /**
    * La partitura es lo primero que se ve.

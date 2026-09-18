@@ -15,6 +15,8 @@ import {
   type ParsedChord,
   type PitchClass,
 } from '@core/music';
+import { useAcordeElegido } from '@state/acorde-elegido';
+import { useArrangementStore } from '@state/arrangement-store';
 import { selectActiveKey, useSessionStore, type PathChord } from '@state/session-store';
 import { useProgressionPlayer } from '@state/use-progression-player';
 import type { ProgressionPlayer } from '@audio/progression-player';
@@ -154,6 +156,7 @@ export function CurrentChord({
   const bpm = useSessionStore((state) => state.bpm);
   const actions = useSessionStore((state) => state.actions);
   const current = path.at(-1) ?? null;
+  const hayBloqueElegido = useAcordeElegido() !== null;
 
   const [sonando, setSonando] = useState(false);
   /** Por qué acorde va la reproducción, para encenderlo en la tira. */
@@ -207,6 +210,14 @@ export function CurrentChord({
         Elige una tonalidad en la rueda y empezamos.
       </p>
     );
+  }
+
+  // Con un bloque elegido no hay nada que decir aquí: el camino está vacío, pero
+  // el acorde que miras es el de tu canción y lo enseña el mástil de abajo.
+  // Estuvo saliendo «Elige el primer acorde» justo encima de las formas del
+  // acorde ya elegido, que es decirle a alguien que empiece lo que ya hizo.
+  if (current === null && hayBloqueElegido) {
+    return null;
   }
 
   return (
@@ -331,7 +342,11 @@ export function CurrentChord({
  */
 export function Voicings() {
   const path = useSessionStore((state) => state.path);
-  const current = path.at(-1) ?? null;
+  // El bloque elegido manda sobre el camino: si has pinchado un acorde de tu
+  // canción, lo que quieres ver en el mástil es **ese**, no el último que
+  // andabas probando.
+  const elegido = useAcordeElegido();
+  const current = elegido ?? path.at(-1) ?? null;
 
   if (current === null) {
     return null;
@@ -339,7 +354,7 @@ export function Voicings() {
 
   return (
     <section aria-label="Formas del acorde elegido" className="border-border shrink-0 border-b">
-      <p className="rotulo px-3 pt-2">Elegido</p>
+      <p className="rotulo px-3 pt-2">{elegido === null ? 'Elegido' : 'En la canción'}</p>
       <VoicingList chord={current} />
     </section>
   );
@@ -351,8 +366,15 @@ export function NextChords() {
   const actions = useSessionStore((state) => state.actions);
   const styleId = useSessionStore((state) => state.styleId);
   const history = useSessionStore((state) => state.noteHistory);
+  const acciones = useArrangementStore((state) => state.actions);
 
-  const current = path.at(-1) ?? null;
+  // Igual que el mástil: se propone **desde el bloque que tienes elegido** si lo
+  // hay. Sin esto, con media canción escrita delante esta lista seguía diciendo
+  // «Por dónde empezar», que es justo lo que ya ofrece el lienzo: dos listas
+  // compitiendo por el mismo hueco de la cabeza
+  // ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+  const elegido = useAcordeElegido();
+  const current = elegido ?? path.at(-1) ?? null;
   const playedNotes = useMemo(() => history.map((note) => note.pitchClass), [history]);
 
   const inKey = useMemo(
@@ -457,7 +479,15 @@ export function NextChords() {
             <li key={option.symbol}>
               <button
                 type="button"
-                onClick={() => actions.pushChord(option)}
+                onClick={() => {
+                  // Pinchar aquí es **irse a probar**, no escribir: un bloque
+                  // guarda un grado y esta lista propone especies —`Fmaj7`,
+                  // `F5`— que un grado no sabe guardar. Así que se suelta lo
+                  // elegido y el camino sigue desde ahí; escribir en la canción
+                  // se hace en el lienzo, que es donde se arrastra.
+                  acciones.elegirBloque(null);
+                  actions.pushChord(option);
+                }}
                 aria-label={`${option.symbol}, ${option.label}`}
                 className="hover:bg-surface-raised focus-visible:bg-surface-raised block w-full cursor-pointer rounded-md px-3 py-2 text-left transition-colors"
               >

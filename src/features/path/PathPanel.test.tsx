@@ -2,10 +2,12 @@
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { ProgressionPlayer } from '@audio/progression-player';
 import type { PitchClass, ScheduledStep } from '@core/music';
+import { writtenBlock } from '@core/music';
+import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore, type PathChord } from '@state/session-store';
 
 import { CurrentChord, NextChords, Voicings } from './PathPanel';
@@ -33,6 +35,14 @@ class ReproductorFalso implements ProgressionPlayer {
     this.#avisar?.(index);
   }
 }
+
+beforeEach(() => {
+  useArrangementStore.setState({
+    arrangement: { parts: [] },
+    past: [],
+    selectedBlockId: null,
+  });
+});
 
 const AM: PathChord = {
   symbol: 'Am',
@@ -300,5 +310,93 @@ describe('Un acorde que no cabe en el mástil', () => {
     render(<Voicings />);
 
     expect(screen.getByText(/No cabe en cuatro trastes/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Elegir un bloque de la canción manda sobre el camino.
+ *
+ * Es lo que arregla que componer tuviera dos progresiones a la vez: la canción
+ * de verdad y el camino que se iba probando, cada una enseñando su acorde en
+ * sitios distintos de la misma pantalla
+ * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+ */
+describe('el acorde elegido es el de la cancion', () => {
+  /** Una canción en Do mayor con el IV elegido: un Fa. */
+  function conElFaElegido(): void {
+    const { actions } = useSessionStore.getState();
+    actions.clearPath();
+    actions.pinKey({ tonic: 0, mode: 'major' });
+    useArrangementStore.setState({
+      arrangement: {
+        parts: [
+          {
+            id: 'estrofa',
+            name: 'Estrofa',
+            blocks: [writtenBlock('a', 'I', 4), writtenBlock('b', 'IV', 4)],
+            notes: [],
+            bars: 2,
+          },
+        ],
+      },
+      past: [],
+      selectedBlockId: 'b',
+    });
+  }
+
+  it('el mastil ensena las formas del bloque elegido, y lo dice', () => {
+    conElFaElegido();
+    // Y con algo en el camino, para que se vea cuál de los dos gana.
+    useSessionStore.getState().actions.pushChord(AM);
+    render(<Voicings />);
+
+    expect(screen.getByText('En la canción')).toBeInTheDocument();
+    // Las formas son las del Fa del bloque, no las del Am del camino.
+    expect(screen.getByRole('list', { name: /formas de hacer f$/i })).toBeInTheDocument();
+  });
+
+  /**
+   * Con un bloque elegido, «Elige el primer acorde» sobra: estaba saliendo justo
+   * encima de las formas del acorde ya elegido, que es pedirle a alguien que
+   * empiece lo que acaba de hacer.
+   */
+  it('no pide elegir el primer acorde si ya hay uno elegido en la cancion', () => {
+    conElFaElegido();
+    const { container } = render(<CurrentChord />);
+
+    expect(screen.queryByText('Elige el primer acorde')).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('las propuestas salen desde el bloque elegido', () => {
+    conElFaElegido();
+    render(<NextChords />);
+
+    expect(screen.getByText('Desde F')).toBeInTheDocument();
+  });
+
+  // Un bloque que ya no está no puede seguir elegido: se vuelve al camino.
+  it('si el bloque elegido desaparece, se vuelve al camino', () => {
+    conElFaElegido();
+    useSessionStore.getState().actions.pushChord(AM);
+    useArrangementStore.setState({ arrangement: { parts: [] } });
+    render(<Voicings />);
+
+    expect(screen.getByText('Elegido')).toBeInTheDocument();
+  });
+
+  /**
+   * Pinchar una propuesta con un bloque elegido es **irse a probar**, no
+   * escribir: la lista ofrece especies —`Fmaj7`, `F5`— que un grado no sabe
+   * guardar. Si no se soltara la elección, la lista se quedaría clavada.
+   */
+  it('pinchar una propuesta suelta lo elegido y sigue por el camino', async () => {
+    conElFaElegido();
+    render(<NextChords />);
+
+    await userEvent.click(screen.getAllByRole('button')[1]!);
+
+    expect(useArrangementStore.getState().selectedBlockId).toBeNull();
+    expect(useSessionStore.getState().path).toHaveLength(1);
   });
 });

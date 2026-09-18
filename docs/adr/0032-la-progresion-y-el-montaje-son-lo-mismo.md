@@ -78,6 +78,23 @@ Es lo de hoy con otro nombre, y es lo que produce el salto: escribes en un sitio
 y para seguir en serio tienes que mudarte a otro. El momento en que una idea
 "cuaja" no existe; se compone añadiendo y quitando desde el primer acorde.
 
+## Por dónde va
+
+**Hecho: la selección ya es un identificador de bloque.** Vive en
+`state/arrangement-store.ts` y la traduce a acorde `state/acorde-elegido.ts`. La
+columna del acorde enseña las formas del bloque que eliges —el rótulo cambia de
+«Elegido» a «En la canción»— y las propuestas salen desde él, así que dejaron de
+decir «Por dónde empezar» con media canción escrita delante. `path` sigue de
+respaldo mientras quede algo que solo sepa llenarlo a él.
+
+**Falta, y no por olvido: escribir desde «a dónde ir».** Un bloque guarda **un
+grado** y esa lista propone **especies** —`Fmaj7`, `F5`, `Fsus2`—, que un grado
+no sabe guardar. Para que pulsar ahí escriba en la canción hace falta antes que
+un bloque lleve especie, que es un cambio del dominio con su propio ADR. Hasta
+entonces, pulsar una propuesta **suelta el bloque elegido y sigue por el
+camino**: es irse a probar, y escribir se hace en el lienzo, que es donde se
+arrastra.
+
 ## Consecuencias
 
 - **Es el cambio más ancho de los tres.** `path` lo leen siete sitios

@@ -124,12 +124,25 @@ export interface ArrangementActions {
 
   undo(): void;
   clear(): void;
+
+  /**
+   * Qué bloque está elegido, o nulo si ninguno.
+   *
+   * Vive aquí y no en el lienzo porque **no lo mira solo el lienzo**: la columna
+   * del acorde enseña cómo se toca el elegido y las propuestas salen desde él.
+   * En estado del componente, esas dos cosas no tenían manera de enterarse y
+   * acababan mirando `path`, que es una segunda canción paralela a la de verdad
+   * ([adr/0032](../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+   */
+  elegirBloque(blockId: string | null): void;
 }
 
 export interface ArrangementState {
   readonly arrangement: Arrangement;
   /** Montajes anteriores, el último primero. */
   readonly past: readonly Arrangement[];
+  /** El bloque elegido, o nulo. Lo miran el lienzo y la columna del acorde. */
+  readonly selectedBlockId: string | null;
   readonly actions: ArrangementActions;
 }
 
@@ -190,7 +203,11 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
   return {
     arrangement: EMPTY_ARRANGEMENT,
     past: [],
+    selectedBlockId: null,
     actions: {
+      elegirBloque(blockId) {
+        set({ selectedBlockId: blockId });
+      },
       addPart(name) {
         const id = nuevoId('parte');
         cambiar((actual) => addPart(actual, id, name));
@@ -308,6 +325,9 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
       },
       clear() {
         cambiar(() => EMPTY_ARRANGEMENT);
+        // Sin esto quedaba elegido un bloque que ya no existe, y la columna del
+        // acorde seguía enseñando las formas de algo que no está en la canción.
+        set({ selectedBlockId: null });
       },
     },
   };
