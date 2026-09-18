@@ -7,6 +7,8 @@ import { apiErrorFrom } from '@state/api-error';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
 import { Aviso } from '@ui/Aviso';
+
+import { CORREO_MAL, pareceUnCorreo } from './correo';
 import { Formulario } from '@ui/Formulario';
 
 export interface ForgottenFormProps {
@@ -46,6 +48,14 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
   const conVale = vale !== undefined && vale !== '';
 
   async function pedirEnlace(): Promise<void> {
+    // Igual que en el formulario de entrar: la burbuja de `type="email"` la
+    // escribe el navegador en su idioma, así que se comprueba aquí y se dice con
+    // el `Aviso`, que es el sitio donde esta pantalla ya cuenta lo que pasa.
+    if (!pareceUnCorreo(email)) {
+      setError(CORREO_MAL);
+      return;
+    }
+
     setError(null);
     setWorking(true);
     try {
@@ -132,7 +142,8 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
       ) : (
         <TextField
           label="Tu correo"
-          type="email"
+          type="text"
+          inputMode="email"
           autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}

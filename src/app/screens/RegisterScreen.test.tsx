@@ -121,4 +121,24 @@ describe('Crear la cuenta', () => {
       '/aprender',
     );
   });
+
+  /**
+   * Un correo mal escrito se dice **en español y donde se dice todo lo demás**.
+   *
+   * Lo comprobaba el navegador con `type="email"`, y esa burbuja la escribe él
+   * en su idioma: encima de un formulario en español salía «Please include an
+   * '@' in the email address». No se puede traducir; lo que se puede es no
+   * dejarla salir. Y de paso no se llama al servidor para nada.
+   */
+  it('un correo mal escrito se dice en espanol, y no se llama al servidor', async () => {
+    pintar();
+    const usuario = userEvent.setup();
+
+    await usuario.type(screen.getByLabelText(/Correo/), 'noesuncorreo');
+    await usuario.type(screen.getByLabelText(/Contraseña/), 'ContrasenaLarga123');
+    await usuario.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
+
+    expect(screen.getByText(/no tiene buena pinta/)).toBeInTheDocument();
+    expect(registerAccount).not.toHaveBeenCalled();
+  });
 });

@@ -12,6 +12,8 @@ import { IconoLlave } from '@ui/icons';
 import { TextField } from '@ui/TextField';
 import { Vacio } from '@ui/Vacio';
 import { Aviso } from '@ui/Aviso';
+
+import { CORREO_MAL, pareceUnCorreo } from './correo';
 import { Formulario } from '@ui/Formulario';
 
 /**
@@ -60,6 +62,16 @@ export function AccessForm({
   }
 
   async function submit(): Promise<void> {
+    // La comprobación la hace el formulario y no el navegador: la burbuja de
+    // `type="email"` la escribe el navegador **en su idioma**, y aquí se veía
+    // «Please include an '@' in the email address» encima de un formulario en
+    // español. Esa burbuja no se puede traducir; lo que sí se puede es no dejar
+    // que salga y decirlo con el `Aviso` de siempre.
+    if (!pareceUnCorreo(email)) {
+      setError(CORREO_MAL);
+      return;
+    }
+
     setError(null);
     setWorking(true);
     try {
@@ -131,8 +143,11 @@ export function AccessForm({
 
       <TextField
         label="Correo"
-        type="email"
-        required
+        // `text` y no `email`: con `email` el navegador saca su propia burbuja
+        // en su idioma antes de que este formulario pueda decir nada. El teclado
+        // del teléfono se sigue pidiendo con `inputMode`.
+        type="text"
+        inputMode="email"
         autoComplete="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
