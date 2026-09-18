@@ -21,6 +21,12 @@ import {
   UNNAMED_SONG,
   type Song,
 } from './song';
+import {
+  arrangementFromSong,
+  sectionsFromArrangement,
+  writtenBlock,
+  type Arrangement,
+} from './arrangement';
 
 /** Una canción mínima para no repetirla en cada prueba. */
 function cancion(extra: Partial<Song> = {}): Song {
@@ -389,5 +395,115 @@ describe('el papel de cada parte', () => {
 
       expect(nameForRole(conPapel, 3, 'idea')).toBe('Parte 4');
     });
+  });
+});
+
+/**
+ * La séptima sobrevive a guardar y volver a abrir.
+ *
+ * No sobrevivía: un `Fmaj7` se guardaba como `IV` y volvía como un `F`.
+ * Escribías un acorde, lo guardabas y te devolvían otro, sin decir nada. Un
+ * bloque sabe guardar su séptima desde que se puede escribir «Am7» en el
+ * buscador; lo que faltaba era que saliera de la aplicación con ella.
+ */
+describe('las septimas al guardar una cancion', () => {
+  function conSeptima(): Arrangement {
+    return {
+      parts: [
+        {
+          id: 'e',
+          name: 'Estrofa',
+          blocks: [
+            writtenBlock('a', 'I', 4),
+            writtenBlock('b', 'IV', 4, 'major7'),
+            writtenBlock('c', 'V', 4, 'dominant7'),
+          ],
+          notes: [],
+          bars: 4,
+        },
+      ],
+    };
+  }
+
+  it('se guardan en paralelo a los grados', () => {
+    const [seccion] = sectionsFromArrangement(conSeptima(), 4);
+
+    expect(seccion?.degrees).toEqual(['I', 'IV', 'V']);
+    expect(seccion?.sevenths).toEqual([null, 'major7', 'dominant7']);
+  });
+
+  it('y vuelven al abrir la cancion', () => {
+    const song: Song = {
+      id: 's',
+      name: 'x',
+      tonic: 0,
+      mode: 'major',
+      bpm: 100,
+      sections: sectionsFromArrangement(conSeptima(), 4),
+      updatedAt: 0,
+    };
+
+    const vuelta = arrangementFromSong(song, 4);
+
+    expect(vuelta.parts[0]?.blocks.map((b) => b.seventh)).toEqual([
+      undefined,
+      'major7',
+      'dominant7',
+    ]);
+  });
+
+  /**
+   * Una canción toda de tríadas se guarda **exactamente igual que antes** de que
+   * existiera este campo: leer y volver a guardar sin tocar nada tiene que dar
+   * lo mismo, o una canción crecería sola cada vez que se abre.
+   */
+  it('sin ninguna septima, no se escribe el campo', () => {
+    const llano: Arrangement = {
+      parts: [
+        { id: 'e', name: 'Estrofa', blocks: [writtenBlock('a', 'I', 4)], notes: [], bars: 4 },
+      ],
+    };
+
+    expect(sectionsFromArrangement(llano, 4)[0]).not.toHaveProperty('sevenths');
+  });
+
+  // Y una canción vieja, sin el campo, se abre como lo que era: tríadas.
+  it('una cancion de antes se abre sin septimas, no rota', () => {
+    const vieja = parseSong(
+      {
+        id: 's',
+        name: 'De antes',
+        tonic: 0,
+        mode: 'major',
+        bpm: 100,
+        sections: [{ name: 'Estrofa', degrees: ['I', 'IV'] }],
+        updatedAt: 0,
+      },
+      's',
+    );
+
+    expect(vieja?.sections[0]).not.toHaveProperty('sevenths');
+    expect(arrangementFromSong(vieja!, 4).parts[0]?.blocks.map((b) => b.seventh)).toEqual([
+      undefined,
+      undefined,
+    ]);
+  });
+
+  // Lo que llegue de fuera y no sea una especie conocida, no es una séptima.
+  it('una septima inventada se lee como ninguna', () => {
+    const raro = parseSong(
+      {
+        id: 's',
+        name: 'Raro',
+        tonic: 0,
+        mode: 'major',
+        bpm: 100,
+        sections: [{ name: 'Estrofa', degrees: ['I'], sevenths: ['noExiste'] }],
+        updatedAt: 0,
+      },
+      's',
+    );
+
+    expect(raro?.sections[0]).not.toHaveProperty('sevenths');
   });
 });

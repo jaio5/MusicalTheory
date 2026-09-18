@@ -19,6 +19,7 @@
  */
 
 import type { BlockSource } from './arrangement';
+import { esSeventhQuality, type SeventhQuality } from './chords';
 import type { KeyMode } from './keys';
 import {
   clampOffset,
@@ -149,6 +150,19 @@ export interface SongSection {
    * perdía y todo pasaba a valer igual.
    */
   readonly sources?: readonly BlockSource[];
+  /**
+   * La séptima de cada grado, en el mismo orden que `degrees`, o nula.
+   *
+   * Sin esto, un `Fmaj7` se guardaba como `IV` y volvía como un `F`: escribías
+   * un acorde, lo guardabas y te devolvían otro. Un bloque sabe guardar su
+   * séptima desde que se puede escribir «Am7» en el buscador, y al salir de la
+   * aplicación se perdía sin decir nada.
+   *
+   * Opcional y ausente cuando no hay ninguna, como `sources`: las canciones de
+   * antes no lo tienen y no están rotas —eran tríadas—, y leer y volver a
+   * guardar sin tocar nada tiene que dar lo mismo.
+   */
+  readonly sevenths?: readonly (SeventhQuality | null)[];
   /**
    * Compases que ocupa la parte, aunque no estén llenos.
    *
@@ -386,6 +400,14 @@ function asSources(value: unknown, cuantos: number): BlockSource[] {
   });
 }
 
+/** Las séptimas guardadas, una por grado. Lo que no reconozca, ninguna. */
+function asSevenths(value: unknown, cuantos: number): (SeventhQuality | null)[] {
+  const crudas = Array.isArray(value) ? value : [];
+  return Array.from({ length: cuantos }, (_, indice) =>
+    esSeventhQuality(crudas[indice]) ? crudas[indice] : null,
+  );
+}
+
 function asSections(value: unknown, mode: KeyMode): SongSection[] {
   if (!Array.isArray(value)) {
     return [];
@@ -403,6 +425,7 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
         const degrees = asDegrees(record['degrees'], mode);
         const lead = asLead(record['lead']);
         const sources = asSources(record['sources'], degrees.length);
+        const sevenths = asSevenths(record['sevenths'], degrees.length);
         const bars = record['bars'];
 
         // Se omite lo que no dice nada, igual que al escribir. Leer y guardar
@@ -419,6 +442,7 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
             : {}),
           ...(lead.length > 0 ? { lead } : {}),
           ...(sources.some((source) => source !== 'written') ? { sources } : {}),
+          ...(sevenths.some((seventh) => seventh !== null) ? { sevenths } : {}),
         };
       })
       // Una sección sin un solo acorde no es una sección: es una fila vacía que

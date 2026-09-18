@@ -11,6 +11,11 @@
  * más falla por el ruido del vecino, no por el código. Lo que vigila es una
  * regresión algorítmica, no un 10 % arriba o abajo.
  *
+ * Eso se escribió aquí antes de cumplirse: el tope de los dos motores juntos
+ * estaba en cincuenta contra veinte medidos —dos veces y media, no diez— y
+ * fallaba con la propia suite corriendo en paralelo. El número está ahora donde
+ * dice el párrafo de arriba, con la medida al lado.
+ *
  * Los números de referencia, y el porqué de dejarlo donde está, en el ADR.
  */
 
@@ -25,6 +30,23 @@ const SAMPLE_RATE = 48_000;
 const FRAME_SIZE = 2048;
 const SPECTRUM_SIZE = 8192;
 const BINS = SPECTRUM_SIZE / 2;
+
+/**
+ * Lo más que pueden costar los dos motores por segundo de audio.
+ *
+ * **Doscientos y no cincuenta, y el número de antes era el equivocado.** Este
+ * fichero decía —y dice— que los topes van un orden de magnitud sobre lo medido
+ * para que no fallen por el ruido de la máquina, y cincuenta no lo cumplía:
+ * medido aquí con el fichero solo, los dos motores cuestan **20,5 ms por
+ * segundo**, así que cincuenta era 2,4 veces, no diez. Con la suite entera
+ * corriendo en paralelo —que es como se pasa `pnpm test`— la misma cuenta subía
+ * a 51 y 57, y el test salía rojo sin que nada estuviera roto.
+ *
+ * Doscientos sigue vigilando lo que hay que vigilar: una regresión algorítmica
+ * multiplica el coste por diez, no por dos, y un análisis que se comiera el
+ * veinte por ciento del hilo se notaría además tocando.
+ */
+const TOPE_MS_POR_SEGUNDO = 200;
 
 /** Cadencia real de cada motor, de sus opciones por defecto. */
 const PITCH_PER_SECOND = 20;
@@ -116,7 +138,7 @@ describe('coste del analisis en el hilo principal', () => {
     expect(chroma + match).toBeLessThan(pitch);
   });
 
-  it('los dos motores juntos no llegan al cinco por ciento del hilo', () => {
+  it('los dos motores juntos no se comen el hilo principal', () => {
     const pitch =
       msPerRun(60, () => detectPitch(frame, PITCH_OPTIONS)) + msPerRun(400, () => signalRms(frame));
     const vector = chromaFromSpectrum(clean, CHROMA_OPTIONS);
@@ -125,7 +147,7 @@ describe('coste del analisis en el hilo principal', () => {
       msPerRun(400, () => bestChord(vector, { minScore: 0.78 }));
 
     const msPerSecond = PITCH_PER_SECOND * pitch + CHORD_PER_SECOND * chord;
-    expect(msPerSecond).toBeLessThan(50);
+    expect(msPerSecond).toBeLessThan(TOPE_MS_POR_SEGUNDO);
   });
 
   it('una rafaga de los dos a la vez cabe de sobra en un fotograma', () => {

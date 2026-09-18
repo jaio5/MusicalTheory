@@ -962,7 +962,12 @@ export function arrangementFromSong(
       id: idDePosicion(prefijo, parte),
       name: section.name,
       blocks: section.degrees.map((degree, bloque) => ({
-        ...writtenBlock(idDePosicion(prefijo, parte, bloque), degree, porCompas),
+        ...writtenBlock(
+          idDePosicion(prefijo, parte, bloque),
+          degree,
+          porCompas,
+          section.sevenths?.[bloque] ?? undefined,
+        ),
         // De dónde salió cada acorde vuelve tal cual. Lo que se guardó como
         // oído sigue siendo oído al reabrirlo: si no, guardar y volver a abrir
         // sería una manera de dar por buena una lectura que nadie miró.
@@ -1005,6 +1010,7 @@ export function sectionsFromArrangement(
     .map((part) => {
       const degrees: DegreeSymbol[] = [];
       const sources: BlockSource[] = [];
+      const sevenths: (SeventhQuality | null)[] = [];
       for (const block of part.blocks) {
         // Al menos una vez: un bloque más corto que el compás sigue siendo un
         // acorde de la canción, y redondear a cero lo borraría sin decirlo.
@@ -1014,6 +1020,9 @@ export function sectionsFromArrangement(
           // La procedencia va en paralelo y se repite con el grado: los dos
           // compases de un bloque de dos salieron del mismo sitio.
           sources.push(block.source);
+          // Y la séptima igual. Sin esto, un `Fmaj7` se guardaba como `IV` y
+          // volvía como un `F`: escribías un acorde y te devolvían otro.
+          sevenths.push(block.seventh ?? null);
         }
       }
       const lead = part.notes.map((note) => [note.offset, note.start, note.length] as const);
@@ -1034,6 +1043,7 @@ export function sectionsFromArrangement(
         ...(part.bars === BARS_POR_DEFECTO ? {} : { bars: part.bars }),
         ...(lead.length > 0 ? { lead } : {}),
         ...(sources.some((source) => source !== 'written') ? { sources } : {}),
+        ...(sevenths.some((seventh) => seventh !== null) ? { sevenths } : {}),
       };
     })
     .filter((section) => section.degrees.length > 0);

@@ -246,6 +246,17 @@ export function seventhFromSuffix(suffix: string): SeventhQuality | null {
  * mayor, que suena mal pero no revienta.
  */
 /**
+ * Si un valor cualquiera es una de las especies que este proyecto sabe guardar.
+ *
+ * Hace falta al **leer lo que llega de fuera** —una canción guardada por una
+ * versión anterior, o tocada a mano—: lo que no reconozca no es una séptima, es
+ * una tríada, y eso es lo que se guarda.
+ */
+export function esSeventhQuality(value: unknown): value is SeventhQuality {
+  return typeof value === 'string' && Object.hasOwn(SEVENTH_SUFFIX, value);
+}
+
+/**
  * Qué séptima hay dentro de estas notas, si hay alguna.
  *
  * Es el gemelo de `triadInside`: aquélla saca la tríada y ésta la cuatríada. Las
