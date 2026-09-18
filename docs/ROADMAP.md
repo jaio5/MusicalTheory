@@ -97,11 +97,6 @@ Lo que queda, en el orden en que se hace:
   `Esc` descarta, el cupo restante en la barra de arriba y los cinco estados de
   error con su sitio ([adr/0033](./adr/0033-el-copiloto-propone-y-no-escribe.md)).
   Hoy las ideas siguen en su panel del área de abajo.
-- **Que el ensayo sume a la meta del día.** Terminar uno no cuenta todavía como
-  practicar, y debería contar como cuenta componer
-  ([adr/0028](./adr/0028-componer-tambien-cuenta.md)): a la meta y a la racha, no
-  al temario. Con eso entran las dos medallas que faltan —una vuelta limpia y una
-  progresión de ocho compases escrita entera—.
 - **Un micrófono compartido entre analizar y grabar.** Hoy son dos
   `getUserMedia`: `audio/` abre el suyo para el tono y el croma, y `media/` el
   suyo para los bytes. Funciona y no empeora nada, pero lo correcto es que las

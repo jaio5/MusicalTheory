@@ -47,6 +47,8 @@ export type BadgeId =
   | 'primera-cancion'
   | 'de-oido'
   | 'a-tu-manera'
+  | 'ensayo-entero'
+  | 'ensayo-limpio'
   | 'racha-siete'
   | 'repaso-al-dia'
   | 'meta-diaria';
@@ -96,6 +98,16 @@ export const BADGES: readonly Badge[] = [
     id: 'a-tu-manera',
     name: 'A tu manera',
     how: 'Quédate con una salida que te propuso la IA.',
+  },
+  {
+    id: 'ensayo-entero',
+    name: 'De principio a fin',
+    how: 'Ensaya una canción entera con el metrónomo, sin pararla.',
+  },
+  {
+    id: 'ensayo-limpio',
+    name: 'Clavada',
+    how: 'Termina un ensayo con todos los compases a tiempo.',
   },
   { id: 'racha-siete', name: 'Siete días', how: 'Practica siete días seguidos.' },
   { id: 'repaso-al-dia', name: 'Nada pendiente', how: 'Termina un repaso y deja la cola vacía.' },
@@ -221,13 +233,20 @@ export const REVIEW_XP = 10;
  * esta aplicación quiere que hagas, así que se premia sin convertirlo en la vía
  * rápida.
  */
-export type ComposeDeed = 'parte' | 'cancion' | 'salida' | 'oido';
+export type ComposeDeed = 'parte' | 'cancion' | 'salida' | 'oido' | 'ensayo' | 'ensayo-limpio';
 
 export const COMPOSE_XP: Readonly<Record<ComposeDeed, number>> = {
   parte: 10,
   cancion: 15,
   salida: 10,
   oido: 5,
+  // Tocarse la canción entera contra el metrónomo es practicar tanto como
+  // escribirla, así que vale lo mismo que una parte. **Y vale igual salga como
+  // salga**: quien la toca entera fallando la mitad es justo quien más
+  // practicó, y pagarle menos sería poner la nota de corte que este proyecto
+  // decidió no tener ([adr/0007](../../../docs/adr/0007-elegir-por-donde-empezar.md)).
+  ensayo: 10,
+  'ensayo-limpio': 10,
 };
 
 /**
@@ -624,6 +643,14 @@ export function practiceCompose(progress: Progress, day: string, deed: ComposeDe
   }
   if (deed === 'salida') {
     badges.add('a-tu-manera');
+  }
+  // Un ensayo limpio es también un ensayo entero: se dan las dos, o tener la
+  // difícil sin la fácil se lee como que falta una.
+  if (deed === 'ensayo' || deed === 'ensayo-limpio') {
+    badges.add('ensayo-entero');
+  }
+  if (deed === 'ensayo-limpio') {
+    badges.add('ensayo-limpio');
   }
   if (streak >= 7) {
     badges.add('racha-siete');

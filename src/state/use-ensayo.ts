@@ -6,6 +6,7 @@ import type { Metronome } from '@audio/metronome';
 import { WebAudioMetronome } from '@audio/metronome';
 import {
   comoSalio,
+  ensayoTerminado,
   guionDeEnsayo,
   puntuar,
   resolveDegree,
@@ -18,6 +19,7 @@ import {
   type ResultadoDelEnsayo,
 } from '@core/music';
 
+import { apuntarHecho } from './hechos-de-componer';
 import { useListening, type ListeningDeps } from './use-listening';
 import { useSessionStore } from './session-store';
 
@@ -107,9 +109,20 @@ export function useEnsayo(
     metronomoRef.current?.stop();
     void escucha.stop();
     const { guion: guardado, resultados: hechos } = marcha.current;
-    setResultado(puntuar(guardado, hechos));
+    const puntuacion = puntuar(guardado, hechos);
+    setResultado(puntuacion);
     setResultados([...hechos]);
     setPaso(null);
+
+    // Ensayar suma a la meta del día igual que escribir, que es lo que ya decidió
+    // [adr/0028](../../docs/adr/0028-componer-tambien-cuenta.md): tocarse lo que
+    // compusiste es practicar. **Solo si llega al final**, porque parar a los dos
+    // compases no es haberla tocado; y `puntuar` no basta para saberlo, que un
+    // ensayo a medias también devuelve números.
+    if (ensayoTerminado(guardado, hechos)) {
+      const limpio = puntuacion.total > 0 && puntuacion.acertados === puntuacion.total;
+      apuntarHecho(limpio ? 'ensayo-limpio' : 'ensayo');
+    }
   }, [escucha]);
 
   /**

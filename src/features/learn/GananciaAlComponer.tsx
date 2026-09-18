@@ -25,6 +25,8 @@ const QUE_HICISTE: Readonly<Record<ComposeDeed, string>> = {
   cancion: 'Canción guardada',
   salida: 'Te has quedado con una salida',
   oido: 'Metido lo que oyó el micro',
+  ensayo: 'Te la has tocado entera',
+  'ensayo-limpio': 'Entera y a tiempo',
 };
 
 /** Cuánto se queda en pantalla. Lo que se tarda en leer dos líneas, y ni una más. */

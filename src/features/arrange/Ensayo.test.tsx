@@ -11,6 +11,8 @@ import type { Metronome, MetronomeOptions } from '@audio/metronome';
 import type { PitchEngine } from '@audio/pitch-engine';
 import { pitchClassFromName, writtenBlock } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
+import type { ComposeDeed } from '@core/music';
+import { hechosDeComponer } from '@state/hechos-de-componer';
 import { useSessionStore } from '@state/session-store';
 
 import { Ensayo } from './Ensayo';
@@ -250,5 +252,73 @@ describe('Ensayar', () => {
     await userEvent.click(screen.getByRole('button', { name: /Diez pulsos más lento/ }));
 
     expect(useSessionStore.getState().bpm).toBe(antes - 10);
+  });
+});
+
+/**
+ * Ensayar suma a la meta del día, como escribir.
+ *
+ * Es la otra mitad de [adr/0028](../../../docs/adr/0028-componer-tambien-cuenta.md):
+ * el hecho lo emite el bucle, no la pantalla, porque quien sabe que se ha
+ * llegado al final es quien lleva la cuenta de los compases.
+ */
+describe('lo que suma ensayar', () => {
+  /** Apunta los hechos que se emitan mientras dure la prueba. */
+  function apuntados(): { readonly hechos: ComposeDeed[]; readonly soltar: () => void } {
+    const hechos: ComposeDeed[] = [];
+    const soltar = hechosDeComponer.suscribir((hecho) => hechos.push(hecho));
+    return { hechos, soltar };
+  }
+
+  it('tocarla entera y a tiempo cuenta como ensayo limpio', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    const { hechos, soltar } = apuntados();
+    render(<Ensayo deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+
+    await act(async () => {
+      suena(0, [0, 4, 7]);
+      metronomo.pulsar(4);
+      suena(7, [7, 11, 2]);
+      metronomo.pulsar(4);
+    });
+    soltar();
+
+    expect(hechos).toEqual(['ensayo-limpio']);
+  });
+
+  // Fallar no descuenta: llegar al final es lo que cuenta, que es la regla que
+  // este proyecto ya tomó en aprender.
+  it('tocarla entera fallando sigue contando', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    const { hechos, soltar } = apuntados();
+    render(<Ensayo deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+
+    await act(async () => {
+      metronomo.pulsar(8);
+    });
+    soltar();
+
+    expect(hechos).toEqual(['ensayo']);
+  });
+
+  it('pararla a la mitad no cuenta', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    const { hechos, soltar } = apuntados();
+    render(<Ensayo deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+
+    await act(async () => {
+      suena(0, [0, 4, 7]);
+      metronomo.pulsar(4);
+    });
+    await userEvent.click(screen.getByRole('button', { name: /^Parar$/ }));
+    soltar();
+
+    expect(hechos).toEqual([]);
   });
 });

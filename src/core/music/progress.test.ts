@@ -969,3 +969,43 @@ describe('las medallas de una lista de identificadores', () => {
     expect(badgesOf([])).toEqual([]);
   });
 });
+
+/**
+ * Ensayar cuenta como practicar.
+ *
+ * Es la otra mitad de [adr/0028](../../../docs/adr/0028-componer-tambien-cuenta.md):
+ * escribir la canción ya sumaba, y tocarse lo que escribiste —que es lo que de
+ * verdad cuesta— no sumaba nada.
+ */
+describe('ensayar suma como componer', () => {
+  const HOY = '2026-09-13';
+
+  it('un ensayo entero mantiene la racha y suma a la meta del dia', () => {
+    const despues = practiceCompose(EMPTY_PROGRESS, HOY, 'ensayo');
+
+    expect(despues.streak).toBe(1);
+    expect(xpEarnedOn(despues, HOY)).toBe(COMPOSE_XP.ensayo);
+    expect(despues.badges).toContain('ensayo-entero');
+  });
+
+  // Salga como salga: quien se la toca entera fallando la mitad es justo quien
+  // más practicó, y pagarle menos sería la nota de corte que aquí no hay.
+  it('vale lo mismo salga como salga', () => {
+    expect(COMPOSE_XP['ensayo-limpio']).toBe(COMPOSE_XP.ensayo);
+  });
+
+  it('clavarla da las dos medallas, no solo la dificil', () => {
+    const despues = practiceCompose(EMPTY_PROGRESS, HOY, 'ensayo-limpio');
+
+    expect(despues.badges).toContain('ensayo-limpio');
+    // Tener la difícil sin la fácil se lee como que falta una.
+    expect(despues.badges).toContain('ensayo-entero');
+  });
+
+  it('las dos medallas estan en el catalogo, con su explicacion', () => {
+    expect(badgesOf(['ensayo-entero', 'ensayo-limpio']).map((medalla) => medalla.name)).toEqual([
+      'De principio a fin',
+      'Clavada',
+    ]);
+  });
+});

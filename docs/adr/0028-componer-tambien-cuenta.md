@@ -41,6 +41,13 @@ estados:
 | `cancion` | Guardas una canción                        | 15  |
 | `salida`  | Te quedas con una de las que propuso la IA | 10  |
 | `oido`    | Metes un acorde que oyó el micro           | 5   |
+| `ensayo`  | Te tocas la canción entera con metrónomo   | 10  |
+
+`ensayo` vale igual salga como salga, y esa es la decisión: quien se la toca
+entera fallando la mitad es justo quien más practicó, y pagarle menos sería poner
+la nota de corte que este proyecto decidió no tener
+([ADR 0007](./0007-elegir-por-donde-empezar.md)). Lo que cambia al clavarla es la
+medalla, no los puntos.
 
 **No suman al XP del temario**, y eso no se puede negociar: `mergeProgress` y
 `parseProgress` recalculan el total desde las unidades hechas, así que cualquier
@@ -91,8 +98,9 @@ fusionar dos aparatos se queda **el mayor y no la suma**, igual que `xpToday`: d
 navegadores abiertos a la vez inventarían un tope que nadie llegó a gastar dos
 veces.
 
-Tres medallas nuevas —«Primera canción», «De oído», «A tu manera»— y con ellas
-trece en total, así que el contador de la pantalla de medallas cambia solo.
+Cinco medallas nuevas —«Primera canción», «De oído», «A tu manera», y de ensayar
+«De principio a fin» y «Clavada»— y con ellas quince en total, así que el
+contador de la pantalla de medallas cambia solo.
 
 El aviso de lo que ha contado es **un aviso y no una pantalla**, que es toda la
 diferencia con `UnitDone`: una unidad termina y se celebra, y componer no termina
