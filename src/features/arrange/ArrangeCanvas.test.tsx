@@ -922,4 +922,29 @@ describe('los bloques fantasma', () => {
 
     expect(usePropuestaStore.getState().propuesta).toBeNull();
   });
+
+  /**
+   * Y se dice en voz alta, porque un fantasma **cambia lo que hace `Tab`**.
+   *
+   * Aparecía sin decir nada: quien no ve la pantalla pulsaba `Tab` para
+   * recorrerla y se encontraba los acordes metidos en su canción. Se comprueba
+   * que la región está montada **antes** de que haya propuesta, que es lo que
+   * hace que se lea: una que nace con el texto ya puesto no se lee en todos los
+   * lectores.
+   */
+  it('se anuncia solo, con las teclas dentro', () => {
+    conTonalidad();
+    const { rerender } = render(<ArrangeCanvas />);
+    // El párrafo, y no la caja del aviso de lo grabado, que también se lee sola.
+    const region = screen.getByText('', { selector: 'p[aria-live="polite"]' });
+
+    expect(region).toBeInTheDocument();
+
+    conPropuesta();
+    rerender(<ArrangeCanvas />);
+
+    expect(region).toHaveTextContent(
+      'Bajar por tonos: 2 acordes propuestos para Estrofa. Tab los acepta, Mayúsculas y Tab acepta uno, Escape los descarta.',
+    );
+  });
 });

@@ -166,6 +166,20 @@ export function ArrangeCanvas() {
   const [punteo, setPunteo] = useState<Punteo>('partitura');
   /** Lo que hay que contar de la última grabación traída. */
   const [aviso, setAviso] = useState<string | null>(null);
+
+  /**
+   * La frase que se lee sola, con las teclas dentro.
+   *
+   * Los atajos se nombran aquí porque un fantasma solo se entiende sabiendo cómo
+   * se acepta y cómo se tira; en pantalla eso lo dicen los dos botones de la
+   * barra, y quien la oye no los ha alcanzado todavía.
+   */
+  const anuncio =
+    propuesta === null
+      ? ''
+      : `${propuesta.titulo}: ${propuesta.degrees.length} acordes propuestos para ${
+          arrangement.parts.find((part) => part.id === propuesta.partId)?.name ?? 'la canción'
+        }. Tab los acepta, Mayúsculas y Tab acepta uno, Escape los descarta.`;
   /** Qué propuesta se está arrastrando y sobre qué parte va, mientras dura. */
   const [soltando, setSoltando] = useState<{
     degree: DegreeSymbol;
@@ -782,6 +796,23 @@ export function ArrangeCanvas() {
   return (
     <div className="flex min-h-0 grow flex-col">
       {/*
+        Lo que acaba de aparecer, dicho en voz alta.
+
+        Un fantasma en pantalla **cambia lo que hace `Tab`**: deja de mover el
+        foco y acepta lo propuesto. Aparecía sin decir nada, así que quien no ve
+        la pantalla pulsaba `Tab` para recorrerla y se encontraba cuatro acordes
+        metidos en su canción sin haberlos pedido.
+
+        La región va montada siempre y vacía, y solo cambia el texto de dentro:
+        una que nace con el texto ya puesto no se lee en todos los lectores.
+
+        El aviso de lo grabado se lee en su propio sitio, unas líneas más abajo:
+        metido aquí también se decía dos veces.
+      */}
+      <p aria-live="polite" className="sr-only">
+        {anuncio}
+      </p>
+      {/*
         En pantalla ancha se envuelve; en estrecha **se desplaza a lo largo**.
 
         Envolviéndose siempre, esta barra crecía hacia abajo, y el hueco del
@@ -948,14 +979,24 @@ export function ArrangeCanvas() {
         </span>
       </div>
 
-      {aviso !== null && (
-        <p className="border-border text-text-muted flex items-start gap-3 border-b px-3 py-2 text-xs">
-          <span className="min-w-0 grow">{aviso}</span>
-          <Chip onClick={() => setAviso(null)} tone="quiet" className="shrink-0 px-3 text-xs">
-            Vale
-          </Chip>
-        </p>
-      )}
+      {/*
+        La caja de fuera va siempre, aunque no haya nada que contar.
+
+        Es lo que hace que el aviso se lea: un lector anuncia lo que **entra** en
+        una región que ya estaba, y no siempre una región que nace con el texto
+        dentro. Vacía no ocupa —el relieve y el relleno los lleva el párrafo de
+        dentro—, así que no se nota cuando no hay aviso.
+      */}
+      <div aria-live="polite">
+        {aviso !== null && (
+          <p className="border-border text-text-muted flex items-start gap-3 border-b px-3 py-2 text-xs">
+            <span className="min-w-0 grow">{aviso}</span>
+            <Chip onClick={() => setAviso(null)} tone="quiet" className="shrink-0 px-3 text-xs">
+              Vale
+            </Chip>
+          </p>
+        )}
+      </div>
 
       {/*
         En pantalla estrecha se desplaza la caja entera; en ancha, cada columna.

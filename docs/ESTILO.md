@@ -152,6 +152,15 @@ diagramas grandes, y el significado de un color al lado del color.
   única salida escrita en un enlace subrayado de doce píxeles, más pequeño que el
   aviso que la pedía. `ui/PlansLink` tiene dos formas y la de botón es la de casa;
   la de enlace se queda para la palabra suelta dentro de una frase.
+- **Lo que aparece sin que nadie lo pida se dice solo, y la región va montada
+  antes.** Un lector anuncia lo que **entra** en una región que ya estaba; una que
+  nace con el texto dentro no se lee en todos. Así que la caja con `aria-live` va
+  siempre y vacía, y lo que cambia es el texto de dentro. Lo que lo destapó: el
+  copiloto sacaba sus acordes punteados en silencio, y un fantasma en pantalla
+  **cambia lo que hace `Tab`** —deja de mover el foco y acepta lo propuesto—, así
+  que quien no ve la pantalla pulsaba `Tab` para recorrerla y se encontraba cuatro
+  acordes metidos en su canción. Si el aviso sale además a la vista, la región es
+  la caja de fuera y no una copia escondida: dicho dos veces se oye dos veces.
 
 ## Los dos temas
 
