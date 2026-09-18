@@ -1,6 +1,7 @@
 'use client';
 
 import { accidentalForScale, SCALES, scaleNotes, noteName } from '@core/music';
+import { useAcordeElegido } from '@state/acorde-elegido';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 
 import { Fretboard } from './Fretboard';
@@ -12,12 +13,19 @@ export function FretboardPanel() {
   const reading = useSessionStore((state) => state.reading);
   const hasSignal = useSessionStore((state) => state.hasSignal);
   /**
-   * El acorde que hay elegido en el camino, para marcar sus notas en el mástil.
+   * El acorde que marcar en el mástil: **el bloque que tienes elegido**.
    *
-   * El último del camino y no el que se está oyendo: el mástil se mira **antes**
-   * de tocar, para ver dónde caen las notas del acorde que se va a hacer.
+   * Y no el que se está oyendo: el mástil se mira **antes** de tocar, para ver
+   * dónde caen las notas del acorde que se va a hacer.
+   *
+   * Era el último del camino, que es la segunda canción paralela a la de verdad
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)):
+   * elegías un acorde de tu canción y el mástil seguía marcando otro. El camino
+   * queda de respaldo mientras haya algo que solo sepa llenarlo a él.
    */
-  const elegido = useSessionStore((state) => state.path.at(-1) ?? null);
+  const delMontaje = useAcordeElegido();
+  const delCamino = useSessionStore((state) => state.path.at(-1) ?? null);
+  const elegido = delMontaje ?? delCamino;
 
   return (
     // `grow`, para que el hueco del área llegue hasta el dibujo: el mástil se

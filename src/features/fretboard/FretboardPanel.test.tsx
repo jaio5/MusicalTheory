@@ -5,6 +5,7 @@ import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { A4_FREQUENCY, midiToFrequency, pitchClassFromName } from '@core/music';
+import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
 import { FretboardPanel } from './FretboardPanel';
@@ -85,5 +86,29 @@ describe('Panel del mástil', () => {
     // Una nota suelta no basta para saber la tonalidad, y el mástil lo dice en
     // vez de pintar una escala inventada.
     expect(screen.getByText(/toca unas notas sueltas/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * El mástil marca **el bloque que tienes elegido**.
+ *
+ * Era el último del camino —la segunda canción paralela a la de verdad—, así que
+ * elegías un acorde de tu canción y el mástil seguía marcando otro
+ * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+ */
+describe('qué acorde marca el mástil', () => {
+  it('el del bloque elegido, y no el ultimo del camino', () => {
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    // En el camino, un La menor; en la canción, elegido, un Fa.
+    actions.pushChord({ symbol: 'Am', label: 'vi', root: 9, notes: [9, 0, 4], why: '' });
+    const parte = useArrangementStore.getState().actions.addPart('Estrofa');
+    const bloque = useArrangementStore.getState().actions.addBlock(parte, 'IV', 4);
+    useArrangementStore.getState().actions.elegirBloque(bloque);
+
+    render(<FretboardPanel />);
+
+    expect(screen.getByText(/las notas de F:/)).toBeInTheDocument();
+    expect(screen.queryByText(/las notas de Am:/)).not.toBeInTheDocument();
   });
 });

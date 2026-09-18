@@ -443,6 +443,21 @@ describe('poner lo propuesto en la cancion', () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Y el buscador escribe donde escribe la lista: si no, la misma área haría dos
+   * cosas distintas según dónde pulsaras.
+   */
+  it('el buscador tambien escribe en la cancion', async () => {
+    enDoMayor();
+    const puestos: Array<[string, string | undefined]> = [];
+    render(<NextChords onPoner={(degree, seventh) => puestos.push([degree, seventh])} />);
+
+    await userEvent.type(screen.getByRole('combobox', { name: /Buscar un acorde/ }), 'Fmaj7');
+    await userEvent.keyboard('{Enter}');
+
+    expect(puestos).toEqual([['IV', 'major7']]);
+  });
+
   // Sin sitio donde escribir, la lista hace lo de siempre: llevar al camino.
   it('sin donde escribir, sigue llevando al camino', async () => {
     enDoMayor();

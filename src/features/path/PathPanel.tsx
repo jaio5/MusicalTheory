@@ -415,7 +415,23 @@ export function NextChords({
     // mide por su contenido deja un hueco vacío por el que se puede desplazar.
     <div className="flex flex-col lg:h-full">
       <div className="border-border border-b p-2">
-        <ChordSearch onPick={(chord) => actions.pushChord(fromSearch(chord))} />
+        {/* El buscador escribe donde escribe la lista de abajo: si no, la
+            misma área haría dos cosas distintas según dónde pulsaras. Lo que no
+            tiene grado sigue yendo al camino, igual que ahí. */}
+        <ChordSearch
+          onPick={(chord) => {
+            const triada = activeKey === null ? null : triadInside(chord.root, chord.notes);
+            const degree =
+              activeKey === null || triada === null
+                ? null
+                : degreeOfChord(activeKey.tonic, activeKey.mode, chord.root, triada);
+            if (degree !== null && onPoner !== undefined) {
+              onPoner(degree, seventhInside(chord.root, chord.notes) ?? undefined);
+              return;
+            }
+            actions.pushChord(fromSearch(chord));
+          }}
+        />
       </div>
 
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-3 pt-2">

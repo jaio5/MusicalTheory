@@ -72,17 +72,35 @@ describe('las pantallas de trabajo', () => {
     ['/aprender/repaso', () => import('./aprender/repaso/page'), 'Repaso'],
   ] as const;
 
-  it.each(DIRECCIONES)('%s abre su pantalla y lleva su titulo', async (_ruta, importar) => {
-    const modulo = (await importar()) as {
-      default: () => React.ReactElement;
-      metadata?: { title?: string };
-    };
+  /**
+   * Con más tiempo del de fábrica, y no por lento: **el primero paga por todos**.
+   *
+   * Cada caso importa una página de verdad, y la primera importación arrastra el
+   * árbol entero de la aplicación —los motores de audio, el dominio, la interfaz—.
+   * Los veinte juntos tardan dos segundos y medio con la máquina libre, pero con
+   * ella cargada el primero se pasaba de los cinco de fábrica y fallaba **solo el
+   * primero de la lista**, que hoy es `/afinar`. Un test que falla según lo
+   * ocupado que esté el equipo no dice nada de la aplicación: enseña a no mirar
+   * los rojos.
+   *
+   * Quince segundos no esconden una regresión: si esto tarda quince, lo que hay
+   * roto se nota mucho antes en `pnpm build`.
+   */
+  it.each(DIRECCIONES)(
+    '%s abre su pantalla y lleva su titulo',
+    async (_ruta, importar) => {
+      const modulo = (await importar()) as {
+        default: () => React.ReactElement;
+        metadata?: { title?: string };
+      };
 
-    pintar(modulo.default());
+      pintar(modulo.default());
 
-    expect(modulo.metadata?.title).toMatch(/Caos ordenado/);
-    expect(document.querySelectorAll('h1').length).toBeGreaterThan(0);
-  });
+      expect(modulo.metadata?.title).toMatch(/Caos ordenado/);
+      expect(document.querySelectorAll('h1').length).toBeGreaterThan(0);
+    },
+    15_000,
+  );
 });
 
 describe('una unidad por direccion', () => {
