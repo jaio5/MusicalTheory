@@ -79,9 +79,10 @@ export const REPARTOS_DE_FABRICA: Readonly<Record<EspacioDeTrabajo, RepartoDeAre
   // Escribiendo manda la canción, y al lado el acorde: cómo se toca el que
   // eliges. La rueda ya cumplió —el tono se elige una vez— y «a dónde ir» viene
   // plegada **porque el lienzo ya lleva su propia lista**: abiertas las dos,
-  // «Para empezar» y «Por dónde empezar» son la misma lista dos veces en la
-  // misma pantalla. La de dentro es la que escribe en la canción; ésta es para
-  // irse a probar, y se abre cuando hace falta
+  // «Para empezar» y «Por dónde empezar» dicen casi lo mismo en la misma
+  // pantalla. Las dos escriben en la canción; la del lienzo está donde se
+  // arrastra y ésta es el cajón de abajo —las especies, el estilo, el buscador—,
+  // que se abre cuando el acorde que buscas no está en los seis de arriba
   // ([adr/0032](../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
   escribir: { ...MEDIDAS, abajo: null, plegadas: ['izquierda', 'camino'] },
   // Ensayando no se decide nada: se toca lo que hay. Todo lo demás estorba.
