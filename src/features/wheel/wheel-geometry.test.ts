@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { pointAt } from './WheelOfFifths';
+import { escalaDesdeElCentro, pointAt } from './WheelOfFifths';
 
 /**
  * Estas pruebas existen por un fallo concreto: `Math.cos` devolvía el último
@@ -39,5 +39,32 @@ describe('coordenadas de la rueda', () => {
     const bottom = pointAt(6, 104);
     expect(bottom.x).toBeCloseTo(top.x, 2);
     expect(bottom.y).toBeCloseTo(260 - top.y, 2);
+  });
+});
+
+/**
+ * La escala de los anillos sale del render y no solo del efecto.
+ *
+ * Es otro fallo concreto: la encogía **solo** el efecto de layout, que en el
+ * servidor no corre, así que el HTML que llegaba traía los veinticuatro nombres
+ * pisados unos encima de otros —«A♯m» encima de «A♭m»— hasta que bajaba el
+ * JavaScript. Se veía sin JavaScript y se veía en el primer fotograma.
+ */
+describe('la escala de los anillos', () => {
+  it('el anillo de fuera no se toca', () => {
+    expect(escalaDesdeElCentro(1)).toBe('translate(0 0) scale(1)');
+  });
+
+  // Encogido a la mitad, el centro se queda donde estaba: si la traslación no
+  // compensara, el anillo de dentro se iría a la esquina de arriba.
+  it('el de dentro encoge sin moverse del centro', () => {
+    expect(escalaDesdeElCentro(0.5)).toBe('translate(65 65) scale(0.5)');
+  });
+
+  it('no arrastra decimales que dependan de la implementacion', () => {
+    const escrito = escalaDesdeElCentro(66 / 104);
+    for (const numero of escrito.match(/[\d.]+/g) ?? []) {
+      expect(Number.isInteger(Number(numero) * 1000)).toBe(true);
+    }
   });
 });

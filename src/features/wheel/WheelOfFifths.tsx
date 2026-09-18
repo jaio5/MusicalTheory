@@ -53,6 +53,22 @@ export interface WheelOfFifthsProps {
  * fallado por un `18.933358006418402` contra un `18.933358006418416`. Para
  * colocar una etiqueta sobran doce decimales.
  */
+/**
+ * La escala de un anillo, escrita ya en el marcado.
+ *
+ * Los dos anillos se dibujan al mismo radio y el de dentro se encoge, y eso lo
+ * hacía **solo** el efecto de layout. En el servidor no hay efecto: el HTML que
+ * llega salía con los veinticuatro nombres pisados unos encima de otros, y así
+ * se veía hasta que bajaba el JavaScript. Poniéndola aquí, el primer fotograma
+ * ya es el bueno y GSAP solo tiene que animar a partir de él.
+ *
+ * Se escribe a mano y no con `gsap.set` porque esto tiene que salir del render,
+ * que es lo único que corre en el servidor.
+ */
+export function escalaDesdeElCentro(escala: number): string {
+  return `translate(${round(CENTER * (1 - escala))} ${round(CENTER * (1 - escala))}) scale(${round(escala)})`;
+}
+
 export function pointAt(position: number, radius: number): { x: number; y: number } {
   const radians = ((positionAngle(position) - 90) * Math.PI) / 180;
   return {
@@ -307,7 +323,7 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
         {/* Los dos anillos se dibujan al mismo radio; el de dentro se encoge.
             Así intercambiarlos es animar una escala, y el texto encoge con
             ellos, que es justo el énfasis que se busca. */}
-        <g ref={majorsRef}>
+        <g ref={majorsRef} transform={escalaDesdeElCentro(mode === 'minor' ? INNER_SCALE : 1)}>
           {CIRCLE_OF_FIFTHS.map((major, position) => (
             <KeyLabel
               key={major}
@@ -327,7 +343,7 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
           ))}
         </g>
 
-        <g ref={minorsRef}>
+        <g ref={minorsRef} transform={escalaDesdeElCentro(mode === 'minor' ? 1 : INNER_SCALE)}>
           {CIRCLE_OF_FIFTHS.map((major, position) => {
             const minor = relativeMinor(major);
             return (
