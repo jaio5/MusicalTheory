@@ -540,6 +540,19 @@ export function degreeInMode(degree: DegreeSymbol, to: KeyMode): DegreeSymbol | 
   return traduccion ?? null;
 }
 
+/**
+ * Los siete de la escala, en cada modo.
+ *
+ * Escritos, y no sacados de las tablas de grados: allí los diatónicos conviven
+ * con los prestados y con las dominantes secundarias, y separar unos de otros
+ * contando claves o mirando qué empieza por `b` falla justo con el cuarto menor,
+ * que es prestado en mayor y de la escala en menor.
+ */
+const DE_LA_ESCALA: Readonly<Record<KeyMode, readonly DegreeSymbol[]>> = {
+  major: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
+  minor: ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'],
+};
+
 export function degreesFor(mode: KeyMode): DegreeSymbol[] {
   return mode === 'major'
     ? (Object.keys(MAJOR_DEGREES) as MajorDegreeSymbol[])
@@ -568,9 +581,19 @@ export function gradoDeLaFundamental(
   mode: KeyMode,
   root: PitchClass,
 ): DegreeSymbol | null {
-  return (
-    degreesFor(mode).find((degree) => resolveDegree(tonic, mode, degree).root === root) ?? null
+  const candidatos = degreesFor(mode).filter(
+    (degree) => resolveDegree(tonic, mode, degree).root === root,
   );
+
+  // Dos grados pueden compartir fundamental —`IV` y el `iv` prestado en mayor,
+  // `v` y `V` en menor, `i` y el `V/iv` del blues—, y sin tercera no hay nada en
+  // el acorde que los separe. Gana el de la escala: es el que se espera, y el
+  // otro contaría un préstamo que nadie ha tocado.
+  //
+  // Se pregunta por la lista y no se coge «el primero de la tabla»: allí los
+  // diatónicos van antes por cómo se escribió, así que la respuesta salía bien
+  // por el orden de unas claves, que no es sitio donde dejar una respuesta.
+  return candidatos.find((degree) => DE_LA_ESCALA[mode].includes(degree)) ?? candidatos[0] ?? null;
 }
 
 export function degreeOfChord(

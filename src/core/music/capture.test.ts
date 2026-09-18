@@ -341,6 +341,26 @@ describe('un acorde, como bloque', () => {
   });
 
   /**
+   * Y cuando dos grados se pelean la misma fundamental, gana el de la escala.
+   *
+   * En Do mayor, Fa es el `IV` y también el `iv` prestado; en La menor, Mi es el
+   * `v` de la escala y el `V` prestado del armónico. Un `F5` no lleva tercera, así
+   * que no dice cuál de los dos es: lo que no puede pasar es que salga el
+   * préstamo, porque entonces la canción cuenta un color que nadie ha tocado
+   * —y al cambiar de modo, un préstamo se traduce a otro sitio que el grado de la
+   * escala—.
+   *
+   * Salía bien por el orden en que están escritas las claves de la tabla de
+   * grados. Ahora está escrito.
+   */
+  it('una quinta sobre una fundamental repartida se lee como el grado de la escala', () => {
+    expect(comoBloque(0, 'major', 5, [5, 0])).toEqual({ degree: 'IV', especie: 'quinta' });
+    expect(comoBloque(9, 'minor', 4, [4, 11])).toEqual({ degree: 'v', especie: 'quinta' });
+    // Y el I mayor del blues no le quita el sitio a la tónica.
+    expect(comoBloque(9, 'minor', 9, [9, 4])).toEqual({ degree: 'i', especie: 'quinta' });
+  });
+
+  /**
    * Y el catálogo es más ancho de lo que parece: un `Db` en Do mayor **sí** es
    * un grado —el napolitano, `bII`— y por eso entra. Lo que no cabe es lo que no
    * tiene grado en ninguna lectura.
