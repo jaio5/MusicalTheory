@@ -101,6 +101,27 @@ describe('identificación del grado que suena', () => {
   it('devuelve null si el acorde no encaja', () => {
     expect(degreeOfChord(C, 'major', pitchClassFromName('C#'), 'minor')).toBeNull();
   });
+
+  /**
+   * Y ninguno se come a otro.
+   *
+   * Un grado se busca por fundamental y especie, así que dos con la misma pareja
+   * serían indistinguibles y contestaría el que esté escrito antes en la tabla.
+   * No es una posibilidad teórica: el catálogo tiene cuatro prestados y seis
+   * dominantes secundarias metidos entre los diatónicos, y **está elegido para
+   * que no choquen** —de las cuatro dominantes secundarias que se usarían en
+   * menor solo caben dos, porque las otras caen encima del III y del VII—. Esta
+   * vuelta es lo que avisa el día que se añada un grado que sí pise a alguien.
+   */
+  it('cada grado del catalogo se reconoce como el mismo', () => {
+    for (const mode of ['major', 'minor'] as const) {
+      for (const degree of degreesFor(mode)) {
+        const { root, quality } = resolveDegree(C, mode, degree);
+
+        expect(degreeOfChord(C, mode, root, quality), `${mode} ${degree}`).toBe(degree);
+      }
+    }
+  });
 });
 
 describe('catálogo de progresiones', () => {
