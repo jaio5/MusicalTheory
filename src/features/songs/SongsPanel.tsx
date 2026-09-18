@@ -272,19 +272,27 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
       return;
     }
 
-    const { degrees, dropped } = degreesFromPath(
+    // De la canción que tienes escrita, y del camino solo si no hay ninguna:
+    // el camino dejó de ser donde se escribe, y con él como única fuente esto
+    // decía «encadena algún acorde» con la canción delante
+    // ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+    const delMontaje = arrangement.parts.flatMap((part) =>
+      part.blocks.map((block) => block.degree),
+    );
+    const { degrees: delCamino, dropped } = degreesFromPath(
       path.map((chord) => chord.label),
       activeKey.mode,
     );
+    const degrees = delMontaje.length > 0 ? delMontaje : delCamino;
     if (degrees.length === 0) {
-      setMessage('Encadena algún acorde antes de añadirlo como parte.');
+      setMessage('Escribe algún acorde antes de añadirlo como parte.');
       return;
     }
 
     const parte = { name: defaultSectionName(song.sections.length), degrees };
     if (await guardarEncima(song, { sections: [...song.sections, parte] })) {
       setNote(
-        dropped > 0
+        dropped > 0 && delMontaje.length === 0
           ? `«${parte.name}» añadida a «${song.name}», sin ${dropped} ${
               dropped === 1 ? 'acorde que no es un grado' : 'acordes que no son grados'
             } de esta tonalidad.`

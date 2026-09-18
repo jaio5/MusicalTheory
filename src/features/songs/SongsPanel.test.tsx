@@ -318,7 +318,7 @@ describe('añadir una parte', () => {
     componiendo([]);
     await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Encadena algún acorde/);
+    expect(screen.getByRole('alert')).toHaveTextContent(/Escribe algún acorde/);
   });
 
   it('con varias partes se ven todas, con una sola no se enseña la lista', async () => {
@@ -482,5 +482,39 @@ describe('guardar el montaje', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Guardar esta progresión' }));
 
     expect(cuerpoDelPost(enviado).sections[0]?.degrees).toEqual(['I']);
+  });
+});
+
+/**
+ * Añadir una parte usa **la canción escrita**, no el camino.
+ *
+ * El camino dejó de ser donde se escribe
+ * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)),
+ * así que con él como única fuente esto decía «escribe algún acorde» con la
+ * canción delante.
+ */
+describe('de dónde sale la parte que se añade', () => {
+  it('de lo escrito en el lienzo, no del camino', async () => {
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: C, mode: 'major' });
+    const parte = useArrangementStore.getState().actions.addPart('Estrofa');
+    useArrangementStore.getState().actions.addBlock(parte, 'vi', 4);
+    useArrangementStore.getState().actions.addBlock(parte, 'IV', 4);
+
+    const guardadas: unknown[] = [];
+    const request = vi.fn(async (init?: RequestInit) => {
+      if (init?.method === 'PUT') {
+        guardadas.push(JSON.parse(String(init.body)));
+        return respondWith({ song: UNA });
+      }
+      return respondWith({ songs: [UNA] });
+    });
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Añadir parte' }));
+
+    await waitFor(() => expect(guardadas).toHaveLength(1));
+    const enviada = guardadas[0] as { sections: Array<{ degrees: string[] }> };
+    expect(enviada.sections.at(-1)?.degrees).toEqual(['vi', 'IV']);
   });
 });
