@@ -12,8 +12,7 @@ import {
 import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
-import { IconoSonar } from '@ui/icons';
-import { Vacio } from '@ui/Vacio';
+import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
 
 import { Question } from './Question';
 import { Tutor } from './Tutor';
@@ -104,10 +103,14 @@ export function EarUnit({
 
   if (activeKey === null) {
     return (
-      <Vacio icono={<IconoSonar />} titulo="Elige una tonalidad para empezar">
-        Un acorde solo tiene grado dentro de una tonalidad, y de eso va esto: vas a oír acordes y
-        decir qué papel hacen. Está en la rueda de aquí arriba.
-      </Vacio>
+      // La barra de la tonalidad **flota sobre esta caja** y se abre sola cuando no
+      // hay ninguna puesta, así que aquí abajo el sitio que queda puede ser una
+      // tira de noventa píxeles. Un estado vacío entero salía partido por el
+      // borde del panel, y encima decía «está en la rueda de aquí arriba» debajo
+      // de la rueda que lo tapaba. Cuatro botones caben, y resuelven el paso.
+      <div className="flex h-full min-h-0 flex-col justify-end">
+        <CuatroTonalidades>Elige una tonalidad para empezar:</CuatroTonalidades>
+      </div>
     );
   }
 

@@ -32,10 +32,17 @@ function conTonalidad() {
 }
 
 describe('sin tonalidad', () => {
-  // Un acorde suelto no tiene grado: lo tiene dentro de una tonalidad.
-  it('no se puede preguntar, y se dice por qué', () => {
+  /**
+   * Un acorde suelto no tiene grado: lo tiene dentro de una tonalidad. Y no
+   * basta con decirlo, hay que **ofrecer dónde**: la barra de la tonalidad flota
+   * sobre esta caja y se abre sola, así que un aviso que dijera «está en la
+   * rueda de aquí arriba» quedaba detrás de la rueda que lo tapaba.
+   */
+  it('no se puede preguntar, y se ofrecen tonalidades con las que empezar', () => {
     render(<EarUnit unit={GRADOS} onDone={() => {}} />);
-    expect(screen.getByText(/solo tiene grado dentro de una/)).toBeInTheDocument();
+
+    expect(screen.getByText(/Elige una tonalidad para empezar/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'C mayor' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Escuchar/ })).not.toBeInTheDocument();
   });
 });

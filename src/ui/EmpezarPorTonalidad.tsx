@@ -1,5 +1,7 @@
 'use client';
 
+import type { ReactNode } from 'react';
+
 import { keyName, pitchClassFromName, type KeyMode, type NoteName } from '@core/music';
 import { useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
@@ -39,6 +41,50 @@ const DE_SALIDA: ReadonlyArray<{ nota: NoteName; modo: KeyMode }> = [
  * conocen —componer y el lienzo de montar— y un feature no importa de otro. Es
  * la misma razón por la que la mascota vive aquí.
  */
+/**
+ * Las cuatro de salida, en una línea.
+ *
+ * Es la versión que cabe **debajo de la barra de tonalidad cuando se abre sola**.
+ * Esa barra flota sobre lo que hay debajo y, sin tonalidad puesta, se abre ella
+ * misma: el sitio que queda puede ser una tira de noventa píxeles, y ahí un
+ * estado vacío entero —icono, título y tres líneas— sale partido por el borde
+ * del panel, que se lee como que algo se ha roto.
+ *
+ * Y lo que decía ese estado era «está en la rueda de aquí arriba», debajo de la
+ * rueda que lo estaba tapando: señalar en vez de ofrecer, que es justo el fallo
+ * que cuenta el comentario de arriba. Cuatro botones caben siempre y resuelven
+ * el paso sin tocar la rueda.
+ */
+export function CuatroTonalidades({ children }: { readonly children?: ReactNode }) {
+  const actions = useSessionStore((state) => state.actions);
+
+  return (
+    // Con nombre, porque al lado hay veinticuatro botones más que dicen casi lo
+    // mismo: los de la rueda. Sin él, «C mayor» aquí y «C mayor» allí son la
+    // misma cosa para quien no ve cuál está dentro de un disco.
+    <div
+      role="group"
+      aria-label="Tonalidades para empezar"
+      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 p-4"
+    >
+      <span className="text-text-muted text-sm">{children}</span>
+      {DE_SALIDA.map(({ nota, modo }) => {
+        const tonic = pitchClassFromName(nota);
+        return (
+          <Button
+            key={`${nota}-${modo}`}
+            variant="quiet"
+            className="px-3 text-sm"
+            onClick={() => actions.pinKey({ tonic, mode: modo })}
+          >
+            {keyName(tonic, modo)}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function EmpezarPorTonalidad({ deps }: { readonly deps?: ListeningDeps } = {}) {
   const actions = useSessionStore((state) => state.actions);
   const listening = useSessionStore((state) => state.listening);

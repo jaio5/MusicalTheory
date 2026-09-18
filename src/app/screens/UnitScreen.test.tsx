@@ -103,6 +103,28 @@ describe('la unidad abierta', () => {
     expect(screen.getByText(/Tonalidad:/)).toBeInTheDocument();
     expect(screen.getByText(/sin elegir/)).toBeInTheDocument();
   });
+
+  /**
+   * Y sin tonalidad, la unidad **ofrece cuáles**, no señala la rueda.
+   *
+   * Esa barra flota sobre la caja de la unidad y se abre ella sola cuando no hay
+   * tonalidad puesta, así que lo que había debajo —un estado vacío que decía
+   * «está en la rueda de aquí arriba»— quedaba justo detrás del panel: en una
+   * ventana de 900 se veía la rueda y medio millar de píxeles de negro. Se vio
+   * mirando la pantalla, que es la única manera de ver algo tapado.
+   */
+  it('sin tonalidad ofrece cuatro con las que empezar, y elegir una abre la unidad', async () => {
+    pintar(PRIMERA);
+
+    const empezar = screen.getByRole('group', { name: 'Tonalidades para empezar' });
+    await userEvent.click(within(empezar).getByRole('button', { name: 'C mayor' }));
+
+    // Elegida, la unidad arranca: ni el ofrecimiento ni «sin elegir» siguen ahí.
+    expect(
+      screen.queryByRole('group', { name: 'Tonalidades para empezar' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/sin elegir/)).not.toBeInTheDocument();
+  });
 });
 
 describe('el avance de quien mira', () => {
