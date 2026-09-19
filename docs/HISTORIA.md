@@ -195,3 +195,13 @@ ninguno se veía leyendo el código:
   —que no se construye hasta empezar— para saber si había algo que ensayar, y
   decía «no hay nada» con la canción escrita delante. Había que preguntarle al
   montaje.
+- **Un test que mira una sola tonalidad aprueba un temario que miente en doce.**
+  Las lecciones se escribieron en Do mayor, se generan en la tonalidad de quien
+  estudia y se comprobaban solo en Do mayor. En menor decían que `Em7` es «la
+  única con tercera mayor y séptima menor», que `G7` lleva la quinta bemol y que
+  la cadencia auténtica cierra «porque la sensible sube medio tono a la tónica»,
+  con un quinto grado que no tiene sensible. Y la pregunta de la armadura miraba
+  dónde cae la **nota** en la rueda y no la tonalidad, así que ocho de las
+  veinticuatro contestaban mal —Do mayor y La menor entre ellas, que son con las
+  que arranca la aplicación—. Nada de esto se ve leyendo el código: se ve
+  generando las veinticuatro y leyéndolas.
