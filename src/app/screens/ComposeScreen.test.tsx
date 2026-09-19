@@ -254,6 +254,58 @@ describe('Las areas del banco', () => {
  * jsdom no tiene ancho, así que el `matchMedia` se dobla para contestar que no
  * hay banco, que es lo que pasa en un teléfono.
  */
+/**
+ * Las pestañas de estrecho, que enseñan un área cada una.
+ *
+ * El arreglo y «a dónde ir» viven en la **misma caja**, y esa caja miraba solo a
+ * la pestaña del arreglo: al elegir «A dónde ir» se escondía entera y con ella el
+ * área que se acababa de pedir. En un teléfono, la pestaña dejaba una pantalla en
+ * negro —la región existía, con su lista dentro, en una caja de 0×0—.
+ */
+describe('Las pestañas de una pantalla estrecha', () => {
+  function enEstrecho() {
+    vi.stubGlobal('innerWidth', 390);
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })),
+    );
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('la de «a donde ir» ensena lo suyo, y no una pantalla vacia', async () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'A dónde ir' }));
+
+    const area = screen.getByLabelText('A dónde ir');
+
+    expect(area).toBeInTheDocument();
+    // Y lo que hay dentro es la lista, no una caja vacía: el buscador es lo
+    // primero que se ve al abrirla.
+    expect(within(area).getByRole('combobox', { name: 'Buscar un acorde' })).toBeInTheDocument();
+    // La caja que las guarda a las dos no puede estar escondida.
+    expect(area.closest('.hidden')).toBeNull();
+  });
+
+  it('y con la del arreglo puesta, el arreglo es el que se ve', async () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    // La pestaña del arreglo se llama como el espacio en el que estés.
+    useBancoStore.getState().actions.espacio('escribir');
+
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'A dónde ir' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Arreglo' }));
+
+    expect(screen.getByLabelText('Arreglo').closest('.hidden')).toBeNull();
+  });
+});
+
 describe('Mientras la rueda tapa la pantalla', () => {
   function enEstrecho() {
     vi.stubGlobal(

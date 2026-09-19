@@ -146,6 +146,14 @@ export function ComposeScreen() {
    * pantalla estrecha.
    */
   const hayBanco = useHayBanco();
+  /*
+    Plegada **solo donde hay banco**, y las dos cosas con la misma cuenta.
+
+    El plegado es del banco: por debajo de `lg` no hay áreas que repartir, hay
+    una pestaña que enseña una sola. `plegada` ya lo descontaba y el `className`
+    no, así que apilada el área se quedaba además sin su alto.
+  */
+  const caminoPlegado = hayBanco && plegadoElCamino;
   const [areaMovil, setAreaMovil] = useState<'arreglo' | 'camino' | 'acorde'>('arreglo');
 
   /**
@@ -408,9 +416,18 @@ export function ComposeScreen() {
             queda en ciento sesenta píxeles y su texto sale cortado por el borde
             derecho. Se vio en una captura, no midiendo: la medida solo lo enseña
             cuando la barra está en su versión larga. */}
+        {/*
+          Esta caja lleva **dos** áreas dentro —el arreglo y «a dónde ir»—, y
+          apilada se enseña de una en una con pestañas.
+
+          Miraba solo la del arreglo, así que al elegir «A dónde ir» se escondía
+          la caja entera y con ella el área que se acababa de pedir: en un
+          teléfono, la pestaña dejaba **una pantalla en negro**. Medido: la
+          región existía, con su lista dentro, en una caja de 0×0.
+        */}
         <div
           className={`flex min-h-0 min-w-0 grow flex-col ${
-            hayBanco || areaMovil === 'arreglo' ? '' : 'hidden'
+            hayBanco || areaMovil === 'arreglo' || areaMovil === 'camino' ? '' : 'hidden'
           }`}
         >
           <Area
@@ -438,7 +455,9 @@ export function ComposeScreen() {
             // Suelo también apilado: con pestañas solo se ve un área, así que
             // puede pedir alto, y quien se desplaza es la columna. Sin él, el
             // lienzo se quedaba en ochenta píxeles con su barra fuera.
-            className="min-h-[26rem] grow lg:min-h-40"
+            className={`min-h-[26rem] grow lg:min-h-40 ${
+              hayBanco || areaMovil === 'arreglo' ? '' : 'hidden'
+            }`}
           >
             {activeKey === null ? (
               // `my-auto` en el hijo y no `justify-center` aquí, que es la regla
@@ -467,16 +486,40 @@ export function ComposeScreen() {
             <Area
               titulo="A dónde ir"
               icono={<IconoTocar />}
-              plegada={hayBanco && plegadoElCamino}
+              plegada={caminoPlegado}
               onPlegar={hayBanco ? () => accionesDelBanco.plegar('camino') : undefined}
               pliegue="horizontal"
               sinCabecera={!hayBanco}
-              // Pide trece rem, pero **cede**: al abrir el área de abajo el alto
-              // no da para todos, y lo que no puede encogerse es el arreglo.
-              // Esta lista se desplaza por dentro, así que perder altura aquí no
-              // esconde nada; plantarse dejaba el lienzo en setenta píxeles y su
-              // barra fuera de alcance.
-              className={plegadoElCamino ? '' : 'border-border min-h-16 shrink basis-52 border-t'}
+              /*
+                Pide trece rem, pero **cede**: al abrir el área de abajo el alto
+                no da para todos, y lo que no puede encogerse es el arreglo. Esta
+                lista se desplaza por dentro, así que perder altura aquí no
+                esconde nada; plantarse dejaba el lienzo en setenta píxeles y su
+                barra fuera de alcance.
+
+                **Pero hasta un suelo, y el suelo no era suelo.** Estaba en 64 px,
+                menos de lo que mide su propia cabecera —el buscador y la fila de
+                «Desde G» con sus leyendas ocupan 73—, así que a la lista le
+                quedaba lo que sobrase: medido, 59 px en una ventana de 900 de
+                alto, 36 en una de 800 y **16 en una de 700**, cuando una sola
+                tarjeta mide 72. Se abría un cajón donde no cabía ni una fila, y
+                la primera salía partida por el borde.
+
+                Con sitio se planta en once rem —cabecera más una tarjeta— y en
+                quince si la ventana pasa de 860, que es donde el lienzo va
+                sobrado. Sin sitio —una ventana de 600 de alto— vuelve a ceder,
+                porque ahí plantarse es lo que deja la barra del lienzo fuera de
+                alcance: comprobado con la sonda, cuatro elementos inalcanzables.
+
+                Y apilada ocupa lo que le dejen: es la única área a la vista, así
+                que quedarse en trece rem dejaba media pantalla en negro debajo de
+                una sola propuesta.
+              */
+              className={
+                caminoPlegado
+                  ? ''
+                  : 'border-border shrink basis-52 border-t max-lg:grow [@media(min-height:660px)]:min-h-44 [@media(min-height:860px)]:min-h-60'
+              }
             >
               {/* Lo que cabe en un bloque entra en la canción, al final de la
                   última parte, que es donde encaja una propuesta
