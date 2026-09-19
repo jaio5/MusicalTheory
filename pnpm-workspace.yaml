@@ -6,3 +6,13 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+
+# Una versión mínima forzada por debajo de lo que pida quien sea.
+#
+# `nanoid` llega por `next > postcss`, tres niveles abajo, y la 3.3.16 tiene un
+# aviso de severidad alta: un generador propio puede quedarse en bucle. Next no
+# ha subido su postcss todavía, así que se fuerza aquí. Va en este fichero y no
+# en `package.json` porque pnpm 10 se llevó los ajustes aquí: puesto allí, se
+# lee y se ignora sin decir nada.
+overrides:
+  nanoid: '>=3.3.18'
