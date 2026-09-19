@@ -503,13 +503,27 @@ export function ComposeScreen() {
                 quedaba lo que sobrase: medido, 59 px en una ventana de 900 de
                 alto, 36 en una de 800 y **16 en una de 700**, cuando una sola
                 tarjeta mide 72. Se abría un cajón donde no cabía ni una fila, y
-                la primera salía partida por el borde.
+                la primera salía partida por el borde. Este cajón existe para ver
+                a qué acordes puedes cambiar; si no se ve ninguno, no existe.
 
-                Con sitio se planta en once rem —cabecera más una tarjeta— y en
-                quince si la ventana pasa de 860, que es donde el lienzo va
-                sobrado. Sin sitio —una ventana de 600 de alto— vuelve a ceder,
-                porque ahí plantarse es lo que deja la barra del lienzo fuera de
-                alcance: comprobado con la sonda, cuatro elementos inalcanzables.
+                El suelo va por tramos de altura de ventana, y cada tramo es un
+                acorde más a la vista. Medido con cuatro acordes escritos:
+
+                  700  → 14rem, dos acordes
+                  800  → 18rem, tres
+                  900  → 24rem, cuatro
+                  1080 → 30rem, seis
+
+                Los tramos son **excluyentes** —`min-height` y `max-height` a la
+                vez— y no escalones abiertos: dos reglas de `min-height` que casan
+                a la vez tienen la misma especificidad y gana la que Tailwind
+                escriba después, que no es la que quieres. Con escalones abiertos,
+                una ventana de 1080 se quedaba en el valor de 900.
+
+                Por debajo de 660 no hay suelo y vuelve a ceder: ahí plantarse es
+                lo que deja la barra del lienzo fuera de alcance, comprobado con
+                la sonda —cuatro elementos inalcanzables—, y entre quedarse sin
+                partitura o sin lista, manda la canción.
 
                 Y apilada ocupa lo que le dejen: es la única área a la vista, así
                 que quedarse en trece rem dejaba media pantalla en negro debajo de
@@ -518,7 +532,7 @@ export function ComposeScreen() {
               className={
                 caminoPlegado
                   ? ''
-                  : 'border-border shrink basis-52 border-t max-lg:grow [@media(min-height:660px)]:min-h-44 [@media(min-height:860px)]:min-h-60'
+                  : 'border-border shrink basis-52 border-t max-lg:grow [@media(min-height:1040px)]:min-h-[30rem] [@media(min-height:660px)_and_(max-height:779px)]:min-h-56 [@media(min-height:780px)_and_(max-height:899px)]:min-h-72 [@media(min-height:900px)_and_(max-height:1039px)]:min-h-96'
               }
             >
               {/* Lo que cabe en un bloque entra en la canción, al final de la
