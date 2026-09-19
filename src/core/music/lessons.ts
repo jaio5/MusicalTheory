@@ -207,7 +207,13 @@ function qualitiesLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
           sevenths[3]!.symbol,
           sevenths[5]!.symbol,
         ]),
-        why: `El V con séptima es ${sevenths[4]!.symbol}, la dominante: el acorde que más tira al I.`,
+        // En menor el V con su séptima sale menor y sin tritono dentro, así que
+        // llamarlo «la dominante» contradecía a la lección de cuatríadas, que
+        // dice que ahí no hay ninguna hasta que se sube la séptima.
+        why:
+          mode === 'major'
+            ? `El V con séptima es ${sevenths[4]!.symbol}, la dominante: el acorde que más tira al I.`
+            : `El V con séptima es ${sevenths[4]!.symbol}. En menor sale menor y sin tritono dentro: para que apriete de verdad hay que subir la séptima y traer ${dominanteDe(tonic, mode).cuatriada} del menor armónico.`,
       },
     ],
   };
@@ -414,7 +420,12 @@ function functionsLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
       'Tres papeles y nada más: la tónica reposa, la subdominante sale de casa y la dominante aprieta para volver.',
       `En ${keyName(tonic, mode)} reposan ${first.symbol}, ${triads[2]!.symbol} y ${sixth.symbol}; salen ${second.symbol} y ${fourth.symbol}; y aprietan ${fifth.symbol} y ${triads[6]!.symbol}.`,
       `No es una etiqueta puesta a dedo: ${first.symbol} y ${sixth.symbol} comparten dos de sus tres notas, y por eso hacen el mismo papel.`,
-      'La dominante es la única que lleva el tritono dentro. Ahí está toda su prisa por resolver.',
+      // El tritono no está en el mismo sitio en los dos modos: en mayor lo lleva
+      // la dominante, y en el menor natural el V es menor y no lo tiene —vive en
+      // el ii°—. Dicho sin distinguir, contradecía a la lección de cuatríadas.
+      mode === 'major'
+        ? 'La dominante es la única que lleva el tritono dentro. Ahí está toda su prisa por resolver.'
+        : `En mayor el tritono lo lleva la dominante, y ahí está su prisa por resolver. En el menor natural ${fifth.symbol} no lo tiene: vive en ${second.symbol}, y el V solo lo trae si se le sube la séptima.`,
     ],
     exercises: [
       {
@@ -424,12 +435,17 @@ function functionsLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
           'Subdominante: sale de casa sin tensión',
           'Ninguno: está fuera de la tonalidad',
         ]),
-        why: `${fifth.symbol} es el V. Lleva el tritono con la séptima y es el que más tira hacia ${first.symbol}.`,
+        why:
+          mode === 'major'
+            ? `${fifth.symbol} es el V. Lleva el tritono con la séptima y es el que más tira hacia ${first.symbol}.`
+            : `${fifth.symbol} es el V y es el que tira hacia ${first.symbol}. El tritono no lo trae: para eso hay que subir la séptima y tocar ${dominanteDe(tonic, mode).triada} mayor.`,
       },
       {
         prompt: `¿Cuál de estos reposa igual que ${first.symbol}?`,
         choices: choices(sixth.symbol, [fourth.symbol, fifth.symbol, second.symbol]),
-        why: `${sixth.symbol} comparte dos notas con ${first.symbol} y hace el mismo papel de reposo: es su relativo.`,
+        // El relativo de una mayor es su sexto grado; el de una menor es el
+        // tercero, así que en menor esto nombraba relativo a quien no lo es.
+        why: `${sixth.symbol} comparte dos notas con ${first.symbol} y hace el mismo papel de reposo: es ${mode === 'major' ? 'su relativo' : 'el sexto grado'}.`,
       },
       {
         prompt: '¿Qué suele venir después de una subdominante?',
