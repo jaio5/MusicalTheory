@@ -246,6 +246,20 @@ se va uno. Un `<button>` que abre un recurso compartido no es su dueño.
 renderiza en el servidor salvo que lleve `'use client'` en la primera línea.
 Todo lo que toque `navigator`, `window` o un hook necesita esa marca.
 
+Y de ahí sale una trampa propia de `ui/`, que es la capa que **usan las dos
+orillas**: una pieza sin `'use client'` la puede montar una pantalla de cliente o
+una página de servidor, y en la segunda no caben ni un `ref` ni un manejador de
+eventos. `ui/Disclosure` ganó los dos para poder avisar de si está abierto, y la
+portada —que lo usa para sus preguntas— pasó a devolver **500** con «Refs cannot
+be used in Server Components». Los cinco comandos pasaban, `pnpm build`
+incluido: montar el componente en un test de jsdom es un render de cliente y ahí
+el `ref` es legal. Lo cazó pedir la página con un navegador.
+
+La regla: en `ui/`, lo que solo tiene sentido en el cliente se engancha **solo si
+quien lo monta lo pide**. Pasada la prop, quien la pasa es de cliente y el
+componente baja con él; sin pasarla, el elemento sale limpio y el servidor lo
+sirve.
+
 El layout raíz es de servidor y lee la cuenta, y lleva `export const dynamic =
 'force-dynamic'`. Sin eso, un `pnpm build` hecho sin `DATABASE_URL` deja las
 páginas prerenderizadas con la cuenta anónima dentro y luego se sirve ese HTML

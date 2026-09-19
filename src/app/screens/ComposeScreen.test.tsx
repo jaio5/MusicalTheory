@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { pitchClassFromName } from '@core/music';
 import { selectReparto, useBancoStore } from '@state/banco';
@@ -119,7 +119,9 @@ describe('Las areas del banco', () => {
    */
   // Dos: el de la barra de estrecho y el del estado vacío del centro, que es el
   // de ancho. Conviven en el árbol y el CSS enseña uno; lo que importa aquí es
-  // que el de la barra exista, porque es el que estaba tapado.
+  // que el de la barra exista, porque es el que estaba tapado. En estrecho, el
+  // otro se apaga mientras el panel lo tapa —más abajo se comprueba—, así que no
+  // hay dos juegos vivos a la vez.
   it('sin tonalidad, la barra de estrecho ofrece cuatro con las que empezar', () => {
     render(<ComposeScreen />);
 
@@ -239,6 +241,59 @@ describe('Las areas del banco', () => {
  * que de verdad se olvida al escribir un divisor es que se pueda mover sin
  * ratón. Un editor que solo se reparte arrastrando es un editor a medias.
  */
+/**
+ * Lo que la rueda tapa deja de existir para el teclado y para un lector.
+ *
+ * Por debajo de `lg` la barra de tonalidad flota y se abre ella sola mientras no
+ * hay tonalidad: ocupa de la barra al final de la pantalla, y detrás quedan el
+ * estado vacío del centro y la barra de herramientas de abajo. No se ven, pero
+ * seguían recibiendo el foco —doce paradas seguidas del tabulador sobre
+ * controles invisibles, medido en un teléfono de verdad— y anunciándose, con lo
+ * que se leían dos veces las mismas cuatro tonalidades.
+ *
+ * jsdom no tiene ancho, así que el `matchMedia` se dobla para contestar que no
+ * hay banco, que es lo que pasa en un teléfono.
+ */
+describe('Mientras la rueda tapa la pantalla', () => {
+  function enEstrecho() {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })),
+    );
+  }
+
+  // Deshacerlo aquí y no al final de cada test: un test que falla antes de
+  // llegar a su última línea deja el doble puesto y **tumba al siguiente**, que
+  // es justo lo que pasó al escribir esto.
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('lo de debajo queda apagado', () => {
+    enEstrecho();
+
+    const { container } = render(<ComposeScreen />);
+
+    expect(container.querySelectorAll('[inert]').length).toBeGreaterThan(0);
+  });
+
+  it('y revive en cuanto hay tonalidad, que es cuando la barra se pliega', () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    const { container } = render(<ComposeScreen />);
+
+    expect(container.querySelector('[inert]')).toBeNull();
+  });
+
+  // En el banco la barra no existe: ahí la rueda vive en su área y no tapa nada.
+  it('en el banco no se apaga nada', () => {
+    const { container } = render(<ComposeScreen />);
+
+    expect(container.querySelector('[inert]')).toBeNull();
+  });
+});
+
 describe('Repartir el banco', () => {
   it('los divisores se mueven con el teclado y dicen cuanto miden', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });

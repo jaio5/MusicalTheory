@@ -148,6 +148,22 @@ export function ComposeScreen() {
   const hayBanco = useHayBanco();
   const [areaMovil, setAreaMovil] = useState<'arreglo' | 'camino' | 'acorde'>('arreglo');
 
+  /**
+   * Si la barra de tonalidad está abierta tapando la pantalla.
+   *
+   * Solo existe por debajo de `lg`, y ahí abierta ocupa de la barra al final de
+   * la pantalla: el estado vacío de componer y la barra de herramientas de abajo
+   * quedan **enteros detrás**. Verlos no se ve nada, pero seguían recibiendo el
+   * foco —doce paradas seguidas del tabulador sobre controles invisibles, medido
+   * en un teléfono— y anunciándose, con lo que un lector de pantalla leía dos
+   * veces las mismas cuatro tonalidades: las del panel y las de debajo.
+   *
+   * El valor de salida se calcula igual que lo calcula la barra, porque un
+   * `<details>` que nace abierto no dispara `toggle`; a partir de ahí manda ella.
+   */
+  const [tonalidadAbierta, setTonalidadAbierta] = useState(activeKey === null);
+  const tapadoPorLaRueda = !hayBanco && tonalidadAbierta;
+
   // El reparto guardado se recupera después de pintar, como el tema: leerlo
   // durante el render daría un HTML distinto en servidor y en cliente.
   useEffect(() => {
@@ -283,7 +299,7 @@ export function ComposeScreen() {
           pantalla de teléfono y es justo lo que se toca una vez al empezar. En
           el banco vive en su área y esta barra no existe. */}
       <div className="border-border bg-surface shrink-0 border-b px-3 lg:hidden">
-        <BarraDeTonalidad>
+        <BarraDeTonalidad onAbrirse={setTonalidadAbierta}>
           {/*
             Sin tonalidad, aquí van las cuatro de salida; con ella, los ajustes.
 
@@ -342,7 +358,10 @@ export function ComposeScreen() {
           debajo de otra y en una ventana baja no caben, así que quien se
           desplaza es esta caja. En el banco cada área se apaña con su hueco, que
           es de lo que va un banco de trabajo. */}
-      <div className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      <div
+        className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
+        inert={tapadoPorLaRueda}
+      >
         <Area
           titulo="Tonalidad"
           icono={<IconoAfinar />}
@@ -536,7 +555,7 @@ export function ComposeScreen() {
         Envolviendo los dos, sale por encima del que esté arriba sin que nadie
         tenga que adivinar cuánto miden. Sigue sin empujar nada: flota.
       */}
-      <div className="relative flex min-h-0 shrink-0 flex-col">
+      <div className="relative flex min-h-0 shrink-0 flex-col" inert={tapadoPorLaRueda}>
         <GananciaAlComponer gain={composeGain} onDismiss={dismissComposeGain} />
 
         {editor !== null && (

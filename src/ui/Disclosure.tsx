@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, ToggleEvent } from 'react';
 
 import { Chevron } from './Chevron';
 
@@ -29,6 +29,7 @@ export function Disclosure({
   className = '',
   abierto = false,
   flotante = false,
+  onAbrirse,
   children,
 }: {
   /** El enunciado, lo que se lee con el bloque cerrado. */
@@ -70,6 +71,18 @@ export function Disclosure({
    * el rótulo.
    */
   readonly flotante?: boolean;
+  /**
+   * Avisa de si está abierto, para quien tenga algo que hacer con eso.
+   *
+   * Lo necesita quien monta uno **flotante**: mientras el panel está abierto tapa
+   * lo que hay debajo, y lo tapado no debería seguir recibiendo el foco ni
+   * anunciarse. Nadie de fuera puede deducirlo mirando `abierto`, que es solo el
+   * valor de partida: a partir de ahí manda quien lo abre y lo cierra.
+   *
+   * Se avisa también al montar, con el estado de salida, porque un `<details>`
+   * que nace abierto no dispara `toggle`.
+   */
+  readonly onAbrirse?: (abierto: boolean) => void;
   readonly children: ReactNode;
 }) {
   return (
@@ -78,6 +91,33 @@ export function Disclosure({
       // aquí y no en la primera caja posicionada que pille por encima.
       className={`group ${flotante ? 'relative' : ''} ${className}`}
       open={abierto}
+      /*
+        El `ref` y el manejador **solo si alguien escucha**, y no siempre.
+
+        Este componente se usa también desde componentes de servidor —las
+        preguntas de la portada—, y ahí ni un `ref` ni un manejador de eventos
+        pueden pasar: React contesta «Refs cannot be used in Server Components» y
+        la página entera devuelve 500. Los cinco comandos pasaban igual, build
+        incluido; lo cazó pedir la portada con un navegador.
+
+        Quien pasa `onAbrirse` es siempre un componente de cliente, así que ahí
+        los dos son legales.
+
+        El `ref` avisa al montar con el estado de salida, porque un `<details>`
+        que nace abierto no dispara `toggle` y quien escucha se quedaría creyendo
+        que está cerrado justo en el caso que importa.
+      */
+      {...(onAbrirse === undefined
+        ? {}
+        : {
+            ref: (nodo: HTMLDetailsElement | null) => {
+              if (nodo !== null) {
+                onAbrirse(nodo.open);
+              }
+            },
+            onToggle: (evento: ToggleEvent<HTMLDetailsElement>) =>
+              onAbrirse(evento.currentTarget.open),
+          })}
     >
       <summary
         className={`min-h-tap flex cursor-pointer list-none items-center gap-2 transition-colors marker:content-none [&::-webkit-details-marker]:hidden ${

@@ -29,10 +29,19 @@ import { KeyPanel } from './KeyPanel';
  */
 export function BarraDeTonalidad({
   className,
+  onAbrirse,
   children,
 }: {
   /** El marco: quien no viva ya dentro de una caja con borde pone el suyo. */
   readonly className?: string;
+  /**
+   * Avisa de si el panel está abierto.
+   *
+   * Flotando, abierto tapa la pantalla entera de un teléfono, y lo tapado no
+   * debería seguir recibiendo el foco: quien monta esta barra lo usa para
+   * apagar lo de debajo mientras dura.
+   */
+  readonly onAbrirse?: (abierto: boolean) => void;
   /** Lo que acompaña a la rueda: los ajustes, o una frase que explique. */
   readonly children?: ReactNode;
 }) {
@@ -54,6 +63,7 @@ export function BarraDeTonalidad({
       */
       flotante
       {...(className === undefined ? {} : { className })}
+      {...(onAbrirse === undefined ? {} : { onAbrirse })}
       summary={
         <>
           Tonalidad:{' '}

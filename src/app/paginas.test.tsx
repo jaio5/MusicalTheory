@@ -62,6 +62,11 @@ beforeEach(() => {
 
 describe('las pantallas de trabajo', () => {
   const DIRECCIONES = [
+    // La portada entraba en esta lista la última, y por no estar se coló un 500
+    // en ella con los cinco comandos en verde. Montarla aquí no caza el fallo
+    // que fue —un `ref` en un componente de servidor solo revienta sirviendo la
+    // página de verdad—, pero sí que la portada siga montándose.
+    ['/', () => import('./page'), 'Caos ordenado'],
     ['/afinar', () => import('./afinar/page'), 'Afinar'],
     ['/aprender', () => import('./aprender/page'), 'Aprender'],
     ['/componer', () => import('./componer/page'), 'Componer'],
