@@ -10,6 +10,18 @@ import { GUION_TEMA } from '@state/theme';
 const currentAccount = vi.fn(async () => ANONYMOUS);
 const authAvailable = vi.fn(() => true);
 
+/*
+  El número de un solo uso que en la aplicación pone `middleware.ts`.
+
+  `headers()` solo existe dentro de una petición, y aquí el layout se pinta
+  suelto: sin este doble, pintarlo revienta con «headers was called outside a
+  request scope». Se devuelve un número reconocible para poder comprobar que
+  acaba en el guion del tema.
+*/
+vi.mock('next/headers', () => ({
+  headers: async () => new Headers({ 'x-nonce': 'numerodeprueba' }),
+}));
+
 vi.mock('@server/entitlements', () => ({ currentAccount: () => currentAccount() }));
 vi.mock('@server/auth', () => ({ authAvailable: () => authAvailable() }));
 
@@ -62,7 +74,9 @@ describe('el marco', () => {
     const html = await pintar();
     const head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));
 
-    expect(head).toContain('<script>');
+    // Con su número puesto: sin él, la política de seguridad lo bloquea y
+    // vuelve el fogonazo blanco que este guion existe para evitar.
+    expect(head).toContain('<script nonce="numerodeprueba">');
     expect(html).toContain(GUION_TEMA);
   });
 

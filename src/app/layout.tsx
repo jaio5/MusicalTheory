@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 
 import { authAvailable } from '@server/auth';
 import { currentAccount } from '@server/entitlements';
@@ -63,6 +64,15 @@ export const metadata: Metadata = {
  */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const account = await currentAccount();
+  /*
+    El número de un solo uso que ha puesto `middleware.ts`.
+
+    Sin él, este guion —el que aplica el tema antes de pintar— lo bloquea la
+    política de seguridad, y quien tenga el tema oscuro se come un fogonazo
+    blanco en cada carga. Los guiones de Next se lo ponen ellos: les basta con
+    encontrar un número en la cabecera.
+  */
+  const numero = (await headers()).get('x-nonce') ?? undefined;
 
   return (
     <html lang="es" suppressHydrationWarning>
@@ -76,7 +86,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           `suppressHydrationWarning` en el `<html>` porque este guion le toca el
           atributo antes de que React compare lo que hay con lo que esperaba.
         */}
-        <script dangerouslySetInnerHTML={{ __html: GUION_TEMA }} />
+        <script nonce={numero} dangerouslySetInnerHTML={{ __html: GUION_TEMA }} />
       </head>
       <body className="antialiased">
         <AccountProvider account={account} accounts={authAvailable()}>

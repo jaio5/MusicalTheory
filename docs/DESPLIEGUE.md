@@ -100,6 +100,31 @@ Ninguno necesita base de datos ni claves. Los tests no tocan Postgres a propósi
 lo que se prueba es la política de planes, la fusión de avances y el cifrado de
 contraseñas, que son puros.
 
+## Las cabeceras de seguridad, que las pone la aplicación
+
+No hay que configurarlas en el sitio donde viva: las escribe `src/middleware.ts`
+en cada respuesta, así que valen igual en Vercel, en un contenedor y en un
+servidor propio. Si el sitio añade las suyas, gana la suya; conviene mirarlo.
+
+- **`Content-Security-Policy`** con un número de un solo uso por petición. La
+  aplicación no carga nada de fuera —ni un guion, ni una hoja, ni una fuente, ni
+  una imagen, ni una petición—, así que la política es `'self'` y poco más. Los
+  guiones en línea —el del tema y los que Next escribe para enviar la página a
+  trozos— van con ese número, **no con `'unsafe-inline'`**: con él, la política
+  dejaría de proteger de lo único de lo que protege.
+- **`Permissions-Policy`** declara el micrófono y cierra cámara, ubicación, pagos
+  y USB. Es la manera de decir por escrito lo que `CUENTAS-Y-PLANES.md` promete.
+- **`X-Content-Type-Options`**, **`Referrer-Policy`** y
+  **`Strict-Transport-Security`**, que son tres líneas y no se discuten.
+
+`style-src` sí lleva `'unsafe-inline'`, y es a propósito: Tailwind y React
+escriben estilos en el atributo `style` —el ancho de un bloque, el avance de una
+barra— y no hay número que valga para eso. Un estilo inyectado puede afear la
+página; no puede ejecutar nada.
+
+Lo vigila `src/middleware.test.ts`, que comprueba que el número cambia en cada
+petición y que `'unsafe-inline'` no se cuela en los guiones.
+
 ## Camino 1: Vercel
 
 Es la casa de Next y no necesita configuración: detecta el proyecto, compila y
