@@ -85,9 +85,20 @@ export function ReviewSession({
     // ella. Y decía «está en la rueda de aquí arriba», debajo de la rueda que lo
     // tapaba: señalar no es ofrecer. Cuatro botones caben y resuelven el paso,
     // como en la unidad y en componer.
+    //
+    // Abajo con **margen automático**, no con `justify-end`: es la trampa de
+    // flexbox que este repositorio ya tiene escrita en `docs/ESTILO.md`, y aquí
+    // volvió a morder. Alineando la caja que recorta, lo que no cabe se sale por
+    // el lado contrario y el desplazamiento no llega hasta ello: en una ventana
+    // de 600 px de alto —un portátil bajo— el rótulo y los cuatro botones se
+    // iban por arriba y **no había forma de empezar un repaso**. Lo cazó la
+    // sonda del skill `arrancar`, cinco elementos inalcanzables. Con el margen,
+    // cuando sobra sitio baja y cuando falta se queda arriba y se desplaza.
     return (
-      <div className="flex h-full min-h-0 flex-col justify-end">
-        <CuatroTonalidades>Elige una tonalidad para repasar:</CuatroTonalidades>
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="mt-auto">
+          <CuatroTonalidades>Elige una tonalidad para repasar:</CuatroTonalidades>
+        </div>
       </div>
     );
   }
