@@ -270,22 +270,53 @@ function borrowedLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
   const flatSeven = chordSymbol(up(tonic, 10), 'major', 'flat');
   const secondary = `${chordSymbol(up(tonic, 2), 'major', accidental)}7`;
   const fifth = triads[4]!;
+  /*
+    El préstamo que se enseña **no es el mismo en los dos modos**, y antes lo era.
+
+    En mayor, el préstamo de casa es el bVII, traído del menor. En menor eso no
+    tiene sentido: el séptimo grado del menor natural **ya** está un tono por
+    debajo de la tónica, así que se preguntaba por un acorde que la tonalidad ya
+    tiene, y la respuesta buena salía además como opción mala. En diez de las
+    doce tonalidades menores la misma opción aparecía dos veces, y quien pulsaba
+    la otra fallaba con el acorde correcto en la mano.
+
+    El préstamo de verdad del menor es el otro: la dominante **mayor**, la del
+    menor armónico, que sube la séptima para tener sensible. Es lo que hace que
+    una canción en menor suene a final y no a que se apaga, y el dominio ya lo
+    sabía —`MINOR_DEGREES` tiene el `V` mayor al lado del `v`—.
+  */
+  const prestado =
+    mode === 'major'
+      ? {
+          symbol: flatSeven,
+          punto: `El bVII —${flatSeven}— viene del modo menor y en rock es más normal que el propio VII.`,
+          prompt: `En ${keyName(tonic, mode)}, ¿qué acorde es el bVII?`,
+          malas: [
+            triads[6]!.symbol,
+            triads[5]!.symbol,
+            chordSymbol(up(tonic, 11), 'major', accidental),
+          ],
+          why: `El bVII está un tono por debajo de la tónica: ${flatSeven}.`,
+        }
+      : {
+          symbol: chordSymbol(up(tonic, 7), 'major', accidental),
+          punto: `El V mayor —${chordSymbol(up(tonic, 7), 'major', accidental)}— viene del menor armónico: sube la séptima para tener sensible, y aprieta mucho más que el ${fifth.symbol} de la escala.`,
+          prompt: `En ${keyName(tonic, mode)}, ¿qué acorde se presta del menor armónico para cerrar con más fuerza?`,
+          malas: [fifth.symbol, triads[6]!.symbol, triads[3]!.symbol],
+          why: `El ${chordSymbol(up(tonic, 7), 'major', accidental)} mayor trae la sensible que el menor natural no tiene: por eso suena a final y el ${fifth.symbol} no.`,
+        };
 
   return {
     points: [
       'Que una nota se salga de la tonalidad no la convierte en un error: media música vive de eso.',
-      `El bVII —${flatSeven}— viene del modo menor y en rock es más normal que el propio VII.`,
+      prestado.punto,
       `Una dominante secundaria es el V de otro grado: ${secondary} tira hacia ${fifth.symbol} igual que ${fifth.symbol} tira hacia el I.`,
     ],
     exercises: [
       {
-        prompt: `En ${keyName(tonic, mode)}, ¿qué acorde es el bVII?`,
-        choices: choices(flatSeven, [
-          triads[6]!.symbol,
-          triads[5]!.symbol,
-          chordSymbol(up(tonic, 11), 'major', accidental),
-        ]),
-        why: `El bVII está un tono por debajo de la tónica: ${flatSeven}.`,
+        prompt: prestado.prompt,
+        choices: choices(prestado.symbol, prestado.malas),
+        why: prestado.why,
       },
       {
         prompt: `¿Hacia dónde tira ${secondary}?`,

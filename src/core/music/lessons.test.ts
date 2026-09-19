@@ -26,14 +26,31 @@ describe('Lecciones', () => {
     }
   });
 
+  /**
+   * Y en las veinticuatro tonalidades, no solo en Do mayor.
+   *
+   * Miraba una sola, y por eso pasó diez años de lecciones en verde una pregunta
+   * que en **diez de las doce menores** ofrecía la respuesta buena dos veces: una
+   * marcada como buena y otra como mala. Quien pulsaba la segunda fallaba con el
+   * acorde correcto en la mano.
+   */
   it('cada ejercicio tiene una única respuesta buena y ninguna repetida', () => {
     for (const id of IDS) {
-      for (const exercise of lessonNotes(id, C, 'major').exercises) {
-        expect(exercise.choices.filter((choice) => choice.correct)).toHaveLength(1);
-        expect(new Set(exercise.choices.map((choice) => choice.text)).size).toBe(
-          exercise.choices.length,
-        );
-        expect(exercise.why).not.toBe('');
+      for (let tonic = 0; tonic < 12; tonic++) {
+        for (const mode of ['major', 'minor'] as const) {
+          for (const exercise of lessonNotes(id, tonic as PitchClass, mode).exercises) {
+            const donde = `${keyName(tonic as PitchClass, mode)} ${id}: ${exercise.prompt}`;
+
+            expect(
+              exercise.choices.filter((choice) => choice.correct),
+              donde,
+            ).toHaveLength(1);
+            expect(new Set(exercise.choices.map((choice) => choice.text)).size, donde).toBe(
+              exercise.choices.length,
+            );
+            expect(exercise.why, donde).not.toBe('');
+          }
+        }
       }
     }
   });
