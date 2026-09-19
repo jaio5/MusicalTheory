@@ -38,6 +38,14 @@ import { Teacher } from './Teacher';
  * frase entera desde el primer momento —anunciarla letra a letra sería
  * inservible— y con `prefers-reduced-motion` no entra deslizándose ni escribe.
  *
+ * **Y no se abre solo donde no cabe.** Abierto mide lo que mide el formulario, y
+ * en un teléfono eso es media pantalla: al fallar una pregunta se plantaba encima
+ * de la corrección —la respuesta buena, el porqué y el botón de seguir—, que es
+ * justo lo que hay que leer en ese momento. Medido: sobre «Siguiente», lo que
+ * devolvía `elementFromPoint` era el globo. En una pantalla ancha cabe al lado y
+ * no tapa nada, así que ahí sigue saliendo él solo; en una estrecha se queda
+ * donde está, a un dedo, y lo abre quien lo quiera.
+ *
  * **Se agarra y se mueve.** Al soltarlo se va al lado más cercano —solo izquierda
  * o derecha— y se queda a la altura donde lo dejaste. Los dos lados y no donde
  * caiga, porque un muñeco suelto en mitad de la pantalla acaba tapando justo lo
@@ -45,6 +53,21 @@ import { Teacher } from './Teacher';
  * estorbe en cada pantalla. El sitio se recuerda entre pantallas y entre
  * sesiones: lo guarda `state/tutor-spot`.
  */
+/**
+ * Si la pantalla da sitio para un panel flotante sin taparlo todo.
+ *
+ * 640 es el mismo corte que usa el resto de la aplicación. Se mide el ancho y no
+ * se pregunta por `matchMedia` a propósito: es la misma respuesta y así no se
+ * mezcla con la consulta de movimiento reducido, que también pasa por ahí.
+ *
+ * Se pregunta en el momento de abrirse y no se guarda: quien gira el teléfono o
+ * estira la ventana cambia la respuesta, y esto solo decide un gesto que ocurre
+ * una vez.
+ */
+function cabeElGlobo(): boolean {
+  return typeof window !== 'undefined' && window.innerWidth >= 640;
+}
+
 export function Tutor({
   unitId,
   aviso = null,
@@ -65,11 +88,13 @@ export function Tutor({
   const arrastre = useRef<{ dx: number; dy: number; movido: boolean } | null>(null);
   // Si ya viene con algo que decir, nace abierto: comparar solo el cambio dejaba
   // callado al muñeco que se monta ya con el aviso puesto.
-  const [abierto, setAbierto] = useState(aviso !== null);
+  const [abierto, setAbierto] = useState(aviso !== null && cabeElGlobo());
   // Empieza a hablar en el momento en que se abre, no dentro del efecto: poner
   // estado en el cuerpo de un efecto encadena un render de más, y la regla de
   // React que lo prohíbe está encendida en este proyecto.
-  const [hablando, setHablando] = useState(aviso !== null && !prefersReducedMotion());
+  const [hablando, setHablando] = useState(
+    aviso !== null && cabeElGlobo() && !prefersReducedMotion(),
+  );
   const globo = useRef<HTMLSpanElement>(null);
 
   const frase = aviso ?? '¿Qué quieres saber? Te lo explico con los acordes de tu tonalidad.';
@@ -79,7 +104,7 @@ export function Tutor({
   const [avisado, setAvisado] = useState(aviso);
   if (avisado !== aviso) {
     setAvisado(aviso);
-    if (aviso !== null) {
+    if (aviso !== null && cabeElGlobo()) {
       setAbierto(true);
       setHablando(!quieto);
     }

@@ -19,9 +19,19 @@ function pintar(nodo: React.ReactNode) {
   );
 }
 
+/** El ancho de la ventana y si quien mira ha pedido menos movimiento. */
+function pantalla({ ancha = true, quieto = false } = {}) {
+  vi.stubGlobal('innerWidth', ancha ? 1024 : 390);
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn(() => ({ matches: quieto, addEventListener: () => {}, removeEventListener: () => {} })),
+  );
+}
+
 beforeEach(() => {
   localStorage.clear();
   moverTutor(SITIO_POR_DEFECTO);
+  pantalla();
 });
 
 describe('El muñeco del profesor', () => {
@@ -253,10 +263,7 @@ describe('Cómo aparece la frase', () => {
    * letra en voz alta no lo aguanta nadie.
    */
   it('con movimiento reducido, entera desde el primer fotograma', () => {
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} })),
-    );
+    pantalla({ quieto: true });
 
     const { container } = pintar(<Tutor aviso="Otra vez esa." />);
 
@@ -268,10 +275,7 @@ describe('Cómo aparece la frase', () => {
   });
 
   it('sin movimiento reducido, se escribe sola hasta terminar', () => {
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })),
-    );
+    pantalla({ quieto: false });
     // El reloj de la animación es `performance.now`, y los fotogramas los pide
     // `requestAnimationFrame`: los dos se mueven a mano.
     let ahora = 0;
@@ -317,5 +321,28 @@ describe('Un aviso nuevo', () => {
     );
 
     expect(screen.getByRole('button', { name: /cerrar el profesor/i })).toBeInTheDocument();
+  });
+
+  /**
+   * Pero no en una pantalla donde el globo taparía lo que hay que leer.
+   *
+   * Abierto mide lo que mide el formulario. En un teléfono, al fallar una
+   * pregunta se plantaba encima de la corrección —la respuesta buena, el porqué
+   * y el botón de seguir— y no había manera de continuar sin cerrarlo primero.
+   * Comprobado en un navegador de verdad: sobre «Siguiente», lo que respondía
+   * `elementFromPoint` era el globo.
+   *
+   * El muñeco sigue ahí, a un dedo, para quien quiera preguntar.
+   */
+  it('no se abre solo en una pantalla estrecha, donde taparia la correccion', () => {
+    pantalla({ ancha: false });
+
+    pintar(<Tutor aviso="Esa no era." />);
+
+    expect(screen.getByRole('button', { name: /preguntarle al profesor/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 });
