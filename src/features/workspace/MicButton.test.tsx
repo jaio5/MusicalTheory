@@ -156,6 +156,52 @@ describe('el boton de escuchar', () => {
     expect(await screen.findByText('+12¢')).toBeInTheDocument();
   });
 
+  /**
+   * Rasgueando no hay nota que enganchar, y decir «esperando» es decir lo
+   * contrario de lo que pasa.
+   *
+   * El motor de tono es monofónico: con un acorde sonando no saca ninguna nota,
+   * o saca un parcial grave —un `G2` con un Fa sonando—. La pastilla se quedaba
+   * en «— esperando» con el micro en verde y la aplicación apuntando acordes en
+   * la canción, y va dentro de un `aria-live`: a quien no ve la pantalla se le
+   * anunciaba que no llegaba nada justo mientras llegaba.
+   */
+  it('con un acorde sonando dice el acorde, no que espera', async () => {
+    useSessionStore.setState({
+      heardChord: {
+        symbol: 'Am',
+        root: 9,
+        notes: [9, 0, 4],
+        score: 0.9,
+        margin: 0.3,
+        alternatives: [],
+        at: 0,
+      },
+    });
+
+    pintar();
+    await userEvent.click(screen.getByRole('button'));
+
+    expect(await screen.findByText('Am')).toBeInTheDocument();
+    expect(screen.getByText('acorde')).toBeInTheDocument();
+    expect(screen.queryByText('esperando')).not.toBeInTheDocument();
+  });
+
+  /** Y donde no se escuchan acordes —el afinador— manda la nota, como siempre. */
+  it('sin acorde que reconocer, la nota sigue mandando', async () => {
+    useSessionStore.setState({
+      reading: { name: 'G', pitchClass: 7, octave: 3, cents: 3, frequency: 196, midi: 55 },
+      hasSignal: true,
+      heardChord: null,
+    });
+
+    pintar();
+    await userEvent.click(screen.getByRole('button'));
+
+    expect(await screen.findByText('G3')).toBeInTheDocument();
+    expect(screen.getByText('+3¢')).toBeInTheDocument();
+  });
+
   it('un problema con el micro se anuncia, no se traga', () => {
     // Va con `role="alert"`: quien esté mirando el mástil y no el botón tiene que
     // enterarse de que no se le está oyendo.

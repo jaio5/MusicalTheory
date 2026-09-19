@@ -25,10 +25,34 @@ export function MicButton(deps: MicButtonProps = {}) {
   const message = useSessionStore((state) => state.message);
   const reading = useSessionStore((state) => state.reading);
   const hasSignal = useSessionStore((state) => state.hasSignal);
+  /*
+    El acorde que se oye, para no decir «esperando» mientras se está oyendo algo.
+
+    El motor de tono es monofónico: rasgueando no engancha ninguna nota, así que
+    la pastilla se quedaba en «— esperando» con el micro en verde y la aplicación
+    apuntando acordes en la canción. Dice lo contrario de lo que está pasando, y
+    va dentro de un `aria-live`: a quien no ve la pantalla se le anunciaba que no
+    llegaba nada justo mientras llegaba.
+
+    Solo lo hay donde se escuchan acordes —componer—; en el resto sigue null y la
+    pastilla se comporta igual que siempre.
+  */
+  const heardChord = useSessionStore((state) => state.heardChord);
   const { start, stop } = useListening(deps);
 
   const isListening = listening === 'listening';
   const busy = listening === 'requesting';
+  /*
+    Manda el acorde donde se escuchan acordes, y la nota donde no.
+    
+    Rasgueando, el motor de tono engancha cualquier parcial grave: con un Fa
+    sonando decía «G2 +4¢», que es tan poco cierto como «esperando». Donde hay
+    acordes que reconocer, el acorde es la respuesta a lo que acabas de tocar; y
+    donde no —el afinador, una unidad de tocar—, `heardChord` es nulo y la nota
+    vuelve a mandar ella sola.
+  */
+  const acorde = heardChord;
+  const hayNota = acorde === null && reading !== null && hasSignal;
 
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -67,17 +91,19 @@ export function MicButton(deps: MicButtonProps = {}) {
           >
             <span
               className={`font-mono text-base tabular-nums ${
-                hasSignal ? 'text-brass-bright' : 'text-text-muted'
+                hayNota || acorde !== null ? 'text-brass-bright' : 'text-text-muted'
               }`}
             >
-              {reading === null || !hasSignal ? '—' : `${reading.name}${reading.octave}`}
+              {hayNota ? `${reading.name}${reading.octave}` : (acorde?.symbol ?? '—')}
             </span>
             <span className="text-text-muted font-mono text-xs whitespace-nowrap tabular-nums">
-              {reading === null || !hasSignal
-                ? busy
-                  ? 'pidiendo permiso'
-                  : 'esperando'
-                : `${reading.cents > 0 ? '+' : ''}${reading.cents.toFixed(0)}¢`}
+              {hayNota
+                ? `${reading.cents > 0 ? '+' : ''}${reading.cents.toFixed(0)}¢`
+                : acorde !== null
+                  ? 'acorde'
+                  : busy
+                    ? 'pidiendo permiso'
+                    : 'esperando'}
             </span>
           </span>
         )}
