@@ -90,6 +90,27 @@ describe('la suscripción', () => {
     expect(screen.getByRole('link', { name: 'Ver los tres planes' })).toBeInTheDocument();
   });
 
+  /**
+   * El precio se dice cuando dice algo que el nombre no diga ya.
+   *
+   * El plan gratis se llama «Gratis» y su precio es «Gratis», así que la
+   * pastilla de arriba ponía «Plan Gratis» y debajo «Gratis» otra vez, y la
+   * suscripción lo repetía igual. Repetir una palabra no es informar.
+   */
+  it('el gratis no dice dos veces que es gratis', () => {
+    pintar({ ...DENTRO, plan: 'gratis' });
+
+    expect(screen.getByText('Plan Gratis')).toBeInTheDocument();
+    // La única vez que aparece suelto es el nombre del plan en la suscripción.
+    expect(screen.getAllByText('Gratis')).toHaveLength(1);
+  });
+
+  it('y el de pago si dice lo que cuesta', () => {
+    pintar({ ...DENTRO, plan: 'basico' });
+
+    expect(screen.getAllByText('4,99 € al mes').length).toBeGreaterThan(0);
+  });
+
   it('el cupo se cuenta desde lo que queda, no desde lo que da el plan', () => {
     // Lo que hace falta saber antes de pedir otra idea es cuántas quedan.
     pintar(DENTRO);

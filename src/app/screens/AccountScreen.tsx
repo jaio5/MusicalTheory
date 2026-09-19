@@ -35,6 +35,7 @@ export function AccountScreen() {
   const { account, accounts, signedIn } = useAccount();
   const { progress, day } = useProgress();
   const plan = planOf(account.plan);
+  const precio = priceLabel(plan.id);
 
   // Sin haber entrado esto no son ajustes de nada: lo único que se puede hacer es
   // entrar, y se ofrece eso en vez de cuatro secciones vacías con candados.
@@ -78,9 +79,13 @@ export function AccountScreen() {
           <p className="text-text-muted truncate font-mono text-xs">{account.email}</p>
         </div>
 
+        {/* El precio, **solo si dice algo que el nombre no diga ya**: el plan
+            gratis se llama «Gratis» y su precio es «Gratis», así que la pastilla
+            ponía «Plan Gratis» y debajo «Gratis» otra vez. Repetir una palabra no
+            es informar, y el hueco que ocupa lo pide algo que sí. */}
         <div className="border-brass-dim ml-auto rounded-md border px-3 py-1.5 text-center">
           <p className="text-brass-bright text-sm font-medium">Plan {plan.name}</p>
-          <p className="text-text-muted font-mono text-xs">{priceLabel(plan.id)}</p>
+          {precio !== plan.name && <p className="text-text-muted font-mono text-xs">{precio}</p>}
         </div>
       </div>
 
@@ -119,7 +124,7 @@ export function AccountScreen() {
       <Section id="suscripcion" title="Tu suscripción">
         <div className="superficie flex flex-wrap items-baseline gap-x-4 gap-y-1 p-4">
           <p className="text-brass-bright text-xl">{plan.name}</p>
-          <p className="text-text-muted font-mono text-sm">{priceLabel(plan.id)}</p>
+          {precio !== plan.name && <p className="text-text-muted font-mono text-sm">{precio}</p>}
           <p className="text-text-muted ml-auto font-mono text-xs">
             {account.aiLeftMonth === null
               ? `${monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA al mes`
