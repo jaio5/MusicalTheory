@@ -38,6 +38,10 @@ describe('Panel de aprender', () => {
 
   beforeEach(() => {
     tone = new FakeTone();
+    // El ejercicio se contesta tocando, así que el panel enciende el micro al
+    // empezar y dice que está cerrado mientras no lo esté. Estos tests meten las
+    // notas en el store a mano, sin aparato ninguno, así que se da por abierto.
+    useSessionStore.setState({ listening: 'listening' });
   });
 
   function renderPanel() {
@@ -115,6 +119,26 @@ describe('Panel de aprender', () => {
     }
 
     expect(await screen.findByText(/escala completa/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Y con el micro cerrado se dice, en vez de pedir una nota que nadie oye.
+   *
+   * Es lo que pasaba: se pulsaba «Empezar», salía «Toca C» y no ocurría nada
+   * nunca, con el micro tachado en la cabecera y sin una palabra que lo
+   * relacionara. Toda una familia de unidades —las de tocar— no se podía
+   * terminar sin saber que primero había que abrir el micro por tu cuenta.
+   */
+  it('con el micro cerrado lo dice y ofrece abrirlo', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useSessionStore.setState({ listening: 'idle' });
+    renderPanel();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+
+    expect(screen.getByText(/el micrófono está cerrado/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrirlo' })).toBeInTheDocument();
+    expect(screen.queryByText(/^Toca /)).not.toBeInTheDocument();
   });
 
   it('empieza de nuevo al cambiar de escala', async () => {

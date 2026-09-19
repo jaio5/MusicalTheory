@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { WebAudioReferenceTone, type ReferenceTone } from '@audio/reference-tone';
 import { accidentalForScale, midiToFrequency, SCALES, noteName, type ScaleId } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { useListening, type ListeningDeps } from '@state/use-listening';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
 
@@ -17,7 +18,7 @@ import {
   type ExerciseProgress,
 } from './exercise';
 
-export interface LearnPanelProps {
+export interface LearnPanelProps extends ListeningDeps {
   readonly createTone?: () => ReferenceTone;
   /**
    * La escala que pide la unidad del temario. Sin ella se practica la que esté
@@ -35,10 +36,25 @@ export interface LearnPanelProps {
   readonly onDone?: (stumbled: readonly number[]) => void;
 }
 
-export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelProps = {}) {
+export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: LearnPanelProps = {}) {
   const activeKey = useSessionStore(selectActiveKey);
   const chosen = useSessionStore((state) => state.scaleId);
   const scaleId = asked ?? chosen;
+
+  /*
+    El ejercicio se contesta con la guitarra, así que **lo enciende él**.
+
+    Leía la nota del micro y no lo abría ni decía que hiciera falta: se pulsaba
+    «Empezar», salía «Toca C» y no pasaba nada nunca, con el micro tachado en la
+    cabecera y sin una palabra que lo relacionara. Quien llega aquí es alguien
+    que acaba de terminar su primera unidad de teoría.
+
+    El micro es uno y lo sujeta `state/use-listening`, que cuenta cuántos lo
+    piden y lo suelta cuando no queda ninguno; aquí se pide como lo pide el
+    afinador.
+  */
+  const escuchando = useSessionStore((state) => state.listening) === 'listening';
+  const { start } = useListening(deps);
 
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<ExerciseProgress>(INITIAL_PROGRESS);
@@ -136,6 +152,12 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
             onClick={() => {
               setProgress(INITIAL_PROGRESS);
               setRunning((current) => !current);
+              // Empezar un ejercicio que se contesta tocando **es** abrir el
+              // micro. Si ya está abierto no se toca: lo puede estar por otra
+              // pantalla, y pedirlo dos veces no cuesta nada pero tampoco vale.
+              if (!escuchando) {
+                void start();
+              }
             }}
           >
             {running ? 'Empezar de nuevo' : 'Empezar'}
@@ -175,6 +197,17 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
       <p className="mt-6" aria-live="polite">
         {!running ? (
           <span className="text-text-muted">Pulsa «Empezar» y toca la primera nota.</span>
+        ) : !escuchando ? (
+          // Y si el micro no llegó a abrirse —permiso denegado, o cerrado desde
+          // la cabecera—, se dice y se ofrece dónde, en vez de dejar «Toca C»
+          // esperando algo que nadie está oyendo.
+          <span className="text-text-muted">
+            Esto se contesta tocando, y el micrófono está cerrado.{' '}
+            <button type="button" onClick={() => void start()} className="enlace cursor-pointer">
+              Abrirlo
+            </button>
+            .
+          </span>
         ) : progress.done ? (
           <span className="text-tube-bright">Escala completa. Otra vez, más rápido.</span>
         ) : (
