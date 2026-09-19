@@ -170,6 +170,17 @@ export function CurrentChord({
   const actions = useSessionStore((state) => state.actions);
   const current = path.at(-1) ?? null;
   const hayBloqueElegido = useAcordeElegido() !== null;
+  /*
+    Si hay canción escrita, aunque no haya nada elegido.
+
+    Cambia lo que hay que decir cuando no hay acorde que enseñar: sin canción, de
+    dónde sacar el primero; con ella, que la canción es de donde se pulsa. Decía
+    «elige el primer acorde» a quien acababa de tocar cinco por el micro, que es
+    mandarle empezar lo que ya tiene hecho.
+  */
+  const hayCancion = useArrangementStore((state) =>
+    state.arrangement.parts.some((parte) => parte.blocks.length > 0),
+  );
 
   const [sonando, setSonando] = useState(false);
   /** Por qué acorde va la reproducción, para encenderlo en la tira. */
@@ -236,10 +247,17 @@ export function CurrentChord({
   return (
     <div className="flex flex-col gap-2 p-3">
       {current === null ? (
-        <Vacio icono={<IconoMastil />} titulo="Elige el primer acorde">
-          Ponlo desde la lista que hay junto a la canción, ordenada por lo bien que entra en tu
-          tonalidad. Al pulsar uno aquí sale cómo se hace, traste a traste.
-        </Vacio>
+        hayCancion ? (
+          <Vacio icono={<IconoMastil />} titulo="Pulsa un acorde de tu canción">
+            Aquí sale cómo se hace, traste a traste, y de cuántas maneras. También sirve cualquiera
+            de la lista que hay junto a la canción.
+          </Vacio>
+        ) : (
+          <Vacio icono={<IconoMastil />} titulo="Elige el primer acorde">
+            Ponlo desde la lista que hay junto a la canción, ordenada por lo bien que entra en tu
+            tonalidad. Al pulsar uno aquí sale cómo se hace, traste a traste.
+          </Vacio>
+        )
       ) : (
         <>
           <div className="flex items-baseline gap-3">

@@ -375,6 +375,35 @@ describe('el acorde elegido es el de la cancion', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  /**
+   * Y con canción escrita pero sin nada elegido, tampoco: entonces lo que hay que
+   * decir es de dónde se pulsa.
+   *
+   * Es el estado en el que se queda quien compone **tocando**: el micro escribe
+   * una parte entera y no toca el camino, así que no hay acorde que enseñar y no
+   * hay bloque elegido. Se le decía «elige el primer acorde» con cinco recién
+   * tocados delante.
+   */
+  it('con la cancion escrita pide pulsar uno de ella, no empezar de cero', () => {
+    conElFaElegido();
+    useArrangementStore.setState({ selectedBlockId: null });
+
+    render(<CurrentChord />);
+
+    expect(screen.getByText('Pulsa un acorde de tu canción')).toBeInTheDocument();
+    expect(screen.queryByText('Elige el primer acorde')).not.toBeInTheDocument();
+  });
+
+  it('y sin cancion ninguna sigue diciendo por donde empezar', () => {
+    useSessionStore.getState().actions.clearPath();
+    useSessionStore.getState().actions.pinKey({ tonic: 0, mode: 'major' });
+    useArrangementStore.setState({ arrangement: { parts: [] }, past: [], selectedBlockId: null });
+
+    render(<CurrentChord />);
+
+    expect(screen.getByText('Elige el primer acorde')).toBeInTheDocument();
+  });
+
   it('las propuestas salen desde el bloque elegido', () => {
     conElFaElegido();
     render(<NextChords />);
