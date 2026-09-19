@@ -113,7 +113,18 @@ const PITCH_OPTIONS = {
 };
 const CHROMA_OPTIONS = { sampleRate: SAMPLE_RATE, fftSize: SPECTRUM_SIZE };
 
-describe('coste del analisis en el hilo principal', () => {
+/*
+  Con la cobertura puesta, este fichero no mide nada y se aparta.
+
+  El instrumentado de V8 envuelve cada función para contar por dónde pasa, y eso
+  multiplica por tres lo que tarda el análisis: medido, 24 ms contra un tope de
+  8, y 419 contra 200. No es una regresión, es el aparato de medir pesando más
+  que lo medido. Dejarlo correr no daba información y sí cuatro rojos, y como
+  Vitest no emitía informe con algo en rojo, la cobertura no se podía mirar.
+
+  La variable la pone `vitest.config.ts`, que es quien ve el `--coverage`.
+*/
+describe.skipIf(process.env.COBERTURA === '1')('coste del analisis en el hilo principal', () => {
   // E2 es el peor caso: el periodo más largo obliga al desplazamiento mayor.
   const frame = guitarFrame(82.41);
   // C mayor en posición abierta, y el mismo acorde con distorsión: más
