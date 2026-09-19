@@ -95,9 +95,19 @@ export function AppShell({ children }: { children: ReactNode }) {
     // `overflow-hidden` y estiraban el documento casi mil píxeles. La aplicación
     // se iba hacia arriba y debajo quedaba una franja negra vacía.
     //
-    // Con esto, cualquier absoluto de dentro se ancla aquí, y aquí hay
-    // `overflow-hidden`. Vale para las que hay y para las que se escriban.
-    <div className="fondo-sala relative flex h-dvh flex-col overflow-hidden pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+    // Con esto, cualquier absoluto de dentro se ancla aquí, y aquí se recorta.
+    // Vale para los que hay y para los que se escriban.
+    //
+    // Y se recorta con `overflow-clip`, **no con `overflow-hidden`**, que son
+    // dos cosas distintas y la diferencia se paga cara. `hidden` esconde la
+    // barra de desplazamiento pero la caja **sigue siendo desplazable por
+    // código**: cualquier `scrollIntoView` de dentro —el que trae a la vista el
+    // acorde que acabas de poner, por ejemplo— sube el marco entero y no lo baja
+    // nadie. Medido en una ventana de 700×600 con una canción escrita: la sala
+    // se iba 183 px, la cabecera y la barra de pantallas desaparecían por arriba
+    // y debajo quedaba una franja negra. `clip` no es un contenedor de
+    // desplazamiento, así que no hay nada que subir.
+    <div className="fondo-sala relative flex h-dvh flex-col overflow-clip pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
       {/* Lo primero que se tabula, y no se ve hasta que hace falta.
 
           Antes de esto, llegar al contenido con el teclado costaba ocho paradas

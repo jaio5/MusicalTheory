@@ -202,6 +202,30 @@ describe('Lo que no puede escaparse de la pantalla', () => {
   });
 
   /**
+   * Y recorta con `overflow-clip`, que **no es lo mismo que `overflow-hidden`**.
+   *
+   * `hidden` quita la barra de desplazamiento pero la caja sigue siendo
+   * desplazable por código: un `scrollIntoView` de dentro —el que trae a la
+   * vista el acorde recién puesto— sube el marco entero, y no hay nada que lo
+   * baje. Medido en una ventana de 700×600 con una canción escrita: la sala se
+   * iba 183 px, la cabecera y la barra de pantallas desaparecían por arriba y
+   * debajo quedaba una franja negra. `clip` no es un contenedor de
+   * desplazamiento, así que no hay nada que subir.
+   *
+   * Se vigila aquí porque es una palabra, se pierde en cualquier retoque, y lo
+   * que rompe no lo ve ningún test de los que hay: se ve mirando la pantalla, o
+   * con la sonda del skill `arrancar`.
+   */
+  it('y recorta sin dejarse desplazar', () => {
+    const shell = FICHEROS.find(({ ruta }) => ruta.endsWith('app/AppShell.tsx'));
+
+    expect(shell!.codigo, 'el marco no puede llevar overflow-hidden').not.toMatch(
+      /className="[^"]*\bh-dvh\b[^"]*\boverflow-hidden\b/,
+    );
+    expect(shell!.codigo).toMatch(/className="[^"]*\bh-dvh\b[^"]*\boverflow-clip\b/);
+  });
+
+  /**
    * La barra de tonalidad tiene que flotar, no empujar.
    *
    * Es el fallo más caro de esta pantalla y ha vuelto dos veces con dos caras
