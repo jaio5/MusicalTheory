@@ -114,6 +114,24 @@ function up(tonic: PitchClass, semitones: number): PitchClass {
 }
 
 /**
+ * La dominante de la tonalidad, que **en menor no es el quinto grado**.
+ *
+ * En mayor el V ya es mayor y con la séptima de la escala da la dominante —G7 en
+ * Do—. En el menor **natural** el quinto grado es menor, así que su cuatríada es
+ * un `m7` sin tritono dentro: ni aprieta, ni pide resolver, ni es una dominante.
+ * La que se usa se trae del menor armónico, que sube la séptima para tener
+ * sensible, y es mayor.
+ *
+ * Existe porque cuatro lecciones daban por hecho lo contrario y decían, en las
+ * doce tonalidades menores, que `Em7` tiene la tercera mayor, que lleva el
+ * tritono y que el sustituto tritonal aprieta igual que él.
+ */
+function dominanteDe(tonic: PitchClass, mode: KeyMode): { triada: string; cuatriada: string } {
+  const triada = chordSymbol(up(tonic, 7), 'major', accidentalForKey(tonic, mode));
+  return { triada, cuatriada: `${triada}7` };
+}
+
+/**
  * Las opciones de un ejercicio, con la buena escrita primero.
  *
  * Primero **al escribirlas**, que es como se leen bien las cien que hay en este
@@ -439,20 +457,46 @@ function seventhsLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
   const first = sevenths[0]!;
   const fifth = sevenths[4]!;
   const second = sevenths[1]!;
-  const seventh = sevenths[6]!;
+  const dominante = dominanteDe(tonic, mode);
+  /*
+    Dos cosas que **no están en el mismo grado en los dos modos**, y aquí se
+    daban por fijas.
+
+    El semidisminuido es el vii en mayor y el ii en menor: preguntando siempre
+    por el séptimo, en menor la pregunta decía que `G7` —una dominante de pleno
+    derecho— lleva la quinta bemol.
+
+    Y la cuatríada de séptima mayor es el I en mayor pero el III en menor: en La
+    menor, `Am7` salía de ejemplo de «séptima mayor» siendo un menor con séptima
+    menor.
+  */
+  const semidisminuido = mode === 'major' ? sevenths[6]! : second;
+  const septimaMayor = mode === 'major' ? first : sevenths[2]!;
 
   return {
     points: [
       `Apilar una tercera más sobre cada grado da las cuatríadas: ${sevenths.map((chord) => chord.symbol).join(', ')}.`,
-      'La séptima no es un adorno: en el V aparece el tritono, y eso es lo que le hace pedir resolver.',
-      `Séptima mayor y séptima de dominante no son lo mismo. ${first.symbol} suena abierto; ${fifth.symbol} suena a que falta algo.`,
-      'Un acorde de dominante solo hay uno en la tonalidad, y está sobre el quinto grado.',
+      `La séptima no es un adorno: en ${dominante.cuatriada} aparece el tritono, y eso es lo que le hace pedir resolver.`,
+      `Séptima mayor y séptima de dominante no son lo mismo. ${septimaMayor.symbol} suena abierto; ${dominante.cuatriada} suena a que falta algo.`,
+      mode === 'major'
+        ? 'Un acorde de dominante solo hay uno en la tonalidad, y está sobre el quinto grado.'
+        : `En el menor natural no hay ninguno: ${fifth.symbol} es menor y no aprieta. La dominante se trae del menor armónico subiendo la séptima, y por eso es ${dominante.cuatriada}.`,
     ],
     exercises: [
       {
-        prompt: `¿Cuál de estas cuatríadas es la de dominante en ${keyName(tonic, mode)}?`,
-        choices: choices(fifth.symbol, [first.symbol, second.symbol, sevenths[3]!.symbol]),
-        why: `${fifth.symbol} está sobre el quinto grado y es la única con tercera mayor y séptima menor: eso es una dominante.`,
+        prompt: `¿Cuál de estas cuatríadas aprieta como una dominante en ${keyName(tonic, mode)}?`,
+        choices: choices(dominante.cuatriada, [
+          first.symbol,
+          second.symbol,
+          // En menor la mejor opción mala es la cuatríada del quinto grado, que
+          // es justo la que se confunde con la dominante; en mayor esa es la
+          // buena, así que ahí entra el cuarto.
+          mode === 'major' ? sevenths[3]!.symbol : fifth.symbol,
+        ]),
+        why:
+          mode === 'major'
+            ? `${dominante.cuatriada} está sobre el quinto grado y es la única con tercera mayor y séptima menor: eso es una dominante.`
+            : `${dominante.cuatriada} es la única con tercera mayor y séptima menor. No sale del menor natural —${fifth.symbol} es menor—: se trae del menor armónico, que sube la séptima para tener sensible.`,
       },
       {
         prompt: `¿Qué le pasa a ${triads[0]!.symbol} cuando le añades la séptima de la tonalidad?`,
@@ -464,7 +508,7 @@ function seventhsLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
         why: `La séptima de la escala sobre ${triads[0]!.symbol} da ${first.symbol}: el mismo grado y el mismo papel, con una nota más.`,
       },
       {
-        prompt: `${seventh.symbol} lleva la quinta bemol. ¿Cómo se llama esa especie?`,
+        prompt: `${semidisminuido.symbol} lleva la quinta bemol. ¿Cómo se llama esa especie?`,
         choices: choices('Semidisminuido', [
           'Disminuido entero',
           'Menor con séptima mayor',
@@ -485,20 +529,25 @@ function substitutionsLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
   const fourth = triads[3]!;
   const fifth = triads[4]!;
   const sixth = triads[5]!;
-  const tritone = noteName(up(tonic, 1), accidental);
+  const dominante = dominanteDe(tonic, mode);
+  // El bII se escribe con bemol aunque la tonalidad vaya de sostenidos, igual
+  // que el bVII: el sustituto tritonal de G7 en Do es Db7, nunca C#7.
+  const tritone = noteName(up(tonic, 1), 'flat');
 
   return {
     points: [
       'Dos acordes se pueden cambiar el uno por el otro cuando hacen el mismo papel y comparten notas. No hay más misterio.',
       `${sixth.symbol} va donde iría ${first.symbol}: dos notas en común y el mismo reposo.`,
       `${second.symbol} va donde iría ${fourth.symbol}: dos notas en común y la misma salida.`,
-      `El sustituto tritonal es otra cosa: ${tritone}7 lleva el mismo tritono que ${fifth.symbol}7, así que aprieta igual aunque la fundamental esté a un tritono.`,
+      `El sustituto tritonal es otra cosa: ${tritone}7 lleva el mismo tritono que ${dominante.cuatriada}, así que aprieta igual aunque la fundamental esté a un tritono.`,
     ],
     exercises: [
       {
         prompt: `Quieres cambiar ${first.symbol} por algo que repose igual pero suene menos obvio. ¿Cuál?`,
         choices: choices(sixth.symbol, [fifth.symbol, triads[6]!.symbol, second.symbol]),
-        why: `${sixth.symbol} es el relativo menor: comparte dos notas con ${first.symbol} y hace el mismo papel.`,
+        // En mayor el sexto grado **es** el relativo menor; en menor es el VI y
+        // el relativo es otro —el III—, así que decirlo era falso en las doce.
+        why: `${sixth.symbol} es ${mode === 'major' ? 'el relativo menor' : 'el sexto grado'}: comparte dos notas con ${first.symbol} y hace el mismo papel.`,
       },
       {
         prompt: '¿Qué comparten una dominante y su sustituto tritonal?',
@@ -523,19 +572,47 @@ function substitutionsLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
 }
 
 /** Modos: las mismas notas empezando por otro sitio. */
-function modesLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
-  const accidental = accidentalForKey(tonic, mode);
-  const root = noteName(tonic, accidental);
-  const dorian = scaleNotes(tonic, 'dorian').map((note) => noteName(note, accidental));
-  const mixolydian = scaleNotes(tonic, 'mixolydian').map((note) => noteName(note, accidental));
-  const phrygian = scaleNotes(tonic, 'phrygian').map((note) => noteName(note, accidental));
+// Sin `mode`: un modo se escribe igual se venga de una tonalidad mayor o menor,
+// porque su ortografía sale de su propia mayor de origen.
+function modesLesson(tonic: PitchClass): LessonNotes {
+  /*
+    Un modo se escribe con la armadura de **su mayor de origen**, no con la de la
+    tonalidad en la que estás.
+
+    El dórico de Do sale de Sib mayor, así que su tercera es Mib y su séptima
+    Sib. Escritos con la alteración de Do mayor salían Re# y La#: suenan igual y
+    no lo escribe nadie así, que es el mismo fallo que este proyecto ya arregló
+    una vez con el bVII del lienzo. En Do, el frigio llegaba a tener cuatro notas
+    mal escritas de siete.
+
+    **La raíz también**, y no la de la tonalidad: mezclando las dos, cuatro
+    tonalidades nombraban la misma nota de dos maneras dentro de la misma frase
+    —«Dórico sobre Db: C# · D# · …»—, que es peor que elegir cualquiera de las
+    dos.
+
+    El número es a cuántos semitonos está la tónica del modo de su mayor de
+    origen: el dórico es su segundo grado, el frigio el tercero y el mixolidio el
+    quinto.
+  */
+  const escrito = (desde: number, escala: Parameters<typeof scaleNotes>[1]) => {
+    const como = accidentalForKey(up(tonic, 12 - desde), 'major');
+    return {
+      raiz: noteName(tonic, como),
+      notas: scaleNotes(tonic, escala)
+        .map((note) => noteName(note, como))
+        .join(' · '),
+    };
+  };
+  const dorico = escrito(2, 'dorian');
+  const mixolidio = escrito(7, 'mixolydian');
+  const frigio = escrito(4, 'phrygian');
 
   return {
     points: [
       'Un modo no es una escala nueva: son las mismas siete notas tomando otra como centro. Lo que cambia es dónde caen los semitonos.',
-      `Dórico sobre ${root}: ${dorian.join(' · ')}. Es un menor con la sexta mayor, así que suena menos triste.`,
-      `Mixolidio sobre ${root}: ${mixolydian.join(' · ')}. Mayor con la séptima menor: de ahí sale el bVII del rock.`,
-      `Frigio sobre ${root}: ${phrygian.join(' · ')}. Menor con el segundo grado bemol, el semitono pegado a la tónica.`,
+      `Dórico sobre ${dorico.raiz}: ${dorico.notas}. Es un menor con la sexta mayor, así que suena menos triste.`,
+      `Mixolidio sobre ${mixolidio.raiz}: ${mixolidio.notas}. Mayor con la séptima menor: de ahí sale el bVII del rock.`,
+      `Frigio sobre ${frigio.raiz}: ${frigio.notas}. Menor con el segundo grado bemol, el semitono pegado a la tónica.`,
     ],
     exercises: [
       {
@@ -569,27 +646,48 @@ function cadencesLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
   const fourth = triads[3]!;
   const fifth = triads[4]!;
   const sixth = triads[5]!;
-  const flatSeventh = noteName(up(tonic, 10), accidental);
+  /*
+    La cadencia auténtica pide **la dominante**, y en menor esa no es el quinto
+    grado de la escala.
+
+    Aquí se escribía `Em a Am` «porque la sensible sube medio tono a la tónica»,
+    y en La menor no hay tal sensible: el Em de la escala trae un Sol natural, a
+    un tono entero de La. La que cierra es la mayor prestada del menor armónico,
+    y es lo mismo que enseña la lección de prestados.
+  */
+  const dominante = dominanteDe(tonic, mode);
+  /*
+    Y el séptimo grado del menor **ya** está un tono por debajo de la tónica, así
+    que ahí no es un bVII sino el VII: en mayor es un préstamo y se escribe con
+    bemol —el de Do es Bb, nunca A#— y en menor es de la casa.
+  */
+  const gradoSeptimo = mode === 'major' ? 'el bVII' : 'el VII';
+  const flatSeventh = noteName(up(tonic, 10), mode === 'major' ? 'flat' : accidental);
 
   return {
     points: [
-      `Cadencia auténtica: ${fifth.symbol} a ${first.symbol}. Es la que suena más cerrada, porque la sensible sube medio tono a la tónica.`,
+      mode === 'major'
+        ? `Cadencia auténtica: ${dominante.triada} a ${first.symbol}. Es la que suena más cerrada, porque la sensible sube medio tono a la tónica.`
+        : `Cadencia auténtica: ${dominante.triada} a ${first.symbol}, con el quinto grado mayor. Es la que suena más cerrada, y pide ese préstamo: el ${fifth.symbol} de la escala no tiene sensible que subir a la tónica.`,
       `Cadencia plagal: ${fourth.symbol} a ${first.symbol}. Cierra, pero con menos empuje: no hay sensible que resolver.`,
-      `Cadencia rota: ${fifth.symbol} a ${sixth.symbol}. Prepara el cierre y no lo da, que es justo lo que la hace interesante.`,
+      `Cadencia rota: ${dominante.triada} a ${sixth.symbol}. Prepara el cierre y no lo da, que es justo lo que la hace interesante.`,
       `Y la del rock: ${flatSeventh} a ${first.symbol}, sin sensible ninguna. En un coral sería un error; en un riff es el idioma.`,
     ],
     exercises: [
       {
         prompt: '¿Cuál de estas cierra con más fuerza?',
-        choices: choices(`${fifth.symbol} → ${first.symbol}`, [
+        choices: choices(`${dominante.triada} → ${first.symbol}`, [
           `${fourth.symbol} → ${first.symbol}`,
-          `${fifth.symbol} → ${sixth.symbol}`,
+          `${dominante.triada} → ${sixth.symbol}`,
           `${first.symbol} → ${fourth.symbol}`,
         ]),
-        why: 'La auténtica, V a I: la sensible sube medio tono a la tónica y eso es lo que suena a punto final.',
+        why:
+          mode === 'major'
+            ? 'La auténtica, V a I: la sensible sube medio tono a la tónica y eso es lo que suena a punto final.'
+            : `La auténtica, V a I, con el V mayor: la sensible sube medio tono a la tónica y eso es lo que suena a punto final. Con ${fifth.symbol} no la hay, y por eso cierra menos.`,
       },
       {
-        prompt: `¿Cómo se llama ir de ${fifth.symbol} a ${sixth.symbol} en vez de a ${first.symbol}?`,
+        prompt: `¿Cómo se llama ir de ${dominante.triada} a ${sixth.symbol} en vez de a ${first.symbol}?`,
         choices: choices('Cadencia rota', [
           'Cadencia plagal',
           'Cadencia auténtica',
@@ -600,11 +698,11 @@ function cadencesLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
       {
         prompt: `¿Por qué ${flatSeventh} → ${first.symbol} no suena a coral?`,
         choices: choices('Porque no hay sensible: nadie sube medio tono a la tónica', [
-          'Porque el bVII no existe en ninguna tonalidad',
+          `Porque ${gradoSeptimo} no existe en ninguna tonalidad`,
           'Porque son dos acordes menores',
           'Porque le falta la quinta',
         ]),
-        why: 'El bVII llega desde un tono entero por debajo. Sin sensible no hay ese empujón, y por eso suena a riff y no a cadencia clásica.',
+        why: `${gradoSeptimo.charAt(0).toUpperCase()}${gradoSeptimo.slice(1)} llega desde un tono entero por debajo. Sin sensible no hay ese empujón, y por eso suena a riff y no a cadencia clásica.`,
       },
     ],
   };

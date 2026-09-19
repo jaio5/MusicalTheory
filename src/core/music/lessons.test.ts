@@ -180,3 +180,64 @@ describe('Lecciones', () => {
     expect(new Set(IDS).size).toBe(IDS.length);
   });
 });
+
+/**
+ * El modo menor no es el mayor con otro nombre, y durante mucho tiempo estas
+ * lecciones lo trataron así.
+ *
+ * Cuatro de las diez estaban escritas para mayor y se servían tal cual en menor.
+ * En La menor se llegaba a decir que `Em7` es «la única con tercera mayor y
+ * séptima menor», que `G7` lleva la quinta bemol y que `Fa` es el relativo
+ * menor de `Am`. Las tres son falsas, y las tres las leía cualquiera que
+ * estudiase en menor.
+ */
+describe('Lo que cambia al estudiar en menor', () => {
+  it('la dominante es la mayor prestada del armonico, no el quinto grado', () => {
+    expect(answerOf('sevenths', 0, A, 'minor')).toBe('E7');
+    expect(answerOf('cadences', 0, A, 'minor')).toBe('E → Am');
+    // Y en mayor sigue siendo la de siempre.
+    expect(answerOf('sevenths', 0)).toBe('G7');
+    expect(answerOf('cadences', 0)).toBe('G → C');
+  });
+
+  it('el semidisminuido que se pregunta es el que la tonalidad tiene', () => {
+    // El vii en mayor y el ii en menor. Se preguntaba siempre por el séptimo,
+    // así que en menor decía que G7 —una dominante— lleva la quinta bemol.
+    for (const [tonic, mode] of [
+      [C, 'major'],
+      [A, 'minor'],
+    ] as const) {
+      expect(lessonNotes('sevenths', tonic, mode).exercises[2]!.prompt).toContain('Bm7b5');
+    }
+  });
+
+  it('el prestado que se ensena existe en el modo en el que se ensena', () => {
+    // En mayor, el bVII; en menor eso ya es el VII de la escala, así que el
+    // préstamo es la dominante mayor.
+    expect(answerOf('borrowed', 0)).toBe('Bb');
+    expect(answerOf('borrowed', 0, A, 'minor')).toBe('E');
+  });
+});
+
+/**
+ * Un grado rebajado se escribe con bemol aunque la tonalidad vaya de sostenidos.
+ *
+ * Es una regla que este proyecto ya había peleado en el lienzo —«el bVII de Do
+ * es Bb, nunca A#»— y que aquí seguía sin cumplirse: el frigio de Do salía con
+ * cuatro notas de siete mal escritas, la cadencia del rock era «A# a C» y el
+ * sustituto tritonal, «C#7». En Do mayor no hay ni un sostenido que escribir,
+ * así que basta con mirar si aparece alguno.
+ */
+describe('Cómo se escribe lo que se rebaja', () => {
+  it('en Do mayor no aparece ni un sostenido', () => {
+    for (const id of ['modes', 'cadences', 'substitutions'] as const) {
+      const notes = lessonNotes(id, C, 'major');
+      const texto = [
+        ...notes.points,
+        ...notes.exercises.flatMap((e) => [e.prompt, e.why, ...e.choices.map((c) => c.text)]),
+      ].join(' ');
+
+      expect(texto, id).not.toMatch(/[A-G]#/);
+    }
+  });
+});
