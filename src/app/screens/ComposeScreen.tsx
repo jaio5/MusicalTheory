@@ -507,12 +507,19 @@ export function ComposeScreen() {
                 a qué acordes puedes cambiar; si no se ve ninguno, no existe.
 
                 El suelo va por tramos de altura de ventana, y cada tramo es un
-                acorde más a la vista. Medido con cuatro acordes escritos:
+                acorde más a la vista. Medido con tres acordes escritos:
 
-                  700  → 14rem, dos acordes
+                  604  → 16rem, dos acordes
+                  700  → 14rem, dos
                   800  → 18rem, tres
                   900  → 24rem, cuatro
                   1080 → 30rem, seis
+
+                El tramo de menos de 660 pide además **1100 de ancho**, y no es
+                capricho: por debajo de eso la barra del lienzo se parte en más
+                filas y el lienzo necesita 274 px para no recortar lo suyo —lo
+                dice la sonda—, que es justo lo que quedaría. Ahí el cajón cede
+                entero, como antes.
 
                 Los tramos son **excluyentes** —`min-height` y `max-height` a la
                 vez— y no escalones abiertos: dos reglas de `min-height` que casan
@@ -532,7 +539,7 @@ export function ComposeScreen() {
               className={
                 caminoPlegado
                   ? ''
-                  : 'border-border shrink basis-52 border-t max-lg:grow [@media(min-height:1040px)]:min-h-[30rem] [@media(min-height:660px)_and_(max-height:779px)]:min-h-56 [@media(min-height:780px)_and_(max-height:899px)]:min-h-72 [@media(min-height:900px)_and_(max-height:1039px)]:min-h-96'
+                  : 'border-border shrink basis-52 border-t max-lg:grow [@media(max-height:659px)_and_(min-width:1100px)]:min-h-64 [@media(min-height:1040px)]:min-h-[30rem] [@media(min-height:660px)_and_(max-height:779px)]:min-h-56 [@media(min-height:780px)_and_(max-height:899px)]:min-h-72 [@media(min-height:900px)_and_(max-height:1039px)]:min-h-96'
               }
             >
               {/* Lo que cabe en un bloque entra en la canción, al final de la
