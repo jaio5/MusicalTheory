@@ -12,9 +12,23 @@ import { ESLint } from 'eslint';
 
 let eslint: ESLint;
 
-beforeAll(() => {
+/**
+ * Arrancar ESLint y **gastar el primer análisis aquí**, no en el primer test.
+ *
+ * Cargar la configuración de este proyecto —con la de Next dentro— y analizar el
+ * primer fichero cuesta cerca de segundo y medio en una máquina libre. Con las
+ * ciento ochenta y tantas hojas de tests corriendo a la vez puede costar bastante
+ * más, y eso se llevó por delante al primer test con el plazo de cinco segundos
+ * que traen todos por defecto: un test que falla según lo ocupado que esté el
+ * equipo no vigila nada, solo hace ruido.
+ *
+ * Puesto aquí, con su plazo escrito, lo que se alarga es el arranque y los seis
+ * tests miden lo suyo, que son unas decenas de milisegundos cada uno.
+ */
+beforeAll(async () => {
   eslint = new ESLint();
-});
+  await eslint.lintText('export const nada = 1;\n', { filePath: 'src/core/prueba.ts' });
+}, 120_000);
 
 /** Los avisos de capas que ESLint da a un fichero que no existe en el disco. */
 async function capasDe(rutaFingida: string, codigo: string): Promise<readonly string[]> {
