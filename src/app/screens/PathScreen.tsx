@@ -43,14 +43,14 @@ export function PathScreen() {
 
           En estrecho se apila en el orden de siempre: primero la meta, porque lo
           primero que se mira al abrir es si hoy ya has hecho algo. */}
-      <div className="grid min-h-0 grow grid-cols-1 overflow-y-auto lg:grid-cols-[24rem_minmax(0,1fr)] lg:overflow-hidden xl:grid-cols-[27rem_minmax(0,1fr)]">
+      <div className="grid min-h-0 grow grid-cols-1 overflow-y-auto lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden xl:grid-cols-[27rem_minmax(0,1fr)]">
         {/* La columna de la izquierda, un punto más clara que el camino.
 
             Estaban las dos sobre el mismo negro, separadas por una línea de un
             píxel: desde lejos, una pared. Con el tono se ve de un vistazo que a un
             lado está lo que se consulta y al otro lo que se recorre, que es lo que
             este proyecto ya dice de la profundidad. */}
-        <div className="border-border lg:bg-surface flex flex-col lg:min-h-0 lg:overflow-y-auto lg:border-r">
+        <div className="border-border lg:bg-surface flex flex-col lg:col-start-1 lg:row-start-1 lg:border-r">
           <DailyGoal
             progress={progress}
             day={day}
@@ -99,15 +99,24 @@ export function PathScreen() {
               </div>
             )}
           </div>
-
-          {/* Las medallas llenan la mitad de abajo de esta columna, que se
-              quedaba vacía en cuanto la ventana pasaba de los novecientos de
-              alto. Y sobre todo: existían y no se veían en ninguna parte más que
-              como un contador. */}
-          <Badges progress={progress} />
         </div>
 
-        <div className="min-h-0 lg:overflow-y-auto">
+        {/*
+          El camino va **antes que las medallas** en el orden del documento, y eso
+          es lo que decide el teléfono.
+
+          Apilado, la columna de la izquierda caía entera encima del camino, y las
+          quince medallas —que recién llegado están las quince vacías— son
+          novecientos píxeles: había que pasarlas para llegar al primer curso. La
+          pantalla se llama «el camino» y el camino era lo último. Ahora, en
+          estrecho, se lee meta, curso, seguir, **camino**, y las medallas al
+          final, que es donde va un escaparate de lo que te falta.
+
+          En ancho no se mueve nada: la izquierda se parte en dos filas —arriba lo
+          que se mira de un vistazo, abajo las medallas, que son las que se
+          desplazan— y el camino ocupa las dos a su derecha.
+        */}
+        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto">
           <LearnPath
             progress={progress}
             plan={account.plan}
@@ -115,6 +124,14 @@ export function PathScreen() {
             active={siguiente}
             onPick={(unitId) => router.push(`/aprender/${unitId}`)}
           />
+        </div>
+
+        {/* Las medallas llenan la mitad de abajo de esta columna, que se quedaba
+            vacía en cuanto la ventana pasaba de los novecientos de alto. Y sobre
+            todo: existían y no se veían en ninguna parte más que como un
+            contador. */}
+        <div className="border-border lg:bg-surface lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:border-r">
+          <Badges progress={progress} />
         </div>
       </div>
 
