@@ -82,6 +82,7 @@ export function EarUnit({
   const escuchar = useCallback(
     (indice: number) => {
       const cual = ejercicios[indice];
+      /* v8 ignore next 3 -- sin tonalidad la unidad enseña la rueda, y el indice va dentro de la lista */
       if (activeKey === null || cual === undefined) {
         return;
       }
@@ -121,6 +122,7 @@ export function EarUnit({
     );
   }
 
+  /* v8 ignore next 3 -- las seis clases de oido del catalogo traen sus preguntas */
   if (ejercicio === undefined) {
     return <p className="text-text-muted p-4 text-sm">Esta unidad no tiene nada que oír.</p>;
   }

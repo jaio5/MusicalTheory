@@ -115,3 +115,43 @@ describe('una unidad de oído', () => {
     expect(screen.getByRole('button', { name: /Siguiente/ })).toBeInTheDocument();
   });
 });
+
+describe('contestar dos veces', () => {
+  /**
+   * Una vez contestada, la pregunta ya no cambia: pulsar otra opción no borra
+   * lo que se respondió ni vuelve a apuntar el fallo. Sin esto, fallar y pulsar
+   * la buena después parecería un acierto.
+   */
+  it('la segunda pulsacion no cambia lo contestado', async () => {
+    conTonalidad();
+    const miss = vi.fn();
+    render(<EarUnit unit={CALIDAD} onDone={vi.fn()} onMiss={miss} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Triste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Alegre' }));
+
+    expect(miss).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /Siguiente/ })).toBeInTheDocument();
+  });
+});
+
+describe('el aviso del profesor al fallar', () => {
+  /**
+   * Fallar no bloquea, pero sí se dice dónde está lo que falta: volver a
+   * escuchar **con la respuesta delante** es donde se pilla. El aviso se borra
+   * al cerrarlo, para que no vuelva a salir en la pregunta siguiente.
+   */
+  it('sale al fallar, y se va al cerrarlo', async () => {
+    conTonalidad();
+    render(<EarUnit unit={CALIDAD} onDone={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Triste' }));
+
+    const globo = await screen.findByText(/es donde se pilla/);
+    expect(globo).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar el profesor' }));
+
+    expect(screen.queryByText(/es donde se pilla/)).not.toBeInTheDocument();
+  });
+});

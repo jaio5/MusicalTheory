@@ -152,6 +152,7 @@ export function advanceExercise(
   }
 
   const step = exercise.steps[progress.index];
+  /* v8 ignore next 3 -- al pasar el ultimo paso se marca `done`, y arriba se ha vuelto ya si lo estaba */
   if (step === undefined) {
     return progress.done ? progress : { ...progress, done: true };
   }

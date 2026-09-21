@@ -95,6 +95,7 @@ export function DailyGoal({
       <div className="border-border mt-2 h-1 w-full border" aria-hidden="true">
         <div
           className="bg-brass h-full"
+          /* v8 ignore next -- el temario tiene XP; el cero es solo para no dividir por nada */
           style={{ width: `${TOTAL_XP === 0 ? 0 : (progress.xp / TOTAL_XP) * 100}%` }}
         />
       </div>

@@ -170,6 +170,7 @@ export function useProgress({ escuchaComponer = false }: ProgressOptions = {}) {
 
         setCelebration({
           unitId,
+          /* v8 ignore next -- solo se completa una unidad que existe: se llega a ella desde el temario */
           title: findUnit(unitId)?.unit.title ?? '',
           xp: next.xp - current.xp,
           streak: next.streak,

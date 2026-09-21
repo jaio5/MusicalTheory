@@ -193,3 +193,15 @@ describe('las notas que se atragantan', () => {
     expect(stumbledSteps(progress)).toEqual([1, 5]);
   });
 });
+
+describe('un ejercicio sin pasos', () => {
+  /**
+   * Una escala sin notas no tiene avance que pintar. Mejor una barra a cero que
+   * una división por cero llegando hasta el ancho de un `div`.
+   */
+  it('no tiene avance que pintar', () => {
+    const vacio = { steps: [], scaleId: 'major' as const, tonic: A, name: 'Vacía' };
+
+    expect(exerciseCompletion(INITIAL_PROGRESS, vacio as never)).toBe(0);
+  });
+});

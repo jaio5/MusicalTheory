@@ -38,6 +38,7 @@ export function Question({
   onNext,
 }: { readonly exercise: Exercise } & PasoContestable) {
   const [chosen, setChosen] = useState<string | null>(null);
+  /* v8 ignore next -- toda pregunta del catalogo trae su respuesta buena, y hay prueba que lo vigila */
   const correct = exercise.choices.find((choice) => choice.correct) ?? null;
   const answered = chosen !== null;
   const last = position >= total;
@@ -51,11 +52,13 @@ export function Question({
     setChosen(null);
   }
 
+  /* v8 ignore next 3 -- mismo motivo: sin respuesta buena no hay pregunta que pintar */
   if (correct === null) {
     return null;
   }
 
   function answer(text: string): void {
+    /* v8 ignore next 3 -- contestada, las opciones van desactivadas: no se puede pulsar otra */
     if (answered) {
       return;
     }
