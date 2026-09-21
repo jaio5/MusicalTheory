@@ -52,11 +52,7 @@ export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
   return (
     <Panel id="tonalidad" title="Tonalidad">
       <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-        <WheelOfFifths
-          tonic={activeKey?.tonic ?? null}
-          mode={activeKey?.mode ?? null}
-          onPick={(tonic, mode) => actions.pinKey({ tonic, mode })}
-        />
+        {wheel}
 
         <div className="w-full">
           <p className="text-text-muted text-sm" aria-live="polite">

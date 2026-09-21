@@ -544,3 +544,139 @@ describe('de dónde sale la parte que se añade', () => {
     expect(enviada.sections.at(-1)?.degrees).toEqual(['vi', 'IV']);
   });
 });
+
+describe('cuando guardar un cambio no sale', () => {
+  /**
+   * Renombrar que no sale no puede dejar la fila como si hubiera salido: el
+   * campo se queda abierto con lo escrito dentro, y se dice por qué.
+   */
+  it('el nombre se queda escrito y se dice lo que contesto el servidor', async () => {
+    const request = vi.fn(async (init: { method: string }) =>
+      init.method === 'PUT'
+        ? respondWith({ error: { message: 'Ese nombre ya lo tienes.' } }, 409)
+        : respondWith({ songs: [UNA] }),
+    );
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Renombrar' }));
+    const campo = screen.getByLabelText('Nombre nuevo');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'Otro nombre');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText('Ese nombre ya lo tienes.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre nuevo')).toHaveValue('Otro nombre');
+  });
+
+  // Y sin red tampoco se queda callado.
+  it('sin red se dice, y el campo sigue abierto', async () => {
+    const request = vi.fn(async (init: { method: string }) => {
+      if (init.method === 'PUT') {
+        throw new Error('sin red');
+      }
+      return respondWith({ songs: [UNA] });
+    });
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Renombrar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText(/Comprueba la conexión/)).toBeInTheDocument();
+  });
+});
+
+describe('lo que se cae al guardar, contado bien', () => {
+  // En plural cuando son varios: «2 acordes no son grados» y no «2 acorde».
+  it('con varios que no son grados, se dicen en plural', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado ninguna/);
+
+    componiendo(['I', 'V7/vi', 'V7/ii', 'vi']);
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/2 acordes no son grados/);
+  });
+
+  /**
+   * Y al añadir una parte a una canción que ya existe, lo mismo: la parte entra
+   * y se cuenta lo que no cabía, en vez de que desaparezca sin más.
+   */
+  it('al añadir una parte tambien se cuenta lo que no cabia', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['I', 'V7/vi', 'vi']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      /añadida a «La mía», sin 1 acorde que no es un grado/,
+    );
+  });
+
+  // Y en plural cuando son varios.
+  it('y en plural cuando son varios', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['I', 'V7/vi', 'V7/ii', 'vi']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/sin 2 acordes que no son grados/);
+  });
+});
+
+describe('sin fabrica de peticion', () => {
+  /**
+   * Se llama a `/api/canciones` sin caché: la lista cambia al guardar desde
+   * otra pestaña, y una respuesta guardada enseñaría una canción que ya no está.
+   */
+  it('pide a /api/canciones, sin cache', async () => {
+    const pedidas: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      pedidas.push({ url, init });
+      return respondWith({ songs: [] });
+    });
+
+    render(conCuenta(<SongsPanel />));
+
+    await waitFor(() => expect(pedidas.length).toBeGreaterThan(0));
+    expect(pedidas[0]!.url).toBe('/api/canciones');
+    expect(pedidas[0]!.init.cache).toBe('no-store');
+    vi.unstubAllGlobals();
+  });
+
+  // Y una fila sin identificador se lee sin él, y se cae al interpretarla.
+  it('una fila sin identificador no tumba la lista', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValue(respondWith({ songs: [{ ...UNA, id: 42, name: 'Sin id' }, UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    // Se lee con el identificador en blanco en vez de tumbar la lista entera:
+    // lo que no se entiende se degrada, no revienta.
+    expect(await screen.findByText('La mía')).toBeInTheDocument();
+    expect(screen.getByText('Sin id')).toBeInTheDocument();
+  });
+});
+
+describe('cuando añadir una parte no sale', () => {
+  // No se canta victoria: la parte no entró, así que no se dice que entró.
+  it('no se dice que se ha añadido', async () => {
+    const request = vi.fn(async (init: { method: string }) =>
+      init.method === 'PUT'
+        ? respondWith({ error: { message: 'No hemos podido.' } }, 500)
+        : respondWith({ songs: [UNA] }),
+    );
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['I', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByText('No hemos podido.')).toBeInTheDocument();
+    expect(screen.queryByText(/añadida a/)).not.toBeInTheDocument();
+  });
+});

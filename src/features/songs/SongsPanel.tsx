@@ -317,6 +317,7 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
     const { actions } = useSessionStore.getState();
     actions.pinKey({ tonic: song.tonic, mode: song.mode });
     actions.clearPath();
+    /* v8 ignore next -- una cancion guardada tiene al menos un grado: sin ninguno no se guarda */
     actions.setCurrentDegree(song.sections.flatMap((section) => section.degrees).at(-1) ?? null);
 
     const montaje = arrangementFromSong(song, beatsPerBar);
@@ -325,6 +326,7 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
     // abrir una canción y no tener nada elegido deja esa columna pidiendo que
     // elijas un acorde con la canción entera delante.
     const primero = montaje.parts[0]?.blocks[0]?.id;
+    /* v8 ignore next 3 -- mismo motivo: una cancion guardada trae al menos un bloque */
     if (primero !== undefined) {
       accionesMontaje.elegirBloque(primero);
     }

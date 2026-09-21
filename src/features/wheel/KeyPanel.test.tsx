@@ -231,3 +231,62 @@ describe('los anillos se dan la vuelta', () => {
     expect(doMayor?.getAttribute('transform')).toBe(laMenor?.getAttribute('transform'));
   });
 });
+
+describe('lo que falta por mirar del panel', () => {
+  /**
+   * El desplegable también sirve para volver a la detección, no solo el botón:
+   * es la opción de arriba, y es la que se busca cuando ya se está ahí dentro
+   * cambiando de tonalidad.
+   */
+  it('desde el desplegable se vuelve a la deteccion', async () => {
+    playAMinor();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('E'), mode: 'major' });
+    render(<KeyPanel />);
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /tonalidad/i }), 'auto');
+
+    expect(useSessionStore.getState().pinnedKey).toBeNull();
+    expect(await screen.findByText(/detectada: A menor/i)).toBeInTheDocument();
+  });
+
+  // Y una menor elegida a mano se guarda como menor, no como su relativa mayor.
+  it('una menor elegida a mano se guarda como menor', async () => {
+    playAMinor();
+    render(<KeyPanel />);
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /tonalidad/i }),
+      `${pitchClassFromName('D')}:minor`,
+    );
+
+    expect(useSessionStore.getState().pinnedKey).toEqual({
+      tonic: pitchClassFromName('D'),
+      mode: 'minor',
+    });
+  });
+
+  /**
+   * Y plegado es solo la rueda: en la barra de tonalidad de componer no caben
+   * ni el desplegable ni las candidatas, y lo que hace falta ahí es elegir.
+   */
+  it('plegado es solo la rueda, sin desplegable ni candidatas', () => {
+    playAMinor();
+    render(<KeyPanel compact />);
+
+    expect(screen.getByRole('group')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+
+  // Y la rueda plegada elige igual: es la misma rueda, no otra.
+  it('y la rueda plegada elige igual', async () => {
+    playAMinor();
+    render(<KeyPanel compact />);
+
+    await userEvent.click(screen.getByTitle('E menor'));
+
+    expect(useSessionStore.getState().pinnedKey).toEqual({
+      tonic: pitchClassFromName('E'),
+      mode: 'minor',
+    });
+  });
+});

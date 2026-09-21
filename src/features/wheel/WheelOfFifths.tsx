@@ -113,6 +113,7 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
     const ring = ringRef.current;
     const majors = majorsRef.current;
     const minors = minorsRef.current;
+    /* v8 ignore next 3 -- los tres grupos son parte del mismo dibujo: si hay uno, estan los tres */
     if (ring === null || majors === null || minors === null) {
       return;
     }
