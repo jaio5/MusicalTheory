@@ -126,3 +126,65 @@ describe('Motor de acordes', () => {
     expect(engine.running).toBe(false);
   });
 });
+
+describe('lo que faltaba por mirar del motor de acordes', () => {
+  /**
+   * La alteración con la que se escriben los cifrados la pone la tonalidad: un
+   * mismo acorde se llama F# en Sol mayor y Gb en Reb mayor, y el motor tiene
+   * que decirlo como se escribe allí.
+   */
+  it('escribe los cifrados con la alteracion que se le diga', async () => {
+    vi.useFakeTimers();
+    const input = new FakeInput();
+    // Fa sostenido mayor, que es el que cambia de nombre según la armadura.
+    input.peaks = [369.99, 466.16, 554.37];
+    const engine = new ChromaChordEngine();
+    engine.setAccidental('flat');
+
+    const heard = await listen(input, engine, 12);
+    engine.stop();
+    vi.useRealTimers();
+
+    expect(heard.at(-1)?.best.symbol).toBe('Gb');
+  });
+
+  /**
+   * Y una entrada que no tiene dato —el contexto dormido, sin ir más lejos— no
+   * es silencio: no se analiza nada en vez de leer un espectro de ceros y decir
+   * que ha dejado de sonar.
+   */
+  it('sin dato que leer no dice nada', async () => {
+    vi.useFakeTimers();
+    const input = new FakeInput();
+    input.peaks = C_MAJOR;
+    input.readSpectrum = () => false;
+    const engine = new ChromaChordEngine();
+
+    const heard = await listen(input, engine, 12);
+    engine.stop();
+    vi.useRealTimers();
+
+    expect(heard).toEqual([]);
+  });
+
+  // Y cuando deja de sonar algo reconocible, se dice: el hueco es información.
+  it('cuando deja de haber acorde, lo dice', async () => {
+    vi.useFakeTimers();
+    const input = new FakeInput();
+    input.peaks = C_MAJOR;
+    const engine = new ChromaChordEngine();
+    const heard: (ChordReading | null)[] = [];
+    engine.subscribe((chord) => heard.push(chord));
+    await engine.start(input);
+    await vi.advanceTimersByTimeAsync((1000 / engine.options.rate) * 12);
+
+    // Tres notas pegadas: no forman ninguna de las formas del catálogo.
+    input.peaks = [261.6, 277.2, 293.7];
+    await vi.advanceTimersByTimeAsync((1000 / engine.options.rate) * 40);
+    engine.stop();
+    vi.useRealTimers();
+
+    expect(heard[0]?.best.symbol).toBe('C');
+    expect(heard.at(-1)).toBeNull();
+  });
+});

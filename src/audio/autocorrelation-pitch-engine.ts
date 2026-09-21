@@ -93,6 +93,7 @@ export class AutocorrelationPitchEngine implements PitchEngine {
   #analyse(): void {
     const input = this.#input;
     const buffer = this.#buffer;
+    /* v8 ignore next 4 -- el reloj solo corre entre `start` y `stop`, y ahi los dos estan puestos */
     if (input === null || buffer === null) {
       return;
     }

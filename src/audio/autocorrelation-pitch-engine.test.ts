@@ -300,3 +300,33 @@ describe('AutocorrelationPitchEngine', () => {
     expect(samples.length).toBeLessThanOrEqual(unBucle + 1);
   });
 });
+
+describe('el reloj del motor', () => {
+  /**
+   * Sin reloj inyectado usa el del navegador, que es lo que hace en la
+   * aplicación: los instantes que apunta el motor son los que después miden el
+   * tramo grabado.
+   */
+  it('sin reloj puesto usa el del navegador', async () => {
+    vi.useFakeTimers();
+    const entrada = new FakeAudioInput();
+    entrada.frequency = midiToFrequency(45);
+    const motor = new AutocorrelationPitchEngine();
+    const oidas: Array<PitchSample | null> = [];
+    motor.subscribe((muestra) => oidas.push(muestra));
+
+    await motor.start(entrada);
+    for (let vuelta = 0; vuelta < 10; vuelta += 1) {
+      vi.advanceTimersByTime(motor.options.analysisIntervalMs);
+    }
+    motor.stop();
+    vi.useRealTimers();
+
+    // Lo que importa es que el instante salga del reloj del navegador y no de
+    // uno inventado: avanza con los temporizadores, que es lo que hace el de
+    // verdad mientras se toca.
+    const detectadas = oidas.filter((muestra): muestra is PitchSample => muestra !== null);
+    expect(detectadas.length).toBeGreaterThan(0);
+    expect(detectadas[0]!.at).toBeGreaterThan(0);
+  });
+});

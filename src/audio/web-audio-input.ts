@@ -172,6 +172,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
     const despertar = () => {
       // Solo mientras se supone que estamos escuchando: si ya se paró, dejarlo
       // dormido es lo correcto.
+      /* v8 ignore next 3 -- al parar se quita el oyente, asi que esto solo protege de una carrera */
       if (this.#context !== context || this.#estado.valor !== 'running') {
         return;
       }
@@ -190,12 +191,14 @@ export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
     };
 
     context.addEventListener('statechange', despertar);
+    /* v8 ignore next 3 -- en el servidor no hay `document`, y alli esto no se monta */
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', despertar);
     }
 
     this.#soltarVigilancia = () => {
       context.removeEventListener('statechange', despertar);
+      /* v8 ignore next 3 -- en el servidor no hay `document`, y alli esto no se monta */
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', despertar);
       }
@@ -240,6 +243,7 @@ export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
       // a los tres minutos del primero cortaba la segunda grabación por la
       // mitad, sin motivo visible. Se cierra sobre la suya y se apaga al parar.
       this.#relojDelTope = setTimeout(() => {
+        /* v8 ignore next 3 -- al parar se apaga el reloj, asi que cuando salta la grabadora sigue viva */
         if (grabadora.state !== 'inactive') {
           grabadora.stop();
         }

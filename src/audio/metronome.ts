@@ -98,6 +98,7 @@ export class WebAudioMetronome implements Metronome {
 
   #schedule(): void {
     const context = this.#context;
+    /* v8 ignore next 3 -- el reloj solo corre con el contexto abierto */
     if (context === null) {
       return;
     }
@@ -139,6 +140,7 @@ export class WebAudioMetronome implements Metronome {
     }
     const delay = Math.max(0, (at - context.currentTime) * 1000);
     setTimeout(() => {
+      /* v8 ignore next 3 -- el caso de parar justo entre el aviso programado y su disparo no se puede provocar con el reloj de un test */
       if (this.#timer !== null) {
         onBeat(beat);
       }

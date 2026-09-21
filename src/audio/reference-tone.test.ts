@@ -130,3 +130,43 @@ describe('soltarlo', () => {
     await expect(new WebAudioReferenceTone().dispose()).resolves.toBeUndefined();
   });
 });
+
+describe('dos tonos seguidos', () => {
+  /**
+   * Al pedir otro tono, el que se está oyendo se para **y se le quita el aviso
+   * de terminado**: si se le dejara puesto, el viejo apagaría al nuevo al llegar
+   * a su final, y la nota de referencia se cortaría sola a mitad.
+   */
+  it('al viejo se le quita el aviso, y no apaga al nuevo', async () => {
+    const tono = new WebAudioReferenceTone();
+
+    await tono.play(440);
+    const primero = contexto.osciladores.at(-1)!;
+    await tono.play(880);
+    const segundo = contexto.osciladores.at(-1)!;
+    expect(segundo).not.toBe(primero);
+
+    expect(primero.onended).toBeNull();
+    expect(primero.cortes).toBe(1);
+
+    // Y el segundo sigue puesto: pararlo ahora lo corta de verdad.
+    await tono.dispose();
+    expect(segundo.cortes).toBe(1);
+  });
+
+  /**
+   * Y el que termina siendo el que está puesto se borra: si no, al parar se
+   * intentaría cortar un oscilador ya apagado, que es lo que lanza
+   * `InvalidStateError` en el navegador.
+   */
+  it('el que termina siendo el ultimo se borra solo', async () => {
+    const tono = new WebAudioReferenceTone();
+    await tono.play(440);
+    const unico = contexto.osciladores.at(-1)!;
+
+    unico.terminarSola();
+
+    await expect(tono.dispose()).resolves.toBeUndefined();
+    expect(unico.cortes).toBe(0);
+  });
+});

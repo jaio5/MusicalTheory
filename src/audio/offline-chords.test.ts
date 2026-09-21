@@ -145,3 +145,18 @@ describe('la tonalidad ayuda a decidir', () => {
     expect(conTono.length).toBeLessThanOrEqual(sinTono.length);
   });
 });
+
+describe('un acorde partido por un silencio', () => {
+  /**
+   * Dos tramos del mismo acorde separados solo por uno que se ha caído son el
+   * mismo acorde: se pegan en vez de salir dos veces. Pasa al rasguear el mismo
+   * acorde dos veces seguidas, que es la mitad de lo que hace una guitarra.
+   */
+  it('se pega en vez de salir dos veces', () => {
+    const audio = pegar(rasguear(Am, 2), silencio(1), rasguear(Am, 2));
+
+    const acordes = chordsOfRecording(audio, { sampleRate: SAMPLE_RATE });
+
+    expect(nombres(acordes)).toEqual(['A']);
+  });
+});

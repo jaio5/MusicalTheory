@@ -152,6 +152,7 @@ function choosePeak(correlation: Float64Array, minLag: number, maxLag: number): 
   }
 
   const threshold = bestValue * PEAK_TOLERANCE;
+  /* v8 ignore next -- el mejor pico esta entre los picos, asi que siempre hay uno que llega al umbral */
   return peaks.find((candidate) => correlation[candidate]! >= threshold) ?? null;
 }
 
@@ -167,11 +168,13 @@ function interpolatePeak(
   const current = correlation[lag]!;
   const next = correlation[lag + 1];
 
+  /* v8 ignore next 3 -- el pico se busca entre el segundo y el penultimo, asi que tiene vecinos */
   if (previous === undefined || next === undefined) {
     return { position: lag, value: current };
   }
 
   const curvature = previous - 2 * current + next;
+  /* v8 ignore next 3 -- un pico con curvatura cero seria una meseta, y una meseta no es un pico */
   if (curvature === 0) {
     return { position: lag, value: current };
   }

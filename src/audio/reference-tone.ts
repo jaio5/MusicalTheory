@@ -57,6 +57,7 @@ export class WebAudioReferenceTone implements ReferenceTone {
 
     this.#oscillator = oscillator;
     oscillator.onended = () => {
+      /* v8 ignore next 3 -- al empezar otro tono se le quita este aviso, asi que solo llega el que sigue puesto */
       if (this.#oscillator === oscillator) {
         this.#oscillator = null;
       }

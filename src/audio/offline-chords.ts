@@ -127,8 +127,10 @@ const ODD_STEP_PENALTY = 0.5;
  */
 function noiseFloor(energies: readonly number[]): number {
   const sorted = [...energies].sort((a, b) => a - b);
+  /* v8 ignore start -- solo se llama con la lista de energias ya llena */
   const p10 = sorted[Math.floor(sorted.length * 0.1)] ?? 0;
   const median = sorted[Math.floor(sorted.length * 0.5)] ?? 0;
+  /* v8 ignore stop */
   return Math.min(p10 * 2.5, median * 0.25);
 }
 
@@ -136,6 +138,7 @@ function noiseFloor(energies: readonly number[]): number {
 function rms(samples: Float32Array, from: number, howMany: number): number {
   let sum = 0;
   for (let i = from; i < from + howMany; i += 1) {
+    /* v8 ignore next -- los bloques se recortan al final de la grabacion antes de llegar aqui */
     const v = samples[i] ?? 0;
     sum += v * v;
   }
@@ -331,6 +334,7 @@ function chooseSequence(frames: readonly Frame[], key: AnalysisOptions['key']): 
 }
 
 function solveRun(run: readonly Frame[], key: AnalysisOptions['key']): Candidate[] {
+  /* v8 ignore next 3 -- los tramos salen de agrupar fotogramas, asi que ninguno viene vacio */
   if (run.length === 0) {
     return [];
   }
@@ -381,6 +385,7 @@ function solveRun(run: readonly Frame[], key: AnalysisOptions['key']): Candidate
 
   const out: Candidate[] = new Array<Candidate>(run.length).fill(null);
   for (let t = lastIndex; t >= 0; t -= 1) {
+    /* v8 ignore next -- el indice sale del propio camino, asi que siempre apunta a un candidato */
     out[t] = candidates[index] ?? null;
     index = cameFrom[t]![index]!;
   }

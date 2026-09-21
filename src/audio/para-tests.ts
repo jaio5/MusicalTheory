@@ -95,6 +95,7 @@ export class OsciladorFalso {
 
   /** El volumen máximo al que llega, mirando la ganancia a la que está enchufado. */
   get volumen(): number {
+    /* v8 ignore next -- solo se pregunta por el volumen de un oscilador ya enchufado */
     return this.salida?.gain.maximo ?? 0;
   }
 }

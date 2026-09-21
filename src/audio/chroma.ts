@@ -98,6 +98,7 @@ function findPeaks(
     // de la FFT deja la nota a medio semitono de donde está de verdad.
     const previous = spectrumDb[bin - 1]!;
     const next = spectrumDb[bin + 1]!;
+    /* v8 ignore next -- un pico con curvatura cero seria una meseta, y una meseta no pasa el filtro de arriba */
     const shift = (0.5 * (previous - next)) / (previous - 2 * value + next || 1);
     const frequency = (bin + shift) * binHz;
 
@@ -149,6 +150,7 @@ export function chromaFromSpectrum(
 
   for (const peak of discountHarmonics(findPeaks(spectrumDb, settings))) {
     const pitchClass = pitchClassOf(peak.frequency);
+    /* v8 ignore next -- el vector tiene sus doce casillas desde que se crea */
     chroma[pitchClass] = (chroma[pitchClass] ?? 0) + peak.weight;
   }
 

@@ -105,3 +105,18 @@ describe('Croma', () => {
     expect(dbToLinear(-20)).toBeCloseTo(0.1, 6);
   });
 });
+
+describe('un espectro sin nada', () => {
+  /**
+   * Un espectro entero a menos infinito no es un acorde silencioso: es que no
+   * hay nada que medir. Sin esto, el suelo se calcularía contra `-Infinity` y
+   * todas las casillas pasarían el filtro.
+   */
+  it('no saca ninguna nota', () => {
+    const vacio = new Float32Array(BINS).fill(Number.NEGATIVE_INFINITY);
+
+    const chroma = chromaFromSpectrum(vacio, { sampleRate: SAMPLE_RATE, fftSize: FFT_SIZE });
+
+    expect(chroma.every((valor) => valor === 0)).toBe(true);
+  });
+});

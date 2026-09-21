@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { MAX_RECORDING_SECONDS } from './recorder';
 import { listAudioInputDevices, WebAudioInput } from './web-audio-input';
 
 /**
@@ -466,5 +467,81 @@ describe('lo que se puede preguntar sin haber arrancado', () => {
 
     expect(contexto.resume).toHaveBeenCalled();
     expect(input.state).toBe('running');
+  });
+});
+
+describe('lo que faltaba por mirar de la entrada', () => {
+  beforeEach(() => {
+    GrabadoraFalsa.ultima = null;
+    GrabadoraFalsa.construible = true;
+    vi.stubGlobal('MediaRecorder', GrabadoraFalsa);
+  });
+
+  /**
+   * El flujo se presta a quien grabe en vez de abrir un segundo micrófono: dos
+   * `getUserMedia` sobre el mismo aparato son dos permisos y dos pilotos
+   * encendidos.
+   */
+  it('mientras escucha presta su flujo, y al parar ya no', async () => {
+    const input = await escuchando();
+
+    expect(input.stream).not.toBeNull();
+
+    await input.stop();
+
+    expect(input.stream).toBeNull();
+  });
+
+  // Y con un micrófono elegido a mano se le pide ese y no «uno cualquiera».
+  it('con un dispositivo elegido, se pide ese', async () => {
+    const input = new WebAudioInput({ deviceId: 'el-de-la-mesa' });
+
+    await input.start();
+
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(
+      expect.objectContaining({
+        audio: expect.objectContaining({ deviceId: { exact: 'el-de-la-mesa' } }),
+      }),
+    );
+  });
+
+  /**
+   * Y después de parar, que el sistema despierte el contexto no puede volver a
+   * encenderlo: se paró a propósito, y un micrófono que revive solo es lo peor
+   * que puede hacer esta aplicación.
+   */
+  it('parada, no vuelve a despertar el contexto', async () => {
+    const input = await escuchando();
+    await input.stop();
+    contexto.resume.mockClear();
+
+    contexto.dormir();
+
+    expect(contexto.resume).not.toHaveBeenCalled();
+  });
+
+  // Parar sin haber arrancado no revienta: no hay pistas que soltar.
+  it('parar sin haber arrancado no hace nada', async () => {
+    const input = new WebAudioInput();
+
+    await expect(input.stop()).resolves.toBeUndefined();
+    expect(input.state).toBe('idle');
+  });
+
+  /**
+   * Una grabación tiene tope y se corta sola: sin él, dejarse el botón pulsado
+   * llena la memoria del navegador hasta que la pestaña se cae.
+   */
+  it('la grabacion se corta sola al llegar al tope', async () => {
+    vi.useFakeTimers();
+    const input = await escuchando();
+    input.startRecording();
+
+    vi.advanceTimersByTime(MAX_RECORDING_SECONDS * 1000 + 10);
+
+    expect(GrabadoraFalsa.ultima!.state).toBe('inactive');
+    // Y pararla después no vuelve a pararla: ya estaba parada.
+    await input.stopRecording();
+    vi.useRealTimers();
   });
 });
