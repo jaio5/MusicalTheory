@@ -69,14 +69,14 @@ export interface BlockDrag {
  */
 function huecoEn(medidas: readonly Medida[], x: number, y: number): DropTarget | null {
   const enLaFila = medidas.filter((m) => y >= m.top && y <= m.bottom);
-  if (enLaFila.length === 0) {
+  // Una sola comprobación y no dos: preguntar por la longitud y luego por el
+  // primero deja una rama que no puede darse nunca, y una rama que no puede
+  // darse es una rama que nadie ha leído.
+  const primera = enLaFila[0];
+  if (primera === undefined) {
     return null;
   }
-
-  const partId = enLaFila[0]?.partId;
-  if (partId === undefined) {
-    return null;
-  }
+  const partId = primera.partId;
 
   // Una parte vacía se mide con una caja fantasma de índice 0, así que aquí ya
   // hay al menos un elemento y el destino sale siempre.
