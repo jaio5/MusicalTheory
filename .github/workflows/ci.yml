@@ -36,5 +36,11 @@ jobs:
       - name: Tests
         run: pnpm test
 
+      # Aparte de los tests y no en su lugar: con la cobertura puesta se salta
+      # la prueba del coste del hilo principal —mide tiempos, y medir con el
+      # instrumentador encima no mide nada—, así que hacen falta las dos.
+      - name: Cobertura
+        run: pnpm coverage
+
       - name: Compilación de producción
         run: pnpm build

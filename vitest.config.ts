@@ -56,6 +56,16 @@ export default defineConfig({
         // Definiciones de tipos y puertos sin implementación.
         'src/**/*.d.ts',
       ],
+      /*
+        El cien por cien, y no como aspiración.
+
+        Se llegó a él línea a línea, y una cobertura que baja sola vuelve al 97 %
+        en un mes sin que nadie lo decida. Lo que de verdad no se puede ejecutar
+        va marcado con `v8 ignore` **y su razón** (`docs/ESTILO.md`), así que
+        bajar de aquí significa una de dos cosas: falta una prueba, o falta
+        explicar por qué esa rama no puede darse.
+      */
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
     },
   },
 });

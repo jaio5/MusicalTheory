@@ -316,6 +316,13 @@ que no se arreglan con ninguna clase de Tailwind.
   `esquema-ideas.test.ts` comprueban cosas que solo se ven en conjunto —que ninguna
   pantalla se escriba su propio ancho, que ninguna ruta gaste cupo por su cuenta—.
   Son feos y han cazado lo que ningún test unitario podía.
+- **La cobertura está en el cien por cien y el tope lo exige** (`vitest.config.ts`,
+  `pnpm coverage`). No es una cifra para presumir: es lo que convierte «esto no
+  puede pasar» en algo escrito. Bajar de ahí significa una de dos cosas —falta una
+  prueba, o falta explicar por qué esa rama no puede darse—, y las dos se arreglan
+  antes de dar nada por terminado. La prueba del coste del hilo principal se salta
+  con la cobertura puesta —medir tiempos con el instrumentador encima no mide
+  nada—, así que `pnpm test` y `pnpm coverage` son dos comprobaciones distintas.
 - **Una rama que no puede darse se quita; si no se puede quitar, se marca.** Lo
   primero casi siempre se puede: preguntar por la longitud de una lista y luego por
   su primer elemento deja una rama muerta, y juntarlas en una la borra. Cuando lo

@@ -11,7 +11,7 @@ documentación**: el porqué está en `docs/`, en los ADR y en los comentarios.
 
 ## Antes de dar nada por terminado
 
-Los cinco tienen que pasar. Corren solos en cada empujón
+Los seis tienen que pasar. Corren solos en cada empujón
 (`.github/workflows/ci.yml`).
 
 ```bash
@@ -19,8 +19,13 @@ pnpm test         # vitest
 pnpm typecheck    # tsc --noEmit
 pnpm lint         # eslint, incluidas las reglas de capas
 pnpm format:check # prettier
+pnpm coverage     # vitest con cobertura: el tope está en el 100 %
 pnpm build        # build de producción
 ```
+
+**La cobertura está en el cien por cien y el tope lo exige.** Bajar de ahí
+significa una de dos cosas: falta una prueba, o falta explicar por qué esa rama
+no puede darse —con `v8 ignore` **y su razón**, `docs/ESTILO.md`—.
 
 `pnpm dev` levanta en http://localhost:3000, y ninguno de los cinco necesita base
 de datos ni claves. Si tocas `src/server/db/schema.ts`: `pnpm db:generate` escribe
