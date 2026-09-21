@@ -90,7 +90,7 @@ export interface PartRowProps {
   /** Lo que el copiloto propone para esta parte, y todavía no es de la canción. */
   readonly propuesta?: readonly DegreeSymbol[];
   /** Acepta los `cuantos` primeros propuestos. */
-  readonly onAceptarPropuesta?: (cuantos: number) => void;
+  readonly onAceptarPropuesta: (cuantos: number) => void;
 }
 
 export function PartRow({
@@ -128,7 +128,7 @@ export function PartRow({
   onGestureStart,
   onGestureEnd,
   propuesta = SIN_PROPUESTA,
-  onAceptarPropuesta = () => {},
+  onAceptarPropuesta,
 }: PartRowProps) {
   const [editando, setEditando] = useState(false);
   /**

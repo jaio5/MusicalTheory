@@ -143,6 +143,7 @@ export function Grabadora({ createMic, createRecorder }: GrabadoraProps = {}) {
 
   async function stop(): Promise<void> {
     const recorder = recorderRef.current;
+    /* v8 ignore next 3 -- el boton de parar solo se pinta grabando, y se graba porque hay grabador */
     if (recorder === null) {
       return;
     }
@@ -157,6 +158,7 @@ export function Grabadora({ createMic, createRecorder }: GrabadoraProps = {}) {
   }
 
   function download(): void {
+    /* v8 ignore next 3 -- el boton de descargar solo se pinta con la toma delante */
     if (toma === null) {
       return;
     }

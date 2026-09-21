@@ -214,3 +214,99 @@ describe('la grabadora', () => {
     expect(micro.paradas).toBe(1);
   });
 });
+
+describe('lo que faltaba por mirar', () => {
+  /**
+   * El contador es la única señal que se mueve sola mientras grabas: sin él, una
+   * pantalla quieta durante medio minuto se lee como que esto se ha colgado.
+   */
+  it('los segundos corren mientras graba', async () => {
+    render(
+      <Grabadora createMic={() => new MicroFalso()} createRecorder={() => new GrabadorFalso()} />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /grabar lo que tocas/i }));
+
+    await waitFor(() => expect(screen.getByText(/0:01/)).toBeInTheDocument(), { timeout: 3000 });
+  });
+
+  // Y la toma se descarga con el nombre que trae: el sonido es tuyo.
+  it('la toma se descarga con su nombre', async () => {
+    const pulsados: Array<{ href: string; download: string }> = [];
+    const crear = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((etiqueta: string) => {
+      const nodo = crear(etiqueta) as HTMLAnchorElement;
+      if (etiqueta === 'a') {
+        nodo.click = () => pulsados.push({ href: nodo.href, download: nodo.download });
+      }
+      return nodo;
+    });
+    await grabarYParar();
+
+    await userEvent.click(await screen.findByRole('button', { name: /descargar/i }));
+
+    expect(pulsados).toEqual([
+      { href: 'blob:toma-1', download: 'caos-ordenado-2026-09-08-1905.webm' },
+    ]);
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * Un micrófono que falla sin decir por qué no puede dejar la pantalla muda: se
+   * dice lo que se sabe, que es que no se ha podido abrir.
+   */
+  it('un microfono que no explica nada se explica igual', async () => {
+    class MicroMudo extends MicroFalso {
+      override async start(): Promise<void> {
+        this.state = 'error';
+      }
+    }
+    render(
+      <Grabadora createMic={() => new MicroMudo()} createRecorder={() => new GrabadorFalso()} />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /grabar lo que tocas/i }));
+
+    expect(await screen.findByText(/No se ha podido abrir el micrófono/)).toBeInTheDocument();
+  });
+
+  it('y un grabador mudo tambien', async () => {
+    class GrabadorMudo extends GrabadorFalso {
+      override async start(): Promise<void> {
+        this.state = 'unsupported';
+      }
+    }
+    const micro = new MicroFalso();
+    render(<Grabadora createMic={() => micro} createRecorder={() => new GrabadorMudo()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /grabar lo que tocas/i }));
+
+    expect(await screen.findByText(/No se ha podido empezar a grabar/)).toBeInTheDocument();
+    // Y el micro que se abrió para nada se cierra.
+    expect(micro.paradas).toBe(1);
+  });
+
+  /**
+   * Sin fábricas se usan el micrófono y el grabador de verdad, que es como sale
+   * en la aplicación. En jsdom no hay ninguno de los dos, y eso se cuenta.
+   */
+  it('sin fabricas usa los de verdad, y dice que aqui no hay micro', async () => {
+    render(<Grabadora />);
+
+    await userEvent.click(screen.getByRole('button', { name: /grabar lo que tocas/i }));
+
+    expect(await screen.findByRole('button', { name: /grabar lo que tocas/i })).toBeInTheDocument();
+  });
+
+  // Y con micrófono pero sin fábrica de grabador, el de verdad: aquí no hay
+  // `MediaRecorder`, que es lo mismo que pasa en un navegador que no graba.
+  it('y el grabador de verdad dice que este navegador no graba', async () => {
+    const micro = new MicroFalso();
+    render(<Grabadora createMic={() => micro} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /grabar lo que tocas/i }));
+
+    expect(await screen.findByText(/no puede grabar sonido/i)).toBeInTheDocument();
+    expect(micro.paradas).toBe(1);
+  });
+});

@@ -1725,3 +1725,72 @@ describe('Traer lo grabado cuando no habia nada legible', () => {
     expect(screen.getByText(/No he podido leer/)).toBeInTheDocument();
   });
 });
+
+describe('Los dos campos de una parte', () => {
+  async function conUnaParte() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await enBloques();
+    await userEvent.click(propuestas()[0]!);
+  }
+
+  function campoDe(parte: string, nombre: RegExp | string) {
+    return within(screen.getByRole('region', { name: parte })).getByRole(
+      typeof nombre === 'string' ? 'textbox' : 'spinbutton',
+      typeof nombre === 'string' ? {} : { name: nombre },
+    );
+  }
+
+  /**
+   * `Intro` y `Escape` cierran el campo: es lo que hace cualquier cosa que se
+   * edita en el sitio, y sin ellas el único modo de salir era pulsar fuera.
+   */
+  it('el nombre se cierra con Intro', async () => {
+    await conUnaParte();
+    await userEvent.click(screen.getByRole('button', { name: 'Estrofa' }));
+
+    const campo = campoDe('Estrofa', 'nombre');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'Puente{Enter}');
+
+    expect(screen.getByRole('button', { name: 'Puente' })).toBeInTheDocument();
+  });
+
+  it('y los compases con Escape', async () => {
+    await conUnaParte();
+    const compases = campoDe('Estrofa', /compases/i);
+
+    await userEvent.type(compases, '{Escape}');
+
+    expect(compases).not.toHaveFocus();
+  });
+
+  // Pulsar un bloque de la tira lo elige, igual que en la partitura.
+  it('un bloque de la tira se elige pulsandolo', async () => {
+    await conUnaParte();
+    await userEvent.click(propuestas()[0]!);
+
+    // El recién puesto queda elegido solo, así que se pulsa el otro.
+    await userEvent.click(tiraDe('Estrofa')[0]!);
+
+    expect(tiraDe('Estrofa')[0]!).toHaveAttribute('aria-pressed', 'true');
+    expect(tiraDe('Estrofa')[1]!).toHaveAttribute('aria-pressed', 'false');
+  });
+});
+
+describe('Escribir una nota pulsando el pentagrama', () => {
+  /**
+   * La otra manera de puntear: pulsar donde quieres la nota. La lista de «y de
+   * nota» propone; el pentagrama es donde se escribe a mano.
+   */
+  it('la nota entra en la parte que se pulsa', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    const pentagrama = screen.getByLabelText(/^Partitura de Estrofa/);
+
+    fireEvent.click(pentagrama, { clientX: 200, clientY: 60 });
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes).toHaveLength(1);
+  });
+});

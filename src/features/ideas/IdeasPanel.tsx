@@ -102,6 +102,7 @@ export function IdeasPanel({
    * ejemplo en Do de un libro.
    */
   async function escuchar(title: string, degrees: readonly DegreeSymbol[]) {
+    /* v8 ignore next 3 -- sin tonalidad no hay ideas pintadas, y sin ideas no hay boton de escuchar */
     if (activeKey === null) {
       return;
     }
@@ -168,6 +169,7 @@ export function IdeasPanel({
   }, [pedidoPendiente, activeKey]);
 
   async function ask(kind: IdeaKind, proponerLaPrimera = false): Promise<void> {
+    /* v8 ignore next 3 -- sin tonalidad el panel enseña que falta elegirla, sin botones que pidan nada */
     if (activeKey === null) {
       return;
     }
@@ -267,11 +269,18 @@ export function IdeasPanel({
           )}
 
           <ul className="mt-6 space-y-4" aria-live="polite">
-            {ideas.map((idea) => (
-              <li key={idea.title} className="border-border border-l-2 pl-4">
-                <p className="text-text">{idea.title}</p>
-                {idea.chords !== undefined && (
-                  /*
+            {ideas.map((idea) => {
+              // Los grados, una vez y con nombre: repetir `idea.degrees ?? []`
+              // en cada botón deja dos caminos que no pueden darse —los botones
+              // viven dentro del `if` que ya comprueba que hay grados— y que
+              // luego no hay manera de probar.
+              const degrees = idea.degrees ?? [];
+              const acordes = idea.chords ?? [];
+              return (
+                <li key={idea.title} className="border-border border-l-2 pl-4">
+                  <p className="text-text">{idea.title}</p>
+                  {acordes.length > 0 && (
+                    /*
                     Los acordes, y **el que va sonando encendido**.
 
                     Eran una línea de texto y nada más: la IA proponía tres
@@ -279,67 +288,67 @@ export function IdeasPanel({
                     ir pulsándola a mano en la rueda acorde por acorde. Una idea
                     que no se puede oír no es una idea, es un párrafo.
                   */
-                  <p className="mt-1 flex flex-wrap items-baseline gap-x-1 font-mono text-sm">
-                    {idea.chords.map((chord, indice) => (
-                      <span key={`${chord}-${indice}`}>
-                        <span
-                          className={
-                            sonando?.title === idea.title && sonando.paso === indice
-                              ? 'text-brass-bright bg-brass-dim/25 rounded-sm px-1'
-                              : 'text-brass-bright'
-                          }
-                        >
-                          {chord}
-                        </span>
-                        {indice < (idea.chords?.length ?? 0) - 1 && (
-                          <span className="text-text-muted" aria-hidden="true">
-                            {' '}
-                            ·
+                    <p className="mt-1 flex flex-wrap items-baseline gap-x-1 font-mono text-sm">
+                      {acordes.map((chord, indice) => (
+                        <span key={`${chord}-${indice}`}>
+                          <span
+                            className={
+                              sonando?.title === idea.title && sonando.paso === indice
+                                ? 'text-brass-bright bg-brass-dim/25 rounded-sm px-1'
+                                : 'text-brass-bright'
+                            }
+                          >
+                            {chord}
                           </span>
-                        )}
-                      </span>
-                    ))}
-                  </p>
-                )}
+                          {indice < acordes.length - 1 && (
+                            <span className="text-text-muted" aria-hidden="true">
+                              {' '}
+                              ·
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                    </p>
+                  )}
 
-                {/* El porqué antes que los botones: primero se entiende qué
+                  {/* El porqué antes que los botones: primero se entiende qué
                     propone y luego se decide si se oye o se mete. Debajo de los
                     botones quedaba separado de los acordes que explica. */}
-                <p className="text-text-muted mt-1 text-sm">{idea.why}</p>
+                  <p className="text-text-muted mt-1 text-sm">{idea.why}</p>
 
-                {idea.degrees !== undefined && idea.degrees.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Chip
-                      tone="quiet"
-                      className="px-3 text-xs"
-                      onClick={() => void escuchar(idea.title, idea.degrees ?? [])}
-                    >
-                      {sonando?.title === idea.title ? 'Parar' : 'Escuchar'}
-                    </Chip>
-                    {/* «Probarla en la canción» y no «a la canción»: no entra,
+                  {degrees.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Chip
+                        tone="quiet"
+                        className="px-3 text-xs"
+                        onClick={() => void escuchar(idea.title, degrees)}
+                      >
+                        {sonando?.title === idea.title ? 'Parar' : 'Escuchar'}
+                      </Chip>
+                      {/* «Probarla en la canción» y no «a la canción»: no entra,
                         se propone. Sale punteada al final de lo que llevas, y
                         hasta que no la aceptes no es tuya. */}
-                    <Chip
-                      tone="quiet"
-                      className="px-3 text-xs"
-                      onClick={() => proponer(idea.title, idea.degrees ?? [])}
-                    >
-                      Probarla en la canción
-                    </Chip>
-                    {metida === idea.title && (
-                      <span className="text-tube-bright text-xs" role="status">
-                        Puesta al final, punteada: acéptala o descártala allí
-                      </span>
-                    )}
-                  </div>
-                )}
-                {idea.scale !== undefined &&
-                  (onIrALaEscala === undefined ? (
-                    <p className="text-brass-bright mt-1 font-mono text-sm">
-                      {SCALES[idea.scale].name} de {noteName(activeKey.tonic)}
-                    </p>
-                  ) : (
-                    /*
+                      <Chip
+                        tone="quiet"
+                        className="px-3 text-xs"
+                        onClick={() => proponer(idea.title, degrees)}
+                      >
+                        Probarla en la canción
+                      </Chip>
+                      {metida === idea.title && (
+                        <span className="text-tube-bright text-xs" role="status">
+                          Puesta al final, punteada: acéptala o descártala allí
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {idea.scale !== undefined &&
+                    (onIrALaEscala === undefined ? (
+                      <p className="text-brass-bright mt-1 font-mono text-sm">
+                        {SCALES[idea.scale].name} de {noteName(activeKey.tonic)}
+                      </p>
+                    ) : (
+                      /*
                       La escala propuesta, dibujada y pulsable.
 
                       Era una línea de texto —«Pentatónica menor de La»—, que a
@@ -352,34 +361,35 @@ export function IdeasPanel({
                       Botón y no enlace: no se va a ninguna dirección, se cambia
                       lo que hay puesto en esta misma pantalla.
                     */
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onIrALaEscala(idea.scale as ScaleId);
-                      }}
-                      className="border-border hover:border-brass-dim hover:bg-surface-raised group mt-2 flex w-full max-w-sm cursor-pointer items-center gap-3 rounded-md border p-2 text-left transition-colors"
-                    >
-                      <EscalaMini tonic={activeKey.tonic} scaleId={idea.scale} />
-                      <span className="min-w-0">
-                        <span className="text-brass-bright block font-mono text-sm">
-                          {SCALES[idea.scale].name} de {noteName(activeKey.tonic)}
-                        </span>
-                        {/* El porqué de la IA ya explica qué pinta aquí esta
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onIrALaEscala(idea.scale as ScaleId);
+                        }}
+                        className="border-border hover:border-brass-dim hover:bg-surface-raised group mt-2 flex w-full max-w-sm cursor-pointer items-center gap-3 rounded-md border p-2 text-left transition-colors"
+                      >
+                        <EscalaMini tonic={activeKey.tonic} scaleId={idea.scale} />
+                        <span className="min-w-0">
+                          <span className="text-brass-bright block font-mono text-sm">
+                            {SCALES[idea.scale].name} de {noteName(activeKey.tonic)}
+                          </span>
+                          {/* El porqué de la IA ya explica qué pinta aquí esta
                             escala, así que el carácter de catálogo sobraría: dos
                             renglones grises seguidos diciendo casi lo mismo se
                             leen como uno y no se lee ninguno. Lo que sí hace
                             falta es decir qué pasa al pulsar. */}
-                        <span className="text-text-muted group-hover:text-brass-bright mt-1 block text-xs">
-                          Ponerla y verla en el mástil{' '}
-                          <span aria-hidden="true" className="inline-block">
-                            →
+                          <span className="text-text-muted group-hover:text-brass-bright mt-1 block text-xs">
+                            Ponerla y verla en el mástil{' '}
+                            <span aria-hidden="true" className="inline-block">
+                              →
+                            </span>
                           </span>
                         </span>
-                      </span>
-                    </button>
-                  ))}
-              </li>
-            ))}
+                      </button>
+                    ))}
+                </li>
+              );
+            })}
           </ul>
         </>
       )}

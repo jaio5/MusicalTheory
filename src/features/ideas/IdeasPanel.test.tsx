@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
+
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Account } from '@core/billing';
 import { pitchClassFromName, type ScaleId } from '@core/music';
@@ -45,6 +47,19 @@ function respondWith(payload: unknown, status = 200): Response {
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
+/**
+ * Cada prueba empieza limpia: la tonalidad, la canción, lo propuesto y el pedido
+ * que el lienzo deja apuntado viven en almacenes de módulo y se quedan de una
+ * prueba para la siguiente. Un pedido pendiente que sobrevive hace que el panel
+ * siguiente pida ideas solo, y entonces no hay botón que pulsar.
+ */
+beforeEach(() => {
+  useSessionStore.getState().actions.reset();
+  useArrangementStore.setState({ arrangement: { parts: [] }, past: [] });
+  usePedidoDeIdeas.setState({ pendiente: false });
+  usePropuestaStore.getState().acciones.descartar();
+});
 
 describe('Panel de ideas', () => {
   it('avisa de que a la IA solo van símbolos', () => {
@@ -565,5 +580,186 @@ describe('pedida desde el lienzo', () => {
     await screen.findByText('Bajar por tonos');
 
     expect(usePropuestaStore.getState().propuesta).toBeNull();
+  });
+});
+
+describe('escuchar una idea', () => {
+  const UNA = {
+    ideas: [
+      {
+        title: 'El bucle girado',
+        why: 'Empieza por el vi.',
+        degrees: ['vi', 'IV', 'I', 'V'],
+        chords: ['Am', 'F', 'C', 'G'],
+      },
+    ],
+  };
+
+  /**
+   * Un reproductor de mentira que **avisa por dónde va**, que es lo que hace el
+   * de verdad: sin eso, el acorde que suena no se marca y escuchar una
+   * progresión de cuatro es oír cuatro acordes sin saber cuál va.
+   */
+  function conReproductor(avisa: boolean) {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    return render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={async () => respondWith(UNA)}
+          createPlayer={() => ({
+            play: async (steps, avisar) => {
+              if (avisa) {
+                avisar?.(1);
+                // Un respiro entre los dos avisos, que si no React los junta en
+                // un render y el acorde marcado no se llega a ver nunca.
+                await new Promise((seguir) => setTimeout(seguir, 200));
+                avisar?.(null);
+              }
+              expect(steps).not.toHaveLength(0);
+            },
+            stop: () => undefined,
+            dispose: async () => undefined,
+          })}
+        />,
+      ),
+    );
+  }
+
+  it('el acorde que va sonando se marca', async () => {
+    conReproductor(true);
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Escuchar' }));
+
+    // El segundo de los cuatro, que es por donde va el reproductor de mentira.
+    await waitFor(() => expect(screen.getByText('F').className).toContain('bg-brass-dim'));
+    // Y al acabar vuelve a ofrecerse escuchar: el botón no se queda en «Parar».
+    expect(await screen.findByRole('button', { name: 'Escuchar' })).toBeInTheDocument();
+  });
+
+  // Pulsar la que está sonando la para: es el mismo botón para las dos cosas.
+  it('pulsarla otra vez la para', async () => {
+    conReproductor(false);
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Escuchar' }));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Parar' }));
+
+    expect(await screen.findByRole('button', { name: 'Escuchar' })).toBeInTheDocument();
+  });
+});
+
+describe('lo que se manda y por donde va', () => {
+  /**
+   * Sin fábrica de petición se llama al servidor de verdad, que es lo que hace
+   * en la aplicación: la dirección y el cuerpo son parte del contrato.
+   */
+  it('sin fabrica, pide a /api/ideas con lo que hay puesto', async () => {
+    const pedidas: Array<{ url: string; body: unknown }> = [];
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    // El grado que tienes delante viaja con la petición: proponer «desde aquí»
+    // es la mitad de para qué sirve esto.
+    useSessionStore.getState().actions.setCurrentDegree('I');
+    // Y las notas que acaban de sonar también: es lo que deja proponer sobre lo
+    // que estás tocando y no sobre la tonalidad a secas.
+    useSessionStore.setState({
+      noteHistory: [{ pitchClass: pitchClassFromName('E'), midi: 64, at: 0, clarity: 0.9 }],
+    });
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      pedidas.push({ url, body: JSON.parse(String(init.body)) });
+      return respondWith({ ideas: [] });
+    });
+
+    render(conCuenta(<IdeasPanel />));
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+
+    await waitFor(() => expect(pedidas).toHaveLength(1));
+    expect(pedidas[0]!.url).toBe('/api/ideas');
+    expect(pedidas[0]!.body).toMatchObject({ kind: 'progression', currentDegree: 'I' });
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * Y un pedido del lienzo sin tonalidad puesta no se gasta: se queda esperando
+   * a que la haya, que es cuando hay algo sobre lo que proponer.
+   */
+  it('un pedido sin tonalidad no llama a nadie', async () => {
+    const pedidas: string[] = [];
+    usePedidoDeIdeas.getState().acciones.pedirProgresion();
+    render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={async () => {
+            pedidas.push('una');
+            return respondWith({ ideas: [] });
+          }}
+        />,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText(/elige una tonalidad para poder pedir ideas/)).toBeInTheDocument(),
+    );
+    expect(pedidas).toEqual([]);
+    expect(usePedidoDeIdeas.getState().pendiente).toBe(true);
+  });
+});
+
+/**
+ * Una idea puede no traer progresión: las de escala y las de melodía explican
+ * algo y no hay nada que escuchar ni que probar en la canción. Entonces no salen
+ * los botones, en vez de salir y no hacer nada.
+ */
+describe('una idea sin progresion', () => {
+  it('no ofrece escucharla ni probarla', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(
+      conCuenta(
+        <IdeasPanel
+          fetchIdeas={async () =>
+            respondWith({
+              ideas: [{ title: 'Sube la sexta', why: 'Suena a dórico.', degrees: [] }],
+            })
+          }
+        />,
+      ),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
+
+    expect(await screen.findByText('Sube la sexta')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Escuchar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Probarla/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * La bandera se consume una vez y solo una.
+ *
+ * En desarrollo React monta los efectos dos veces a propósito, y sin esa cuenta
+ * el panel pediría dos ideas al abrirse: dos peticiones del cupo por un pedido.
+ * Es justo para esto que `consumir()` devuelve si había algo que consumir.
+ */
+describe('un pedido del lienzo, con los efectos montados dos veces', () => {
+  it('solo gasta una peticion', async () => {
+    const pedidas: string[] = [];
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    usePedidoDeIdeas.getState().acciones.pedirProgresion();
+
+    render(
+      <StrictMode>
+        {conCuenta(
+          <IdeasPanel
+            fetchIdeas={async () => {
+              pedidas.push('una');
+              return respondWith({ ideas: [] });
+            }}
+          />,
+        )}
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(pedidas).toHaveLength(1));
+    expect(usePedidoDeIdeas.getState().pendiente).toBe(false);
   });
 });
