@@ -2,8 +2,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { writtenBlock, type Arrangement } from '@core/music';
-import type { ProgressionPlayer, ScheduledStep } from '@audio/progression-player';
+import { writtenBlock, type Arrangement, type ScheduledStep } from '@core/music';
+import type { ProgressionPlayer } from '@audio/progression-player';
 
 import { useArrangementPlayer } from './use-arrangement-player';
 
@@ -141,8 +141,8 @@ describe('Escuchar el montaje', () => {
           name: 'Solo',
           blocks: [],
           notes: [
-            { id: 'n1', start: 0, length: 1, midi: 60 },
-            { id: 'n2', start: 1, length: 1, midi: 62 },
+            { id: 'n1', start: 0, length: 1, offset: 0 },
+            { id: 'n2', start: 1, length: 1, offset: 2 },
           ],
           bars: 1,
         },
@@ -175,7 +175,7 @@ describe('Escuchar el montaje', () => {
       parts: [
         {
           ...MONTAJE.parts[0]!,
-          notes: [{ id: 'n1', start: 0, length: 1, midi: 60 }],
+          notes: [{ id: 'n1', start: 0, length: 1, offset: 0 }],
         },
       ],
     };

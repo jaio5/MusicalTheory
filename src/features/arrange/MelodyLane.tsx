@@ -36,6 +36,9 @@ import { PX_POR_PULSO } from './BlockButton';
 /** Alto de cada fila. Doce filas de esto caben en un portátil sin desplazar. */
 export const ALTO_FILA = 22;
 
+/** La caja de una rejilla que no está montada. No pasa; TypeScript no lo sabe. */
+const SIN_REJILLA = { top: 0, left: 0 } as DOMRect;
+
 /** Hasta dónde llegan las alturas: de una cuarta abajo a una novena arriba. */
 export const OFFSET_GRAVE = -5;
 export const OFFSET_AGUDO = 16;
@@ -130,18 +133,26 @@ export function MelodyLane({
    */
   const escondidas = notes.filter((note) => !filas.includes(clampOffset(note.offset))).length;
 
-  /** Qué casilla hay bajo un punto de la pantalla. */
+  /**
+   * Qué casilla hay bajo un punto de la pantalla. **Siempre hay una.**
+   *
+   * La fila se recorta contra los extremos, así que un punto por encima de la
+   * rejilla cae en la de arriba y uno por debajo en la de abajo, que es lo que
+   * hace que arrastrar fuera y volver no pierda la nota.
+   *
+   * Los dos valores de repuesto son para lo que TypeScript no puede saber —que
+   * la rejilla está montada siempre que se pueda pulsar en ella, y que la lista
+   * de filas de una escala nunca está vacía—, no para un caso real. Devolver
+   * nulo por ellos obligaba a comprobarlo en los tres sitios que llaman aquí, y
+   * esas tres comprobaciones tampoco podían darse.
+   */
   const casillaEn = useCallback(
-    (clientX: number, clientY: number): { offset: number; start: number } | null => {
-      const caja = rejillaRef.current?.getBoundingClientRect();
-      if (caja === undefined) {
-        return null;
-      }
+    (clientX: number, clientY: number): { offset: number; start: number } => {
+      /* v8 ignore next -- la rejilla está montada: sin ella no hay dónde pulsar. */
+      const caja = rejillaRef.current?.getBoundingClientRect() ?? SIN_REJILLA;
       const fila = Math.floor((clientY - caja.top) / ALTO_FILA);
-      const offset = filas[Math.min(Math.max(0, fila), filas.length - 1)];
-      if (offset === undefined) {
-        return null;
-      }
+      /* v8 ignore next -- una escala sin notas no existe. */
+      const offset = filas[Math.min(Math.max(0, fila), filas.length - 1)] ?? 0;
       const pulsos = (clientX - caja.left) / porPulso;
       return { offset, start: Math.max(0, Math.floor(pulsos / GRID) * GRID) };
     },
@@ -180,15 +191,13 @@ export function MelodyLane({
       // La nota se mueve con el puntero y no salta a él: cogiendo una de cuatro
       // pulsos por el medio, sin esto el principio se iba a donde estaba el dedo.
       const agarre = casillaEn(event.clientX, event.clientY);
-      const dStart = agarre === null ? 0 : note.start - agarre.start;
+      const dStart = note.start - agarre.start;
 
       arrastrar({
         mover: (x, y) => {
           arrastradaRef.current = true;
           const casilla = casillaEn(x, y);
-          if (casilla !== null) {
-            onMove(note.id, casilla.start + dStart, casilla.offset);
-          }
+          onMove(note.id, casilla.start + dStart, casilla.offset);
         },
         soltar: onGestureEnd,
       });
@@ -234,9 +243,7 @@ export function MelodyLane({
                     return;
                   }
                   const casilla = casillaEn(event.clientX, event.clientY);
-                  if (casilla !== null) {
-                    onAdd(casilla.offset, casilla.start);
-                  }
+                  onAdd(casilla.offset, casilla.start);
                 }}
                 aria-label={`Escribir ${nombre} en ${partName}`}
                 className={`absolute inset-x-0 block ${

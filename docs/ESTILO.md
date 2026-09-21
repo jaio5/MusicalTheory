@@ -316,3 +316,14 @@ que no se arreglan con ninguna clase de Tailwind.
   `esquema-ideas.test.ts` comprueban cosas que solo se ven en conjunto —que ninguna
   pantalla se escriba su propio ancho, que ninguna ruta gaste cupo por su cuenta—.
   Son feos y han cazado lo que ningún test unitario podía.
+- **Una rama que no puede darse se quita; si no se puede quitar, se marca.** Lo
+  primero casi siempre se puede: preguntar por la longitud de una lista y luego por
+  su primer elemento deja una rama muerta, y juntarlas en una la borra. Cuando lo
+  que sobra es una comprobación que **TypeScript exige y la realidad no** —que una
+  `ref` está montada, que una escala tiene notas—, va un `/* v8 ignore next */`
+  **con su razón detrás del `--`**, nunca a secas. Un `ignore` sin motivo es una
+  línea que nadie volverá a mirar.
+
+  Y antes de marcar, mirar si la función puede dejar de devolver nulo: `casillaEn`
+  en `arrange/MelodyLane.tsx` lo hacía, y sus tres llamantes comprobaban un nulo
+  que tampoco podía llegar. Hacerla total borró cuatro ramas muertas de un golpe.
