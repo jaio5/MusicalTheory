@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { ProgressionPlayer } from '@audio/progression-player';
 import type { PitchClass, ScheduledStep } from '@core/music';
-import { writtenBlock } from '@core/music';
+import { midiToFrequency, writtenBlock } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore, type PathChord } from '@state/session-store';
 
@@ -241,6 +241,52 @@ describe('Por dónde empezar', () => {
     expect(screen.getByText('reposo')).toBeInTheDocument();
     expect(screen.getByText('salida')).toBeInTheDocument();
     expect(screen.getByText('tensión')).toBeInTheDocument();
+  });
+});
+
+describe('mientras la progresión suena', () => {
+  /**
+   * El reproductor dice por qué acorde va, y se enciende en la tira: mirar una
+   * progresión sonar sin ver dónde va es la mitad de la gracia de poder oírla.
+   * Y al terminar, el botón vuelve a decir «escuchar».
+   */
+  it('se enciende el que va sonando, y al acabar el boton vuelve', async () => {
+    play(AM, G);
+    const player = new ReproductorFalso();
+    render(<CurrentChord createPlayer={() => player} />);
+    await userEvent.click(screen.getByRole('button', { name: /escuchar lo que estás probando/i }));
+
+    act(() => player.vaPor(1));
+    // El que suena se enciende: es lo que deja seguir la progresión con la vista.
+    expect(document.querySelectorAll('.bg-brass-dim\\/30')).toHaveLength(1);
+
+    act(() => player.terminar());
+
+    expect(
+      screen.getByRole('button', { name: /escuchar lo que estás probando/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('lo que ya has tocado cuenta', () => {
+  /**
+   * Las notas que han sonado entran en la propuesta: lo que se ofrece primero
+   * no es solo lo que pega por teoría, sino lo que pega con lo que estás
+   * tocando.
+   */
+  it('las notas oidas llegan a la lista y al buscador', async () => {
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: 0, mode: 'major' });
+    actions.setPitch(midiToFrequency(64), 0.95, 0);
+    actions.setPitch(midiToFrequency(67), 0.95, 500);
+
+    render(<NextChords />);
+    // Y el buscador las usa igual: escribir un acorde y ver si pega con lo que
+    // acabas de tocar es la mitad de para qué sirve.
+    await userEvent.type(screen.getByRole('combobox', { name: /Buscar un acorde/ }), 'C');
+
+    expect(screen.getAllByRole('button').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/suena ahora/).length).toBeGreaterThan(0);
   });
 });
 

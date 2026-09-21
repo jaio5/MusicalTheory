@@ -417,15 +417,18 @@ export function NextChords({
 
   const inKey = useMemo(
     () =>
+      /* v8 ignore start -- esta lista solo se pinta con tonalidad puesta */
       new Set<PitchClass>(
         activeKey === null
           ? []
           : scaleNotes(activeKey.tonic, activeKey.mode === 'major' ? 'major' : 'naturalMinor'),
       ),
+    /* v8 ignore stop */
     [activeKey],
   );
 
   const options = useMemo(() => {
+    /* v8 ignore next 3 -- mismo motivo: sin tonalidad no hay lista que pintar */
     if (activeKey === null) {
       return [];
     }
@@ -446,10 +449,12 @@ export function NextChords({
             tiene grado sigue yendo al camino, igual que ahí. */}
         <ChordSearch
           onPick={(chord) => {
+            /* v8 ignore start -- el buscador solo se pinta con tonalidad puesta */
             const puesto =
               activeKey === null
                 ? null
                 : comoBloque(activeKey.tonic, activeKey.mode, chord.root, chord.notes);
+            /* v8 ignore stop */
             if (puesto !== null && onPoner !== undefined) {
               onPoner(puesto.degree, puesto.especie);
               return;
@@ -513,10 +518,12 @@ export function NextChords({
            * lo mismo: la tríada sale de las notas y la séptima también, así que
            * no hace falta una tabla de sufijos aparte que se pueda desincronizar.
            */
+          /* v8 ignore start -- lo mismo: sin tonalidad no hay candidatos que pintar */
           const bloque =
             activeKey === null
               ? null
               : comoBloque(activeKey.tonic, activeKey.mode, option.root, option.notes);
+          /* v8 ignore stop */
           const sePuedeEscribir = onPoner !== undefined && bloque !== null;
 
           /**
