@@ -178,7 +178,9 @@ export function ArrangeCanvas() {
     propuesta === null
       ? ''
       : `${propuesta.titulo}: ${propuesta.degrees.length} acordes propuestos para ${
+          /* v8 ignore start -- se propone sobre una parte que existe, que es de donde sale la propuesta */
           arrangement.parts.find((part) => part.id === propuesta.partId)?.name ?? 'la canción'
+          /* v8 ignore stop */
         }. Tab los acepta, Mayúsculas y Tab acepta uno, Escape los descarta.`;
   /** Qué propuesta se está arrastrando y sobre qué parte va, mientras dura. */
   const [soltando, setSoltando] = useState<{
@@ -328,14 +330,17 @@ export function ArrangeCanvas() {
    */
   const medir = useCallback((): Medida[] => {
     const raiz = listaRef.current;
+    /* v8 ignore next 3 -- solo corre durante un arrastre sobre la lista, que está puesta porque se arrastra dentro de ella */
     if (raiz === null) {
       return [];
     }
     return [...raiz.querySelectorAll<HTMLElement>('[data-parte]')].map((elemento) => {
       const caja = elemento.getBoundingClientRect();
       return {
+        /* v8 ignore start -- los dos `data-` los escribe este mismo componente en cada fila */
         partId: elemento.dataset['parte'] ?? '',
         index: Number(elemento.dataset['indice'] ?? 0),
+        /* v8 ignore stop */
         left: caja.left,
         right: caja.right,
         top: caja.top,
@@ -376,6 +381,7 @@ export function ArrangeCanvas() {
       }
 
       const inicioX = event.clientX;
+      /* v8 ignore next -- el bloque que se coge esta pintado, y lo esta porque esta en el montaje */
       const pulsosIniciales = findBlock(arrangement, blockId)?.block.beats ?? 4;
 
       const mover = (e: PointerEvent) => {
@@ -403,6 +409,7 @@ export function ArrangeCanvas() {
   const teclaEnBloque = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>, blockId: string) => {
       const sitio = findBlock(arrangement, blockId);
+      /* v8 ignore next 3 -- el boton y el montaje salen del mismo pintado: el bloque que manda la tecla esta en el */
       if (sitio === null) {
         return;
       }
@@ -499,6 +506,7 @@ export function ArrangeCanvas() {
         if (parte === null || parte === undefined) {
           return null;
         }
+        /* v8 ignore next -- el `data-parte-destino` lo escribe la propia fila que se acaba de encontrar */
         const partId = parte.dataset['parteDestino'] ?? '';
         const hueco = elemento?.closest<HTMLElement>('[data-indice]');
         const indice = hueco?.dataset['indice'];
@@ -582,6 +590,7 @@ export function ArrangeCanvas() {
 
   const ponerNota = useCallback(
     (offset: number) => {
+      /* v8 ignore next 3 -- el boton se pinta con `notaSiguiente`, y esa cuenta ya exige parte de destino */
       if (parteDestino === null || notaSiguiente === null) {
         return;
       }
@@ -628,6 +637,7 @@ export function ArrangeCanvas() {
   }, [arrangement, beatsPerBar, mode, selectedBlockId, selectedNoteId, tonic]);
 
   const quitarElegido = useCallback(() => {
+    /* v8 ignore next 3 -- el boton de quitar vive dentro de `elegido !== null` */
     if (elegido === null) {
       return;
     }
@@ -719,6 +729,7 @@ export function ArrangeCanvas() {
    * puede mover, estirar y quitar como cualquier otra.
    */
   const traerGrabado = useCallback(() => {
+    /* v8 ignore next 3 -- sin tonalidad el lienzo entero no se pinta, y con el ni este boton */
     if (tonic === null) {
       return;
     }
@@ -1318,8 +1329,10 @@ export function ArrangeCanvas() {
           // fantasma midiera siempre lo mismo, arrastrar uno de dos compases
           // mentiría sobre el hueco que va a ocupar.
           style={{
+            /* v8 ignore start -- hay bloque arrastrado porque hay gesto: el cero nunca se usa */
             left: (drag?.x ?? 0) - anchoDeBloque(arrastrado.block.beats, porPulso) / 2,
             top: (drag?.y ?? 0) - 22,
+            /* v8 ignore stop */
             width: anchoDeBloque(arrastrado.block.beats, porPulso),
           }}
         >

@@ -327,3 +327,10 @@ que no se arreglan con ninguna clase de Tailwind.
   Y antes de marcar, mirar si la función puede dejar de devolver nulo: `casillaEn`
   en `arrange/MelodyLane.tsx` lo hacía, y sus tres llamantes comprobaban un nulo
   que tampoco podía llegar. Hacerla total borró cuatro ramas muertas de un golpe.
+
+  **Sobre una expresión, `next` no marca nada: hay que usar `start` y `stop`.** Un
+  `?? 'la canción'` en mitad de una plantilla, o un `drag?.x ?? 0` dentro de un
+  `style`, siguen saliendo sin cubrir con el `/* v8 ignore next */` justo encima,
+  porque la rama no queda en la línea del comentario. Encerrarla entre
+  `/* v8 ignore start -- razón */` y `/* v8 ignore stop */` sí. `next` se queda
+  para sentencias enteras: un `if` de guarda, un `return` temprano.

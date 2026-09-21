@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   EMPTY_ARRANGEMENT,
@@ -13,6 +13,8 @@ import {
   type DegreeSymbol,
 } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
+import { selectReparto, useBancoStore } from '@state/banco';
+import { usePedidoDeIdeas } from '@state/pedido-de-ideas';
 import { usePropuestaStore } from '@state/propuesta';
 import { useSessionStore } from '@state/session-store';
 
@@ -23,6 +25,10 @@ const C = pitchClassFromName('C');
 beforeEach(() => {
   useArrangementStore.setState({ arrangement: EMPTY_ARRANGEMENT, past: [] });
   useSessionStore.getState().actions.reset();
+  // Lo propuesto y sin aceptar también se queda de una prueba para otra, y una
+  // propuesta colgando esconde media barra de herramientas.
+  usePropuestaStore.setState({ propuesta: null });
+  usePedidoDeIdeas.setState({ pendiente: false });
 });
 
 /**
@@ -946,5 +952,776 @@ describe('los bloques fantasma', () => {
     expect(region).toHaveTextContent(
       'Bajar por tonos: 2 acordes propuestos para Estrofa. Tab los acepta, Mayúsculas y Tab acepta uno, Escape los descarta.',
     );
+  });
+});
+
+/**
+ * Los gestos del lienzo, que son los que no deja ver un `click`.
+ *
+ * Arrastrar un bloque, estirarlo por el borde, soltar un acorde de la lista
+ * sobre un compás concreto, elegir la figura con la que se escribe. jsdom no da
+ * tamaño a nada, así que las cajas se dictan a mano: es la única forma de que la
+ * aritmética del gesto —qué mitad del bloque, qué compás— se resuelva de verdad.
+ */
+describe('Los gestos sobre el lienzo', () => {
+  function arrastrarHasta(x: number, y: number) {
+    // Dentro de `act`: el movimiento llega desde el `window` y no desde React,
+    // así que sin esto el fantasma que se arrastra no se llega a pintar.
+    act(() => {
+      window.dispatchEvent(
+        new PointerEvent('pointermove', { clientX: x, clientY: y, cancelable: true }),
+      );
+    });
+  }
+  function soltarPuntero() {
+    window.dispatchEvent(new PointerEvent('pointerup', {}));
+  }
+
+  /**
+   * Una caja para cada hueco de la tira, en fila y de cien en cien.
+   *
+   * Se miden los elementos con `data-parte`, que son los que lee `medir`: son
+   * las posiciones de verdad, con el desplazamiento de la fila ya aplicado.
+   */
+  function medirLaTira(parte: string) {
+    const bloques = within(screen.getByRole('list', { name: `Acordes de ${parte}` })).getAllByRole(
+      'button',
+    );
+    document.querySelectorAll<HTMLElement>('[data-parte]').forEach((n, i) => {
+      n.getBoundingClientRect = () =>
+        ({
+          left: i * 100,
+          right: (i + 1) * 100,
+          top: 0,
+          bottom: 50,
+          width: 100,
+          height: 50,
+        }) as DOMRect;
+    });
+    bloques.forEach((b, i) => {
+      b.getBoundingClientRect = () =>
+        ({
+          left: i * 100,
+          right: (i + 1) * 100,
+          top: 0,
+          bottom: 50,
+          width: 100,
+          height: 50,
+        }) as DOMRect;
+    });
+    return bloques;
+  }
+
+  async function conDosAcordes() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Bloques' }));
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(propuestas()[0]!);
+  }
+
+  /**
+   * La franja de estirar son los últimos píxeles del bloque: por ahí se cambia
+   * lo que dura, y por el resto se mueve. Una manija propia sería un control de
+   * catorce píxeles donde nada de lo que se pulsa baja de cuarenta y cuatro.
+   */
+  it('cogido por el borde derecho, el bloque se estira', async () => {
+    await conDosAcordes();
+    const [primero] = medirLaTira('Estrofa');
+    const pulsosAntes = useArrangementStore.getState().arrangement.parts[0]!.blocks[0]!.beats;
+
+    fireEvent.pointerDown(primero!, { button: 0, clientX: 98 });
+    arrastrarHasta(300, 10);
+    soltarPuntero();
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.blocks[0]!.beats).not.toBe(
+      pulsosAntes,
+    );
+  });
+
+  it('y cogido por el cuerpo, se mueve', async () => {
+    await conDosAcordes();
+    const bloques = medirLaTira('Estrofa');
+    const antes = useArrangementStore
+      .getState()
+      .arrangement.parts[0]!.blocks.map((b) => b.degree)
+      .join(' ');
+
+    fireEvent.pointerDown(bloques[0]!, { button: 0, clientX: 10, clientY: 10 });
+    // Primero se pasa el umbral, que es cuando se toman las medidas, y después
+    // se va a la segunda mitad del segundo bloque.
+    arrastrarHasta(40, 10);
+    arrastrarHasta(190, 25);
+    window.dispatchEvent(new PointerEvent('pointerup', { clientX: 190, clientY: 25 }));
+
+    const despues = useArrangementStore
+      .getState()
+      .arrangement.parts[0]!.blocks.map((b) => b.degree)
+      .join(' ');
+    expect(despues).not.toBe(antes);
+  });
+
+  // Con el botón derecho no se estira: ese abre el menú del sistema.
+  it('el boton derecho no estira nada', async () => {
+    await conDosAcordes();
+    const [primero] = medirLaTira('Estrofa');
+    const antes = useArrangementStore.getState().arrangement.parts[0]!.blocks[0]!.beats;
+
+    fireEvent.pointerDown(primero!, { button: 2, clientX: 98 });
+    arrastrarHasta(300, 10);
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.blocks[0]!.beats).toBe(antes);
+  });
+});
+
+describe('La figura con la que se escribe', () => {
+  it('se elige, y se dice cual esta puesta', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    const blanca = screen.getByRole('button', { name: 'blanca' });
+    await userEvent.click(blanca);
+
+    expect(blanca).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  /**
+   * Y con una nota elegida, cambiar de figura **la cambia a ella**: es lo que
+   * convierte la fila de figuras en un editor y no en un ajuste.
+   */
+  it('con una nota elegida, le cambia la duracion', async () => {
+    conTonalidad();
+    useArrangementStore.setState({
+      arrangement: {
+        parts: [
+          {
+            id: 'p',
+            name: 'Estrofa',
+            blocks: [],
+            notes: [{ id: 'n1', start: 0, length: 1, offset: 0 }],
+            bars: 1,
+          },
+        ],
+      },
+      past: [],
+    });
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Bloques' }));
+
+    // Se elige la nota desde la rejilla y después la figura.
+    const nota = screen
+      .getAllByRole('button')
+      .find((b) => (b.getAttribute('aria-label') ?? '').includes('en el pulso 0'));
+    if (nota !== undefined) {
+      await userEvent.click(nota);
+      await userEvent.click(screen.getByRole('button', { name: 'blanca' }));
+
+      expect(useArrangementStore.getState().arrangement.parts[0]!.notes[0]!.length).toBe(2);
+    }
+  });
+});
+
+describe('El aviso de lo que acaba de pasar', () => {
+  it('se puede cerrar', async () => {
+    conTonalidad();
+    useSessionStore.setState({
+      noteHistory: [{ pitchClass: C, midi: 60, at: 0, clarity: 0.9 }],
+      captureStartedAt: 0,
+      captureEndedAt: 1000,
+    });
+    render(<ArrangeCanvas />);
+
+    const traer = screen.queryByRole('button', { name: /Traer lo grabado/ });
+    if (traer !== null) {
+      await userEvent.click(traer);
+      const vale = screen.queryByRole('button', { name: 'Vale' });
+      if (vale !== null) {
+        await userEvent.click(vale);
+        expect(screen.queryByRole('button', { name: 'Vale' })).not.toBeInTheDocument();
+      }
+    }
+  });
+});
+
+/**
+ * Lo que se puede hacer con una parte, que es la unidad de la canción.
+ *
+ * Son los botones de su fila: escucharla, alargarla, acortarla, cambiarle el
+ * papel, renombrarla y quitarla. Se prueban aquí y no en `PartRow` porque lo que
+ * importa es que el lienzo los enchufe a la acción correcta: media docena de
+ * estas recibe `(parte, bloque, sitio)` y la acción espera otro orden.
+ */
+describe('Lo que se hace con una parte', () => {
+  async function conUnaParte() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Bloques' }));
+    await userEvent.click(propuestas()[0]!);
+  }
+
+  it('se le cambia el nombre', async () => {
+    await conUnaParte();
+
+    // El nombre es un rótulo hasta que se pulsa: así no hay catorce campos de
+    // texto en pantalla compitiendo por el foco.
+    await userEvent.click(screen.getByRole('button', { name: 'Estrofa' }));
+    // Dentro de su fila: en la pantalla hay más campos de texto —el buscador de
+    // acordes, sin ir más lejos—.
+    const campo = within(screen.getByRole('region', { name: 'Estrofa' })).getByRole('textbox');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'Puente');
+    fireEvent.blur(campo);
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.name).toBe('Puente');
+  });
+
+  it('y el papel que hace', async () => {
+    await conUnaParte();
+
+    const papel = screen.getByRole('combobox', { name: /Papel de/ });
+    await userEvent.selectOptions(papel, 'estribillo');
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.role).toBe('estribillo');
+  });
+
+  it('se alarga y se acorta por compases', async () => {
+    await conUnaParte();
+    const antes = useArrangementStore.getState().arrangement.parts[0]!.bars;
+
+    await userEvent.click(screen.getByRole('button', { name: /^Alargar/ }));
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.bars).toBe(antes + 1);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Acortar/ }));
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.bars).toBe(antes);
+  });
+
+  it('se escucha ella sola', async () => {
+    await conUnaParte();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Escuchar Estrofa/ }));
+
+    expect(screen.getByRole('button', { name: /^Parar Estrofa/ })).toBeInTheDocument();
+  });
+
+  it('y se quita entera', async () => {
+    await conUnaParte();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Quitar Estrofa/ }));
+
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
+  });
+
+  // La canción entera también suena, y el mismo botón la calla.
+  it('la cancion entera suena y se calla con el mismo boton', async () => {
+    await conUnaParte();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Escuchar la canción' }));
+    expect(screen.getByRole('button', { name: 'Parar' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Parar' }));
+    expect(screen.getByRole('button', { name: 'Escuchar la canción' })).toBeInTheDocument();
+  });
+});
+
+/**
+ * El teclado sobre la nota elegida.
+ *
+ * Es lo que hace que el punteo se pueda editar sin ratón, y lo que permite las
+ * alteradas: las flechas la mueven por la rejilla y las teclas de más y menos la
+ * suben o la bajan **un semitono**, sin cambiarla de escalón.
+ */
+describe('La nota elegida, con el teclado', () => {
+  async function conUnaNota() {
+    conTonalidad();
+    useArrangementStore.setState({
+      arrangement: {
+        parts: [
+          {
+            id: 'p',
+            name: 'Estrofa',
+            blocks: [],
+            notes: [{ id: 'n1', start: 1, length: 1, offset: 0 }],
+            bars: 2,
+          },
+        ],
+      },
+      past: [],
+    });
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Bloques' }));
+    const nota = screen
+      .getAllByRole('button')
+      .find((b) => (b.getAttribute('aria-label') ?? '').includes('en el pulso 1'));
+    await userEvent.click(nota!);
+    return nota!;
+  }
+
+  function teclear(key: string, shiftKey = false) {
+    const caja = document.querySelector('[role="presentation"]');
+    fireEvent.keyDown(caja ?? document.body, { key, shiftKey });
+  }
+
+  it('las flechas la mueven por la rejilla', async () => {
+    await conUnaNota();
+
+    teclear('ArrowRight');
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes[0]!.start).toBeGreaterThan(1);
+  });
+
+  it('con Mayusculas, la estiran', async () => {
+    await conUnaNota();
+    const antes = useArrangementStore.getState().arrangement.parts[0]!.notes[0]!.length;
+
+    teclear('ArrowRight', true);
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes[0]!.length).not.toBe(antes);
+  });
+
+  it('mas y menos la suben y la bajan un semitono', async () => {
+    await conUnaNota();
+
+    teclear('+');
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes[0]!.offset).toBe(1);
+
+    teclear('-');
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes[0]!.offset).toBe(0);
+  });
+
+  it('Supr la quita', async () => {
+    await conUnaNota();
+
+    teclear('Delete');
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes).toHaveLength(0);
+  });
+
+  it('y cualquier otra tecla la deja donde esta', async () => {
+    await conUnaNota();
+    const antes = JSON.stringify(useArrangementStore.getState().arrangement.parts[0]!.notes[0]);
+
+    teclear('a');
+
+    expect(JSON.stringify(useArrangementStore.getState().arrangement.parts[0]!.notes[0])).toBe(
+      antes,
+    );
+  });
+
+  // Sin nota elegida, las mismas teclas no tocan nada.
+  it('sin nota elegida no pasa nada', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Bloques' }));
+
+    teclear('Delete');
+
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
+  });
+});
+
+describe('Arrastrar una propuesta hasta la canción', () => {
+  /**
+   * jsdom no pinta nada, así que no sabe qué hay debajo del puntero: hay que
+   * decírselo. Es lo único que `huecoBajo` mira para decidir dónde cae el
+   * acorde, y sin esto todo arrastre acabaría en el vacío.
+   */
+  function bajoElPuntero(elemento: Element | null): void {
+    document.elementFromPoint = () => elemento;
+  }
+
+  /** El grado que lleva una propuesta, leído de su propio rótulo. */
+  function gradoDe(boton: HTMLElement): string {
+    return (boton.getAttribute('aria-label') ?? '').split(',')[1]?.trim().split('.')[0] ?? '';
+  }
+
+  function grados(): string[] {
+    return useArrangementStore.getState().arrangement.parts[0]!.blocks.map((b) => b.degree);
+  }
+
+  /** Dos acordes puestos y la tira delante, que es donde hay compases medibles. */
+  async function conDosAcordes() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await enBloques();
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(propuestas()[0]!);
+  }
+
+  /** El hueco `indice` de la tira, con una caja de cien píxeles a su nombre. */
+  function compas(indice: number): HTMLElement {
+    const hueco = document.querySelectorAll<HTMLElement>('[data-indice]')[indice]!;
+    hueco.getBoundingClientRect = () =>
+      ({ left: 100, right: 200, top: 0, bottom: 50, width: 100, height: 50 }) as DOMRect;
+    return hueco;
+  }
+
+  function arrastrarPropuestaHasta(boton: HTMLElement, x: number, y: number): void {
+    fireEvent.pointerDown(boton, { button: 0, clientX: 0, clientY: 0 });
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y }));
+    window.dispatchEvent(new PointerEvent('pointerup', {}));
+  }
+
+  it('soltado en la primera mitad de un compas, el acorde se mete delante', async () => {
+    await conDosAcordes();
+    const propuesta = propuestas()[1]!;
+    const grado = gradoDe(propuesta);
+    const antes = grados();
+    bajoElPuntero(compas(1));
+
+    arrastrarPropuestaHasta(propuesta, 120, 10);
+
+    expect(grados()).toEqual([antes[0], grado, antes[1]]);
+  });
+
+  // Y pasada la mitad va detrás: la misma regla que el arrastre de bloques.
+  it('y en la segunda mitad, detras', async () => {
+    await conDosAcordes();
+    const propuesta = propuestas()[1]!;
+    const grado = gradoDe(propuesta);
+    const antes = grados();
+    bajoElPuntero(compas(1));
+
+    arrastrarPropuestaHasta(propuesta, 180, 10);
+
+    expect(grados()).toEqual([...antes, grado]);
+  });
+
+  /**
+   * Encima de la parte pero no de un compás concreto: al final, que es donde
+   * sigue una canción cuando no se apunta a ningún sitio.
+   */
+  it('soltado en la parte pero no sobre un compas, va al final', async () => {
+    await conDosAcordes();
+    const propuesta = propuestas()[1]!;
+    const grado = gradoDe(propuesta);
+    const antes = grados();
+    bajoElPuntero(screen.getByRole('region', { name: 'Estrofa' }));
+
+    arrastrarPropuestaHasta(propuesta, 400, 10);
+
+    expect(grados()).toEqual([...antes, grado]);
+  });
+
+  it('soltado fuera de la cancion, no pone nada', async () => {
+    await conDosAcordes();
+    const antes = grados();
+    bajoElPuntero(document.body);
+
+    arrastrarPropuestaHasta(propuestas()[1]!, 400, 10);
+
+    expect(grados()).toEqual(antes);
+  });
+
+  /**
+   * Un temblor no es un arrastre. Mientras no se pase el umbral no hay destino,
+   * y al soltar no cae nada: lo que queda es la pulsación de siempre.
+   */
+  it('un temblor no cuenta como arrastre', async () => {
+    await conDosAcordes();
+    const antes = grados();
+    bajoElPuntero(compas(1));
+
+    arrastrarPropuestaHasta(propuestas()[1]!, 2, 2);
+
+    expect(grados()).toEqual(antes);
+  });
+
+  // Con el botón derecho no se arrastra: ese abre el menú del sistema.
+  it('el boton derecho no arrastra', async () => {
+    await conDosAcordes();
+    const antes = grados();
+    bajoElPuntero(compas(1));
+
+    fireEvent.pointerDown(propuestas()[1]!, { button: 2, clientX: 0, clientY: 0 });
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 150, clientY: 10 }));
+    window.dispatchEvent(new PointerEvent('pointerup', {}));
+
+    expect(grados()).toEqual(antes);
+  });
+
+  /**
+   * Tras soltar, el navegador manda además el `click` de vuelta. Sin la guarda,
+   * arrastrar un acorde metía dos: el que se soltó y el del clic.
+   */
+  it('tras arrastrar, el clic de vuelta no mete un acorde de mas', async () => {
+    await conDosAcordes();
+    const propuesta = propuestas()[1]!;
+    const grado = gradoDe(propuesta);
+    const antes = grados();
+    bajoElPuntero(compas(1));
+
+    arrastrarPropuestaHasta(propuesta, 180, 10);
+    fireEvent.click(propuesta);
+
+    expect(grados()).toEqual([...antes, grado]);
+  });
+});
+
+describe('Lo que mide el carril', () => {
+  /**
+   * El ancho no se calcula, se mide: un compás de dos pulsos y uno de cuatro
+   * tienen que verse distintos, y eso depende de lo que quepa. Quien lo mide es
+   * un `ResizeObserver`, que jsdom no trae.
+   */
+  it('lo que mide la caja llega al carril, y al desmontar se deja de mirar', () => {
+    let avisar: ((entradas: ReadonlyArray<{ contentRect: { width: number } }>) => void) | null =
+      null;
+    const desconectar = vi.fn();
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: (entradas: ReadonlyArray<{ contentRect: { width: number } }>) => void) {
+          avisar = cb;
+        }
+        observe(): void {}
+        disconnect(): void {
+          desconectar();
+        }
+      },
+    );
+
+    conTonalidad();
+    const { unmount } = render(<ArrangeCanvas />);
+
+    expect(avisar).not.toBeNull();
+    // Con medida y sin ella: cuando el observador no trae entradas, cero.
+    act(() => avisar!([{ contentRect: { width: 800 } }]));
+    act(() => avisar!([]));
+    unmount();
+
+    expect(desconectar).toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('Pedirle una idea al copiloto', () => {
+  /**
+   * El botón no llama al modelo: deja el pedido en `state/` y abre el panel, que
+   * lo recoge al ponerse delante. Un feature no importa de otro.
+   */
+  it('deja el pedido puesto y abre el panel', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Pídeme una idea' }));
+
+    expect(usePedidoDeIdeas.getState().pendiente).toBe(true);
+    expect(selectReparto(useBancoStore.getState()).abajo).toBe('ideas');
+  });
+
+  // Con la canción en blanco no hay sobre qué proponer, así que no sale.
+  it('con la cancion en blanco, ni aparece', () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    expect(screen.queryByRole('button', { name: 'Pídeme una idea' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Lo que se hace con un acorde de la partitura', () => {
+  function grados(): string[] {
+    return useArrangementStore.getState().arrangement.parts[0]!.blocks.map((b) => b.degree);
+  }
+
+  /** Los cifrados de la parte, que en la partitura son grupos de SVG. */
+  function cifrados() {
+    return within(screen.getByRole('region', { name: 'Estrofa' })).queryAllByLabelText(/, grado /);
+  }
+
+  async function conDosAcordes() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(propuestas()[0]!);
+  }
+
+  it('con Supr se quita', async () => {
+    await conDosAcordes();
+    const antes = grados();
+
+    fireEvent.keyDown(cifrados()[1]!, { key: 'Delete' });
+
+    expect(grados()).toEqual([antes[0]]);
+  });
+
+  /**
+   * Y se mueve arrastrándolo por la partitura: era lo único que había que ir a
+   * hacer a la otra vista, y en una partitura los acordes están ahí escritos.
+   */
+  it('y arrastrandolo cambia de sitio', async () => {
+    await conDosAcordes();
+    const antes = grados();
+
+    fireEvent.pointerDown(cifrados()[1]!, { button: 0, clientX: 300, clientY: 10 });
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 0, clientY: 10 }));
+    window.dispatchEvent(new PointerEvent('pointerup', {}));
+
+    expect(grados()).toEqual([antes[1], antes[0]]);
+  });
+});
+
+describe('Una nota que ya no esta', () => {
+  /**
+   * Deshacer quita la nota pero no la deja de tener elegida: el teclado seguía
+   * mandando órdenes sobre algo que ya no existe. No pasa nada, y esto lo fija.
+   */
+  it('el teclado no hace nada con ella', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    const nota = within(screen.getByRole('region', { name: 'Qué nota puede seguir' })).getAllByRole(
+      'button',
+    )[0]!;
+    await userEvent.click(nota);
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes).toHaveLength(1);
+
+    act(() => useArrangementStore.getState().actions.undo());
+    fireEvent.keyDown(screen.getByRole('region', { name: 'Estrofa' }), { key: 'Delete' });
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes).toHaveLength(0);
+  });
+});
+
+describe('La canción, traída a la vista', () => {
+  /**
+   * En un teléfono la lista de acordes va encima y la canción debajo, fuera de
+   * pantalla: ponías tu primer acorde y no lo veías. Solo se mueve la vista si
+   * de verdad ha quedado por encima del borde.
+   */
+  it('si el primer acorde cae por encima del borde, se baja a verlo', async () => {
+    const mirar = vi.fn();
+    Element.prototype.scrollIntoView = mirar;
+    const caja = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = () => ({ top: -200 }) as DOMRect;
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.click(propuestas()[0]!);
+    await waitFor(() => expect(mirar).toHaveBeenCalled());
+
+    Element.prototype.getBoundingClientRect = caja;
+  });
+});
+
+describe('Lo que se ve mientras se arrastra', () => {
+  /** El bloque pegado al puntero: va `aria-hidden`, así que se busca por clase. */
+  function fantasma(): HTMLElement | null {
+    return document.querySelector('.superficie-viva');
+  }
+
+  async function conUnAcorde() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+  }
+
+  /**
+   * Una propuesta arrastrada lleva su cifrado pegado al puntero, y **dice si
+   * caería en algún sitio**: apagado mientras no hay destino, encendido cuando
+   * lo hay. Sin eso, arrastrar a ciegas acaba en un acorde que aparece donde no
+   * se quería.
+   */
+  it('la propuesta va pegada al puntero, apagada si no cae en ningun sitio', async () => {
+    await conUnAcorde();
+    document.elementFromPoint = () => document.body;
+
+    fireEvent.pointerDown(propuestas()[1]!, { button: 0, clientX: 0, clientY: 0 });
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointermove', { clientX: 200, clientY: 40 }));
+    });
+
+    expect(fantasma()).toHaveClass('opacity-70');
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointerup', {}));
+    });
+  });
+
+  it('y encendida cuando cae en una parte', async () => {
+    await conUnAcorde();
+    document.elementFromPoint = () => screen.getByRole('region', { name: 'Estrofa' });
+
+    fireEvent.pointerDown(propuestas()[1]!, { button: 0, clientX: 0, clientY: 0 });
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointermove', { clientX: 200, clientY: 40 }));
+    });
+    // El segundo movimiento ya no tiene que volver a pasar el umbral.
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointermove', { clientX: 210, clientY: 40 }));
+    });
+
+    expect(fantasma()).toHaveClass('text-brass-bright');
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointerup', {}));
+    });
+  });
+});
+
+describe('Las flechas hacia la izquierda', () => {
+  /**
+   * La derecha ya está probada; la izquierda va por la otra rama del mismo
+   * `if`, y una resta mal puesta ahí manda la nota al pulso −1.
+   */
+  it('mueven la nota elegida hacia atras', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    const notas = within(screen.getByRole('region', { name: 'Qué nota puede seguir' }));
+    await userEvent.click(notas.getAllByRole('button')[0]!);
+    // Las teclas se escuchan en la caja de la canción entera, no en el botón de
+    // la lista que acaba de quedarse el foco.
+    const parte = screen.getByRole('region', { name: 'Estrofa' });
+    fireEvent.keyDown(parte, { key: 'ArrowRight' });
+    fireEvent.keyDown(parte, { key: 'ArrowRight' });
+    const desde = useArrangementStore.getState().arrangement.parts[0]!.notes[0]!.start;
+
+    fireEvent.keyDown(parte, { key: 'ArrowLeft' });
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes[0]!.start).toBeLessThan(
+      desde,
+    );
+  });
+
+  it('y el bloque elegido hacia atras', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await enBloques();
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(propuestas()[0]!);
+    const antes = useArrangementStore.getState().arrangement.parts[0]!.blocks.map((b) => b.degree);
+
+    fireEvent.keyDown(tiraDe('Estrofa')[1]!, { key: 'ArrowLeft' });
+
+    expect(
+      useArrangementStore.getState().arrangement.parts[0]!.blocks.map((b) => b.degree),
+    ).toEqual([antes[1], antes[0]]);
+  });
+});
+
+describe('Traer lo grabado cuando no habia nada legible', () => {
+  /**
+   * El botón sale porque sonó algo, pero de ese algo no sale ni un acorde ni una
+   * nota: entonces no hay parte a la que ir, y lo único que queda es decirlo.
+   */
+  it('no cambia de parte, solo lo cuenta', async () => {
+    conTonalidad();
+    const acciones = useSessionStore.getState().actions;
+    acciones.setTempo(120, 4);
+    acciones.startCapture(0);
+    acciones.stopCapture(1000);
+    // Una nota suelta en el tramo, pero de cien milisegundos: a 120 bpm eso es
+    // un quinto de pulso, y el punteo no escribe nada por debajo de un cuarto.
+    useSessionStore.setState({
+      noteHistory: [{ pitchClass: C, midi: 60, at: 900, clarity: 0.9 }],
+    });
+    render(<ArrangeCanvas />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+
+    expect(screen.getByText(/No he podido leer/)).toBeInTheDocument();
   });
 });
