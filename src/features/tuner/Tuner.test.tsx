@@ -268,6 +268,67 @@ describe('medidor de nivel', () => {
   });
 });
 
+describe('mientras el navegador decide', () => {
+  /**
+   * Entre pulsar y que conteste pasa un rato, y en ese rato el botón lo dice y
+   * no se puede volver a pulsar: dos peticiones seguidas dejan dos micrófonos
+   * abiertos en algunos navegadores.
+   */
+  it('el boton dice que se esta pidiendo permiso, y no se puede repulsar', async () => {
+    class EntradaLenta extends FakeInput {
+      override async start(): Promise<void> {
+        await new Promise(() => {});
+      }
+    }
+    render(<Tuner createInput={() => new EntradaLenta()} createEngine={() => new FakeEngine()} />);
+
+    const boton = screen.getByRole('button', { name: /escuchar la guitarra/i });
+    await userEvent.click(boton);
+
+    const pidiendo = await screen.findByRole('button', { name: /pidiendo permiso/i });
+    expect(pidiendo).toBeDisabled();
+  });
+});
+
+describe('a cuántos semitonos está la cuerda', () => {
+  /**
+   * Un motor nuevo por llamada, y el micro solo se abre si estaba cerrado: la
+   * escucha vive en el estado de sesión y sigue abierta de un pintado a otro.
+   */
+  async function oyendo(midi: number) {
+    const engine = new FakeEngine();
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => engine} />);
+    const abrir = screen.queryByRole('button', { name: /escuchar la guitarra/i });
+    if (abrir !== null) {
+      await userEvent.click(abrir);
+    }
+    engine.emit({ frequency: midiToFrequency(midi), clarity: 0.99, rms: 0.2, at: 0 });
+  }
+
+  /**
+   * Con la cuerda al aire no se dice «a 0 semitonos», y con uno solo va en
+   * singular: es lo que se lee mientras se gira la clavija, y un «a 1 semitonos
+   * por encima» delata que nadie ha mirado la pantalla afinando.
+   */
+  it('al aire se dice al aire', async () => {
+    await oyendo(45);
+
+    expect(await screen.findByText(/al aire/)).toBeInTheDocument();
+  });
+
+  it('y uno solo va en singular', async () => {
+    await oyendo(46);
+
+    expect(await screen.findByText(/A 1 semitono/)).toBeInTheDocument();
+  });
+
+  it('y por debajo, y en plural', async () => {
+    await oyendo(43);
+
+    expect(await screen.findByText(/A 2 semitonos por debajo/)).toBeInTheDocument();
+  });
+});
+
 describe('selector de entrada', () => {
   const DEVICES = [
     { deviceId: 'default', kind: 'audioinput', label: 'Micro del portátil', groupId: 'a' },
@@ -290,6 +351,48 @@ describe('selector de entrada', () => {
     expect(selector).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Focusrite Scarlett' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Cámara' })).not.toBeInTheDocument();
+  });
+
+  // Una entrada sin nombre se dice, en vez de dejar una opción en blanco.
+  it('una entrada sin nombre se dice igual', async () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        mediaDevices: {
+          enumerateDevices: async () => [
+            ...DEVICES,
+            { deviceId: 'rara', kind: 'audioinput', label: '', groupId: 'd' },
+          ],
+        },
+      },
+    });
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    expect(await screen.findByRole('option', { name: 'Entrada sin nombre' })).toBeInTheDocument();
+  });
+
+  // Y volver a «la del sistema» vuelve a abrir sin pedir ninguna en concreto.
+  it('volver a la del sistema no pide ninguna en concreto', async () => {
+    const opened: Array<string | undefined> = [];
+    render(
+      <Tuner
+        createInput={(deviceId) => {
+          opened.push(deviceId);
+          return new FakeInput();
+        }}
+        createEngine={() => new FakeEngine()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    await userEvent.selectOptions(await screen.findByLabelText(/entrada/i), 'scarlett');
+    await userEvent.selectOptions(
+      await screen.findByLabelText(/entrada/i),
+      screen.getByRole('option', { name: 'La del sistema' }),
+    );
+
+    expect(opened).toEqual([undefined, 'scarlett', undefined]);
   });
 
   it('reabre la escucha en la entrada elegida', async () => {

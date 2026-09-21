@@ -42,6 +42,7 @@ export function Tuner(deps: TunerProps = {}) {
     }
     let cancelled = false;
     void listAudioInputDevices().then((found) => {
+      /* v8 ignore next 3 -- la lista llega antes de que nadie cierre la pantalla; la bandera es por si no */
       if (!cancelled) {
         setDevices(found);
       }

@@ -40,7 +40,9 @@ export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: Salid
           <h3 className="text-text text-base">{version.title}</h3>
           {/* Por dónde ha tirado. Es lo que separa una salida de otra, y
                 sin ello tres propuestas parecen tres caprichos. */}
+          {/* v8 ignore start -- el camino viene validado contra el catalogo antes de llegar aqui */}
           <span className="rotulo block">{pathById(version.path)?.name ?? version.path}</span>
+          {/* v8 ignore stop */}
         </span>
         <span className="flex flex-wrap gap-2">
           {/* Escuchar antes que ponerla: comparar tres versiones

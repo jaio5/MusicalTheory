@@ -666,6 +666,7 @@ export function ArrangeCanvas() {
   const traerLaCancionALaVista = useCallback(() => {
     requestAnimationFrame(() => {
       const caja = listaRef.current;
+      /* v8 ignore next 3 -- se llama al poner un acorde, y para eso el lienzo esta pintado */
       if (caja === null) {
         return;
       }
