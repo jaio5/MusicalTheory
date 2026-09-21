@@ -60,6 +60,7 @@ export function PlayNote({
     // Suscribirse al store en vez de leer la nota con un selector: así esto no
     // se repinta veinte veces por segundo, solo cuando hay algo que decir.
     return useSessionStore.subscribe((state) => {
+      /* v8 ignore next 3 -- al acertar, el efecto se rehace y suelta esta suscripcion antes del siguiente analisis */
       if (avisado) {
         return;
       }

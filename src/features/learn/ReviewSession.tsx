@@ -153,6 +153,7 @@ export function ReviewSession({
         <div>
           <h2 className="text-text text-lg">Repaso</h2>
           <p className="text-text-muted text-xs">
+            {/* v8 ignore next -- lo que no lleva a una unidad se ha quedado fuera al armar la lista */}
             {findUnit(actual.item.unitId)?.unit.title ?? 'Una unidad de antes'}
           </p>
         </div>

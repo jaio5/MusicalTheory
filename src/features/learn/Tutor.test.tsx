@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -206,6 +206,43 @@ describe('Arrastrar el muñeco', () => {
     });
   });
 
+  /**
+   * El puntero se captura **una vez**, en cuanto el gesto pasa de ser un toque
+   * a ser un arrastre: capturarlo en cada movimiento sería pedirlo veinte veces
+   * por gesto, y capturarlo al apoyar el dedo deja al botón de dentro sin su
+   * `click`.
+   */
+  it('el puntero se captura una sola vez, no en cada movimiento', () => {
+    const capturar = vi.fn();
+    Element.prototype.setPointerCapture = capturar;
+    const { container } = pintar(<Tutor />);
+    const marco = container.firstElementChild as HTMLElement;
+
+    fireEvent.pointerDown(marco, { clientX: 20, clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(marco, { clientX: 400, clientY: 300, movementX: 380, pointerId: 1 });
+    fireEvent.pointerMove(marco, { clientX: 730, clientY: 180, movementX: 330, pointerId: 1 });
+    fireEvent.pointerUp(marco, { clientX: 730, clientY: 180, pointerId: 1 });
+
+    expect(capturar).toHaveBeenCalledTimes(1);
+  });
+
+  // Y si el navegador ya lo había soltado, no se le pide que lo suelte otra vez.
+  it('si el puntero ya no estaba capturado, no se suelta dos veces', () => {
+    const soltarPuntero = vi.fn();
+    Element.prototype.hasPointerCapture = () => false;
+    Element.prototype.releasePointerCapture = soltarPuntero;
+    const { container } = pintar(<Tutor />);
+    const marco = container.firstElementChild as HTMLElement;
+
+    fireEvent.pointerDown(marco, { clientX: 20, clientY: 400, pointerId: 1 });
+    fireEvent.pointerMove(marco, { clientX: 730, clientY: 180, movementX: 700, pointerId: 1 });
+    fireEvent.pointerUp(marco, { clientX: 730, clientY: 180, pointerId: 1 });
+
+    expect(soltarPuntero).not.toHaveBeenCalled();
+    // Y el sitio se guarda igual: lo que importa es dónde se soltó.
+    expect(localStorage.getItem('caos-ordenado:sitio-del-profesor')).not.toBeNull();
+  });
+
   it('al soltarlo se devuelve el mando a las clases', () => {
     // Dejar el estilo puesto congelaría al muñeco donde lo soltó el dedo, y al
     // cambiar de pantalla aparecería en un sitio que ya no significa nada.
@@ -344,5 +381,51 @@ describe('Un aviso nuevo', () => {
       'false',
     );
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+});
+
+describe('la esquina por la que se abre el globo', () => {
+  /**
+   * El globo sale del muñeco, así que su esquina pegada es la que mira hacia
+   * él: arriba y a la derecha, la de arriba a la derecha. Sin esto, el globo
+   * parece flotar suelto al lado en vez de salir de la boca.
+   */
+  async function abrir(lado: 'derecha' | 'izquierda', alto: number) {
+    moverTutor({ lado, alto });
+    const { container } = pintar(<Tutor />);
+    await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
+    return container.querySelector('.superficie-alta')!.className;
+  }
+
+  it('anclado arriba, la esquina pegada es la de arriba', async () => {
+    expect(await abrir('derecha', 20)).toContain('rounded-tr-none');
+    cleanup();
+    expect(await abrir('izquierda', 20)).toContain('rounded-tl-none');
+  });
+
+  it('y anclado abajo, la de abajo', async () => {
+    expect(await abrir('derecha', 80)).toContain('rounded-br-none');
+    cleanup();
+    expect(await abrir('izquierda', 80)).toContain('rounded-bl-none');
+  });
+});
+
+describe('un aviso que llega con la pantalla estrecha', () => {
+  /**
+   * Es el mismo motivo que el de no abrirse solo al entrar: en un teléfono el
+   * globo se planta encima de la corrección. Que el aviso llegue después no
+   * cambia lo que taparía.
+   */
+  it('no abre el globo, aunque el aviso sea nuevo', () => {
+    pantalla({ ancha: false });
+    const { rerender } = pintar(<Tutor />);
+
+    rerender(
+      <AccountProvider account={ANONYMOUS} accounts={false}>
+        <Tutor aviso="Esa nota se resiste." />
+      </AccountProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: /cerrar el profesor/i })).not.toBeInTheDocument();
   });
 });

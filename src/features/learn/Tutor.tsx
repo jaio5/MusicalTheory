@@ -115,6 +115,7 @@ export function Tutor({
       return;
     }
     if (quieto) {
+      /* v8 ignore next 3 -- el globo esta pintado: este efecto solo corre con el abierto */
       if (globo.current !== null) {
         globo.current.textContent = frase;
       }
@@ -126,6 +127,7 @@ export function Tutor({
 
     const paso = (ahora: number) => {
       const cuantas = Math.min(frase.length, Math.floor((ahora - inicio) / 18));
+      /* v8 ignore next 3 -- mismo motivo: mientras se escribe la frase el globo esta puesto */
       if (globo.current !== null) {
         globo.current.textContent = frase.slice(0, cuantas);
       }
@@ -142,6 +144,7 @@ export function Tutor({
 
   function agarrar(evento: React.PointerEvent<HTMLDivElement>): void {
     const caja = marco.current?.getBoundingClientRect();
+    /* v8 ignore next 3 -- el gesto sale del propio marco, asi que el marco esta */
     if (caja === undefined) {
       return;
     }

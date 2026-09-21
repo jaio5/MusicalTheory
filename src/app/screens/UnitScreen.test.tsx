@@ -279,6 +279,12 @@ describe('lo que se falla', () => {
     expect(await hastaFallarUna(), 'no se llegó a fallar ninguna').toBe(true);
 
     expect(avance().review).not.toEqual([]);
+
+    // Y el profesor sale a explicarlo, y se va al cerrarlo: si se quedara, la
+    // pregunta siguiente empezaría con el globo de la anterior encima.
+    expect(await screen.findByText(/Si quieres te lo explico/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar el profesor' }));
+    expect(screen.queryByText(/Si quieres te lo explico/i)).not.toBeInTheDocument();
   });
 
   // Y las de oído igual: fallar oyendo también se apunta.
