@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import {
   BURST_DAYS,
   DAYS_PER_MONTH,
+  elMasCaro,
+  FALLBACK_PRICE,
   FREE_MONTHLY_ALLOWANCE,
   MODEL_PRICES,
   MODEL_SPEND_SHARE,
@@ -294,6 +296,33 @@ describe('los precios de los modelos', () => {
     for (let i = 1; i < costes.length; i += 1) {
       expect(costes[i]!, `${orden[i]} no es más barato que ${orden[i - 1]}`).toBeLessThan(
         costes[i - 1]!,
+      );
+    }
+  });
+});
+
+/**
+ * El precio de respaldo es el más caro de la tabla, y no el primero.
+ *
+ * Suponer barato cuando no se sabe qué modelo hay puesto regalaría dinero en
+ * silencio. Se prueba la cuenta aparte porque, tal y como está escrita la tabla
+ * hoy, el más caro ya es el primero: sin esto, el día que alguien añada uno más
+ * caro al final nadie se enteraría de si la cuenta lo coge.
+ */
+describe('el precio de respaldo', () => {
+  it('coge el mas caro, este donde este en la lista', () => {
+    const barato = { inputPerToken: 1, outputPerToken: 5 };
+    const caro = { inputPerToken: 10, outputPerToken: 50 };
+
+    expect(elMasCaro([caro, barato])).toBe(caro);
+    expect(elMasCaro([barato, caro])).toBe(caro);
+    expect(elMasCaro([caro])).toBe(caro);
+  });
+
+  it('y el de la tabla de verdad es el mas caro de la tabla de verdad', () => {
+    for (const precio of Object.values(MODEL_PRICES)) {
+      expect(precio.inputPerToken + precio.outputPerToken).toBeLessThanOrEqual(
+        FALLBACK_PRICE.inputPerToken + FALLBACK_PRICE.outputPerToken,
       );
     }
   });

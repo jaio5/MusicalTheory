@@ -191,3 +191,40 @@ describe('juntar dos colas', () => {
     expect(mergeReview(a, b)).toHaveLength(2);
   });
 });
+
+describe('el orden de lo que toca repasar', () => {
+  /**
+   * Lo más viejo primero, y entre dos del mismo día, la que va antes en la
+   * unidad: dos sesiones con los mismos datos tienen que dar el mismo orden, o
+   * repasar se vuelve una lotería distinta cada vez.
+   */
+  it('lo mas viejo primero, y a igual dia por el orden de la unidad', () => {
+    const cola = [
+      { unitId: 'e1', index: 3, seenOn: '2026-01-02', hits: 0 },
+      { unitId: 'e1', index: 1, seenOn: '2026-01-02', hits: 0 },
+      { unitId: 'e1', index: 2, seenOn: '2026-01-01', hits: 0 },
+    ];
+
+    expect(dueReview(cola, '2026-01-10').map((item) => item.index)).toEqual([2, 1, 3]);
+    // Y la cola que nos pasan no se toca: esto es dominio puro.
+    expect(cola.map((item) => item.index)).toEqual([3, 1, 2]);
+  });
+});
+
+describe('acertar una de varias en la cola', () => {
+  /**
+   * Acertar una no toca a las demás: la cola es de lo que se falló, y cada
+   * pregunta lleva su propia cuenta de aciertos y su propia fecha.
+   */
+  it('solo se apunta la que se acerto', () => {
+    const cola = [
+      { unitId: 'e1', index: 0, seenOn: '2026-01-01', hits: 0 },
+      { unitId: 'e1', index: 1, seenOn: '2026-01-01', hits: 0 },
+    ];
+
+    const despues = recordHit(cola, 'e1', 0, '2026-01-05');
+
+    expect(despues[0]).toMatchObject({ index: 0, hits: 1, seenOn: '2026-01-05' });
+    expect(despues[1]).toBe(cola[1]);
+  });
+});

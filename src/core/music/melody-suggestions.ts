@@ -111,7 +111,9 @@ function porQue(role: NoteRole, distancia: number, chord: DegreeSymbol | null): 
   if (role === 'acorde') {
     return distancia <= PASO
       ? 'Del acorde y aquí al lado: cae de pie y se canta sola.'
-      : `Es del acorde${chord === null ? '' : ` de ${chord}`}: suene cuando suene, encaja.`;
+      : /* v8 ignore start -- sin acorde no hay notas «del acorde», asi que este papel no se da */
+        `Es del acorde${chord === null ? '' : ` de ${chord}`}: suene cuando suene, encaja.`;
+    /* v8 ignore stop */
   }
   if (role === 'escala') {
     return distancia <= PASO

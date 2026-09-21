@@ -293,6 +293,7 @@ export function startIndex(progress: Progress): number {
     return 0;
   }
   const index = UNIT_ORDER.indexOf(first);
+  /* v8 ignore next -- la primera unidad de un curso esta siempre en el orden del temario */
   return index < 0 ? 0 : index;
 }
 
@@ -373,6 +374,7 @@ export function isGradeDone(progress: Progress, grade: GradeId): boolean {
 
 /** De 0 a 1 sobre todo el temario. */
 export function overallCompletion(progress: Progress): number {
+  /* v8 ignore next -- el temario tiene XP; el cero es solo para no dividir por nada si se quedara vacio */
   return TOTAL_XP === 0 ? 0 : Math.min(1, progress.xp / TOTAL_XP);
 }
 
@@ -704,6 +706,7 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
 
   return {
     done,
+    /* v8 ignore next -- `done` ya viene filtrado contra el temario */
     xp: done.reduce((total, id) => total + (findUnit(id)?.unit.xp ?? 0), 0),
     streak,
     bestStreak: Math.max(a.bestStreak, b.bestStreak, streak),
@@ -804,6 +807,7 @@ export function parseProgress(raw: unknown): Progress {
 
   const known = new Set(UNIT_ORDER);
   const done = [...new Set(asStrings(record['done']).filter((id) => known.has(id)))];
+  /* v8 ignore next -- la linea de arriba ya descarta lo que no esta en el temario */
   const xp = done.reduce((total, id) => total + (findUnit(id)?.unit.xp ?? 0), 0);
 
   // En el orden del catálogo y descartando lo que no exista: así una medalla

@@ -5,13 +5,15 @@ import {
   CIRCLE_OF_FIFTHS,
   circlePosition,
   keyPosition,
+  keySignature,
+  pitchOfLetter,
   positionAngle,
   relativeMajor,
   relativeMinor,
   rotationForKey,
   shortestRotation,
 } from './circle-of-fifths';
-import { noteName, pitchClassFromName } from './notes';
+import { noteName, pitchClassFromName, type PitchClass } from './notes';
 
 describe('el orden de la rueda', () => {
   it('avanza por quintas justas desde Do', () => {
@@ -129,5 +131,39 @@ describe('escritura de cada tonalidad', () => {
   it('escribe F mayor con Sib y no con La#', () => {
     const accidental = accidentalForKey(pitchClassFromName('F'), 'major');
     expect(noteName(pitchClassFromName('A#'), accidental)).toBe('Bb');
+  });
+});
+
+describe('los bordes de la rueda', () => {
+  /**
+   * Una clase de altura fuera de las doce no está en la rueda. Se para aquí, que
+   * es donde se sabe lo que ha pasado, en vez de devolver un −1 que se arrastra
+   * hasta la armadura que se dibuja.
+   */
+  it('una altura que no existe se para', () => {
+    expect(() => circlePosition(99 as PitchClass)).toThrow(RangeError);
+  });
+
+  it('y una letra que no es una nota, tambien', () => {
+    expect(() => pitchOfLetter('H', keySignature(pitchClassFromName('C'), 'major'))).toThrow(
+      RangeError,
+    );
+  });
+
+  /**
+   * Con armadura de bemoles, la letra alterada baja un semitono; con la de
+   * sostenidos, sube. Es la misma letra diciendo dos notas distintas según lo
+   * que haya escrito al principio del pentagrama.
+   */
+  it('la letra alterada sube o baja segun la armadura', () => {
+    const sostenidos = keySignature(pitchClassFromName('G'), 'major');
+    const bemoles = keySignature(pitchClassFromName('F'), 'major');
+
+    // Sol mayor lleva Fa sostenido: la letra F suena un semitono más arriba.
+    expect(pitchOfLetter('F', sostenidos)).toBe(pitchClassFromName('F#'));
+    // Fa mayor lleva Si bemol: la letra B suena un semitono más abajo.
+    expect(pitchOfLetter('B', bemoles)).toBe(pitchClassFromName('Bb'));
+    // Y una letra que la armadura no toca, donde siempre.
+    expect(pitchOfLetter('C', bemoles)).toBe(pitchClassFromName('C'));
   });
 });

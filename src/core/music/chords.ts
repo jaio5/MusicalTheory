@@ -75,6 +75,7 @@ export const TRIADS: ReadonlyArray<{
  */
 function qualityFromIntervals(third: number, fifth: number): ChordQuality {
   const triada = TRIADS.find((candidate) => candidate.third === third && candidate.fifth === fifth);
+  /* v8 ignore next 3 -- las siete escalas de siete notas apilan las cuatro triadas y ninguna rara, y hay prueba de ello */
   if (triada === undefined) {
     throw new RangeError(`Los intervalos ${third} y ${fifth} no forman una tríada por terceras.`);
   }
@@ -146,6 +147,7 @@ function escalon(
   salto: number,
 ): PitchClass {
   const nota = notes[(degree - 1 + salto * 2) % notes.length];
+  /* v8 ignore next 3 -- `HeptatonicScaleId` ya deja fuera las que no tienen siete */
   if (nota === undefined) {
     throw new RangeError(`La escala ${scaleId} no tiene siete notas.`);
   }
@@ -349,21 +351,43 @@ export interface SeventhChord {
   readonly notes: readonly PitchClass[];
 }
 
+/**
+ * Las cuatríadas que salen de apilar terceras, por sus intervalos.
+ *
+ * Una lista y no una escalera de `if`, igual que `TRIADS`: así las dos se leen
+ * igual, y el caso de «esto no es una cuatríada» se escribe una sola vez.
+ */
+const SEVENTHS: ReadonlyArray<{
+  readonly third: number;
+  readonly fifth: number;
+  readonly seventh: number;
+  readonly quality: SeventhQuality;
+}> = [
+  { third: 4, fifth: 7, seventh: 11, quality: 'major7' },
+  { third: 4, fifth: 7, seventh: 10, quality: 'dominant7' },
+  { third: 3, fifth: 7, seventh: 10, quality: 'minor7' },
+  { third: 3, fifth: 6, seventh: 10, quality: 'halfDiminished7' },
+  { third: 3, fifth: 6, seventh: 9, quality: 'diminished7' },
+  { third: 3, fifth: 7, seventh: 11, quality: 'minorMajor7' },
+  { third: 4, fifth: 8, seventh: 11, quality: 'augmentedMajor7' },
+];
+
 function seventhQualityFromIntervals(
   third: number,
   fifth: number,
   seventh: number,
 ): SeventhQuality {
-  if (third === 4 && fifth === 7 && seventh === 11) return 'major7';
-  if (third === 4 && fifth === 7 && seventh === 10) return 'dominant7';
-  if (third === 3 && fifth === 7 && seventh === 10) return 'minor7';
-  if (third === 3 && fifth === 6 && seventh === 10) return 'halfDiminished7';
-  if (third === 3 && fifth === 6 && seventh === 9) return 'diminished7';
-  if (third === 3 && fifth === 7 && seventh === 11) return 'minorMajor7';
-  if (third === 4 && fifth === 8 && seventh === 11) return 'augmentedMajor7';
-  throw new RangeError(
-    `Los intervalos ${third}, ${fifth} y ${seventh} no forman una cuatríada por terceras.`,
+  const cuatriada = SEVENTHS.find(
+    (candidate) =>
+      candidate.third === third && candidate.fifth === fifth && candidate.seventh === seventh,
   );
+  /* v8 ignore next 5 -- mismo motivo que las triadas: las siete escalas apilan cuatriadas conocidas */
+  if (cuatriada === undefined) {
+    throw new RangeError(
+      `Los intervalos ${third}, ${fifth} y ${seventh} no forman una cuatríada por terceras.`,
+    );
+  }
+  return cuatriada.quality;
 }
 
 export function seventhSymbol(

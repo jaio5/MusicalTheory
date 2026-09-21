@@ -1035,3 +1035,25 @@ describe('la medalla del repaso', () => {
     );
   });
 });
+
+describe('los bordes del avance guardado', () => {
+  // Elegir el curso que ya estaba puesto no cambia nada: el avance es el mismo.
+  it('elegir el mismo curso deja el avance igual', () => {
+    const conCurso = startAt(EMPTY_PROGRESS, COURSES[0]!.id);
+
+    expect(startAt(conCurso, COURSES[0]!.id)).toBe(conCurso);
+  });
+
+  /**
+   * Y una fecha que no es una fecha no puede dejar una pregunta atrapada: se lee
+   * como la más vieja posible, así que toca repasarla hoy.
+   */
+  it('una fecha imposible en la cola se lee como la mas vieja', () => {
+    const leido = parseProgress({
+      done: [],
+      review: [{ unitId: UNIT_ORDER[0]!, index: 0, seenOn: 'ayer', hits: 0 }],
+    });
+
+    expect(leido.review[0]?.seenOn).toBe('1970-01-01');
+  });
+});

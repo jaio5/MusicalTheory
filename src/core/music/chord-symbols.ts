@@ -118,15 +118,19 @@ export function parseChordSymbol(text: string): ParsedChord | null {
   }
 
   const [, letter, accidental, rest] = match;
+  /* v8 ignore next -- los tres grupos del patron siempre casan, aunque sea con la cadena vacia */
   const name = `${letter!.toUpperCase()}${accidental ?? ''}` as NoteName;
 
   let root: PitchClass;
+  /* v8 ignore start -- el patron ya deja pasar solo las siete letras con su alteracion */
   try {
     root = pitchClassFromName(name);
   } catch {
     return null;
   }
+  /* v8 ignore stop */
 
+  /* v8 ignore next -- lo mismo: el tercer grupo es `(.*)`, que casa siempre */
   const suffix = normalizeSuffix(rest ?? '');
   const shape = CHORD_SHAPES[suffix];
   if (shape === undefined) {
@@ -171,6 +175,7 @@ export function suggestChordSymbols(text: string, limit = 8): readonly ParsedCho
   }
 
   const [, letter, accidental, rest = ''] = match;
+  /* v8 ignore next -- los tres grupos del patron siempre casan, aunque sea con la cadena vacia */
   const root = `${letter!.toUpperCase()}${accidental ?? ''}`;
   const typed = rest.trim();
   const resolved = typed === '' ? '' : normalizeSuffix(typed);

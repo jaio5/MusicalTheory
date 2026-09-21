@@ -186,6 +186,7 @@ function seventhLabel(roman: string, shape: ShapeId): string {
       return `${base}maj7`;
     case 'halfDiminished7':
       return `${base}ø7`;
+    /* v8 ignore next 2 -- ninguna de las dos tablas de septimas diatonicas trae un disminuido entero */
     case 'diminished7':
       return `${base}°7`;
     default:
@@ -204,6 +205,7 @@ function seventhWhy(shape: ShapeId): string {
       return 'Con la séptima menor aparece el tritono. Eso es lo que le hace pedir resolver.';
     case 'halfDiminished7':
       return 'Semidisminuido: el disminuido con la quinta bemol, mucho más usable que a secas.';
+    /* v8 ignore next 2 -- las cuatro especies de las tablas ya tienen su frase arriba */
     default:
       return 'La misma función con una nota más de color.';
   }
@@ -719,7 +721,9 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
       (a, b) =>
         b.suggestion.score - a.suggestion.score ||
         a.rank - b.rank ||
+        /* v8 ignore start -- dos candidatos con la misma nota y el mismo orden de enseñanza no se dan hoy; esta para que el orden no dependa de la suerte */
         a.suggestion.symbol.localeCompare(b.suggestion.symbol),
+      /* v8 ignore stop */
     )
     .slice(0, limit)
     .map((entry) => entry.suggestion);

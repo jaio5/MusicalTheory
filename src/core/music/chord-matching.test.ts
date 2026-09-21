@@ -112,3 +112,39 @@ describe('readChord', () => {
     expect(raices.some((root) => [0, 9, 4, 5].includes(root))).toBe(true);
   });
 });
+
+describe('los sufijos que se le piden', () => {
+  /** Un croma con las tres notas de Do mayor sonando y el resto a cero. */
+  function doMayor(): number[] {
+    const chroma = Array.from({ length: 12 }, () => 0);
+    chroma[0] = 1;
+    chroma[4] = 1;
+    chroma[7] = 1;
+    return chroma;
+  }
+
+  /**
+   * La lista de sufijos se puede acotar desde fuera —el motor en vivo no busca
+   * las catorce especies—, y un sufijo que no está en el catálogo de formas se
+   * salta en vez de reventar la comparación entera.
+   */
+  it('un sufijo que no existe se salta', () => {
+    const soloMayores = matchChords(doMayor(), { suffixes: ['', 'noexiste'] });
+
+    expect(soloMayores.length).toBeGreaterThan(0);
+    for (const match of soloMayores) {
+      expect(match.symbol).not.toContain('noexiste');
+    }
+  });
+
+  /**
+   * Y con un solo candidato no hay segundo del que despegarse: el margen es uno
+   * entero, que es «no había con qué confundirlo».
+   */
+  it('con un solo candidato, el margen es entero', () => {
+    const solo = readChord(doMayor(), { suffixes: [''], limit: 1 });
+
+    expect(solo?.margin).toBe(1);
+    expect(solo?.alternatives).toEqual([]);
+  });
+});

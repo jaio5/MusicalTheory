@@ -197,6 +197,7 @@ export const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
 /** La letra y la octava que le tocan a un escalón del pentagrama. */
 export function letterOfStep(step: number): { letter: string; octave: number } {
   const indice = ((step % 7) + 7) % 7;
+  /* v8 ignore next -- el indice ya viene dado la vuelta dentro de las siete letras */
   return { letter: LETTERS[indice] ?? 'C', octave: 4 + Math.floor(step / 7) };
 }
 
@@ -362,6 +363,7 @@ export function writeNote(
 ): WrittenNote {
   const midi = midiOf(note, tonic, baseMidi);
   const nombre = noteName(normalizePitchClass(midi), accidentalForKey(tonic, mode));
+  /* v8 ignore next -- un nombre de nota siempre empieza por letra */
   const letter = nombre[0] ?? 'C';
   const accidental = nombre.slice(1);
 
@@ -375,6 +377,7 @@ export function writeNote(
     letter,
     accidental,
     octave,
+    /* v8 ignore next -- la letra sale de `noteName`, asi que esta entre las siete */
     step: (octave - 4) * 7 + (indice === -1 ? 0 : indice),
   };
 }

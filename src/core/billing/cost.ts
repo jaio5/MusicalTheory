@@ -57,11 +57,15 @@ export const MODEL_PRICES: Readonly<Record<string, ModelPrice>> = {
  * cobrarlo como el peor caso conocido y que los cupos salgan pequeños. Suponer el
  * barato regalaría dinero en silencio.
  */
-export const FALLBACK_PRICE: ModelPrice = Object.values(MODEL_PRICES).reduce((caro, precio) =>
-  precio.inputPerToken + precio.outputPerToken > caro.inputPerToken + caro.outputPerToken
-    ? precio
-    : caro,
-);
+export function elMasCaro(precios: readonly ModelPrice[]): ModelPrice {
+  return precios.reduce((caro, precio) =>
+    precio.inputPerToken + precio.outputPerToken > caro.inputPerToken + caro.outputPerToken
+      ? precio
+      : caro,
+  );
+}
+
+export const FALLBACK_PRICE: ModelPrice = elMasCaro(Object.values(MODEL_PRICES));
 
 export function priceOf(modelId: string | undefined): ModelPrice {
   return (modelId === undefined ? undefined : MODEL_PRICES[modelId]) ?? FALLBACK_PRICE;
@@ -250,6 +254,7 @@ export function monthlyAiRequests(planId: PlanId, modelId: string | undefined): 
     return FREE_MONTHLY_ALLOWANCE;
   }
   const cost = requestCostMicros(worstFeature(plan), modelId);
+  /* v8 ignore next -- ningun precio de la tabla es cero, y lo que no esta en ella cae en el mas caro */
   return cost <= 0 ? 0 : Math.floor(monthlyBudgetMicros(plan.id) / cost);
 }
 

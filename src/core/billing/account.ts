@@ -116,5 +116,6 @@ export function displayName(account: Account): string {
  */
 export function avatarInitial(account: Account): string {
   const [first] = [...displayName(account)];
+  /* v8 ignore next -- `displayName` nunca devuelve vacio: sin nombre ni correo dice «tu cuenta» */
   return (first ?? '?').toUpperCase();
 }

@@ -184,7 +184,9 @@ describe('contestar la unidad entera', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Seguir' }));
 
     expect(empujar).toHaveBeenCalledWith(`/aprender/${UNIT_ORDER[1]!}`);
-  });
+    // Con tiempo de sobra: contestar la unidad entera son veinte pulsaciones, y
+    // con la cobertura puesta el medio segundo de holgura no llega.
+  }, 30_000);
 });
 
 describe('una unidad de tocar', () => {
@@ -354,7 +356,7 @@ describe('lo que se falla', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Seguir' }));
 
     expect(empujar).toHaveBeenCalledWith('/aprender');
-  });
+  }, 30_000);
 
   // El curso se dice entero, y el Profesional se llama Profesional.
   it('una del Profesional lo dice en su linea', () => {

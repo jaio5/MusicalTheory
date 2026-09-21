@@ -459,6 +459,7 @@ function mapBlocks(part: Part, change: (block: Block) => Block): Part {
 function reorder<T>(items: readonly T[], from: number, to: number): T[] {
   const copia = [...items];
   const [movido] = copia.splice(from, 1);
+  /* v8 ignore next 3 -- los dos que llaman buscan el indice antes, y solo entran si lo encontraron */
   if (movido === undefined) {
     return copia;
   }

@@ -66,6 +66,7 @@ export function suggestTransitions(input: TransitionInput): ChordTransition[] {
     )
     .map((candidate) => {
       const interval = normalizePitchClass(candidate.root - from.root);
+      /* v8 ignore next -- la tabla tiene los doce intervalos, y `interval` viene ya normalizado */
       const motion = ROOT_MOTION[interval] ?? { weight: 0.5, why: '' };
       const sharedNotes = sharedNoteCount(from.notes, candidate.notes);
 

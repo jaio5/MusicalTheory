@@ -93,6 +93,7 @@ export function guionDeEnsayo(
 
   return blocksInOrder(arrangement).flatMap((sitio) => {
     const encontrado = findBlock(arrangement, sitio.blockId);
+    /* v8 ignore next 3 -- los sitios salen del mismo montaje que se busca */
     if (encontrado === null) {
       return [];
     }

@@ -102,6 +102,7 @@ export function addPitchClass(
   const { weight = 1, halfLifeMs = DEFAULT_HALF_LIFE_MS } = options;
   const decayed = decayPitchHistogram(histogram, at, halfLifeMs);
   const weights = [...decayed.weights];
+  /* v8 ignore next -- el histograma tiene sus doce casillas desde que se crea */
   weights[pitchClass] = (weights[pitchClass] ?? 0) + weight;
   return { weights, updatedAt: decayed.updatedAt };
 }
@@ -110,19 +111,23 @@ function pearson(a: readonly number[], b: readonly number[]): number {
   const n = a.length;
   let sumA = 0;
   let sumB = 0;
+  /* v8 ignore start -- se recorre hasta `n`, que es lo que mide el propio vector */
   for (let i = 0; i < n; i += 1) {
     sumA += a[i] ?? 0;
     sumB += b[i] ?? 0;
   }
+  /* v8 ignore stop */
   const meanA = sumA / n;
   const meanB = sumB / n;
 
   let covariance = 0;
   let varianceA = 0;
   let varianceB = 0;
+  /* v8 ignore start -- lo mismo: `n` es lo que mide el vector */
   for (let i = 0; i < n; i += 1) {
     const da = (a[i] ?? 0) - meanA;
     const db = (b[i] ?? 0) - meanB;
+    /* v8 ignore stop */
     covariance += da * db;
     varianceA += da * da;
     varianceB += db * db;
@@ -134,9 +139,11 @@ function pearson(a: readonly number[], b: readonly number[]): number {
 }
 
 function rotate(profile: readonly number[], tonic: PitchClass): number[] {
+  /* v8 ignore start -- el indice da la vuelta dentro del propio perfil */
   return profile.map(
     (_, index) => profile[(index - tonic + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE] ?? 0,
   );
+  /* v8 ignore stop */
 }
 
 export function keyName(tonic: PitchClass, mode: KeyMode): string {

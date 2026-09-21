@@ -5,7 +5,9 @@ import {
   chordNoteNames,
   diatonicSevenths,
   diatonicTriads,
+  esSeventhQuality,
   romanNumeral,
+  seventhFromSuffix,
   seventhRoman,
   triadNotes,
   triadQualityOf,
@@ -14,6 +16,7 @@ import {
   type Degree,
 } from './chords';
 import { pitchClassFromName } from './notes';
+import { HEPTATONIC_SCALE_IDS } from './scales';
 
 const C = pitchClassFromName('C');
 const A = pitchClassFromName('A');
@@ -307,5 +310,70 @@ describe('si unas notas son una quinta', () => {
   it('ni una sola nota, ni una quinta de otro', () => {
     expect(esQuinta(C, [0])).toBe(false);
     expect(esQuinta(C, [5, 0])).toBe(false);
+  });
+});
+
+/**
+ * Las dos tablas de séptimas son una sola, leída en los dos sentidos.
+ *
+ * `seventhFromSuffix` sale de invertir `SEVENTH_SUFFIX` y no de una lista
+ * nueva: es el puente entre lo que alguien escribe —`E7`, `Cmaj7`, `Am7`— y lo
+ * que el montaje guarda, y dos listas se desincronizan el día que se añade una
+ * especie a una sola.
+ */
+describe('la especie de septima de un sufijo', () => {
+  it('cada especie va y vuelve por su sufijo', () => {
+    // Los sufijos escritos a mano, que es el otro lado del puente: si la tabla
+    // de dentro cambia sin que cambie esto, el cifrado que alguien teclea deja
+    // de entenderse y esta prueba lo dice.
+    const sufijos = {
+      major7: 'maj7',
+      dominant7: '7',
+      minor7: 'm7',
+      halfDiminished7: 'm7b5',
+      diminished7: 'dim7',
+      minorMajor7: 'mMaj7',
+      augmentedMajor7: 'maj7#5',
+    } as const;
+
+    for (const [especie, sufijo] of Object.entries(sufijos)) {
+      expect(seventhFromSuffix(sufijo), `${especie} no vuelve de «${sufijo}»`).toBe(especie);
+      expect(esSeventhQuality(especie)).toBe(true);
+    }
+  });
+
+  it('y lo que no es un sufijo de septima no es nada', () => {
+    expect(seventhFromSuffix('sus4')).toBeNull();
+    expect(seventhFromSuffix('')).toBeNull();
+  });
+});
+
+/**
+ * Apilar terceras sobre cualquier escala de siete notas da siete tríadas, las
+ * cuatro que existen y ninguna rara. Si alguna escala del catálogo diera un
+ * apilamiento que no es tríada, `diatonicTriads` reventaría: esto lo fija.
+ */
+describe('las triadas de todas las escalas de siete notas', () => {
+  it('cada escala da sus siete, y todas son triadas de verdad', () => {
+    for (const escala of HEPTATONIC_SCALE_IDS) {
+      const triadas = diatonicTriads(pitchClassFromName('C'), escala);
+      expect(triadas, `${escala} no da siete`).toHaveLength(7);
+      for (const triada of triadas) {
+        expect(triada.notes, `${escala} grado ${triada.degree}`).toHaveLength(3);
+      }
+    }
+  });
+
+  /**
+   * Y con la séptima encima, lo mismo. La menor armónica es la que saca la rara:
+   * su III lleva la sensible, así que sale un maj7 con la quinta aumentada.
+   */
+  it('y sus siete cuatriadas, incluida la del III de la menor armonica', () => {
+    for (const escala of HEPTATONIC_SCALE_IDS) {
+      expect(diatonicSevenths(pitchClassFromName('C'), escala), escala).toHaveLength(7);
+    }
+
+    const armonica = diatonicSevenths(pitchClassFromName('C'), 'harmonicMinor');
+    expect(armonica[2]?.quality).toBe('augmentedMajor7');
   });
 });

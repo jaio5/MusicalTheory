@@ -146,3 +146,35 @@ describe('leer una tonalidad que viene de fuera', () => {
     });
   });
 });
+
+describe('los bordes del histograma', () => {
+  /**
+   * Una vida media de cero no envejece: divide por nada. Se para aquí, donde se
+   * sabe lo que ha pasado, y no más abajo con un `NaN` que se arrastra hasta la
+   * tonalidad que se enseña en pantalla.
+   */
+  it('una vida media que no sea positiva se para', () => {
+    const histogram = createPitchHistogram(0);
+
+    expect(() => decayPitchHistogram(histogram, 1000, 0)).toThrow(RangeError);
+    expect(() => decayPitchHistogram(histogram, 1000, -1)).toThrow(RangeError);
+  });
+
+  /**
+   * Y un histograma plano no tiene forma que comparar: todas las tonalidades
+   * puntúan igual. El orden lo decide entonces el desempate —tónica y luego
+   * modo—, que está para que dos sesiones con los mismos datos den siempre lo
+   * mismo.
+   */
+  it('con todo igual de sonado, el orden no depende de la suerte', () => {
+    const plano = Array.from({ length: 12 }, () => 1);
+
+    const candidatos = detectKey(plano, 24);
+
+    expect(candidatos.every((candidato) => candidato.score === 0)).toBe(true);
+    expect(candidatos[0]).toMatchObject({ tonic: 0, mode: 'major' });
+    expect(candidatos[1]).toMatchObject({ tonic: 0, mode: 'minor' });
+    // Y la misma entrada, otra vez, da el mismo orden.
+    expect(detectKey(plano, 24)).toEqual(candidatos);
+  });
+});

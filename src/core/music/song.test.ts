@@ -507,3 +507,68 @@ describe('las especies al guardar una cancion', () => {
     expect(raro?.sections[0]).not.toHaveProperty('especies');
   });
 });
+
+/**
+ * Lo que llega de fuera puede venir de cualquier manera: de un fichero que
+ * alguien editó a mano, de una versión vieja de la aplicación o de un guardado
+ * a medias. Leerlo no puede reventar; lo que no se entiende se tira.
+ */
+describe('una cancion guardada con la forma cambiada', () => {
+  function seccion(extra: Record<string, unknown>) {
+    return parseSong(
+      {
+        name: 'Rara',
+        tonic: 0,
+        mode: 'major',
+        sections: [{ name: 'Estrofa', degrees: ['I', 'V'], ...extra }],
+        updatedAt: 1,
+      },
+      'x',
+    );
+  }
+
+  it('sin lista de partes, se lee como si no tuviera ninguna', () => {
+    expect(parseSong({ name: 'Rara', sections: 'unas cuantas' }, 'x')).toBeNull();
+  });
+
+  it('una parte que no es un objeto se lee con lo de fabrica, y se tira por vacia', () => {
+    expect(parseSong({ name: 'Rara', sections: ['Estrofa', 42, null] }, 'x')).toBeNull();
+  });
+
+  it('unos grados que no son una lista se leen como ninguno', () => {
+    expect(
+      parseSong({ name: 'Rara', sections: [{ name: 'Estrofa', degrees: 'I V' }] }, 'x'),
+    ).toBeNull();
+  });
+
+  it('un punteo que no es una lista, o con notas a medias, se tira', () => {
+    expect(seccion({ lead: 'do re mi' })?.sections[0]?.lead).toBeUndefined();
+    // Una nota es tres números; lo que no llegue a tres no es una nota.
+    expect(seccion({ lead: [[0, 0], 'nota', null, [0, 0, 1]] })?.sections[0]?.lead).toEqual([
+      [0, 0, 1],
+    ]);
+  });
+
+  it('unos compases que no son un numero util se omiten', () => {
+    expect(seccion({ bars: 'cuatro' })?.sections[0]?.bars).toBeUndefined();
+    expect(seccion({ bars: 0 })?.sections[0]?.bars).toBeUndefined();
+    expect(seccion({ bars: Number.POSITIVE_INFINITY })?.sections[0]?.bars).toBeUndefined();
+    expect(seccion({ bars: 3.4 })?.sections[0]?.bars).toBe(3);
+  });
+
+  /**
+   * Y las especies: un bloque guarda un grado y una especie, y una especie que
+   * no se reconoce no puede quedarse a medias
+   * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+   */
+  it('una especie que no se reconoce se lee como ninguna', () => {
+    expect(seccion({ especies: ['sus4', 'quinta'] })?.sections[0]?.especies).toEqual([
+      null,
+      'quinta',
+    ]);
+    // Y si ninguna se reconoce, no se guarda la lista: leer y volver a guardar
+    // tiene que dar lo mismo.
+    expect(seccion({ especies: ['sus4', 'sus2'] })?.sections[0]?.especies).toBeUndefined();
+    expect(seccion({ especies: 'ninguna' })?.sections[0]?.especies).toBeUndefined();
+  });
+});

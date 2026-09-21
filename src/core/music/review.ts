@@ -102,6 +102,7 @@ export function recordHit(
 
 /** Si a esa pregunta le toca hoy. */
 export function isDue(item: ReviewItem, day: string): boolean {
+  /* v8 ignore next -- el indice va recortado al ultimo de la lista, asi que siempre hay espera */
   const wait = REVIEW_INTERVALS[Math.min(item.hits, REVIEW_INTERVALS.length - 1)] ?? 0;
   const gap = daysBetween(item.seenOn, day);
   // Una fecha imposible no puede dejar una pregunta atrapada para siempre: si no

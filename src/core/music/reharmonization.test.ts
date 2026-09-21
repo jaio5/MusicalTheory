@@ -178,3 +178,21 @@ describe('el catálogo entero', () => {
     }
   });
 });
+
+describe('ninguna sustitucion lleva al mismo sitio', () => {
+  /**
+   * Proponer cambiar un acorde por sí mismo no es una sustitución: es una
+   * casilla que se pulsa y no hace nada. Pasa cuando el catálogo solo tiene uno
+   * de los dos lados —el tritono de un grado cuyo par no está escrito—, así que
+   * se comprueba grado a grado en los dos modos.
+   */
+  it('en ninguno de los dos modos, para ningun grado', () => {
+    for (const mode of ['major', 'minor'] as const) {
+      for (const degree of degreesFor(mode)) {
+        for (const cambio of reharmonizationsFor(mode, degree)) {
+          expect(cambio.to, `${mode} ${degree} por ${cambio.move.id}`).not.toBe(degree);
+        }
+      }
+    }
+  });
+});

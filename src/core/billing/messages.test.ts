@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { needsPlanMessage, planAfter, quotaMessage } from './messages';
-import { planOf } from './plans';
+import { PLANS, planOf, type PlanId } from './plans';
 
 const MEDIO = planOf('medio');
 
@@ -143,5 +143,13 @@ describe('el número del sujeto lo pone quien llama, y ahí es donde se falla', 
       const frase = needsPlanMessage(MEDIO, sujeto, plural);
       expect(frase, `«${sujeto}» no concuerda`).toContain(plural ? ' entran en ' : ' entra en ');
     }
+  });
+});
+
+describe('el plan siguiente', () => {
+  it('del ultimo no hay siguiente, y de uno que no existe tampoco', () => {
+    expect(planAfter(PLANS.at(-1)!.id)).toBeNull();
+    expect(planAfter('uno-que-no-existe' as PlanId)).toBeNull();
+    expect(planAfter(PLANS[0]!.id)?.id).toBe(PLANS[1]!.id);
   });
 });

@@ -375,3 +375,78 @@ describe('un acorde, como bloque', () => {
     expect(comoBloque(0, 'major', 0, [0, 2, 7])).toBeNull();
   });
 });
+
+describe('las alternativas que trae el motor', () => {
+  /**
+   * El croma manda alternativas con las notas que oyó, y no todas son tríadas:
+   * un montón de notas sin tercera ni quinta no se puede nombrar por grado, así
+   * que no se ofrece como corrección en vez de colar una invención.
+   */
+  it('las que no son un acorde nombrable se caen', () => {
+    const conRaras: CapturedChord[] = [
+      {
+        ...mayor(C, 0),
+        alternatives: [
+          // Una tríada de verdad, que sí tiene grado en Do mayor.
+          { root: A, notes: [A, C, E] },
+          // Dos notas sueltas que no forman ni tríada ni cuatríada.
+          { root: D, notes: [D, normalizePitchClass(D + 1)] },
+        ],
+      },
+      mayor(G, 4 * PULSO),
+    ];
+
+    const capture = captureProgression(conRaras, { ...EN_DO, endedAt: 8 * PULSO });
+
+    expect(capture.steps[0]?.alternatives).toEqual(['vi']);
+  });
+
+  /**
+   * Y el mismo grado dos veces seguidas es un cambio de postura, no un acorde
+   * nuevo: se suman los pulsos. La duda se queda con la peor de las dos, que
+   * promediarla escondería justo lo que hay que preguntar.
+   */
+  it('el mismo grado dos veces seguidas se funde, y se queda la peor duda', () => {
+    const dosVeces: CapturedChord[] = [
+      { ...mayor(C, 0), margin: 0.9 },
+      // Las mismas tres clases de altura, pero con una repetida: para el primer
+      // colapso son dos lecturas distintas —compara cuántas notas trae—, y aun
+      // así es el mismo Do. Es lo que llega cuando cambias de postura sin
+      // cambiar de acorde.
+      { root: C, notes: [C, E, G, E], at: 2 * PULSO, margin: 0.1 },
+      mayor(G, 6 * PULSO),
+    ];
+
+    const capture = captureProgression(dosVeces, { ...EN_DO, endedAt: 10 * PULSO });
+
+    expect(capture.steps.map((paso) => paso.degree)).toEqual(['I', 'V']);
+    // Seis pulsos de Do: los dos trozos sumados, no dos pasos.
+    expect(capture.steps[0]?.beats).toBe(6);
+    expect(capture.steps[0]?.confidence).toBeCloseTo(0.1);
+  });
+});
+
+describe('una quinta sobre una fundamental de fuera', () => {
+  /**
+   * Una quinta se nombra por su fundamental, y el catálogo de mayor nombra once
+   * de las doce: la que queda —el tritono, Fa sostenido en Do— no es ningún
+   * grado, ni de la escala ni prestado. Sin grado no hay bloque: meterlo con uno
+   * inventado lo enseñaría, lo ensayaría y lo dibujaría mal.
+   */
+  it('la del tritono no se convierte en bloque, y las once que si', () => {
+    const conGrado: number[] = [];
+    for (let root = 0; root < 12; root += 1) {
+      const quinta = comoBloque(C, 'major', root as PitchClass, [
+        root as PitchClass,
+        normalizePitchClass(root + 7),
+      ]);
+      if (quinta !== null) {
+        expect(quinta.especie, `la quinta sobre ${root}`).toBe('quinta');
+        conGrado.push(root);
+      }
+    }
+
+    expect(conGrado).toHaveLength(11);
+    expect(conGrado).not.toContain(Fs);
+  });
+});

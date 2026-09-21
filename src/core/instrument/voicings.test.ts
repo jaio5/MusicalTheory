@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { midiToPitchClass, pitchClassFromName } from '../music/notes';
 import { STANDARD_TUNING } from './guitar';
-import { chordVoicings, voicingToText, type Voicing } from './voicings';
+import { chordVoicings, describeVoicing, voicingToText, type Voicing } from './voicings';
 
 const MAJOR = [0, 4, 7];
 const MINOR = [0, 3, 7];
@@ -119,5 +119,34 @@ describe('nombre de la posición', () => {
     const voicings = chordVoicings(pitchClassFromName('F'), MAJOR, { limit: 6 });
     expect(voicings.some((voicing) => voicing.barre)).toBe(true);
     expect(voicings.find((voicing) => voicing.barre)!.name).toContain('cejilla');
+  });
+});
+
+describe('lo que no cabe en la mano', () => {
+  /**
+   * La distancia máxima entre el traste más bajo y el más alto es lo que separa
+   * una digitación de un ejercicio de estiramiento. Con uno, solo salen las que
+   * caben en un solo traste.
+   */
+  it('con un solo traste de alcance, solo salen las que caben ahi', () => {
+    const anchas = chordVoicings(pitchClassFromName('C'), MAJOR, { maxSpan: 4 });
+    const estrechas = chordVoicings(pitchClassFromName('C'), MAJOR, { maxSpan: 1 });
+
+    expect(anchas.length).toBeGreaterThan(estrechas.length);
+    for (const voicing of estrechas) {
+      const pisados = voicing.frets.filter((traste): traste is number => (traste ?? 0) > 0);
+      if (pisados.length > 0) {
+        expect(Math.max(...pisados) - Math.min(...pisados)).toBeLessThan(1);
+      }
+    }
+  });
+});
+
+describe('como se llama una posicion', () => {
+  it('la del principio es al aire o primera, segun suene alguna cuerda suelta', () => {
+    expect(describeVoicing(0, 2, false)).toBe('Al aire');
+    expect(describeVoicing(0, 0, false)).toBe('Primera posición');
+    expect(describeVoicing(5, 0, true)).toBe('5.ª posición con cejilla');
+    expect(describeVoicing(5, 0, false)).toBe('5.ª posición');
   });
 });

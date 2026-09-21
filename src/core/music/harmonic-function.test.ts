@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { roleOfDegree, roleOfDegreeSymbol } from './harmonic-function';
+import { roleOfDegree, roleOfDegreeSymbol, teachingRank } from './harmonic-function';
 
 describe('roleOfDegreeSymbol', () => {
   // La tabla por nombre y la tabla por número tienen que decir lo mismo de los
@@ -22,5 +22,21 @@ describe('roleOfDegreeSymbol', () => {
 
   it('lo que no está en la tabla es de paso, no revienta', () => {
     expect(roleOfDegreeSymbol('V7/vi')).toBe('approach');
+  });
+});
+
+describe('un grado que no es de la tonalidad', () => {
+  /**
+   * Los grados prestados y las dominantes secundarias no están en la lista de
+   * los siete: no tienen papel tonal propio, y lo honesto es decir que son de
+   * paso en vez de colgarles el papel del grado que ocupa ese sitio.
+   */
+  it('no tiene papel propio y va el ultimo al enseñarse', () => {
+    expect(roleOfDegree('major', 99)).toBe('approach');
+    expect(roleOfDegree('minor', -1)).toBe('approach');
+    expect(teachingRank('major', 99)).toBe(7);
+    expect(teachingRank('minor', 99)).toBe(7);
+    // Y la casa es siempre la primera que se enseña.
+    expect(teachingRank('major', 0)).toBe(0);
   });
 });

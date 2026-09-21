@@ -103,6 +103,7 @@ function tritono(mode: KeyMode, degree: DegreeSymbol): DegreeSymbol | null {
   const destino = degreeAt(mode, shape.offset + 6, 'major');
   // El tritono de un grado consigo mismo no es una sustitución. Pasa cuando el
   // catálogo solo tiene uno de los dos lados.
+  /* v8 ignore next -- hoy ningun grado del catalogo es su propio tritono, y hay prueba que lo vigila */
   return destino === degree ? null : destino;
 }
 
@@ -126,6 +127,7 @@ function prestamo(mode: KeyMode, degree: DegreeSymbol): DegreeSymbol | null {
     return null;
   }
   const prestado = degreeAt(mode, shape.offset - 1, 'major');
+  /* v8 ignore next -- hoy ningun grado se presta a si mismo, y hay prueba que lo vigila */
   return prestado === degree ? null : prestado;
 }
 

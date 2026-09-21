@@ -24,7 +24,6 @@ import {
   MAX_BLOCK_BEATS,
   MAX_PART_BLOCKS,
   MAX_PARTS,
-  moveBlock,
   moveNote,
   movePart,
   partFromCapture,
@@ -37,8 +36,10 @@ import {
   setBars,
   fixBlock,
   isDoubtful,
+  moveBlock,
   removeBlock,
   removeNote,
+  barsLabel,
   blockChord,
   writtenBlock,
   soundOf,
@@ -50,7 +51,8 @@ import {
   type Arrangement,
   type Block,
 } from './arrangement';
-import type { LeadNote } from './melody';
+import { MAX_LEAD_NOTES, type LeadNote } from './melody';
+import { pitchClassFromName } from './notes';
 import { MAX_BARS, type Song } from './song';
 
 function bloque(id: string, degree: Block['degree'], beats = 4): Block {
@@ -897,5 +899,144 @@ describe('un bloque sin tercera', () => {
   it('sin especie, un bloque es exactamente lo que era', () => {
     expect(writtenBlock('a', 'I', 4)).not.toHaveProperty('especie');
     expect(blockChord(0, 'major', writtenBlock('a', 'I', 4)).notes).toEqual([0, 4, 7]);
+  });
+});
+
+describe('lo que faltaba por mirar del montaje', () => {
+  const C = pitchClassFromName('C');
+
+  /**
+   * Un bloque guarda un grado **y una especie**, y quien lo traduce a acorde es
+   * `blockChord` ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)):
+   * con el grado a secas, un `C5` se enseñaría como un `C`.
+   */
+  it('la especie del bloque manda en el cifrado y en las notas', () => {
+    const quinta: Block = { ...bloque('q', 'I'), especie: 'quinta' };
+    const septima: Block = { ...bloque('s', 'V'), especie: 'dominant7' };
+
+    expect(blockChord(C, 'major', quinta).symbol).toBe('C5');
+    expect(blockChord(C, 'major', quinta).notes).toHaveLength(2);
+    expect(blockChord(C, 'major', septima).symbol).toBe('G7');
+    expect(blockChord(C, 'major', septima).notes).toHaveLength(4);
+  });
+
+  // Poner las vueltas que ya tenía no cambia nada: el montaje es el mismo.
+  it('poner las vueltas que ya habia deja la parte igual', () => {
+    const antes = montaje();
+
+    const despues = setRepeats(antes, 'estrofa', repeatsOf(antes.parts[0]!));
+
+    expect(despues.parts[0]).toBe(antes.parts[0]);
+  });
+
+  /**
+   * Los compases, escritos para leerlos: con coma decimal, que es como se
+   * escriben los números en español, y en singular cuando es uno solo.
+   */
+  it('los compases se escriben con coma y con su singular', () => {
+    expect(barsLabel(4, 4)).toBe('1 compás');
+    expect(barsLabel(8, 4)).toBe('2 compases');
+    expect(barsLabel(5, 4)).toBe('1,25 compases');
+    // Sin compás de nada, se cuenta por pulsos: dividir entre cero no.
+    expect(barsLabel(3, 0)).toBe('3 compases');
+  });
+
+  /**
+   * Dar por bueno lo que el motor dijo solo vale para lo que oyó: confirmar un
+   * bloque escrito a mano no tiene sentido y no toca nada.
+   */
+  it('confirmar solo vale para lo que se oyo', () => {
+    const conDuda: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'Estrofa',
+          blocks: [oido('a', 'I', 0.4, ['vi']), bloque('b', 'IV')],
+          notes: [],
+          bars: 4,
+        },
+      ],
+    };
+
+    const confirmado = fixBlock(conDuda, 'a', 'I', true);
+    expect(isDoubtful(confirmado.parts[0]!.blocks[0]!)).toBe(false);
+
+    // Y el escrito a mano se queda como estaba, ni marcado ni con alternativas.
+    const escrito = fixBlock(conDuda, 'b', 'IV', true);
+    expect(escrito.parts[0]!.blocks[1]).toBe(conDuda.parts[0]!.blocks[1]);
+  });
+
+  // Mover un bloque entre dos partes no toca las demás.
+  it('mover entre dos partes deja las otras intactas', () => {
+    const tres: Arrangement = {
+      ...montaje(),
+      parts: [
+        ...montaje().parts,
+        { id: 'puente', name: 'Puente', blocks: [bloque('e', 'ii')], notes: [], bars: 4 },
+      ],
+    };
+
+    const despues = moveBlock(tres, 'a', 'estribillo', 0);
+
+    expect(despues.parts[2]).toBe(tres.parts[2]);
+    expect(despues.parts[1]!.blocks.map((b) => b.id)).toEqual(['a', 'd']);
+  });
+
+  it('los bloques en orden se pueden pedir de una sola parte', () => {
+    const todos = blocksInOrder(montaje());
+    const solo = blocksInOrder(montaje(), 'estribillo');
+
+    expect(todos).toHaveLength(4);
+    expect(solo.map((sitio) => sitio.blockId)).toEqual(['d']);
+  });
+
+  // Una parte sin nombre se llama como le toque por su sitio: «Estrofa 2»,
+  // «Estrofa 3». Nadie escribe un nombre antes de tener nada dentro.
+  it('una parte sin nombre coge el que le toca', () => {
+    const conNombre = addPart(montaje(), 'nueva', 'Puente');
+    const sinNombre = addPart(montaje(), 'nueva', '   ');
+
+    expect(conNombre.parts.at(-1)?.name).toBe('Puente');
+    expect(sinNombre.parts.at(-1)?.name).not.toBe('');
+    expect(addPart(montaje(), 'otra').parts.at(-1)?.name).toBe(sinNombre.parts.at(-1)?.name);
+  });
+
+  it('una nota que no esta no se encuentra', () => {
+    expect(findNote(montaje(), 'ninguna')).toBeNull();
+  });
+
+  // Y el punteo tiene tope: pasado, la nota no entra en vez de crecer sin fin.
+  it('el punteo no pasa de su tope', () => {
+    let lleno: Arrangement = { parts: [{ ...montaje().parts[0]!, notes: [] }] };
+    for (let indice = 0; indice < MAX_LEAD_NOTES + 5; indice += 1) {
+      lleno = addNote(lleno, 'estrofa', { id: `n${indice}`, start: indice, length: 1, offset: 0 });
+    }
+
+    expect(lleno.parts[0]!.notes).toHaveLength(MAX_LEAD_NOTES);
+  });
+
+  /**
+   * Al cambiar de modo, las alternativas de un bloque oído se traducen igual que
+   * su grado, y la que no exista allí se cae: son grados del modo viejo, y
+   * dejarlas tal cual reventaría `resolveDegree` al ofrecerlas como corrección.
+   */
+  it('cambiar de modo traduce tambien las alternativas', () => {
+    const conAlternativas: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'Estrofa',
+          blocks: [oido('a', 'I', 0.4, ['IV', 'V/ii'])],
+          notes: [],
+          bars: 4,
+        },
+      ],
+    };
+
+    const menor = translateToMode(conAlternativas, 'minor');
+
+    expect(menor.parts[0]!.blocks[0]!.degree).toBe('i');
+    // `IV` se dice `iv` en menor; `V/ii` no existe allí y se cae.
+    expect(menor.parts[0]!.blocks[0]!.alternatives).toEqual(['iv']);
   });
 });

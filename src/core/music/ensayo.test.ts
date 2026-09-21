@@ -228,3 +228,39 @@ describe('el ensayo de lo que no lleva tercera', () => {
     expect(suenaComo(quinta, { root: 0, notes: [0, 4, 7] })).toBe(false);
   });
 });
+
+describe('el peor, con su especie', () => {
+  /**
+   * El que se atraganta se dice con el cifrado que se estaba tocando, no con el
+   * de su tríada: quien falla un `V7` no estaba tocando un `V`, y volver a
+   * intentarlo con el acorde equivocado no arregla nada
+   * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+   */
+  it('se dice con la especie que llevaba el bloque', () => {
+    const conSeptima: Arrangement = {
+      parts: [
+        {
+          id: 'estrofa',
+          name: 'Estrofa',
+          blocks: [
+            writtenBlock('a', 'I', 4),
+            { ...writtenBlock('b', 'V', 4), especie: 'dominant7' },
+          ],
+          notes: [],
+          bars: 2,
+        },
+      ],
+    };
+
+    const r = puntuar(guionDeEnsayo(conSeptima, 4), ['acertado', 'fallado']);
+
+    expect(r.peor).toEqual({
+      blockId: 'b',
+      degree: 'V',
+      especie: 'dominant7',
+      bar: 2,
+      veces: 1,
+      fallos: 1,
+    });
+  });
+});

@@ -6,6 +6,7 @@ import {
   clampStart,
   isDoubtfulNote,
   isInScaleOffset,
+  MAX_LEAD_NOTES,
   MAX_OFFSET,
   midiOf,
   NOTA_DUDOSA,
@@ -307,5 +308,30 @@ describe('las notas dudosas', () => {
       { tonic: C, bpm: 120, endedAt: 1000 },
     );
     expect(capture.notes.map(isDoubtfulNote)).toEqual([true, false]);
+  });
+});
+
+describe('el tope del punteo al leerlo', () => {
+  /**
+   * Un punteo tiene tope, y pasado no se recorta por el final ni se tira entero:
+   * se para de leer. Sin él, tocar diez minutos seguidos dejaría una parte con
+   * miles de notas que ni se dibuja ni se puede editar.
+   */
+  it('se deja de leer al llegar al tope', () => {
+    const muchas = Array.from({ length: MAX_LEAD_NOTES + 20 }, (_, indice) => ({
+      pitchClass: pitchClassFromName('C'),
+      midi: 60 + (indice % 12),
+      at: indice * 500,
+      clarity: 0.9,
+    }));
+
+    const punteo = captureMelody(muchas, {
+      tonic: pitchClassFromName('C'),
+      bpm: 120,
+      startedAt: 0,
+      endedAt: (MAX_LEAD_NOTES + 20) * 500,
+    });
+
+    expect(punteo.notes).toHaveLength(MAX_LEAD_NOTES);
   });
 });

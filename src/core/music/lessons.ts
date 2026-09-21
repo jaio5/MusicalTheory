@@ -750,6 +750,7 @@ function seedFrom(text: string): number {
   for (let i = 0; i < text.length; i += 1) {
     hash = ((hash ^ text.charCodeAt(i)) * 0x01000193) >>> 0;
   }
+  /* v8 ignore next -- ningun enunciado del temario da cero, y el uno es solo para que la baraja no se pare */
   return hash === 0 ? 1 : hash;
 }
 

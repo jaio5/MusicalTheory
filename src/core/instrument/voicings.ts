@@ -128,6 +128,7 @@ export function chordVoicings(
 
     const pressed = soundingFrets.filter((fret) => fret > 0);
     const position = pressed.length === 0 ? 0 : Math.min(...pressed);
+    /* v8 ignore next 3 -- los trastes salen ya de una ventana de `maxSpan`, asi que nunca se pasan */
     if (pressed.length > 0 && Math.max(...pressed) - position >= maxSpan) {
       return;
     }
