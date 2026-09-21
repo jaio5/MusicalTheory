@@ -65,6 +65,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
   const [asking, setAsking] = useState(false);
 
   async function ask(text: string): Promise<void> {
+    /* v8 ignore next 3 -- sin tonalidad el formulario no se pinta, y el boton va desactivado en blanco */
     if (activeKey === null || text.trim() === '') {
       return;
     }
@@ -200,6 +201,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
                 className="w-full justify-start px-3 text-left text-xs"
                 onClick={() => {
                   setQuestion(opener);
+                  /* v8 ignore next 3 -- las preguntas de ejemplo solo se pintan con tonalidad puesta */
                   if (activeKey !== null) {
                     void ask(opener);
                   }

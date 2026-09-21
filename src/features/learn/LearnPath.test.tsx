@@ -76,6 +76,37 @@ describe('El camino del temario', () => {
     expect(screen.getByRole('button', { name: /superada$/i })).toBeEnabled();
   });
 
+  /**
+   * Una unidad hecha con preguntas esperando en la cola se marca **agrietada**:
+   * sigue estando hecha, pero hay algo que volver a mirar. Sin la marca, la
+   * cola de repaso es una lista que nadie relaciona con el camino.
+   */
+  it('una unidad hecha con algo pendiente sale agrietada', () => {
+    const hecha = tras([UNIT_ORDER[0]!]);
+    const agrietada = missQuestion(hecha, UNIT_ORDER[0]!, 0, HOY);
+
+    const { container } = render(
+      <LearnPath progress={agrietada} plan="basico" day={HOY} active={null} onPick={vi.fn()} />,
+    );
+
+    expect(container.querySelectorAll('.border-oxblood-bright').length).toBeGreaterThan(0);
+  });
+
+  // Y la que se está haciendo se enciende, para no perderla de vista al volver.
+  it('la unidad activa se enciende', () => {
+    const { container } = render(
+      <LearnPath
+        progress={EMPTY_PROGRESS}
+        plan="basico"
+        day={HOY}
+        active={UNIT_ORDER[0]!}
+        onPick={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelectorAll('.halo-latón').length).toBe(1);
+  });
+
   it('la siguiente lleva su cartel de «aquí»', () => {
     pintar(tras([UNIT_ORDER[0]!]));
 

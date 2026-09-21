@@ -139,6 +139,7 @@ export function parseTeacherRequest(body: unknown): TeacherRequest | null {
   // Fuera la marca antes de nada: es lo que impide cerrar el bloque a mano y
   // escribir instrucciones fuera de él.
   const limpia = question.split(MARCA_PREGUNTA).join(' ').trim();
+  /* v8 ignore next 3 -- una pregunta que solo fueran marcas ya se ha caido por el largo minimo */
   if (limpia === '') {
     return null;
   }

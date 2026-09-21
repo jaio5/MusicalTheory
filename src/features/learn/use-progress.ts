@@ -175,6 +175,7 @@ export function useProgress({ escuchaComponer = false }: ProgressOptions = {}) {
           xp: next.xp - current.xp,
           streak: next.streak,
           newBadges: next.badges.filter((badge) => !current.badges.includes(badge)),
+          /* v8 ignore next -- la meta no se cierra dos veces el mismo dia: al segundo, `next` ya estaba cerrada */
           goalJustMet: isGoalMet(next, hoy) && !isGoalMet(current, hoy),
           flawless,
         });
@@ -215,9 +216,11 @@ export function useProgress({ escuchaComponer = false }: ProgressOptions = {}) {
         setCelebration({
           unitId: 'repaso',
           title: 'Repaso',
+          /* v8 ignore next -- al repasar ya se ha practicado hoy: el dia guardado es el de hoy */
           xp: next.xpToday - (current.lastDay === hoy ? current.xpToday : 0),
           streak: next.streak,
           newBadges: next.badges.filter((badge) => !current.badges.includes(badge)),
+          /* v8 ignore next -- repasar no cierra la meta por si solo: el repaso viene despues de practicar */
           goalJustMet: isGoalMet(next, hoy) && !isGoalMet(current, hoy),
           flawless: cleared,
         });

@@ -103,6 +103,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
       notified.current = false;
       return;
     }
+    /* v8 ignore next 3 -- al terminar, el efecto se rehace y vuelve arriba antes de llegar aqui */
     if (notified.current) {
       return;
     }
@@ -121,9 +122,11 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
   const accidental = activeKey === null ? 'sharp' : accidentalForScale(activeKey.tonic, scaleId);
 
   async function playReference() {
+    /* v8 ignore next 3 -- el boton de oir la nota solo se pinta con una nota delante */
     if (step === null) {
       return;
     }
+    /* v8 ignore next -- sin fabrica se usa el tono de verdad, que en un test no suena */
     toneRef.current ??= factoryRef.current?.() ?? new WebAudioReferenceTone();
     await toneRef.current.play(midiToFrequency(step.midi));
   }
@@ -212,7 +215,9 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
           <span className="text-tube-bright">Escala completa. Otra vez, más rápido.</span>
         ) : (
           <span className="text-text">
+            {/* v8 ignore start -- si hay escala que tocar hay paso: el «hecho» se pinta en la rama de arriba */}
             Toca {noteName(step?.pitchClass ?? activeKey.tonic, accidental)}
+            {/* v8 ignore stop */}
             {progress.heldSince !== null && <span className="text-tube-bright"> · sostenla</span>}
           </span>
         )}

@@ -6,6 +6,7 @@ import {
   MAX_ANSWER_LENGTH,
   MAX_QUESTION_LENGTH,
   parseTeacherRequest,
+  teacherError,
   topicOf,
   validateTeacherAnswer,
   type TeacherRequest,
@@ -49,6 +50,36 @@ describe('Petición al profesor', () => {
     });
 
     expect(parsed).toEqual({ key: { tonic: 'C', mode: 'major' }, question: 'hola' });
+  });
+
+  /**
+   * Y la escala sí viaja cuando es una de verdad: el profesor contesta con las
+   * notas que tienes puestas encima, no con las de un libro.
+   */
+  it('una escala del catalogo si viaja', () => {
+    const parsed = parseTeacherRequest({
+      key: { tonic: 'C', mode: 'major' },
+      question: 'hola',
+      scale: 'minorPentatonic',
+    });
+
+    expect(parsed?.scale).toBe('minorPentatonic');
+  });
+});
+
+describe('los errores del profesor', () => {
+  /**
+   * Cada código lleva su frase, y el servidor puede cambiarla: la de aquí es la
+   * de respaldo, y decir «ha fallado algo» donde el servidor explicaba el motivo
+   * obliga a adivinar.
+   */
+  it('cada codigo lleva su frase, y la del servidor gana', () => {
+    const propio = teacherError('model_unavailable');
+    const ajeno = teacherError('model_unavailable', 'El modelo no contesta hoy.');
+
+    expect(propio.error.code).toBe('model_unavailable');
+    expect(propio.error.message.length).toBeGreaterThan(0);
+    expect(ajeno.error.message).toBe('El modelo no contesta hoy.');
   });
 });
 

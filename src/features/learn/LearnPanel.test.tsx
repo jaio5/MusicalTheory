@@ -137,8 +137,26 @@ describe('Panel de aprender', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
 
     expect(screen.getByText(/el micrófono está cerrado/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Abrirlo' })).toBeInTheDocument();
     expect(screen.queryByText(/^Toca /)).not.toBeInTheDocument();
+
+    // Y desde ahí se abre: es el sitio donde se descubre que hacía falta.
+    await userEvent.click(screen.getByRole('button', { name: 'Abrirlo' }));
+
+    expect(useSessionStore.getState().listening).not.toBe('idle');
+  });
+
+  /**
+   * Y mientras se sostiene la nota se dice: sostenerla es justo lo que cuenta,
+   * y sin decirlo parece que no la está cogiendo.
+   */
+  it('mientras se sostiene la nota, lo dice', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: /^empezar$/i }));
+
+    await play(48, 0);
+
+    expect(await screen.findByText(/sostenla/)).toBeInTheDocument();
   });
 
   it('empieza de nuevo al cambiar de escala', async () => {
