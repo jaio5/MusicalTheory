@@ -79,18 +79,19 @@ export function AccessForm({
         ? await registerAccount(email, password, name === '' ? undefined : name)
         : await signInWithPassword(email, password);
 
-      if (result.ok) {
-        // Las dos cosas, y las dos hacen falta: `refresh` trae la cuenta nueva a
-        // esta pantalla sin recargar, y `router.refresh` hace que el servidor
-        // vuelva a pintar el marco, que es quien lee la sesión. Sin la primera,
-        // el candado de al lado seguiría cerrado un instante; sin la segunda, el
-        // avatar de arriba seguiría siendo el de nadie.
-        await refresh();
-        router.refresh();
-        onDone?.();
+      if (!result.ok) {
+        setError(result.message ?? 'No ha salido. Vuelve a intentarlo.');
         return;
       }
-      setError(result.message ?? 'No ha salido. Vuelve a intentarlo.');
+
+      // Las dos cosas, y las dos hacen falta: `refresh` trae la cuenta nueva a
+      // esta pantalla sin recargar, y `router.refresh` hace que el servidor
+      // vuelva a pintar el marco, que es quien lee la sesión. Sin la primera, el
+      // candado de al lado seguiría cerrado un instante; sin la segunda, el
+      // avatar de arriba seguiría siendo el de nadie.
+      await refresh();
+      router.refresh();
+      onDone?.();
     } finally {
       setWorking(false);
     }

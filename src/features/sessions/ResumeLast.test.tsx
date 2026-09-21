@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -103,5 +103,24 @@ describe('la última sesión', () => {
     render(<ResumeLast createStorage={almacen([{ ...AYER, key: null }])} />);
 
     expect(screen.queryByText(/La última vez estabas en/)).not.toBeInTheDocument();
+  });
+});
+
+describe('cuando el navegador no deja leer', () => {
+  /**
+   * En modo privado IndexedDB puede estar cerrado. No poder ofrecer la última
+   * sesión no merece una frase en pantalla: se calla, porque no es algo que
+   * quien está tocando pueda arreglar.
+   */
+  it('se calla, en vez de enseñar un error', async () => {
+    class AlmacenRoto extends MemorySessionStorage {
+      override async list(): Promise<never> {
+        throw new Error('modo privado');
+      }
+    }
+
+    const { container } = render(<ResumeLast createStorage={() => new AlmacenRoto()} />);
+
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 });

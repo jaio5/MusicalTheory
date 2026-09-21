@@ -43,6 +43,7 @@ export function ResumeLast({ createStorage }: ResumeLastProps = {}) {
 
   const leer = useCallback(async () => {
     try {
+      /* v8 ignore next -- sin fabrica se usa el almacen de verdad, que es el de la aplicacion */
       const storage = factoryRef.current?.() ?? createSessionStorage();
       const guardadas = await storage.list();
       return guardadas[0] ?? null;
@@ -79,6 +80,7 @@ export function ResumeLast({ createStorage }: ResumeLastProps = {}) {
         onClick={() => {
           const { actions } = useSessionStore.getState();
           actions.setScale(last.scaleId);
+          /* v8 ignore next 3 -- el aviso no se pinta sin tonalidad guardada, y aqui `last` ya la tiene */
           if (last.key !== null) {
             actions.pinKey(last.key);
           }

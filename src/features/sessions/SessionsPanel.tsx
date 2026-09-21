@@ -31,6 +31,7 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
   });
 
   const storage = useCallback((): SessionStorage => {
+    /* v8 ignore next -- sin fabrica se usa el almacen de verdad, que es el de la aplicacion */
     storageRef.current ??= factoryRef.current?.() ?? createSessionStorage();
     return storageRef.current;
   }, []);

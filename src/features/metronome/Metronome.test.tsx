@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Metronome as MetronomeEngine, MetronomeOptions } from '@audio/metronome';
@@ -258,5 +258,35 @@ describe('La luz del pulso', () => {
     fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
 
     expect(await screen.findByText(/Metrónomo a \d+ pulsos por minuto/)).toBeInTheDocument();
+  });
+});
+
+describe('los puntos del compás', () => {
+  /**
+   * Un punto por pulso, y el primero de cada compás distinto: es lo que deja
+   * seguir dónde cae el uno sin contar. Parado no se enciende ninguno, que si
+   * no parecería que sigue sonando.
+   */
+  it('el uno se distingue del resto, y parado no se enciende ninguno', async () => {
+    const { engine, view } = renderMetronome();
+    await fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
+
+    act(() => engine.options?.onBeat?.(0));
+    expect(view.container.querySelectorAll('.bg-brass-bright')).toHaveLength(1);
+
+    act(() => engine.options?.onBeat?.(2));
+    expect(view.container.querySelectorAll('.bg-brass-bright')).toHaveLength(0);
+    expect(view.container.querySelectorAll('.bg-text-muted')).toHaveLength(1);
+  });
+
+  // Y con Intro se cierra lo escrito sin salir del campo.
+  it('Intro cierra el tempo escrito', () => {
+    renderMetronome();
+    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+
+    fireEvent.change(campo, { target: { value: '132' } });
+    fireEvent.keyDown(campo, { key: 'Enter' });
+
+    expect(useSessionStore.getState().bpm).toBe(132);
   });
 });

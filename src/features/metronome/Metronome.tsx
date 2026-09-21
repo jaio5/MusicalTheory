@@ -64,6 +64,7 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
   }, []);
 
   function engine(): MetronomeEngine {
+    /* v8 ignore next -- sin fabrica se usa el metronomo de verdad, que es el de la aplicacion */
     engineRef.current ??= factoryRef.current?.() ?? new WebAudioMetronome();
     return engineRef.current;
   }
