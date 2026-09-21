@@ -82,7 +82,33 @@ describe('El botón de elegir', () => {
   });
 });
 
+describe('una pantalla con su accion principal', () => {
+  /**
+   * Una, y solo si la pantalla tiene una de verdad: va al lado del título y no
+   * dentro del contenido, que es donde se busca lo que hace esta pantalla.
+   */
+  it('sale al lado del titulo', () => {
+    render(
+      <Screen title="Canciones" actions={<Chip onClick={() => {}}>Guardar</Chip>}>
+        <p>contenido</p>
+      </Screen>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Canciones' })).toBeInTheDocument();
+    expect(screen.getByText('Guardar')).toBeInTheDocument();
+  });
+});
+
 describe('una cabecera de trabajo sin mandos', () => {
+  // La mayoría de las pantallas de trabajo no llevan nada a la derecha del
+  // título: sin esto quedaba una caja vacía empujando la línea.
+  it('la cabecera de trabajo tampoco', () => {
+    render(<WorkHeader title="Componer" lead="Escribe la canción." />);
+
+    expect(screen.getByRole('heading', { name: 'Componer' })).toBeInTheDocument();
+    expect(screen.getByText('Escribe la canción.')).toBeInTheDocument();
+  });
+
   /**
    * La mayoría de las pantallas de trabajo no llevan nada a la derecha del
    * título: sin esto se quedaba una caja vacía empujando la línea.

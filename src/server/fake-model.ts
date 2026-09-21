@@ -84,6 +84,7 @@ export function versionesSinIA(peticion: Peticion): unknown {
   for (let paso = 0; paso < 4 && actual !== undefined; paso += 1) {
     const siguiente =
       nextDegrees(mode, actual).find((m) => m.to === tonica) ?? nextDegrees(mode, actual)[0];
+    /* v8 ignore next 3 -- todo grado del catalogo tiene a donde seguir */
     if (siguiente === undefined) {
       break;
     }

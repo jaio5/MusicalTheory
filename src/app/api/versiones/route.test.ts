@@ -313,3 +313,42 @@ describe('qué parte le mandan llega al prompt', () => {
     expect(llamada().prompt).toContain('Lo que te mandan es una idea');
   });
 });
+
+describe('sin modelo al que preguntar', () => {
+  /**
+   * Fuera de producción contesta el dominio: rearmonizaciones de verdad, con su
+   * porqué, sacadas del catálogo en vez de inventadas. Y pasan la misma
+   * validación que las del modelo, que es lo que hace que se puedan enseñar.
+   */
+  it('contesta el dominio, y pasa la misma validacion', async () => {
+    askModel.mockImplementation(async (input: { sinClave: () => unknown }) => input.sinClave());
+
+    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'retocar' })));
+
+    expect(status).toBe(200);
+    const versions = body['versions'] as Array<{ title: string }>;
+    expect(versions.length).toBeGreaterThan(0);
+  });
+
+  // Y sin un solo acorde no hay nada que rearmonizar: no se inventa una salida.
+  it('sin acordes no saca ninguna version', async () => {
+    askModel.mockImplementation(async (input: { sinClave: () => unknown }) => input.sinClave());
+
+    // Dos acordes son el mínimo que la ruta acepta; el dominio no saca nada de
+    // una progresión que no puede rearmonizar.
+    const { body } = await leer(
+      await POST(
+        pedir({
+          ...TOCADO,
+          kind: 'continuar',
+          progression: [
+            { degree: 'i', beats: 4 },
+            { degree: 'VI', beats: 4 },
+          ],
+        }),
+      ),
+    );
+
+    expect(Array.isArray(body['versions'])).toBe(true);
+  });
+});

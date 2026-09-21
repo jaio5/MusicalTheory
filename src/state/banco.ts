@@ -80,8 +80,9 @@ export interface BancoState {
 
 /** El reparto del espacio en el que se está. */
 export const selectReparto = (state: BancoState): RepartoDeAreas =>
-  /* v8 ignore next -- los tres espacios tienen su reparto desde que se crea el almacen */
+  /* v8 ignore start -- los tres espacios tienen su reparto desde que se crea el almacen */
   state.repartos[state.espacio] ?? REPARTOS_DE_FABRICA[state.espacio];
+/* v8 ignore stop */
 
 /** Si un área está plegada ahora mismo. */
 export const selectPlegada =

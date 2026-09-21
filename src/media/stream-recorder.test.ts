@@ -18,6 +18,8 @@ class MediaRecorderFalso {
   static soportados: readonly string[] = ['audio/webm;codecs=opus'];
   static isTypeSupported = (mimeType: string) => MediaRecorderFalso.soportados.includes(mimeType);
 
+  /** La última que se ha construido, para poder soltarle trozos desde el test. */
+  static ultima: MediaRecorderFalso | null = null;
   state: 'inactive' | 'recording' | 'paused' = 'inactive';
   ondataavailable: ((event: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
@@ -26,7 +28,9 @@ class MediaRecorderFalso {
   constructor(
     readonly stream: MediaStream,
     readonly options: { mimeType: string },
-  ) {}
+  ) {
+    MediaRecorderFalso.ultima = this;
+  }
 
   start(timeslice: number): void {
     this.troceadoCada.push(timeslice);
@@ -53,6 +57,7 @@ let ahora = 0;
 beforeEach(() => {
   ahora = 0;
   MediaRecorderFalso.soportados = ['audio/webm;codecs=opus'];
+  MediaRecorderFalso.ultima = null;
   vi.stubGlobal('MediaRecorder', MediaRecorderFalso);
   vi.stubGlobal('performance', { now: () => ahora });
 });
@@ -141,5 +146,45 @@ describe('grabar el sonido', () => {
     await grabador.stop();
 
     expect(vistos).toEqual(['recording', 'stopping', 'idle']);
+  });
+});
+
+describe('los mandos fuera de sitio', () => {
+  /**
+   * Pausar lo que ya está en pausa, reanudar lo que está grabando o tocar
+   * cualquiera de los dos sin grabación no hace nada: son botones de una barra,
+   * y una barra se puede pulsar en cualquier orden.
+   */
+  it('pausar y reanudar fuera de orden no cambia nada', async () => {
+    const grabador = new StreamRecorder();
+
+    // Sin grabación no hay nada que pausar ni que reanudar.
+    grabador.pause();
+    grabador.resume();
+    expect(grabador.state).toBe('idle');
+
+    await grabador.start({ audio: flujo });
+    grabador.resume();
+    expect(grabador.state).toBe('recording');
+
+    grabador.pause();
+    grabador.pause();
+    expect(grabador.state).toBe('paused');
+  });
+
+  /**
+   * Y los trozos vacíos no se guardan: `MediaRecorder` los emite al parar, y
+   * contarlos dejaría ficheros con bytes de nada dentro.
+   */
+  it('un trozo vacio no entra en la toma', async () => {
+    const grabador = new StreamRecorder();
+    await grabador.start({ audio: flujo });
+    MediaRecorderFalso.ultima!.ondataavailable?.({ data: new Blob([]) });
+
+    ahora = 1000;
+    const toma = await grabador.stop();
+
+    // Solo el trozo que suelta el propio `stop`, que sí tiene contenido.
+    expect(toma.blob.size).toBeGreaterThan(0);
   });
 });

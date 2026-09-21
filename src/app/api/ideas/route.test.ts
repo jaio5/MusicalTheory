@@ -285,3 +285,22 @@ describe('la tonalidad se le dice en español', () => {
     expect((askModel.mock.calls[0]?.[0] as { prompt: string }).prompt).toContain('C mayor');
   });
 });
+
+describe('sin modelo al que preguntar', () => {
+  /**
+   * Fuera de producción no hay clave, y entonces el dominio contesta por el
+   * modelo: no son las ideas de nadie, pero son ideas de verdad y con su
+   * porqué. Lo que se comprueba aquí es que la ruta le pasa **su** respaldo, el
+   * de las ideas, y no uno genérico.
+   */
+  it('contesta el dominio, y pasa la misma validacion', async () => {
+    askModel.mockImplementation(async (input: { sinClave: () => unknown }) => input.sinClave());
+
+    const { status, body } = await leer(await POST(pedir(CUERPO, nueva())));
+
+    expect(status).toBe(200);
+    const ideas = body['ideas'] as Array<{ title: string }>;
+    expect(ideas.length).toBeGreaterThan(0);
+    expect(ideas.every((idea) => typeof idea.title === 'string')).toBe(true);
+  });
+});

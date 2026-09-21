@@ -132,3 +132,38 @@ describe('abrir el microfono para grabar', () => {
     expect(vistos).toEqual(['requesting', 'running', 'idle']);
   });
 });
+
+describe('lo que faltaba por mirar del micrófono', () => {
+  /**
+   * Con un micrófono elegido a mano se le pide ese en concreto: sin `exact`, el
+   * navegador puede darte otro y la aguja se movería con una entrada que no es
+   * la que elegiste.
+   */
+  it('con un dispositivo elegido, se pide ese y no uno cualquiera', async () => {
+    await new BrowserMicInput().start({ deviceId: 'el-de-la-mesa' });
+
+    const audio = getUserMedia.mock.calls[0]?.[0]?.audio as Record<string, unknown>;
+    expect(audio).toMatchObject({ deviceId: { exact: 'el-de-la-mesa' } });
+  });
+
+  // Arrancar dos veces no pide el permiso dos veces: el micro ya está abierto.
+  it('arrancar dos veces no vuelve a pedir permiso', async () => {
+    const micro = new BrowserMicInput();
+
+    await micro.start();
+    await micro.start();
+
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+  });
+
+  // Y un fallo que no es un `Error` se cuenta como un fallo cualquiera.
+  it('un fallo sin nombre no se lee como permiso denegado', async () => {
+    getUserMedia.mockRejectedValueOnce('algo raro');
+    const micro = new BrowserMicInput();
+
+    await micro.start();
+
+    expect(micro.state).toBe('error');
+    expect(micro.errorMessage).toMatch(/otra aplicación/);
+  });
+});

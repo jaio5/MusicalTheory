@@ -129,9 +129,10 @@ export async function createSong(userId: string, song: Song): Promise<SaveResult
       .values({ userId, name: song.name, data: documentOf(song) })
       .returning(COLUMNAS);
 
-    /* v8 ignore next 2 -- lo que se acaba de escribir vuelve, y vuelve con el documento que se le puso */
+    /* v8 ignore start -- lo que se acaba de escribir vuelve, y vuelve con el documento que se le puso */
     const created = row === undefined ? null : songOfRow(row);
     return created === null ? { kind: 'error' } : { kind: 'ok', song: created };
+    /* v8 ignore stop */
   } catch {
     return { kind: 'error' };
   }

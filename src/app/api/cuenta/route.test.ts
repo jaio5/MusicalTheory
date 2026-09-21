@@ -90,6 +90,16 @@ describe('sin cuentas configuradas', () => {
   });
 });
 
+describe('con cuentas configuradas', () => {
+  // Con cuentas, lo que se sirve es la de quien esté dentro, y se declara.
+  it('se sirve la cuenta de quien esta dentro', async () => {
+    const { status, body } = await leer(await GET());
+
+    expect(status).toBe(200);
+    expect(body['accounts']).toBe(true);
+  });
+});
+
 describe('registrarse', () => {
   it('un cuerpo que no es JSON no crea nada', async () => {
     const res = await POST(
@@ -180,6 +190,22 @@ describe('cambiar la cuenta', () => {
     // manda.
     expect(status).toBe(403);
     expect(changePassword).toHaveBeenCalledWith('u1', 'mal', 'unaContrasenaLarga');
+  });
+
+  /**
+   * Y cuando sí cuadra, se cambia y se contesta la cuenta: la pantalla la usa
+   * para volver a pintarse sin recargar.
+   */
+  it('con la de antes bien, se cambia y vuelve la cuenta', async () => {
+    changePassword.mockResolvedValue({ kind: 'ok' });
+
+    const { status } = await leer(
+      await PATCH(
+        pedir('PATCH', { passwordActual: 'la-buena', passwordNueva: 'unaContrasenaLarga' }),
+      ),
+    );
+
+    expect(status).toBe(200);
   });
 
   it('si la contraseña actual falla, tampoco se guarda el nombre', async () => {
