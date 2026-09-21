@@ -102,6 +102,7 @@ export function TocarParaEscribir({
     urlRef.current = nueva?.url ?? null;
     setToma(nueva);
 
+    /* v8 ignore next 3 -- sin tonalidad esta pantalla no pinta el boton de parar, asi que no se llega aqui */
     if (activeKey === null) {
       return;
     }
@@ -116,6 +117,7 @@ export function TocarParaEscribir({
   }
 
   function descargar(): void {
+    /* v8 ignore next 3 -- el boton de descargar solo se pinta con la toma delante */
     if (toma === null) {
       return;
     }

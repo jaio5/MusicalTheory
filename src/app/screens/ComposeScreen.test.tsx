@@ -5,10 +5,13 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Account } from '@core/billing';
 import { pitchClassFromName } from '@core/music';
+import { AccountProvider } from '@state/account';
+import { useArrangementStore } from '@state/arrangement-store';
 import { selectReparto, useBancoStore } from '@state/banco';
 import { useSessionStore } from '@state/session-store';
-import { loadPreferences, REPARTOS_DE_FABRICA } from '@state/workspace';
+import { DEFAULT_BANCO, loadPreferences, REPARTOS_DE_FABRICA } from '@state/workspace';
 
 import { ComposeScreen } from './ComposeScreen';
 
@@ -28,6 +31,9 @@ vi.mock('next/navigation', () => ({
 beforeEach(() => {
   localStorage.clear();
   useSessionStore.getState().actions.reset();
+  // Y el reparto, que vive fuera de `localStorage` una vez cargado: sin esto
+  // una prueba abre un editor y la siguiente se lo encuentra abierto.
+  useBancoStore.setState({ espacio: DEFAULT_BANCO.espacio, repartos: DEFAULT_BANCO.repartos });
 });
 
 /**
@@ -205,10 +211,13 @@ describe('Las areas del banco', () => {
    * sueltos encima de cada bloque, y lo que hace que los mandos de una cosa vivan
    * en esa cosa.
    */
-  it('cada area lleva su cabecera con su nombre', () => {
+  it('cada area lleva su cabecera con su nombre', async () => {
     conTonalidad();
 
     render(<ComposeScreen />);
+    // «A dónde ir» viene plegada en este espacio, y una plegada solo enseña su
+    // tira: hay que abrirla para mirarle la cabecera.
+    await userEvent.click(screen.getByRole('button', { name: 'Desplegar A dónde ir' }));
 
     for (const nombre of ['Arreglo', 'Acorde', 'A dónde ir']) {
       expect(
@@ -493,5 +502,194 @@ describe('el aviso de lo ganado', () => {
 
     expect(ancla).not.toBeNull();
     expect(ancla!.contains(editor)).toBe(true);
+  });
+});
+
+describe('Los otros dos divisores, y devolverlo todo', () => {
+  function enEscribir(): void {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+  }
+
+  it('el del acorde tambien se mueve, y vuelve con Inicio', async () => {
+    enEscribir();
+    render(<ComposeScreen />);
+    const divisor = screen.getByRole('separator', { name: 'Ancho del acorde' });
+
+    divisor.focus();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(selectReparto(useBancoStore.getState()).derecha).toBe(
+      REPARTOS_DE_FABRICA.escribir.derecha + 1,
+    );
+
+    await userEvent.keyboard('{Home}');
+    expect(selectReparto(useBancoStore.getState()).derecha).toBe(
+      REPARTOS_DE_FABRICA.escribir.derecha,
+    );
+  });
+
+  // El de abajo solo existe con un editor abierto: es lo que reparte.
+  it('el de abajo aparece con el editor, y reparte el alto', async () => {
+    enEscribir();
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
+
+    const divisor = screen.getByRole('separator', { name: 'Alto de Mástil' });
+    divisor.focus();
+    await userEvent.keyboard('{ArrowUp}');
+    expect(selectReparto(useBancoStore.getState()).alto).toBe(
+      REPARTOS_DE_FABRICA.escribir.alto + 1,
+    );
+
+    await userEvent.keyboard('{Home}');
+    expect(selectReparto(useBancoStore.getState()).alto).toBe(REPARTOS_DE_FABRICA.escribir.alto);
+  });
+
+  /**
+   * Y un botón que lo devuelve todo de golpe: repartir a mano es fácil de dejar
+   * inservible, y volver área por área es peor que no haber tocado nada.
+   */
+  it('un boton devuelve el reparto entero', async () => {
+    enEscribir();
+    render(<ComposeScreen />);
+    // El de la tonalidad no está: en «escribir» viene plegada, y un área
+    // plegada no trae divisor que mover.
+    const divisor = screen.getByRole('separator', { name: 'Ancho del acorde' });
+    divisor.focus();
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reordenar' }));
+
+    expect(selectReparto(useBancoStore.getState()).derecha).toBe(
+      REPARTOS_DE_FABRICA.escribir.derecha,
+    );
+  });
+
+  // La tira de un área plegada la devuelve, y la cabecera la vuelve a plegar.
+  it('la tonalidad se pliega y se despliega desde su tira', async () => {
+    enEscribir();
+    render(<ComposeScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Desplegar Tonalidad' }));
+    expect(selectReparto(useBancoStore.getState()).plegadas).not.toContain('izquierda');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Plegar Tonalidad' }));
+    expect(selectReparto(useBancoStore.getState()).plegadas).toContain('izquierda');
+  });
+
+  // Y el acorde igual, que es la otra que se pliega desde su cabecera.
+  it('el acorde se pliega desde su cabecera', async () => {
+    enEscribir();
+    render(<ComposeScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Plegar Acorde' }));
+
+    expect(selectReparto(useBancoStore.getState()).plegadas).toContain('derecha');
+  });
+});
+
+describe('Poner un acorde en la cancion desde fuera del lienzo', () => {
+  /**
+   * «A dónde ir» y el acorde que se oye son los dos sitios desde los que se
+   * pone un acorde sin arrastrarlo, y los dos escriben en la misma canción
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+   * Sin partes todavía, el primero crea la primera.
+   */
+  it('desde «a donde ir», y crea la parte si no habia ninguna', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+    useArrangementStore.setState({ arrangement: { parts: [] }, past: [] });
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'Desplegar A dónde ir' }));
+
+    const panel = within(screen.getByLabelText('A dónde ir'));
+    await userEvent.click(panel.getByRole('button', { name: /^C, I\./ }));
+
+    const partes = useArrangementStore.getState().arrangement.parts;
+    expect(partes).toHaveLength(1);
+    expect(partes[0]!.blocks.map((b) => b.degree)).toEqual(['I']);
+  });
+});
+
+/**
+ * Una idea con escala se entra de un golpe.
+ *
+ * Era una línea de texto —«Pentatónica menor de La»—, y para probarla había que
+ * salir de Ideas, abrir el mástil y buscarla en el desplegable. Las dos cosas y
+ * en este orden: ponerla, y abrir el mástil, que es donde una escala se ve.
+ */
+describe('Ir a la escala que propone una idea', () => {
+  const CON_PLAN: Account = {
+    email: 'javier@example.com',
+    name: null,
+    plan: 'medio',
+    aiModel: 'claude-opus-5',
+    aiLeftToday: 30,
+    aiLeftMonth: 30,
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('la pone y abre el mastil a la vez', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+    vi.stubGlobal(
+      'fetch',
+      async () =>
+        new Response(
+          JSON.stringify({
+            ideas: [{ title: 'Prueba el dórico', why: 'Sube la sexta.', scale: 'dorian' }],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    );
+    render(
+      <AccountProvider account={CON_PLAN} accounts>
+        <ComposeScreen />
+      </AccountProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ideas' }));
+    await userEvent.click(screen.getByRole('button', { name: /qué escala meter encima/i }));
+    const escala = await screen.findByText('Dórico de A');
+    await userEvent.click(escala.closest('button')!);
+
+    expect(useSessionStore.getState().scaleId).toBe('dorian');
+    expect(selectReparto(useBancoStore.getState()).abajo).toBe('mastil');
+  });
+});
+
+describe('El espacio de ensayar', () => {
+  it('trae la cancion para tocarla contra el metronomo, con su nombre', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ensayar' }));
+
+    // El área central se llama como el espacio: es lo único que dice en qué
+    // estás, y las tres son la misma canción vista de otra manera.
+    expect(screen.getByLabelText('Ensayo')).toBeInTheDocument();
+    expect(screen.getByText(/Tócala contra el metrónomo/)).toBeInTheDocument();
+  });
+
+  // Y en estrecho, su pestaña también se llama así.
+  it('y en estrecho su pestaña tambien', async () => {
+    vi.stubGlobal('innerWidth', 390);
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })),
+    );
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('ensayar');
+
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'Acorde' }));
+
+    // Sin banco, el área del acorde va sin cabecera: en un teléfono la pestaña
+    // ya dice cuál es, y una cabecera más es un renglón menos de contenido.
+    expect(screen.queryByRole('button', { name: 'Plegar Acorde' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Acorde')).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 });

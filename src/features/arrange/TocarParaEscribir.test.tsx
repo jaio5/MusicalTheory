@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -339,5 +339,209 @@ describe('el microfono se comparte', () => {
 
     expect(mic.state).toBe('running');
     expect(grabador.conFlujo).toBe(mic.stream);
+  });
+});
+
+/**
+ * Lo que pasa cuando algo de todo esto falla, que es la mitad de lo que hace
+ * este gesto: abrir el micro, grabar y apuntar son tres cosas, y solo la
+ * primera es imprescindible.
+ */
+describe('cuando algo no sale', () => {
+  /** Una entrada que no llega a arrancar: sin motor no hay nada que apuntar. */
+  class EntradaQueNoArranca extends EntradaFalsa {
+    override async start(): Promise<void> {}
+  }
+
+  class MicQueNoArranca implements MicInput {
+    state: MicState = 'idle';
+    errorMessage: string | null = 'No me dejan abrir el micrófono.';
+    stream: MediaStream | null = null;
+    async start() {
+      this.state = 'error';
+    }
+    async stop() {}
+    subscribe(): () => void {
+      return () => {};
+    }
+  }
+
+  class GrabadorQueNoArranca extends GrabadorFalso {
+    override async start() {
+      this.state = 'error';
+      this.errorMessage = 'Este navegador no graba en ese formato.';
+    }
+  }
+
+  it('sin motor no se empieza, y el boton vuelve a su sitio', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={{ ...DEPS, createInput: () => new EntradaQueNoArranca() }} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    expect(useSessionStore.getState().capturing).toBe(false);
+    expect(screen.getByRole('button', { name: /^Tocar$/ })).toBeInTheDocument();
+  });
+
+  /**
+   * Sin sonido grabado sí se sigue: lo que se viene a hacer es escribir la
+   * canción, y quedarse sin la toma no impide ninguna de las dos cosas. Lo que
+   * no se puede es callárselo.
+   */
+  it('sin micro de respaldo se sigue, contando por que', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={{ ...DEPS, createMic: () => new MicQueNoArranca() }} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    expect(useSessionStore.getState().capturing).toBe(true);
+    expect(screen.getByText('No me dejan abrir el micrófono.')).toBeInTheDocument();
+  });
+
+  it('y si el que falla es el grabador, tambien', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    const mic = new MicFalso();
+    render(
+      <TocarParaEscribir
+        deps={{ ...DEPS, createMic: () => mic, createRecorder: () => new GrabadorQueNoArranca() }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    expect(useSessionStore.getState().capturing).toBe(true);
+    expect(screen.getByText('Este navegador no graba en ese formato.')).toBeInTheDocument();
+    // Y el micro que se abrió para nada se cierra: es el peor fallo posible en
+    // una aplicación cuya primera promesa es que el audio no sale de aquí.
+    expect(mic.state).toBe('idle');
+  });
+
+  // Sin motivo que dar, una frase que al menos diga qué se ha perdido.
+  it('sin motivo, se dice igual que no hay grabacion', async () => {
+    class GrabadorMudo extends GrabadorQueNoArranca {
+      override async start() {
+        this.state = 'error';
+        this.errorMessage = null;
+      }
+    }
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={{ ...DEPS, createRecorder: () => new GrabadorMudo() }} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    expect(screen.getByText(/te sigo oyendo/)).toBeInTheDocument();
+  });
+});
+
+describe('la toma, una detras de otra', () => {
+  /**
+   * Cada toma tiene su dirección, y la anterior se suelta: un `blob:` que nadie
+   * libera se queda en memoria hasta que se cierra la pestaña, y aquí se graba
+   * una vez detrás de otra.
+   */
+  it('al grabar otra, la anterior se suelta', async () => {
+    const soltadas: string[] = [];
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: () => 'blob:toma',
+      revokeObjectURL: (url: string) => soltadas.push(url),
+    });
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    for (let vez = 0; vez < 2; vez += 1) {
+      await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+      await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+    }
+
+    expect(soltadas).toEqual(['blob:toma']);
+  });
+
+  // Y se descarga: el sonido es tuyo y no sale de aquí si no lo sacas tú.
+  it('se descarga con el nombre que trae', async () => {
+    const pulsados: Array<{ href: string; download: string }> = [];
+    const crear = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((etiqueta: string) => {
+      const nodo = crear(etiqueta) as HTMLAnchorElement;
+      if (etiqueta === 'a') {
+        nodo.click = () => pulsados.push({ href: nodo.href, download: nodo.download });
+      }
+      return nodo;
+    });
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+
+    await userEvent.click(screen.getByRole('button', { name: /Descargar/ }));
+
+    expect(pulsados).toEqual([{ href: 'blob:toma', download: 'toma.webm' }]);
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * Y sin fábricas que sustituyan el micro y el grabador se usan los de verdad,
+   * que en jsdom no arrancan: no hay toma, pero lo tocado se escribe igual.
+   * Es el camino de un navegador que no deja grabar.
+   */
+  it('con el micro y el grabador de verdad, se escribe sin toma', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(
+      <TocarParaEscribir
+        deps={{
+          createInput: () => new EntradaFalsa(),
+          createEngine: () => new MotorFalso(),
+          createChordEngine: () => new CromaFalso(),
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    suenaUnAcorde();
+    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(1);
+    expect(screen.queryByLabelText('La toma que acabas de grabar')).not.toBeInTheDocument();
+  });
+});
+
+describe('lo que se ve mientras tocas', () => {
+  /**
+   * El contador de segundos es una de las tres señales de que te está oyendo, y
+   * la única que se mueve sola: sin él, una pantalla quieta durante medio minuto
+   * se lee como que esto se ha colgado.
+   */
+  it('los segundos corren mientras se toca', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    // Con el reloj de verdad y no con uno falso: este fichero ya tiene
+    // `performance.now` a saltos para medir el tramo apuntado, y dos relojes
+    // fingidos a la vez dejan el contador donde estaba.
+    await waitFor(() => expect(screen.getByText(/· 1s/)).toBeInTheDocument(), { timeout: 3000 });
+  });
+
+  /**
+   * Y con el flujo prestado pero sin fábrica de grabador se usa el de verdad,
+   * que en jsdom no tiene `MediaRecorder`: se sigue apuntando y se cuenta.
+   */
+  it('sin fabrica de grabador, el de verdad no arranca y se dice', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(
+      <TocarParaEscribir
+        deps={{
+          createInput: () => new EntradaQuePresta(),
+          createEngine: () => new MotorFalso(),
+          createChordEngine: () => new CromaFalso(),
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    expect(useSessionStore.getState().capturing).toBe(true);
+    expect(screen.getByRole('button', { name: /Parar y escribirlo/ })).toBeInTheDocument();
   });
 });
