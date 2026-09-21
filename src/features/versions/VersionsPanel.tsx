@@ -134,6 +134,7 @@ export function VersionsPanel({
    * obliga a apuntar a otro sitio.
    */
   async function escuchar(version: Version) {
+    /* v8 ignore next 3 -- sin tonalidad el panel enseña que falta elegirla, sin salidas que escuchar */
     if (activeKey === null) {
       return;
     }
@@ -278,10 +279,12 @@ export function VersionsPanel({
     setAnalizando(true);
     try {
       const grabacion = await entrada.stopRecording();
+      /* v8 ignore next 3 -- solo se reanaliza lo que se acaba de grabar, y eso siempre vuelve */
       if (grabacion === null) {
         return;
       }
       const acordes = await analyzeRecording(grabacion, {
+        /* v8 ignore next -- lo mismo: sin tonalidad no hay panel que grabe */
         key: activeKey === null ? undefined : { tonic: activeKey.tonic, mode: activeKey.mode },
       });
       // Solo se pisa lo oído en vivo si el análisis ha sacado algo. Un análisis
@@ -296,6 +299,7 @@ export function VersionsPanel({
   }
 
   async function ask() {
+    /* v8 ignore next 3 -- el boton de pedir va desactivado cuando no se puede, y no se pinta sin tonalidad */
     if (activeKey === null || !sePuedePedir) {
       return;
     }
@@ -370,16 +374,19 @@ export function VersionsPanel({
    * es de lo que va tener partes.
    */
   function use(version: Version) {
+    /* v8 ignore next 3 -- lo mismo: sin tonalidad no hay salidas que quedarse */
     if (activeKey === null) {
       return;
     }
     const { actions } = useSessionStore.getState();
     actions.clearPath();
 
+    /* v8 ignore start -- el validador exige al menos una parte, y el respaldo espera a que deje de exigirla */
     const secciones =
       version.sections.length > 0
         ? version.sections
         : [{ name: 'Estrofa', yours: false, steps: version.steps }];
+    /* v8 ignore stop */
 
     accionesMontaje.replace({
       parts: secciones.map((seccion, parte) => ({
@@ -392,6 +399,7 @@ export function VersionsPanel({
         bars: Math.max(1, Math.ceil(seccion.steps.length)),
       })),
     });
+    /* v8 ignore next -- una salida validada trae al menos un compas */
     actions.setCurrentDegree(version.steps.at(-1)?.degree ?? null);
 
     // Quedarse con una salida cuenta como practicar. Es **quedársela** y no

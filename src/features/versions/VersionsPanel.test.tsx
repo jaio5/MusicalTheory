@@ -583,3 +583,66 @@ describe('lo que llega mal', () => {
     expect(screen.getByRole('button', { name: /Salidas de esto/ })).toBeInTheDocument();
   });
 });
+
+describe('lo que se ha grabado manda sobre lo escrito', () => {
+  /**
+   * Y los compases de los que el motor dudó viajan marcados: el modelo tiene
+   * que saber cuáles son para no construir encima de una lectura floja.
+   */
+  it('lo dudoso viaja marcado', async () => {
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: C, mode: 'major' });
+    actions.setTempo(120, 4);
+    actions.startCapture(0);
+    actions.replaceCapture([
+      { root: C, notes: [0, 4, 7], at: 0, margin: 0.9 },
+      { root: 7 as never, notes: [7, 11, 2], at: 2000, margin: 0.01 },
+    ]);
+    actions.stopCapture(4000);
+
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+
+    const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
+    expect(request.progression.some((paso) => 'heard' in paso)).toBe(true);
+  });
+
+  // Y qué parte es lo elige quien pide: de eso depende lo que se propone.
+  it('se puede decir que parte es', async () => {
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
+    componiendo(['I', 'V', 'vi', 'IV']);
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /Qué parte es esto/ }),
+      'estribillo',
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+
+    expect((fetchVersions.mock.calls[0]![0] as VersionsRequest).role).toBe('estribillo');
+  });
+});
+
+describe('sin fábrica de petición', () => {
+  /**
+   * Se llama a `/api/versiones`, que es lo que hace en la aplicación: la
+   * dirección y el cuerpo son parte del contrato con el servidor.
+   */
+  it('pide a /api/versiones con el cuerpo en json', async () => {
+    const pedidas: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      pedidas.push({ url, init });
+      return respondWith({ versions: [] });
+    });
+    render(conCuenta(<VersionsPanel />));
+    componiendo(['I', 'V', 'vi', 'IV']);
+
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+
+    await waitFor(() => expect(pedidas).toHaveLength(1));
+    expect(pedidas[0]!.url).toBe('/api/versiones');
+    expect(pedidas[0]!.init.method).toBe('POST');
+    vi.unstubAllGlobals();
+  });
+});

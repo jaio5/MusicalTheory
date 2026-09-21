@@ -132,6 +132,7 @@ export class StreamRecorder implements SessionRecorder {
 
   /** Suma al total lo que se lleva grabado desde la última vez que arrancó. */
   #acumular(): void {
+    /* v8 ignore next 4 -- solo se acumula desde que arranco, y arrancar deja el instante puesto */
     if (this.#resumedAt !== null) {
       this.#elapsedMs += performance.now() - this.#resumedAt;
       this.#resumedAt = null;

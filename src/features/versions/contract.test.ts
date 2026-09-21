@@ -728,3 +728,43 @@ describe('de dónde salió cada compás', () => {
     expect(peticion?.progression.every((paso) => paso.heard === undefined)).toBe(true);
   });
 });
+
+describe('lo que llega con la forma cambiada', () => {
+  /**
+   * Lo que contesta el modelo puede venir de cualquier manera. Una salida que
+   * no es ni un objeto se salta sin llevarse a las demás por delante: quedarse
+   * con las que sí valen es mejor que tirar la respuesta entera.
+   */
+  it('una salida que no es un objeto se salta', () => {
+    const versions = validateVersions(
+      {
+        versions: [
+          'una salida',
+          42,
+          version([
+            { degree: 'I', move: null },
+            { degree: 'bII', move: 'tritono' },
+            { degree: 'vi', move: null },
+            { degree: 'ii', move: 'relativo' },
+          ]),
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(versions).toHaveLength(1);
+  });
+
+  // Y un compás cuyos pulsos no son un número tira su salida, no la respuesta.
+  it('un compas sin pulsos tira su salida', () => {
+    const rota = version([
+      { degree: 'I', move: null },
+      { degree: 'bII', move: 'tritono' },
+      { degree: 'vi', move: null },
+      { degree: 'ii', move: 'relativo' },
+    ]) as { sections: Array<{ steps: Array<Record<string, unknown>> }> };
+    rota.sections[0]!.steps[0]!['beats'] = 'cuatro';
+
+    expect(validateVersions({ versions: [rota] }, EN_DO)).toEqual([]);
+  });
+});

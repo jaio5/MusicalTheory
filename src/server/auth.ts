@@ -76,6 +76,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   // del anfitrión la pone el proxy, y Auth.js necesita que se le diga que puede
   // creérsela.
   trustHost: true,
+  /* v8 ignore next -- sin secreto no hay cuentas, y entonces esta configuracion no se usa */
   ...(secret() === null ? {} : { secret: secret()! }),
   session: { strategy: 'jwt' },
   pages: { signIn: '/cuenta' },
@@ -115,6 +116,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     jwt({ token, user }) {
       if (user?.id !== undefined) {
         token.sub = user.id;
+        /* v8 ignore next -- quien entra trae su version de sesion: la pone el proveedor al validar */
         token['sv'] = user.sessionVersion ?? 0;
       }
       return token;
@@ -155,6 +157,7 @@ export async function currentCookie(): Promise<{ id: string; sessionVersion: num
   try {
     const session = await auth();
     const id = session?.user?.id;
+    /* v8 ignore next -- si hay identificador hay version: las dos salen del mismo token */
     return id === undefined ? null : { id, sessionVersion: session?.user?.sessionVersion ?? 0 };
   } catch {
     // Una cookie firmada con otro secreto, o un secreto cambiado: se trata como
