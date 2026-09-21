@@ -149,6 +149,16 @@ describe('la ventana de pago de un plan', () => {
     expect(generateStaticParams()).toHaveLength(3);
   });
 
+  // Y el título de la pestaña lleva el plan: es lo que se ve al compartirla.
+  it('el titulo de la pestaña lleva el nombre del plan', async () => {
+    const { generateMetadata } = await import('./planes/[plan]/page');
+
+    const meta = await generateMetadata({ params: Promise.resolve({ plan: 'pro' }) });
+
+    expect(meta.title).toMatch(/Plan Pro/);
+    expect(meta.description).toMatch(/Pro,/);
+  });
+
   it('un nombre viejo sigue llevando a su plan, no a un 404', async () => {
     // Un renombrado no puede romper un enlace guardado.
     const { default: Plan } = await import('./planes/[plan]/page');

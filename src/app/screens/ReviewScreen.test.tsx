@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,6 +60,34 @@ describe('sin plan', () => {
 
     expect(screen.getByRole('heading', { name: /va con plan/ })).toBeInTheDocument();
     expect(screen.getByText(/se apunta de todas formas/)).toBeInTheDocument();
+  });
+
+  /**
+   * Y cuántas hay esperando: «se apunta de todas formas» era una promesa
+   * abstracta, y el número la hace comprobable. En singular con una, que es el
+   * caso de quien acaba de fallar la primera.
+   */
+  it('dice cuantas hay esperando, en singular y en plural', () => {
+    const cola = (cuantas: number) =>
+      JSON.stringify({
+        done: [],
+        review: Array.from({ length: cuantas }, (_, indice) => ({
+          unitId: 'e1-grados',
+          index: indice,
+          seenOn: '1970-01-01',
+          hits: 0,
+        })),
+      });
+
+    localStorage.setItem('caos-ordenado:aprender', cola(1));
+    pintar();
+    expect(screen.getByText('hay 1 pregunta')).toBeInTheDocument();
+
+    cleanup();
+
+    localStorage.setItem('caos-ordenado:aprender', cola(3));
+    pintar();
+    expect(screen.getByText('hay 3 preguntas')).toBeInTheDocument();
   });
 
   it('y hay vuelta al camino, que es de donde se llega', () => {

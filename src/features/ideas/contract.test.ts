@@ -144,3 +144,47 @@ describe('validación de lo que devuelve el modelo', () => {
     ).toHaveLength(0);
   });
 });
+
+describe('lo que llega vacío o roto', () => {
+  /**
+   * Una lista de notas que no deja ni una buena no se manda: mandar
+   * `recentNotes: []` es gastar tokens en decir que no hay nada.
+   */
+  it('unas notas que no son notas no se mandan', () => {
+    const parsed = parseIdeasRequest({ ...VALID, recentNotes: [42, 'X', null] });
+
+    expect(parsed?.recentNotes).toBeUndefined();
+  });
+
+  it('y unos acordes vacios, tampoco', () => {
+    const parsed = parseIdeasRequest({ ...VALID, recentChords: [42, null] });
+
+    expect(parsed?.recentChords).toBeUndefined();
+  });
+
+  // Y los acordes buenos sí, recortados al tope.
+  it('los acordes buenos se mandan, recortados', () => {
+    const parsed = parseIdeasRequest({
+      ...VALID,
+      recentChords: [...Array.from({ length: 40 }, () => 'Am'), 'demasiado-largo-para-un-cifrado'],
+    });
+
+    expect(parsed?.recentChords?.length).toBeGreaterThan(0);
+    expect(parsed?.recentChords).not.toContain('demasiado-largo-para-un-cifrado');
+  });
+
+  /**
+   * Y una idea que no es ni un objeto se salta sin llevarse a las demás: lo que
+   * contesta el modelo puede venir de cualquier manera.
+   */
+  it('una idea que no es un objeto se salta', () => {
+    const ideas = validateIdeas(
+      {
+        ideas: ['una idea', 42, { title: 'Buena', why: 'Porque sí.', degrees: ['i', 'VII', 'VI'] }],
+      },
+      parseIdeasRequest(VALID) as IdeasRequest,
+    );
+
+    expect(ideas?.map((idea) => idea.title)).toEqual(['Buena']);
+  });
+});

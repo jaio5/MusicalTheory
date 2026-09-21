@@ -237,6 +237,78 @@ describe('Ensayar', () => {
     expect(screen.getByText(/El que se atragantó/)).toBeInTheDocument();
   });
 
+  /**
+   * Y llegar tarde no es fallar: cuenta aparte, con su punto ámbar y su frase.
+   * Tocar el acorde bueno pasada la mitad del compás es lo que pasa cuando se
+   * va detrás del metrónomo, y decirlo es lo que deja arreglarlo.
+   */
+  it('llegar tarde se cuenta aparte, y se dice', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    render(<Ensayo deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+
+    await act(async () => {
+      // Pasada la mitad del compás: el acorde es el bueno, pero llega tarde.
+      metronomo.pulsar(3);
+      suena(0, [0, 4, 7]);
+      metronomo.pulsar(1);
+      suena(7, [7, 11, 2]);
+      metronomo.pulsar(4);
+    });
+
+    expect(screen.getByText(/llegaron tarde/)).toBeInTheDocument();
+  });
+
+  /**
+   * Y mientras se toca, cada compás deja su punto: se lee de un vistazo sin
+   * apartar la vista del acorde que toca. Verde el que salió, ámbar el que
+   * llegó tarde y rojo el que no sonó.
+   */
+  it('cada compas deja su punto mientras se toca', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    render(<Ensayo deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+
+    // Primer compás sin tocar nada: se queda en rojo.
+    await act(async () => {
+      metronomo.pulsar(4);
+    });
+
+    expect(screen.getByTitle('Compás 1: fallado')).toBeInTheDocument();
+  });
+
+  it('y el que llega tarde deja el suyo', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    render(<Ensayo deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+
+    await act(async () => {
+      metronomo.pulsar(3);
+      suena(0, [0, 4, 7]);
+      metronomo.pulsar(1);
+    });
+
+    expect(screen.getByTitle('Compás 1: tarde')).toBeInTheDocument();
+  });
+
+  // Y se puede volver a empezar sin salir de la pantalla de resultados.
+  it('se puede repetir desde los resultados', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    render(<Ensayo deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await act(async () => {
+      metronomo.pulsar(8);
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Otra vez/ }));
+
+    expect(await screen.findByRole('button', { name: /Parar/ })).toBeInTheDocument();
+  });
+
   // Ni vidas ni volver al principio: las dos salidas son repetir y repetir más
   // despacio, que es lo que pide un ensayo que no ha salido.
   it('al final no castiga: se repite, o se baja el tempo', async () => {

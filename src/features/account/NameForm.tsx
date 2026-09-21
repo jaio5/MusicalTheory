@@ -31,6 +31,7 @@ export function NameForm() {
   const [tracked, setTracked] = useState(account.name);
   if (tracked !== account.name) {
     setTracked(account.name);
+    /* v8 ignore next -- el servidor solo repinta con otra cuenta cuando tiene nombre; sin el, el campo ya estaba vacio */
     setName(account.name ?? '');
   }
 

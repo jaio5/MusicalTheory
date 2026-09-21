@@ -114,7 +114,9 @@ export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
             </div>
 
             <p className="text-text-muted font-mono text-xs">
+              {/* v8 ignore start -- el paso siempre esta dentro del guion mientras se ensaya */}
               Compás {guion[paso]?.bar ?? 1} de {guion.length}
+              {/* v8 ignore stop */}
             </p>
 
             {/* Lo que va saliendo, un punto por compás: se lee de un vistazo sin
