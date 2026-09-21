@@ -119,6 +119,7 @@ export async function createSong(userId: string, song: Song): Promise<SaveResult
       .from(songsTable)
       .where(eq(songsTable.userId, userId));
 
+    /* v8 ignore next -- un `count()` siempre devuelve su fila, aunque sea con un cero */
     if ((existing?.total ?? 0) >= MAX_SONGS) {
       return { kind: 'llena' };
     }
@@ -128,6 +129,7 @@ export async function createSong(userId: string, song: Song): Promise<SaveResult
       .values({ userId, name: song.name, data: documentOf(song) })
       .returning(COLUMNAS);
 
+    /* v8 ignore next 2 -- lo que se acaba de escribir vuelve, y vuelve con el documento que se le puso */
     const created = row === undefined ? null : songOfRow(row);
     return created === null ? { kind: 'error' } : { kind: 'ok', song: created };
   } catch {
@@ -162,6 +164,7 @@ export async function updateSong(userId: string, song: Song): Promise<SaveResult
       return { kind: 'no-existe' };
     }
     const saved = songOfRow(row);
+    /* v8 ignore next -- lo que se acaba de escribir vuelve con el documento que se le puso */
     return saved === null ? { kind: 'error' } : { kind: 'ok', song: saved };
   } catch {
     return { kind: 'error' };

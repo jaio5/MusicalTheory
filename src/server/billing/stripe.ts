@@ -79,6 +79,7 @@ async function stripeIrY(url: string, init: RequestInit): Promise<Record<string,
     const response = await fetch(url, {
       ...init,
       headers: {
+        /* v8 ignore next -- solo se llama a Stripe con la clave puesta: sin ella no hay pasarela */
         Authorization: `Bearer ${process.env['STRIPE_SECRET_KEY'] ?? ''}`,
         ...init.headers,
       },

@@ -171,4 +171,26 @@ describe('pedirle algo al modelo', () => {
     expect(pasado.kind).toBe('cupo');
     expect(pasado.kind === 'cupo' && pasado.scope).toBe('dia');
   });
+
+  /**
+   * Y el del mes se distingue del de hoy: son dos frases distintas —«vuelve
+   * mañana» y «vuelve el mes que viene»— y decir la que no es manda a alguien a
+   * esperar veinticuatro horas para volver a encontrarse lo mismo.
+   */
+  it('el cupo del mes se dice como del mes, y no como de hoy', async () => {
+    await entrar('gratis');
+    const { monthly } = entitlements.limitsFor('gratis');
+    const mes = new Date().toISOString().slice(0, 7);
+
+    // Una primera petición crea el contador; después se le deja el del mes en
+    // su tope sin tocar el de hoy, que es lo que pasa el último día de un mes
+    // muy usado.
+    await entitlements.spendAi('profesor');
+    await base.ejecutar(
+      `update ai_usage set count = ${monthly}, day_count = 0 where month = '${mes}'`,
+    );
+    const pasado = await entitlements.spendAi('profesor');
+
+    expect(pasado.kind === 'cupo' && pasado.scope).toBe('mes');
+  });
 });

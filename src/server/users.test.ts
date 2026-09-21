@@ -211,6 +211,11 @@ describe('sin base de datos', () => {
       // datos no hay cuentas, así que nadie ha podido pagar y el caso no se da.
       expect(await users.setPlan('x', 'pro'), 'setPlan').toBe('error');
       expect(await users.deleteAccount('x', CONTRASENA), 'deleteAccount').toBe('sin-base-de-datos');
+      expect(await users.setName('x', 'Javier'), 'setName').toBeNull();
+      expect(
+        (await users.changePassword('x', CONTRASENA, 'otraContrasenaLarga')).kind,
+        'changePassword',
+      ).toBe('sin-base-de-datos');
     } finally {
       process.env['DATABASE_URL'] = url;
     }

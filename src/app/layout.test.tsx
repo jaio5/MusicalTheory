@@ -18,8 +18,10 @@ const authAvailable = vi.fn(() => true);
   request scope». Se devuelve un número reconocible para poder comprobar que
   acaba en el guion del tema.
 */
+let numeroEnLaCabecera: string | null = 'numerodeprueba';
 vi.mock('next/headers', () => ({
-  headers: async () => new Headers({ 'x-nonce': 'numerodeprueba' }),
+  headers: async () =>
+    new Headers(numeroEnLaCabecera === null ? {} : { 'x-nonce': numeroEnLaCabecera }),
 }));
 
 vi.mock('@server/entitlements', () => ({ currentAccount: () => currentAccount() }));
@@ -103,5 +105,22 @@ describe('la cuenta', () => {
     authAvailable.mockReturnValue(false);
 
     await expect(pintar()).resolves.toContain('El contenido');
+  });
+});
+
+describe('sin numero en la cabecera', () => {
+  /**
+   * El número lo pone el middleware. Si no llegara —una ruta que se sirve sin
+   * pasar por él— el guion va sin número: lo peor que puede pasar es que la
+   * política lo bloquee y se vea un fogonazo blanco, no que reviente el render.
+   */
+  it('el guion del tema va sin numero, y la pagina se pinta igual', async () => {
+    numeroEnLaCabecera = null;
+
+    const html = renderToStaticMarkup(await RootLayout({ children: <p>dentro</p> }));
+
+    expect(html).toContain('dentro');
+    expect(html).not.toContain('nonce=');
+    numeroEnLaCabecera = 'numerodeprueba';
   });
 });

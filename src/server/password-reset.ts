@@ -163,6 +163,7 @@ export async function resetPassword(
       .from(users)
       .where(eq(users.id, row.userId))
       .limit(1);
+    /* v8 ignore next 3 -- el vale se borra en cascada con la cuenta, asi que si esta el vale esta el usuario */
     if (user === undefined) {
       return 'vale-no-vale';
     }

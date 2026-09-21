@@ -45,6 +45,7 @@ export function db(): Database | null {
   if (url === null) {
     return null;
   }
+  /* v8 ignore next 6 -- abrir Postgres de verdad; en los tests la base en memoria ya deja la suya puesta */
   if (cache.db === undefined) {
     // `max: 1` porque cada función de Vercel atiende una petición a la vez:
     // un grupo de diez conexiones por instancia agota Postgres sin ganar nada.

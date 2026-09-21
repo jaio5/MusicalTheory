@@ -77,3 +77,30 @@ describe('Las cabeceras de seguridad', () => {
     expect(csp).toContain(`'nonce-${numero}'`);
   });
 });
+
+describe('en desarrollo', () => {
+  /**
+   * `next dev` compila con `eval`, así que sin este hueco la consola se llena de
+   * avisos de la política en cada recarga —y una consola con ruido es una
+   * consola que se deja de mirar—. En lo que se sirve de verdad no entra.
+   */
+  it('se deja pasar eval, y solo alli', () => {
+    const antes = process.env.NODE_ENV;
+    const poner = (valor: string) => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: valor,
+        configurable: true,
+        writable: true,
+        enumerable: true,
+      });
+    };
+
+    poner('development');
+    expect(respuestaDe().get('Content-Security-Policy')).toContain("'unsafe-eval'");
+
+    poner('production');
+    expect(respuestaDe().get('Content-Security-Policy')).not.toContain("'unsafe-eval'");
+
+    poner(antes ?? 'test');
+  });
+});

@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PlanId } from '@core/billing';
-import { COURSES, EMPTY_PROGRESS, startAt, type Progress } from '@core/music';
+import { COURSES, EMPTY_PROGRESS, startAt, UNIT_ORDER, type Progress } from '@core/music';
 
 import { StartPicker } from './StartPicker';
 
@@ -86,5 +86,22 @@ describe('Elegir por dónde empezar', () => {
     pintar();
 
     expect(screen.getByText(/no da por hechas las unidades anteriores/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Con un punto de partida elegido, la frase cambia: lo que hay antes sigue
+   * abierto. Y si ya se ha empezado, además se promete que lo hecho no se
+   * pierde al cambiarlo, que es la pregunta que frena a la hora de tocarlo.
+   */
+  it('con punto de partida elegido, la frase dice lo que pasa con lo anterior', () => {
+    const segundo = COURSES[1]!.id;
+
+    pintar({ ...EMPTY_PROGRESS, startCourse: segundo });
+    expect(screen.getByText(/queda abierto por si te hace falta/i)).toBeInTheDocument();
+
+    cleanup();
+
+    pintar({ ...EMPTY_PROGRESS, startCourse: segundo, done: [UNIT_ORDER[0]!] });
+    expect(screen.getByText(/lo que ya has hecho no se pierde/i)).toBeInTheDocument();
   });
 });

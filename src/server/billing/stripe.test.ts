@@ -208,6 +208,15 @@ describe('el portal de cliente', () => {
     expect(await StripeBilling.portal({ userId: 'u1', email: 'a@b.c' })).toBeNull();
   });
 
+  // Y si Stripe contesta sin dirección, tampoco: un enlace vacío no lleva a nada.
+  it('sin direccion en la respuesta, tampoco', async () => {
+    fetchFalso
+      .mockResolvedValueOnce(contesta({ data: [{ id: 'cus_1' }] }))
+      .mockResolvedValueOnce(contesta({ url: '' }));
+
+    expect(await StripeBilling.portal({ userId: 'u1', email: 'a@b.c' })).toBeNull();
+  });
+
   it('sin cliente en Stripe no hay portal', async () => {
     // Es alguien que nunca ha pagado: no hay facturas que enseñarle.
     fetchFalso.mockResolvedValue(contesta({ data: [] }));

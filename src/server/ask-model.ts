@@ -99,6 +99,7 @@ export async function askModel({
     // «local». El `?? ''` es para el compilador, no para nadie más.
     return askLocalModel(
       { prompt, system, schema, maxTokens, model: configuredModel() },
+      /* v8 ignore next -- la URL esta, porque es lo que hace que el proveedor sea «local» */
       localModelUrl() ?? '',
     );
   }

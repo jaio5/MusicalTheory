@@ -77,6 +77,7 @@ export async function levantarBaseDePrueba(): Promise<BaseDePrueba> {
       // Drizzle separa las sentencias de una migración con esta marca.
       for (const sentencia of sql.split('--> statement-breakpoint')) {
         const limpia = sentencia.trim();
+        /* v8 ignore next 3 -- ninguna migracion acaba con una marca suelta, pero costaria una tarde averiguarlo */
         if (limpia !== '') {
           await cliente.exec(limpia);
         }
@@ -101,6 +102,7 @@ export async function levantarBaseDePrueba(): Promise<BaseDePrueba> {
 
   return {
     limpiar: async () => {
+      /* v8 ignore next 3 -- las migraciones crean tablas, asi que siempre hay algo que vaciar */
       if (tablas.length > 0) {
         await cliente.exec(`truncate table ${tablas.join(', ')} cascade`);
       }

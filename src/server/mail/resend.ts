@@ -16,6 +16,7 @@ import type { Mail, Mailer } from './port';
 const API = 'https://api.resend.com/emails';
 
 function apiKey(): string {
+  /* v8 ignore next -- sin clave no se llega a mandar nada: la pantalla lo dice antes */
   return process.env['MAIL_API_KEY'] ?? '';
 }
 

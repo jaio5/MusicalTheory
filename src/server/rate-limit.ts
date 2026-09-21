@@ -49,6 +49,7 @@ export class SlidingWindowRateLimiter {
 
     if (recent.length >= limit) {
       this.#hits.set(key, recent);
+      /* v8 ignore next -- se llega aqui porque hay al menos `limit` pulsaciones, asi que hay una primera */
       const oldest = recent[0] ?? now;
       return {
         allowed: false,
@@ -93,6 +94,7 @@ export class SlidingWindowRateLimiter {
 export function requesterKey(headers: Headers): string {
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded !== null && forwarded !== '') {
+    /* v8 ignore next -- partir una cadena no vacia siempre da un primer trozo */
     return forwarded.split(',')[0]?.trim() ?? 'desconocido';
   }
   return headers.get('x-real-ip') ?? 'desconocido';

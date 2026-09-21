@@ -565,6 +565,23 @@ describe('lo que no existe', () => {
     expect(await songs.removeSong(mio, id)).toBe('no-existe');
   });
 
+  /**
+   * Una fila con el documento roto —una versión vieja del formato, alguien
+   * editando la base a mano— no puede tumbar la lista entera: se cae esa y las
+   * demás se leen. Es lo mismo que hace el navegador con lo que tiene guardado.
+   */
+  it('una cancion con el documento roto se cae de la lista, y no se lleva a las demas', async () => {
+    const userId = await cuenta();
+    await songs.createSong(userId, CANCION);
+    await base.ejecutar(
+      `insert into songs (user_id, name, data) values ('${userId}', 'Rota', '{"sections":[]}')`,
+    );
+
+    const lista = await songs.listSongs(userId);
+
+    expect(lista?.map((cancion) => cancion.name)).toEqual([CANCION.name]);
+  });
+
   it('un identificador que ni siquiera tiene forma tampoco llega a la base', async () => {
     const userId = await cuenta();
 

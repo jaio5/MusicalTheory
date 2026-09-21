@@ -70,6 +70,7 @@ async function checkRateLimit(
       })
       .returning({ count: rateLimits.count, windowStart: rateLimits.windowStart });
 
+    /* v8 ignore next 3 -- el `returning` de un `insert ... on conflict` siempre trae la fila */
     if (row === undefined) {
       return null;
     }
@@ -107,6 +108,7 @@ async function checkRateLimit(
  */
 async function pruneRateLimits(before: Date): Promise<void> {
   const database = db();
+  /* v8 ignore next 3 -- solo se poda despues de haber escrito, y para escribir hace falta la base */
   if (database === null) {
     return;
   }

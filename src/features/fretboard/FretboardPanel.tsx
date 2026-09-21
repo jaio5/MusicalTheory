@@ -71,6 +71,7 @@ export function FretboardPanel() {
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}
               scaleId={scaleId}
+              /* v8 ignore next -- con señal siempre hay lectura: las dos las pone el mismo `setPitch` */
               soundingMidi={hasSignal ? (reading?.midi ?? null) : null}
               chordNotes={elegido?.notes}
             />

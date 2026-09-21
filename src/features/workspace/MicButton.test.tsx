@@ -212,3 +212,26 @@ describe('el boton de escuchar', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/denegado/);
   });
 });
+
+describe('mientras se pide el micro', () => {
+  /**
+   * Entre pulsar y que el navegador conteste pasa un rato, y en ese rato hay que
+   * decir qué se está esperando: «esperando» a secas parece que ya está abierto
+   * y que no se oye nada.
+   */
+  it('se dice que se esta pidiendo permiso', async () => {
+    class EntradaLenta extends EntradaFalsa {
+      override async start(): Promise<void> {
+        // No contesta nunca: es el rato entre pulsar y que el navegador decida.
+        await new Promise(() => {});
+      }
+    }
+    render(
+      <MicButton createInput={() => new EntradaLenta()} createEngine={() => new MotorCallado()} />,
+    );
+
+    await userEvent.click(screen.getByRole('button'));
+
+    expect(await screen.findByText('pidiendo permiso')).toBeInTheDocument();
+  });
+});
