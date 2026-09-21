@@ -119,3 +119,27 @@ describe('la propuesta del copiloto', () => {
     expect(useArrangementStore.getState().arrangement.parts[0]!.blocks[0]!.beats).toBe(3);
   });
 });
+
+describe('los bordes de lo propuesto', () => {
+  /**
+   * Una propuesta sin un solo grado no es una propuesta: sería un fantasma
+   * vacío colgando del final de la canción, con sus botones de aceptar y
+   * descartar sin nada que aceptar.
+   */
+  it('proponer sin grados no propone nada', () => {
+    const parte = useArrangementStore.getState().actions.addPart('Estrofa');
+
+    usePropuestaStore.getState().acciones.proponer(parte, [], 'Una idea vacía');
+
+    expect(usePropuestaStore.getState().propuesta).toBeNull();
+  });
+
+  it('aceptar sin nada propuesto no hace nada', () => {
+    const antes = useArrangementStore.getState().arrangement;
+
+    usePropuestaStore.getState().acciones.aceptar(2);
+    usePropuestaStore.getState().acciones.aceptarTodo();
+
+    expect(useArrangementStore.getState().arrangement).toBe(antes);
+  });
+});

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,6 +40,8 @@ function Mirilla() {
       <p data-testid="plan">{planName}</p>
       <p data-testid="dentro">{signedIn ? 'dentro' : 'fuera'}</p>
       <p data-testid="cuentas">{accounts ? 'hay' : 'no hay'}</p>
+      <p data-testid="hoy">{account.aiLeftToday ?? 'no se sabe'}</p>
+      <p data-testid="mes">{account.aiLeftMonth ?? 'no se sabe'}</p>
       <button onClick={() => void refresh()}>Volver a pedirla</button>
     </div>
   );
@@ -63,6 +65,15 @@ describe('sin proveedor alrededor', () => {
     expect(screen.getByTestId('correo')).toHaveTextContent('sin correo');
     expect(screen.getByTestId('dentro')).toHaveTextContent('fuera');
     expect(screen.getByTestId('cuentas')).toHaveTextContent('no hay');
+  });
+
+  // Y volver a pedirla no hace nada ni revienta: no hay a quién pedírsela.
+  it('volver a pedirla no llama a nadie', async () => {
+    render(<Mirilla />);
+
+    await userEvent.click(screen.getByRole('button'));
+
+    expect(fetchFalso).not.toHaveBeenCalled();
   });
 });
 
@@ -148,5 +159,63 @@ describe('con proveedor', () => {
     await userEvent.click(screen.getByRole('button'));
 
     expect(screen.getByTestId('correo')).toHaveTextContent('a@b.c');
+  });
+});
+
+describe('lo que contesta el servidor, leido con cuidado', () => {
+  /**
+   * `/api/cuenta` es lo que el navegador cree de sí mismo, y lo que no encaje se
+   * lee como anónimo: un cupo que no es un número o un plan que ya no existe no
+   * pueden dejar la pantalla enseñando cosas que no son.
+   */
+  async function volverAPedirla(account: unknown) {
+    fetchFalso.mockResolvedValue(
+      new Response(JSON.stringify({ account }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    render(
+      <AccountProvider account={CUENTA} accounts>
+        <Mirilla />
+      </AccountProvider>,
+    );
+    await userEvent.click(screen.getByRole('button'));
+  }
+
+  it('una cuenta que no es un objeto se lee como anonima', async () => {
+    await volverAPedirla('javier');
+
+    await waitFor(() => expect(screen.getByTestId('correo')).toHaveTextContent('sin correo'));
+  });
+
+  it('un nombre en blanco o un plan inventado caen a lo de siempre', async () => {
+    await volverAPedirla({ email: 'a@b.c', name: '', plan: 'inventado', aiModel: '' });
+
+    await waitFor(() => expect(screen.getByTestId('plan')).toHaveTextContent('Gratis'));
+    expect(screen.getByTestId('correo')).toHaveTextContent('a@b.c');
+  });
+
+  /**
+   * Y los cupos: un número se redondea hacia abajo y no baja de cero, y lo que
+   * no sea un número es «no se sabe» —que no es lo mismo que cero—.
+   */
+  it('los cupos se leen con cuidado', async () => {
+    await volverAPedirla({ plan: 'medio', aiLeftToday: 3.7, aiLeftMonth: -5 });
+
+    await waitFor(() => expect(screen.getByTestId('hoy')).toHaveTextContent('3'));
+    expect(screen.getByTestId('mes')).toHaveTextContent('0');
+
+    cleanup();
+    await volverAPedirla({ plan: 'medio', aiLeftToday: 'muchas' });
+
+    await waitFor(() => expect(screen.getByTestId('hoy')).toHaveTextContent('no se sabe'));
+  });
+
+  // Y un correo que no es texto es no tener correo.
+  it('un correo que no es texto es no tener correo', async () => {
+    await volverAPedirla({ email: 42, plan: 'medio' });
+
+    await waitFor(() => expect(screen.getByTestId('correo')).toHaveTextContent('sin correo'));
   });
 });

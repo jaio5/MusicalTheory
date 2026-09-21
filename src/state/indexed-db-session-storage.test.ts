@@ -40,6 +40,29 @@ function sesion(id: string, savedAt: number, notas = ['A', 'C', 'E']): StoredSes
 
 let almacen: IndexedDbSessionStorage;
 
+/**
+ * Cuántas filas hay **en la base**, sin pasar por `list()`.
+ *
+ * Hace falta porque `list()` viene podada al tope: preguntándole a ella, el
+ * tope se cumple siempre aunque debajo hubiera mil sesiones. Es justo lo que
+ * escondía que la poda no borraba nada.
+ */
+function cuantasHayEnLaBase(): Promise<number> {
+  return new Promise((listo, fallo) => {
+    const abrir = indexedDB.open('caos-ordenado');
+    abrir.onsuccess = () => {
+      const db = abrir.result;
+      const cuenta = db.transaction('sessions', 'readonly').objectStore('sessions').count();
+      cuenta.onsuccess = () => {
+        listo(cuenta.result);
+        db.close();
+      };
+      cuenta.onerror = () => fallo(cuenta.error);
+    };
+    abrir.onerror = () => fallo(abrir.error);
+  });
+}
+
 beforeEach(() => {
   // Una base nueva por test: sin esto, lo guardado en uno aparece en el siguiente.
   globalThis.indexedDB = new IDBFactory();
@@ -92,9 +115,11 @@ describe('la poda', () => {
       await almacen.save(sesion(`s${i}`, i * 1000));
     }
 
-    // Una vez podada, subir el tope no puede resucitar lo borrado.
-    const todas = await almacen.list();
+    // Se mira **la base**, no `list()`: la lista viene podada al tope, así que
+    // preguntándole a ella el tope se cumple aunque debajo hubiera mil.
+    expect(await cuantasHayEnLaBase()).toBe(MAX_STORED_SESSIONS);
 
+    const todas = await almacen.list();
     expect(todas).toHaveLength(MAX_STORED_SESSIONS);
     expect(todas.map((s) => s.id)).not.toContain('s0');
   });
@@ -135,5 +160,30 @@ describe('cual se usa segun donde se ejecute', () => {
     delete (globalThis as { indexedDB?: unknown }).indexedDB;
 
     expect(createSessionStorage()).toBeInstanceOf(MemorySessionStorage);
+  });
+});
+
+describe('cuando la base falla', () => {
+  /**
+   * Un error de IndexedDB no puede quedarse en silencio: quien guarda tiene que
+   * enterarse de que no se ha guardado. Se provoca con algo que el navegador no
+   * sabe clonar —una función—, que es lo que pasa de verdad cuando se cuela un
+   * objeto raro en la sesión.
+   */
+  it('guardar algo que no se puede clonar se cuenta', async () => {
+    const rara = { ...sesion('rara', 1000), notes: [() => 0] } as unknown as StoredSession;
+
+    await expect(almacen.save(rara)).rejects.toThrow();
+  });
+
+  /**
+   * Y una sesión sin identificador tampoco entra: la base la guarda por su `id`,
+   * y sin él la petición falla. Lo que importa es que el fallo llegue a quien
+   * llamó y no se quede en un `onerror` que nadie escucha.
+   */
+  it('una sesion sin identificador se rechaza', async () => {
+    const sinId = { ...sesion('x', 1000), id: undefined } as unknown as StoredSession;
+
+    await expect(almacen.save(sinId)).rejects.toBeDefined();
   });
 });

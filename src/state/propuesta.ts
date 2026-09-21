@@ -92,12 +92,3 @@ export const usePropuestaStore = create<PropuestaState>()((set, get) => ({
     },
   },
 }));
-
-/** Lo propuesto para esta parte, o vacío. */
-export function selectPropuestaDe(partId: string) {
-  return (state: PropuestaState): readonly DegreeSymbol[] =>
-    state.propuesta?.partId === partId ? state.propuesta.degrees : VACIO;
-}
-
-/** Una sola lista vacía: devolver `[]` nueva en cada lectura repinta siempre. */
-const VACIO: readonly DegreeSymbol[] = [];

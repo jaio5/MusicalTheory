@@ -80,3 +80,47 @@ describe('store de sesión', () => {
     expect(useSessionStore.getState().actions).toBe(before);
   });
 });
+
+describe('lo que se olvida', () => {
+  /**
+   * Olvidar lo tocado borra el historial de notas y lo que se dedujo de él: la
+   * tonalidad que se estaba detectando sale de ese histograma, así que dejarla
+   * puesta sería seguir diciendo «creo que estás en La menor» sobre nada.
+   */
+  it('borrar el historial borra tambien lo que se dedujo de el', () => {
+    const { actions } = useSessionStore.getState();
+    actions.setPitch(440, 0.9, 1000);
+    actions.setPitch(329.6, 0.9, 2000);
+    expect(useSessionStore.getState().noteHistory.length).toBeGreaterThan(0);
+
+    actions.clearHistory();
+
+    const estado = useSessionStore.getState();
+    expect(estado.noteHistory).toEqual([]);
+    expect(estado.keyCandidates).toEqual([]);
+    expect(estado.histogram.weights.every((peso) => peso === 0)).toBe(true);
+  });
+
+  /**
+   * Y al apuntar un acorde oído se guardan también sus candidatos: sin ellos, lo
+   * apuntado no sabe de qué dudó y no se puede ofrecer una corrección.
+   */
+  it('lo apuntado se lleva los candidatos que tambien cabian', () => {
+    const { actions } = useSessionStore.getState();
+    actions.startCapture(0);
+
+    actions.setHeardChord({
+      symbol: 'C',
+      root: 0 as never,
+      notes: [0, 4, 7] as never,
+      at: 100,
+      score: 0.9,
+      margin: 0.05,
+      alternatives: [{ symbol: 'Am', root: 9 as never, notes: [9, 0, 4] as never, score: 0.85 }],
+    });
+
+    const [apuntado] = useSessionStore.getState().captured;
+    expect(apuntado?.margin).toBe(0.05);
+    expect(apuntado?.alternatives).toEqual([{ root: 9, notes: [9, 0, 4] }]);
+  });
+});

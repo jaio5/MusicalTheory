@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ladoMasCercano,
@@ -75,5 +75,61 @@ describe('el sitio donde lo dejaste', () => {
   // siempre y React resuelve la diferencia al hidratar.
   it('en el servidor es el de siempre', () => {
     expect(sitioDelTutorEnServidor()).toEqual(SITIO_POR_DEFECTO);
+  });
+});
+
+describe('un sitio guardado con la forma cambiada', () => {
+  /**
+   * El sitio se lee del equipo **una sola vez** por carga, así que cada caso
+   * necesita el módulo recién importado. Lo guardado puede venir de una versión
+   * vieja o de alguien que lo editó a mano: lo que no se entiende vuelve al
+   * sitio de fábrica, que es mejor que no pintar el muñeco.
+   */
+  async function leerConGuardado(guardado: string) {
+    localStorage.setItem('caos-ordenado:sitio-del-profesor', guardado);
+    vi.resetModules();
+    const modulo = await import('./tutor-spot');
+    return modulo.sitioDelTutor();
+  }
+
+  it('sin nada guardado, el de fabrica', async () => {
+    localStorage.clear();
+    vi.resetModules();
+    const modulo = await import('./tutor-spot');
+
+    expect(modulo.sitioDelTutor()).toEqual(SITIO_POR_DEFECTO);
+  });
+
+  it('lo que no es un sitio vuelve al de fabrica', async () => {
+    for (const guardado of ['"izquierda"', 'null', '42', 'no es json']) {
+      expect(await leerConGuardado(guardado), guardado).toEqual(SITIO_POR_DEFECTO);
+    }
+  });
+
+  // Un lado que no existe cae a la izquierda, que es el otro de los dos.
+  it('un lado inventado cae al otro lado', async () => {
+    expect(await leerConGuardado('{"lado":"arriba"}')).toEqual({
+      lado: 'izquierda',
+      alto: SITIO_POR_DEFECTO.alto,
+    });
+  });
+
+  /**
+   * Y el alto se recorta entre el 5 y el 90 por ciento: más arriba se mete
+   * debajo de la cabecera y más abajo se esconde tras la barra de navegación
+   * del móvil.
+   */
+  it('el alto se recorta, y el que no es un numero se queda en el de fabrica', async () => {
+    for (const [alto, esperado] of [
+      [-10, 5],
+      [50, 50],
+      [200, 90],
+    ] as const) {
+      const sitio = await leerConGuardado(JSON.stringify({ lado: 'derecha', alto }));
+      expect(sitio, `alto ${alto}`).toEqual({ lado: 'derecha', alto: esperado });
+    }
+
+    const raro = await leerConGuardado(JSON.stringify({ lado: 'derecha', alto: 'medio' }));
+    expect(raro.alto).toBe(SITIO_POR_DEFECTO.alto);
   });
 });

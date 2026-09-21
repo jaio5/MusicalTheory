@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EMPTY_ARRANGEMENT, arrangementLength, findBlock, findNote } from '@core/music';
 
@@ -196,5 +196,67 @@ describe('decir qué parte es', () => {
     useArrangementStore.getState().actions.undo();
 
     expect(useArrangementStore.getState().arrangement.parts[0]?.role).toBeUndefined();
+  });
+});
+
+describe('mover una parte de sitio y vaciarlo todo', () => {
+  /**
+   * El orden de las partes es el orden de la canción: mover el estribillo
+   * delante de la estrofa cambia lo que suena, no cómo se ve.
+   */
+  it('una parte se mueve, y se puede deshacer', () => {
+    acciones().addPart('Estrofa');
+    acciones().addPart('Estribillo');
+    const [estrofa, estribillo] = montaje().parts.map((parte) => parte.id);
+
+    acciones().movePart(estribillo!, 0);
+
+    expect(montaje().parts.map((parte) => parte.id)).toEqual([estribillo, estrofa]);
+    acciones().undo();
+    expect(montaje().parts.map((parte) => parte.id)).toEqual([estrofa, estribillo]);
+  });
+
+  /**
+   * Y vaciarlo deja de elegido lo que ya no existe: sin esto, la columna del
+   * acorde seguía enseñando las formas de un bloque que no está en la canción.
+   */
+  it('vaciarlo tambien suelta el bloque elegido', () => {
+    const parte = acciones().addPart('Estrofa');
+    const bloque = acciones().addBlock(parte, 'I', 4);
+    acciones().elegirBloque(bloque);
+    expect(useArrangementStore.getState().selectedBlockId).toBe(bloque);
+
+    acciones().clear();
+
+    expect(montaje().parts).toEqual([]);
+    expect(useArrangementStore.getState().selectedBlockId).toBeNull();
+  });
+
+  // Y dar por bueno un bloque que ya no está no hace nada.
+  it('confirmar un bloque que ya no esta no hace nada', () => {
+    const parte = acciones().addPart('Estrofa');
+    acciones().addBlock(parte, 'I', 4);
+    const antes = montaje();
+
+    acciones().confirmBlock('uno-que-no-existe');
+
+    expect(montaje()).toBe(antes);
+  });
+});
+
+describe('los identificadores sin crypto', () => {
+  /**
+   * `crypto.randomUUID` no está en todos los navegadores ni fuera de un origen
+   * seguro. Sin respaldo, abrir la aplicación por `http://` desde otro equipo de
+   * la red reventaba al poner el primer acorde.
+   */
+  it('siguen saliendo distintos', () => {
+    vi.stubGlobal('crypto', {});
+
+    const unos = new Set(Array.from({ length: 50 }, () => nuevoId('bloque')));
+
+    expect(unos.size).toBe(50);
+    expect([...unos].every((id) => id.startsWith('bloque-'))).toBe(true);
+    vi.unstubAllGlobals();
   });
 });

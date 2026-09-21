@@ -136,6 +136,7 @@ export function useEnsayo(
   const enCadaPulso = useCallback(() => {
     const estado = marcha.current;
     const actual = estado.guion[estado.indice];
+    /* v8 ignore next 3 -- el metronomo se para al acabar el guion, asi que el paso siempre existe */
     if (actual === undefined || tonic === null) {
       return;
     }
@@ -174,10 +175,12 @@ export function useEnsayo(
   }, [cerrar, mode, tonic]);
 
   const empezar = useCallback(async () => {
+    /* v8 ignore next 3 -- sin tonalidad la pantalla enseña que falta elegirla, sin boton de empezar */
     if (tonic === null) {
       return;
     }
     const nuevo = guionDeEnsayo(arrangement, beatsPerBar);
+    /* v8 ignore next 3 -- sin acordes que tocar la pantalla enseña el estado vacio, sin boton de empezar */
     if (nuevo.length === 0) {
       return;
     }

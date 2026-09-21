@@ -71,7 +71,7 @@ class FakeChordEngine implements ChordEngine {
     return () => this.#listeners.delete(listener);
   }
   /** Simula que el motor ha reconocido un acorde. */
-  announce(chord: ChordReading): void {
+  announce(chord: ChordReading | null): void {
     for (const listener of this.#listeners) {
       listener(chord);
     }
@@ -236,5 +236,73 @@ describe('Escuchar', () => {
     unmount();
 
     expect(chordEngine.running).toBe(false);
+  });
+});
+
+describe('los motores de verdad', () => {
+  /**
+   * Sin fábricas se usan los de la aplicación, que es como sale de verdad. En
+   * jsdom no hay micrófono, así que no se llega a arrancar: lo que se comprueba
+   * es que eso se cuenta en vez de dejar la pantalla diciendo que escucha.
+   */
+  it('sin fabricas, y sin microfono, no se queda escuchando', async () => {
+    render(<Escucha />);
+
+    await userEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => expect(useSessionStore.getState().listening).not.toBe('listening'));
+  });
+
+  // Y con un micrófono elegido a mano, se le pide ese.
+  it('con un microfono elegido, tampoco se queda escuchando', async () => {
+    function ConDispositivo() {
+      const { start } = useListening({});
+      return (
+        <button type="button" onClick={() => void start('el-de-la-mesa')}>
+          Escuchar
+        </button>
+      );
+    }
+    render(<ConDispositivo />);
+
+    await userEvent.click(screen.getByRole('button'));
+
+    await waitFor(() => expect(useSessionStore.getState().listening).not.toBe('listening'));
+  });
+
+  /**
+   * Y con una entrada de mentira pero el motor de tono de verdad se recorre el
+   * camino entero: es el mismo motor que corre en la aplicación, con una fuente
+   * que no necesita micrófono.
+   */
+  it('el motor de tono de verdad arranca sobre una entrada de mentira', async () => {
+    render(<Escucha createInput={() => new FakeInput()} />);
+
+    await userEvent.click(screen.getByRole('button'));
+
+    // La entrada de mentira no avisa de su estado, así que la pantalla se queda
+    // en «pidiendo permiso»; lo que importa es que el motor arrancó sin nada
+    // que fingir por debajo.
+    await waitFor(() => expect(useSessionStore.getState().listening).not.toBe('idle'));
+  });
+
+  // Y cuando el acorde deja de reconocerse, el estado se queda sin él.
+  it('cuando deja de haber acorde, el estado lo suelta', async () => {
+    const chordEngine = new FakeChordEngine();
+    render(
+      <Escucha
+        chords
+        createInput={() => new FakeInput()}
+        createEngine={() => new SilentPitchEngine()}
+        createChordEngine={() => chordEngine}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button'));
+    await waitFor(() => expect(chordEngine.started).toBe(true));
+    chordEngine.announce(AM);
+
+    chordEngine.announce(null);
+
+    expect(useSessionStore.getState().heardChord).toBeNull();
   });
 });

@@ -116,3 +116,38 @@ describe('las teclas del banco', () => {
     expect(useBancoStore.getState().espacio).toBe(DEFAULT_BANCO.espacio);
   });
 });
+
+describe('donde el foco no es un elemento', () => {
+  /**
+   * Sin nada enfocado el evento llega con `target` en el documento, que no es un
+   * `HTMLElement`: ahí no se está escribiendo, así que el atajo salta.
+   */
+  it('el atajo salta igual', () => {
+    render(<Banco />);
+
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }));
+    });
+
+    expect(useBancoStore.getState().espacio).toBe('escribir');
+  });
+
+  // Y sobre algo que se puede editar a mano, no: se está escribiendo.
+  it('y sobre algo editable, no', async () => {
+    render(
+      <>
+        <Banco />
+        <div contentEditable aria-label="nota" tabIndex={0} suppressContentEditableWarning />
+      </>,
+    );
+    const editable = screen.getByLabelText('nota');
+    // jsdom no implementa `isContentEditable`: siempre contesta que no, así que
+    // se le pone a mano lo que el navegador de verdad diría.
+    Object.defineProperty(editable, 'isContentEditable', { value: true });
+    editable.focus();
+
+    await userEvent.keyboard('2');
+
+    expect(useBancoStore.getState().espacio).toBe(DEFAULT_BANCO.espacio);
+  });
+});

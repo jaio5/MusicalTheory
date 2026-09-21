@@ -322,3 +322,63 @@ describe('lo que suma ensayar', () => {
     expect(hechos).toEqual([]);
   });
 });
+
+describe('el metronomo de verdad', () => {
+  /**
+   * Sin fábrica se usa el de la aplicación, que abre su propio contexto de
+   * audio. En jsdom no hay `AudioContext`, así que no llega a sonar: lo que se
+   * comprueba es que el ensayo arranca igual en vez de reventar.
+   */
+  it('sin fabrica, el ensayo arranca igual', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    const sinMetronomo = {
+      createInput: DEPS.createInput,
+      createEngine: DEPS.createEngine,
+      createChordEngine: DEPS.createChordEngine,
+    };
+    render(<Ensayo deps={sinMetronomo} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Ensayar/ }));
+
+    expect(await screen.findByRole('button', { name: /Parar/ })).toBeInTheDocument();
+  });
+});
+
+describe('cuando el ensayo no llega a empezar', () => {
+  /**
+   * Sin micro no hay nada que comparar, así que no se empieza: un ensayo que
+   * corre el metrónomo y cuenta todo como fallado es peor que no arrancar.
+   */
+  it('sin motor de escucha no arranca, y el boton vuelve', async () => {
+    class EntradaQueNoArranca extends EntradaFalsa {
+      override async start(): Promise<void> {}
+    }
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    render(<Ensayo deps={{ ...DEPS, createInput: () => new EntradaQueNoArranca() }} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Ensayar/ }));
+
+    expect(screen.getByRole('button', { name: /Ensayar/ })).toBeInTheDocument();
+    expect(metronomo.running).toBe(false);
+  });
+
+  /**
+   * Y una canción con partes pero sin un solo acorde no tiene guion: se mide lo
+   * que hay que tocar, no cuántas partes hay. Una fila vacía no es una canción.
+   */
+  it('con partes pero sin acordes no hay guion', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    useArrangementStore.setState({
+      arrangement: {
+        parts: [{ id: 'estrofa', name: 'Estrofa', blocks: [], notes: [], bars: 2 }],
+      },
+      past: [],
+    });
+    render(<Ensayo deps={DEPS} />);
+
+    expect(screen.getByText(/Todavía no hay nada que ensayar/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Ensayar/ })).not.toBeInTheDocument();
+  });
+});

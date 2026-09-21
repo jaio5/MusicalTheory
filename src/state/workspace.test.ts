@@ -1,8 +1,10 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_BANCO,
   DEFAULT_PREFERENCES,
+  loadPreferences,
   parsePreferences,
   REPARTOS_DE_FABRICA,
 } from './workspace';
@@ -84,5 +86,76 @@ describe('Preferencias', () => {
     expect(banco.espacio).toBe(DEFAULT_BANCO.espacio);
     // Y los espacios que no venían guardados salen de fábrica, no vacíos.
     expect(banco.repartos.tocando).toEqual(REPARTOS_DE_FABRICA.tocando);
+  });
+});
+
+describe('un reparto guardado con la forma cambiada', () => {
+  /**
+   * Lo guardado puede venir de una versión vieja o de alguien que lo editó a
+   * mano. Se acota al leer y no solo al escribir: un ancho de nueve mil deja un
+   * área que tapa la pantalla y ningún divisor a mano para arreglarlo.
+   */
+  function leer(banco: unknown) {
+    localStorage.setItem('caos-ordenado:workspace', JSON.stringify({ banco }));
+    return loadPreferences().banco;
+  }
+
+  it('unos repartos que no son un objeto se leen de fabrica', () => {
+    expect(leer({ espacio: 'escribir', repartos: ['uno'] }).repartos).toEqual(
+      DEFAULT_BANCO.repartos,
+    );
+    expect(leer({ espacio: 'escribir', repartos: 'ninguno' }).repartos).toEqual(
+      DEFAULT_BANCO.repartos,
+    );
+  });
+
+  it('y un espacio que no existe, el de siempre', () => {
+    expect(leer({ espacio: 'inventado', repartos: {} }).espacio).toBe(DEFAULT_BANCO.espacio);
+  });
+
+  // Un área plegada que no existe se cae; el resto se queda.
+  it('un area plegada inventada se cae', () => {
+    const reparto = leer({
+      espacio: 'escribir',
+      repartos: { escribir: { plegadas: ['izquierda', 'inventada', 'izquierda'] } },
+    }).repartos.escribir;
+
+    expect(reparto.plegadas).toEqual(['izquierda']);
+  });
+
+  // Y unas plegadas que no son una lista dejan las de fábrica.
+  it('unas plegadas que no son lista dejan las de fabrica', () => {
+    const reparto = leer({
+      espacio: 'escribir',
+      repartos: { escribir: { plegadas: 'todas', abajo: '' } },
+    }).repartos.escribir;
+
+    expect(reparto.plegadas).toEqual(REPARTOS_DE_FABRICA.escribir.plegadas);
+    // Y un editor abierto sin nombre es ninguno.
+    expect(reparto.abajo).toBeNull();
+  });
+
+  // Lo que no es ni un objeto se lee entero de fábrica.
+  it('lo que no es ni un objeto se lee de fabrica', () => {
+    expect(leer('el banco').repartos).toEqual(DEFAULT_BANCO.repartos);
+  });
+});
+
+describe('lo que hay guardado en el equipo', () => {
+  /**
+   * Un JSON roto —una pestaña que se cerró a medio escribir, alguien toqueteando
+   * el almacenamiento— no puede dejar la aplicación sin arrancar: se vuelve a lo
+   * de fábrica y se sigue.
+   */
+  it('un json roto se lee como si no hubiera nada', () => {
+    localStorage.setItem('caos-ordenado:workspace', '{no es json');
+
+    expect(loadPreferences()).toEqual(DEFAULT_PREFERENCES);
+  });
+
+  it('y sin nada guardado, tambien', () => {
+    localStorage.clear();
+
+    expect(loadPreferences()).toEqual(DEFAULT_PREFERENCES);
   });
 });

@@ -91,11 +91,13 @@ function openDatabase(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
+      /* v8 ignore next 3 -- la version no ha subido nunca, asi que esto solo corre con la base recien creada */
       if (!db.objectStoreNames.contains(STORE)) {
         db.createObjectStore(STORE, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
+    /* v8 ignore next -- abrir la base solo falla con permisos denegados, y entonces trae su error */
     request.onerror = () => reject(request.error ?? new Error('No se ha podido abrir la base.'));
   });
 }
@@ -103,6 +105,7 @@ function openDatabase(): Promise<IDBDatabase> {
 function runRequest<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
+    /* v8 ignore next -- una peticion fallida siempre trae su error; la frase es el ultimo recurso */
     request.onerror = () => reject(request.error ?? new Error('La operación ha fallado.'));
   });
 }
@@ -117,9 +120,18 @@ export class IndexedDbSessionStorage implements SessionStorage {
     const db = await openDatabase();
     try {
       await runRequest(db.transaction(STORE, 'readwrite').objectStore(STORE).put(session));
-      const stored = await this.list();
-      for (const old of stored.slice(MAX_STORED_SESSIONS)) {
-        await this.remove(old.id);
+
+      // **Se pregunta por todas, no por `list()`.** `list()` ya viene podada al
+      // tope, así que lo que sobraba salía siempre vacío y la base crecía sin
+      // fin: la lista enseñaba veinte y debajo había las que fueran. No se veía
+      // mirando la pantalla, solo el espacio que el navegador iba dando.
+      const todas = await runRequest<StoredSession[]>(
+        db.transaction(STORE, 'readonly').objectStore(STORE).getAll(),
+      );
+      for (const vieja of pruneSessions(todas, Number.POSITIVE_INFINITY).slice(
+        MAX_STORED_SESSIONS,
+      )) {
+        await runRequest(db.transaction(STORE, 'readwrite').objectStore(STORE).delete(vieja.id));
       }
     } finally {
       db.close();
