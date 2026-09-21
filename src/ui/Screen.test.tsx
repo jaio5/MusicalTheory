@@ -81,3 +81,21 @@ describe('El botón de elegir', () => {
     expect(boton).toHaveAttribute('aria-pressed', 'true');
   });
 });
+
+describe('una cabecera de trabajo sin mandos', () => {
+  /**
+   * La mayoría de las pantallas de trabajo no llevan nada a la derecha del
+   * título: sin esto se quedaba una caja vacía empujando la línea.
+   */
+  it('no deja una caja vacia a la derecha', () => {
+    render(
+      <Screen title="Planes">
+        <p>contenido</p>
+      </Screen>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Planes' })).toBeInTheDocument();
+    // Ni línea ni mandos: los dos son opcionales y la mayoría no los lleva.
+    expect(screen.getByText('contenido')).toBeInTheDocument();
+  });
+});

@@ -7,9 +7,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 // El menú lee la dirección para cerrarse al navegar, y el botón de salir pide
 // repintar. Ninguna de las dos cosas es lo que se prueba aquí.
+let donde = '/aprender';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
-  usePathname: () => '/aprender',
+  usePathname: () => donde,
 }));
 
 import { ANONYMOUS, type Account } from '@core/billing';
@@ -113,5 +114,50 @@ describe('El avatar con cuenta', () => {
     await userEvent.click(screen.getByRole('button', { name: /otra cosa/i }));
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+});
+
+describe('al cambiar de pantalla', () => {
+  /**
+   * Navegar desde el propio menú no vuelve a montar la cabecera, así que sin
+   * esto el desplegable se quedaba abierto encima de la pantalla nueva.
+   */
+  it('el desplegable se cierra solo', async () => {
+    donde = '/aprender';
+    const { rerender } = pintar(DENTRO);
+    await userEvent.click(screen.getByRole('button', { name: /javier/i }));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    donde = '/componer';
+    rerender(
+      <AccountProvider account={DENTRO} accounts>
+        <AccountMenu />
+      </AccountProvider>,
+    );
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    donde = '/aprender';
+  });
+});
+
+describe('mientras el desplegable está abierto', () => {
+  // Pulsar dentro no lo cierra: dentro están los enlaces a los que se va.
+  it('pulsar dentro no lo cierra', async () => {
+    pintar(DENTRO);
+    await userEvent.click(screen.getByRole('button', { name: /javier/i }));
+
+    await userEvent.click(screen.getByRole('menu'));
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+  });
+
+  // Y cualquier otra tecla tampoco: solo Escape cierra.
+  it('otra tecla no lo cierra', async () => {
+    pintar(DENTRO);
+    await userEvent.click(screen.getByRole('button', { name: /javier/i }));
+
+    await userEvent.keyboard('a');
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
   });
 });

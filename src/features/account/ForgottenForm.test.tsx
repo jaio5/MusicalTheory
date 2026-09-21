@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -39,6 +39,33 @@ describe('pedir el enlace', () => {
     await userEvent.click(screen.getByRole('button', { name: /Mandarme el enlace/ }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(/Si ese correo tiene cuenta/);
+  });
+
+  // Y si el servidor contesta sin frase, la de aquí: nunca se queda mudo.
+  it('sin frase del servidor, la de casa', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({}));
+    render(<ForgottenForm request={request} />);
+
+    await userEvent.type(screen.getByLabelText('Tu correo'), 'javier@example.com');
+    await userEvent.click(screen.getByRole('button', { name: /Mandarme el enlace/ }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/le hemos mandado un enlace/);
+  });
+
+  /**
+   * La burbuja de `type="email"` la escribe el navegador **en su idioma**, así
+   * que el correo se comprueba aquí y se dice con el `Aviso`, que es donde esta
+   * pantalla cuenta todo lo demás.
+   */
+  it('un correo que no lo parece se dice aqui, y no se manda nada', async () => {
+    const request = vi.fn();
+    render(<ForgottenForm request={request} />);
+
+    await userEvent.type(screen.getByLabelText('Tu correo'), 'javier@sin-arroba');
+    await userEvent.click(screen.getByRole('button', { name: /Mandarme el enlace/ }));
+
+    expect(request).not.toHaveBeenCalled();
+    expect(await screen.findByText(/no tiene buena pinta/)).toBeInTheDocument();
   });
 
   it('sin correo escrito no se puede pedir', () => {
@@ -155,5 +182,28 @@ describe('sin red', () => {
     await userEvent.click(screen.getByRole('button', { name: /Poner esta contraseña/ }));
 
     expect(await screen.findByText(/No hemos podido cambiar la contraseña/)).toBeInTheDocument();
+  });
+});
+
+describe('sin fabrica de peticion', () => {
+  /**
+   * Se llama a `/api/cuenta/olvidada`, que es lo que hace en la aplicación: la
+   * dirección y la cabecera son parte del contrato con el servidor.
+   */
+  it('pide a /api/cuenta/olvidada con json', async () => {
+    const pedidas: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      pedidas.push({ url, init });
+      return respondWith({ message: 'Si ese correo…' });
+    });
+
+    render(<ForgottenForm />);
+    await userEvent.type(screen.getByLabelText('Tu correo'), 'javier@example.com');
+    await userEvent.click(screen.getByRole('button', { name: /Mandarme el enlace/ }));
+
+    await waitFor(() => expect(pedidas).toHaveLength(1));
+    expect(pedidas[0]!.url).toBe('/api/cuenta/olvidada');
+    expect(pedidas[0]!.init.headers).toEqual({ 'Content-Type': 'application/json' });
+    vi.unstubAllGlobals();
   });
 });

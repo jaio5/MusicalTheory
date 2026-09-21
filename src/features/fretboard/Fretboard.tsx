@@ -147,6 +147,7 @@ export function Fretboard({
       ))}
 
       {positions.map((position) => {
+        /* v8 ignore next -- las posiciones salen de la misma afinacion con la que se hizo el mapa */
         const index = stringIndex.get(position.string.number) ?? 0;
         const x = position.fret === 0 ? NUT_X - 30 : NUT_X + FRET_WIDTH * (position.fret - 0.5);
         const y = TOP + STRING_GAP * index;

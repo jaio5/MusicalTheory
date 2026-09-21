@@ -62,3 +62,16 @@ describe('el cupo de IA en la barra', () => {
     expect(container).toBeEmptyDOMElement();
   });
 });
+
+describe('cuando solo se sabe lo de hoy', () => {
+  /**
+   * El cupo del mes puede no venir —una cuenta sin plan de pago no tiene cupo
+   * mensual que contar—, y entonces se dice solo lo de hoy en vez de escribir
+   * «y null este mes».
+   */
+  it('se dice lo de hoy y nada mas', () => {
+    pintar({ ...CON_PLAN, aiLeftMonth: null });
+
+    expect(screen.getByRole('link')).toHaveAccessibleName('Te quedan 8 peticiones a la IA hoy');
+  });
+});

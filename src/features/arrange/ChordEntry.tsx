@@ -144,6 +144,7 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
                 type="button"
                 disabled={candidato.degree === null}
                 onClick={() => {
+                  /* v8 ignore next 4 -- el boton va desactivado cuando no hay grado, asi que no se pulsa */
                   if (candidato.degree !== null) {
                     onPick(candidato.degree, candidato.especie ?? undefined);
                     setTexto('');

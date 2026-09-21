@@ -149,6 +149,7 @@ export function contornoDeTrazo(puntos: ReadonlyArray<Punto> = TRAZO): string {
     const despues = linea[Math.min(linea.length - 1, i + 1)]!;
     const dx = despues[0] - antes[0];
     const dy = despues[1] - antes[1];
+    /* v8 ignore next -- dos puntos seguidos del trazo nunca caen encima del otro */
     const largo = Math.hypot(dx, dy) || 1;
     const nx = -dy / largo;
     const ny = dx / largo;

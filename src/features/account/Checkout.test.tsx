@@ -153,6 +153,8 @@ describe('confirmar', () => {
 
     expect(screen.getByText(/Ya lo tienes/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Activar/ })).not.toBeInTheDocument();
+    // Y con el Profesional dentro, se dice dónde está lo que acaba de abrirse.
+    expect(screen.getByText(/El Grado Profesional está abierto/)).toBeInTheDocument();
   });
 
   it('si no se puede, se dice y no se canta victoria', async () => {

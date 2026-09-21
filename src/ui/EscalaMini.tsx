@@ -105,6 +105,7 @@ export function EscalaMini({ tonic, scaleId, accidental = 'sharp' }: EscalaMiniP
 
       {puntos.map((posicion) => {
         const fila = cuerda.get(posicion.string.number);
+        /* v8 ignore next 3 -- las posiciones salen de la misma afinacion con la que se hizo el mapa */
         if (fila === undefined) {
           return null;
         }

@@ -156,6 +156,22 @@ describe('entrar', () => {
     expect(alTerminar).toHaveBeenCalled();
   });
 
+  /**
+   * La burbuja de `type="email"` la escribe el navegador en su idioma, y aquí se
+   * veía «Please include an '@'» encima de un formulario en español. Se
+   * comprueba aquí y se dice con el `Aviso` de siempre.
+   */
+  it('un correo que no lo parece se dice aqui, y no se llama a nadie', async () => {
+    pintar();
+
+    await userEvent.type(screen.getByLabelText(/Correo/), 'javier@sin-arroba');
+    await userEvent.type(screen.getByLabelText(/Contraseña/), 'unaContrasenaLarga');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    expect(signInWithPassword).not.toHaveBeenCalled();
+    expect(await screen.findByText(/no tiene buena pinta/)).toBeInTheDocument();
+  });
+
   it('el error se anuncia, para quien no ve la pantalla', async () => {
     signInWithPassword.mockResolvedValue({ ok: false, message: 'El correo o la contraseña.' });
     pintar();

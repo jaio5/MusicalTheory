@@ -80,6 +80,7 @@ export function Checkout({
           <p className="rotulo text-tube-bright">{done ? 'Plan activado' : 'Ya lo tienes'}</p>
           <h2 className="text-text mt-1 text-2xl">Tienes el plan {plan.name}</h2>
           <p className="text-text-muted mt-2 max-w-prose text-sm">
+            {/* v8 ignore next 3 -- los tres planes de pago abren el Grado Profesional; la otra frase espera a que haya uno que no */}
             {can(plan.id, 'grado-profesional')
               ? 'El Grado Profesional está abierto, y puedes empezar por el curso que quieras desde el camino.'
               : 'Ya puedes seguir por donde ibas.'}

@@ -75,6 +75,7 @@ export const usePropuestaStore = create<PropuestaState>()((set, get) => ({
       acciones.endGesture();
       // Lo aceptado queda elegido: es lo último que se ha puesto, y es de lo que
       // habla la columna del acorde.
+      /* v8 ignore next 3 -- se acepta al menos uno, asi que siempre hay un ultimo bloque */
       if (ultimo !== null) {
         acciones.elegirBloque(ultimo);
       }

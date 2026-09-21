@@ -174,3 +174,28 @@ describe('al cambiarla, la sesión de aquí no se cae', () => {
     expect(await screen.findByText(/hay que volver a entrar con ella/i)).toBeInTheDocument();
   });
 });
+
+describe('una cuenta sin correo', () => {
+  /**
+   * No debería haberla —a la contraseña se llega estando dentro—, pero el tipo
+   * lo permite: entonces se manda vacío en vez de «null», que el servidor
+   * rechaza con una frase que no dice nada.
+   */
+  it('vuelve a entrar con el correo vacio en vez de con null', async () => {
+    vi.stubGlobal('fetch', responder({ account: { ...DENTRO, email: null } }));
+    render(
+      <AccountProvider account={{ ...DENTRO, email: null }} accounts>
+        <PasswordForm />
+      </AccountProvider>,
+    );
+
+    await escribir('la-de-siempre', 'una-nueva-larga', 'una-nueva-larga');
+    await userEvent.click(screen.getByRole('button', { name: /cambiar la contraseña/i }));
+
+    expect(await screen.findByText(/cambiada/i)).toBeInTheDocument();
+    expect(entrar).toHaveBeenCalledWith(
+      'credentials',
+      expect.objectContaining({ email: '', password: 'una-nueva-larga' }),
+    );
+  });
+});

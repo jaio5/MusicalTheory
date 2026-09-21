@@ -137,3 +137,23 @@ describe('el nombre', () => {
     expect(screen.getByLabelText(/Cómo te llamas/)).toHaveValue('Otro');
   });
 });
+
+describe('una cuenta sin nombre', () => {
+  /**
+   * El campo empieza vacío, no con «null». Y si el servidor vuelve a pintar con
+   * otra cuenta, gana la del servidor: se compara durante el render, igual que
+   * hace el proveedor de la cuenta.
+   */
+  it('empieza en blanco, y sigue a la cuenta que pinte el servidor', () => {
+    const { rerender } = pintar({ ...CUENTA, name: null });
+    expect(screen.getByLabelText(/Cómo te llamas/)).toHaveValue('');
+
+    rerender(
+      <AccountProvider account={{ ...CUENTA, name: 'Javier' }} accounts>
+        <NameForm />
+      </AccountProvider>,
+    );
+
+    expect(screen.getByLabelText(/Cómo te llamas/)).toHaveValue('Javier');
+  });
+});
