@@ -202,6 +202,9 @@ const ALTURA_BEMOLES: Readonly<Record<string, number>> = {
   F: 3,
 };
 
+/** La caja de un pentagrama que no está montado. No pasa; TypeScript no lo sabe. */
+const SIN_PENTAGRAMA = { left: 0, top: 0 } as DOMRect;
+
 function yDeStep(step: number): number {
   return BASE - (step - STEP_BASE) * PASO;
 }
@@ -366,11 +369,9 @@ export function Staff({
 
   /** Qué escalón y qué pulso hay bajo un punto de la pantalla. */
   const sitioEn = useCallback(
-    (clientX: number, clientY: number): { step: number; start: number } | null => {
-      const caja = svgRef.current?.getBoundingClientRect();
-      if (caja === undefined) {
-        return null;
-      }
+    (clientX: number, clientY: number): { step: number; start: number } => {
+      /* v8 ignore next -- el pentagrama está montado: sin él no hay dónde pulsar. */
+      const caja = svgRef.current?.getBoundingClientRect() ?? SIN_PENTAGRAMA;
       // El SVG se dibuja a su tamaño natural, así que un píxel de pantalla es un
       // píxel del dibujo. Si algún día se escala, aquí hay que dividir por la
       // razón entre `caja.width` y `ancho`.
@@ -410,9 +411,6 @@ export function Staff({
         mover: (x, y) => {
           arrastradaRef.current = true;
           const sitio = sitioEn(x, y);
-          if (sitio === null) {
-            return;
-          }
           // Cuántos acordes empiezan antes del pulso donde está el puntero.
           let desde = 0;
           let destino = 0;
@@ -480,16 +478,14 @@ export function Staff({
       // tres líneas más abajo antes de empezar a moverla.
       const agarre = sitioEn(event.clientX, event.clientY);
       const escrita = writeNote(note, tonic, mode);
-      const dStep = agarre === null ? 0 : escrita.step - agarre.step;
-      const dStart = agarre === null ? 0 : note.start - agarre.start;
+      const dStep = escrita.step - agarre.step;
+      const dStart = note.start - agarre.start;
 
       arrastrar({
         mover: (x, y) => {
           arrastradaRef.current = true;
           const sitio = sitioEn(x, y);
-          if (sitio !== null) {
-            onMove(note.id, sitio.start + dStart, offsetOfStep(sitio.step + dStep, tonic, mode));
-          }
+          onMove(note.id, sitio.start + dStart, offsetOfStep(sitio.step + dStep, tonic, mode));
         },
         soltar: onGestureEnd,
       });
@@ -534,9 +530,7 @@ export function Staff({
               return;
             }
             const sitio = sitioEn(event.clientX, event.clientY);
-            if (sitio !== null) {
-              onAdd(offsetOfStep(sitio.step, tonic, mode), sitio.start);
-            }
+            onAdd(offsetOfStep(sitio.step, tonic, mode), sitio.start);
           }}
         >
           {/* Las cinco líneas. */}
@@ -589,7 +583,10 @@ export function Staff({
               key={letra}
               x={CLAVE_HASTA + indice * PASO_ARMADURA}
               y={
+                // Toda letra de una armadura tiene altura: las dos tablas llevan
+                // las siete. El seis es para que TypeScript se quede tranquilo.
                 yDeStep(
+                  /* v8 ignore next */
                   (armadura.accidental === 'sharp' ? ALTURA_SOSTENIDOS : ALTURA_BEMOLES)[letra] ??
                     6,
                 ) + 4
@@ -825,7 +822,12 @@ export function Staff({
                 ? ''
                 : escrita.accidental === ''
                   ? '♮'
-                  : escrita.accidental === '#'
+                  : // Una letra que la armadura altera no se escribe nunca con la
+                    // alteración contraria: en Sol mayor un «Fa bemol» sale
+                    // escrito Mi, y en Fa un «Si sostenido» sale Do. Lo decide
+                    // `writeNote`, y esto es el por si acaso.
+                    /* v8 ignore next 3 */
+                    escrita.accidental === '#'
                     ? '♯'
                     : '♭'
               : escrita.accidental === '#'
