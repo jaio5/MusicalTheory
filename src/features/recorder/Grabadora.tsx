@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { reloj } from '@core/reloj';
 import { BrowserMicInput } from '@media/browser-mic-input';
+import { descargarUrl } from '@media/descargar';
 import type { MicInput } from '@media/mic-input';
 import type { Recording, SessionRecorder } from '@media/session-recorder';
 import { StreamRecorder } from '@media/stream-recorder';
@@ -162,10 +163,7 @@ export function Grabadora({ createMic, createRecorder }: GrabadoraProps = {}) {
     if (toma === null) {
       return;
     }
-    const link = document.createElement('a');
-    link.href = toma.url;
-    link.download = toma.recording.filename;
-    link.click();
+    descargarUrl(toma.url, toma.recording.filename);
   }
 
   return (

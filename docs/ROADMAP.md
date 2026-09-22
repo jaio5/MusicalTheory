@@ -67,6 +67,9 @@ la manera normal de componer aquí.
   `estructura`: el modelo recibe las partes que hay y devuelve un orden con
   nombres, y el dominio comprueba que solo ha reordenado y repetido lo que había,
   sin inventar acordes. El validador es más fácil que los cinco que ya hay.
+- **Exportar a MusicXML o a PDF.** El MIDI ya sale
+  ([adr/0041](./adr/0041-la-cancion-sale-en-midi.md)); lo otro, cuando la
+  partitura tenga silencios, ligaduras y tresillos, que es lo de arriba.
 - **El lienzo no se guarda solo.** Se guarda como canción desde la pestaña de
   Canciones, y ahí la duración de los bloques se convierte en compases repetidos.
   Es a propósito y está razonado, pero significa que reabrir una canción da los

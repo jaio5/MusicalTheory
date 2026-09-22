@@ -1,5 +1,6 @@
 'use client';
 
+import { descargarUrl } from '@media/descargar';
 import { useEffect, useRef, useState } from 'react';
 
 import { keyName } from '@core/music';
@@ -121,10 +122,7 @@ export function TocarParaEscribir({
     if (toma === null) {
       return;
     }
-    const enlace = document.createElement('a');
-    enlace.href = toma.url;
-    enlace.download = toma.recording.filename;
-    enlace.click();
+    descargarUrl(toma.url, toma.recording.filename);
   }
 
   const tocando = fase === 'tocando';

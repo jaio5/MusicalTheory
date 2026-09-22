@@ -1794,3 +1794,78 @@ describe('Escribir una nota pulsando el pentagrama', () => {
     expect(useArrangementStore.getState().arrangement.parts[0]!.notes).toHaveLength(1);
   });
 });
+
+/**
+ * Sacar la canción de la aplicación.
+ *
+ * Hasta esto, lo único descargable era el audio de lo que tocabas: el montaje
+ * vivía dentro y no salía, y se compone para llevárselo a un secuenciador.
+ */
+describe('descargar la cancion en MIDI', () => {
+  it('esta apagado mientras no haya nada escrito', () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    expect(screen.getByRole('button', { name: 'MIDI' })).toBeDisabled();
+  });
+
+  it('descarga lo mismo que suena, con el nombre de la parte', async () => {
+    conTonalidad();
+    const id = useArrangementStore.getState().actions.addPart('Estribillo');
+    useArrangementStore.getState().actions.addBlock(id, 'I', 4);
+    const guardado: Array<{ bytes: Uint8Array; nombre: string; tipo: string }> = [];
+    const enlace = { href: '', download: '', click: vi.fn() } as unknown as HTMLAnchorElement;
+    vi.spyOn(document, 'createElement').mockImplementation(((etiqueta: string) =>
+      etiqueta === 'a'
+        ? enlace
+        : document.createElementNS(
+            'http://www.w3.org/1999/xhtml',
+            etiqueta,
+          )) as typeof document.createElement);
+    vi.stubGlobal('URL', {
+      createObjectURL: (blob: Blob) => {
+        guardado.push({ bytes: new Uint8Array(), nombre: enlace.download, tipo: blob.type });
+        return 'blob:midi';
+      },
+      revokeObjectURL: vi.fn(),
+    });
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'MIDI' }));
+
+    expect(guardado).toHaveLength(1);
+    expect(guardado[0]!.tipo).toBe('audio/midi');
+    expect(enlace.download).toBe('estribillo.mid');
+    expect(enlace.click).toHaveBeenCalledOnce();
+
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * El nombre del fichero sale del de la parte, y **siempre hay uno**: una
+   * parte creada sin nombre se llama «Parte 1». Por eso arriba no se comprueba.
+   */
+  it('una parte creada sin nombre trae el que le pone el almacen', async () => {
+    conTonalidad();
+    const id = useArrangementStore.getState().actions.addPart();
+    useArrangementStore.getState().actions.addBlock(id, 'I', 4);
+    const enlace = { href: '', download: '', click: vi.fn() } as unknown as HTMLAnchorElement;
+    vi.spyOn(document, 'createElement').mockImplementation(((etiqueta: string) =>
+      etiqueta === 'a'
+        ? enlace
+        : document.createElementNS(
+            'http://www.w3.org/1999/xhtml',
+            etiqueta,
+          )) as typeof document.createElement);
+    vi.stubGlobal('URL', { createObjectURL: () => 'blob:midi', revokeObjectURL: vi.fn() });
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'MIDI' }));
+
+    expect(enlace.download).toBe('parte-1.mid');
+
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+});

@@ -34,3 +34,4 @@ export * from './arrangement';
 export * from './ensayo';
 export * from './capture';
 export * from './playback';
+export * from './midi';

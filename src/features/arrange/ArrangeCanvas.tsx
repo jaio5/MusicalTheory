@@ -21,10 +21,14 @@ import {
   lastDegreeOf,
   nextDegrees,
   blockChord,
+  ficheroMidi,
+  nombreDeFichero,
+  soundOf,
   resolveDegree,
   type DegreeSymbol,
   type EspecieDeBloque,
 } from '@core/music';
+import { descargarBytes, TIPO_MIDI } from '@media/descargar';
 import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
@@ -760,6 +764,31 @@ export function ArrangeCanvas() {
       : null;
 
   const pulsos = arrangementBeats(arrangement);
+
+  /**
+   * La canción, en un fichero MIDI.
+   *
+   * Sale de `soundOf`, que es lo mismo que suena al darle a escuchar: si algún
+   * día lo que se oye y lo que se descarga dejan de coincidir, será porque
+   * alguien metió un segundo camino, no porque haya dos cuentas distintas.
+   */
+  function descargarMidi(): void {
+    const primera = arrangement.parts[0];
+    /* v8 ignore next 3 -- el botón está apagado sin tonalidad y sin nada escrito */
+    if (activeKey === null || primera === undefined) {
+      return;
+    }
+    const sonido = soundOf(arrangement, activeKey.tonic, activeKey.mode);
+    // El nombre de la primera parte. Siempre hay uno: el almacén pone «Parte 1»
+    // a la que se crea sin él, así que aquí no hace falta comprobarlo. Y si
+    // alguna vez llegara vacío, `nombreDeFichero` ya devuelve «cancion.mid».
+    const titulo = primera.name;
+    descargarBytes(
+      ficheroMidi(sonido.events, { nombre: titulo, bpm, beatsPerBar }),
+      nombreDeFichero(titulo),
+      TIPO_MIDI,
+    );
+  }
   /**
    * Si hay algo que traer: acordes **o** punteo.
    *
@@ -842,6 +871,21 @@ export function ArrangeCanvas() {
           className="px-4 py-1.5 text-sm"
         >
           {player.playing && player.playingPartId === null ? 'Parar' : 'Escuchar la canción'}
+        </Button>
+
+        {/* **Lo que saca la canción de aquí.** Sin esto, lo único descargable
+          era el audio de lo que tocaste: el montaje vivía dentro y no salía, y
+          se compone para llevárselo a un secuenciador o mandárselo a alguien.
+          Va al lado de «escuchar» porque las dos hacen lo mismo con la canción
+          entera, una para oírla y otra para llevársela. */}
+        <Button
+          variant="quiet"
+          onClick={descargarMidi}
+          disabled={pulsos === 0}
+          title="Guardar la canción como fichero MIDI"
+          className="px-3 py-1.5 text-sm"
+        >
+          MIDI
         </Button>
 
         <span className="text-text-muted font-mono text-xs">
