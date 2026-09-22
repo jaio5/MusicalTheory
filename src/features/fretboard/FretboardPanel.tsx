@@ -6,6 +6,52 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
 
 import { Fretboard, PROPORCION } from './Fretboard';
 
+/**
+ * Lo que dice el mástil, en una línea, **para la cabecera del área**.
+ *
+ * Vivía encima del dibujo, en su propia fila. Ahí costaba 45 píxeles entre la
+ * fila, su margen y el relleno del área, y esos 45 son justo los que le
+ * faltaban al dibujo para llenar el ancho de un monitor de 1440: el tope mordía
+ * y se quedaba en el 91 %. La cabecera ya estaba ahí y estaba vacía a la
+ * derecha.
+ *
+ * Se trunca con un ancho máximo porque el sitio de los mandos no encoge: sin
+ * tope, en estrecho la frase empujaba al botón de cerrar fuera de la cabecera.
+ *
+ * Y por debajo de 1280 no sale: la cabecera no da para una frase y un botón, y
+ * lo truncado es contenido que no se alcanza —lo canta la sonda de medidas—.
+ * Ahí abajo el área es una pestaña y ya lleva su nombre.
+ */
+export function RotulosDelMastil() {
+  const activeKey = useSessionStore(selectActiveKey);
+  const scaleId = useSessionStore((state) => state.scaleId);
+  const delMontaje = useAcordeElegido();
+  const delCamino = useSessionStore((state) => state.path.at(-1) ?? null);
+  const elegido = delMontaje ?? delCamino;
+
+  if (activeKey === null) return null;
+
+  return (
+    <p className="hidden max-w-[60vw] truncate text-xs xl:block">
+      {SCALES[scaleId].name} de{' '}
+      {noteName(activeKey.tonic, accidentalForScale(activeKey.tonic, scaleId))}:{' '}
+      <span className="text-text font-mono">
+        {scaleNotes(activeKey.tonic, scaleId)
+          .map((pitchClass) => noteName(pitchClass, accidentalForScale(activeKey.tonic, scaleId)))
+          .join(' · ')}
+      </span>
+      {/* Con un acorde elegido, lo que dice el mástil ya no es la escala: es qué
+          notas de la escala caen de pie sobre ese acorde. Se dice, porque el
+          relleno solo no lo explica. */}
+      <span className="text-text-muted">
+        {elegido === null
+          ? ` · ${SCALES[scaleId].character}`
+          : ` · Rellenas, las notas de ${elegido.symbol}: caen de pie. Las huecas entran de paso.`}
+      </span>
+    </p>
+  );
+}
+
 /** Escala que se propone según el modo detectado, si no se ha elegido otra. */
 export function FretboardPanel() {
   const activeKey = useSessionStore(selectActiveKey);
@@ -39,45 +85,22 @@ export function FretboardPanel() {
         </p>
       ) : (
         <>
-          <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <p className="text-text-muted text-sm">
-              {SCALES[scaleId].name} de{' '}
-              {noteName(activeKey.tonic, accidentalForScale(activeKey.tonic, scaleId))}:{' '}
-              <span className="text-text font-mono">
-                {scaleNotes(activeKey.tonic, scaleId)
-                  .map((pitchClass) =>
-                    noteName(pitchClass, accidentalForScale(activeKey.tonic, scaleId)),
-                  )
-                  .join(' · ')}
-              </span>
-            </p>
-            {/* Con un acorde elegido, lo que dice el mástil ya no es la escala:
-                es qué notas de la escala caen de pie sobre ese acorde. Se dice,
-                porque el relleno solo no lo explica. */}
-            <p className="text-text-muted text-sm">
-              {elegido === null
-                ? SCALES[scaleId].character
-                : `Rellenas, las notas de ${elegido.symbol}: caen de pie. Las huecas entran de paso.`}
-            </p>
-          </div>
-
           {/* **El hueco pide el alto que llena el ancho, y nunca más del que
               hay.** Antes el hueco se quedaba con lo que sobrara y el dibujo se
               encogía dentro: a mil cuatrocientos de ancho se pintaba a
               seiscientos cincuenta, centrado entre dos franjas muertas.
 
-              Los dos términos van en unidades de ventana a propósito. Con
-              `aspect-ratio` y `max-h-full` el tope no topaba nada —un
-              porcentaje no resuelve contra un padre de alto automático, y el
-              área ya no lo tiene—, así que el dibujo se imponía y empujaba al
-              arreglo por debajo de su suelo hasta cortarle lo de dentro.
-              Medido: aparecían recortes a 1280 y a 1024 donde no los había.
-
-              El ancho lo pone la proporción, que no hay que adivinarlo; el
-              tope va en unidades de ventana porque **un porcentaje no resuelve
+              El ancho lo pone la proporción, que no hay que adivinarlo; el tope
+              va en unidades de ventana porque **un porcentaje no resuelve
               contra un padre de alto automático**, y el área ya no lo tiene.
-              Con `max-h-full` el tope no topaba nada y el dibujo empujaba al
-              arreglo por debajo de su suelo hasta cortarle lo de dentro.
+              Con `max-h-full` el tope no topaba nada, el dibujo se imponía y
+              empujaba al arreglo por debajo de su suelo hasta cortarle lo de
+              dentro: aparecían recortes a 1280 y a 1024 donde no los había.
+
+              `shrink-0` y no `shrink`: cediendo, el flex repartía el recorte
+              entre el mástil y la canción y el dibujo se quedaba en el 91 % del
+              ancho teniendo tope de sobra. El que manda es el tope, que sabe
+              cuánto hay que dejarle a la canción; el flex no lo sabe.
 
               Cuando el tope muerde, el ancho se queda y el alto no: el dibujo
               vuelve a encogerse centrado, que es lo menos malo cuando no hay
@@ -105,8 +128,10 @@ export function FretboardPanel() {
             // cinco sumandos: la barra de herramientas se parte en dos filas
             // —85 en vez de 57— y el arreglo necesita 224 en vez de 176, que
             // también es por partirse en más filas.
-            // 61+85+(224+44)+61+85 = 560 px, y 61+57+(176+44)+61+85 = 484.
-            className="mt-3 min-h-0 w-full shrink lg:max-h-[calc(100dvh-35rem)] xl:max-h-[calc(100dvh-30.25rem)]"
+            // 61+85+(224+44)+61+36 = 511 px, y 61+57+(176+44)+61+36 = 435. El
+            // último sumando es la cabecera del área y su relleno; eran 85
+            // cuando los rótulos vivían encima del dibujo.
+            className="w-full shrink-0 lg:max-h-[calc(100dvh-32.25rem)] xl:max-h-[calc(100dvh-27.5rem)]"
             style={{ aspectRatio: PROPORCION }}
           >
             <Fretboard

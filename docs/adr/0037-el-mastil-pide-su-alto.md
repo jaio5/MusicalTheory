@@ -48,8 +48,16 @@ Tres piezas:
 
 El tope son cinco cosas sumadas, medidas y no estimadas: la barra de navegación,
 la de herramientas, el suelo del arreglo más los 44 px de la tira plegada que va
-debajo de él, la barra de abajo y la cabecera y los rótulos de la propia área.
-Por debajo de 1280 cambian dos de los cinco sumandos, y por eso son dos topes.
+debajo de él, la barra de abajo y la cabecera de la propia área. Por debajo de
+1280 cambian dos de los cinco sumandos, y por eso son dos topes.
+
+**Y el quinto sumando se recortó después.** Los dos rótulos del mástil —la
+escala y qué dicen las notas rellenas— vivían encima del dibujo, en su propia
+fila, y costaban 45 px entre la fila, su margen y el relleno del área. Eran justo
+los que le faltaban al dibujo para llenar el ancho de un monitor de 1440: el tope
+mordía y se quedaba en el 91 %. Subidos a la cabecera del área, que ya estaba ahí
+y estaba vacía por la derecha, el área pasa de 85 px de adorno a 36 y el mástil
+llena el ancho entero.
 
 ## Lo que se gana, medido
 
@@ -60,12 +68,12 @@ Con la canción escrita y el mástil abierto, lo que se pinta de ancho:
 | 1920×1080 | 650 (34 %) | 1896 (100 %) | 0 → 0      |
 | 1600×1000 | 650 (41 %) | 1576 (100 %) | 0 → 0      |
 | 1440×900  | 650 (46 %) | 1416 (100 %) | 0 → 0      |
-| 1280×800  | 650 (52 %) | 1201 (96 %)  | 0 → 0      |
-| 1024×768  | 650 (65 %) | 790 (79 %)   | 0 → 0      |
-| 1024×600  | 635 (63 %) | 152 (15 %)   | **8 → 0**  |
+| 1280×800  | 650 (52 %) | 1114 (89 %)  | 0 → 0      |
+| 1024×768  | 650 (65 %) | 780 (78 %)   | 0 → 0      |
+| 1024×600  | 635 (63 %) | 260 (26 %)   | **8 → 0**  |
 
-**Y lo que se pierde, que no se esconde**: en 1024×600 el mástil queda en 152
-píxeles. Ahí no caben las dos cosas —el arreglo honrado necesita 268 con su tira,
+**Y lo que se pierde, que no se esconde**: en 1024×600 el mástil queda en 260
+píxeles de ancho. Ahí no caben las dos cosas —el arreglo honrado necesita 268 con su tira,
 y el mástil lleno 263, y con las barras suman más de lo que hay—, así que algo
 tiene que ceder. Antes cedía en silencio recortando ocho cosas; ahora cede el
 mástil y no se corta nada. Se prefiere así: **un recorte no se ve y un dibujo

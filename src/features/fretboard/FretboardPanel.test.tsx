@@ -9,7 +9,20 @@ import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
 import { PROPORCION } from './Fretboard';
-import { FretboardPanel } from './FretboardPanel';
+import { FretboardPanel, RotulosDelMastil } from './FretboardPanel';
+
+/**
+ * El panel con sus rótulos, que en la aplicación van en la cabecera del área y
+ * aquí hay que montar a mano ([adr/0037](../../../docs/adr/0037-el-mastil-pide-su-alto.md)).
+ */
+function ElMastilEntero() {
+  return (
+    <>
+      <RotulosDelMastil />
+      <FretboardPanel />
+    </>
+  );
+}
 
 describe('Panel del mástil', () => {
   it('pide una tonalidad mientras no haya ninguna', () => {
@@ -20,7 +33,7 @@ describe('Panel del mástil', () => {
   it('enseña la escala de la tonalidad fijada', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
 
-    render(<FretboardPanel />);
+    render(<ElMastilEntero />);
 
     expect(await screen.findByText(/pentatónica menor de A/i)).toBeInTheDocument();
     // La pentatónica menor de A: A, C, D, E, G.
@@ -30,7 +43,7 @@ describe('Panel del mástil', () => {
   it('cambia de escala al elegir otra', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
 
-    render(<FretboardPanel />);
+    render(<ElMastilEntero />);
 
     // La escala se elige en la barra de herramientas, no dentro del panel: el
     // mástil solo pinta la que esté puesta.
@@ -107,7 +120,7 @@ describe('qué acorde marca el mástil', () => {
     const bloque = useArrangementStore.getState().actions.addBlock(parte, 'IV', 4);
     useArrangementStore.getState().actions.elegirBloque(bloque);
 
-    render(<FretboardPanel />);
+    render(<ElMastilEntero />);
 
     expect(screen.getByText(/las notas de F:/)).toBeInTheDocument();
     expect(screen.queryByText(/las notas de Am:/)).not.toBeInTheDocument();
@@ -134,7 +147,13 @@ describe('qué acorde marca el mástil', () => {
     // Leída con `parseFloat` porque jsdom la normaliza a «3.8 / 1».
     expect(Number.parseFloat(hueco!.style.aspectRatio)).toBeCloseTo(PROPORCION);
     // Y el tope, que es lo que impide que se lleve el alto de la canción.
-    expect(hueco!.className).toContain('lg:max-h-[calc(100dvh-35rem)]');
+    expect(hueco!.className).toContain('lg:max-h-[calc(100dvh-32.25rem)]');
     expect(container.querySelector('svg')).toHaveClass('h-full', 'w-full');
+  });
+
+  /** Sin tonalidad no hay escala, así que la cabecera no dice nada. */
+  it('los rotulos callan mientras no haya tonalidad', () => {
+    const { container } = render(<RotulosDelMastil />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

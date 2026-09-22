@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 
 import { keyName, type DegreeSymbol, type EspecieDeBloque, type ScaleId } from '@core/music';
 import { ArrangeCanvas, Ensayo, TocarParaEscribir } from '@features/arrange';
-import { FretboardPanel } from '@features/fretboard';
+import { FretboardPanel, RotulosDelMastil } from '@features/fretboard';
 import { GananciaAlComponer, useProgress } from '@features/learn';
 import { IdeasPanel } from '@features/ideas';
 import { Metronome } from '@features/metronome';
@@ -62,6 +62,16 @@ interface Editor {
    * ([adr/0037](../../../docs/adr/0037-el-mastil-pide-su-alto.md)).
    */
   readonly aSuProporcion?: boolean;
+  /**
+   * Lo que este panel quiera decir **en la cabecera del área**, al lado de su
+   * nombre.
+   *
+   * Existe por el mástil: sus dos rótulos vivían encima del dibujo y costaban
+   * 45 píxeles, que son justo los que le faltaban para llenar el ancho de un
+   * monitor grande ([adr/0038](../../../docs/adr/0038-doce-trastes-que-se-vean.md)).
+   * La cabecera ya estaba, y estaba vacía.
+   */
+  readonly rotulos?: () => React.ReactElement | null;
 }
 
 /**
@@ -79,6 +89,7 @@ const EDITORES: readonly Editor[] = [
     render: FretboardPanel,
     entero: true,
     aSuProporcion: true,
+    rotulos: RotulosDelMastil,
   },
   { id: 'grabar', name: 'Grabar', Icono: IconoPunto, render: Grabadora, entero: true },
   { id: 'ideas', name: 'Ideas', Icono: IconoIdeas, render: IdeasPanel },
@@ -680,22 +691,29 @@ export function ComposeScreen() {
                 : 'border-border max-h-[60vh] shrink-0 border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]'
             }
             mandos={
-              <button
-                type="button"
-                onClick={() => accionesDelBanco.abrirAbajo(null)}
-                aria-label={`Cerrar ${editor.name}`}
-                title="Cerrar"
-                className="text-text-muted hover:text-oxblood-bright inline-flex cursor-pointer items-center px-1"
-              >
-                <IconoCerrar />
-              </button>
+              <>
+                {editor.rotulos !== undefined && <editor.rotulos />}
+                <button
+                  type="button"
+                  onClick={() => accionesDelBanco.abrirAbajo(null)}
+                  aria-label={`Cerrar ${editor.name}`}
+                  title="Cerrar"
+                  className="text-text-muted hover:text-oxblood-bright inline-flex cursor-pointer items-center px-1"
+                >
+                  <IconoCerrar />
+                </button>
+              </>
             }
           >
             {/* El relleno del área, y **parte del reparto**: como bloque suelto se
               quedaba con su alto natural dentro de una caja más baja, y lo que
               llevaba dentro —el mástil— se salía por abajo sin manera de
               alcanzarlo. */}
-            <div className="flex min-h-0 grow flex-col p-3">
+            <div
+              className={`flex min-h-0 grow flex-col ${
+                editor.aSuProporcion === true ? 'px-3 pb-2' : 'p-3'
+              }`}
+            >
               {/* Ideas es la única que necesita algo de la pantalla: llevarte a la
                 escala que propone. Se le pasa aquí y no por la tabla de arriba
                 porque los otros cinco ya traen sus propias props y no hay un tipo
