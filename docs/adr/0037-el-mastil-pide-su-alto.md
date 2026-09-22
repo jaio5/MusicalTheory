@@ -97,11 +97,22 @@ No se guarda, porque es un modo de mirar y no un reparto, y **cambiar de panel l
 deshace**: sin eso, abrir Sesiones desde el mástil grande dejaba la canción
 apartada y ningún botón para devolverla.
 
-| Ventana    | Normal                        | Grande                 |
-| ---------- | ----------------------------- | ---------------------- |
-| 1314 × 606 | 514 px de ancho, cuerdas a 22 | **1183, cuerdas a 50** |
-| 1024 × 600 | 260, cuerdas a 11             | **1000, cuerdas a 42** |
-| 1440 × 900 | 1416, cuerdas a 60            | igual: ya llenaba      |
+**Y por debajo de 800 px de alto de ventana, el mástil se abre ya grande**, que
+es lo que hace uno al abrirlo y encontrárselo diminuto. El umbral está medido a
+1314 de ancho: a 900 el dibujo llena el ancho entero dentro del banco, a 800 el
+85 %, a 768 el 78 %, a 700 el 62 % y a 606 el 40 %. De 800 para abajo se cae
+deprisa.
+
+Se probó antes lo otro —bajarle el suelo a la canción para que el mástil quepa
+dentro del banco— y **no se puede**: con 112 px la fila de dentro del arreglo se
+queda en cero y el panel de «Qué poner ahora» sale entero fuera de la pantalla,
+medido. El suelo de 176 no es un número prudente, es el que hay.
+
+| Ventana    | Normal                        | Grande                               |
+| ---------- | ----------------------------- | ------------------------------------ |
+| 1314 × 606 | 514 px de ancho, cuerdas a 22 | **1183, cuerdas a 50** (se abre así) |
+| 1024 × 600 | 260, cuerdas a 11             | **1000, cuerdas a 42**               |
+| 1440 × 900 | 1416, cuerdas a 60            | igual: ya llenaba                    |
 
 Su tope también está medido, y también son dos: 61 de la barra de navegación, la
 de herramientas —57, u 85 cuando se parte en dos filas por debajo de 1280—, 61 de

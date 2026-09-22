@@ -723,6 +723,11 @@ describe('ver el mastil grande', () => {
     useBancoStore.getState().actions.abrirAbajo('mastil');
   }
 
+  /** La ventana de jsdom son 768, que ya es «baja» para el mástil. */
+  function ventanaDe(alto: number): void {
+    window.innerHeight = alto;
+  }
+
   /** Si la caja que lleva la canción está apartada. */
   function laCancionApartada(): boolean {
     const arreglo = screen.getByRole('region', { name: 'Arreglo' });
@@ -730,6 +735,7 @@ describe('ver el mastil grande', () => {
   }
 
   it('aparta la cancion, y la devuelve', async () => {
+    ventanaDe(900);
     conElMastil();
     render(<ComposeScreen />);
 
@@ -767,6 +773,7 @@ describe('ver el mastil grande', () => {
    * dejaba la canción apartada y ningún botón para devolverla.
    */
   it('cambiar de panel lo deshace', async () => {
+    ventanaDe(900);
     conElMastil();
     render(<ComposeScreen />);
     await userEvent.click(screen.getByRole('button', { name: 'Ver grande' }));
@@ -776,5 +783,34 @@ describe('ver el mastil grande', () => {
 
     expect(laCancionApartada()).toBe(false);
     expect(screen.queryByRole('button', { name: 'Volver al banco' })).not.toBeInTheDocument();
+  });
+
+  /**
+   * En una ventana baja se abre ya grande, que es lo que haría uno al
+   * encontrárselo diminuto. Medido a 1314 × 606: dentro del banco el dibujo se
+   * queda en el 40 % del ancho, y apartando la canción llega al 92 %.
+   */
+  it('en una ventana baja se abre ya grande', async () => {
+    ventanaDe(600);
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
+
+    expect(screen.getByRole('button', { name: 'Volver al banco' })).toBeInTheDocument();
+    expect(laCancionApartada()).toBe(true);
+  });
+
+  it('en una ventana alta se abre dentro del banco', async () => {
+    ventanaDe(900);
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
+
+    expect(screen.getByRole('button', { name: 'Ver grande' })).toBeInTheDocument();
+    expect(laCancionApartada()).toBe(false);
   });
 });

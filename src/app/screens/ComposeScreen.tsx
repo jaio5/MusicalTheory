@@ -42,6 +42,34 @@ import {
 import { WorkHeader } from '@ui/Screen';
 import { useHayBanco } from '@ui/use-hay-banco';
 
+/**
+ * A partir de qué alto de ventana se ve el mástil bien **sin apartar la
+ * canción**.
+ *
+ * Medido a 1314 de ancho, que es lo que llena el dibujo del alto que le queda:
+ * a 900 llena el ancho entero, a 800 el 85 %, a 768 el 78 %, a 700 el 62 % y a
+ * 606 el 40 %. De 800 para abajo se cae deprisa, porque lo que sobra después de
+ * las barras y del suelo de la canción deja de dar para su proporción.
+ *
+ * Y el suelo de la canción no se puede bajar: probado, y a 112 px la fila de
+ * dentro se queda en cero y «Qué poner ahora» sale entera fuera de la pantalla.
+ */
+const ALTO_PARA_EL_BANCO = 800;
+
+/**
+ * Si la ventana da para ver el mástil dentro del banco.
+ *
+ * En el servidor se dice que sí: lo contrario abriría el mástil apartando la
+ * canción en el primer pintado y lo devolvería al hidratar, que es un salto a
+ * la vista. Al abrirlo de verdad ya hay ventana y se decide bien.
+ */
+function hayAltoParaElBanco(): boolean {
+  /* v8 ignore start -- el ramal del servidor no lo ve jsdom, que siempre trae `window` */
+  if (typeof window === 'undefined') return true;
+  /* v8 ignore stop */
+  return window.innerHeight >= ALTO_PARA_EL_BANCO;
+}
+
 interface Editor {
   readonly id: EditorDeAbajo;
   readonly name: string;
@@ -222,10 +250,13 @@ export function ComposeScreen() {
   // Cerrar el panel o cambiar de panel deshace el «grande»: es un modo de mirar
   // una cosa, y mirando otra no significa nada. Se compara durante el render y
   // no en un efecto, que es lo que hace el resto de esta pantalla.
+  //
+  // **Y el mástil se abre grande cuando la ventana no da para verlo dentro del
+  // banco**, que es lo mismo que haría uno al abrirlo y encontrárselo diminuto.
   const [ultimoEditor, setUltimoEditor] = useState(abajo);
   if (ultimoEditor !== abajo) {
     setUltimoEditor(abajo);
-    setGrande(false);
+    setGrande(editor?.aSuProporcion === true && !hayAltoParaElBanco());
   }
 
   /**
