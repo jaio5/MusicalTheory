@@ -22,9 +22,15 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   olvida la octava a propósito ([adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md)),
   así que C/E y C son el mismo vector, y analizar después no lo arregla. Hace
   falta otra cosa —bajo detectado aparte— o asumirlo y decirlo.
-- **Sin medir en un aparato de gama media.** Los números salen de un Ryzen de
-  sobremesa. Un teléfono anda entre cinco y diez veces por detrás. El análisis de
-  dos minutos tarda 1,1 s aquí: allí serían diez.
+- **El reconocimiento en vivo sí aguanta una CPU lenta, y está medido.** Con el
+  micrófono falso tocando un `C-F-G-Am` y la CPU frenada ×1, ×4, ×6, ×10 y ×20,
+  escribe los cuatro acordes en los cinco casos —`gama-media.mjs` del skill
+  `arrancar`, 22 de septiembre de 2026—. **Lo que no dice esa cifra**: el micro
+  falso da señal limpia, así que mide si el motor llega a tiempo y no si acierta
+  con una guitarra en una habitación.
+- **Sigue sin medirse el análisis de la grabación entera en un aparato de gama
+  media.** Es otra cosa, va en un worker, y los números salen de un Ryzen de
+  sobremesa: el de dos minutos tarda 1,1 s aquí y allí serían diez.
 
 ## 2. Que lo que propone la IA valga la pena
 

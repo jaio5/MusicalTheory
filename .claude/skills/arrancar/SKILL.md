@@ -177,6 +177,38 @@ Tres cosas que costaron una pasada en falso:
   Son gajos de un círculo en cajas rectangulares que se solapan. Se juzga con
   cinco puntos y se da por tapado lo que no se alcanza por ninguno.
 
+## Si aguanta un teléfono de gama media
+
+El análisis en vivo va en el hilo principal
+([adr/0003](../../../docs/adr/0003-analisis-en-el-hilo-principal.md)), así que
+si la CPU no da, lo que se pierde no es fluidez: **son acordes**.
+
+```bash
+node .claude/skills/arrancar/gama-media.mjs acordes.wav
+```
+
+Toca un WAV por el micrófono falso con la CPU frenada —×1, ×4, ×6, ×10 y ×20,
+con `Emulation.setCPUThrottlingRate`, el mismo freno del panel de rendimiento de
+Chrome— y cuenta **qué acordes escribió la aplicación**. No milisegundos:
+aciertos, que es lo único que le importa a quien compone.
+
+**Medido el 22 de septiembre de 2026: 4 de 4 en los cinco frenos, incluido ×20.**
+El reconocimiento en vivo no se cae por CPU.
+
+Tres cosas sobre lo que esa cifra **no** dice:
+
+- El micro falso da una señal limpia. Esto mide si el motor **llega a tiempo**,
+  no si acierta con una guitarra en una habitación.
+- El freno es del hilo principal. Lo que corre en el hilo de audio no se frena
+  igual.
+- **No mide el análisis de la grabación entera**, que es otra cosa y va en un
+  worker.
+
+Y una trampa que costó una pasada en falso con tres ceros que parecían una
+medida: **al parar se sigue en «Tocando» y el lienzo ni está montado**, así que
+los bloques no existen en el DOM. Lo escrito se lee de la lista «Lo que ya
+llevas», que es la que enseña ese mismo espacio.
+
 ## Antes de dar nada por terminado
 
 ```bash
