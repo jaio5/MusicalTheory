@@ -478,14 +478,27 @@ function awardBadges(
   if (isGradeDone(progress, 'profesional')) {
     badges.add('profesional-superado');
   }
-  if (progress.streak >= 7) {
-    badges.add('racha-siete');
-  }
-  if (progress.xpToday >= DAILY_GOAL_XP) {
-    badges.add('meta-diaria');
-  }
+  medallasDelDia(badges, progress.streak, progress.xpToday);
 
   return orderBadges(badges);
+}
+
+/**
+ * Las dos medallas que no dependen de qué hiciste, sino de cuánto llevas hoy.
+ *
+ * **En un solo sitio a propósito.** Las reglas —siete días seguidos, y llegar a
+ * la meta del día— estaban escritas tres veces: al terminar una unidad, al
+ * repasar y al componer. Tres copias de una regla son tres sitios donde cambiar
+ * el siete y olvidarse de uno, y una medalla que deja de saltar donde debería no
+ * la echa de menos ningún test.
+ */
+function medallasDelDia(badges: Set<BadgeId>, streak: number, xpToday: number): void {
+  if (streak >= 7) {
+    badges.add('racha-siete');
+  }
+  if (xpToday >= DAILY_GOAL_XP) {
+    badges.add('meta-diaria');
+  }
 }
 
 /**
@@ -593,12 +606,7 @@ export function practiceReview(
   if (cleared) {
     badges.add('repaso-al-dia');
   }
-  if (streak >= 7) {
-    badges.add('racha-siete');
-  }
-  if (xpToday >= DAILY_GOAL_XP) {
-    badges.add('meta-diaria');
-  }
+  medallasDelDia(badges, streak, xpToday);
 
   return {
     ...progress,
@@ -663,12 +671,7 @@ export function practiceCompose(progress: Progress, day: string, deed: ComposeDe
   if (deed === 'ensayo-limpio') {
     badges.add('ensayo-limpio');
   }
-  if (streak >= 7) {
-    badges.add('racha-siete');
-  }
-  if (xpToday >= DAILY_GOAL_XP) {
-    badges.add('meta-diaria');
-  }
+  medallasDelDia(badges, streak, xpToday);
 
   return {
     ...progress,

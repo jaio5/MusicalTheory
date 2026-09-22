@@ -40,6 +40,27 @@ import { useIsomorphicLayoutEffect } from '@ui/use-isomorphic-layout-effect';
  * en qué orden lleguen dos aparatos.
  */
 
+/**
+ * Lo que cambió entre dos avances: lo que la pantalla de final celebra.
+ *
+ * **Las medallas nuevas y la meta recién cerrada se calculaban dos veces**, al
+ * terminar una unidad y al cerrar un repaso, con las mismas cuatro líneas. Dos
+ * copias de «qué ha cambiado» son dos sitios donde una celebración empiece a
+ * contar otra cosa que la otra.
+ */
+function loQueCambio(
+  current: Progress,
+  next: Progress,
+  hoy: string,
+): Pick<Celebration, 'streak' | 'newBadges' | 'goalJustMet'> {
+  return {
+    streak: next.streak,
+    newBadges: next.badges.filter((badge) => !current.badges.includes(badge)),
+    /* v8 ignore next -- la meta no se cierra dos veces el mismo dia: al segundo, `next` ya estaba cerrada */
+    goalJustMet: isGoalMet(next, hoy) && !isGoalMet(current, hoy),
+  };
+}
+
 /** Lo que ha cambiado al terminar algo. Es lo que cuenta la pantalla de final. */
 export interface Celebration {
   readonly unitId: string;
@@ -173,10 +194,7 @@ export function useProgress({ escuchaComponer = false }: ProgressOptions = {}) {
           /* v8 ignore next -- solo se completa una unidad que existe: se llega a ella desde el temario */
           title: findUnit(unitId)?.unit.title ?? '',
           xp: next.xp - current.xp,
-          streak: next.streak,
-          newBadges: next.badges.filter((badge) => !current.badges.includes(badge)),
-          /* v8 ignore next -- la meta no se cierra dos veces el mismo dia: al segundo, `next` ya estaba cerrada */
-          goalJustMet: isGoalMet(next, hoy) && !isGoalMet(current, hoy),
+          ...loQueCambio(current, next, hoy),
           flawless,
         });
 
@@ -218,10 +236,7 @@ export function useProgress({ escuchaComponer = false }: ProgressOptions = {}) {
           title: 'Repaso',
           /* v8 ignore next -- al repasar ya se ha practicado hoy: el dia guardado es el de hoy */
           xp: next.xpToday - (current.lastDay === hoy ? current.xpToday : 0),
-          streak: next.streak,
-          newBadges: next.badges.filter((badge) => !current.badges.includes(badge)),
-          /* v8 ignore next -- repasar no cierra la meta por si solo: el repaso viene despues de practicar */
-          goalJustMet: isGoalMet(next, hoy) && !isGoalMet(current, hoy),
+          ...loQueCambio(current, next, hoy),
           flawless: cleared,
         });
         push(next);

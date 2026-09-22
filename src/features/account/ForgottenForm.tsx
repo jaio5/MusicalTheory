@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { useEnvio } from './use-envio';
+
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { apiErrorFrom } from '@state/api-error';
 import { Button } from '@ui/Button';
@@ -41,9 +43,10 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [repetida, setRepetida] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // Su «hecho» es **el texto** de lo que salió bien y no un sí o un no, así que
+  // se queda aquí: el sobre común le presta el error y el «en marcha».
+  const { error, setError, working, enviar } = useEnvio();
   const [hecho, setHecho] = useState<string | null>(null);
-  const [working, setWorking] = useState(false);
 
   const conVale = vale !== undefined && vale !== '';
 
@@ -56,45 +59,43 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
       return;
     }
 
-    setError(null);
-    setWorking(true);
-    try {
-      const response = await request({ method: 'POST', body: JSON.stringify({ email }) });
-      if (!response.ok) {
-        setError((await apiErrorFrom(response, 'No hemos podido mandar el correo.')).message);
-        return;
+    await enviar(async () => {
+      try {
+        const response = await request({ method: 'POST', body: JSON.stringify({ email }) });
+        if (!response.ok) {
+          setError((await apiErrorFrom(response, 'No hemos podido mandar el correo.')).message);
+          return;
+        }
+        const body = (await response.json()) as { message?: unknown };
+        setHecho(
+          typeof body.message === 'string'
+            ? body.message
+            : 'Si ese correo tiene cuenta, le hemos mandado un enlace.',
+        );
+      } catch {
+        setError('No hemos podido mandar el correo. Comprueba la conexión.');
       }
-      const body = (await response.json()) as { message?: unknown };
-      setHecho(
-        typeof body.message === 'string'
-          ? body.message
-          : 'Si ese correo tiene cuenta, le hemos mandado un enlace.',
-      );
-    } catch {
-      setError('No hemos podido mandar el correo. Comprueba la conexión.');
-    } finally {
-      setWorking(false);
-    }
+    });
   }
 
   async function cambiar(): Promise<void> {
-    setError(null);
-    setWorking(true);
-    try {
-      const response = await request({
-        method: 'PUT',
-        body: JSON.stringify({ vale, password }),
-      });
-      if (!response.ok) {
-        setError((await apiErrorFrom(response, 'No hemos podido cambiar la contraseña.')).message);
-        return;
+    await enviar(async () => {
+      try {
+        const response = await request({
+          method: 'PUT',
+          body: JSON.stringify({ vale, password }),
+        });
+        if (!response.ok) {
+          setError(
+            (await apiErrorFrom(response, 'No hemos podido cambiar la contraseña.')).message,
+          );
+          return;
+        }
+        setHecho('Contraseña cambiada. Ya puedes entrar con ella.');
+      } catch {
+        setError('No hemos podido cambiar la contraseña. Comprueba la conexión.');
       }
-      setHecho('Contraseña cambiada. Ya puedes entrar con ella.');
-    } catch {
-      setError('No hemos podido cambiar la contraseña. Comprueba la conexión.');
-    } finally {
-      setWorking(false);
-    }
+    });
   }
 
   if (hecho !== null) {

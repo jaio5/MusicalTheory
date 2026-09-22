@@ -11,7 +11,7 @@
 import { MAX_IDEAS, MAX_RECENT_CHORDS, MAX_RECENT_NOTES } from '@core/billing';
 import {
   degreesFor,
-  parseKey,
+  cuerpoConTonalidad,
   asNoteName,
   pitchClassFromName,
   resolveProgression,
@@ -90,20 +90,16 @@ export function ideasError(code: IdeasErrorCode, message?: string): IdeasError {
  * reconstruye a partir de los campos que pasan, y todo lo demás se ignora.
  */
 export function parseIdeasRequest(body: unknown): IdeasRequest | null {
-  if (!isRecord(body)) {
+  const leido = cuerpoConTonalidad(body);
+  if (leido === null) {
     return null;
   }
+  const { campos, tonic, mode } = leido;
 
-  const kind = body['kind'];
+  const kind = campos['kind'];
   if (typeof kind !== 'string' || !(IDEA_KINDS as readonly string[]).includes(kind)) {
     return null;
   }
-
-  const key = parseKey(body['key']);
-  if (key === null) {
-    return null;
-  }
-  const { tonic, mode } = key;
 
   const request: {
     kind: IdeaKind;
@@ -114,18 +110,18 @@ export function parseIdeasRequest(body: unknown): IdeasRequest | null {
     recentChords?: string[];
   } = { kind: kind as IdeaKind, key: { tonic, mode } };
 
-  const scale = body['scale'];
+  const scale = campos['scale'];
   if (typeof scale === 'string' && (SCALE_IDS as readonly string[]).includes(scale)) {
     request.scale = scale as ScaleId;
   }
 
-  const degree = body['currentDegree'];
+  const degree = campos['currentDegree'];
   const validDegrees = degreesFor(mode) as readonly string[];
   if (typeof degree === 'string' && validDegrees.includes(degree)) {
     request.currentDegree = degree as DegreeSymbol;
   }
 
-  const notes = body['recentNotes'];
+  const notes = campos['recentNotes'];
   if (Array.isArray(notes)) {
     const clean = notes
       .map(asNoteName)
@@ -136,7 +132,7 @@ export function parseIdeasRequest(body: unknown): IdeasRequest | null {
     }
   }
 
-  const chords = body['recentChords'];
+  const chords = campos['recentChords'];
   if (Array.isArray(chords)) {
     const clean = chords
       .filter((chord): chord is string => typeof chord === 'string' && chord.length <= 8)

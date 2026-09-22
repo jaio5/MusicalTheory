@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { useEnvio } from './use-envio';
+
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { signInWithPassword, updateAccount, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
@@ -27,18 +29,13 @@ export function PasswordForm() {
   const [actual, setActual] = useState('');
   const [nueva, setNueva] = useState('');
   const [repetida, setRepetida] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [hecho, setHecho] = useState(false);
-  const [working, setWorking] = useState(false);
+  const { error, setError, hecho, setHecho, working, enviar } = useEnvio();
 
   const coinciden = nueva === repetida;
   const puede = actual !== '' && nueva.length >= MIN_PASSWORD_LENGTH && coinciden && !working;
 
   async function submit(): Promise<void> {
-    setError(null);
-    setHecho(false);
-    setWorking(true);
-    try {
+    await enviar(async () => {
       const result = await updateAccount({ passwordActual: actual, passwordNueva: nueva });
       if (!result.ok) {
         setError(result.message);
@@ -67,9 +64,7 @@ export function PasswordForm() {
         // mientras la sesión está muerta.
         setError('La contraseña es la nueva, pero hay que volver a entrar con ella.');
       }
-    } finally {
-      setWorking(false);
-    }
+    });
   }
 
   return (

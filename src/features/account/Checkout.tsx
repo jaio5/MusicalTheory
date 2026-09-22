@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+
+import { useEnvio } from './use-envio';
 
 import { can, monthlyAiRequests, planOf, priceLabel, type Plan } from '@core/billing';
 import { changePlan, useAccount } from '@state/account';
@@ -40,18 +41,15 @@ export function Checkout({
 }) {
   const router = useRouter();
   const { account, accounts, signedIn, refresh } = useAccount();
-  const [working, setWorking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  // `hecho` se llama `done` aquí desde antes; el sobre es el mismo.
+  const { error, setError, hecho: done, setHecho: setDone, working, enviar } = useEnvio();
 
   const actual = planOf(account.plan);
   const yaEsTuyo = actual.id === plan.id;
   const esSubida = plan.monthlyCents > actual.monthlyCents;
 
   async function activar(): Promise<void> {
-    setError(null);
-    setWorking(true);
-    try {
+    await enviar(async () => {
       const result = await changePlan(plan.id);
       if (result.kind === 'ir-a-pagar') {
         // Con pasarela puesta, se sale a pagar a su dominio. `assign` y no
@@ -68,9 +66,7 @@ export function Checkout({
       // El plan lo lee el servidor al pintar, así que hay que pedirle que vuelva a
       // hacerlo: sin esto, el resto de la aplicación seguiría con el plan de antes.
       router.refresh();
-    } finally {
-      setWorking(false);
-    }
+    });
   }
 
   if (done || yaEsTuyo) {

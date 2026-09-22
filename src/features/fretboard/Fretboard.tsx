@@ -1,5 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
-
 import {
   DEFAULT_FRET_COUNT,
   fretboardPositions,
@@ -14,6 +12,7 @@ import {
   type PitchClass,
   type ScaleId,
 } from '@core/music';
+import { useMedida } from '@ui/use-medida';
 
 const NUT_X = 46;
 /** Lo que mide un traste cuando el mástil se dibuja a su tamaño natural. */
@@ -95,21 +94,7 @@ export function Fretboard({
    * el SVG con `preserveAspectRatio="none"` se estirarían también las notas, y
    * un mástil de notas ovaladas no es un mástil.
    */
-  const cajaRef = useRef<HTMLDivElement | null>(null);
-  const [caja, setCaja] = useState({ ancho: 0, alto: 0 });
-  useEffect(() => {
-    const el = cajaRef.current;
-    /* v8 ignore next -- la caja está montada; lo que falta en jsdom es el observador, y eso sí se prueba */
-    if (el === null || typeof ResizeObserver === 'undefined') return;
-    const observador = new ResizeObserver(([entrada]) => {
-      setCaja({
-        ancho: entrada?.contentRect.width ?? 0,
-        alto: entrada?.contentRect.height ?? 0,
-      });
-    });
-    observador.observe(el);
-    return () => observador.disconnect();
-  }, []);
+  const { ref: cajaRef, medida: caja } = useMedida<HTMLDivElement>();
 
   /**
    * El ancho del dibujo en sus propias unidades.

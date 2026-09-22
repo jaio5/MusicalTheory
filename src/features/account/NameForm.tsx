@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { useEnvio } from './use-envio';
+
 import { MAX_NAME_LENGTH } from '@core/billing';
 import { updateAccount, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
@@ -22,9 +24,7 @@ import { Formulario } from '@ui/Formulario';
 export function NameForm() {
   const { account, refresh } = useAccount();
   const [name, setName] = useState(account.name ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [hecho, setHecho] = useState(false);
-  const [working, setWorking] = useState(false);
+  const { error, setError, hecho, setHecho, working, enviar } = useEnvio();
 
   // Si la cuenta cambia por debajo —al refrescar, al entrar con otra— gana la del
   // servidor, igual que hace el proveedor de la cuenta con la suya.
@@ -36,10 +36,7 @@ export function NameForm() {
   }
 
   async function submit(): Promise<void> {
-    setError(null);
-    setHecho(false);
-    setWorking(true);
-    try {
+    await enviar(async () => {
       const result = await updateAccount({ name });
       if (!result.ok) {
         setError(result.message);
@@ -47,9 +44,7 @@ export function NameForm() {
       }
       setHecho(true);
       await refresh();
-    } finally {
-      setWorking(false);
-    }
+    });
   }
 
   return (

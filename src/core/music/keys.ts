@@ -227,3 +227,25 @@ export function parseKey(value: unknown): { tonic: NoteName; mode: KeyMode } | n
   }
   return { tonic, mode };
 }
+
+/**
+ * El cuerpo de una petición que empieza por una tonalidad.
+ *
+ * Las tres rutas de IA arrancan igual: comprobar que llega un objeto, leer la
+ * tonalidad y quedarse con la tónica y el modo. Estaba escrito tres veces, y la
+ * primera comprobación —**que el cuerpo sea un objeto**— es la que sostiene
+ * todas las demás: un contrato que se la olvide lee campos de `null` y decide
+ * con lo que salga.
+ *
+ * Devuelve también el cuerpo ya estrechado, que es lo que el contrato necesita
+ * para seguir leyendo sus campos.
+ */
+export function cuerpoConTonalidad(
+  body: unknown,
+): { campos: Record<string, unknown>; tonic: NoteName; mode: KeyMode } | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+  const key = parseKey(body['key']);
+  return key === null ? null : { campos: body, tonic: key.tonic, mode: key.mode };
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
@@ -18,6 +18,7 @@ import {
 
 import { arrastrar } from './arrastrar';
 import { BOLITA, CLAVE_DE_SOL, ESPACIO_CLAVE } from './clef';
+import { useMedida } from '@ui/use-medida';
 
 /**
  * La partitura: el mismo punteo, escrito.
@@ -347,19 +348,8 @@ export function Staff({
    * repartir los pulsos, y un SVG escalado con `width: 100%` estiraría también
    * las notas y la clave hasta deformarlas.
    */
-  const cajaRef = useRef<HTMLDivElement | null>(null);
-  const [disponible, setDisponible] = useState(0);
-  useEffect(() => {
-    const caja = cajaRef.current;
-    if (caja === null || typeof ResizeObserver === 'undefined') {
-      return;
-    }
-    const observador = new ResizeObserver(([entrada]) => {
-      setDisponible(entrada?.contentRect.width ?? 0);
-    });
-    observador.observe(caja);
-    return () => observador.disconnect();
-  }, []);
+  const { ref: cajaRef, medida } = useMedida<HTMLDivElement>();
+  const disponible = medida.ancho;
 
   const porPulso = Math.min(
     PULSO_MAXIMO,

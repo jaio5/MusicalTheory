@@ -3,6 +3,8 @@
 import { signOut } from 'next-auth/react';
 import { useState } from 'react';
 
+import { useEnvio } from './use-envio';
+
 import { deleteAccount } from '@state/account';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
@@ -30,15 +32,12 @@ export function DeleteAccountForm() {
   const [abierto, setAbierto] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [working, setWorking] = useState(false);
+  const { error, setError, working, enviar } = useEnvio();
 
   const puede = password !== '' && confirmacion.trim().toLowerCase() === 'borrar' && !working;
 
   async function submit(): Promise<void> {
-    setError(null);
-    setWorking(true);
-    try {
+    await enviar(async () => {
       const result = await deleteAccount(password);
       if (!result.ok) {
         setError(result.message);
@@ -48,9 +47,7 @@ export function DeleteAccountForm() {
       // esto, quien acaba de borrarse se queda con una sesión que apunta a una
       // fila que ya no existe.
       await signOut({ callbackUrl: '/' });
-    } finally {
-      setWorking(false);
-    }
+    });
   }
 
   if (!abierto) {

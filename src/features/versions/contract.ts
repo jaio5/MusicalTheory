@@ -20,7 +20,7 @@ import { MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
 import {
   DEFAULT_ROLE,
   degreesFor,
-  parseKey,
+  cuerpoConTonalidad,
   isSectionRole,
   kindOfPath,
   moveById,
@@ -188,17 +188,13 @@ function asBeats(value: unknown): number {
  * pasan y todo lo demás se ignora, igual que en las ideas.
  */
 export function parseVersionsRequest(body: unknown): VersionsRequest | null {
-  if (!isRecord(body)) {
+  const leido = cuerpoConTonalidad(body);
+  if (leido === null) {
     return null;
   }
+  const { campos, tonic, mode } = leido;
 
-  const key = parseKey(body['key']);
-  if (key === null) {
-    return null;
-  }
-  const { tonic, mode } = key;
-
-  const raw = body['progression'];
+  const raw = campos['progression'];
   if (!Array.isArray(raw)) {
     return null;
   }
@@ -229,14 +225,14 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
   }
 
   // Sin clase no hay petición: es lo que decide qué esquema se le manda.
-  const kind = body['kind'];
+  const kind = campos['kind'];
   if (kind !== 'continuar' && kind !== 'retocar') {
     return null;
   }
 
   // Un papel que no se reconoce se lee como idea, que es lo que era antes de que
   // existiera este campo: una petición vieja o de otra versión sigue valiendo.
-  const crudo = body['role'];
+  const crudo = campos['role'];
   const role = isSectionRole(crudo) ? crudo : DEFAULT_ROLE;
 
   const request: {

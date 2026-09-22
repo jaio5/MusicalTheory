@@ -75,6 +75,23 @@ function opuesta(quality: ChordQuality): ChordQuality | null {
  * tienen relativo, y ahí se devuelve nulo en vez de forzar uno.
  */
 function relativo(mode: KeyMode, degree: DegreeSymbol): DegreeSymbol | null {
+  return conLaOtraEspecie(mode, degree, (quality) => (quality === 'major' ? -3 : 3));
+}
+
+/**
+ * El mismo grado con la otra especie, movido lo que se le diga.
+ *
+ * Es lo que hacen los dos movimientos que cambian mayor por menor: el
+ * intercambio se queda donde está y el relativo se va tres semitonos. Escrito
+ * dos veces, la comprobación de «este grado no tiene la otra especie» estaba
+ * dos veces, y **una de las dos puede olvidarse el segundo nulo**: el que dice
+ * que un disminuido no tiene relativo.
+ */
+function conLaOtraEspecie(
+  mode: KeyMode,
+  degree: DegreeSymbol,
+  salto: (quality: ChordQuality) => number,
+): DegreeSymbol | null {
   const shape = shapeOf(mode, degree);
   if (shape === null) {
     return null;
@@ -83,8 +100,7 @@ function relativo(mode: KeyMode, degree: DegreeSymbol): DegreeSymbol | null {
   if (destino === null) {
     return null;
   }
-  const salto = shape.quality === 'major' ? -3 : 3;
-  return degreeAt(mode, shape.offset + salto, destino);
+  return degreeAt(mode, shape.offset + salto(shape.quality), destino);
 }
 
 /**
@@ -159,12 +175,7 @@ function interrumpida(mode: KeyMode, degree: DegreeSymbol): DegreeSymbol | null 
  * honesto: significa que en esta tonalidad ese acorde no se usa así.
  */
 function intercambio(mode: KeyMode, degree: DegreeSymbol): DegreeSymbol | null {
-  const shape = shapeOf(mode, degree);
-  if (shape === null) {
-    return null;
-  }
-  const destino = opuesta(shape.quality);
-  return destino === null ? null : degreeAt(mode, shape.offset, destino);
+  return conLaOtraEspecie(mode, degree, () => 0);
 }
 
 const APLICAR: Readonly<

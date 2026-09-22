@@ -677,25 +677,41 @@ export function playbackStepsOf(
   mode: KeyMode,
   partId: string | null = null,
 ): PlaybackStep[] {
-  const partes =
-    partId === null ? arrangement.parts : arrangement.parts.filter((part) => part.id === partId);
-
-  // Las vueltas se recorren aquí, igual que en `soundOf` y en `blocksInOrder`:
-  // los tres tienen que dar la misma lista en el mismo orden o el bloque que se
+  // El orden lo pone `recorrido`, que es el mismo que usan `soundOf` y
+  // `blocksInOrder`: los tres tienen que dar la misma lista o el bloque que se
   // enciende en pantalla deja de ser el que suena.
-  return partes.flatMap((part) =>
-    vueltasDe(part).flatMap(() =>
-      part.blocks.map((block) => {
-        const chord = blockChord(tonic, mode, block);
-        return { notes: chord.notes, root: chord.root, beats: block.beats };
-      }),
-    ),
+  return recorrido(arrangement, partId).flatMap(({ part }) =>
+    part.blocks.map((block) => {
+      const chord = blockChord(tonic, mode, block);
+      return { notes: chord.notes, root: chord.root, beats: block.beats };
+    }),
   );
 }
 
 /** Un elemento por vuelta, para recorrerlas con un `flatMap`. */
 function vueltasDe(part: Part): readonly number[] {
   return Array.from({ length: repeatsOf(part) }, (_, vuelta) => vuelta);
+}
+
+/**
+ * Las partes que entran, en el orden en que suenan y con sus vueltas
+ * desenrolladas.
+ *
+ * **Lo dice un solo sitio a propósito.** `soundOf`, `playbackStepsOf` y
+ * `blocksInOrder` tienen que dar la misma lista en el mismo orden, o el bloque
+ * que se enciende en pantalla deja de ser el que suena. Estaba escrito tres
+ * veces, y tres copias de una invariante son tres sitios donde romperla.
+ *
+ * Con `partId`, solo esa parte: es lo que hace falta para oír una sola.
+ */
+function recorrido(
+  arrangement: Arrangement,
+  partId: string | null,
+): { readonly part: Part; readonly vuelta: number }[] {
+  const partes =
+    partId === null ? arrangement.parts : arrangement.parts.filter((part) => part.id === partId);
+
+  return partes.flatMap((part) => vueltasDe(part).map((vuelta) => ({ part, vuelta })));
 }
 
 /**
@@ -722,48 +738,45 @@ export function soundOf(
   withMelody = true,
   baseMidi?: number,
 ): ArrangementSound {
-  const partes =
-    partId === null ? arrangement.parts : arrangement.parts.filter((part) => part.id === partId);
-
   const events: TimedEvent[] = [];
   const owners: (string | null)[] = [];
 
   // Las partes van una detrás de otra, así que cada una empieza donde acabó la
-  // anterior. El punteo se mide desde el principio de su parte, no de la canción:
-  // mover una parte de sitio se lleva su melodía con ella.
+  // anterior, y cada vuelta donde acabó la anterior: una parte que va dos veces
+  // se toca dos veces entera, solo que no ocupa el doble de papel. El punteo se
+  // mide desde el principio de su parte y no de la canción, así que mover una
+  // parte de sitio se lleva su melodía con ella.
+  //
+  // El orden lo pone `recorrido`, el mismo que usan `playbackStepsOf` y
+  // `blocksInOrder`.
   let desde = 0;
-  for (const part of partes) {
-    // Cada vuelta empieza donde acabó la anterior, y el punteo se repite con
-    // ella: una parte que va dos veces se toca dos veces entera, solo que no
-    // ocupa el doble de papel.
-    for (let vuelta = 0; vuelta < repeatsOf(part); vuelta += 1) {
-      let enPulsos = desde;
-      for (const block of part.blocks) {
-        // Con `blockChord` y no con el grado a secas: si el bloque lleva séptima,
-        // tiene que sonar la séptima. Es todo lo que hacía falta para que se oiga.
-        const chord = blockChord(tonic, mode, block);
-        events.push({
-          startBeat: enPulsos,
-          beats: block.beats,
-          midis: voiceForPlayback(chord.root, chord.notes, baseMidi),
-        });
-        owners.push(block.id);
-        enPulsos += block.beats;
-      }
-
-      if (withMelody) {
-        for (const note of part.notes) {
-          events.push({
-            startBeat: desde + note.start,
-            beats: note.length,
-            midis: [midiOf(note, tonic)],
-          });
-          owners.push(null);
-        }
-      }
-
-      desde += partLength(part);
+  for (const { part } of recorrido(arrangement, partId)) {
+    let enPulsos = desde;
+    for (const block of part.blocks) {
+      // Con `blockChord` y no con el grado a secas: si el bloque lleva séptima,
+      // tiene que sonar la séptima. Es todo lo que hacía falta para que se oiga.
+      const chord = blockChord(tonic, mode, block);
+      events.push({
+        startBeat: enPulsos,
+        beats: block.beats,
+        midis: voiceForPlayback(chord.root, chord.notes, baseMidi),
+      });
+      owners.push(block.id);
+      enPulsos += block.beats;
     }
+
+    if (withMelody) {
+      for (const note of part.notes) {
+        events.push({
+          startBeat: desde + note.start,
+          beats: note.length,
+          midis: [midiOf(note, tonic)],
+        });
+        owners.push(null);
+      }
+    }
+
+    desde += partLength(part);
   }
 
   // Se ordenan a la vez que sus dueños: `scheduleEvents` también ordena, y si
@@ -790,15 +803,10 @@ export function blocksInOrder(
   arrangement: Arrangement,
   partId: string | null = null,
 ): { readonly partId: string; readonly blockId: string }[] {
-  const partes =
-    partId === null ? arrangement.parts : arrangement.parts.filter((part) => part.id === partId);
-
   // Con las vueltas dentro: quien reproduce cuenta sonidos, y en la segunda
   // vuelta el tercer sonido vuelve a ser el primer bloque de la parte.
-  return partes.flatMap((part) =>
-    vueltasDe(part).flatMap(() =>
-      part.blocks.map((block) => ({ partId: part.id, blockId: block.id })),
-    ),
+  return recorrido(arrangement, partId).flatMap(({ part }) =>
+    part.blocks.map((block) => ({ partId: part.id, blockId: block.id })),
   );
 }
 

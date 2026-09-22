@@ -3,6 +3,8 @@
 import Link from 'next/link';
 
 import { useRouter } from 'next/navigation';
+
+import { useEnvio } from './use-envio';
 import { useState } from 'react';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
@@ -45,8 +47,7 @@ export function AccessForm({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [working, setWorking] = useState(false);
+  const { error, setError, working, enviar } = useEnvio();
 
   if (!accounts) {
     // Es un estado normal y no un fallo —sin base de datos todo el mundo es
@@ -72,9 +73,7 @@ export function AccessForm({
       return;
     }
 
-    setError(null);
-    setWorking(true);
-    try {
+    await enviar(async () => {
       const result = nuevo
         ? await registerAccount(email, password, name === '' ? undefined : name)
         : await signInWithPassword(email, password);
@@ -92,9 +91,7 @@ export function AccessForm({
       await refresh();
       router.refresh();
       onDone?.();
-    } finally {
-      setWorking(false);
-    }
+    });
   }
 
   const puede = email.trim() !== '' && password.length >= (nuevo ? MIN_PASSWORD_LENGTH : 1);

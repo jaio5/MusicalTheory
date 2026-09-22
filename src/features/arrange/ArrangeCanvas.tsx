@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
@@ -37,6 +37,7 @@ import { useBancoStore } from '@state/banco';
 import { usePedidoDeIdeas } from '@state/pedido-de-ideas';
 import { usePropuestaStore } from '@state/propuesta';
 import { Button } from '@ui/Button';
+import { useMedida } from '@ui/use-medida';
 import { Chip } from '@ui/Chip';
 import { EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
 import { IconoCanciones } from '@ui/icons';
@@ -211,19 +212,8 @@ export function ArrangeCanvas() {
    * mediría lo mismo que una de cuatro y el carril de bloques dejaría de decir
    * con su tamaño lo que dura cada cosa, que es para lo que está.
    */
-  const anchoRef = useRef<HTMLDivElement | null>(null);
-  const [disponible, setDisponible] = useState(0);
-  useEffect(() => {
-    const caja = anchoRef.current;
-    if (caja === null || typeof ResizeObserver === 'undefined') {
-      return;
-    }
-    const observador = new ResizeObserver(([entrada]) => {
-      setDisponible(entrada?.contentRect.width ?? 0);
-    });
-    observador.observe(caja);
-    return () => observador.disconnect();
-  }, []);
+  const { ref: anchoRef, medida } = useMedida<HTMLDivElement>();
+  const disponible = medida.ancho;
 
   const pulsosDeLaMasLarga = arrangement.parts.reduce(
     (largo, part) => Math.max(largo, drawnBars(part, beatsPerBar) * beatsPerBar),

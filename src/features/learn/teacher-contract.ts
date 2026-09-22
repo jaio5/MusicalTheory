@@ -11,7 +11,7 @@
 
 import {
   degreesFor,
-  parseKey,
+  cuerpoConTonalidad,
   findUnit,
   resolveProgression,
   SCALE_IDS,
@@ -122,17 +122,13 @@ export function teacherError(code: TeacherErrorCode, message?: string): TeacherE
  * pregunta.
  */
 export function parseTeacherRequest(body: unknown): TeacherRequest | null {
-  if (!isRecord(body)) {
+  const leido = cuerpoConTonalidad(body);
+  if (leido === null) {
     return null;
   }
+  const { campos, tonic, mode } = leido;
 
-  const key = parseKey(body['key']);
-  if (key === null) {
-    return null;
-  }
-  const { tonic, mode } = key;
-
-  const question = body['question'];
+  const question = campos['question'];
   if (typeof question !== 'string' || question.trim() === '') {
     return null;
   }
@@ -154,14 +150,14 @@ export function parseTeacherRequest(body: unknown): TeacherRequest | null {
     question: limpia.slice(0, MAX_QUESTION_LENGTH),
   };
 
-  const scale = body['scale'];
+  const scale = campos['scale'];
   if (typeof scale === 'string' && (SCALE_IDS as readonly string[]).includes(scale)) {
     request.scale = scale as ScaleId;
   }
 
   // Un id que no esté en el temario se descarta en silencio, como los grados que
   // no existen: no es un error del que pregunta, es un cliente desactualizado.
-  const unitId = body['unitId'];
+  const unitId = campos['unitId'];
   if (typeof unitId === 'string' && findUnit(unitId) !== null) {
     request.unitId = unitId;
   }
