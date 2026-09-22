@@ -708,3 +708,73 @@ describe('El espacio de ensayar', () => {
     vi.unstubAllGlobals();
   });
 });
+
+/**
+ * Ver el mástil grande, que existe porque en una ventana baja no caben la
+ * canción y un mástil legible a la vez
+ * ([adr/0037](../../../docs/adr/0037-el-mastil-pide-su-alto.md)). Medido en una
+ * de 606 px de alto: el dibujo se quedaba en 166 y se pintaba al 40 % del
+ * ancho, centrado entre dos franjas muertas.
+ */
+describe('ver el mastil grande', () => {
+  function conElMastil(): void {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+    useBancoStore.getState().actions.abrirAbajo('mastil');
+  }
+
+  /** Si la caja que lleva la canción está apartada. */
+  function laCancionApartada(): boolean {
+    const arreglo = screen.getByRole('region', { name: 'Arreglo' });
+    return arreglo.closest('.hidden') !== null;
+  }
+
+  it('aparta la cancion, y la devuelve', async () => {
+    conElMastil();
+    render(<ComposeScreen />);
+
+    expect(laCancionApartada()).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ver grande' }));
+
+    expect(screen.getByRole('button', { name: 'Volver al banco' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(laCancionApartada()).toBe(true);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Volver al banco' }));
+
+    expect(laCancionApartada()).toBe(false);
+  });
+
+  // Solo el mástil: lo de dentro de los demás se desplaza, así que verlo grande
+  // no enseña más.
+  it('los demas paneles no lo traen', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+    useBancoStore.getState().actions.abrirAbajo('sesiones');
+
+    render(<ComposeScreen />);
+
+    expect(screen.getByRole('region', { name: 'Sesiones' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ver grande' })).not.toBeInTheDocument();
+  });
+
+  /**
+   * Cambiar de panel lo deshace: es un modo de mirar **una** cosa, y mirando
+   * otra no significa nada. Sin esto, abrir Sesiones desde el mástil grande
+   * dejaba la canción apartada y ningún botón para devolverla.
+   */
+  it('cambiar de panel lo deshace', async () => {
+    conElMastil();
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'Ver grande' }));
+    expect(laCancionApartada()).toBe(true);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sesiones' }));
+
+    expect(laCancionApartada()).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Volver al banco' })).not.toBeInTheDocument();
+  });
+});

@@ -53,7 +53,7 @@ export function RotulosDelMastil() {
 }
 
 /** Escala que se propone según el modo detectado, si no se ha elegido otra. */
-export function FretboardPanel() {
+export function FretboardPanel({ grande = false }: { readonly grande?: boolean } = {}) {
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
   const reading = useSessionStore((state) => state.reading);
@@ -131,7 +131,20 @@ export function FretboardPanel() {
             // 61+85+(224+44)+61+36 = 511 px, y 61+57+(176+44)+61+36 = 435. El
             // último sumando es la cabecera del área y su relleno; eran 85
             // cuando los rótulos vivían encima del dibujo.
-            className="w-full shrink-0 lg:max-h-[calc(100dvh-32.25rem)] xl:max-h-[calc(100dvh-27.5rem)]"
+            className={
+              grande
+                ? // Grande es sin la canción delante, así que lo único que hay
+                  // que dejar son la barra de navegación (61), la de
+                  // herramientas, la de abajo (61) y la cabecera de esta área
+                  // (37). Dos topes porque la de herramientas se parte en dos
+                  // filas por debajo de 1280: 61+85+61+37 = 244, y
+                  // 61+57+61+37 = 216.
+                  //
+                  // **Sin contar la de herramientas se pasaba**, y lo que se
+                  // salía por abajo era la barra con la que se cierra el panel.
+                  'max-h-[calc(100dvh-15.25rem)] w-full shrink-0 xl:max-h-[calc(100dvh-14rem)]'
+                : 'w-full shrink-0 lg:max-h-[calc(100dvh-32.25rem)] xl:max-h-[calc(100dvh-27.5rem)]'
+            }
             style={{ aspectRatio: PROPORCION }}
           >
             <Fretboard

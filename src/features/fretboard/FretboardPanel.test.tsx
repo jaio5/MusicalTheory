@@ -156,4 +156,14 @@ describe('qué acorde marca el mástil', () => {
     const { container } = render(<RotulosDelMastil />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  /** Grande el tope es otro: sin la canción delante sobra mucho más alto. */
+  it('grande sube el tope del hueco', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    render(<FretboardPanel grande />);
+
+    const dibujo = await screen.findByRole('img', { name: /mástil de/i });
+    expect(dibujo.parentElement!.className).toContain('max-h-[calc(100dvh-15.25rem)]');
+  });
 });

@@ -79,6 +79,36 @@ tiene que ceder. Antes cedía en silencio recortando ocho cosas; ahora cede el
 mástil y no se corta nada. Se prefiere así: **un recorte no se ve y un dibujo
 pequeño sí**, y lo que se recortaba era la tira que devuelve un panel.
 
+## Y un modo de mirarlo: «ver grande»
+
+Todo lo de arriba tiene un techo, y es la altura de la ventana. **En una de 606
+píxeles no caben la canción y un mástil legible a la vez**: el dibujo llena su
+ancho pidiendo 420 px de alto, y entre las dos barras de arriba, la de abajo y el
+suelo de la canción no queda ni la mitad. Se quedaba en 166 px, pintado al 40 %
+del ancho y centrado entre dos franjas muertas. Visto en una captura de quien lo
+usa, no midiendo: las medidas se habían hecho en ventanas de 900 para arriba.
+
+Así que la cabecera del mástil trae **«Ver grande»**, que aparta la canción
+mientras se mira. Mirar el mástil es una cosa que se hace un rato y se deja, así
+que un rato se lleva la pantalla —es lo mismo que ya decía este proyecto sobre
+perder media pantalla mientras está abierto—.
+
+No se guarda, porque es un modo de mirar y no un reparto, y **cambiar de panel lo
+deshace**: sin eso, abrir Sesiones desde el mástil grande dejaba la canción
+apartada y ningún botón para devolverla.
+
+| Ventana    | Normal                        | Grande                 |
+| ---------- | ----------------------------- | ---------------------- |
+| 1314 × 606 | 514 px de ancho, cuerdas a 22 | **1183, cuerdas a 50** |
+| 1024 × 600 | 260, cuerdas a 11             | **1000, cuerdas a 42** |
+| 1440 × 900 | 1416, cuerdas a 60            | igual: ya llenaba      |
+
+Su tope también está medido, y también son dos: 61 de la barra de navegación, la
+de herramientas —57, u 85 cuando se parte en dos filas por debajo de 1280—, 61 de
+la barra de abajo y 37 de la cabecera del área. **Sin contar la de herramientas se
+pasaba**, y lo que se salía por abajo era justo la barra con la que se cierra el
+panel.
+
 ## Alternativas descartadas
 
 **Subir el alto de fábrica y el tope del área.** Es el arreglo de una línea y no
