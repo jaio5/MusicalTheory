@@ -4,7 +4,7 @@ import { accidentalForScale, SCALES, scaleNotes, noteName } from '@core/music';
 import { useAcordeElegido } from '@state/acorde-elegido';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 
-import { Fretboard, PROPORCION } from './Fretboard';
+import { Fretboard } from './Fretboard';
 
 /**
  * Lo que dice el mástil, en una línea, **para la cabecera del área**.
@@ -61,7 +61,7 @@ export function RotulosDelMastil() {
 }
 
 /** Escala que se propone según el modo detectado, si no se ha elegido otra. */
-export function FretboardPanel({ grande = false }: { readonly grande?: boolean } = {}) {
+export function FretboardPanel() {
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
   const reading = useSessionStore((state) => state.reading);
@@ -113,48 +113,25 @@ export function FretboardPanel({ grande = false }: { readonly grande?: boolean }
               Cuando el tope muerde, el ancho se queda y el alto no: el dibujo
               vuelve a encogerse centrado, que es lo menos malo cuando no hay
               alto que darle. */}
-          <div
-            // **Pide el alto que llena su ancho, y no más del que sobra.**
-            // `aspect-ratio` pone lo primero sin números; el tope pone lo
-            // segundo, y hace falta porque el bloque de abajo es `shrink-0`:
-            // sin él el mástil se queda con su alto natural y deja la fila de
-            // arriba once píxeles corta, que es suficiente para que la tira
-            // plegada de «A dónde ir» quede fuera de alcance y no haya manera
-            // de devolver ese panel.
-            //
-            // El tope son cinco cosas sumadas, **medidas, no estimadas**: la
-            // barra de navegación (61), la de herramientas, el suelo de verdad
-            // del arreglo, la barra de abajo (61) y la cabecera y los rótulos
-            // de esta misma área (85).
-            //
-            // Al suelo del arreglo hay que sumarle los 44 px de la tira de un
-            // área plegada: **va debajo de él, en la misma columna**, y es lo
-            // único que queda en pantalla de ese panel. Cortándola no hay
-            // manera de devolverlo.
-            //
-            // Y son dos topes porque por debajo de 1280 cambian dos de los
-            // cinco sumandos: la barra de herramientas se parte en dos filas
-            // —85 en vez de 57— y el arreglo necesita 224 en vez de 176, que
-            // también es por partirse en más filas.
-            // 61+85+(224+44)+61+36 = 511 px, y 61+57+(176+44)+61+36 = 435. El
-            // último sumando es la cabecera del área y su relleno; eran 85
-            // cuando los rótulos vivían encima del dibujo.
-            className={
-              grande
-                ? // Grande es sin la canción delante, así que lo único que hay
-                  // que dejar son la barra de navegación (61), la de
-                  // herramientas, la de abajo (61) y la cabecera de esta área
-                  // (37). Dos topes porque la de herramientas se parte en dos
-                  // filas por debajo de 1280: 61+85+61+37 = 244, y
-                  // 61+57+61+37 = 216.
-                  //
-                  // **Sin contar la de herramientas se pasaba**, y lo que se
-                  // salía por abajo era la barra con la que se cierra el panel.
-                  'max-h-[calc(100dvh-15.25rem)] w-full shrink-0 xl:max-h-[calc(100dvh-14rem)]'
-                : 'w-full shrink-0 lg:max-h-[calc(100dvh-32.25rem)] xl:max-h-[calc(100dvh-27.5rem)]'
-            }
-            style={{ aspectRatio: PROPORCION }}
-          >
+          {/* **El hueco le da el alto y el mástil se estira a lo ancho.** Antes
+              llevaba la proporción del dibujo, y en una ventana baja eso lo
+              dejaba en un cuadrado centrado con dos franjas muertas a los
+              lados: el alto que sobraba mandaba sobre el ancho que había.
+              Ahora el dibujo se mide su caja y reparte los trastes por ella
+              ([adr/0039](../../../docs/adr/0039-el-mastil-se-estira-a-lo-ancho.md)).
+
+              Las rem del alto son lo que hay que dejarle a todo lo demás: la
+              barra de navegación (61), la de herramientas —57, u 85 cuando se
+              parte en dos filas por debajo de 1280—, el suelo de verdad del
+              arreglo (176, o 224) más los 44 de la tira de un área plegada, la
+              barra de abajo (61) y la cabecera de esta área (37). Medido, no
+              estimado.
+
+              En estrecho no: ahí el área es una pestaña, el alto lo pone el
+              dibujo con su proporción natural y `aspect-[712/230]` la escribe
+              —Tailwind lee las clases del fichero, así que no puede salir de
+              una constante; hay un test que avisa si dejan de coincidir—. */}
+          <div className="aspect-[712/230] w-full shrink-0 lg:aspect-auto lg:h-[calc(100dvh-32.25rem)] xl:h-[calc(100dvh-27.5rem)]">
             <Fretboard
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}

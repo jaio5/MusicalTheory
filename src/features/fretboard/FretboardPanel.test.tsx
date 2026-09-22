@@ -127,27 +127,26 @@ describe('qué acorde marca el mástil', () => {
   });
 
   /**
-   * El hueco del dibujo lleva la proporción del mástil, que es lo que hace que
-   * el área pida el alto justo para llenar su ancho
-   * ([adr/0037](../../../docs/adr/0037-el-mastil-pide-su-alto.md)).
-   *
-   * **Sin esto el mástil se veía a menos de la mitad de lo que le cabía**: el
-   * hueco se quedaba con lo que sobrara y el dibujo se encogía centrado dentro,
-   * con franjas muertas de casi cuatrocientos píxeles a cada lado. Medido a
-   * 1440 de ancho: se pintaba a 650 teniendo 1416.
+   * El hueco es quien pone el alto, y el dibujo se estira a lo ancho dentro de
+   * él ([adr/0039](../../../docs/adr/0039-el-mastil-se-estira-a-lo-ancho.md)).
    */
-  it('el hueco del dibujo lleva la proporcion del mastil', async () => {
+  it('el hueco pone el alto, y el dibujo se estira dentro', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
 
     const { container } = render(<FretboardPanel />);
 
     const dibujo = await screen.findByRole('img', { name: /mástil de/i });
-    const hueco = dibujo.parentElement;
+    // El dibujo va dentro de la caja que se mide, y esa dentro del hueco.
+    const hueco = dibujo.parentElement!.parentElement;
     expect(hueco).not.toBeNull();
     // Leída con `parseFloat` porque jsdom la normaliza a «3.8 / 1».
-    expect(Number.parseFloat(hueco!.style.aspectRatio)).toBeCloseTo(PROPORCION);
-    // Y el tope, que es lo que impide que se lleve el alto de la canción.
-    expect(hueco!.className).toContain('lg:max-h-[calc(100dvh-32.25rem)]');
+    // En estrecho el alto lo pone la proporción natural, y va en una clase
+    // porque Tailwind lee el fichero. **Si dejan de coincidir, esto avisa.**
+    expect(hueco!.className).toContain('aspect-[712/230]');
+    expect(PROPORCION).toBeCloseTo(712 / 230);
+    // En el banco manda el hueco: alto medido y el dibujo se estira a lo ancho.
+    expect(hueco!.className).toContain('lg:aspect-auto');
+    expect(hueco!.className).toContain('lg:h-[calc(100dvh-32.25rem)]');
     expect(container.querySelector('svg')).toHaveClass('h-full', 'w-full');
   });
 
@@ -155,15 +154,5 @@ describe('qué acorde marca el mástil', () => {
   it('los rotulos callan mientras no haya tonalidad', () => {
     const { container } = render(<RotulosDelMastil />);
     expect(container).toBeEmptyDOMElement();
-  });
-
-  /** Grande el tope es otro: sin la canción delante sobra mucho más alto. */
-  it('grande sube el tope del hueco', async () => {
-    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
-
-    render(<FretboardPanel grande />);
-
-    const dibujo = await screen.findByRole('img', { name: /mástil de/i });
-    expect(dibujo.parentElement!.className).toContain('max-h-[calc(100dvh-15.25rem)]');
   });
 });

@@ -42,34 +42,6 @@ import {
 import { WorkHeader } from '@ui/Screen';
 import { useHayBanco } from '@ui/use-hay-banco';
 
-/**
- * A partir de qué alto de ventana se ve el mástil bien **sin apartar la
- * canción**.
- *
- * Medido a 1314 de ancho, que es lo que llena el dibujo del alto que le queda:
- * a 900 llena el ancho entero, a 800 el 85 %, a 768 el 78 %, a 700 el 62 % y a
- * 606 el 40 %. De 800 para abajo se cae deprisa, porque lo que sobra después de
- * las barras y del suelo de la canción deja de dar para su proporción.
- *
- * Y el suelo de la canción no se puede bajar: probado, y a 112 px la fila de
- * dentro se queda en cero y «Qué poner ahora» sale entera fuera de la pantalla.
- */
-const ALTO_PARA_EL_BANCO = 800;
-
-/**
- * Si la ventana da para ver el mástil dentro del banco.
- *
- * En el servidor se dice que sí: lo contrario abriría el mástil apartando la
- * canción en el primer pintado y lo devolvería al hidratar, que es un salto a
- * la vista. Al abrirlo de verdad ya hay ventana y se decide bien.
- */
-function hayAltoParaElBanco(): boolean {
-  /* v8 ignore start -- el ramal del servidor no lo ve jsdom, que siempre trae `window` */
-  if (typeof window === 'undefined') return true;
-  /* v8 ignore stop */
-  return window.innerHeight >= ALTO_PARA_EL_BANCO;
-}
-
 interface Editor {
   readonly id: EditorDeAbajo;
   readonly name: string;
@@ -210,19 +182,6 @@ export function ComposeScreen() {
   */
   const caminoPlegado = hayBanco && plegadoElCamino;
   const [areaMovil, setAreaMovil] = useState<'arreglo' | 'camino' | 'acorde'>('arreglo');
-  /**
-   * Ver el mástil sin la canción delante.
-   *
-   * **No cabe de otra manera.** El mástil llena su ancho pidiendo el alto de su
-   * proporción, y en una ventana de seiscientos píxeles ese alto es más de lo
-   * que queda después de las barras y del suelo de la canción: se quedaba en
-   * ciento sesenta y seis, centrado entre dos franjas muertas. Mirar el mástil
-   * es una cosa que se hace un rato y se deja, así que un rato se lleva la
-   * pantalla.
-   *
-   * No se guarda: es un modo de mirar, no un reparto.
-   */
-  const [grande, setGrande] = useState(false);
 
   /**
    * Si la barra de tonalidad está abierta tapando la pantalla.
@@ -247,17 +206,6 @@ export function ComposeScreen() {
   }, [accionesDelBanco]);
 
   const editor = EDITORES.find((candidato) => candidato.id === abajo) ?? null;
-  // Cerrar el panel o cambiar de panel deshace el «grande»: es un modo de mirar
-  // una cosa, y mirando otra no significa nada. Se compara durante el render y
-  // no en un efecto, que es lo que hace el resto de esta pantalla.
-  //
-  // **Y el mástil se abre grande cuando la ventana no da para verlo dentro del
-  // banco**, que es lo mismo que haría uno al abrirlo y encontrárselo diminuto.
-  const [ultimoEditor, setUltimoEditor] = useState(abajo);
-  if (ultimoEditor !== abajo) {
-    setUltimoEditor(abajo);
-    setGrande(editor?.aSuProporcion === true && !hayAltoParaElBanco());
-  }
 
   /**
    * Ir a la escala que propone una idea.
@@ -446,9 +394,7 @@ export function ComposeScreen() {
           desplaza es esta caja. En el banco cada área se apaña con su hueco, que
           es de lo que va un banco de trabajo. */}
       <div
-        className={`flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden ${
-          grande ? 'hidden' : ''
-        }`}
+        className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
         inert={tapadoPorLaRueda}
       >
         <Area
@@ -747,18 +693,6 @@ export function ComposeScreen() {
             mandos={
               <>
                 {editor.rotulos !== undefined && <editor.rotulos />}
-                {/* Solo donde significa algo: lo de dentro de los demás se
-                  desplaza, así que verlo grande no enseña más. */}
-                {editor.aSuProporcion === true && (
-                  <button
-                    type="button"
-                    onClick={() => setGrande(!grande)}
-                    aria-pressed={grande}
-                    className="hover:text-brass-bright cursor-pointer px-1 text-xs whitespace-nowrap"
-                  >
-                    {grande ? 'Volver al banco' : 'Ver grande'}
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => accionesDelBanco.abrirAbajo(null)}
@@ -780,15 +714,12 @@ export function ComposeScreen() {
                 editor.aSuProporcion === true ? 'px-3 pb-2' : 'p-3'
               }`}
             >
-              {/* Dos necesitan algo de la pantalla: Ideas, para llevarte a la
-                escala que propone, y el mástil, para saber si lo están mirando
-                grande. Se les pasa aquí y no por la tabla de arriba porque los
-                otros cuatro ya traen sus propias props y no hay un tipo común
-                que valga para los seis sin mentir. */}
+              {/* Ideas es la única que necesita algo de la pantalla: llevarte a la
+                escala que propone. Se le pasa aquí y no por la tabla de arriba
+                porque los otros cinco ya traen sus propias props y no hay un tipo
+                común que valga para los seis sin mentir. */}
               {editor.id === 'ideas' ? (
                 <IdeasPanel onIrALaEscala={irALaEscala} />
-              ) : editor.aSuProporcion === true ? (
-                <FretboardPanel grande={grande} />
               ) : (
                 <editor.render />
               )}

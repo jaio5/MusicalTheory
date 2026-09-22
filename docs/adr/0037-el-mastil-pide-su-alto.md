@@ -68,9 +68,9 @@ Con la canción escrita y el mástil abierto, lo que se pinta de ancho:
 | 1920×1080 | 650 (34 %) | 1896 (100 %) | 0 → 0      |
 | 1600×1000 | 650 (41 %) | 1576 (100 %) | 0 → 0      |
 | 1440×900  | 650 (46 %) | 1416 (100 %) | 0 → 0      |
-| 1280×800  | 650 (52 %) | 1114 (89 %)  | 0 → 0      |
-| 1024×768  | 650 (65 %) | 780 (78 %)   | 0 → 0      |
-| 1024×600  | 635 (63 %) | 260 (26 %)   | **8 → 0**  |
+| 1280×800  | 650 (52 %) | 1256 (100 %) | 0 → 0      |
+| 1024×768  | 650 (65 %) | 978 (98 %)   | 0 → 0      |
+| 1024×600  | 635 (63 %) | 1000 (100 %) | **8 → 0**  |
 
 **Y lo que se pierde, que no se esconde**: en 1024×600 el mástil queda en 260
 píxeles de ancho. Ahí no caben las dos cosas —el arreglo honrado necesita 268 con su tira,
@@ -79,46 +79,20 @@ tiene que ceder. Antes cedía en silencio recortando ocho cosas; ahora cede el
 mástil y no se corta nada. Se prefiere así: **un recorte no se ve y un dibujo
 pequeño sí**, y lo que se recortaba era la tira que devuelve un panel.
 
-## Y un modo de mirarlo: «ver grande»
+## Lo de «ver grande», que existió medio día
 
-Todo lo de arriba tiene un techo, y es la altura de la ventana. **En una de 606
-píxeles no caben la canción y un mástil legible a la vez**: el dibujo llena su
-ancho pidiendo 420 px de alto, y entre las dos barras de arriba, la de abajo y el
-suelo de la canción no queda ni la mitad. Se quedaba en 166 px, pintado al 40 %
-del ancho y centrado entre dos franjas muertas. Visto en una captura de quien lo
-usa, no midiendo: las medidas se habían hecho en ventanas de 900 para arriba.
+Aquí vivía un botón que apartaba la canción para ver el mástil, y por debajo de
+800 px de alto de ventana el mástil se abría ya así. Existía porque **el dibujo
+tenía proporción fija**: con poco alto se quedaba en un cuadrado centrado entre
+dos franjas muertas, y apartarlo todo era la única manera de darle sitio.
 
-Así que la cabecera del mástil trae **«Ver grande»**, que aparta la canción
-mientras se mira. Mirar el mástil es una cosa que se hace un rato y se deja, así
-que un rato se lleva la pantalla —es lo mismo que ya decía este proyecto sobre
-perder media pantalla mientras está abierto—.
+**Ya no existe**, y con él se ha ido su ADR: desde el
+[ADR 0039](./0039-el-mastil-se-estira-a-lo-ancho.md) el mástil no tiene
+proporción fija —se mide su hueco y reparte los trastes por él—, así que llena el
+ancho que haya con el alto que haya y no hace falta apartar nada.
 
-No se guarda, porque es un modo de mirar y no un reparto, y **cambiar de panel lo
-deshace**: sin eso, abrir Sesiones desde el mástil grande dejaba la canción
-apartada y ningún botón para devolverla.
-
-**Y por debajo de 800 px de alto de ventana, el mástil se abre ya grande**, que
-es lo que hace uno al abrirlo y encontrárselo diminuto. El umbral está medido a
-1314 de ancho: a 900 el dibujo llena el ancho entero dentro del banco, a 800 el
-85 %, a 768 el 78 %, a 700 el 62 % y a 606 el 40 %. De 800 para abajo se cae
-deprisa.
-
-Se probó antes lo otro —bajarle el suelo a la canción para que el mástil quepa
-dentro del banco— y **no se puede**: con 112 px la fila de dentro del arreglo se
-queda en cero y el panel de «Qué poner ahora» sale entero fuera de la pantalla,
-medido. El suelo de 176 no es un número prudente, es el que hay.
-
-| Ventana    | Normal                        | Grande                               |
-| ---------- | ----------------------------- | ------------------------------------ |
-| 1314 × 606 | 514 px de ancho, cuerdas a 22 | **1183, cuerdas a 50** (se abre así) |
-| 1024 × 600 | 260, cuerdas a 11             | **1000, cuerdas a 42**               |
-| 1440 × 900 | 1416, cuerdas a 60            | igual: ya llenaba                    |
-
-Su tope también está medido, y también son dos: 61 de la barra de navegación, la
-de herramientas —57, u 85 cuando se parte en dos filas por debajo de 1280—, 61 de
-la barra de abajo y 37 de la cabecera del área. **Sin contar la de herramientas se
-pasaba**, y lo que se salía por abajo era justo la barra con la que se cierra el
-panel.
+Lo que queda de este documento sigue en pie: **el mástil pide el alto de su
+hueco, el arreglo tiene un suelo de verdad y el mástil no lleva divisor.**
 
 ## Alternativas descartadas
 
