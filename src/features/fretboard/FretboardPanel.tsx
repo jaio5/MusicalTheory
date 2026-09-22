@@ -15,8 +15,16 @@ import { Fretboard, PROPORCION } from './Fretboard';
  * y se quedaba en el 91 %. La cabecera ya estaba ahí y estaba vacía a la
  * derecha.
  *
- * Se trunca con un ancho máximo porque el sitio de los mandos no encoge: sin
- * tope, en estrecho la frase empujaba al botón de cerrar fuera de la cabecera.
+ * Va en `text-sm`, que es el tamaño que tenía cuando vivía encima del dibujo.
+ * Bajarlo a `text-xs` al subirla aquí **la dejó sin leerse**, y es lo que dice
+ * qué notas son y qué papel hace la escala: en la cabecera el tamaño no cuesta
+ * alto, porque mide veintiocho píxeles fijos.
+ *
+ * El ancho máximo existe porque el sitio de los mandos no encoge: sin él, la
+ * frase empujaba al botón de cerrar fuera de la cabecera. **Dieciséis rem son
+ * lo que ocupan el nombre del área y los dos botones**, así que con el tamaño
+ * bueno la frase entra entera desde 1280 y no llega a truncarse: un texto
+ * cortado es contenido que no se alcanza, y lo canta la sonda de medidas.
  *
  * Y por debajo de 1280 no sale: la cabecera no da para una frase y un botón, y
  * lo truncado es contenido que no se alcanza —lo canta la sonda de medidas—.
@@ -32,7 +40,7 @@ export function RotulosDelMastil() {
   if (activeKey === null) return null;
 
   return (
-    <p className="hidden max-w-[60vw] truncate text-xs xl:block">
+    <p className="hidden max-w-[calc(100vw-16rem)] truncate text-sm xl:block">
       {SCALES[scaleId].name} de{' '}
       {noteName(activeKey.tonic, accidentalForScale(activeKey.tonic, scaleId))}:{' '}
       <span className="text-text font-mono">
