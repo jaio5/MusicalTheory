@@ -30,10 +30,19 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
 
 El corazón de la aplicación, y lo único que no se puede comprobar con un test.
 
-- **Medir las salidas contra la API, no contra un modelo local.** Con un 8B
-  local, `continuar` pasa 4 de 4 con `gemma4` y 0 de 4 con `qwen3`; `retocar` no
-  lo pasa ninguno. Si lo que propone un modelo bueno sirve para componer, eso no
-  lo puede decir un modelo pequeño.
+- **Medir las salidas contra la API, no contra un modelo local.** El banco ya
+  está hecho —`pnpm banco:ia`, y deja su informe en `banco-de-ia.txt`—: usa el
+  mismo prompt, el mismo esquema y el mismo validador que la ruta, así que mide
+  lo que hay en producción y no una copia. **Falta pasarlo contra la API**: hoy
+  el `ANTHROPIC_API_KEY` del `.env` está vacío, así que contesta el Ollama de
+  casa.
+
+  La línea base medida con `qwen3:8b`, 22 de septiembre de 2026: **5 de 12
+  salidas pasan el contrato**, una de ellas devolviendo la canción tal cual.
+  Por camino: `seguir` 2, `contraste` 2, `estirar` 1, y **`rearmonizar` y
+  `otro-final` ni aparecen**. Con esto no se sabe si la función sirve o si el
+  modelo es pequeño, que es exactamente para lo que hace falta la API.
+
 - **`pnpm docker:ia` está escrito y sin levantar.** El adaptador sí se probó
   contra un Ollama de verdad; el camino de compose, nunca, porque en este equipo
   Docker Desktop no tiene encendida la integración con WSL.

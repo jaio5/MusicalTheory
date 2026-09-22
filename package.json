@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Asistente de guitarra que escucha por el micro y acompaña al que toca",
+  "description": "Asistente de guitarra que escucha por el micro y acompa\u00f1a al que toca",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -22,7 +22,8 @@
     "docker:db": "docker compose up -d db",
     "docker:ia": "bash scripts/docker-arriba.sh --ia",
     "docker:down": "docker compose down",
-    "usuarios:prueba": "node --env-file=.env scripts/usuarios-de-prueba.ts"
+    "usuarios:prueba": "node --env-file=.env scripts/usuarios-de-prueba.ts",
+    "banco:ia": "BANCO_IA=1 node --env-file=.env ./node_modules/vitest/vitest.mjs run src/app/banco-de-ia.test.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {
