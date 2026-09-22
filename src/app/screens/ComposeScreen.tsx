@@ -53,6 +53,15 @@ interface Editor {
    * desplazándolo.
    */
   readonly entero?: boolean;
+  /**
+   * Si su alto lo decide su propia proporción, y no el divisor.
+   *
+   * Solo el mástil. **Un dibujo de proporción fija no tiene un alto que
+   * repartir: tiene uno**, el que llena el ancho que le toque, y cualquier otro
+   * deja franjas muertas. Arrastrar el divisor ahí no reparte nada
+   * ([adr/0037](../../../docs/adr/0037-el-mastil-pide-su-alto.md)).
+   */
+  readonly aSuProporcion?: boolean;
 }
 
 /**
@@ -63,7 +72,14 @@ interface Editor {
  * mismo, y lo que cambia es el reparto.
  */
 const EDITORES: readonly Editor[] = [
-  { id: 'mastil', name: 'Mástil', Icono: IconoMastil, render: FretboardPanel, entero: true },
+  {
+    id: 'mastil',
+    name: 'Mástil',
+    Icono: IconoMastil,
+    render: FretboardPanel,
+    entero: true,
+    aSuProporcion: true,
+  },
   { id: 'grabar', name: 'Grabar', Icono: IconoPunto, render: Grabadora, entero: true },
   { id: 'ideas', name: 'Ideas', Icono: IconoIdeas, render: IdeasPanel },
   // Salidas al lado de Ideas porque las dos preguntan al modelo, y las dos
@@ -455,7 +471,15 @@ export function ComposeScreen() {
             // Suelo también apilado: con pestañas solo se ve un área, así que
             // puede pedir alto, y quien se desplaza es la columna. Sin él, el
             // lienzo se quedaba en ochenta píxeles con su barra fuera.
-            className={`min-h-[26rem] grow lg:min-h-40 ${
+            // **El suelo de escritorio era mentira y lo dice la medida.** Decía
+            // diez rem, y con ese alto al arreglo no le caben sus propios
+            // mandos: la fila de «Qué poner ahora» y un botón se quedaban
+            // cortados. Barriendo alturas contra la sonda de medidas, lo que
+            // necesita para no cortarse nada son 220 px por debajo de 1280 —la
+            // barra se parte en más filas cuanto más estrecho— y 170 por
+            // encima. Van catorce y once rem, que es lo medido redondeado hacia
+            // arriba.
+            className={`min-h-[26rem] grow lg:min-h-56 xl:min-h-44 ${
               hayBanco || areaMovil === 'arreglo' ? '' : 'hidden'
             }`}
           >
@@ -592,7 +616,9 @@ export function ComposeScreen() {
         )}
       </div>
 
-      {editor !== null && (
+      {/* Sin divisor para el mástil: su alto sale de su proporción, y un mando
+        que no mueve nada es peor que no tenerlo. */}
+      {editor !== null && editor.aSuProporcion !== true && (
         <Divisor
           orientacion="horizontal"
           valor={alto}
@@ -642,7 +668,17 @@ export function ComposeScreen() {
             // —«perder la mitad de la pantalla mientras está abierto es un precio
             // que se paga solo mientras se mira»—, y el tope en `vh` impide que en
             // una pantalla baja se lo lleve todo.
-            className="border-border max-h-[60vh] shrink-0 border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]"
+            // Con proporción propia **no se le da alto: se le deja pedirlo**, y
+            // el tope es lo único que se le pone. Veintidós rem es lo que hay
+            // que dejar libre —las dos barras de arriba, la de abajo y el suelo
+            // del arreglo—, así que el mástil puede crecer hasta llenar su
+            // ancho sin empujar a la canción por debajo de su suelo ni sacar
+            // una barra de desplazamiento.
+            className={
+              editor.aSuProporcion === true
+                ? 'border-border flex min-h-0 shrink flex-col border-t max-lg:max-h-[60vh]'
+                : 'border-border max-h-[60vh] shrink-0 border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]'
+            }
             mandos={
               <button
                 type="button"

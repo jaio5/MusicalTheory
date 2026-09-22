@@ -58,6 +58,12 @@ hacerlo.
   un correo—; lo demás en la sans, y el rótulo de un apartado es `.rotulo`
   ([adr/0024](docs/adr/0024-la-interfaz-se-lee-primero.md)). **Ningún test lo
   vigila.**
+- **El mástil pide el alto que llena su ancho, y no lleva divisor**: es un dibujo
+  de proporción fija, y un alto que no sea el suyo lo deja pintado a la mitad de
+  lo que le cabe ([adr/0037](docs/adr/0037-el-mastil-pide-su-alto.md)). De paso
+  se descubrió que **el suelo del arreglo era mentira**: decía 160 px y necesita
+  220 por debajo de 1280 —contando los 44 de la tira de un área plegada, que va
+  debajo—. Lo mide `auditar-componer.mjs` del skill `arrancar`.
 - **El grabado se mide en espacios de pentagrama**, y las invariantes de la clave
   las fija `arrange/clef.test.ts`
   ([adr/0029](docs/adr/0029-la-partitura-se-dibuja-aqui.md)).
@@ -193,7 +199,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
 | `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
 | `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van treinta y seis  |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van treinta y siete |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

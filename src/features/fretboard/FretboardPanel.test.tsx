@@ -8,6 +8,7 @@ import { A4_FREQUENCY, midiToFrequency, pitchClassFromName } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
+import { PROPORCION } from './Fretboard';
 import { FretboardPanel } from './FretboardPanel';
 
 describe('Panel del mástil', () => {
@@ -110,5 +111,30 @@ describe('qué acorde marca el mástil', () => {
 
     expect(screen.getByText(/las notas de F:/)).toBeInTheDocument();
     expect(screen.queryByText(/las notas de Am:/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * El hueco del dibujo lleva la proporción del mástil, que es lo que hace que
+   * el área pida el alto justo para llenar su ancho
+   * ([adr/0037](../../../docs/adr/0037-el-mastil-pide-su-alto.md)).
+   *
+   * **Sin esto el mástil se veía a menos de la mitad de lo que le cabía**: el
+   * hueco se quedaba con lo que sobrara y el dibujo se encogía centrado dentro,
+   * con franjas muertas de casi cuatrocientos píxeles a cada lado. Medido a
+   * 1440 de ancho: se pintaba a 650 teniendo 1416.
+   */
+  it('el hueco del dibujo lleva la proporcion del mastil', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    const { container } = render(<FretboardPanel />);
+
+    const dibujo = await screen.findByRole('img', { name: /mástil de/i });
+    const hueco = dibujo.parentElement;
+    expect(hueco).not.toBeNull();
+    // Leída con `parseFloat` porque jsdom la normaliza a «3.8 / 1».
+    expect(Number.parseFloat(hueco!.style.aspectRatio)).toBeCloseTo(PROPORCION);
+    // Y el tope, que es lo que impide que se lleve el alto de la canción.
+    expect(hueco!.className).toContain('lg:max-h-[calc(100dvh-35rem)]');
+    expect(container.querySelector('svg')).toHaveClass('h-full', 'w-full');
   });
 });

@@ -20,6 +20,17 @@ const TOP = 34;
 const HEIGHT = TOP + STRING_GAP * 5 + 46;
 const WIDTH = NUT_X + FRET_WIDTH * DEFAULT_FRET_COUNT + 18;
 
+/**
+ * Lo ancho que es el dibujo respecto a lo alto, para quien tenga que hacerle
+ * sitio.
+ *
+ * **Un dibujo de proporción fija no tiene un alto que repartir: tiene uno.**
+ * Con cualquier otro, o sobran franjas a los lados o sobran arriba y abajo. Se
+ * exporta calculada y no a mano para que no se quede vieja en cuanto alguien
+ * toque un traste o la separación de las cuerdas.
+ */
+export const PROPORCION = WIDTH / HEIGHT;
+
 export interface FretboardProps {
   readonly tonic: PitchClass;
   readonly scaleId: ScaleId;
@@ -69,16 +80,17 @@ export function Fretboard({
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       preserveAspectRatio="xMidYMid meet"
-      // **Se ajusta a su caja**, no a la ventana.
+      // **Llena su caja**, y quien le da a la caja la proporción buena es
+      // `PROPORCION` —la usa el hueco que lo envuelve—.
       //
-      // El tope era `60vh`, y con el mástil en su propia área del banco de
-      // trabajo eso deja de valer: el dibujo mide cuatro veces más de ancho que
-      // de alto, así que en un área ancha y baja pedía trescientos y pico
-      // píxeles dentro de doscientos cincuenta y la parte de abajo se salía sin
-      // manera de alcanzarla. Con `max-h-full` y el `preserveAspectRatio` que ya
-      // tenía, lo que hace es encogerse: **sigue viéndose entero**, que es la
-      // promesa, y el alto lo decide quien arrastra el divisor.
-      className="h-auto max-h-full w-full"
+      // Antes ponía `h-auto max-h-full`: el alto salía del dibujo y el tope lo
+      // encogía. Con el mástil en un área más ancha que alta eso lo dejaba
+      // pintado a menos de la mitad del ancho, centrado entre dos franjas
+      // muertas de casi cuatrocientos píxeles, y es lo que hacía que se viera
+      // pequeño teniendo sitio de sobra. El `preserveAspectRatio` sigue
+      // puesto: si el hueco se queda corto de alto, encoge y se ve entero, que
+      // es la promesa de siempre.
+      className="h-full w-full"
       role="img"
       aria-label={
         hayAcorde

@@ -532,9 +532,9 @@ describe('Los otros dos divisores, y devolverlo todo', () => {
   it('el de abajo aparece con el editor, y reparte el alto', async () => {
     enEscribir();
     render(<ComposeScreen />);
-    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ideas' }));
 
-    const divisor = screen.getByRole('separator', { name: 'Alto de Mástil' });
+    const divisor = screen.getByRole('separator', { name: 'Alto de Ideas' });
     divisor.focus();
     await userEvent.keyboard('{ArrowUp}');
     expect(selectReparto(useBancoStore.getState()).alto).toBe(
@@ -543,6 +543,21 @@ describe('Los otros dos divisores, y devolverlo todo', () => {
 
     await userEvent.keyboard('{Home}');
     expect(selectReparto(useBancoStore.getState()).alto).toBe(REPARTOS_DE_FABRICA.escribir.alto);
+  });
+
+  /**
+   * El mástil no trae divisor, y es a propósito
+   * ([adr/0037](../../../docs/adr/0037-el-mastil-pide-su-alto.md)): su alto
+   * sale de su proporción, así que arrastrarlo no repartiría nada. Un mando que
+   * no mueve nada es peor que no tenerlo.
+   */
+  it('el mastil no trae divisor, porque su alto no se reparte', async () => {
+    enEscribir();
+    render(<ComposeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
+
+    expect(screen.getByRole('region', { name: 'Mástil' })).toBeInTheDocument();
+    expect(screen.queryByRole('separator', { name: 'Alto de Mástil' })).not.toBeInTheDocument();
   });
 
   /**
