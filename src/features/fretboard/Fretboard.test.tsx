@@ -55,17 +55,29 @@ describe('El mástil se estira a su caja', () => {
     return { ...pintado, medir, medirSinEntradas, anchoDelDibujo, desconectar };
   }
 
-  it('llena una caja mas ancha que su proporcion, estirando los trastes', () => {
+  it('se estira para llenar una caja mas ancha que su proporcion', () => {
     const { medir, anchoDelDibujo } = conObservador();
     const natural = anchoDelDibujo();
 
-    // Una ventana baja: mucho ancho y poco alto, que es el caso que lo dejaba
-    // dibujado como un cuadrado en medio de la pantalla.
+    // Un poco más ancha que su proporción, que es lo normal en un monitor.
+    medir(900, 220);
+
+    expect(anchoDelDibujo()).toBeGreaterThan(natural);
+    expect(anchoDelDibujo() / 198).toBeCloseTo(900 / 220, 1);
+  });
+
+  /**
+   * **Y no más fino de cinco a uno.** Sin tope, en una ventana baja llenaba el
+   * ancho entero y quedaba una tira de siete y pico a uno con las notas
+   * diminutas ([adr/0040](../../../docs/adr/0040-ni-cuadrado-ni-tira.md)).
+   */
+  it('no se estira hasta volverse una tira', () => {
+    const { medir, anchoDelDibujo } = conObservador();
+
+    // La caja de una ventana baja: daría 7,8 a 1.
     medir(1290, 166);
 
-    // El dibujo pasa a tener la proporción de la caja, así que la llena entera.
-    expect(anchoDelDibujo()).toBeGreaterThan(natural);
-    expect(anchoDelDibujo() / 230).toBeCloseTo(1290 / 166, 1);
+    expect(anchoDelDibujo() / 198).toBeCloseTo(5, 5);
   });
 
   /**
@@ -80,7 +92,7 @@ describe('El mástil se estira a su caja', () => {
     medir(400, 600);
 
     expect(anchoDelDibujo()).toBe(natural);
-    expect(natural / 230).toBeCloseTo(PROPORCION, 5);
+    expect(natural / 198).toBeCloseTo(PROPORCION, 5);
   });
 
   /**

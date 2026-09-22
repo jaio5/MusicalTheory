@@ -58,13 +58,8 @@ Llena el ancho en todos, y la sonda de medidas sigue dando cero recortados.
 ## Lo que no arregla, y hay que decirlo
 
 **Las notas no se hacen más grandes por estirar.** Lo que decide su tamaño es el
-alto, no el ancho: en una ventana de 606 píxeles las cuerdas quedan a 22 px unas
-de otras se estire o no. Lo que se gana es un mástil que se lee de lado a lado en
-vez de un cuadrado en una esquina, con los trastes separados y los números
-repartidos.
-
-Para notas más grandes hace falta más alto, y más alto solo sale de quitarle sitio
-a la canción, que es lo que ya se descartó arriba.
+alto, no el ancho. Eso se arregla en el [ADR 0040](./0040-ni-cuadrado-ni-tira.md),
+que le saca alto a la canción dejándola desplazarse en vez de cortarse.
 
 ## Alternativas descartadas
 

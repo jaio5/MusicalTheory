@@ -206,6 +206,15 @@ export function ComposeScreen() {
   }, [accionesDelBanco]);
 
   const editor = EDITORES.find((candidato) => candidato.id === abajo) ?? null;
+  /**
+   * Si la canción le está dejando sitio al mástil.
+   *
+   * Solo los paneles de proporción propia lo piden: los demás se desplazan por
+   * dentro y les da igual el alto que les toque. **Mientras cede, el arreglo se
+   * desplaza**, que es lo que permite bajarle el suelo sin cortarle nada
+   * ([adr/0040](../../docs/adr/0040-ni-cuadrado-ni-tira.md)).
+   */
+  const cediendoAlMastil = editor?.aSuProporcion === true;
 
   /**
    * Ir a la escala que propone una idea.
@@ -470,7 +479,17 @@ export function ComposeScreen() {
                 <IconoComponer />
               )
             }
-            scroll={false}
+            // **Se desplaza solo mientras el mástil está abierto.** Fuera de
+            // eso no se desplaza y por eso necesita suelo: lo que no le quepa
+            // al lienzo se recorta y deja su barra sin alcanzar.
+            //
+            // Con el mástil delante la cuenta cambia: lo que decide el tamaño
+            // de las notas es el alto, y el alto sale de aquí. Cediéndole
+            // cuarenta y ocho píxeles, las notas del mástil pasan de 22 a 32 de
+            // separación en una ventana baja. Lo que el arreglo pierde de alto
+            // no se pierde: se alcanza desplazándolo, que es la diferencia
+            // entre ceder y cortar.
+            scroll={cediendoAlMastil}
             sinCabecera={!hayBanco}
             // Suelo, porque es lo único que no se desplaza por dentro: lo que
             // no le quepa al lienzo se recorta y deja su barra sin alcanzar.
@@ -490,9 +509,9 @@ export function ComposeScreen() {
             // barra se parte en más filas cuanto más estrecho— y 170 por
             // encima. Van catorce y once rem, que es lo medido redondeado hacia
             // arriba.
-            className={`min-h-[26rem] grow lg:min-h-56 xl:min-h-44 ${
-              hayBanco || areaMovil === 'arreglo' ? '' : 'hidden'
-            }`}
+            className={`min-h-[26rem] grow ${
+              cediendoAlMastil ? 'lg:min-h-32' : 'lg:min-h-56 xl:min-h-44'
+            } ${hayBanco || areaMovil === 'arreglo' ? '' : 'hidden'}`}
           >
             {activeKey === null ? (
               // `my-auto` en el hijo y no `justify-center` aquí, que es la regla
@@ -504,12 +523,28 @@ export function ComposeScreen() {
                   <EmpezarPorTonalidad />
                 </div>
               </div>
-            ) : espacio === 'tocando' ? (
-              <TocarParaEscribir onEscrito={() => accionesDelBanco.espacio('escribir')} />
-            ) : espacio === 'ensayar' ? (
-              <Ensayo />
             ) : (
-              <ArrangeCanvas />
+              /* Cediendo, el área se desplaza y **lo de dentro necesita un alto
+                que defender**: el lienzo es una columna con `min-h-0`, así que
+                sin esto se encogía a cero y el panel de «Qué poner ahora» salía
+                entero fuera de la pantalla. Con el suelo puesto aquí, lo que no
+                cabe se alcanza desplazando el área.
+                Sin ceder no estorba: `contents` lo saca de la maqueta. */
+              <div
+                className={
+                  cediendoAlMastil
+                    ? 'flex min-h-[22rem] w-full min-w-0 flex-col lg:min-h-[20rem]'
+                    : 'contents'
+                }
+              >
+                {espacio === 'tocando' ? (
+                  <TocarParaEscribir onEscrito={() => accionesDelBanco.espacio('escribir')} />
+                ) : espacio === 'ensayar' ? (
+                  <Ensayo />
+                ) : (
+                  <ArrangeCanvas />
+                )}
+              </div>
             )}
           </Area>
 

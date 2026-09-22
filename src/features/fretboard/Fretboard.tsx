@@ -19,8 +19,26 @@ const NUT_X = 46;
 /** Lo que mide un traste cuando el mástil se dibuja a su tamaño natural. */
 const TRASTE_NATURAL = 54;
 const STRING_GAP = 30;
-const TOP = 34;
-const HEIGHT = TOP + STRING_GAP * 5 + 46;
+/**
+ * El aire de arriba y el de abajo, donde van los números de traste.
+ *
+ * **Eran 34 y 46, y se comían el 35 % del alto.** Lo que decide el tamaño de
+ * las notas es el alto que le toca a las cuerdas, así que cada píxel de margen
+ * es una nota más pequeña: recortados, las cuerdas pasan del 65 % del dibujo al
+ * 74 % ([adr/0040](../../../docs/adr/0040-ni-cuadrado-ni-tira.md)).
+ */
+const TOP = 22;
+const ABAJO = 26;
+const HEIGHT = TOP + STRING_GAP * 5 + ABAJO;
+
+/**
+ * Lo más fino que se deja poner el mástil.
+ *
+ * Estirándolo sin tope llenaba el ancho entero y quedaba **una tira**: a 1314
+ * por 606 salía de siete y pico a uno, con las notas diminutas. Cinco a uno es
+ * bastante más ancho que su proporción natural y todavía se lee como un mástil.
+ */
+const MAS_FINO = 5;
 const ANCHO_NATURAL = NUT_X + TRASTE_NATURAL * DEFAULT_FRET_COUNT + 18;
 
 /**
@@ -96,16 +114,18 @@ export function Fretboard({
   /**
    * El ancho del dibujo en sus propias unidades.
    *
-   * **Se estira hasta llenar el hueco, y nunca se encoge por debajo de su
-   * tamaño natural.** Sin esto, en una ventana baja el mástil se quedaba en un
-   * cuadrado centrado con dos franjas muertas a los lados: el alto disponible
-   * mandaba sobre todo lo demás porque la proporción era fija.
+   * **Se estira hasta llenar el hueco, entre dos topes.** Sin estirarse, en una
+   * ventana baja se quedaba en un cuadrado centrado con dos franjas muertas a
+   * los lados. Estirándose sin freno quedaba lo contrario: una tira de siete a
+   * uno con las notas diminutas. Los dos se vieron, y por eso hay dos topes.
    *
-   * Encogerlo no vale: los trastes se juntarían hasta que las notas no cupieran
-   * dentro. Por debajo de su proporción natural se centra, como siempre.
+   * Encogerlo por debajo de su tamaño natural no vale: los trastes se juntarían
+   * hasta que las notas no cupieran dentro.
    */
   const ancho =
-    caja.alto > 0 ? Math.max(ANCHO_NATURAL, (HEIGHT * caja.ancho) / caja.alto) : ANCHO_NATURAL;
+    caja.alto > 0
+      ? Math.min(Math.max(ANCHO_NATURAL, (HEIGHT * caja.ancho) / caja.alto), HEIGHT * MAS_FINO)
+      : ANCHO_NATURAL;
   const traste = (ancho - NUT_X - 18) / DEFAULT_FRET_COUNT;
 
   const notes = scaleNotes(tonic, scaleId);
@@ -259,7 +279,7 @@ export function Fretboard({
           <text
             key={fret}
             x={NUT_X + traste * (fret - 0.5)}
-            y={TOP + STRING_GAP * 5 + 30}
+            y={TOP + STRING_GAP * 5 + ABAJO - 8}
             textAnchor="middle"
             className="fill-text-muted font-mono text-[11px]"
           >

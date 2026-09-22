@@ -122,16 +122,16 @@ export function FretboardPanel() {
 
               Las rem del alto son lo que hay que dejarle a todo lo demás: la
               barra de navegación (61), la de herramientas —57, u 85 cuando se
-              parte en dos filas por debajo de 1280—, el suelo de verdad del
-              arreglo (176, o 224) más los 44 de la tira de un área plegada, la
-              barra de abajo (61) y la cabecera de esta área (37). Medido, no
-              estimado.
+              parte en dos filas por debajo de 1280—, el suelo al que baja el
+              arreglo mientras cede (128) más los 44 de la tira de un área
+              plegada, la barra de abajo (61) y la cabecera de esta área (37).
+              Medido, no estimado.
 
               En estrecho no: ahí el área es una pestaña, el alto lo pone el
-              dibujo con su proporción natural y `aspect-[712/230]` la escribe
+              dibujo con su proporción natural y `aspect-[712/198]` la escribe
               —Tailwind lee las clases del fichero, así que no puede salir de
               una constante; hay un test que avisa si dejan de coincidir—. */}
-          <div className="aspect-[712/230] w-full shrink-0 lg:aspect-auto lg:h-[calc(100dvh-32.25rem)] xl:h-[calc(100dvh-27.5rem)]">
+          <div className="aspect-[712/198] w-full shrink-0 lg:aspect-auto lg:h-[calc(100dvh-26rem)] xl:h-[calc(100dvh-24.25rem)]">
             <Fretboard
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}

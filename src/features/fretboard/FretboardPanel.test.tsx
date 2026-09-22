@@ -142,11 +142,11 @@ describe('qué acorde marca el mástil', () => {
     // Leída con `parseFloat` porque jsdom la normaliza a «3.8 / 1».
     // En estrecho el alto lo pone la proporción natural, y va en una clase
     // porque Tailwind lee el fichero. **Si dejan de coincidir, esto avisa.**
-    expect(hueco!.className).toContain('aspect-[712/230]');
-    expect(PROPORCION).toBeCloseTo(712 / 230);
+    expect(hueco!.className).toContain('aspect-[712/198]');
+    expect(PROPORCION).toBeCloseTo(712 / 198);
     // En el banco manda el hueco: alto medido y el dibujo se estira a lo ancho.
     expect(hueco!.className).toContain('lg:aspect-auto');
-    expect(hueco!.className).toContain('lg:h-[calc(100dvh-32.25rem)]');
+    expect(hueco!.className).toContain('lg:h-[calc(100dvh-26rem)]');
     expect(container.querySelector('svg')).toHaveClass('h-full', 'w-full');
   });
 

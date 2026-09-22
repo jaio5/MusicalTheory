@@ -59,8 +59,8 @@ hacerlo.
   ([adr/0024](docs/adr/0024-la-interfaz-se-lee-primero.md)). **Ningún test lo
   vigila.**
 - **El mástil se estira a lo ancho del hueco, y no lleva divisor**: mide su caja y reparte
-  los trastes por ella, porque con proporción fija se quedaba en un cuadrado en
-  medio ([adr/0039](docs/adr/0039-el-mastil-se-estira-a-lo-ancho.md)). De paso
+  los trastes por ella, entre dos topes: con proporción fija salía un cuadrado en
+  medio y sin tope una tira ([adr/0040](docs/adr/0040-ni-cuadrado-ni-tira.md)). De paso
   se descubrió que **el suelo del arreglo era mentira**: decía 160 px y necesita
   220 por debajo de 1280 —contando los 44 de la tira de un área plegada, que va
   debajo—. Lo mide `auditar-componer.mjs` del skill `arrancar`.
@@ -199,7 +199,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
 | `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
 | `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van treinta y nueve |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta        |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,
