@@ -89,6 +89,11 @@ de este dibujo, desde que existe, es que se ve entero.
 **Quitarle trastes en pantallas estrechas.** Cambia lo que la aplicación enseña
 para arreglar un problema de reparto, y quince trastes son quince trastes.
 
+> **Esto se revisó tres horas después y se decidió al revés**, aunque por otro
+> motivo: no para arreglar el reparto en pantallas estrechas, sino porque
+> llenando el ancho entero el dibujo **seguía viéndose pequeño** en un monitor
+> grande. Son doce desde el [ADR 0038](./0038-doce-trastes-que-se-vean.md).
+
 **Un tope en `vh` y ya.** Se probó, y en un portátil bajo dejaba el mástil más
 pequeño que antes, que es justo lo contrario de lo que se buscaba. El ancho lo
 tiene que poner la proporción, que no hay que adivinarla.

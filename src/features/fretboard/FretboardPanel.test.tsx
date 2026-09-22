@@ -47,7 +47,7 @@ describe('Panel del mástil', () => {
     render(<FretboardPanel />);
 
     expect(
-      await screen.findByRole('img', { name: /mástil de 15 trastes.*pentatónica menor.*A/i }),
+      await screen.findByRole('img', { name: /mástil de 12 trastes.*pentatónica menor.*A/i }),
     ).toBeInTheDocument();
   });
 

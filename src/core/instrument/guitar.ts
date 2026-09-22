@@ -36,13 +36,25 @@ export const STANDARD_TUNING: readonly GuitarString[] = [
 ];
 
 /**
- * Trastes que se muestran. Quince cubre las cinco posiciones de la pentatónica
- * sin que el dibujo se haga ilegible.
+ * Trastes que se muestran.
+ *
+ * **Doce, y antes eran quince** ([adr/0038](../../../docs/adr/0038-doce-trastes-que-se-vean.md)).
+ * Quince cubrían las cinco posiciones de la pentatónica, pero repartidos en una
+ * tira cuatro veces más ancha que alta: en un monitor de 1440 cada traste salía
+ * a 94 px y las cuerdas a 49. Con doce, el mismo hueco da 107 y 54.
+ *
+ * Lo que se pierde es la quinta posición, que vive entre el doce y el quince.
+ * Se prefiere ver bien cuatro que adivinar cinco.
  */
-export const DEFAULT_FRET_COUNT = 15;
+export const DEFAULT_FRET_COUNT = 12;
 
-/** Trastes donde van los puntos de referencia del mástil. */
-export const INLAY_FRETS: readonly number[] = [3, 5, 7, 9, 12, 15];
+/**
+ * Trastes donde van los puntos de referencia del mástil.
+ *
+ * Sin el quince, que ya no se dibuja: un punto fuera del mástil es un punto
+ * pintado en el aire.
+ */
+export const INLAY_FRETS: readonly number[] = [3, 5, 7, 9, 12];
 
 export function stringFrequency(string: GuitarString): number {
   return midiToFrequency(string.midi);
