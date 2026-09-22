@@ -29,7 +29,7 @@
  * segundos. Un tope de treinta segundos hacía fallar siempre la primera y
  * funcionar todas las demás, que es la clase de fallo que se persigue media hora.
  */
-export const TIEMPO_MAXIMO_MS = 120_000;
+const TIEMPO_MAXIMO_MS = 120_000;
 
 export interface PeticionLocal {
   readonly prompt: string;

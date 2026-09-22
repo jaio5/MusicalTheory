@@ -112,7 +112,7 @@ export const MAX_LEAD_NOTES = 64;
  * espacio y medio punteo se dibujaba por encima de las cinco líneas, todo a base
  * de líneas adicionales. Así el grueso de lo que se escribe cae dentro.
  */
-export const MELODY_BASE_MIDI = 67;
+const MELODY_BASE_MIDI = 67;
 
 export function snapToGrid(beats: number): number {
   return Math.round(beats / GRID) * GRID;
@@ -192,10 +192,10 @@ export interface WrittenNote {
   readonly step: number;
 }
 
-export const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
+const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
 
 /** La letra y la octava que le tocan a un escalón del pentagrama. */
-export function letterOfStep(step: number): { letter: string; octave: number } {
+function letterOfStep(step: number): { letter: string; octave: number } {
   const indice = ((step % 7) + 7) % 7;
   /* v8 ignore next -- el indice ya viene dado la vuelta dentro de las siete letras */
   return { letter: LETTERS[indice] ?? 'C', octave: 4 + Math.floor(step / 7) };

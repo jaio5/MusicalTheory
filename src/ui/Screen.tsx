@@ -24,7 +24,7 @@ import type { ReactNode } from 'react';
  * `lectura` para lo que se lee seguido, `normal` para lo que se maneja y `ancha`
  * para lo que se compara en rejilla. Tres, porque cuatro ya nadie las distingue.
  */
-export const ANCHOS = {
+const ANCHOS = {
   /**
    * Texto seguido y ejercicios. **El único que se queda estrecho**, y no por
    * ahorrar sitio: un renglón de noventa caracteres se lee de una pasada y uno de

@@ -29,7 +29,7 @@ interface Cache {
 
 const cache: Cache = ((globalThis as { __caosDb?: Cache }).__caosDb ??= {});
 
-export function databaseUrl(): string | null {
+function databaseUrl(): string | null {
   const url = process.env['DATABASE_URL'];
   return url === undefined || url === '' ? null : url;
 }

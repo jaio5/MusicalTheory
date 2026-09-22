@@ -4,16 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  colors,
-  fluidSizes,
-  fonts,
-  paletaClara,
-  paletaOscura,
-  radii,
-  tap,
-  VARIABLES_CSS,
-} from './tokens';
+import { fluidSizes, fonts, paletaClara, paletaOscura, radii, tap, VARIABLES_CSS } from './tokens';
 
 /**
  * Los tokens viven dos veces: aquí en TypeScript, que es lo que lee el código,
@@ -97,7 +88,7 @@ describe('los tokens de diseño no se separan del CSS', () => {
 
 describe('el tema oscuro cumple lo que dice el proyecto', () => {
   it('no tiene gradientes declarados como color', () => {
-    for (const value of Object.values(colors)) {
+    for (const value of Object.values(paletaOscura)) {
       expect(value).toMatch(/^#[0-9A-Fa-f]{6}$/);
     }
   });
@@ -112,7 +103,7 @@ describe('el tema oscuro cumple lo que dice el proyecto', () => {
    * grafito —el apagado de antes se hundía— y sigue por debajo del listón.
    */
   it('el verde no es ácido', () => {
-    for (const green of [colors.tube, colors.tubeBright]) {
+    for (const green of [paletaOscura.tube, paletaOscura.tubeBright]) {
       const red = Number.parseInt(green.slice(1, 3), 16);
       const value = Number.parseInt(green.slice(3, 5), 16);
       expect(value - red).toBeLessThan(90);
@@ -131,8 +122,8 @@ describe('el tema oscuro cumple lo que dice el proyecto', () => {
    * que falle aquí y no dentro de tres semanas mirando una captura.
    */
   it('el fondo es grafito frío: más azul que rojo', () => {
-    const red = Number.parseInt(colors.background.slice(1, 3), 16);
-    const blue = Number.parseInt(colors.background.slice(5, 7), 16);
+    const red = Number.parseInt(paletaOscura.background.slice(1, 3), 16);
+    const blue = Number.parseInt(paletaOscura.background.slice(5, 7), 16);
     expect(blue).toBeGreaterThan(red);
   });
 });

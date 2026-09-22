@@ -20,7 +20,7 @@ export const METER_RANGE_CENTS = 50;
  * Confianza por debajo de la cual la lectura es válida pero merece un aviso:
  * casi siempre significa distorsión o dos cuerdas sonando a la vez.
  */
-export const CLEAN_SIGNAL_CLARITY = 0.95;
+const CLEAN_SIGNAL_CLARITY = 0.95;
 
 export function isSignalClean(clarity: number): boolean {
   return clarity >= CLEAN_SIGNAL_CLARITY;

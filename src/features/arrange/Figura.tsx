@@ -23,7 +23,7 @@ const MEDIO_ANCHO = Math.hypot(
 const PLICA = 3.5 * 2 * PASO;
 
 /** Cómo se llama cada duración, que es lo que oye quien no ve el dibujo. */
-export const NOMBRE_DE_FIGURA: Readonly<Record<number, string>> = {
+const NOMBRE_DE_FIGURA: Readonly<Record<number, string>> = {
   0.5: 'corchea',
   1: 'negra',
   1.5: 'negra con puntillo',

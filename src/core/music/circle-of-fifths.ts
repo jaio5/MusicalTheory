@@ -17,7 +17,7 @@ export const CIRCLE_OF_FIFTHS: readonly PitchClass[] = Array.from({ length: 12 }
   normalizePitchClass(step * 7),
 );
 
-export const DEGREES_PER_STEP = 360 / 12;
+const DEGREES_PER_STEP = 360 / 12;
 
 /** La relativa menor de una tonalidad mayor: una tercera menor por debajo. */
 export function relativeMinor(major: PitchClass): PitchClass {

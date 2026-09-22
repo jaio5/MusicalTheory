@@ -23,7 +23,7 @@ import { DEFAULT_AI_MODEL } from '@core/billing';
  * salida a un esquema y validan lo que vuelve contra el dominio. Ocupa unos 5 GB
  * en cuatro bits, así que entra entero en una gráfica de 8 GB.
  */
-export const DEFAULT_LOCAL_MODEL = 'qwen3:8b';
+const DEFAULT_LOCAL_MODEL = 'qwen3:8b';
 
 /** Quién contesta. */
 export type ModelProvider = 'anthropic' | 'local' | 'ninguno';

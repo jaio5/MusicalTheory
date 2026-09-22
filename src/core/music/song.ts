@@ -198,7 +198,7 @@ export interface Song {
  * cálculo.
  */
 export const MAX_SONG_NAME = 60;
-export const MAX_SECTION_NAME = 30;
+const MAX_SECTION_NAME = 30;
 export const MAX_SECTIONS = 12;
 export const MAX_SECTION_DEGREES = 32;
 

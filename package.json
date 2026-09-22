@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Asistente de guitarra que escucha por el micro y acompa\u00f1a al que toca",
+  "description": "Asistente de guitarra que escucha por el micro y acompaña al que toca",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -28,7 +28,6 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
-    "@auth/drizzle-adapter": "^1.11.3",
     "drizzle-orm": "^0.45.2",
     "gsap": "^3.15.0",
     "next": "^16.3.5",

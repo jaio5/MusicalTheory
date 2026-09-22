@@ -113,6 +113,15 @@ export const paletaClara: Paleta = {
  * el canal disparado, al lado de un acento cálido, es lo que separa una paleta de
  * un semáforo.
  */
+/**
+ * **Y es la que se lee cuando hace falta un color en crudo**, porque es la que
+ * sale por defecto. Quien lea de aquí y dibuje algo que también existe en claro
+ * está haciendo trampa: lo correcto es una utilidad de color, que sigue al tema
+ * puesto.
+ *
+ * Tenía un segundo nombre, `colors`, que era exactamente esto. Dos nombres
+ * públicos para una cosa obligan a elegir sin criterio.
+ */
 export const paletaOscura: Paleta = {
   background: '#0B0D11',
   surface: '#131720',
@@ -155,16 +164,6 @@ export const VARIABLES_CSS: Readonly<Record<keyof Paleta, string>> = {
   tube: 'verde',
   tubeBright: 'verde-vivo',
 };
-
-/**
- * La paleta de casa, para el poco código que necesita un color sin pasar por una
- * clase de Tailwind.
- *
- * Es la oscura porque es la que sale por defecto. Quien lea de aquí y dibuje algo
- * que también existe en claro está haciendo trampa: lo correcto es una utilidad
- * de color, que sigue al tema puesto.
- */
-export const colors = paletaOscura;
 
 export const fonts = {
   /** Serif de sistema para titulares. Sin descargas: arranca instantáneo. */

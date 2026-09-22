@@ -629,7 +629,7 @@ function composeEarnedOn(progress: Progress, day: string): number {
 }
 
 /** Lo que todavía puede dar componer hoy. Cero cuando ya se llegó al tope. */
-export function composeRoomOn(progress: Progress, day: string): number {
+function composeRoomOn(progress: Progress, day: string): number {
   return Math.max(0, MAX_COMPOSE_XP - composeEarnedOn(progress, day));
 }
 

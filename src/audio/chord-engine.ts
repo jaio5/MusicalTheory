@@ -39,7 +39,7 @@ export interface ChordEngineOptions {
  * confirmarse. Con estos números eso son cuatro décimas: lo que tarda en salir
  * un acorde nuevo, y lo que hay que sostenerlo para que cuente.
  */
-export const DEFAULT_CHORD_ENGINE_OPTIONS: ChordEngineOptions = {
+const DEFAULT_CHORD_ENGINE_OPTIONS: ChordEngineOptions = {
   rate: 10,
   smoothing: 0.5,
   confirmations: 4,

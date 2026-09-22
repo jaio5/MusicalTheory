@@ -38,7 +38,7 @@ export const EMPTY_REVIEW: ReviewQueue = [];
  * repaso y pasa a ser una deuda. Con dos pasos —hoy y mañana— el efecto se nota
  * y se puede llegar a tenerlo todo limpio, que es lo que hace que apetezca.
  */
-export const REVIEW_INTERVALS: readonly number[] = [0, 1];
+const REVIEW_INTERVALS: readonly number[] = [0, 1];
 
 /** Con estos aciertos seguidos, la pregunta sale de la cola. */
 export const MASTERED_HITS = REVIEW_INTERVALS.length;

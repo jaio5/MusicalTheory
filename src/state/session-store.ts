@@ -89,13 +89,13 @@ export interface SessionKey {
  * nada: la tonalidad no cambia en cincuenta milisegundos, y recalcularla haría
  * repintar la rueda constantemente.
  */
-export const KEY_REFRESH_MS = 500;
+const KEY_REFRESH_MS = 500;
 
 /**
  * Cuántas notas del historial se guardan. Suficiente para ver por dónde va la
  * frase sin convertir el panel en un muro de texto.
  */
-export const NOTE_HISTORY_LIMIT = 24;
+const NOTE_HISTORY_LIMIT = 24;
 
 /**
  * Cuánto tiene que cambiar la nota para contarla como una nueva en el

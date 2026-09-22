@@ -40,8 +40,8 @@ export const ALTO_FILA = 22;
 const SIN_REJILLA = { top: 0, left: 0 } as DOMRect;
 
 /** Hasta dónde llegan las alturas: de una cuarta abajo a una novena arriba. */
-export const OFFSET_GRAVE = -5;
-export const OFFSET_AGUDO = 16;
+const OFFSET_GRAVE = -5;
+const OFFSET_AGUDO = 16;
 
 export interface MelodyLaneProps {
   readonly notes: readonly LeadNote[];

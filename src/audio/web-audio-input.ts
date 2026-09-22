@@ -20,13 +20,13 @@ import type {
 } from './audio-input';
 
 /** Ventana de análisis por defecto. El porqué está en docs/AUDIO-PITCH.md. */
-export const DEFAULT_FRAME_SIZE = 2048;
+const DEFAULT_FRAME_SIZE = 2048;
 
 /**
  * Ventana del espectro. A 48 kHz son 5,9 Hz por casilla, que es lo que hace
  * falta para no confundir dos notas vecinas en las cuerdas graves.
  */
-export const DEFAULT_SPECTRUM_SIZE = 8192;
+const DEFAULT_SPECTRUM_SIZE = 8192;
 
 export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
   readonly frameSize: number;

@@ -247,7 +247,7 @@ export const MAX_PART_BLOCKS = MAX_SECTION_DEGREES;
  * Cuatro compases de 4/4 es el techo. Más que eso no es un acorde largo: es que
  * esa parte se ha quedado en un solo acorde, y para eso están las partes.
  */
-export const MIN_BLOCK_BEATS = 1;
+const MIN_BLOCK_BEATS = 1;
 export const MAX_BLOCK_BEATS = 16;
 
 /**

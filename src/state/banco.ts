@@ -39,7 +39,7 @@ import {
  */
 
 /** Los editores que caben abajo. El orden es el de la fila de pestañas. */
-export const EDITORES_DE_ABAJO = [
+const EDITORES_DE_ABAJO = [
   'mastil',
   'grabar',
   'ideas',

@@ -1,6 +1,6 @@
 'use client';
 
-import { keyName, NOTE_NAMES, pitchClassFromName, noteName } from '@core/music';
+import { keyName, SHARP_NAMES, pitchClassFromName, noteName } from '@core/music';
 import { selectActiveKey, useSessionStore, type SessionKey } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { Field } from '@ui/Field';
@@ -77,7 +77,7 @@ export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
               }}
             >
               <option value={AUTOMATIC}>Seguir la detección</option>
-              {NOTE_NAMES.map((name) => {
+              {SHARP_NAMES.map((name) => {
                 const tonic = pitchClassFromName(name);
                 return (
                   <optgroup key={name} label={noteName(tonic)}>

@@ -32,11 +32,11 @@ export interface KeyCandidate {
  * Perfiles de Krumhansl y Kessler (1982): cuánto pesa cada grado cromático en
  * una tonalidad mayor y en una menor, empezando por la tónica.
  */
-export const KRUMHANSL_MAJOR_PROFILE: readonly number[] = [
+const KRUMHANSL_MAJOR_PROFILE: readonly number[] = [
   6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88,
 ];
 
-export const KRUMHANSL_MINOR_PROFILE: readonly number[] = [
+const KRUMHANSL_MINOR_PROFILE: readonly number[] = [
   6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17,
 ];
 
@@ -45,7 +45,7 @@ export const KRUMHANSL_MINOR_PROFILE: readonly number[] = [
  * es media vuelta de una progresión lenta: suficiente para no bailar con cada
  * nota de paso y poco para seguir un cambio de tono real.
  */
-export const DEFAULT_HALF_LIFE_MS = 20_000;
+const DEFAULT_HALF_LIFE_MS = 20_000;
 
 /**
  * Reparto acumulado de clases de altura con su marca de tiempo.

@@ -54,7 +54,7 @@ export const PULSO_MINIMO = 18;
 export const PULSO_MAXIMO = 64;
 
 /** Lo más estrecho que puede ser un bloque sin que el cifrado deje de leerse. */
-export const ANCHO_MINIMO_PX = 68;
+const ANCHO_MINIMO_PX = 68;
 
 /** Por dónde hay que coger un bloque para estirarlo, en píxeles desde su borde. */
 export const ZONA_ESTIRAR_PX = 16;
