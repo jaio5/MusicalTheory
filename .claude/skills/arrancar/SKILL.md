@@ -142,6 +142,41 @@ Tres cosas que hay que saber o se mide humo:
 **Calibra antes de creerte un cero.** Devuelve el fallo con un `addStyleTag` y
 comprueba que la sonda lo ve; si no lo ve, lo que mide es otra cosa.
 
+## Medir cómo reparte la pantalla el banco de componer
+
+`sonda-de-medidas.mjs` contesta «¿se llega a esto?». **No contesta «¿a qué le
+está dando sitio la aplicación?»**, y esa es la pregunta cuando una pantalla se
+lee mal estando todo alcanzable. Eso lo mide `sonda-de-componer.mjs`, y
+`auditar-componer.mjs` la pasa por los cinco tamaños y seis estados de
+`/componer`:
+
+```bash
+node .claude/skills/arrancar/auditar-componer.mjs medido.json
+```
+
+Deja un JSON para comparar el antes con el después, que es para lo que existe:
+un cambio de reparto se defiende con dos números, no con dos capturas.
+
+Mide el reparto —cuánto alto se lleva la canción frente a cada panel de ayuda—,
+los mandos duplicados, cuántos hay encima del documento, el vacío del área
+principal y los candidatos a estar tapados.
+
+**Cuatro medidas son fiables y la del alcance no.** Una caja grande que se cruza
+con un hermano sale «tapada» sin estarlo: da candidatos y se confirman mirando.
+
+Tres cosas que costaron una pasada en falso:
+
+- **Un montaje que falla en silencio mide la pantalla de partida y lo llama seis
+  casos.** Los seis escenarios del teléfono salían idénticos: ninguna tonalidad
+  se dejaba pulsar. Por eso el auditor anota cada paso que no pudo dar y marca el
+  caso como roto; un caso roto no se mide.
+- **De «C mayor» hay tres botones en pantalla**, y uno está `inert` a propósito
+  porque la rueda flotante lo tapa. Hay que pulsar **el primero que se deje**, no
+  el primero ni el último.
+- **Con el centro solo, media rueda de quintas sale tapada por la otra media.**
+  Son gajos de un círculo en cajas rectangulares que se solapan. Se juzga con
+  cinco puntos y se da por tapado lo que no se alcanza por ninguno.
+
 ## Antes de dar nada por terminado
 
 ```bash
