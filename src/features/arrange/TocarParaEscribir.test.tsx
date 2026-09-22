@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -543,5 +543,41 @@ describe('lo que se ve mientras tocas', () => {
 
     expect(useSessionStore.getState().capturing).toBe(true);
     expect(screen.getByRole('button', { name: /Parar y escribirlo/ })).toBeInTheDocument();
+  });
+
+  /**
+   * **Lo que ya llevas, delante.** Aquí había un botón sobre una pantalla en
+   * negro —el 97 % del área vacío, medido— y lo que se toca entra como una
+   * parte más al final: sin ver qué hay ya, se graba sin saber dónde.
+   */
+  it('ensena lo que ya llevas escrito antes de tocar', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    const id = useArrangementStore.getState().actions.addPart('Estrofa');
+    useArrangementStore.getState().actions.addBlock(id, 'I', 4);
+
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    const llevas = within(screen.getByRole('list', { name: 'Lo que ya llevas' }));
+    expect(llevas.getByText('C')).toBeInTheDocument();
+  });
+
+  it('con la cancion en blanco no ensena nada', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    expect(screen.queryByRole('list', { name: 'Lo que ya llevas' })).not.toBeInTheDocument();
+  });
+
+  /** Tocando estorba: lo que importa entonces es lo que te está oyendo. */
+  it('mientras se toca, se quita de en medio', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    const id = useArrangementStore.getState().actions.addPart('Estrofa');
+    useArrangementStore.getState().actions.addBlock(id, 'I', 4);
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    expect(screen.queryByRole('list', { name: 'Lo que ya llevas' })).not.toBeInTheDocument();
   });
 });

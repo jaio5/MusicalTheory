@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -452,5 +452,30 @@ describe('cuando el ensayo no llega a empezar', () => {
 
     expect(screen.getByText(/Todavía no hay nada que ensayar/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Ensayar/ })).not.toBeInTheDocument();
+  });
+
+  /**
+   * **La canción, delante y antes de pulsar.** Aquí había un botón y dos
+   * párrafos sobre una pantalla en negro —medido, el 92 % del área vacío— y
+   * había que fiarse de que lo que se iba a ensayar era lo escrito.
+   */
+  it('ensena lo que vas a ensayar antes de empezar', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+
+    render(<Ensayo deps={DEPS} />);
+
+    const guion = within(screen.getByRole('list', { name: 'Lo que vas a ensayar' }));
+    expect(guion.getAllByRole('listitem').length).toBeGreaterThan(0);
+    // El I de Do mayor es un Do: lo mismo que se encenderá al empezar.
+    expect(guion.getByText('C')).toBeInTheDocument();
+  });
+
+  it('sin nada escrito no hay guion que ensenar', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+
+    render(<Ensayo deps={DEPS} />);
+
+    expect(screen.queryByRole('list', { name: 'Lo que vas a ensayar' })).not.toBeInTheDocument();
   });
 });

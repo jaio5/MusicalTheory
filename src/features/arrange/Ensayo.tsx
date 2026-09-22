@@ -1,6 +1,6 @@
 'use client';
 
-import { blockChord, largoDelEnsayo, writtenBlock } from '@core/music';
+import { blockChord, degreesFor, guionDeEnsayo, largoDelEnsayo, writtenBlock } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useArrangementStore } from '@state/arrangement-store';
 import { useEnsayo, type EnsayoDeps } from '@state/use-ensayo';
@@ -29,6 +29,9 @@ import { Vacio } from '@ui/Vacio';
 export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
   const activeKey = useSessionStore(selectActiveKey);
   const arrangement = useArrangementStore((state) => state.arrangement);
+  // El mismo con el que se arma el guion al ensayar: la vista previa y lo que
+  // suena tienen que contar los compases igual.
+  const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
   const { fase, paso, guion, resultados, resultado, empezar, parar } = useEnsayo(
     arrangement,
     activeKey?.tonic ?? null,
@@ -203,6 +206,48 @@ export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
           </>
         ) : (
           <>
+            {/* **La canción que vas a ensayar, delante.**
+              Aquí había un botón y dos párrafos sobre mil por setecientos de
+              negro: medido, el 92 % del área vacío con la canción ya escrita.
+              Y hay que fiarse de que lo que se va a ensayar es lo que se
+              escribió, sin verlo.
+
+              Es el mismo guion que se va a tocar, pedido al dominio, no una
+              lista montada aparte: si lo que se enseña y lo que suena se
+              calcularan por caminos distintos, un día dejarían de coincidir. */}
+            <ol
+              aria-label="Lo que vas a ensayar"
+              className="flex max-w-4xl flex-wrap justify-center gap-2"
+            >
+              {/* **Solo los grados que existen en este modo.** El montaje se
+                traduce al cambiar de tonalidad, pero eso pasa en un efecto
+                ([adr/0030](../../../docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)):
+                hay un fotograma con los grados del modo anterior dentro, y
+                `blockChord` no perdona un `I` en menor. Medido: reventaba la
+                pantalla entera al saltar a la escala que propone una idea. */}
+              {guionDeEnsayo(arrangement, beatsPerBar)
+                .filter((sitio) => degreesFor(activeKey.mode).includes(sitio.degree))
+                .map((sitio, indice) => (
+                  <li
+                    key={`${sitio.blockId}-${indice}`}
+                    className="border-border bg-surface-raised flex min-w-20 flex-col items-center gap-0.5 rounded-md border px-3 py-2"
+                  >
+                    {/* En la misma tipografía y con el mismo aire que el acorde
+                    que se enciende al ensayar: lo que se mira antes y lo que se
+                    mira durante tienen que parecerse, o hay que volver a
+                    aprender a leerlo. */}
+                    <span className="font-display text-text text-2xl leading-none">
+                      {
+                        blockChord(activeKey.tonic, activeKey.mode, {
+                          ...writtenBlock(sitio.blockId, sitio.degree, sitio.beats, sitio.especie),
+                        }).symbol
+                      }
+                    </span>
+                    <span className="text-text-muted font-mono text-[10px]">c. {sitio.bar}</span>
+                  </li>
+                ))}
+            </ol>
+
             <Button
               onClick={() => void empezar()}
               disabled={fase === 'preparando'}

@@ -3,8 +3,9 @@
 import { descargarUrl } from '@media/descargar';
 import { useEffect, useRef, useState } from 'react';
 
-import { keyName } from '@core/music';
+import { blockChord, degreesFor, guionDeEnsayo, keyName, writtenBlock } from '@core/music';
 import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
+import { useArrangementStore } from '@state/arrangement-store';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useTocarYApuntar, type TocarDeps, type Toma } from '@state/use-tocar-y-apuntar';
 import { Aviso } from '@ui/Aviso';
@@ -52,6 +53,7 @@ export function TocarParaEscribir({
   const activeKey = useSessionStore(selectActiveKey);
   const bpm = useSessionStore((state) => state.bpm);
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
+  const arrangement = useArrangementStore((state) => state.arrangement);
   const heardChord = useSessionStore((state) => state.heardChord);
   const apuntados = useSessionStore((state) => state.captured.length);
 
@@ -127,6 +129,26 @@ export function TocarParaEscribir({
 
   const tocando = fase === 'tocando';
 
+  /**
+   * Lo que ya hay escrito, para no tocar a ciegas.
+   *
+   * Aquí había un botón sobre una pantalla en negro: medido, el 97 % del área
+   * vacío. Y lo que se toca **entra como una parte más al final**, así que
+   * saber qué hay ya delante es la diferencia entre continuar una canción y
+   * grabar encima sin saber dónde.
+   *
+   * Apagado a propósito: es contexto, no lo que se está haciendo.
+   */
+  // **Solo los grados que existen en este modo.** El montaje se traduce al
+  // cambiar de tonalidad, pero eso pasa en un efecto
+  // ([adr/0030](../../../docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)):
+  // hay un fotograma con los grados del modo anterior dentro, y `blockChord` no
+  // perdona un `I` en menor. Medido: reventaba la pantalla entera al saltar a la
+  // escala que propone una idea.
+  const loQueYaHay = guionDeEnsayo(arrangement, beatsPerBar).filter((sitio) =>
+    degreesFor(activeKey.mode).includes(sitio.degree),
+  );
+
   return (
     // `my-auto` en el hijo y no `justify-center` aquí, que es la regla de la
     // casa: centrar en una caja que recorta saca lo que no cabe **por los dos
@@ -134,6 +156,26 @@ export function TocarParaEscribir({
     // alcanzarlo. Así se centra mientras sobra sitio y se desplaza cuando no.
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
       <div className="my-auto flex flex-col items-center gap-4 p-4 text-center">
+        {!tocando && loQueYaHay.length > 0 && (
+          <ol
+            aria-label="Lo que ya llevas"
+            className="flex max-w-3xl flex-wrap justify-center gap-1.5 opacity-60"
+          >
+            {loQueYaHay.map((sitio, indice) => (
+              <li
+                key={`${sitio.blockId}-${indice}`}
+                className="border-border text-text-muted rounded-md border px-2.5 py-1 font-mono text-sm"
+              >
+                {
+                  blockChord(activeKey.tonic, activeKey.mode, {
+                    ...writtenBlock(sitio.blockId, sitio.degree, sitio.beats, sitio.especie),
+                  }).symbol
+                }
+              </li>
+            ))}
+          </ol>
+        )}
+
         <Button
           onClick={() => void (tocando ? pararYEscribir() : empezar())}
           disabled={fase === 'preparando'}
