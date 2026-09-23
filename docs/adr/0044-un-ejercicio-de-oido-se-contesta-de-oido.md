@@ -60,8 +60,8 @@ export interface EarChord {
 }
 ```
 
-Un grado a secas sigue sonando como tríada, que es lo que hacen cinco de las siete
-clases, y esas no se tocaron ni una línea. La unidad de cuatríadas ya suena la
+Un grado a secas sigue sonando como tríada, que es lo que hace casi todo el
+catálogo, y esas clases no se tocaron ni una línea. La unidad de cuatríadas ya suena la
 tríada y **la misma con la nota de más**.
 
 **Quién convierte un paso en sonido vive en el dominio, no en la pantalla.**
@@ -76,23 +76,51 @@ tritono— sino la del menor armónico, que es mayor. Una regla automática que 
 la escala se equivocaría en las doce tonalidades menores, que es el error que este
 proyecto ya cometió una vez y está contado en `lessons.ts`.
 
-**Y una clase nueva, `functions`, con su unidad en `profesional-1`.** Suena la
-casa y luego otro acorde, y la pregunta no es cuál es sino qué hace: reposa, sale
-o tensa. Los `why` salen de `HARMONIC_ROLES`, que es donde ya vive esa verdad.
+**Y tres clases nuevas**, que es lo que esa máquina hace posible:
 
-El tercer ejercicio es el que enseña algo. Los dos primeros se pueden acertar por
-la especie —el IV y el V son mayores—, y el sexto grado es **menor y reposa
-igual**: es el único sitio donde «alegre o triste» deja de servir y hay que oír la
-función. Va entre la teoría y el repaso, y no al final, porque llegar al repaso
-sin haber oído nunca una función es repasar de memoria.
+- **`functions`**, en `profesional-1`. Suena la casa y luego otro acorde, y la
+  pregunta no es cuál es sino qué hace: reposa, sale o tensa. Los `why` salen de
+  `HARMONIC_ROLES`, que es donde ya vive esa verdad.
+- **`substitutions`**, en `profesional-4`, que era el curso más flojo del temario
+  —dos lecciones de teoría y nada más—. Separa las dos maneras de sustituir
+  porque se oyen distinto: por notas compartidas, el relativo hace el mismo
+  reposo y el final llega sin cerrar; por tritono, dos dominantes separadas por un
+  tritono aprietan igual. **Esta segunda es la que necesitaba la máquina nueva**:
+  la tríada de `bII` no tiene tritono, así que con grados a secas la pregunta no
+  se podía ni plantear.
+- **`circle`**, en `elemental-3`. La rueda se estudiaba solo mirándola, y lo que
+  dice se oye: la relativa son las mismas notas con otro centro, y a la vecina
+  solo se llega trayendo una nota que aquí no está. Por eso la vecina se presenta
+  con su dominante secundaria y no con el quinto grado —el V de esta tonalidad es
+  de casa y no trae nada nuevo—.
+
+En las tres, **el último ejercicio es el que enseña algo** y los primeros están
+para dar el suelo. En `functions` se ve mejor que en ninguna: los dos primeros se
+pueden acertar por la especie —el IV y el V son mayores— y el sexto grado es
+**menor y reposa igual**, que es el único sitio donde «alegre o triste» deja de
+servir. Esa unidad va además entre la teoría y el repaso, y no al final, porque el
+repaso de ese curso es el que reparte los grados en los tres papeles: hacerlo sin
+haber oído ninguno es memorizar una tabla.
 
 ## Consecuencias
 
-El temario pasa de 31 unidades a 32, y `profesional-1` deja de ser el único curso
-con dos lecciones de teoría y nada que oír. Quedan cinco cursos a los que les
-falta un tipo, y el peor sigue siendo `profesional-4` —Sustituciones, dos
-unidades de teoría—: el sustituto tritonal es una cosa que solo se entiende
-oyéndola. Está anotado en el [ROADMAP](../ROADMAP.md).
+El temario pasa de **31 unidades a 34**, y el oído de seis clases a nueve. De los
+diez cursos, los que estaban cojos bajan de seis a tres, y **los tres que quedan
+lo están por el mismo motivo: les falta una unidad de tocar que hoy no se puede
+escribir.**
+
+- `profesional-2` (Cuatríadas) y `profesional-4` (Sustituciones) pedirían **tocar
+  acordes**, y una unidad de tocar valida una escala con el motor de tono, que es
+  monofónico. Validar acordes es el motor de croma, y hoy ese motor falla con una
+  guitarra de verdad: está medido y anotado
+  ([adr/0043](./0043-dos-maneras-de-equivocarse.md)). Escribir la unidad antes de
+  arreglar el motor es mandar a alguien a suspender por algo que no es suyo.
+- `elemental-4` (Qué escala tocar) pediría una unidad de oído sobre escalas, y un
+  ejercicio de oído aquí es **una progresión de acordes**: no sabe hacer sonar una
+  melodía. Esa es otra máquina, no una unidad más.
+
+Las tres están en el [ROADMAP](../ROADMAP.md) con ese porqué, que es distinto de
+«falta por escribir».
 
 Añadir una unidad **no rompe el avance de nadie**: el progreso se guarda por
 identificador de unidad y `UNIT_ORDER` se deriva del temario. A quien ya hubiera
@@ -136,6 +164,8 @@ grados y cadencias, porque no se compone con notas sueltas. Meter intervalos es
 cambiar esa decisión, y eso pide su propio ADR y su propia máquina —los ejercicios
 son progresiones de acordes, no pares de notas—.
 
-**Poner la clase `functions` al final del curso**, después del repaso. Se descarta
-porque el repaso de `profesional-1` es la unidad que reparte los grados en los tres
-papeles: hacerlo sin haber oído ninguno es memorizar una tabla.
+**Escribir ya las unidades de tocar que faltan**, para no dejar ningún curso cojo.
+Se descarta porque validar que alguien toca un `Cmaj7` es el motor de croma, y hoy
+ese motor falla con una guitarra de verdad —medido tocando, y anotado en
+[ADR 0043](./0043-dos-maneras-de-equivocarse.md)—. Una unidad que suspende por un
+fallo del motor es peor que no tenerla: enseña a desconfiar de la aplicación.

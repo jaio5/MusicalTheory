@@ -44,7 +44,15 @@ import { resolveDegree, type DegreeSymbol } from './progressions';
 
 /** De qué va una unidad de oído. */
 export type EarKind =
-  'quality' | 'degree' | 'functions' | 'cadence' | 'sevenths' | 'borrowed' | 'modes';
+  | 'quality'
+  | 'degree'
+  | 'circle'
+  | 'functions'
+  | 'cadence'
+  | 'sevenths'
+  | 'substitutions'
+  | 'borrowed'
+  | 'modes';
 
 /**
  * Un acorde de un ejercicio: un grado, y con qué especie suena.
@@ -449,13 +457,130 @@ function functions(tonic: PitchClass, mode: KeyMode): EarExercise[] {
   ];
 }
 
+/**
+ * Oír que un acorde va donde iría otro.
+ *
+ * Es la unidad que le faltaba a **Sustituciones**, que era el curso más flojo del
+ * temario: dos lecciones de teoría y nada más. Y la sustitución es de lo que menos
+ * se puede estudiar leyendo, porque lo único que la justifica es que **suene igual
+ * de bien en ese sitio**: en el papel, cambiar un acorde por otro con otra
+ * fundamental no se distingue de una equivocación.
+ *
+ * Las dos maneras de sustituir se oyen distinto, y por eso van separadas:
+ *
+ * - Por **notas compartidas**: el relativo hace el mismo reposo con dos de las
+ *   tres notas. Se oye como un final que llega pero no cierra del todo.
+ * - Por **tritono**: dos dominantes a un tritono de distancia llevan el mismo par
+ *   de notas apretando, así que aprietan igual aunque la fundamental esté en otro
+ *   sitio. Esta **hay que oírla con la séptima puesta**: la tríada de `bII` no
+ *   tiene tritono, y sin él la pregunta ni se puede contestar ni es verdad
+ *   ([adr/0044](../../../docs/adr/0044-un-ejercicio-de-oido-se-contesta-de-oido.md)).
+ */
+function substitutions(tonic: PitchClass, mode: KeyMode): EarExercise[] {
+  const uno: DegreeSymbol = mode === 'major' ? 'I' : 'i';
+  const cuatro: DegreeSymbol = mode === 'major' ? 'IV' : 'iv';
+  // El que hace el papel de la tónica sin serlo: en mayor el relativo menor, en
+  // menor el relativo mayor. Es lo que dice `harmonic-function.ts` por número.
+  const relativo: DegreeSymbol = mode === 'major' ? 'vi' : 'III';
+  const tritonal: EarChord = { degree: 'bII', especie: 'dominant7' };
+  const dominante: EarChord = { degree: 'V', especie: 'dominant7' };
+
+  const LA_CASA = 'La casa';
+  const UN_SUSTITUTO = 'Otro que hace su papel';
+
+  return [
+    {
+      degrees: [uno, cuatro, 'V', uno],
+      beats: 2,
+      reference: 0,
+      prompt: 'Cuatro acordes. El último, ¿es la casa o algo que hace su papel?',
+      choices: opciones(LA_CASA, [UN_SUSTITUTO]),
+      why: `Cierra en ${cifrado(tonic, mode, uno)}, la tónica. Es el final que no deja nada pendiente, y sirve de referencia para el siguiente.`,
+    },
+    {
+      degrees: [uno, cuatro, 'V', relativo],
+      beats: 2,
+      reference: 0,
+      prompt: 'Los tres primeros son los mismos. ¿Y el último?',
+      choices: opciones(UN_SUSTITUTO, [LA_CASA]),
+      why: `Es ${cifrado(tonic, mode, relativo)}: comparte dos de sus tres notas con ${cifrado(tonic, mode, uno)} y hace el mismo reposo. Por eso el final llega, pero no cierra del todo.`,
+    },
+    {
+      // Las dos dominantes con su séptima, que es donde vive el tritono: con las
+      // tríadas a secas esta pregunta ni se puede contestar ni sería cierta.
+      degrees: [dominante, uno, tritonal, uno],
+      beats: 2,
+      reference: 0,
+      prompt: 'Dos maneras de llegar a casa. ¿La segunda aprieta como la primera?',
+      choices: opciones('Sí, las dos aprietan igual', [
+        'Solo aprieta la primera',
+        'Solo aprieta la segunda',
+      ]),
+      why: `${sonidoDe(tritonal, tonic, mode).symbol} lleva dentro el mismo tritono que ${sonidoDe(dominante, tonic, mode).symbol}, y el tritono es simétrico: el mismo par de notas sirve a dos dominantes separadas por un tritono. Cambia la fundamental, no la tensión.`,
+    },
+  ];
+}
+
+/**
+ * La relativa y la vecina, oyéndolas.
+ *
+ * Es la unidad que le faltaba a **La rueda de quintas**. La rueda se estudia
+ * mirándola y es un dibujo bonito que no se sostiene en el oído, y sin embargo lo
+ * que dice se oye perfectamente: la relativa **son las mismas notas con otro
+ * centro** —no suena a haber cambiado de sitio, suena a haberse sentado en otra
+ * silla de la misma casa— y a la vecina **solo se llega trayendo una nota que
+ * aquí no está**.
+ *
+ * Por eso la vecina se presenta con su dominante secundaria y no con el quinto
+ * grado: el V de esta tonalidad es de casa y no trae nada nuevo. El `V/V` es
+ * literalmente la puerta, porque su tercera es la nota que separa esta tonalidad
+ * de la de al lado —en Do, el Fa sostenido—.
+ */
+function circle(tonic: PitchClass, mode: KeyMode): EarExercise[] {
+  const uno: DegreeSymbol = mode === 'major' ? 'I' : 'i';
+  const relativo: DegreeSymbol = mode === 'major' ? 'vi' : 'III';
+  const cinco: DegreeSymbol = 'V';
+
+  const DE_CASA = 'Las mismas notas, otro centro';
+  const DE_FUERA = 'Trae una nota que aquí no está';
+
+  return [
+    {
+      degrees: [uno, relativo],
+      beats: 3,
+      reference: 1,
+      prompt: 'Primero la casa. El segundo, ¿se ha ido de la tonalidad?',
+      choices: opciones(DE_CASA, [DE_FUERA]),
+      why: `${cifrado(tonic, mode, relativo)} es la relativa: **la misma armadura**, las mismas siete notas, y solo cambia cuál manda. En la rueda están pegadas una dentro de la otra por eso.`,
+    },
+    {
+      degrees: [uno, 'V/V'],
+      beats: 3,
+      reference: 1,
+      prompt: '¿Y este otro?',
+      choices: opciones(DE_FUERA, [DE_CASA]),
+      why: `Es la dominante de la vecina, y su tercera no está en tu escala. Esa nota de más es exactamente lo que separa tu tonalidad de la de al lado en la rueda: una sola.`,
+    },
+    {
+      degrees: [uno, 'V/V', cinco, uno],
+      beats: 2,
+      reference: 0,
+      prompt: 'Cuatro acordes. El segundo, ¿a dónde empujaba?',
+      choices: opciones('Al tercero', ['A la casa', 'A ningún sitio']),
+      why: `Empuja al ${cifrado(tonic, mode, cinco)}, no a la casa: es una dominante prestada que apunta a la vecina y la deja hecha dominante de aquí. Es el paseo por la rueda, ida y vuelta, en cuatro acordes.`,
+    },
+  ];
+}
+
 /** Los ejercicios de oído de esa clase, en esa tonalidad. */
 export function earExercises(kind: EarKind, tonic: PitchClass, mode: KeyMode): EarExercise[] {
   const catalogo: Readonly<Record<EarKind, (t: PitchClass, m: KeyMode) => EarExercise[]>> = {
     quality,
     degree,
+    circle,
     functions,
     cadence,
+    substitutions,
     sevenths,
     borrowed,
     modes,
@@ -473,6 +598,10 @@ export const EAR_KINDS: Readonly<Record<EarKind, { name: string; lead: string }>
     name: 'Qué grado ha sonado',
     lead: 'Primero la casa, luego otro acorde. Di cuál era, con la tónica todavía en el oído.',
   },
+  circle: {
+    name: 'La relativa y la vecina',
+    lead: 'La casa y luego otro acorde. Di si sigue siendo la misma tonalidad o ha traído una nota de fuera.',
+  },
   functions: {
     name: 'Reposo, salida o tensión',
     lead: 'Primero la casa y luego otro acorde. No digas cuál es: di qué hace.',
@@ -484,6 +613,10 @@ export const EAR_KINDS: Readonly<Record<EarKind, { name: string; lead: string }>
   sevenths: {
     name: 'Qué añade la séptima',
     lead: 'Primero la tríada y luego la misma con una nota más. Lo que hay que oír es la de más.',
+  },
+  substitutions: {
+    name: 'Si es el acorde o el que hace su papel',
+    lead: 'Progresiones que acaban distinto. Lo que hay que oír no es cuál suena, sino qué papel hace.',
   },
   borrowed: {
     name: 'Si el acorde es de casa o viene de fuera',

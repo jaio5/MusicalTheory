@@ -56,5 +56,13 @@ describe('De tocando a escribir', () => {
     expect(selectReparto(useBancoStore.getState())).toBe(
       useBancoStore.getState().repartos.escribir,
     );
-  });
+    // Diez segundos y no los cinco de serie. Este test monta **la pantalla de
+    // componer entera**, que es el componente más pesado del proyecto: suelto
+    // tarda unos 700 ms, y bajo `pnpm coverage` —con la instrumentación de V8 y
+    // el resto de ficheros corriendo en paralelo— pasa de los cinco. Estaba al
+    // borde, y crecer el temario en tres unidades bastó para tirarlo: fallaba
+    // solo en cobertura y se llevaba por delante la de todo su fichero, que es
+    // un 4 % del total y parece otra cosa. El número no afloja ninguna
+    // comprobación; solo deja de medir la máquina.
+  }, 10_000);
 });

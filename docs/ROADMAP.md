@@ -152,12 +152,19 @@ Lo que queda, en el orden en que se hace:
 
 ## 5. Que aprender y componer sean lo mismo
 
-- **Al temario le faltan tipos de unidad, y a un curso le falta la mitad.** De
-  diez cursos, cinco no tienen alguno de los tres tipos. El peor con diferencia es
-  `profesional-4` —**Sustituciones: dos unidades de teoría y nada más**—, y el
-  sustituto tritonal es justo una cosa que solo se entiende oyéndola. `elemental-3`
-  y `elemental-4` no tienen oído, y `profesional-2` estudia las siete especies de
-  cuatríada **sin tocar ni una**.
+- **Tres cursos siguen cojos, y los tres por el mismo motivo.** El temario está en
+  34 unidades —15 de teoría, 10 de tocar, 9 de oído— y los cursos a los que les
+  falta un tipo bajaron de seis a tres
+  ([adr/0044](./adr/0044-un-ejercicio-de-oido-se-contesta-de-oido.md)). Los que
+  quedan **no están sin escribir: están bloqueados**.
+  - `profesional-2` (Cuatríadas) y `profesional-4` (Sustituciones) pedirían una
+    unidad de **tocar acordes**. Una unidad de tocar valida una escala con el motor
+    de tono, que es monofónico; validar acordes es el croma, y el croma falla hoy
+    con una guitarra de verdad. **Esto se desbloquea arreglando el motor**, que es
+    lo primero de esta misma lista.
+  - `elemental-4` (Qué escala tocar) pediría oído sobre escalas, y un ejercicio de
+    oído aquí es una progresión de acordes: no sabe hacer sonar una melodía. Eso
+    es otra máquina.
 - **No hay nada de ritmo, de lectura ni de acordes en el mástil**, y la aplicación
   los da por sabidos: componer ofrece seis figuras y un compás de 1 a 6, «Ensayar»
   te **puntúa** contra el metrónomo, la vista por defecto del arreglo es una

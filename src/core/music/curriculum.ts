@@ -165,6 +165,10 @@ export const COURSES: readonly Course[] = [
     summary: 'Qué tonalidades son vecinas, dónde está la relativa y por qué.',
     units: [
       theory('e3-rueda', 'Vecinas y relativas', 'circle'),
+      // La rueda se estudiaba solo mirándola, y lo que dice se oye: la relativa
+      // son las mismas notas con otro centro, y a la vecina solo se llega
+      // trayendo una nota que aquí no está.
+      ear('e3-oido', 'La relativa y la vecina', 'circle'),
       play('e3-pentatonica', 'La pentatónica mayor', 'majorPentatonic'),
     ],
   },
@@ -230,6 +234,10 @@ export const COURSES: readonly Course[] = [
     units: [
       theory('p4-sustituciones', 'Cambiar un acorde por otro', 'substitutions'),
       theory('p4-tritono', 'El sustituto tritonal', 'substitutions'),
+      // Este curso era dos lecciones de teoría y nada más, y era el más flojo del
+      // temario: lo único que justifica una sustitución es que **suene** igual de
+      // bien en ese sitio, y en el papel eso no se distingue de una equivocación.
+      ear('p4-oido', 'Si es el acorde o el que hace su papel', 'substitutions'),
     ],
   },
   {

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { EAR_KINDS, earExercises, gradoDe, sonidoDe, type EarKind } from './ear';
 import { pitchClassFromName } from './notes';
 import { degreesFor } from './progressions';
+import { scaleNotes } from './scales';
 
 const C = pitchClassFromName('C');
 const Eb = pitchClassFromName('Eb');
@@ -150,5 +151,71 @@ describe('lo que se pregunta es lo que suena', () => {
     }
     // En La menor el primer grado con séptima es Am7, no «Ammaj7».
     expect(sonidoDe({ degree: 'i', especie: 'minor7' }, A, 'minor').symbol).toBe('Am7');
+  });
+});
+
+/**
+ * La unidad de sustituciones afirma algo comprobable, y por eso se comprueba: que
+ * las dos dominantes **llevan el mismo tritono**. Es lo único que justifica poner
+ * una donde iba la otra, y con las tríadas a secas sería falso —un `bII` sin
+ * séptima no tiene tritono ninguno—.
+ */
+describe('el sustituto tritonal lleva el tritono', () => {
+  /** El par de notas separadas por seis semitonos, si lo hay. */
+  function tritonoDe(notes: readonly number[]): string | null {
+    for (const a of notes) {
+      for (const b of notes) {
+        if ((b - a + 12) % 12 === 6) {
+          return [a, b].sort((x, y) => x - y).join('-');
+        }
+      }
+    }
+    return null;
+  }
+
+  it('las dos dominantes comparten el mismo par de notas', () => {
+    for (const mode of ['major', 'minor'] as const) {
+      const ejercicios = earExercises('substitutions', C, mode);
+      const último = ejercicios.at(-1)!;
+      const [dominante, , tritonal] = último.degrees;
+
+      const unaSuena = sonidoDe(dominante!, C, mode);
+      const otraSuena = sonidoDe(tritonal!, C, mode);
+
+      // Fundamentales distintas, y a un tritono la una de la otra.
+      expect(otraSuena.root).not.toBe(unaSuena.root);
+      expect((otraSuena.root - unaSuena.root + 12) % 12).toBe(6);
+
+      // Y el mismo tritono dentro, que es lo que el ejercicio dice que se oye.
+      const suyo = tritonoDe(unaSuena.notes);
+      expect(suyo, `${mode}: ${unaSuena.symbol} no lleva tritono`).not.toBeNull();
+      expect(tritonoDe(otraSuena.notes), `${mode}: ${otraSuena.symbol}`).toBe(suyo);
+    }
+  });
+});
+
+/**
+ * La unidad de la rueda afirma dos cosas comprobables, y si alguna fuera falsa el
+ * ejercicio enseñaría lo contrario de lo que dice: que la relativa **no trae
+ * ninguna nota de fuera**, y que la dominante de la vecina **sí trae una**.
+ */
+describe('la relativa se queda en casa y la vecina no', () => {
+  it('lo que suena en cada pregunta es lo que la pregunta dice', () => {
+    for (const mode of ['major', 'minor'] as const) {
+      const escala = new Set(scaleNotes(C, mode === 'major' ? 'major' : 'naturalMinor'));
+      const [relativa, vecina] = earExercises('circle', C, mode);
+
+      const deLaRelativa = sonidoDe(relativa!.degrees[1]!, C, mode).notes;
+      expect(
+        deLaRelativa.every((nota) => escala.has(nota)),
+        `${mode}: la relativa trae notas de fuera`,
+      ).toBe(true);
+
+      const deLaVecina = sonidoDe(vecina!.degrees[1]!, C, mode).notes;
+      expect(
+        deLaVecina.some((nota) => !escala.has(nota)),
+        `${mode}: la vecina no trae ninguna nota de fuera`,
+      ).toBe(true);
+    }
   });
 });
