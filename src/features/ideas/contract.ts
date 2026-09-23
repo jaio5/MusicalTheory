@@ -13,12 +13,14 @@ import {
   degreesFor,
   cuerpoConTonalidad,
   asNoteName,
+  parseChordSymbol,
   pitchClassFromName,
   resolveProgression,
   SCALE_IDS,
   type DegreeSymbol,
   type KeyMode,
   type NoteName,
+  type ParsedChord,
   type PitchClass,
   type ScaleId,
 } from '@core/music';
@@ -132,10 +134,22 @@ export function parseIdeasRequest(body: unknown): IdeasRequest | null {
     }
   }
 
+  // **Cada cifrado pasa por el dominio, y lo que viaja es lo que el dominio
+  // escribe.** Antes bastaba con ser una cadena de ocho caracteres, y estas van
+  // al prompt unidas por espacios: dieciséis por ocho son ciento veintiocho
+  // caracteres que escribe quien llama, metidos en la instrucción sin marcas ni
+  // aviso de que son un dato. La pregunta del profesor tiene su delimitador y su
+  // «esto lo escribe el alumno» precisamente por esto; esto no lo tenía.
+  //
+  // `parseChordSymbol` comparte catálogo con el motor de croma, así que acepta
+  // exactamente lo que el micro produce: no se pierde nada de lo que se tocó.
+  // Y se guarda `symbol`, el normalizado, no el texto de entrada.
   const chords = campos['recentChords'];
   if (Array.isArray(chords)) {
     const clean = chords
-      .filter((chord): chord is string => typeof chord === 'string' && chord.length <= 8)
+      .map((chord) => (typeof chord === 'string' ? parseChordSymbol(chord) : null))
+      .filter((parsed): parsed is ParsedChord => parsed !== null)
+      .map((parsed) => parsed.symbol)
       .slice(-MAX_RECENT_CHORDS);
     if (clean.length > 0) {
       request.recentChords = clean;
