@@ -30,6 +30,7 @@ import { abrirPuertaDeIa, frenarPorFrecuencia, type ConstructorDeError } from '.
 import { askModel } from './ask-model';
 import type { PuertaDeIa } from './ai-gate';
 import type { SlidingWindowRateLimiter } from './rate-limit';
+import { readJsonBody } from './request-body';
 
 /**
  * Lo que distingue a una ruta de otra.
@@ -87,12 +88,10 @@ export async function responderConModelo<Peticion, Respuesta>(
     return frenada;
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(ruta.error('invalid_request'), { status: 400 });
-  }
+  // Por el lector acotado: un cuerpo roto, vacío o de cincuenta megas llega como
+  // objeto vacío, y `ruta.parse` contesta nulo, que es el mismo 400 que daba el
+  // `catch`. Lo que cambia es que ya no se junta en memoria lo que no cabe.
+  const body = await readJsonBody(request);
 
   const peticion = ruta.parse(body);
   if (peticion === null) {

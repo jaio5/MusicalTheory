@@ -27,7 +27,6 @@
 import { NextResponse } from 'next/server';
 
 import { ANONYMOUS, MIN_PASSWORD_LENGTH } from '@core/billing';
-import { isRecordOrEmpty } from '@core/parse';
 import { configuredModel } from '@server/ai-model';
 import { authAvailable } from '@server/auth';
 import { currentAccount, currentSession } from '@server/entitlements';
@@ -94,17 +93,20 @@ export async function POST(request: Request): Promise<NextResponse> {
     return tooManyRequests(espera);
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  // Por el lector acotado como las demás rutas: un cuerpo roto —o uno de cincuenta
+  // megas— llega aquí como objeto vacío.
+  const record = await readJsonBody(request);
+
+  // Y un cuerpo vacío se rechaza **aquí**, sin bajar a la base de datos.
+  // `createUser` contestaría lo mismo —falta el correo—, pero abriría conexión
+  // para decirlo: registrar basura no tiene por qué costar una consulta.
+  if (Object.keys(record).length === 0) {
     return NextResponse.json(
       { error: { code: 'correo-invalido', message: MENSAJES['correo-invalido'] } },
       { status: 400 },
     );
   }
 
-  const record = isRecordOrEmpty(body);
   const result = await createUser({
     email: record['email'],
     password: record['password'],
