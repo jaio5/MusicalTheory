@@ -125,7 +125,12 @@ export function Area({
             </span>
           )}
           <h2 className="min-w-0 truncate text-xs font-medium">{titulo}</h2>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
+          {/* Ocho píxeles entre mandos, que es lo que pide no fallar el de al
+            lado cuando los dos son del tamaño del dedo. Y estirado, para que lo
+            que lleva dentro pueda tomar el alto de la cabecera: sin esto, un
+            `self-stretch` ahí abajo se estira contra esta caja, que mide lo que
+            mide un icono. Medido: el botón seguía en 44 por 12. */}
+          <div className="ml-auto flex shrink-0 items-stretch gap-2 self-stretch">
             {mandos}
             {onPlegar !== undefined && (
               <button
@@ -135,7 +140,19 @@ export function Area({
                 aria-label={`Plegar ${titulo}`}
                 title={atajo === undefined ? `Plegar ${titulo}` : `Plegar ${titulo} · ${atajo}`}
                 aria-keyshortcuts={atajo}
-                className="hover:text-brass-bright inline-flex cursor-pointer items-center px-1"
+                // **Cuarenta y cuatro de ancho y la cabecera entera de alto.**
+                // Medía veinte por doce: por debajo incluso del mínimo de la
+                // norma, y no es un mando cualquiera —**es con el que se
+                // devuelve un área plegada**, que este proyecto ya tenía escrito
+                // que hay que poder hacer—.
+                //
+                // De alto, **toda la fila**: la cabecera mide veintiocho por
+                // decisión ([adr/0031](../../docs/adr/0031-componer-es-un-banco-de-trabajo.md)),
+                // y un botón más alto que su fila se comería los clics de lo que
+                // hay debajo sin que se vea por qué. `self-stretch` y no un
+                // número, que es lo que pide la regla de los 44 px para este
+                // caso: el control mide lo que mide su sitio.
+                className="hover:text-brass-bright inline-flex min-w-11 cursor-pointer items-center justify-center self-stretch"
               >
                 <Chevron className={`size-3 ${pliegue === 'vertical' ? 'rotate-90' : ''}`} />
               </button>

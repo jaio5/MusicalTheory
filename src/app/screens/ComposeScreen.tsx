@@ -733,7 +733,8 @@ export function ComposeScreen() {
                   onClick={() => accionesDelBanco.abrirAbajo(null)}
                   aria-label={`Cerrar ${editor.name}`}
                   title="Cerrar"
-                  className="text-text-muted hover:text-oxblood-bright inline-flex cursor-pointer items-center px-1"
+                  // Del tamaño del de plegar, y por lo mismo: era veinte por doce.
+                  className="text-text-muted hover:text-oxblood-bright inline-flex min-w-11 cursor-pointer items-center justify-center self-stretch"
                 >
                   <IconoCerrar />
                 </button>

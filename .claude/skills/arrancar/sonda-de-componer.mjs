@@ -23,7 +23,11 @@
  *    medida más ruidosa de las cinco y **da candidatos, no veredictos**: una
  *    caja grande que se cruza con un hermano sale tapada sin estarlo. Se
  *    confirman mirando. Lo que sí es fiable son las otras cuatro.
- * 5. **El vacío**: qué parte de un área no tiene nada dentro. Una pantalla de
+ * 5. **Lo pequeño de pulsar**: mandos por debajo de 44 px. El test de
+ *    coherencia lee las clases del fichero y **no ve el control que no lleva
+ *    ninguna**: el chevron de plegar un área medía veinte por doce y pasaba la
+ *    regla sin tener una sola clase de tamaño. Eso solo se ve midiendo.
+ * 6. **El vacío**: qué parte de un área no tiene nada dentro. Una pantalla de
  *    mil por setecientos con un botón en medio se defiende sola en una captura
  *    y no se defiende con un porcentaje.
  *
@@ -106,6 +110,19 @@ export const MEDIDAS = () => {
     [r.left + r.width * 0.25, r.top + r.height * 0.75],
     [r.left + r.width * 0.75, r.top + r.height * 0.75],
   ];
+
+  /**
+   * Lo que se pulsa y se queda corto.
+   *
+   * Cuarenta y cuatro es el mínimo de la casa. Se mide el rectángulo de verdad,
+   * que es lo que el dedo encuentra, y no la clase que lo pide.
+   */
+  const pequenos = mandos
+    .map((el) => {
+      const r = el.getBoundingClientRect();
+      return { nombre: nombre(el), ancho: Math.round(r.width), alto: Math.round(r.height) };
+    })
+    .filter((m) => m.ancho < 44 || m.alto < 44);
 
   const alcance = [];
   for (const el of mandos) {
@@ -194,6 +211,7 @@ export const MEDIDAS = () => {
     mandosVisibles: mandos.length,
     encimaDelDocumento,
     duplicados,
+    pequenos,
     alcance,
     vacio,
   };

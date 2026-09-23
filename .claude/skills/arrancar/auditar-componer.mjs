@@ -212,6 +212,17 @@ for (const caso of medido.casos) {
   );
 }
 
+console.log('\n== LO PEQUENO DE PULSAR: por debajo de 44 px ==\n');
+for (const caso of medido.casos) {
+  if (caso.pequenos.length === 0) continue;
+  console.log(
+    `${pad(caso.tamano, 12)} ${pad(caso.escenario, 24)} ${caso.pequenos.length}: ${caso.pequenos
+      .map((m) => `${m.nombre} ${m.ancho}x${m.alto}`)
+      .join(', ')
+      .slice(0, 80)}`,
+  );
+}
+
 console.log('\n== DUPLICADOS: mismo nombre, a la vez, en pantalla ==\n');
 for (const caso of medido.casos) {
   if (caso.duplicados.length === 0) continue;
