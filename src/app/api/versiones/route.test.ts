@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as AskModel from '@server/ask-model';
+
 /**
  * La ruta de las salidas: la petición más cara de las tres y la única que
  * verifica el razonamiento del modelo, no solo el resultado.
@@ -14,7 +16,10 @@ const spendAi = vi.fn(async () => ({ kind: 'ok', account: {}, leftMonth: 10 }) a
 const askModel = vi.fn();
 
 vi.mock('@server/entitlements', () => ({ spendAi: () => spendAi() }));
-vi.mock('@server/ask-model', () => ({
+vi.mock('@server/ask-model', async (original) => ({
+  // El módulo entero se sustituye, así que **la clase se trae de verdad**: es la
+  // que `ai-route` compara con `instanceof`, y una copia no sería la misma.
+  ...(await original<typeof AskModel>()),
   modelAvailable: () => true,
   askModel: (...args: unknown[]) => askModel(...args),
 }));

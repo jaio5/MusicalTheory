@@ -27,7 +27,7 @@ import { NextResponse } from 'next/server';
 import { MAX_MODEL_ATTEMPTS } from '@core/billing';
 
 import { abrirPuertaDeIa, frenarPorFrecuencia, type ConstructorDeError } from './ai-gate';
-import { askModel } from './ask-model';
+import { askModel, RespuestaTruncada } from './ask-model';
 import type { PuertaDeIa } from './ai-gate';
 import type { SlidingWindowRateLimiter } from './rate-limit';
 import { readJsonBody } from './request-body';
@@ -117,7 +117,14 @@ export async function responderConModelo<Peticion, Respuesta>(
         maxTokens: ruta.maxTokens,
         sinClave: () => ruta.sinClave(peticion),
       });
-    } catch {
+    } catch (fallo) {
+      // Una respuesta cortada por el tope de tokens **no se reintenta**: el
+      // prompt y el tope son los mismos, así que la segunda llamada se cortaría
+      // por donde se cortó la primera. Y no es «el modelo no contesta»: contestó,
+      // y lo que dijo no se puede leer.
+      if (fallo instanceof RespuestaTruncada) {
+        return NextResponse.json(ruta.error('unparseable_response'), { status: 502 });
+      }
       // 502 y no 500: el que ha fallado es el modelo, no nosotros, y la
       // diferencia importa para quien mire los registros.
       return NextResponse.json(ruta.error('model_unavailable'), { status: 502 });

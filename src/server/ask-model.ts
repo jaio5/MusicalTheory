@@ -38,6 +38,60 @@ export function modelAvailable(): boolean {
   return modelProvider() !== 'ninguno' || process.env.NODE_ENV !== 'production';
 }
 
+/**
+ * Lo que se espera como mucho a que conteste la API.
+ *
+ * **Sin esto no había ninguno.** El modelo de casa sí tenía tope —dos minutos,
+ * porque la primera petición carga cinco gigas de pesos—, y la API se quedaba
+ * con el del SDK, que son **diez minutos**. Multiplicado por los reintentos de
+ * dentro y por el reintento de la ruta, una pregunta al profesor podía dejar a
+ * alguien esperando casi una hora contra una pantalla parada. Y `docs/AI.md`
+ * llevaba diciendo desde el principio que aquí había «tiempo máximo».
+ *
+ * Treinta segundos con un reintento dan sesenta por llamada y ciento veinte con
+ * el reintento de la ruta: **el mismo tope de dos minutos que el modelo de
+ * casa**, que es lo que hace que las dos ramas se puedan razonar igual. Lo medido
+ * en este equipo son dos segundos en caliente y veinte en frío, así que treinta
+ * solo salta cuando algo va mal de verdad.
+ */
+const TIEMPO_MAXIMO_MS = 30_000;
+
+/**
+ * Cuántas veces reintenta el SDK por su cuenta, por debajo de la ruta.
+ *
+ * El SDK trae dos y **no son los mismos reintentos** que los de `ai-route.ts`:
+ * aquellos son para una respuesta que no valida, y estos para una petición que
+ * ni llegó —un 429 de la API, un 5xx, una conexión cortada—. Los dos hacen falta
+ * y por eso no se apagan: sin estos, un pico de carga de la API sale como 502 a
+ * la primera en vez de esperar un momento y volver a intentarlo.
+ *
+ * Uno y no dos, que es lo que trae de serie, para que el peor caso quepa en el
+ * tope de arriba. **Y ninguno de estos se cobra**, porque suceden cuando la
+ * petición falló; el único que podría cobrarse es el de un tiempo agotado, con
+ * el servidor habiendo terminado y nosotros habiéndonos ido, y para eso está que
+ * el tope sea holgado.
+ */
+const REINTENTOS_DEL_SDK = 1;
+
+/**
+ * La respuesta se cortó por llegar al tope de tokens.
+ *
+ * Va aparte de los demás fallos porque **reintentarla no puede salir bien**: el
+ * prompt es el mismo y el tope también, así que la segunda llamada se corta por
+ * donde se cortó la primera. Sin distinguirla, el reintento de `ai-route.ts` —que
+ * está para una respuesta que no valida, donde otra tirada sí puede cambiar las
+ * cosas— gastaba una llamada a la API que no tenía ninguna posibilidad.
+ *
+ * El JSON cortado no se puede leer, así que lo que sale es `unparseable_response`,
+ * que es literalmente lo que ha pasado: contestó y lo que dijo no vale.
+ */
+export class RespuestaTruncada extends Error {
+  constructor() {
+    super('truncated');
+    this.name = 'RespuestaTruncada';
+  }
+}
+
 export interface AskModelInput {
   readonly prompt: string;
   readonly system: string;
@@ -104,7 +158,7 @@ export async function askModel({
     );
   }
 
-  const client = new Anthropic();
+  const client = new Anthropic({ timeout: TIEMPO_MAXIMO_MS, maxRetries: REINTENTOS_DEL_SDK });
 
   const response = await client.messages.create({
     model: configuredModel(),
@@ -120,6 +174,10 @@ export async function askModel({
 
   if (response.stop_reason === 'refusal') {
     throw new Error('refusal');
+  }
+
+  if (response.stop_reason === 'max_tokens') {
+    throw new RespuestaTruncada();
   }
 
   const text = response.content.find((block) => block.type === 'text');

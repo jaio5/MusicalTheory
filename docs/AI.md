@@ -184,28 +184,76 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
    la segunda tampoco, se devuelve el error. No se encadenan reintentos: cuestan
    dinero y tiempo, y el usuario prefiere un «no ha salido, prueba otra vez»
    rápido a treinta segundos de espera.
+4. **Y hay dos cosas que no se reintentan nunca.** Un fallo del proveedor sale
+   como `model_unavailable` a la primera, porque el problema no es la tirada. Y
+   una respuesta **cortada por el tope de tokens** tampoco: el prompt es el mismo
+   y el tope también, así que la segunda llamada se cortaría por donde se cortó
+   la primera. Se contesta `unparseable_response`, que es lo que ha pasado
+   —contestó, y lo que dijo no se puede leer—, sin gastar una llamada que no
+   tenía ninguna posibilidad.
 
 En ningún caso se devuelve al cliente texto sin validar. Si el modelo se inventa
 un acorde imposible, muere en el servidor.
+
+## Cuánto se espera, y cuántas llamadas puede haber
+
+**La espera está acotada en las dos ramas, y en la de la API no lo estuvo.** El
+modelo de casa siempre tuvo su tope de dos minutos —la primera petición carga
+cinco gigas de pesos en la gráfica—, y la llamada a la API se quedaba con el que
+trae el SDK de serie: **diez minutos**, con dos reintentos suyos por debajo. Con
+el reintento de la ruta encima, una pregunta al profesor podía tener a alguien
+esperando casi una hora contra una pantalla parada. Este documento llevaba desde
+el principio diciendo que aquí había «tiempo máximo», y no lo había.
+
+| Lo que se espera              | Cuánto                                               |
+| ----------------------------- | ---------------------------------------------------- |
+| Una llamada a la API          | 30 s                                                 |
+| Reintentos del SDK            | 1 (para un 429 o un 5xx, no para una respuesta mala) |
+| Por cada `askModel`           | 60 s                                                 |
+| Reintentos de la ruta         | `MAX_MODEL_ATTEMPTS` = 2                             |
+| **Peor caso de una petición** | **120 s**, el mismo tope que el modelo de casa       |
+
+Los reintentos del SDK y los de la ruta **no son los mismos** y por eso conviven:
+los de abajo son para una petición que ni llegó —la API sobrecargada, la conexión
+cortada—, y los de arriba para una respuesta que llegó y no vale. Apagar los de
+abajo convertiría un pico de carga de la API en un 502 inmediato.
+
+Sobre el coste: los del SDK **no se cobran**, porque ocurren cuando la petición
+falló. El único que podría cobrarse es el de un tiempo agotado —el servidor
+terminó y nosotros nos fuimos—, y para eso el tope es holgado: lo medido en este
+equipo son dos segundos en caliente y veinte en frío.
 
 ## Configuración del modelo
 
 ```ts
 // src/server/ask-model.ts — el único sitio del proyecto que importa el SDK.
-const client = new Anthropic(); // lee ANTHROPIC_API_KEY del entorno
+const client = new Anthropic({ timeout: 30_000, maxRetries: 1 });
 
 const response = await client.messages.create({
-  model: process.env.ANTHROPIC_MODEL ?? 'claude-opus-5',
-  max_tokens: 2048,
-  system: SYSTEM_PROMPT,
-  output_config: { format: { type: 'json_schema', schema: IDEAS_SCHEMA } },
-  messages: [{ role: 'user', content: buildPrompt(input) }],
+  model: configuredModel(),
+  max_tokens: maxTokens, // TOKEN_BUDGETS[feature].output
+  system,
+  thinking: { type: 'disabled' },
+  output_config: {
+    effort: 'low',
+    format: { type: 'json_schema', schema },
+  },
+  messages: [{ role: 'user', content: prompt }],
 });
 ```
 
 - **Modelo**: `claude-opus-5` por defecto, configurable por entorno.
-- **`max_tokens`**: 2048. Las ideas son cortas; un tope bajo acota el coste y
-  evita respuestas que se van por las ramas.
+- **`max_tokens` sale del presupuesto de coste**, no de un número escrito aquí:
+  `TOKEN_BUDGETS` de `core/billing/cost.ts`, que es el mismo con el que se
+  calculan los cupos. Así el tope que impone el servidor **es** el peor caso que
+  supone la aritmética del plan, y no dos números que se separan. Hoy son 400
+  para el profesor, 700 para ideas y 900 para salidas —la más cara de las tres,
+  porque la salida son tres progresiones completas—.
+- **Pensar está apagado, y es una decisión de coste.** La respuesta la fija un
+  esquema JSON: no hay nada que razonar. En `claude-opus-5` el pensamiento viene
+  encendido y se cobra como salida, así que dejarlo puesto multiplica el coste y
+  puede gastarse el `max_tokens` pensando para devolver algo cortado: se paga y
+  no se sirve. Por lo mismo, `effort: 'low'`.
 - **Sin `temperature`**: los modelos actuales no la aceptan. La variedad se pide
   en el prompt, no con parámetros de muestreo.
 - **Prompt de sistema**: fija el criterio —rock, no coral—, exige español, y
@@ -366,7 +414,20 @@ Toda la superficie, contada: **un campo y 240 caracteres**, la pregunta del
 profesor. Nada más.
 
 `/api/ideas` no acepta ni un carácter libre —tónica, modo, escala, grados y
-cifrados van contra enumerados, y lo que no encaja se descarta en silencio—. La
+cifrados van contra enumerados, y lo que no encaja se descarta en silencio—.
+
+**Esto era mentira hasta el 23 de septiembre de 2026, y lo decía este documento.**
+Los cifrados recientes no iban contra ningún enumerado: bastaba con ser una cadena
+de ocho caracteres. Y van al prompt unidos por espacios, dentro de la instrucción
+y sin marcas, así que dieciséis por ocho daban **ciento veintiocho caracteres
+libres** metidos en mitad de lo que se le dice al modelo: la mitad de la
+superficie que este apartado decía que no existía. Ahora cada uno pasa por
+`parseChordSymbol` —que comparte catálogo con el motor de croma, así que acepta
+exactamente lo que el micro produce— y lo que viaja es el cifrado **normalizado
+por el dominio**, no el texto que llegó. Lo sujetan cuatro pruebas en
+`features/ideas/contract.test.ts`.
+
+La
 unidad que se lee viaja por su identificador. El nombre de la canción **ya no se
 manda**: solo construía una línea del prompt, no volvía en la respuesta, no se
 guardaba, y el cliente ni siquiera lo enviaba.

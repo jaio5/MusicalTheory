@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as AskModel from '@server/ask-model';
+
 /**
  * La ruta de las ideas, de punta a punta.
  *
@@ -19,12 +21,16 @@ const spendAi = vi.fn(async () => ({ kind: 'ok', account: {}, leftMonth: 10 }) a
 const askModel = vi.fn();
 
 vi.mock('@server/entitlements', () => ({ spendAi: () => spendAi() }));
-vi.mock('@server/ask-model', () => ({
+vi.mock('@server/ask-model', async (original) => ({
+  // El módulo entero se sustituye, así que **la clase se trae de verdad**: es la
+  // que `ai-route` compara con `instanceof`, y una copia no sería la misma.
+  ...(await original<typeof AskModel>()),
   modelAvailable: () => true,
   askModel: (...args: unknown[]) => askModel(...args),
 }));
 
 const { POST } = await import('./route');
+const { RespuestaTruncada } = await import('@server/ask-model');
 
 const CUERPO = {
   kind: 'progression',
@@ -144,6 +150,23 @@ describe('lo que sale', () => {
 
     expect(status).toBe(502);
     expect(body['error']).toMatchObject({ code: 'model_unavailable' });
+    expect(askModel).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * **Una respuesta cortada tampoco se reintenta**, y por un motivo distinto:
+   * no es que el modelo haya fallado, es que la segunda llamada se cortaría por
+   * donde se cortó la primera. El prompt es el mismo y el tope también. Antes se
+   * gastaba una llamada a la API que no tenía ninguna posibilidad.
+   */
+  it('una respuesta cortada por el tope no se reintenta', async () => {
+    askModel.mockRejectedValue(new RespuestaTruncada());
+
+    const { status, body } = await leer(await POST(pedir(CUERPO, nueva())));
+
+    expect(status).toBe(502);
+    // Y lo dice como lo que es: contestó, y lo que dijo no vale.
+    expect(body['error']).toMatchObject({ code: 'unparseable_response' });
     expect(askModel).toHaveBeenCalledTimes(1);
   });
 });

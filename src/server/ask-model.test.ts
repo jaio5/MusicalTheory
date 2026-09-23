@@ -15,9 +15,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const crear = vi.fn();
+/** Con qué se construyó el cliente, para poder mirarle el tope de espera. */
+let comoSeMonto: Record<string, unknown> | undefined;
 
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class {
+    constructor(opciones?: Record<string, unknown>) {
+      comoSeMonto = opciones;
+    }
     messages = { create: (...a: unknown[]) => crear(...a) };
   },
 }));
@@ -27,7 +32,8 @@ vi.mock('./local-model', () => ({
   askLocalModel: (...a: unknown[]) => askLocalModel(...a),
 }));
 
-const { askModel, modelAvailable } = await import('./ask-model');
+const { MAX_MODEL_ATTEMPTS } = await import('@core/billing');
+const { askModel, modelAvailable, RespuestaTruncada } = await import('./ask-model');
 
 const sinClave = vi.fn(() => ({ delDominio: true }));
 
@@ -198,5 +204,60 @@ describe('lo que vuelve', () => {
     crear.mockRejectedValue(new Error('sin red'));
 
     await expect(askModel(pregunta)).rejects.toThrow('sin red');
+  });
+});
+
+/**
+ * **La espera está acotada, y no lo estaba.**
+ *
+ * El modelo de casa tenía su tope de dos minutos; la API se quedaba con el del
+ * SDK, que son diez. Con los reintentos de dentro y el de la ruta, una pregunta
+ * al profesor podía tener a alguien esperando casi una hora contra una pantalla
+ * parada — y `docs/AI.md` llevaba desde el principio diciendo que aquí había
+ * tiempo máximo.
+ */
+describe('cuánto se espera', () => {
+  it('la llamada a la API lleva tope de espera y reintentos contados', async () => {
+    process.env['ANTHROPIC_API_KEY'] = 'sk-de-mentira';
+    crear.mockResolvedValue(contesta('{"vale":true}'));
+
+    await askModel(pregunta);
+
+    expect(comoSeMonto).toBeDefined();
+    // Treinta segundos por llamada y un reintento: sesenta por `askModel`, y con
+    // el reintento de la ruta, los mismos dos minutos que el modelo de casa.
+    expect(comoSeMonto!['timeout']).toBe(30_000);
+    expect(comoSeMonto!['maxRetries']).toBe(1);
+    // Y el peor caso cabe en el tope que este proyecto se ha puesto para las dos
+    // ramas: si alguien sube uno de los dos números, esto avisa.
+    const peorCaso =
+      (comoSeMonto!['timeout'] as number) * ((comoSeMonto!['maxRetries'] as number) + 1);
+    expect(peorCaso * MAX_MODEL_ATTEMPTS).toBeLessThanOrEqual(120_000);
+  });
+});
+
+/**
+ * **Una respuesta cortada no se reintenta.**
+ *
+ * El reintento de `ai-route.ts` está para una respuesta que no valida, donde
+ * otra tirada puede salir distinta. Una cortada por el tope de tokens no: el
+ * prompt es el mismo y el tope también, así que la segunda llamada se corta por
+ * donde se cortó la primera. Sin distinguirla se gastaba una llamada a la API
+ * que no tenía ninguna posibilidad.
+ */
+describe('una respuesta cortada por el tope', () => {
+  it('se distingue de cualquier otro fallo', async () => {
+    process.env['ANTHROPIC_API_KEY'] = 'sk-de-mentira';
+    // JSON a medias, que es justo lo que devuelve una respuesta cortada.
+    crear.mockResolvedValue(contesta('{"ideas":[{"symbol":"C', 'max_tokens'));
+
+    await expect(askModel(pregunta)).rejects.toBeInstanceOf(RespuestaTruncada);
+  });
+
+  it('y no se confunde con una negativa del modelo', async () => {
+    process.env['ANTHROPIC_API_KEY'] = 'sk-de-mentira';
+    crear.mockResolvedValue(contesta('', 'refusal'));
+
+    await expect(askModel(pregunta)).rejects.not.toBeInstanceOf(RespuestaTruncada);
   });
 });
