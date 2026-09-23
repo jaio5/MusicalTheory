@@ -994,7 +994,9 @@ export function ArrangeCanvas() {
             <span
               role="group"
               aria-label="Duración de la nota"
-              className="border-border flex items-center gap-0.5 rounded-md border px-1"
+              // Dos píxeles entre figuras eran pocos para seis botones seguidos:
+              // el de al lado está a un dedo de distancia.
+              className="border-border flex items-center gap-1 rounded-md border px-1"
             >
               {NOTE_LENGTHS.map((length) => (
                 <button
@@ -1004,7 +1006,11 @@ export function ArrangeCanvas() {
                   aria-pressed={figura === length}
                   aria-label={nombreDeFigura(length)}
                   title={nombreDeFigura(length)}
-                  className={`focus-visible:outline-brass-bright min-h-tap cursor-pointer rounded-sm px-1 focus-visible:outline-2 ${
+                  // **Cuarenta y cuatro de ancho, no treinta.** Medían 30 por 44:
+                  // altas de sobra y estrechas, que en una fila de seis pegadas
+                  // es justo la forma de pulsar la de al lado. Lo canta la sonda
+                  // de componer, que mide el rectángulo y no la clase.
+                  className={`focus-visible:outline-brass-bright min-h-tap min-w-tap cursor-pointer rounded-sm px-1 focus-visible:outline-2 ${
                     figura === length ? 'text-brass-bright' : 'text-text-muted hover:text-text'
                   }`}
                 >
