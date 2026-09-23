@@ -55,6 +55,21 @@ export default defineConfig({
       este número: es por qué montar esa pantalla tarda lo que tarda.
     */
     testTimeout: midiendoCobertura ? 20_000 : 5_000,
+    /*
+      Y se abren menos procesos a la vez, por lo mismo.
+
+      Vitest usa por defecto tantos como núcleos —aquí dieciséis—, y cada uno de
+      los pesados levanta su propio jsdom. Sin instrumentar eso va sobrado; con
+      ella, dieciséis pantallas montándose en paralelo se pisan entre sí, cada
+      test tarda más de lo que tardaría solo y **los que ya iban justos se caen
+      por tiempo**. Subir la espera lo redujo y no lo quitó: el fallo no era el
+      número, era la competencia.
+
+      La mitad de los núcleos es lo que hace que la medición sea repetible, que
+      es lo único que se le pide a una medición. Tarda algo más, y da igual:
+      `pnpm coverage` no es el comando que se ejecuta cada dos minutos.
+    */
+    ...(midiendoCobertura ? { maxWorkers: '50%' as const } : {}),
     // El dominio se prueba en Node, sin DOM: si un test de core/ necesitase un
     // window, la pieza estaría en el sitio equivocado. Los tests de features/
     // pedirán jsdom con `// @vitest-environment jsdom` en su cabecera.

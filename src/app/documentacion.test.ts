@@ -3,7 +3,12 @@ import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { dailyAiRequests, monthlyAiRequests } from '@core/billing';
+import {
+  dailyAiRequests,
+  MAX_QUESTION_LENGTH,
+  monthlyAiRequests,
+  TOKEN_BUDGETS,
+} from '@core/billing';
 import { BADGES } from '@core/music';
 
 /**
@@ -128,5 +133,35 @@ describe('lo que la documentación cuenta', () => {
     expect(leer('docs/adr/0028-componer-tambien-cuenta.md')).toContain(
       `${EN_LETRA[BADGES.length] ?? BADGES.length} en total`,
     );
+  });
+
+  /**
+   * **Los números de `AI.md` son los del presupuesto, y uno no lo era.**
+   *
+   * Ese documento enseñaba la llamada al modelo con `max_tokens: 2048` cuando el
+   * código usa lo que dice `TOKEN_BUDGETS` —400, 700 y 900—. No es un detalle de
+   * ejemplo: **ese número es a la vez el tope que impone el servidor y el peor
+   * caso con el que se calculan los cupos de los planes**, así que si se separan,
+   * lo que se cobra deja de cuadrar con lo que se sirve. Se quedó viejo por lo
+   * mismo que la tabla de cupos: nadie lo contaba.
+   */
+  it('los topes de tokens que ensena AI.md son los del presupuesto', () => {
+    const texto = leer('docs/AI.md');
+
+    for (const [feature, budget] of Object.entries(TOKEN_BUDGETS)) {
+      expect(texto, `${feature}: ${budget.output}`).toContain(String(budget.output));
+    }
+    // Y el que estuvo mal no vuelve: no hay ningún tope escrito a mano.
+    expect(texto).not.toContain('max_tokens: 2048');
+  });
+
+  /**
+   * El apartado «Por dónde entra texto que no controlamos» cuenta la superficie
+   * con un número. Si el tope de la pregunta cambia y el documento no, ese
+   * apartado pasa a decir una cifra que no es la que se aplica — y es el apartado
+   * donde menos gracia tiene equivocarse.
+   */
+  it('la superficie de texto libre que declara AI.md es la que hay', () => {
+    expect(leer('docs/AI.md')).toContain(`${MAX_QUESTION_LENGTH} caracteres`);
   });
 });
