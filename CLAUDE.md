@@ -58,8 +58,10 @@ hacerlo.
   un correo—; lo demás en la sans, y el rótulo de un apartado es `.rotulo`
   ([adr/0024](docs/adr/0024-la-interfaz-se-lee-primero.md)). **Ningún test lo
   vigila.**
-- **El mástil se estira a lo ancho del hueco, y no lleva divisor**: mide su caja y reparte
-  los trastes por ella, entre dos topes: con proporción fija salía un cuadrado en
+- **El mástil se estira a lo ancho del hueco, y el hueco solo pone el techo**
+  ([adr/0046](docs/adr/0046-el-mastil-solo-ocupa-lo-que-dibuja.md)): con el alto
+  fijo reservaba hasta 206 px de bandas vacías en una ventana alta. Mide su caja y
+  reparte los trastes por ella, entre dos topes: con proporción fija salía un cuadrado en
   medio y sin tope una tira ([adr/0040](docs/adr/0040-ni-cuadrado-ni-tira.md)). De paso
   se descubrió que **el suelo del arreglo era mentira**: decía 160 px y necesita
   220 por debajo de 1280 —contando los 44 de la tira de un área plegada, que va
@@ -199,20 +201,20 @@ camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                    | Contesta                                                          |
-| -------------------------- | ----------------------------------------------------------------- |
-| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests      |
-| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular         |
-| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico         |
-| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen    |
-| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                        |
-| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto            |
-| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti          |
-| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario            |
-| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha   |
-| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron  |
-| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde           |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y cinco |
+| Fichero                    | Contesta                                                         |
+| -------------------------- | ---------------------------------------------------------------- |
+| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests     |
+| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular        |
+| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico        |
+| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen   |
+| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                       |
+| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto           |
+| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti         |
+| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario           |
+| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
+| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
+| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y seis |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

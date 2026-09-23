@@ -195,10 +195,15 @@ export function Fretboard({
               className="stroke-border"
               strokeWidth={index > 3 ? 2 : 1}
             />
+            {/* El número, pegado al borde y **a la izquierda de la nota al aire**.
+                Estaba en medio de las dos —nota, número, cejuela— y el círculo de
+                una cuerda al aire se le echaba encima: en la tercera se leía «G»
+                tapando el «3». Ahora el orden es el que se lee: número, nota,
+                cejuela. */}
             <text
-              x={NUT_X - 14}
+              x={NUT_X - 44}
               y={TOP + STRING_GAP * index}
-              textAnchor="end"
+              textAnchor="start"
               dominantBaseline="central"
               className="fill-text-muted font-mono text-[11px]"
             >
@@ -210,7 +215,7 @@ export function Fretboard({
         {positions.map((position) => {
           /* v8 ignore next -- las posiciones salen de la misma afinacion con la que se hizo el mapa */
           const index = stringIndex.get(position.string.number) ?? 0;
-          const x = position.fret === 0 ? NUT_X - 30 : NUT_X + traste * (position.fret - 0.5);
+          const x = position.fret === 0 ? NUT_X - 18 : NUT_X + traste * (position.fret - 0.5);
           const y = TOP + STRING_GAP * index;
           const isTonic = position.pitchClass === tonic;
           const sounding = soundingMidi !== null && position.midi === soundingMidi;

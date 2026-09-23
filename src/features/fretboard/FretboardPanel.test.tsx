@@ -127,10 +127,11 @@ describe('qué acorde marca el mástil', () => {
   });
 
   /**
-   * El hueco es quien pone el alto, y el dibujo se estira a lo ancho dentro de
-   * él ([adr/0039](../../../docs/adr/0039-el-mastil-se-estira-a-lo-ancho.md)).
+   * El hueco pone **el máximo**, y dentro de él manda la proporción del dibujo
+   * ([adr/0039](../../../docs/adr/0039-el-mastil-se-estira-a-lo-ancho.md),
+   * [adr/0046](../../../docs/adr/0046-el-mastil-solo-ocupa-lo-que-dibuja.md)).
    */
-  it('el hueco pone el alto, y el dibujo se estira dentro', async () => {
+  it('el hueco pone el maximo, y el dibujo su proporcion', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
 
     const { container } = render(<FretboardPanel />);
@@ -144,9 +145,14 @@ describe('qué acorde marca el mástil', () => {
     // porque Tailwind lee el fichero. **Si dejan de coincidir, esto avisa.**
     expect(hueco!.className).toContain('aspect-[712/198]');
     expect(PROPORCION).toBeCloseTo(712 / 198);
-    // En el banco manda el hueco: alto medido y el dibujo se estira a lo ancho.
-    expect(hueco!.className).toContain('lg:aspect-auto');
-    expect(hueco!.className).toContain('lg:h-[calc(100dvh-26rem)]');
+    // **La proporción manda en los dos, y el hueco solo pone el techo.** Cuando
+    // el alto del hueco era fijo, en una ventana alta la caja se quedaba más
+    // alta de lo que el dibujo puede usar y sobraban 149 px de bandas vacías a
+    // 1440×900 y 206 a 1920×1080 —arriba y abajo del mástil— mientras el arreglo
+    // estaba en su suelo. Con `max-h` el dibujo mide **exactamente lo mismo** y
+    // esos píxeles vuelven a la canción.
+    expect(hueco!.className).not.toContain('lg:aspect-auto');
+    expect(hueco!.className).toContain('lg:max-h-[calc(100dvh-26rem)]');
     expect(container.querySelector('svg')).toHaveClass('h-full', 'w-full');
   });
 

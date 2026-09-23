@@ -144,9 +144,22 @@ export function Disclosure({
           // El tope es **la pantalla menos lo que hay encima y debajo**, y por eso
           // son dos: en un teléfono hay más marco que en un escritorio.
           //
-          //   estrecho  61 cabecera + 133 la de pantalla + 44 esta barra
-          //             + 65 navegación abajo = 303 → 20rem
+          //   estrecho  61 cabecera + 181 la de pantalla + 44 esta barra
+          //             + 65 navegación abajo = 351 → 22rem
           //   a partir de `md`  61 + 85 + 44, y la navegación sube arriba = 12rem
+          //
+          // **Los 181 son con la barra de herramientas envuelta en dos filas**, que
+          // es lo que pasa por debajo de 390 px **con la sesión abierta**: ahí cabe
+          // la insignia del cupo de IA y la fila se parte. Con 133 —una sola fila,
+          // que es lo que decía esta cuenta— el panel se metía 31 px por debajo de
+          // la navegación, y la última fila de la rueda quedaba dentro de la
+          // pantalla pero **sin poder pulsarse**: el toque se lo quedaba la barra.
+          // Medido con sesión a 320×568 y a 360×640; anónimo no pasa, porque sin
+          // insignia la fila no se parte.
+          //
+          // El tope es un máximo, así que las pantallas donde la barra sí cabe en
+          // una fila solo pierden los 48 px que aquí sobran, y la rueda se
+          // desplaza dentro de su panel: no se queda nada fuera de alcance.
           //
           // **El corte es `md` y no `sm` porque es donde la navegación cambia de
           // sitio**, y este número solo dice cuánto marco hay. Estuvo en `sm`
@@ -169,7 +182,7 @@ export function Disclosure({
           // Sin `top` y con `bottom` no se arregla, aunque lo parezca: el
           // navegador resuelve entonces el alto por el contenido y sube el panel
           // hasta taparse el propio rótulo. Probado en la página.
-          className="bg-surface-raised border-border absolute inset-x-0 top-full z-30 max-h-[calc(100dvh-20rem)] overflow-y-auto border-b shadow-[var(--sombra-alta)] md:max-h-[calc(100dvh-12rem)]"
+          className="bg-surface-raised border-border absolute inset-x-0 top-full z-30 max-h-[calc(100dvh-22rem)] overflow-y-auto border-b shadow-[var(--sombra-alta)] md:max-h-[calc(100dvh-12rem)]"
         >
           {children}
         </div>

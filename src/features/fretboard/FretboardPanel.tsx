@@ -130,8 +130,16 @@ export function FretboardPanel() {
               En estrecho no: ahí el área es una pestaña, el alto lo pone el
               dibujo con su proporción natural y `aspect-[712/198]` la escribe
               —Tailwind lee las clases del fichero, así que no puede salir de
-              una constante; hay un test que avisa si dejan de coincidir—. */}
-          <div className="aspect-[712/198] w-full shrink-0 lg:aspect-auto lg:h-[calc(100dvh-26rem)] xl:h-[calc(100dvh-24.25rem)]">
+              una constante; hay un test que avisa si dejan de coincidir—.
+
+              **Y esa proporción manda también en ancho: el hueco solo pone el
+              techo.** Con el alto fijo, en una ventana alta la caja se quedaba
+              más alta de lo que el dibujo puede usar —el dibujo llena el ancho y
+              deja bandas arriba y abajo— y sobraban 149 px a 1440×900 y 206 a
+              1920×1080, con el arreglo en su suelo al lado. Con `max-h` el
+              dibujo mide exactamente lo mismo y esos píxeles vuelven a la
+              canción ([adr/0046](../../../docs/adr/0046-el-mastil-solo-ocupa-lo-que-dibuja.md)). */}
+          <div className="aspect-[712/198] w-full shrink-0 lg:max-h-[calc(100dvh-26rem)] xl:max-h-[calc(100dvh-24.25rem)]">
             <Fretboard
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}
