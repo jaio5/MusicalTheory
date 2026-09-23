@@ -373,3 +373,23 @@ describe('lo que se falla', () => {
     expect(screen.getByText(/º de Profesional ·/)).toBeInTheDocument();
   });
 });
+
+/**
+ * La barra de tonalidad se abre sola cuando falta la tonalidad, y la rueda tapa
+ * lo que la unidad pone debajo: medido a 1280×800, el rótulo «Aprender» y la
+ * frase de `LearnPanel` quedan los dos fuera de la vista. Así que **la frase de
+ * la barra es lo único que se lee en ese estado**, y no puede dar por puesta la
+ * tonalidad que falta.
+ */
+describe('lo que dice la barra de tonalidad', () => {
+  it('sin tonalidad, pide elegirla', () => {
+    render(<UnitScreen unitId="e1-grados" />);
+    expect(screen.getByText(/Elige una tonalidad y la unidad se escribe/)).toBeInTheDocument();
+  });
+
+  it('con tonalidad, cuenta que se puede cambiar', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('G'), mode: 'major' });
+    render(<UnitScreen unitId="e1-grados" />);
+    expect(screen.getByText(/Las preguntas se escriben con los acordes/)).toBeInTheDocument();
+  });
+});

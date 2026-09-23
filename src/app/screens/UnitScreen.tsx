@@ -15,6 +15,7 @@ import {
 } from '@features/learn';
 import { BarraDeTonalidad } from '@features/wheel';
 import { useAccount } from '@state/account';
+import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { PlanLock } from '@ui/PlanLock';
 import { Screen, WorkHeader } from '@ui/Screen';
 
@@ -33,6 +34,7 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   const router = useRouter();
   const { account, signedIn } = useAccount();
   const { progress, day, celebration, dismissCelebration, complete, miss } = useProgress();
+  const activeKey = useSessionStore(selectActiveKey);
 
   const found = findUnit(unitId);
   const acceso = unitAccess(progress, account.plan, unitId);
@@ -114,9 +116,16 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
       {/* `shrink-0`: lo que se abre flota sobre la pregunta en vez de quitarle
           altura, así que la barra mide su rótulo y no negocia nada. */}
       <BarraDeTonalidad className="border-border bg-surface shrink-0 border-b px-4">
+        {/* **Esta frase es lo único que se lee mientras no hay tonalidad**, y por
+            eso cambia. La barra se abre sola cuando falta, y lo que la unidad
+            pone debajo —«elige una tonalidad»— queda tapado por la rueda que se
+            abrió encima: medido a 1280×800, el rótulo y la frase de `LearnPanel`
+            salen los dos fuera de alcance. Decir aquí «cámbiala» daba la
+            tonalidad por puesta justo cuando no lo está. */}
         <p className="text-text-muted max-w-prose text-center text-xs">
-          Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
-          preguntas hablan de otros acordes.
+          {activeKey === null
+            ? 'Elige una tonalidad y la unidad se escribe con sus acordes. Puedes cambiarla luego: las mismas preguntas hablan de otros acordes.'
+            : 'Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas preguntas hablan de otros acordes.'}
         </p>
       </BarraDeTonalidad>
 
