@@ -179,6 +179,38 @@ describe('La partitura', () => {
     const textos = [...container.querySelectorAll('text')].map((n) => n.textContent);
     expect(textos.filter((t) => t === '♭')).toHaveLength(2);
   });
+
+  /**
+   * **Un pentagrama vacío no dice qué espera.** Con la canción escrita solo con
+   * acordes —el caso normal al empezar— salen los cifrados arriba y cinco líneas
+   * en blanco debajo. Quien lee partituras entiende una hoja guía sin melodía;
+   * quien no, ve una pantalla rota.
+   */
+  it('sin punteo dice que aqui se escribe', () => {
+    pintar({ notes: [] });
+
+    expect(screen.getByText(/aquí se escribe el punteo/i)).toBeInTheDocument();
+  });
+
+  it('y en cuanto hay una nota se calla', () => {
+    pintar({ notes: [{ id: 'n1', start: 0, length: 1, offset: 0 }] });
+
+    expect(screen.queryByText(/aquí se escribe el punteo/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Pulsar el pentagrama **es** como se escribe una nota, así que el rótulo no
+   * puede comerse el clic: sería convertir la ayuda en un estorbo.
+   */
+  it('el aviso no se come la pulsacion', () => {
+    const { container } = pintar({ notes: [] });
+
+    const aviso = [...container.querySelectorAll('text')].find((n) =>
+      /aquí se escribe/i.test(n.textContent ?? ''),
+    );
+    expect(aviso).toBeDefined();
+    expect(aviso!.classList.contains('pointer-events-none')).toBe(true);
+  });
 });
 
 describe('Escribir en el pentagrama', () => {

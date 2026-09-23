@@ -812,6 +812,27 @@ export function Staff({
             />
           )}
 
+          {/* **Un pentagrama vacío no dice qué espera.** Con la canción escrita
+              solo con acordes —que es el caso normal al empezar— aquí salen los
+              cifrados arriba y cinco líneas en blanco debajo, y la vista por
+              defecto es esta a propósito: la partitura no es un extra. Quien lee
+              partituras entiende una hoja guía sin melodía; quien no, ve una
+              pantalla rota. Se dice en el hueco y no en un cartel aparte, porque
+              el sitio donde se escribe es justo este.
+
+              `pointer-events-none` porque pulsar el pentagrama **es** como se
+              escribe una nota: un rótulo que se comiera el clic convertiría la
+              ayuda en un estorbo. */}
+          {notes.length === 0 && (
+            <text
+              x={margen + 8}
+              y={BASE + 26}
+              className="fill-text-muted pointer-events-none text-[11px]"
+            >
+              Pulsa en el pentagrama y aquí se escribe el punteo.
+            </text>
+          )}
+
           {notes.map((note) => {
             const escrita = writeNote(note, tonic, mode);
             const x = margen + note.start * porPulso + 6;
