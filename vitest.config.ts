@@ -3,6 +3,9 @@ import { defineConfig } from 'vitest/config';
 
 const src = (segment: string) => fileURLToPath(new URL(`./src/${segment}`, import.meta.url));
 
+/** Si esta pasada mide cobertura, que cambia los tiempos de todo. */
+const midiendoCobertura = process.argv.includes('--coverage');
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -29,7 +32,29 @@ export default defineConfig({
 
       Vitest no expone ninguna variable que lo diga, así que se pone aquí.
     */
-    env: { COBERTURA: process.argv.includes('--coverage') ? '1' : '' },
+    env: { COBERTURA: midiendoCobertura ? '1' : '' },
+    /*
+      Con la cobertura puesta se espera más a cada test, y por lo mismo de
+      arriba: **el instrumentado de V8 multiplica por tres lo que tarda todo.**
+
+      Los cinco segundos de serie sobran para `pnpm test` y se quedan cortos para
+      `pnpm coverage` en los ficheros más pesados —montar la pantalla de componer
+      entera tarda 700 ms suelta y pasa de cinco segundos con el instrumentador y
+      el resto de ficheros en paralelo—. Y lo que salía de ahí no parecía un test
+      lento: al caerse el fichero se perdía **la cobertura de todo él**, y el
+      informe decía 96 % con cuatro errores de umbral, que se lee como «te has
+      dejado código sin probar». Dos veces se buscó en el sitio equivocado.
+
+      El número no afloja ninguna comprobación: sigue acotando un cuelgue, solo
+      que con la holgura que la propia medición se come. `pnpm test` se queda con
+      los cinco de siempre, que es donde un test lento sí es una señal.
+
+      **Y sigue dependiendo de lo ocupada que esté la máquina.** Las dos veces
+      que se cayó había un navegador y un servidor de producción corriendo al
+      lado. Si vuelve a pasar en una pasada limpia, lo que hay que mirar no es
+      este número: es por qué montar esa pantalla tarda lo que tarda.
+    */
+    testTimeout: midiendoCobertura ? 20_000 : 5_000,
     // El dominio se prueba en Node, sin DOM: si un test de core/ necesitase un
     // window, la pieza estaría en el sitio equivocado. Los tests de features/
     // pedirán jsdom con `// @vitest-environment jsdom` en su cabecera.

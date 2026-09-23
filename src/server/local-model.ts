@@ -20,6 +20,8 @@
  * `docs/AI.md` y en `docs/adr/0014`.
  */
 
+import { RespuestaTruncada } from './respuesta-truncada';
+
 /**
  * Lo que se espera como mucho a que conteste.
  *
@@ -130,5 +132,18 @@ export async function askLocalModel(peticion: PeticionLocal, url: string): Promi
     throw new Error(`ollama ${respuesta.status}: ${await respuesta.text()}`);
   }
 
-  return leerRespuestaOllama(await respuesta.json());
+  const json: unknown = await respuesta.json();
+
+  // **Cortada por el tope, igual que en la API.** Ollama lo dice en
+  // `done_reason: 'length'`. Sin esto, las dos ramas no se comportan igual y el
+  // modelo de casa deja de servir para probar lo que hará la de verdad, que es
+  // justo para lo que está.
+  if (typeof json === 'object' && json !== null) {
+    const razon = (json as { done_reason?: unknown }).done_reason;
+    if (razon === 'length') {
+      throw new RespuestaTruncada();
+    }
+  }
+
+  return leerRespuestaOllama(json);
 }

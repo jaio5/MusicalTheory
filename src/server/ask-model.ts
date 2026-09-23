@@ -25,6 +25,9 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { configuredModel, localModelUrl, modelProvider } from './ai-model';
 import { askLocalModel } from './local-model';
+import { RespuestaTruncada } from './respuesta-truncada';
+
+export { RespuestaTruncada };
 
 /**
  * Si se puede preguntar algo, aunque no haya proveedor.
@@ -72,25 +75,6 @@ const TIEMPO_MAXIMO_MS = 30_000;
  * el tope sea holgado.
  */
 const REINTENTOS_DEL_SDK = 1;
-
-/**
- * La respuesta se cortó por llegar al tope de tokens.
- *
- * Va aparte de los demás fallos porque **reintentarla no puede salir bien**: el
- * prompt es el mismo y el tope también, así que la segunda llamada se corta por
- * donde se cortó la primera. Sin distinguirla, el reintento de `ai-route.ts` —que
- * está para una respuesta que no valida, donde otra tirada sí puede cambiar las
- * cosas— gastaba una llamada a la API que no tenía ninguna posibilidad.
- *
- * El JSON cortado no se puede leer, así que lo que sale es `unparseable_response`,
- * que es literalmente lo que ha pasado: contestó y lo que dijo no vale.
- */
-export class RespuestaTruncada extends Error {
-  constructor() {
-    super('truncated');
-    this.name = 'RespuestaTruncada';
-  }
-}
 
 export interface AskModelInput {
   readonly prompt: string;

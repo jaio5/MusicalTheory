@@ -11,6 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { askLocalModel, cuerpoOllama, leerRespuestaOllama } from './local-model';
+import { RespuestaTruncada } from './respuesta-truncada';
 
 const PETICION = {
   prompt: 'La tonalidad es A menor.',
@@ -126,5 +127,34 @@ describe('la llamada al contenedor', () => {
     fetchFalso.mockRejectedValue(new Error('ECONNREFUSED'));
 
     await expect(askLocalModel(PETICION, 'http://ollama:11434')).rejects.toThrow();
+  });
+
+  /**
+   * **Las dos ramas se comportan igual, y esa es la razón de que exista esta.**
+   *
+   * El modelo de casa está para poder probar sin dar de alta un servicio. Si una
+   * respuesta cortada saliera aquí como «no se pudo leer» y en la API como
+   * «cortada», probar con el de casa dejaría de decir nada sobre lo que va a
+   * pasar con el de verdad.
+   */
+  // Ollama contestando algo que no es un objeto no es «cortada»: es ilegible, y
+  // eso ya lo dice `leerRespuestaOllama` devolviendo nulo.
+  it('lo que no es un objeto no se confunde con una cortada', async () => {
+    fetchFalso.mockResolvedValue(new Response(JSON.stringify('vaya'), { status: 200 }));
+
+    await expect(askLocalModel(PETICION, 'http://ollama:11434')).resolves.toBeNull();
+  });
+
+  it('una respuesta cortada se distingue igual que en la API', async () => {
+    fetchFalso.mockResolvedValue(
+      new Response(
+        JSON.stringify({ done_reason: 'length', message: { content: '{"ideas":[{"symbol":"C' } }),
+        { status: 200 },
+      ),
+    );
+
+    await expect(askLocalModel(PETICION, 'http://ollama:11434')).rejects.toBeInstanceOf(
+      RespuestaTruncada,
+    );
   });
 });

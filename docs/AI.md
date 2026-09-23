@@ -186,7 +186,9 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
    rápido a treinta segundos de espera.
 4. **Y hay dos cosas que no se reintentan nunca.** Un fallo del proveedor sale
    como `model_unavailable` a la primera, porque el problema no es la tirada. Y
-   una respuesta **cortada por el tope de tokens** tampoco: el prompt es el mismo
+   una respuesta **cortada por el tope de tokens** tampoco —lo dicen los dos
+   proveedores, `stop_reason: 'max_tokens'` en la API y `done_reason: 'length'`
+   en Ollama—: el prompt es el mismo
    y el tope también, así que la segunda llamada se cortaría por donde se cortó
    la primera. Se contesta `unparseable_response`, que es lo que ha pasado
    —contestó, y lo que dijo no se puede leer—, sin gastar una llamada que no
