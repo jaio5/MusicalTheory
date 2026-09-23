@@ -408,17 +408,22 @@ function KeyLabel({ point, label, name, active, alcanzable = false, onPick }: Ke
    *
    * A lo ancho del anillo hay hueco de sobra —dos pi por ciento cuatro entre doce
    * son cincuenta y cuatro—, así que cuarenta y seis no se solapan con la casilla
-   * de al lado. Y en un teléfono, con la rueda desplegada a lo ancho, eso son
-   * sesenta y cinco píxeles de verdad en el anillo grande y cuarenta y cinco en
-   * el pequeño: **los cuarenta y cuatro que pide el proyecto**, que es lo que
-   * estas veinticuatro casillas llevaban sin cumplir porque no pasan por
-   * `ui/Button` ni por `ui/Chip` y nadie las medía.
+   * de al lado. **Ni en el anillo pequeño**, aunque ahí los centros estén más
+   * juntos: se dibuja a escala menor, y las casillas encogen con él.
    *
-   * En un escritorio, metida en la columna de componer, la rueda se queda en unos
-   * trescientos y el anillo pequeño baja a treinta y seis. Se acepta: ahí se
-   * apunta con un ratón, no con el pulgar, y dos anillos de doce con casillas de
-   * cuarenta y cuatro pedirían una rueda de seiscientos píxeles que no cabe en
-   * ninguna de las tres pantallas donde vive.
+   * Medido en el profesor, que es donde la rueda va a lo ancho: en un teléfono de
+   * 390 son **57 píxeles en el anillo grande y 40 en el pequeño**, con seis y
+   * nueve de separación entre casillas. En un escritorio, 68 y 47.
+   *
+   * Los cuarenta del anillo pequeño se quedan cuatro por debajo de los cuarenta
+   * y cuatro que pide el proyecto, y **se aceptan**: subirlos dejaría dos píxeles
+   * entre una casilla y la de al lado, que es peor problema que el que arregla.
+   * Dos anillos de doce con casillas de cuarenta y cuatro **bien separadas**
+   * pedirían una rueda de seiscientos píxeles que no cabe en ninguna de las tres
+   * pantallas donde vive.
+   *
+   * Metida en la columna de componer la rueda es más estrecha y el anillo pequeño
+   * baja a treinta y tres. Ahí se apunta con un ratón, no con el pulgar.
    */
   const box = 46;
 

@@ -82,6 +82,16 @@ const PASO = 6;
 const BASE = 82;
 
 /**
+ * Lo que mide de alto la zona de agarre de un cifrado.
+ *
+ * Empieza en 4 y la primera línea del pentagrama está en 34, así que veintiocho
+ * lo deja dos unidades por encima de ella. Con los 22 de antes, el rectángulo
+ * medía 23 píxeles en pantalla: por debajo de los 24 que pide la norma para algo
+ * que se pulsa y se arrastra.
+ */
+const ALTO_DEL_AGARRE = 28;
+
+/**
  * Dónde acaba la clave y puede empezar la armadura.
  *
  * La clave se ensancha a los dos lados de su espiral; este número es el canto
@@ -734,11 +744,27 @@ export function Staff({
                         strokeOpacity={elegido ? 0.9 : 0.3}
                         strokeWidth={elegido ? 2 : 1}
                       />
+                      {/* La zona de agarre del cifrado.
+                        **Baja hasta dos unidades antes de la primera línea.**
+                        Medía 22 de alto —23 píxeles en pantalla— y es lo que se
+                        pulsa para elegir un acorde y lo que se arrastra para
+                        moverlo: por debajo del mínimo de la norma, que son 24.
+
+                        Crece hacia abajo y no hacia arriba porque **arriba está
+                        el aire reservado para las notas agudas** —de eso va el
+                        `respiro`— y comérselo sería robarle el clic a escribir
+                        una nota. Hacia abajo hay ocho unidades hasta la línea de
+                        arriba del pentagrama, y se dejan dos.
+
+                        Más no se puede: el cifrado está acorralado por el aire
+                        de las notas, por el pentagrama y, a los lados, por el
+                        cifrado siguiente. Para manejar bloques con el dedo está
+                        la vista de bloques, donde miden 145 por 62. */}
                       <rect
                         x={x - 2}
                         y={4}
                         width={Math.max(24, block.beats * porPulso - 14)}
-                        height={22}
+                        height={ALTO_DEL_AGARRE}
                         fill="transparent"
                       />
                       {/* La punta de la línea: de aquí se tira para estirar. */}
@@ -746,7 +772,7 @@ export function Staff({
                         x={x + block.beats * porPulso - 16}
                         y={4}
                         width={16}
-                        height={22}
+                        height={ALTO_DEL_AGARRE}
                         fill="transparent"
                         className="cursor-ew-resize"
                         onPointerDown={(event) => estirarAcorde(event, block.id, block.beats)}
