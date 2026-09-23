@@ -204,7 +204,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
 | `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
 | `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y dos  |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y tres |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,
@@ -228,7 +228,11 @@ en `PARA-PUBLICAR.md` diciendo que no se ha ejecutado.
 - **No manda correos sin configurarlo**, y la pantalla lo dice.
 - **No detecta la tonalidad rasgueando**: el motor de tono es monofónico, así que la
   interfaz pide «unas notas sueltas».
-- **No acierta siempre con los acordes**: el croma olvida la octava, así que duda
-  con las inversiones. Lo que sí hace es **decir cuándo duda**
-  ([adr/0020](docs/adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md)). El detalle, en
-  `docs/AUDIO-PITCH.md`.
+- **No acierta siempre con los acordes**, y con una guitarra delante falla más de lo
+  que decía: el croma olvida la octava —duda con las inversiones— y, sobre todo,
+  **una nota sola tiene la misma forma que su acorde mayor** después del descuento
+  de armónicos, así que un punteo se lee como acordes. Lo que sí hace es **decir
+  cuándo duda**, y la duda son **dos cosas**: el empate con el segundo candidato y
+  lo poco que se parece ([adr/0020](docs/adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md),
+  [adr/0043](docs/adr/0043-dos-maneras-de-equivocarse.md)). Lo medido tocando está
+  en `docs/ROADMAP.md`; el porqué, en `docs/AUDIO-PITCH.md`.

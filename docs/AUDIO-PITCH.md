@@ -232,6 +232,25 @@ Acierta con tríadas y séptimas sostenidas en limpio; con inversiones y omitido
 duda —C sin fundamental es Em—, y con distorsión fuerte el espectro se llena de
 basura y falla. Es un detector de plantillas, no una red entrenada.
 
+**Una nota sola se lee como su acorde mayor, y no es un descuido del descuento
+de armónicos: es su límite.** Una cuerda pulsada suena con su quinta —tercer
+armónico— y su tercera mayor —quinto— encima, así que un croma ingenuo ve un
+acorde mayor donde hay una cuerda. `discountHarmonics` está justo para eso y
+rebaja los picos que otro más grave explica. El problema es que **en un acorde de
+verdad pasa lo mismo**: en un Do rasgueado, el Sol también es el tercer armónico
+del Do, así que también se rebaja. Los dos casos salen con la misma forma —la
+fundamental a 1 y las otras dos alrededor de 0,2—, y la compresión de sonoridad
+(`LOUDNESS_EXPONENT`) las vuelve a levantar a las dos por igual.
+
+Consecuencia práctica, comprobada tocando: **un punteo de dos notas iguales
+seguidas se apunta como acordes.** Lo que distinguiría los dos casos es si los
+picos de la tercera y la quinta son más fuertes de lo que el modelo de armónicos
+predice, y eso el descuento actual lo tira al aplanarlos todos al mismo 0,2.
+Arreglarlo pide calibrar contra grabaciones de guitarra de verdad; está en el
+[ROADMAP](./ROADMAP.md) y **no se arregla adivinando desde un test sintético**,
+porque la guitarra de mentira de los tests tiene justo los armónicos que se le
+pusieron.
+
 Por qué este método y no otro, con lo que se descartó por el camino, en
 [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
 
@@ -240,16 +259,41 @@ Por qué este método y no otro, con lo que se descartó por el camino, en
 `readChord` no devuelve solo el acorde: devuelve también los candidatos que
 compitieron y **el margen**, que es cuánto se despega el elegido del segundo.
 
-El margen es lo que dice si había duda, y no la puntuación. Un 0,90 con el
-segundo en 0,89 es un empate resuelto casi a cara o cruz; un 0,85 con el segundo
-en 0,60 es una certeza. La puntuación mide cuánto se parece el croma a una
-plantilla —y eso depende del instrumento, de la sala y de la pastilla—; el margen
-mide la ambigüedad, que es otra cosa y la que decide si hay que preguntar.
+**Hay dos maneras de equivocarse, y la confianza mira las dos.**
+
+El margen mide la ambigüedad: un 0,90 con el segundo en 0,89 es un empate resuelto
+casi a cara o cruz, y un 0,85 con el segundo en 0,60 es una certeza. La puntuación
+mide otra cosa, cuánto se parece el croma a una plantilla, y eso depende del
+instrumento, de la sala y de la pastilla.
+
+Hacen falta las dos porque **un acorde puede ganar de calle y no parecerse a
+nada**: una cuerda que roza o una nota que no llegó a sonar dejan un croma que solo
+una plantilla explica —mal, pero sola—, y eso sale con margen de sobra. Así que la
+confianza es la peor de las dos holguras:
+
+```
+confianza = min( margen , puntuación − PARECIDO_MINIMO )
+```
+
+Las dos son diferencias de puntuación, así que se comparan con el mismo
+`DUDOSO = 0,06` sin convertir nada. `PARECIDO_MINIMO` es 0,78, el suelo por debajo
+del cual no hay acorde, y vive en un solo sitio: de él cuelga la mitad de la
+confianza. El porqué entero, y el fallo de guitarra que lo destapó, en
+[adr/0043](./adr/0043-dos-maneras-de-equivocarse.md).
 
 Esa duda **sobrevive a los dos colapsos** de `captureProgression`: al fundir
-fotogramas repetidos y al fundir grados iguales seguidos se conserva el peor
-margen, no la media. Si en alguno de esos análisis el motor estuvo a punto de
-decir otra cosa, el acorde entero es dudoso.
+fotogramas repetidos y al fundir grados iguales seguidos se conserva la peor
+confianza, no la media. Si en alguno de esos análisis el motor estuvo a punto de
+decir otra cosa —o se pareció bastante menos—, el acorde entero es dudoso.
+
+**Lo analizado en diferido lleva la misma duda.** «Grabar un trozo y analizarlo»
+usaba `bestChord`, que contesta el acorde a secas, así que llegaba al lienzo sin
+margen y sin puntuación: confianza 1 por omisión, certeza absoluta. Ahora usa
+`readChord`, y la confianza de un tramo es la de su peor ventana **de las que
+oyeron ese acorde por su cuenta** —la programación dinámica extiende un acorde por
+encima de ventanas que oyeron otra cosa, y la puntuación de esas habla de ese otro
+acorde—. Un tramo que ninguna ventana oyó lo puso la vecindad y no el sonido: sale
+con la duda máxima.
 
 Y lo que no se pudo leer deja de ser un contador: `Capture.unread` dice cuándo
 sonó, cuánto duró, qué se oyó y por qué se cayó. Varios acordes que no caben en la

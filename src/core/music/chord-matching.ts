@@ -21,7 +21,7 @@ export interface ChordMatch {
   readonly shape: ChordShape;
   readonly symbol: string;
   readonly notes: readonly PitchClass[];
-  /** De 0 a 1. Uno es calcado; por debajo de 0,78 no se parece lo bastante. */
+  /** De 0 a 1. Uno es calcado; por debajo de `PARECIDO_MINIMO` no se parece. */
   readonly score: number;
 }
 
@@ -63,6 +63,16 @@ const DEFAULT_SUFFIXES: readonly string[] = [
  * comprimir cuenta tan poco que el acorde se lee como una quinta sin tercera.
  */
 const LOUDNESS_EXPONENT = 0.5;
+
+/**
+ * Por debajo de esto, lo que suena no se parece a ningún acorde.
+ *
+ * Estaba escrito tres veces —aquí dos y en el motor una—, y es un número del que
+ * cuelga algo más que un `null`: **lo que un acorde le saque a este suelo es la
+ * mitad de su confianza** (`capture.ts`). Con tres copias, subirlo en un sitio
+ * dejaba a los otros dos midiendo la holgura contra otro suelo.
+ */
+export const PARECIDO_MINIMO = 0.78;
 
 /**
  * Ordena los acordes que mejor explican el croma.
@@ -152,7 +162,7 @@ export function readChord(
   chroma: readonly number[],
   options: MatchOptions & { readonly minScore?: number } = {},
 ): ChordReading | null {
-  const { minScore = 0.78 } = options;
+  const { minScore = PARECIDO_MINIMO } = options;
   const matches = matchChords(chroma, { ...options, limit: options.limit ?? 4 });
   const [best, segundo] = matches;
 
@@ -172,7 +182,7 @@ export function bestChord(
   chroma: readonly number[],
   options: MatchOptions & { readonly minScore?: number } = {},
 ): ChordMatch | null {
-  const { minScore = 0.78 } = options;
+  const { minScore = PARECIDO_MINIMO } = options;
   const [best] = matchChords(chroma, { ...options, limit: 1 });
   return best !== undefined && best.score >= minScore ? best : null;
 }

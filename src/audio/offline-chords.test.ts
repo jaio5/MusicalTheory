@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { noteName, type PitchClass } from '@core/music';
 
-import { chordsOfRecording } from './offline-chords';
+import { chordsOfRecording, confianzaDelTramo } from './offline-chords';
 
 const SAMPLE_RATE = 48_000;
 
@@ -158,5 +158,82 @@ describe('un acorde partido por un silencio', () => {
     const acordes = chordsOfRecording(audio, { sampleRate: SAMPLE_RATE });
 
     expect(nombres(acordes)).toEqual(['A']);
+  });
+});
+
+/**
+ * **Lo que sale de una grabación tiene que llevar su duda, como lo que se oye en
+ * vivo.** No la llevaba: este camino usaba `bestChord`, que contesta el acorde a
+ * secas, y todo lo analizado en diferido llegaba al lienzo como una certeza. Se
+ * notaba tocando: analizar un trozo lo escribía sin un solo «?».
+ */
+describe('lo analizado en diferido llega con su duda', () => {
+  it('cada acorde trae lo que se parecia y lo que le saco al segundo', () => {
+    const acordes = chordsOfRecording(rasguear(Am, 2.5), { sampleRate: SAMPLE_RATE });
+
+    expect(acordes.length).toBeGreaterThan(0);
+    for (const acorde of acordes) {
+      expect(acorde.score).toBeGreaterThan(0);
+      expect(acorde.margin).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  /**
+   * Un acorde que se sostiene pasa por muchas ventanas, y la del tramo que peor
+   * lo tuvo es la que manda: quedarse con la mejor esconde la duda donde hay que
+   * preguntar.
+   */
+  it('la confianza del tramo no es mejor que la de su peor ventana', () => {
+    const grabacion = pegar(rasguear(Am, 2), rasguear(F, 2), rasguear(C, 2), rasguear(G, 2));
+    const acordes = chordsOfRecording(grabacion, { sampleRate: SAMPLE_RATE });
+
+    // Ninguno puede salir con un parecido perfecto: una guitarra de verdad —y
+    // esta de mentira, con sus armónicos— nunca da un croma calcado.
+    for (const acorde of acordes) {
+      expect(acorde.score).toBeLessThan(1);
+    }
+  });
+});
+
+/**
+ * La regla de qué ventanas cuentan, probada a mano.
+ *
+ * Con audio no se puede provocar a voluntad el caso que importa —un tramo que la
+ * programación dinámica extiende por encima de ventanas que oyeron otra cosa—,
+ * así que las ventanas se escriben aquí.
+ */
+describe('qué ventanas cuentan para la confianza de un tramo', () => {
+  const laM = { root: 9 as PitchClass, notes: [9, 1, 4] as PitchClass[] };
+  const doM = { root: 0 as PitchClass, notes: [0, 4, 7] as PitchClass[] };
+
+  it('solo las que oyeron ese acorde por su cuenta, y la peor de ellas', () => {
+    const ventanas = [
+      { at: 0, chord: laM, score: 0.95, margin: 0.4 },
+      // Esta oyó otra cosa: su puntuación habla de *ese otro* acorde, así que
+      // meterla en la cuenta sería medir con la regla de otro.
+      { at: 100, chord: doM, score: 0.99, margin: 0.9 },
+      { at: 200, chord: laM, score: 0.82, margin: 0.05 },
+    ];
+
+    expect(confianzaDelTramo(ventanas, { chord: laM, from: 0, largo: 3 })).toEqual({
+      score: 0.82,
+      margin: 0.05,
+    });
+  });
+
+  /**
+   * Un tramo que ninguna ventana oyó lo puso la vecindad y no el sonido. Es la
+   * duda máxima, y sale marcado con «?» en el lienzo: que es lo que es.
+   */
+  it('un tramo que nadie oyo se apunta con la duda maxima', () => {
+    const ventanas = [
+      { at: 0, chord: doM, score: 0.9, margin: 0.3 },
+      { at: 100, chord: null, score: 0, margin: 0 },
+    ];
+
+    expect(confianzaDelTramo(ventanas, { chord: laM, from: 0, largo: 2 })).toEqual({
+      score: 0,
+      margin: 0,
+    });
   });
 });

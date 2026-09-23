@@ -2,6 +2,11 @@
 
 Fecha: 2026-09-07 · Estado: aceptada · Amplía: [ADR 0004](./0004-reconocimiento-de-acordes-por-croma.md), [ADR 0018](./0018-el-lienzo-de-montar.md)
 
+> **Corregida en parte por [ADR 0043](./0043-dos-maneras-de-equivocarse.md).** La
+> decisión de que el margen mide la ambigüedad sigue en pie; lo que era incompleto
+> es que fuera _la única_ medida. Un acorde puede ganar de calle y aun así no
+> parecerse a nada, y eso salía como una certeza.
+
 ## Contexto
 
 Entre lo que suena y lo que quedaba apuntado había tres cortes, y en los tres se
@@ -97,6 +102,11 @@ no costaba nada. Se descarta porque mide otra cosa: cuánto se parece el croma a
 una plantilla, que depende del instrumento, de la sala y de la pastilla. Dos
 acordes que empatan a 0,90 son mucho más peligrosos que uno solo a 0,80, y la
 puntuación los ordena al revés.
+
+Este argumento es cierto y la conclusión era incompleta: la puntuación no vale
+como medida _en lugar del_ margen, y sí hace falta **además**. Lo corrige
+[ADR 0043](./0043-dos-maneras-de-equivocarse.md), con el caso que lo destapó —una
+cuerda que roza—.
 
 **Guardar el croma crudo** para poder reinterpretarlo entero después. Sería lo más
 preciso de todo: cambiar la tonalidad releería la grabación sin volver a tocar. Se

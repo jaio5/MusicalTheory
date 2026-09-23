@@ -11,7 +11,7 @@
  * enseñarlos todos sería un cartel parpadeando.
  */
 
-import { readChord, type Accidental, type ChordReading } from '@core/music';
+import { PARECIDO_MINIMO, readChord, type Accidental, type ChordReading } from '@core/music';
 
 import type { AudioInput } from './audio-input';
 import { chromaFromSpectrum } from './chroma';
@@ -43,7 +43,7 @@ const DEFAULT_CHORD_ENGINE_OPTIONS: ChordEngineOptions = {
   rate: 10,
   smoothing: 0.5,
   confirmations: 4,
-  minScore: 0.78,
+  minScore: PARECIDO_MINIMO,
   accidental: 'sharp',
 };
 

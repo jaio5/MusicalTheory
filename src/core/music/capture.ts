@@ -16,6 +16,7 @@
  * su reparto en el tiempo, que es justo lo que hace falta para rearmonizar.
  */
 
+import { PARECIDO_MINIMO } from './chord-matching';
 import {
   chordSymbol,
   especieSimpleDe,
@@ -277,6 +278,31 @@ function gradosDe(
  * pasa cuando se cambia de postura sin cambiar de acorde —de C al aire a C en
  * cejilla— y el croma lo lee como dos acordes distintos y el mismo grado.
  */
+/**
+ * De cuánto fiarse de un acorde oído, de 0 a 1.
+ *
+ * **Son dos maneras distintas de equivocarse, y hasta aquí solo se miraba una.**
+ * El margen dice si hubo empate: si el segundo candidato se quedó pegado, el
+ * motor eligió casi a cara o cruz. Pero un acorde puede ganar de calle y aun así
+ * no parecerse a nada: una cuerda que roza o una nota que no llegó a sonar dejan
+ * un croma que solo una plantilla explica —mal, pero sola—, y eso salía con
+ * margen de sobra y se escribía como una certeza. Es literalmente lo que se
+ * notaba tocando: **lo apuntaba como si estuviera seguro**.
+ *
+ * Así que la holgura son las dos, y manda la peor: lo que le saca al segundo, y
+ * lo que le saca al suelo de parecido. Las dos son diferencias de puntuación, así
+ * que se comparan con el mismo `DUDOSO` sin convertir nada.
+ *
+ * Sin puntuación —una captura escrita a mano, o un test— se mira solo el margen,
+ * y sin ninguna de las dos se da por cierta: lo contrario sería marcar como
+ * dudoso todo lo que no venga del micro.
+ */
+export function confianzaDe(chord: CapturedChord): number {
+  const porEmpate = chord.margin ?? 1;
+  const porParecido = chord.score === undefined ? 1 : chord.score - PARECIDO_MINIMO;
+  return Math.max(0, Math.min(porEmpate, porParecido));
+}
+
 export function captureProgression(
   heard: readonly CapturedChord[],
   options: CaptureOptions,
@@ -295,10 +321,11 @@ export function captureProgression(
       continue;
     }
     // **La duda del repetido no se tira.** El motor emite el mismo acorde
-    // muchas veces mientras la mano no se mueve, y cada vez con su margen: si
-    // en alguno de esos análisis estuvo a punto de decir otra cosa, el acorde
-    // entero es dudoso. Quedarse con el margen del primero escondía justo eso.
-    if ((chord.margin ?? 1) < (ultimo.margin ?? 1)) {
+    // muchas veces mientras la mano no se mueve, y cada uno con su confianza: si
+    // en alguno de esos análisis estuvo a punto de decir otra cosa, o se pareció
+    // bastante menos, el acorde entero es dudoso. Quedarse con el primero
+    // escondía justo eso.
+    if (confianzaDe(chord) < confianzaDe(ultimo)) {
       unicos[unicos.length - 1] = { ...ultimo, margin: chord.margin, score: chord.score };
     }
   }
@@ -339,10 +366,7 @@ export function captureProgression(
       continue;
     }
 
-    // La confianza que trae el acorde. Sin ella —una captura escrita a mano o de
-    // un test viejo— se da por cierta: lo contrario sería marcar como dudoso todo
-    // lo que no venga del micro.
-    const confidence = chord.margin ?? 1;
+    const confidence = confianzaDe(chord);
     const alternatives = gradosDe(chord.alternatives, options.tonic, options.mode, degree);
     const anterior = pasos.at(-1);
 

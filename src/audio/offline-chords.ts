@@ -29,9 +29,9 @@
  */
 
 import {
-  bestChord,
   degreeOfChord,
   nextDegrees,
+  readChord,
   triadQuality,
   type Accidental,
   type CapturedChord,
@@ -196,6 +196,15 @@ interface Frame {
   readonly at: number;
   readonly chord: HeardChord | null;
   readonly score: number;
+  /**
+   * Cuánto le sacaba al segundo candidato.
+   *
+   * Se guarda desde aquí y no se calcula después porque **es la mitad de la duda
+   * y se perdía entera**: el análisis en diferido usaba `bestChord`, que contesta
+   * el acorde a secas, y todo lo que salía de una grabación llegaba al lienzo
+   * como una certeza aunque se hubiera decidido a cara o cruz.
+   */
+  readonly margin: number;
 }
 
 /**
@@ -237,19 +246,21 @@ export function chordsOfRecording(
     const at = Math.round(((from + fftSize / 2) / sampleRate) * 1000);
 
     if (energy < floor) {
-      frames.push({ at, chord: null, score: 0 });
+      frames.push({ at, chord: null, score: 0, margin: 0 });
       continue;
     }
 
     block.set(samples.subarray(from, from + fftSize));
     spectrumDb(block, spectrum);
     const chroma = chromaFromSpectrum(spectrum, { sampleRate, fftSize });
-    const match = bestChord(chroma, { accidental, minScore });
+    const reading = readChord(chroma, { accidental, minScore });
+    const match = reading?.best ?? null;
 
     frames.push({
       at,
       chord: match === null ? null : { root: match.root, notes: match.notes },
       score: match?.score ?? 0,
+      margin: reading?.margin ?? 0,
     });
   }
 
@@ -300,10 +311,45 @@ export function chordsOfRecording(
       root: run.chord.root,
       notes: run.chord.notes,
       at: frames[run.from]!.at,
+      ...confianzaDelTramo(frames, run),
     });
   }
 
   return out;
+}
+
+/**
+ * De cuánto fiarse de un tramo, para que lo que salga de una grabación se apunte
+ * con la misma duda que lo que se oye en vivo.
+ *
+ * **Se miran solo las ventanas que oyeron este acorde por su cuenta**, y no todas
+ * las del tramo. La programación dinámica extiende un acorde por encima de
+ * ventanas cuyo mejor candidato era otro —para eso está, es lo que corrige las
+ * ventanas sueltas—, y la puntuación de esas habla de *ese otro* acorde: meterlas
+ * en la cuenta sería medir una cosa con la regla de otra.
+ *
+ * Y la peor de ellas, no la media: un acorde que en una de sus ventanas estuvo a
+ * punto de ser otro es un acorde del que conviene preguntar.
+ *
+ * Cuando ninguna ventana lo oyó, el tramo entero lo puso la vecindad y no el
+ * sonido. Eso es la duda máxima y se apunta como tal: sale marcado con «?» en el
+ * lienzo, que es exactamente lo que es.
+ */
+export function confianzaDelTramo(
+  frames: readonly Frame[],
+  run: { readonly chord: NonNullable<Candidate>; readonly from: number; readonly largo: number },
+): { readonly score: number; readonly margin: number } {
+  const propias = frames
+    .slice(run.from, run.from + run.largo)
+    .filter((frame) => frame.chord !== null && sameChord(frame.chord, run.chord));
+
+  if (propias.length === 0) {
+    return { score: 0, margin: 0 };
+  }
+  return {
+    score: Math.min(...propias.map((frame) => frame.score)),
+    margin: Math.min(...propias.map((frame) => frame.margin)),
+  };
 }
 
 type Candidate = Frame['chord'];

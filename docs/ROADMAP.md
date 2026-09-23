@@ -13,11 +13,27 @@ en [adr/](./adr/).
 Es lo primero porque todo lo demás cuelga de aquí: si lo que se oye está mal, las
 lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
 
-- **Rodaje de verdad, con guitarra y sala.** Los umbrales del motor de tono se
-  ajustaron tras una sola tarde de pruebas. Hay medidor para afinarlos con datos,
-  y no se ha hecho.
-- **El análisis de la grabación, probado con audio real.** Está medido contra
-  señal sintética y contra tests; con una guitarra de verdad, ninguna vez.
+- **Rodaje con guitarra: hecho una vez, el 23 de septiembre de 2026, y lo que
+  salió está aquí.** El afinador, bien: afina las seis cuerdas y recupera una
+  desafinada media vuelta. Los acordes, no: con C, F, G y Am sueltos **se inventa
+  alguno**; rasgueando, falla; una inversión —C/E—, falla; una cuerda que roza, la
+  escribía **como si estuviera seguro**; y un punteo de dos notas iguales seguidas
+  **se apunta como acordes**. El análisis en diferido arrastra lo mismo.
+- **De eso, lo que ya está arreglado es la honestidad, no el acierto**
+  ([adr/0043](./adr/0043-dos-maneras-de-equivocarse.md)): la confianza mira las dos
+  maneras de equivocarse —el empate y el mal parecido— en vez de solo la primera, y
+  lo analizado en diferido lleva por fin su duda en vez de llegar como certeza.
+  Ahora un acorde mal tocado sale con «?» en vez de afirmarse.
+- **Lo que falta es el acierto, y pasa por el modelo de armónicos.**
+  `discountHarmonics` rebaja la quinta y la tercera de _cualquier_ acorde, porque
+  en un Do real el Sol sí es el tercer armónico del Do: después del descuento, un
+  Do rasgueado y un Do pulsado a solas tienen casi la misma forma, y de ahí sale
+  que un punteo se lea como acordes. Lo que los distinguiría es si esos picos son
+  más fuertes de lo que el modelo predice, y el descuento actual lo aplana. **Pide
+  grabaciones de guitarra de verdad**: con la guitarra sintética de los tests no se
+  puede calibrar, porque tiene justo los armónicos que se le pusieron.
+- **Los umbrales del motor de tono** se ajustaron tras una sola tarde de pruebas.
+  Hay medidor para afinarlos con datos, y eso sigue sin hacerse.
 - **Las inversiones se leen como el acorde en estado fundamental.** El croma
   olvida la octava a propósito ([adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md)),
   así que C/E y C son el mismo vector, y analizar después no lo arregla. Hace

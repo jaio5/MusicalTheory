@@ -8,6 +8,8 @@ import {
   triadQuality,
   type CapturedChord,
 } from './capture';
+import { DUDOSO } from './arrangement';
+import { PARECIDO_MINIMO } from './chord-matching';
 import { normalizePitchClass, pitchClassFromName, type PitchClass } from './notes';
 
 const C = pitchClassFromName('C');
@@ -276,6 +278,62 @@ describe('lo que se apunta lleva su duda', () => {
       endedAt: 2000,
     });
     expect(capture.steps[0]?.confidence).toBe(1);
+  });
+
+  /**
+   * **El fallo que se notaba tocando, y que ningún test sujetaba.**
+   *
+   * Una cuerda que roza o una nota que no llegó a sonar dejan un croma que solo
+   * una plantilla explica: gana de calle —margen enorme— y aun así no se parece a
+   * nada. Mirando solo el margen, eso se apuntaba como una certeza.
+   */
+  it('un acorde que gana de calle sin parecerse a nada es dudoso', () => {
+    const capture = captureProgression([{ ...conDuda(C, 0, 0.9), score: PARECIDO_MINIMO + 0.01 }], {
+      ...EN_DO,
+      endedAt: 2000,
+    });
+    expect(capture.steps[0]?.confidence).toBeCloseTo(0.01);
+    expect(capture.steps[0]!.confidence).toBeLessThan(DUDOSO);
+  });
+
+  it('parecerse mucho no salva a un empate', () => {
+    const capture = captureProgression([{ ...conDuda(C, 0, 0.01), score: 0.99 }], {
+      ...EN_DO,
+      endedAt: 2000,
+    });
+    expect(capture.steps[0]?.confidence).toBeCloseTo(0.01);
+  });
+
+  it('ganar de calle y parecerse mucho no es dudoso', () => {
+    const capture = captureProgression([{ ...conDuda(C, 0, 0.5), score: 0.95 }], {
+      ...EN_DO,
+      endedAt: 2000,
+    });
+    expect(capture.steps[0]!.confidence).toBeGreaterThanOrEqual(DUDOSO);
+  });
+
+  // Al fundir repetidos manda el peor **de las dos medidas**, no solo del margen:
+  // el segundo gana de calle pero se parece poco, y es el que tiene que mandar.
+  it('al fundir dos iguales el mal parecido tambien manda', () => {
+    const capture = captureProgression(
+      [
+        { ...conDuda(C, 0, 0.5), score: 0.95 },
+        { ...conDuda(C, 1000, 0.9), score: PARECIDO_MINIMO + 0.01 },
+      ],
+      { ...EN_DO, endedAt: 2000 },
+    );
+    expect(capture.steps).toHaveLength(1);
+    expect(capture.steps[0]?.confidence).toBeCloseTo(0.01);
+  });
+
+  // Por debajo del suelo de parecido el motor ya no entrega nada, pero una
+  // captura de otra procedencia podría traerlo: no se resta por debajo de cero.
+  it('un parecido por debajo del suelo no baja de cero', () => {
+    const capture = captureProgression([{ ...conDuda(C, 0, 0.9), score: 0.1 }], {
+      ...EN_DO,
+      endedAt: 2000,
+    });
+    expect(capture.steps[0]?.confidence).toBe(0);
   });
 });
 
