@@ -562,13 +562,13 @@ describe('una cancion guardada con la forma cambiada', () => {
    * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
    */
   it('una especie que no se reconoce se lee como ninguna', () => {
-    expect(seccion({ especies: ['sus4', 'quinta'] })?.sections[0]?.especies).toEqual([
+    expect(seccion({ especies: ['novena', 'quinta'] })?.sections[0]?.especies).toEqual([
       null,
       'quinta',
     ]);
     // Y si ninguna se reconoce, no se guarda la lista: leer y volver a guardar
     // tiene que dar lo mismo.
-    expect(seccion({ especies: ['sus4', 'sus2'] })?.sections[0]?.especies).toBeUndefined();
+    expect(seccion({ especies: ['novena', 'onceava'] })?.sections[0]?.especies).toBeUndefined();
     expect(seccion({ especies: 'ninguna' })?.sections[0]?.especies).toBeUndefined();
   });
 });

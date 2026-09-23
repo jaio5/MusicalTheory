@@ -174,11 +174,16 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
       )}
 
       {!ningunoCabe && noCaben.length > 0 && (
+        /*
+          Sin concordancia de número a propósito.
+
+          Decía «está apagado» o «están apagados» según cuántos fueran, y la
+          rama del singular **no se alcanza**: los que quedan fuera son sextas y
+          novenas, y de una misma fundamental salen siempre en pareja —`Cm6` y
+          `Cm9`—. Una rama que no se puede dar es una rama que nadie prueba.
+        */
         <p className="text-text-muted mt-2 text-xs">
-          {noCaben.length === 1
-            ? `${noCaben[0]} está apagado: no es un grado de `
-            : `${noCaben.slice(0, -1).join(', ')} y ${noCaben.at(-1)} están apagados: no son grados de `}
-          {keyName(tonic, mode)}.
+          Sin grado en {keyName(tonic, mode)}, así que no se pueden poner: {noCaben.join(', ')}.
         </p>
       )}
     </div>

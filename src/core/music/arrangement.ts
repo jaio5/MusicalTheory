@@ -28,9 +28,16 @@
  */
 
 import type { KeyMode } from './keys';
-import { quintaNotes, seventhNotes, seventhSymbol, type EspecieDeBloque } from './chords';
+import {
+  esEspecieSimple,
+  notasDeEspecieSimple,
+  seventhNotes,
+  seventhSymbol,
+  simboloDeEspecieSimple,
+  type EspecieDeBloque,
+} from './chords';
 import { accidentalForKey } from './circle-of-fifths';
-import { noteName, type PitchClass } from './notes';
+import type { PitchClass } from './notes';
 import { voiceForPlayback, type PlaybackStep, type TimedEvent } from './playback';
 import { degreeInMode, resolveDegree, type DegreeSymbol, type ResolvedChord } from './progressions';
 import type { CapturedStep } from './capture';
@@ -149,13 +156,16 @@ export function blockChord(tonic: PitchClass, mode: KeyMode, block: Block): Reso
   if (block.especie === undefined) {
     return chord;
   }
-  // La quinta es la tríada **sin la tercera**: dos notas, y el cifrado con el 5
-  // pegado a la fundamental ya bien escrita por el grado resuelto.
-  if (block.especie === 'quinta') {
+  // Las simples se construyen sobre la fundamental que ya trae el grado
+  // resuelto: la quinta es la tríada sin tercera, la suspendida la cambia por la
+  // segunda o la cuarta, y la disminuida, la aumentada y la menor son la tríada
+  // con otra tercera o otra quinta. El cifrado sale de la misma tabla, así que
+  // no hay dos sitios que puedan decir cosas distintas.
+  if (esEspecieSimple(block.especie)) {
     return {
       ...chord,
-      symbol: `${noteName(chord.root, accidentalForKey(tonic, mode))}5`,
-      notes: quintaNotes(chord.root),
+      symbol: simboloDeEspecieSimple(chord.root, block.especie, accidentalForKey(tonic, mode)),
+      notes: notasDeEspecieSimple(chord.root, block.especie),
     };
   }
   return {

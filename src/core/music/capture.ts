@@ -18,7 +18,7 @@
 
 import {
   chordSymbol,
-  esQuinta,
+  especieSimpleDe,
   seventhInside,
   TRIADS,
   type ChordQuality,
@@ -197,18 +197,38 @@ export function comoBloque(
   root: PitchClass,
   notes: readonly PitchClass[],
 ): { degree: DegreeSymbol; especie?: EspecieDeBloque } | null {
-  if (esQuinta(root, notes)) {
-    const degree = gradoDeLaFundamental(tonic, mode, root);
-    return degree === null ? null : { degree, especie: 'quinta' };
+  // **Primero por la tríada**, que es lo que dice de qué grado se trata: un `Am`
+  // en Do mayor es el `vi` a secas, sin especie que lo adorne. Preguntando antes
+  // por la especie, todos los menores entrarían como «el grado de su fundamental
+  // con especie menor», que es verdad y es inútil.
+  const triada = triadInside(root, notes);
+  const porLaTriada = triada === null ? null : degreeOfChord(tonic, mode, root, triada);
+  const septima = seventhInside(root, notes);
+  if (porLaTriada !== null) {
+    return septima === null ? { degree: porLaTriada } : { degree: porLaTriada, especie: septima };
   }
 
-  const triada = triadInside(root, notes);
-  const degree = triada === null ? null : degreeOfChord(tonic, mode, root, triada);
-  if (degree === null) {
+  /**
+   * Y si la tríada no cae en ningún grado, **manda la fundamental**.
+   *
+   * Es lo que ya hacía la quinta, y por lo mismo: el catálogo de grados es un
+   * vocabulario escogido —no tiene un menor sobre el I ni un disminuido sobre
+   * cualquier fundamental—, pero la tonalidad sí sabe qué grado hay sobre esa
+   * nota. Con esto, `Csus4`, `Cdim`, `Caug`, `Cm` y `Cdim7` dejan de estar
+   * apagados en el buscador.
+   *
+   * Lo que sigue sin entrar es la fundamental que no es ningún grado —un `F#` en
+   * Do mayor—, y eso no lo arregla una especie: pide un grado que no existe.
+   */
+  const porLaFundamental = gradoDeLaFundamental(tonic, mode, root);
+  if (porLaFundamental === null) {
     return null;
   }
-  const septima = seventhInside(root, notes);
-  return septima === null ? { degree } : { degree, especie: septima };
+  const simple = especieSimpleDe(root, notes);
+  if (simple !== null) {
+    return { degree: porLaFundamental, especie: simple };
+  }
+  return septima === null ? null : { degree: porLaFundamental, especie: septima };
 }
 
 export function triadInside(root: PitchClass, notes: readonly PitchClass[]): ChordQuality | null {

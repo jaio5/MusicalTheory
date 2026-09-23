@@ -255,22 +255,105 @@ export function seventhFromSuffix(suffix: string): SeventhQuality | null {
  * una tríada, y eso es lo que se guarda.
  */
 /**
- * Lo que un bloque puede llevar encima de su grado.
+ * Las tríadas que **no se pueden localizar por su calidad**, y la quinta.
  *
- * Una de las siete séptimas, o **`quinta`: la tríada sin la tercera**. Un acorde
- * de quinta tiene grado —el de su fundamental— y no tiene tríada, que es justo
- * lo que hacía que no se pudiera escribir
+ * El grado de un bloque sale de la tríada: un `Am` en Do mayor es el `vi` porque
+ * hay un `vi` menor sobre esa fundamental. Estas cinco no tienen dónde caer —el
+ * catálogo no guarda un menor sobre el I, ni un disminuido sobre cualquier
+ * grado, y una suspendida ni siquiera tiene tercera con la que buscar—, así que
+ * **el grado lo pone la fundamental y la especie dice lo que es**. Es el mismo
+ * trato que ya tenía `quinta`
  * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
  *
- * Una sola especie y no un campo por familia: al guardar la canción viajan en
- * una lista paralela a los grados, y dos listas que hay que mantener alineadas
- * son dos maneras de desalinearlas.
+ * Con esto, escribir `Csus4`, `Cdim`, `Caug` o `Cm` en Do mayor deja de estar
+ * apagado en el buscador: entran por el grado de su fundamental.
  */
-export type EspecieDeBloque = SeventhQuality | 'quinta';
+export type EspecieSimple = 'quinta' | 'sus2' | 'sus4' | 'dim' | 'aug' | 'menor';
 
-/** Las notas de una quinta: la fundamental y su quinta justa, y nada más. */
-export function quintaNotes(root: PitchClass): PitchClass[] {
-  return [root, normalizePitchClass(root + 7)];
+/** Qué notas tiene cada una sobre su fundamental, y cómo se escribe. */
+const ESPECIE_SIMPLE: Readonly<Record<EspecieSimple, { semitonos: number[]; sufijo: string }>> = {
+  quinta: { semitonos: [0, 7], sufijo: '5' },
+  sus2: { semitonos: [0, 2, 7], sufijo: 'sus2' },
+  sus4: { semitonos: [0, 5, 7], sufijo: 'sus4' },
+  dim: { semitonos: [0, 3, 6], sufijo: 'dim' },
+  aug: { semitonos: [0, 4, 8], sufijo: 'aug' },
+  menor: { semitonos: [0, 3, 7], sufijo: 'm' },
+};
+
+/**
+ * Lo que un bloque puede llevar encima de su grado.
+ *
+ * Una de las siete séptimas, o una de las seis simples. Una sola especie y no un
+ * campo por familia: al guardar la canción viajan en una lista paralela a los
+ * grados, y dos listas que hay que mantener alineadas son dos maneras de
+ * desalinearlas.
+ */
+export type EspecieDeBloque = SeventhQuality | EspecieSimple;
+
+/** Las notas de una especie simple sobre su fundamental. */
+export function notasDeEspecieSimple(root: PitchClass, especie: EspecieSimple): PitchClass[] {
+  return ESPECIE_SIMPLE[especie].semitonos.map((paso) => normalizePitchClass(root + paso));
+}
+
+/** Cómo se escribe una especie simple: la fundamental y su sufijo. */
+export function simboloDeEspecieSimple(
+  root: PitchClass,
+  especie: EspecieSimple,
+  accidental: Accidental,
+): string {
+  return `${noteName(root, accidental)}${ESPECIE_SIMPLE[especie].sufijo}`;
+}
+
+export function esEspecieSimple(value: unknown): value is EspecieSimple {
+  return typeof value === 'string' && Object.hasOwn(ESPECIE_SIMPLE, value);
+}
+
+/**
+ * Cuál de las especies simples son estas notas, si son alguna.
+ *
+ * Se pregunta **antes** que por la tríada: una `sus4` no tiene tercera y una
+ * `dim` sí, pero ninguna de las dos se localiza por calidad en el catálogo. El
+ * orden de la tabla no importa porque no hay dos con las mismas notas.
+ */
+export function especieSimpleDe(
+  root: PitchClass,
+  notes: readonly PitchClass[],
+): EspecieSimple | null {
+  const suyas = new Set(notes);
+  for (const [especie, forma] of Object.entries(ESPECIE_SIMPLE) as [
+    EspecieSimple,
+    { semitonos: number[] },
+  ][]) {
+    if (
+      suyas.size === forma.semitonos.length &&
+      forma.semitonos.every((paso) => suyas.has(normalizePitchClass(root + paso)))
+    ) {
+      return especie;
+    }
+  }
+  return suspendidaDe(root, notes);
+}
+
+/**
+ * Si es una suspendida, **tenga las notas que tenga encima**.
+ *
+ * Un `A7sus4` son cuatro notas y no encaja exacto con ninguna forma de tres, y
+ * sin esto se quedaba apagado al lado de un `Asus4` que sí entraba. Lo que hace
+ * suspendida a una suspendida no es cuántas notas tiene: es **que no tiene
+ * tercera** y que en su lugar hay una segunda o una cuarta.
+ *
+ * La séptima se pierde al guardarlo, y se ve antes de pulsar: el buscador enseña
+ * el cifrado que va a quedar, no el que se tecleó.
+ */
+function suspendidaDe(root: PitchClass, notes: readonly PitchClass[]): EspecieSimple | null {
+  const pasos = new Set(notes.map((nota) => normalizePitchClass(nota - root)));
+  if (!pasos.has(7) || pasos.has(3) || pasos.has(4)) {
+    return null;
+  }
+  if (pasos.has(5)) {
+    return 'sus4';
+  }
+  return pasos.has(2) ? 'sus2' : null;
 }
 
 /**
@@ -286,7 +369,7 @@ export function esQuinta(root: PitchClass, notes: readonly PitchClass[]): boolea
 
 /** Si un valor cualquiera es una especie que un bloque sabe guardar. */
 export function esEspecieDeBloque(value: unknown): value is EspecieDeBloque {
-  return value === 'quinta' || esSeventhQuality(value);
+  return esEspecieSimple(value) || esSeventhQuality(value);
 }
 
 export function esSeventhQuality(value: unknown): value is SeventhQuality {

@@ -12,6 +12,11 @@ import {
   triadNotes,
   triadQualityOf,
   esQuinta,
+  esEspecieDeBloque,
+  esEspecieSimple,
+  especieSimpleDe,
+  notasDeEspecieSimple,
+  simboloDeEspecieSimple,
   seventhInside,
   type Degree,
 } from './chords';
@@ -375,5 +380,60 @@ describe('las triadas de todas las escalas de siete notas', () => {
 
     const armonica = diatonicSevenths(pitchClassFromName('C'), 'harmonicMinor');
     expect(armonica[2]?.quality).toBe('augmentedMajor7');
+  });
+});
+
+/**
+ * Las especies simples: las tríadas que no se localizan por su calidad, y la
+ * quinta ([adr/0042](../../../docs/adr/0042-la-especie-dice-lo-que-el-grado-no-sabe.md)).
+ */
+describe('Las especies simples', () => {
+  const C = 0;
+
+  it('cada una tiene sus notas y su cifrado', () => {
+    expect(notasDeEspecieSimple(C, 'quinta')).toEqual([0, 7]);
+    expect(notasDeEspecieSimple(C, 'sus2')).toEqual([0, 2, 7]);
+    expect(notasDeEspecieSimple(C, 'sus4')).toEqual([0, 5, 7]);
+    expect(notasDeEspecieSimple(C, 'dim')).toEqual([0, 3, 6]);
+    expect(notasDeEspecieSimple(C, 'aug')).toEqual([0, 4, 8]);
+    expect(notasDeEspecieSimple(C, 'menor')).toEqual([0, 3, 7]);
+
+    expect(simboloDeEspecieSimple(C, 'sus4', 'sharp')).toBe('Csus4');
+    expect(simboloDeEspecieSimple(C, 'dim', 'flat')).toBe('Cdim');
+    expect(simboloDeEspecieSimple(C, 'menor', 'sharp')).toBe('Cm');
+  });
+
+  it('se reconocen por sus notas', () => {
+    expect(especieSimpleDe(C, [0, 7])).toBe('quinta');
+    expect(especieSimpleDe(C, [0, 5, 7])).toBe('sus4');
+    expect(especieSimpleDe(C, [0, 3, 6])).toBe('dim');
+    expect(especieSimpleDe(C, [0, 4, 8])).toBe('aug');
+    expect(especieSimpleDe(C, [0, 3, 7])).toBe('menor');
+    // Una tríada mayor no es ninguna: esa sí se localiza por su calidad.
+    expect(especieSimpleDe(C, [0, 4, 7])).toBeNull();
+  });
+
+  /**
+   * **Y una suspendida lo es tenga las notas que tenga encima.** Un `A7sus4` son
+   * cuatro y no encaja exacto con ninguna forma de tres; lo que la hace
+   * suspendida es que no tiene tercera.
+   */
+  it('una suspendida con septima sigue siendo suspendida', () => {
+    expect(especieSimpleDe(C, [0, 5, 7, 10])).toBe('sus4');
+    expect(especieSimpleDe(C, [0, 2, 7, 10])).toBe('sus2');
+    // Con tercera dentro ya no lo es, aunque lleve la cuarta.
+    expect(especieSimpleDe(C, [0, 4, 5, 7])).toBeNull();
+    // Sin quinta tampoco: un intervalo suelto no es un acorde suspendido.
+    expect(especieSimpleDe(C, [0, 5])).toBeNull();
+    // Sin tercera, con quinta y sin segunda ni cuarta: no hay suspensión.
+    expect(especieSimpleDe(C, [0, 7, 10])).toBeNull();
+  });
+
+  it('esEspecieDeBloque acepta las simples y las septimas, y nada mas', () => {
+    expect(esEspecieSimple('sus4')).toBe(true);
+    expect(esEspecieSimple('novena')).toBe(false);
+    expect(esEspecieDeBloque('menor')).toBe(true);
+    expect(esEspecieDeBloque('diminished7')).toBe(true);
+    expect(esEspecieDeBloque('novena')).toBe(false);
   });
 });

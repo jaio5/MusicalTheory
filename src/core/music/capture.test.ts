@@ -369,10 +369,46 @@ describe('un acorde, como bloque', () => {
     expect(comoBloque(0, 'major', 1, [1, 5, 8])).toEqual({ degree: 'bII' });
   });
 
-  // Lo que no es ni tríada ni quinta tampoco: un sus2 cambia la tercera por la
-  // segunda, y eso el montaje no sabe guardarlo.
-  it('un suspendido no es un bloque, y se dice diciendo que no', () => {
-    expect(comoBloque(0, 'major', 0, [0, 2, 7])).toBeNull();
+  /**
+   * **Lo que no se localiza por su calidad entra por su fundamental.**
+   *
+   * Una suspendida cambia la tercera por la segunda o la cuarta, así que no hay
+   * tríada con la que buscar el grado; una disminuida o una menor sobre el I
+   * tienen tríada, pero el catálogo no guarda esa calidad ahí. En los tres casos
+   * la tonalidad sí sabe qué grado hay sobre esa nota, y la especie dice lo que
+   * es. Es el trato que ya tenía la quinta.
+   */
+  it('lo que no cae por calidad cae por su fundamental', () => {
+    expect(comoBloque(0, 'major', 0, [0, 2, 7])).toEqual({ degree: 'I', especie: 'sus2' });
+    expect(comoBloque(0, 'major', 0, [0, 5, 7])).toEqual({ degree: 'I', especie: 'sus4' });
+    expect(comoBloque(0, 'major', 0, [0, 3, 6])).toEqual({ degree: 'I', especie: 'dim' });
+    expect(comoBloque(0, 'major', 0, [0, 4, 8])).toEqual({ degree: 'I', especie: 'aug' });
+    // Un Do menor en Do mayor: la tríada es menor y el catálogo no tiene un
+    // menor sobre el I, pero el I está ahí.
+    expect(comoBloque(0, 'major', 0, [0, 3, 7])).toEqual({ degree: 'I', especie: 'menor' });
+    // Y con séptima igual: un Cdim7 en Do mayor.
+    expect(comoBloque(0, 'major', 0, [0, 3, 6, 9])).toEqual({
+      degree: 'I',
+      especie: 'diminished7',
+    });
+  });
+
+  /**
+   * Y un menor que **sí** tiene grado sigue entrando a secas.
+   *
+   * Preguntando antes por la especie, todos los menores entrarían como «el grado
+   * de su fundamental con especie menor»: verdad, e inútil.
+   */
+  it('un menor que es grado entra sin especie', () => {
+    expect(comoBloque(0, 'major', 9, [9, 0, 4])).toEqual({ degree: 'vi' });
+  });
+
+  /**
+   * Lo que sigue sin entrar es la fundamental que no es ningún grado: un `F#` en
+   * Do mayor. Eso no lo arregla una especie, pide un grado que no existe.
+   */
+  it('una fundamental que no es ningun grado sigue sin caber', () => {
+    expect(comoBloque(0, 'major', 6, [6, 10, 1])).toBeNull();
   });
 });
 

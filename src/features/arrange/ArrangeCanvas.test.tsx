@@ -332,6 +332,66 @@ describe('escribir un acorde', () => {
   });
 
   /**
+   * **Lo que no se localiza por su calidad entra por su fundamental.**
+   *
+   * Una suspendida no tiene tercera con la que buscar el grado; una disminuida,
+   * una aumentada y un menor sobre el I la tienen, pero el catálogo de grados no
+   * guarda esa calidad ahí. Los cuatro salían apagados en el buscador. Ahora la
+   * tonalidad pone el grado por la fundamental y la especie dice lo que es, que
+   * es el trato que ya tenía la quinta
+   * ([adr/0042](../../../docs/adr/0042-la-especie-dice-lo-que-el-grado-no-sabe.md)).
+   */
+  it.each([
+    ['Csus4', 'Csus4'],
+    ['Cdim', 'Cdim'],
+    ['Caug', 'Caug'],
+    ['Cm', 'Cm'],
+  ])('%s entra, y no sale apagado', async (escrito, puesto) => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), escrito);
+    const boton = screen.getByRole('button', { name: puesto });
+
+    expect(boton).toBeEnabled();
+    await userEvent.click(boton);
+
+    expect(acordesDe('Estrofa')).toEqual([puesto]);
+  });
+
+  /**
+   * Y una suspendida lo es **tenga las notas que tenga encima**: un `A7sus4` son
+   * cuatro y no encaja exacto con ninguna forma de tres. La séptima se pierde al
+   * guardarlo, y se ve antes de pulsar porque el botón enseña el cifrado que va
+   * a quedar, no el que se tecleó.
+   */
+  it('una suspendida con septima entra como suspendida', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'A7sus4');
+    await userEvent.click(screen.getByRole('button', { name: 'Asus4' }));
+
+    expect(acordesDe('Estrofa')).toEqual(['Asus4']);
+  });
+
+  /**
+   * Lo que sigue sin caber son las sextas y las novenas: no son ni tríada, ni
+   * séptima, ni ninguna de las formas simples. Se dicen, y sin concordancia de
+   * número: salen siempre en pareja.
+   */
+  it('lo que no es ni triada ni septima se dice, con el resto puesto', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    await userEvent.type(screen.getByLabelText('Escribe un acorde'), 'Cm');
+
+    expect(screen.getByRole('button', { name: 'Cm' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Cm6' })).toBeDisabled();
+    expect(screen.getByText(/Sin grado en C mayor/)).toBeInTheDocument();
+  });
+
+  /**
    * Un acorde que no es ninguno de los grados del modo no se puede guardar, y se
    * dice en vez de dejarlo escrito en un campo que no hace nada.
    *

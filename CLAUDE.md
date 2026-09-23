@@ -67,10 +67,14 @@ hacerlo.
 - **El grabado se mide en espacios de pentagrama**, y las invariantes de la clave
   las fija `arrange/clef.test.ts`
   ([adr/0029](docs/adr/0029-la-partitura-se-dibuja-aqui.md)).
-- **Un bloque guarda un grado y una especie** —una séptima, o `quinta`—, y quien
-  lo traduce a acorde es `blockChord`, no `resolveDegree`: con el grado a secas,
-  un `C5` se enseña, se ensaya y se dibuja como un `C`
-  ([adr/0035](docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+- **Un bloque guarda un grado y una especie** —una séptima, o una de las seis
+  simples: `quinta`, `sus2`, `sus4`, `dim`, `aug`, `menor`—, y quien lo traduce a
+  acorde es `blockChord`, no `resolveDegree`: con el grado a secas, un `C5` se
+  enseña, se ensaya y se dibuja como un `C`
+  ([adr/0035](docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)). **Cuando la
+  calidad no encuentra grado, lo pone la fundamental y la especie dice lo que
+  es**, y el orden importa: la tríada se busca primero o todos los menores
+  arrastrarían especie ([adr/0042](docs/adr/0042-la-especie-dice-lo-que-el-grado-no-sabe.md)).
 - **Un montaje son grados, y los grados no se llaman igual en mayor que en menor**:
   `state/montaje-en-su-modo.ts` lo traduce en cuanto cambia la tonalidad, y sin eso
   componer se cae entera ([adr/0030](docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)).
@@ -200,7 +204,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
 | `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
 | `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y uno  |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y dos  |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,
