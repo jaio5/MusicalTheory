@@ -123,6 +123,35 @@ describe('Crear la cuenta', () => {
   });
 
   /**
+   * **Entrar por la otra pestaña no es crear una cuenta.**
+   *
+   * El interruptor del formulario cambia de puerta sin avisar a la pantalla, así
+   * que quien pulsaba «Ya tengo cuenta» y entraba con una de hace meses recibía
+   * «Tu cuenta está lista» y un botón de empezar: la enhorabuena de otro, y el
+   * camino en vez de su cuenta, que es a lo que venía.
+   */
+  it('entrando con una cuenta de siempre no se felicita por crearla', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ account: DENTRO }) })),
+    );
+
+    pintar();
+    const usuario = userEvent.setup();
+    await usuario.click(screen.getByRole('button', { name: 'Ya tengo cuenta' }));
+    await usuario.type(screen.getByLabelText(/Correo/), 'javier@example.com');
+    await usuario.type(screen.getByLabelText(/Contraseña/), 'ContrasenaLarga123');
+    await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: /Ya tienes cuenta/ })).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/Tu cuenta está lista/)).not.toBeInTheDocument();
+    // Y manda a su cuenta, no al camino: viene a mirar lo suyo.
+    expect(screen.getByRole('link', { name: /^Tu cuenta$/ })).toHaveAttribute('href', '/cuenta');
+  });
+
+  /**
    * Un correo mal escrito se dice **en español y donde se dice todo lo demás**.
    *
    * Lo comprobaba el navegador con `type="email"`, y esa burbuja la escribe él

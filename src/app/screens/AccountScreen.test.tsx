@@ -111,11 +111,17 @@ describe('la suscripción', () => {
     expect(screen.getAllByText('4,99 € al mes').length).toBeGreaterThan(0);
   });
 
-  it('el cupo se cuenta desde lo que queda, no desde lo que da el plan', () => {
+  /**
+   * **Y lo dice con el verbo delante.** «90 de 100» se lee como noventa
+   * gastadas, y noventa es lo que queda: el mismo número sale en componer como
+   * «te quedan 90», así que la aplicación decía dos cosas opuestas con la misma
+   * cifra. El número solo no basta; hay que poder leerlo en una dirección.
+   */
+  it('el cupo se cuenta desde lo que queda, y se dice cual es', () => {
     // Lo que hace falta saber antes de pedir otra idea es cuántas quedan.
     pintar(DENTRO);
 
-    expect(screen.getByText(/90 de \d+ peticiones a la IA este mes/)).toBeInTheDocument();
+    expect(screen.getByText(/Te quedan 90 de \d+ peticiones a la IA este mes/)).toBeInTheDocument();
   });
 
   it('sin contador todavía leído se dice lo que da el plan', () => {

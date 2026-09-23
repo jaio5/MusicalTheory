@@ -109,7 +109,10 @@ export function RegisterScreen() {
           <div className="absolute -top-6 left-5">
             <Mascota className="size-16" />
           </div>
-          <AccessForm inicial="crear" onDone={() => setReciencreada(true)} />
+          <AccessForm
+            inicial="crear"
+            onDone={(comoEntro) => setReciencreada(comoEntro === 'crear')}
+          />
         </section>
 
         {accounts && (

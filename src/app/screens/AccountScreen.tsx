@@ -125,10 +125,13 @@ export function AccountScreen() {
         <div className="superficie flex flex-wrap items-baseline gap-x-4 gap-y-1 p-4">
           <p className="text-brass-bright text-xl">{plan.name}</p>
           {precio !== plan.name && <p className="text-text-muted font-mono text-sm">{precio}</p>}
+          {/* **«61 de 67» se lee como gastado, y 61 es lo que queda.** El mismo
+              número sale en componer como «te quedan 61», así que la aplicación
+              decía dos cosas opuestas con la misma cifra. Aquí se dice el verbo. */}
           <p className="text-text-muted ml-auto font-mono text-xs">
             {account.aiLeftMonth === null
               ? `${monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA al mes`
-              : `${account.aiLeftMonth} de ${monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA este mes`}
+              : `Te quedan ${account.aiLeftMonth} de ${monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA este mes`}
           </p>
         </div>
 

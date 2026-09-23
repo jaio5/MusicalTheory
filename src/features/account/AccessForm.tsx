@@ -37,7 +37,14 @@ export function AccessForm({
   onDone,
   inicial = 'entrar',
 }: {
-  readonly onDone?: () => void;
+  /**
+   * Se ha entrado, y **por qué puerta**.
+   *
+   * El interruptor cambia de pestaña sin avisar a nadie, así que sin decirlo aquí
+   * quien pulsaba «Ya tengo cuenta» y entraba con una cuenta de hace meses
+   * recibía «Tu cuenta está lista», que es la enhorabuena de otro.
+   */
+  readonly onDone?: (comoEntro: 'entrar' | 'crear') => void;
   /** Qué pestaña viene puesta. El interruptor sigue estando para cambiarla. */
   readonly inicial?: 'entrar' | 'crear';
 }) {
@@ -90,7 +97,7 @@ export function AccessForm({
       // avatar de arriba seguiría siendo el de nadie.
       await refresh();
       router.refresh();
-      onDone?.();
+      onDone?.(nuevo ? 'crear' : 'entrar');
     });
   }
 
