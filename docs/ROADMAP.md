@@ -152,10 +152,29 @@ Lo que queda, en el orden en que se hace:
 
 ## 5. Que aprender y componer sean lo mismo
 
-- **Las seis unidades de oído no se han probado con oídos ajenos**
+- **Al temario le faltan tipos de unidad, y a un curso le falta la mitad.** De
+  diez cursos, cinco no tienen alguno de los tres tipos. El peor con diferencia es
+  `profesional-4` —**Sustituciones: dos unidades de teoría y nada más**—, y el
+  sustituto tritonal es justo una cosa que solo se entiende oyéndola. `elemental-3`
+  y `elemental-4` no tienen oído, y `profesional-2` estudia las siete especies de
+  cuatríada **sin tocar ni una**.
+- **No hay nada de ritmo, de lectura ni de acordes en el mástil**, y la aplicación
+  los da por sabidos: componer ofrece seis figuras y un compás de 1 a 6, «Ensayar»
+  te **puntúa** contra el metrónomo, la vista por defecto del arreglo es una
+  partitura con clave y armadura, y el panel de acordes enseña seis posiciones con
+  su cejilla. Las diez unidades de tocar son **escalas, todas**: se terminan los
+  diez cursos sin que nadie te haya pedido tocar un Do y pasar a un Sol a tiempo.
+  Falta también el intervalo, que es el ladrillo de debajo, y meterlo cambia lo que
+  `ear.ts` decidió por escrito —aquí se pregunta por acordes, no por notas
+  sueltas—, así que pide su ADR.
+- **Las siete unidades de oído no se han probado con oídos ajenos**
   ([adr/0022](./adr/0022-aprender-de-oido.md)). Los ejercicios suenan con
   osciladores, no con una guitarra, y no se sabe si distinguir un `IVmaj7` de un
   `V7` con ese timbre es más fácil o más difícil que con el instrumento de verdad.
+  **Y una de ellas no se podía hacer**: la de cuatríadas sonaba dos veces la misma
+  tríada y preguntaba por una nota que nunca llegaba a oírse. Arreglado, con la
+  regla que lo habría cazado el primer día
+  ([adr/0044](./adr/0044-un-ejercicio-de-oido-se-contesta-de-oido.md)).
 - **No se puede practicar el oído sin avanzar en el camino.** Una pantalla de
   entrenamiento suelto se descartó para no duplicar la meta diaria y la racha; si
   se hace, lo que tiene que compartir con el camino es exactamente esa racha.

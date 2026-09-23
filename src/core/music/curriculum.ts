@@ -188,6 +188,11 @@ export const COURSES: readonly Course[] = [
     summary: 'Tónica, subdominante y dominante: qué hace cada acorde, no solo cómo se llama.',
     units: [
       theory('p1-funciones', 'Reposo, salida y tensión', 'functions'),
+      // Va entre la teoría y el repaso, y no al final: la función es lo que
+      // menos se puede estudiar leyendo, y llegar al repaso sin haberla oído era
+      // repasar de memoria. Este curso era el único con dos lecciones de teoría
+      // y nada que oír.
+      ear('p1-oido', 'Qué papel hace el acorde', 'functions'),
       play('p1-escala', 'La mayor, otra vez, ya sabiendo qué es cada grado', 'major'),
       theory('p1-repaso', 'Repartir los grados', 'functions'),
     ],

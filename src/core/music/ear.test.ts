@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { EAR_KINDS, earExercises, type EarKind } from './ear';
+import { EAR_KINDS, earExercises, gradoDe, sonidoDe, type EarKind } from './ear';
 import { pitchClassFromName } from './notes';
 import { degreesFor } from './progressions';
 
@@ -44,7 +44,8 @@ describe('los ejercicios de oído', () => {
     const conocidos = new Set<string>(degreesFor(mode));
     for (const kind of CLASES) {
       for (const ejercicio of earExercises(kind, tonic, mode)) {
-        for (const grado of ejercicio.degrees) {
+        for (const paso of ejercicio.degrees) {
+          const grado = gradoDe(paso);
           expect(conocidos.has(grado), `${kind}: ${grado} en ${mode}`).toBe(true);
         }
       }
@@ -93,5 +94,61 @@ describe('los ejercicios de oído', () => {
       expect(EAR_KINDS[kind].name).not.toBe('');
       expect(EAR_KINDS[kind].lead).not.toBe('');
     }
+  });
+});
+
+/**
+ * **Un ejercicio de oído tiene que poder contestarse de oído.**
+ *
+ * La unidad de cuatríadas decía «el mismo acorde, y luego con una nota más» y
+ * sus dos pasos eran el mismo grado a secas: `resolveDegree` devuelve tríadas,
+ * así que sonaba dos veces lo mismo y la nota por la que preguntaba no llegaba
+ * a oírse nunca. Se contestaba razonando el enunciado, que es justo lo
+ * contrario de lo que esta unidad entrena.
+ */
+describe('lo que se pregunta es lo que suena', () => {
+  it('cuando la pregunta dice «una nota más», hay una nota más', () => {
+    const [primero] = earExercises('sevenths', C, 'major');
+    const [tríada, cuatríada] = primero!.degrees;
+
+    const suenaLaTríada = sonidoDe(tríada!, C, 'major');
+    const suenaLaCuatríada = sonidoDe(cuatríada!, C, 'major');
+
+    expect(suenaLaTríada.notes).toHaveLength(3);
+    expect(suenaLaCuatríada.notes).toHaveLength(4);
+    // La misma fundamental, y las tres de antes dentro: lo único que cambia es
+    // la de más, que es lo que hay que oír.
+    expect(suenaLaCuatríada.root).toBe(suenaLaTríada.root);
+    for (const nota of suenaLaTríada.notes) {
+      expect(suenaLaCuatríada.notes).toContain(nota);
+    }
+  });
+
+  it('ningun ejercicio de septimas suena dos veces igual seguidas', () => {
+    for (const mode of ['major', 'minor'] as const) {
+      for (const ejercicio of earExercises('sevenths', C, mode)) {
+        const sonidos = ejercicio.degrees.map((paso) => sonidoDe(paso, C, mode));
+        for (let i = 1; i < sonidos.length; i += 1) {
+          expect(
+            sonidos[i]!.notes,
+            `${mode}: «${ejercicio.prompt}» repite ${sonidos[i]!.symbol}`,
+          ).not.toEqual(sonidos[i - 1]!.notes);
+        }
+      }
+    }
+  });
+
+  /**
+   * El cifrado de una cuatríada se escribía pegándole el sufijo al de la tríada,
+   * y en las doce tonalidades menores salía «Ammaj7».
+   */
+  it('el cifrado de una cuatriada no se pega al de la triada', () => {
+    const enMenor = earExercises('sevenths', A, 'minor');
+    for (const ejercicio of enMenor) {
+      expect(ejercicio.why).not.toMatch(/[A-G][#b]?mm/);
+      expect(ejercicio.why).not.toContain('mmaj7');
+    }
+    // En La menor el primer grado con séptima es Am7, no «Ammaj7».
+    expect(sonidoDe({ degree: 'i', especie: 'minor7' }, A, 'minor').symbol).toBe('Am7');
   });
 });

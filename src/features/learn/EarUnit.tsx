@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   EAR_KINDS,
   earExercises,
-  resolveDegree,
   scheduleProgression,
+  sonidoDe,
   type EarUnit as EarUnitDef,
 } from '@core/music';
 import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
@@ -88,9 +88,11 @@ export function EarUnit({
       }
       playerRef.current ??= new WebAudioProgressionPlayer();
 
-      const pasos = cual.degrees.map((degree) => {
-        const chord = resolveDegree(activeKey.tonic, activeKey.mode, degree);
-        return { root: chord.root, notes: chord.notes, beats: cual.beats };
+      // `sonidoDe` y no `resolveDegree`: un paso puede llevar séptima, y con el
+      // grado a secas la unidad de cuatríadas sonaba dos veces la misma tríada.
+      const pasos = cual.degrees.map((step) => {
+        const { root, notes } = sonidoDe(step, activeKey.tonic, activeKey.mode);
+        return { root, notes, beats: cual.beats };
       });
 
       // Sin estado de «sonando». El reproductor avisa cuando acaba, pero si el
@@ -130,7 +132,7 @@ export function EarUnit({
   const last = at >= ejercicios.length - 1;
   const referencia = ejercicio.degrees
     .slice(0, ejercicio.reference)
-    .map((degree) => resolveDegree(activeKey.tonic, activeKey.mode, degree).symbol);
+    .map((step) => sonidoDe(step, activeKey.tonic, activeKey.mode).symbol);
 
   return (
     <div className="min-h-0 grow overflow-y-auto p-4">

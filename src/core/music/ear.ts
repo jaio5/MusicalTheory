@@ -34,13 +34,73 @@
  * permite probarlos comparando estructuras.
  */
 
+import { seventhNotes, seventhSymbol, type SeventhQuality } from './chords';
+import { HARMONIC_ROLES } from './harmonic-function';
+import { accidentalForKey } from './circle-of-fifths';
 import type { Choice } from './lessons';
 import type { KeyMode } from './keys';
 import type { PitchClass } from './notes';
 import { resolveDegree, type DegreeSymbol } from './progressions';
 
 /** De qué va una unidad de oído. */
-export type EarKind = 'quality' | 'degree' | 'cadence' | 'sevenths' | 'borrowed' | 'modes';
+export type EarKind =
+  'quality' | 'degree' | 'functions' | 'cadence' | 'sevenths' | 'borrowed' | 'modes';
+
+/**
+ * Un acorde de un ejercicio: un grado, y con qué especie suena.
+ *
+ * Casi siempre es el grado a secas y suena como tríada, que es lo que hay que
+ * oír. **Cuando la pregunta va sobre la séptima, el grado a secas no vale**: la
+ * unidad de cuatríadas decía «el mismo acorde, y luego con una nota más» y
+ * `resolveDegree` devuelve tríadas, así que sonaba dos veces lo mismo y la nota
+ * por la que preguntaba no llegaba a oírse nunca. Se contestaba razonando el
+ * enunciado, que es justo lo contrario de un ejercicio de oído.
+ *
+ * La especie va escrita en el ejercicio y no deducida de la tonalidad a propósito:
+ * quien escribe la pregunta es quien sabe qué quiere que suene, y en menor la
+ * dominante no es el quinto grado de la escala sino la del menor armónico.
+ */
+export interface EarChord {
+  readonly degree: DegreeSymbol;
+  readonly especie: SeventhQuality;
+}
+
+/** Un paso del ejercicio: el grado a secas, o el grado con su séptima. */
+export type EarStep = DegreeSymbol | EarChord;
+
+/** El grado de un paso, lleve especie o no. */
+export function gradoDe(step: EarStep): DegreeSymbol {
+  return typeof step === 'string' ? step : step.degree;
+}
+
+/** La especie de un paso, o nulo si suena como tríada. */
+export function especieDe(step: EarStep): SeventhQuality | null {
+  return typeof step === 'string' ? null : step.especie;
+}
+
+/**
+ * Las notas que suenan en un paso, y el cifrado con el que se escribe.
+ *
+ * Vive aquí y no en la pantalla porque **la pantalla ya se equivocó una vez**:
+ * el cifrado de una cuatríada se escribía pegándole el sufijo al de la tríada, y
+ * en las doce tonalidades menores salía «Ammaj7».
+ */
+export function sonidoDe(
+  step: EarStep,
+  tonic: PitchClass,
+  mode: KeyMode,
+): { readonly root: PitchClass; readonly notes: readonly PitchClass[]; readonly symbol: string } {
+  const chord = resolveDegree(tonic, mode, gradoDe(step));
+  const especie = especieDe(step);
+  if (especie === null) {
+    return { root: chord.root, notes: chord.notes, symbol: chord.symbol };
+  }
+  return {
+    root: chord.root,
+    notes: seventhNotes(chord.root, especie),
+    symbol: seventhSymbol(chord.root, especie, accidentalForKey(tonic, mode)),
+  };
+}
 
 export interface EarExercise {
   /**
@@ -50,7 +110,7 @@ export interface EarExercise {
    * de tonalidad cambia lo que suena sin tocar el ejercicio, y quien practica en
    * Mi bemol oye sus acordes.
    */
-  readonly degrees: readonly DegreeSymbol[];
+  readonly degrees: readonly EarStep[];
   /** Pulsos que dura cada acorde. */
   readonly beats: number;
   /**
@@ -211,31 +271,46 @@ function cadence(tonic: PitchClass, mode: KeyMode): EarExercise[] {
 function sevenths(tonic: PitchClass, mode: KeyMode): EarExercise[] {
   const uno: DegreeSymbol = mode === 'major' ? 'I' : 'i';
   const cinco: DegreeSymbol = 'V';
+  // La séptima que le toca al primer grado en su modo: mayor sobre el I de una
+  // tonalidad mayor, menor sobre el i de una menor. Es la que sale de la escala.
+  const septimaDelUno: SeventhQuality = mode === 'major' ? 'major7' : 'minor7';
+
+  // El acorde suena dos veces: la tríada, y la misma con la nota de más. Antes
+  // los dos pasos eran el mismo grado a secas y sonaba dos veces lo mismo.
+  const conSeptima = (degree: DegreeSymbol, especie: SeventhQuality): EarChord => ({
+    degree,
+    especie,
+  });
+
+  const cifradoDeUno = sonidoDe(conSeptima(uno, septimaDelUno), tonic, mode).symbol;
+  const cifradoDeCinco = sonidoDe(conSeptima(cinco, 'dominant7'), tonic, mode).symbol;
 
   return [
     {
-      degrees: [uno, uno],
+      degrees: [uno, conSeptima(uno, septimaDelUno)],
       beats: 3,
       reference: 1,
       prompt: 'El mismo acorde, y luego con una nota más. ¿Cómo suena la de más?',
       choices: opciones('Suave, casi dulce', ['Áspera, pide resolver']),
-      why: `Es la séptima mayor: ${cifrado(tonic, mode, uno)}maj7. Está a medio tono de la fundamental y roza sin empujar. De ahí que suene a calma y no a tensión.`,
+      why: `Es ${cifradoDeUno}. Esa séptima está a medio tono de la fundamental y roza sin empujar: de ahí que suene a calma y no a tensión.`,
     },
     {
-      degrees: [cinco, cinco],
+      degrees: [cinco, conSeptima(cinco, 'dominant7')],
       beats: 3,
       reference: 1,
       prompt: '¿Y esta otra?',
       choices: opciones('Áspera, pide resolver', ['Suave, casi dulce']),
-      why: `Es la séptima menor sobre el V: ${cifrado(tonic, mode, cinco)}7. Con la sensible dentro forma un tritono, y eso es lo que empuja hacia la tónica.`,
+      why: `Es ${cifradoDeCinco}. Con la sensible dentro forma un tritono, y eso es lo que empuja hacia la tónica.`,
     },
     {
-      degrees: [uno, cinco],
+      // Las dos cuatríadas seguidas, sin tríadas de por medio: lo que se compara
+      // ahora es una séptima contra otra, que es la pregunta de verdad.
+      degrees: [conSeptima(uno, septimaDelUno), conSeptima(cinco, 'dominant7')],
       beats: 3,
       reference: 0,
       prompt: 'De estos dos, ¿cuál pide seguir?',
       choices: opciones('El segundo', ['El primero', 'Ninguno de los dos']),
-      why: 'La séptima del V es la que tensa. La misma nota añadida cambia de papel según sobre qué grado caiga: no es la séptima, es dónde está.',
+      why: `La misma nota añadida cambia de papel según sobre qué grado caiga: en ${cifradoDeUno} descansa y en ${cifradoDeCinco} tensa. No es la séptima, es dónde está.`,
     },
   ];
 }
@@ -322,11 +397,64 @@ function modes(tonic: PitchClass, mode: KeyMode): EarExercise[] {
   ];
 }
 
+/**
+ * Qué papel hace un acorde: reposo, salida o tensión.
+ *
+ * Es la unidad que le faltaba a **Funciones armónicas**, que era el único curso
+ * con dos lecciones de teoría y nada que oír. Y la función es lo que menos se
+ * puede estudiar leyendo: un grado no «es» tenso, tensa *respecto a la tónica*,
+ * así que sin la casa sonando antes la pregunta no tiene respuesta. Por eso los
+ * tres llevan referencia.
+ *
+ * El tercero es el que enseña algo. Los dos primeros se pueden acertar por la
+ * especie —el IV y el V son mayores—, y el sexto grado es menor y **reposa
+ * igual**: es el único sitio donde alegre o triste deja de servir y hay que oír
+ * la función. Si alguien falla uno de los tres, que sea ese.
+ */
+function functions(tonic: PitchClass, mode: KeyMode): EarExercise[] {
+  const uno: DegreeSymbol = mode === 'major' ? 'I' : 'i';
+  const cuatro: DegreeSymbol = mode === 'major' ? 'IV' : 'iv';
+  const cinco: DegreeSymbol = 'V';
+  const seis: DegreeSymbol = mode === 'major' ? 'vi' : 'VI';
+
+  const REPOSA = 'Reposa';
+  const SALE = 'Sale de casa, sin tensión';
+  const TENSA = 'Tensa, pide volver';
+
+  return [
+    {
+      degrees: [uno, cuatro],
+      beats: 3,
+      reference: 1,
+      prompt: 'Primero la casa. El segundo, ¿qué hace?',
+      choices: opciones(SALE, [REPOSA, TENSA]),
+      why: `${cifrado(tonic, mode, cuatro)} es la subdominante: ${HARMONIC_ROLES.subdominant.what.toLowerCase()}`,
+    },
+    {
+      degrees: [uno, cinco],
+      beats: 3,
+      reference: 1,
+      prompt: '¿Y este otro?',
+      choices: opciones(TENSA, [REPOSA, SALE]),
+      why: `${cifrado(tonic, mode, cinco)} es la dominante: ${HARMONIC_ROLES.dominant.what.toLowerCase()} Es el tritono de dentro lo que se oye apretar.`,
+    },
+    {
+      degrees: [uno, seis],
+      beats: 3,
+      reference: 1,
+      prompt: 'Este suena triste. Pero ¿reposa, sale o tensa?',
+      choices: opciones(REPOSA, [SALE, TENSA]),
+      why: `${cifrado(tonic, mode, seis)} es menor y aun así hace de tónica: comparte dos notas con ${cifrado(tonic, mode, uno)} y descansa igual. **Alegre o triste no es lo mismo que el papel**, y este es el grado donde se ve.`,
+    },
+  ];
+}
+
 /** Los ejercicios de oído de esa clase, en esa tonalidad. */
 export function earExercises(kind: EarKind, tonic: PitchClass, mode: KeyMode): EarExercise[] {
   const catalogo: Readonly<Record<EarKind, (t: PitchClass, m: KeyMode) => EarExercise[]>> = {
     quality,
     degree,
+    functions,
     cadence,
     sevenths,
     borrowed,
@@ -344,6 +472,10 @@ export const EAR_KINDS: Readonly<Record<EarKind, { name: string; lead: string }>
   degree: {
     name: 'Qué grado ha sonado',
     lead: 'Primero la casa, luego otro acorde. Di cuál era, con la tónica todavía en el oído.',
+  },
+  functions: {
+    name: 'Reposo, salida o tensión',
+    lead: 'Primero la casa y luego otro acorde. No digas cuál es: di qué hace.',
   },
   cadence: {
     name: 'Si cierra o se queda colgada',

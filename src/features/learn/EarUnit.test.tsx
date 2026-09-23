@@ -155,3 +155,41 @@ describe('el aviso del profesor al fallar', () => {
     expect(screen.queryByText(/es donde se pilla/)).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Las dos unidades que se tocaron al arreglar el oído
+ * ([adr/0044](../../../docs/adr/0044-un-ejercicio-de-oido-se-contesta-de-oido.md)).
+ */
+describe('cuatríadas y funciones', () => {
+  const SEPTIMAS: EarUnitDef = { ...GRADOS, id: 'p2-oido', ear: 'sevenths' };
+  const FUNCIONES: EarUnitDef = { ...GRADOS, id: 'p1-oido', ear: 'functions' };
+
+  function enLaMenor() {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+  }
+
+  /**
+   * El cifrado de la referencia se sacaba pegándole el sufijo al de la tríada, y
+   * en las doce tonalidades menores salía «Ammaj7». La referencia de esta
+   * pregunta es la tríada, así que tiene que decir «Am» y nada más.
+   */
+  it('la referencia de las septimas se escribe bien en menor', () => {
+    enLaMenor();
+    render(<EarUnit unit={SEPTIMAS} onDone={() => {}} />);
+
+    const referencia = screen.getByText(/Primero suena/);
+    expect(referencia).toHaveTextContent('Am');
+    expect(referencia.textContent).not.toMatch(/mm/);
+  });
+
+  // La pregunta es qué **hace** el acorde, no cuál es: las tres opciones son los
+  // tres papeles y ninguna nombra un cifrado.
+  it('las de funcion preguntan por el papel, no por el acorde', () => {
+    enLaMenor();
+    render(<EarUnit unit={FUNCIONES} onDone={() => {}} />);
+
+    expect(screen.getByRole('button', { name: /Reposa/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sale de casa/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tensa/ })).toBeInTheDocument();
+  });
+});
