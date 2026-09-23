@@ -82,7 +82,7 @@ export function gradoDe(step: EarStep): DegreeSymbol {
 }
 
 /** La especie de un paso, o nulo si suena como tríada. */
-export function especieDe(step: EarStep): SeventhQuality | null {
+function especieDe(step: EarStep): SeventhQuality | null {
   return typeof step === 'string' ? null : step.especie;
 }
 
