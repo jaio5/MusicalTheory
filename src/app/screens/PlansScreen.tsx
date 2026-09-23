@@ -71,6 +71,37 @@ export function PlansScreen() {
           )}
         </p>
       </Section>
+
+      {/*
+        Las dudas que frenan, contestadas aquí y no en otra pantalla.
+
+        Las tres salen de lo que el proyecto ya tiene decidido y escrito
+        —`docs/CUENTAS-Y-PLANES.md`—, no de lo que sonaría bien: **una respuesta
+        que no se puede comprobar es peor que no contestar**, porque se descubre
+        después de pagar.
+      */}
+      <Section title="Dudas">
+        <dl className="max-w-prose text-sm">
+          <dt className="text-text">¿Se sube lo que toco?</dt>
+          <dd className="text-text-muted mt-1 mb-4">
+            No. El sonido se analiza en tu propio navegador y no sale del equipo. Al modelo solo le
+            llegan símbolos: los grados de tus acordes y los nombres de las notas.
+          </dd>
+
+          <dt className="text-text">¿Y si me quedo sin peticiones?</dt>
+          <dd className="text-text-muted mt-1 mb-4">
+            Hay dos topes y el mensaje dice cuál se ha agotado. El del día se pasa mañana; el del
+            mes, subiendo de plan o esperando al día uno. Lo demás —el afinador, el mástil, el
+            lienzo, grabar— sigue funcionando igual, porque no cuesta nada servirlo.
+          </dd>
+
+          <dt className="text-text">¿Hace falta pagar para probarlo?</dt>
+          <dd className="text-text-muted mt-1">
+            No. Sin cuenta tienes la aplicación entera menos la IA y el Grado Profesional, y con una
+            cuenta gratis, unas preguntas al profesor para juzgar si merece la pena.
+          </dd>
+        </dl>
+      </Section>
     </Screen>
   );
 }

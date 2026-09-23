@@ -132,4 +132,49 @@ describe('Las tarjetas de los planes', () => {
 
     expect(PAID_PLANS.length).toBe(PLANS.length - 1);
   });
+
+  /**
+   * **Lo primero que se lee es lo que las diferencia.**
+   *
+   * Las tres columnas empezaban con las mismas tres líneas —preguntar al
+   * profesor, los seis cursos, el avance guardado— y lo que las distingue caía
+   * por debajo del pliegue: medido a 1314 por 606, había que desplazarse para
+   * poder elegir.
+   */
+  it('las tres columnas se diferencian desde la primera linea', () => {
+    render(<PlanCards />);
+
+    const primeras = screen
+      .getAllByRole('article')
+      .map((tarjeta) => within(tarjeta).getAllByRole('listitem')[0]?.textContent ?? '');
+
+    // La misma capacidad en las tres, y tachada donde no entra: eso es lo que
+    // permite compararlas sin moverse.
+    expect(primeras).toHaveLength(3);
+    for (const fila of primeras) expect(fila).toContain('Ideas de progresión de la IA');
+    expect(new Set(primeras).size).toBeGreaterThan(1);
+  });
+
+  /**
+   * Se recomienda uno, y **por lo que hace**: no se ha vendido ni uno, así que
+   * «el más elegido» sería un dato inventado.
+   */
+  it('recomienda un plan, con su razon, y solo uno', () => {
+    render(<PlanCards />);
+
+    const marcas = screen.getAllByText('El que recomendamos');
+    expect(marcas).toHaveLength(1);
+
+    const tarjeta = marcas[0]!.closest('article');
+    expect(within(tarjeta!).getByRole('heading')).toHaveTextContent('Medio');
+    expect(tarjeta!.textContent).toContain('IA que propone mientras compones');
+  });
+
+  /** Y la lista enseña lo que prometen los reclamos, que faltaban dos. */
+  it('enseña guardar canciones y las salidas, que son lo que distingue a dos planes', () => {
+    render(<PlanCards />);
+
+    expect(screen.getAllByText('Guardar tus canciones en la cuenta')).toHaveLength(3);
+    expect(screen.getAllByText('Salidas de lo que tocas')).toHaveLength(3);
+  });
 });
