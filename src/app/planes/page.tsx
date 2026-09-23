@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '../AppShell';
-import { PlansScreen } from '../screens';
+import { PlansScreen } from '../screens/PlansScreen';
 
 export const metadata: Metadata = {
   title: 'Planes · Caos ordenado',

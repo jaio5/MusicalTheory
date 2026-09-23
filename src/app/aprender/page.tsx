@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '../AppShell';
-import { PathScreen } from '../screens';
+import { PathScreen } from '../screens/PathScreen';
 
 export const metadata: Metadata = {
   title: 'Aprender · Caos ordenado',

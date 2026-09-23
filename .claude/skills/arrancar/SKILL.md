@@ -209,6 +209,49 @@ medida: **al parar se sigue en «Tocando» y el lienzo ni está montado**, así 
 los bloques no existen en el DOM. Lo escrito se lee de la lista «Lo que ya
 llevas», que es la que enseña ese mismo espacio.
 
+## Cuánto se descarga cada ruta
+
+`peso-de-las-rutas.mjs` dice cuántos kilobytes de JavaScript paga quien abre cada
+pantalla, y **si una se está trayendo código de otra**.
+
+Hace falta un servidor de producción; con `pnpm dev` los números no significan
+nada, porque no hay ni división de chunks ni minificado:
+
+```bash
+pnpm build
+PORT=3210 DATABASE_URL= pnpm start &
+node .claude/skills/arrancar/peso-de-las-rutas.mjs
+```
+
+Existe porque hubo un fallo que **ningún test veía y que no se lee en el código**:
+las ocho rutas descargaban exactamente los mismos chunks, y el afinador —seis
+cuerdas y una aguja— se traía el lienzo de componer, el grabado de partituras y el
+temario entero. Tests, tipos y reglas de capas, los tres en verde: ninguno mira lo
+que acaba viajando por el cable.
+
+**Lo que vale no es el número, es la última columna.** Un total que sube puede ser
+una función nueva; «el afinador se descarga _Añadir otra parte_» es un fallo sin
+discusión. Por eso el guion lleva escritas unas cuantas cadenas que solo existen en
+una pantalla y avisa si aparecen en otra.
+
+Referencia, medida el 23 de septiembre de 2026 y con el vídeo de la portada dentro
+de su columna de media:
+
+| Ruta                 | JS     |
+| -------------------- | ------ |
+| `/planes`            | 163 KB |
+| `/registro`          | 166 KB |
+| `/afinar`            | 167 KB |
+| `/aprender`          | 177 KB |
+| `/` (portada)        | 192 KB |
+| `/profesor`          | 196 KB |
+| `/aprender/repaso`   | 221 KB |
+| `/aprender/[unidad]` | 225 KB |
+| `/componer`          | 260 KB |
+
+Antes de arreglarlo eran **287 KB en todas**, la misma cifra clavada, que es la
+señal de que no hay división ninguna.
+
 ## Antes de dar nada por terminado
 
 ```bash

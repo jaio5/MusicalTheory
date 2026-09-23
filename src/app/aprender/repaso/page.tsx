@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '../../AppShell';
-import { ReviewScreen } from '../../screens';
+import { ReviewScreen } from '../../screens/ReviewScreen';
 
 export const metadata: Metadata = {
   title: 'Repaso · Caos ordenado',

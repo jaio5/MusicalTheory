@@ -2,6 +2,9 @@
   "name": "caos-ordenado",
   "version": "0.1.0",
   "private": true,
+  "sideEffects": [
+    "*.css"
+  ],
   "type": "module",
   "description": "Asistente de guitarra que escucha por el micro y acompaña al que toca",
   "scripts": {

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '../AppShell';
-import { TuneScreen } from '../screens';
+import { TuneScreen } from '../screens/TuneScreen';
 
 export const metadata: Metadata = {
   title: 'Afinar · Caos ordenado',

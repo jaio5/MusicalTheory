@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '../AppShell';
-import { TeacherScreen } from '../screens';
+import { TeacherScreen } from '../screens/TeacherScreen';
 
 export const metadata: Metadata = {
   title: 'Profesor · Caos ordenado',

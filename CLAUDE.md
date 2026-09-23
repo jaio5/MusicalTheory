@@ -112,6 +112,14 @@ Alias: `@core/*`, `@audio/*`, `@media/*`, `@server/*`, `@state/*`, `@features/*`
 `@ui/*`, `@/*`. Las capas de arriba importan de `@core/music` y `@core/billing`
 —los índices—, no de los ficheros sueltos.
 
+**Un barril de pantallas se lleva todas al paquete de todas.** `app/screens/index.ts`
+hacía que `/afinar` descargara el lienzo de componer: las ocho rutas pesaban los
+mismos 288 KB, con los seis comandos en verde —ni los tests ni las capas miran lo
+que viaja por el cable—. Cada página importa su pantalla **del módulo**, y
+`package.json` declara `sideEffects: ["*.css"]` para que un índice de `core/` no
+arrastre lo que nadie usa ([adr/0045](docs/adr/0045-un-barril-por-pantalla-no.md)).
+Lo mide `peso-de-las-rutas.mjs` del skill `arrancar`.
+
 Cuatro trampas, cada una explicada donde vive: **`song.ts` solo importa tipos de
 `arrangement.ts`** —el ciclo revienta en el navegador y ningún test lo ve—;
 **`no-restricted-imports` no se acumula entre bloques de ESLint**, gana el último;
@@ -191,20 +199,20 @@ camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                    | Contesta                                                           |
-| -------------------------- | ------------------------------------------------------------------ |
-| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests       |
-| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular          |
-| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico          |
-| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen     |
-| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                         |
-| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto             |
-| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti           |
-| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario             |
-| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha    |
-| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron   |
-| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde            |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y cuatro |
+| Fichero                    | Contesta                                                          |
+| -------------------------- | ----------------------------------------------------------------- |
+| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests      |
+| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular         |
+| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico         |
+| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen    |
+| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                        |
+| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto            |
+| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti          |
+| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario            |
+| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha   |
+| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron  |
+| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde           |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y cinco |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

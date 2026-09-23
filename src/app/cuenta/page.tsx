@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '../AppShell';
-import { AccountScreen } from '../screens';
+import { AccountScreen } from '../screens/AccountScreen';
 
 export const metadata: Metadata = {
   title: 'Tu cuenta · Caos ordenado',

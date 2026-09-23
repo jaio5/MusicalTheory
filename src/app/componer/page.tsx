@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 import { AppShell } from '../AppShell';
-import { ComposeScreen } from '../screens';
+import { ComposeScreen } from '../screens/ComposeScreen';
 
 export const metadata: Metadata = {
   title: 'Componer · Caos ordenado',

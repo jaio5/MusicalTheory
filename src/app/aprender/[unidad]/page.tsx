@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { findUnit, UNIT_ORDER } from '@core/music';
 
 import { AppShell } from '../../AppShell';
-import { UnitScreen } from '../../screens';
+import { UnitScreen } from '../../screens/UnitScreen';
 
 /**
  * Una unidad por dirección.
