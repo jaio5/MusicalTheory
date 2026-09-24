@@ -475,7 +475,8 @@ describe('el punteo', () => {
 
   it('una nota entra pasando por la rejilla y por las figuras', () => {
     const a = addNote(montaje(), 'estrofa', nota('n', { start: 1.3, length: 1.9, offset: 99 }));
-    expect(findNote(a, 'n')?.note).toMatchObject({ start: 1.5, length: 2, offset: 24 });
+    // 1,3 cae en 1,25: la rejilla es la semicorchea, no la corchea.
+    expect(findNote(a, 'n')?.note).toMatchObject({ start: 1.25, length: 2, offset: 24 });
   });
 
   it('mover cambia el momento y la altura de una vez', () => {

@@ -92,6 +92,15 @@ const BASE = 82;
 const ALTO_DEL_AGARRE = 28;
 
 /**
+ * Lo que baja el segundo corchete por la plica.
+ *
+ * Seis píxeles: lo justo para que se lean dos y no un borrón. Menos y parecen
+ * uno grueso, que es exactamente la confusión que hay que evitar —un corchete o
+ * dos es la diferencia entre una corchea y una semicorchea—.
+ */
+const SEPARACION_CORCHETES = 6;
+
+/**
  * Dónde acaba la clave y puede empezar la armadura.
  *
  * La clave se ensancha a los dos lados de su espiral; este número es el canto
@@ -224,13 +233,20 @@ function yDeStep(step: number): number {
 function figura(length: number): {
   hueca: boolean;
   plica: boolean;
-  corchete: boolean;
+  /**
+   * Cuántos corchetes lleva la plica: uno la corchea, **dos la semicorchea**.
+   *
+   * Era un sí o no, y con la semicorchea deja de valer: las dos llevarían uno y
+   * un punteo rápido saldría escrito al doble de lo que dura. Es lo mismo que
+   * pasa en cualquier partitura —el número de corchetes *es* la figura—.
+   */
+  corchetes: number;
   punto: boolean;
 } {
   return {
     hueca: length >= 2,
     plica: length < 4,
-    corchete: length < 1,
+    corchetes: length < 0.5 ? 2 : length < 1 ? 1 : 0,
     // Los puntillos son los dos valores de la lista que no son potencia de dos.
     punto: length === 1.5 || length === 3,
   };
@@ -837,7 +853,7 @@ export function Staff({
             const escrita = writeNote(note, tonic, mode);
             const x = margen + note.start * porPulso + 6;
             const y = yDeStep(escrita.step);
-            const { hueca, plica, corchete, punto } = figura(note.length);
+            const { hueca, plica, corchetes, punto } = figura(note.length);
             const arriba = escrita.step < 6;
 
             /*
@@ -983,18 +999,22 @@ export function Staff({
                     strokeWidth={1.3}
                   />
                 )}
-                {corchete && (
+                {/* Uno por corchete, separados por su hueco: es como se lee «esto
+                    dura la mitad otra vez». El segundo baja por la plica, que es
+                    donde va en una partitura de verdad. */}
+                {Array.from({ length: corchetes }, (_, cual) => (
                   <path
+                    key={cual}
                     d={
                       arriba
-                        ? `M ${x + CABEZA_MEDIO_ANCHO} ${y - PLICA_LARGO} q 9 5 8 14`
-                        : `M ${x - CABEZA_MEDIO_ANCHO} ${y + PLICA_LARGO} q 9 -5 8 -14`
+                        ? `M ${x + CABEZA_MEDIO_ANCHO} ${y - PLICA_LARGO + cual * SEPARACION_CORCHETES} q 9 5 8 14`
+                        : `M ${x - CABEZA_MEDIO_ANCHO} ${y + PLICA_LARGO - cual * SEPARACION_CORCHETES} q 9 -5 8 -14`
                     }
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={1.6}
                   />
-                )}
+                ))}
 
                 {/*
                 La zona de agarre, en dos piezas: una sobre la cabeza y otra a lo

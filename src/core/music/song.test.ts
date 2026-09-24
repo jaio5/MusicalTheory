@@ -265,7 +265,8 @@ describe('el punteo y la procedencia, guardados', () => {
       },
       'x',
     );
-    expect(song?.sections[0]?.lead).toEqual([[7, 1.5, 2]]);
+    // 1,3 cae en 1,25: la rejilla es la semicorchea.
+    expect(song?.sections[0]?.lead).toEqual([[7, 1.25, 2]]);
   });
 
   // Redondear un dato roto a cero pondría una nota en la tónica que nadie tocó.

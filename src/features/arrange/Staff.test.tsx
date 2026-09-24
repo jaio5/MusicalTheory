@@ -446,6 +446,19 @@ describe('El dibujo de una nota', () => {
     expect(conCorchete).toBeGreaterThan(sinCorchete);
   });
 
+  /**
+   * **Y la semicorchea lleva dos**, que es lo que la distingue de la corchea.
+   *
+   * Con uno solo, un punteo rápido saldría escrito al doble de lo que dura. El
+   * número de corchetes *es* la figura, así que no es un adorno: es el dato.
+   */
+  it('la semicorchea lleva dos corchetes, uno mas que la corchea', () => {
+    const semi = conNota({ length: 0.25 }).container.querySelectorAll('path').length;
+    const corchea = conNota({ length: 0.5 }).container.querySelectorAll('path').length;
+
+    expect(semi).toBe(corchea + 1);
+  });
+
   // Las agudas llevan la plica hacia abajo y las graves hacia arriba.
   it('una nota aguda y una grave no llevan la plica igual', () => {
     const aguda = conNota({ offset: 24 }).container.innerHTML;

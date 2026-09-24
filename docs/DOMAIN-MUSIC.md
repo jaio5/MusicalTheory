@@ -306,8 +306,8 @@ confunde con el disminuido entero, que tiene la séptima disminuida y no la meno
 - Acordes de paso y modulación explícita.
 - **Del tiempo musical sabe la mitad.** Sabe pulsos, compases y velocidad:
   `tempo.ts` acota el pulso por minuto y los pulsos por compás —de uno a seis—,
-  `melody.ts` guarda cada nota en pulsos sobre una rejilla de medio pulso y limita
-  su duración a las seis figuras que tienen dibujo, `arrangement.ts` cuenta
+  `melody.ts` guarda cada nota en pulsos sobre una rejilla de un cuarto de pulso
+  —la semicorchea— y limita su duración a las siete figuras que tienen dibujo, `arrangement.ts` cuenta
   compases y `capture.ts` convierte en compases lo que tocas. Lo que **no** tiene:
   silencios, ligaduras, grupos irregulares, dos voces y anacrusa. Por eso una nota
   que dura más de lo que le queda al compás se escribe donde empieza y cruza la

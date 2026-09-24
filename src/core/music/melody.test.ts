@@ -12,6 +12,7 @@ import {
   NOTA_DUDOSA,
   MIN_OFFSET,
   offsetOfStep,
+  GRID,
   NOTE_LENGTHS,
   snapLength,
   snapToGrid,
@@ -29,9 +30,12 @@ function nota(extra: Partial<LeadNote> = {}): LeadNote {
 }
 
 describe('la rejilla', () => {
-  it('el tiempo cae en medios pulsos', () => {
-    expect(snapToGrid(1.2)).toBe(1);
-    expect(snapToGrid(1.3)).toBe(1.5);
+  // Un cuarto de pulso: la semicorchea. Era medio —la corchea— y eso partía los
+  // punteos, porque un guitarrista toca más rápido que eso.
+  it('el tiempo cae en cuartos de pulso', () => {
+    expect(snapToGrid(1.2)).toBe(1.25);
+    expect(snapToGrid(1.3)).toBe(1.25);
+    expect(snapToGrid(1.4)).toBe(1.5);
     expect(clampStart(-4)).toBe(0);
   });
 
@@ -40,8 +44,19 @@ describe('la rejilla', () => {
   it('la duración se va a la figura más cercana, no a la de abajo', () => {
     expect(snapLength(1.9)).toBe(2);
     expect(snapLength(1.1)).toBe(1);
-    expect(snapLength(0.1)).toBe(0.5);
+    expect(snapLength(0.1)).toBe(0.25);
+    expect(snapLength(0.4)).toBe(0.5);
     expect(snapLength(99)).toBe(4);
+  });
+
+  /**
+   * **La rejilla y las figuras se mueven juntas.** Una rejilla más fina que la
+   * figura más corta pone notas en sitios donde no se pueden escribir, y una más
+   * gruesa las apila: con la rejilla en la corchea, un punteo de semicorcheas
+   * metía dos notas en cada posición.
+   */
+  it('la rejilla y la figura mas corta son la misma', () => {
+    expect(GRID).toBe(Math.min(...NOTE_LENGTHS));
   });
 
   it('toda duración que sale tiene figura con la que escribirse', () => {
@@ -281,6 +296,86 @@ describe('captureMelody', () => {
       skipped: 0,
       outOfRange: 0,
     });
+  });
+});
+
+/**
+ * **Un punteo normal no se puede dibujar encima de sí mismo.**
+ *
+ * Con la rejilla en la corchea, seis notas a 150 ms —semicorcheas a 100 bpm, lo
+ * que toca cualquiera— salían en cuatro posiciones: `0 · 0,5 · 0,5 · 1 · 1 ·
+ * 1,5`. Tres pares caían en el mismo sitio y el pentagrama los dibujaba uno
+ * encima de otro, que es lo que se veía al transcribir.
+ */
+describe('un punteo rápido no apila notas', () => {
+  /** Seis notas a 150 ms: semicorcheas a 100 bpm. */
+  const RAPIDO = [60, 62, 64, 65, 67, 69].map((midi, i) => ({ midi, at: i * 150 }));
+
+  it('cada nota cae en su sitio, y ninguna en el de otra', () => {
+    const capture = captureMelody(RAPIDO, { tonic: C, bpm: 100, endedAt: 6 * 150 });
+
+    expect(capture.notes).toHaveLength(6);
+    const inicios = capture.notes.map((nota) => nota.start);
+    expect(new Set(inicios).size).toBe(inicios.length);
+    expect(inicios).toEqual([0, 0.25, 0.5, 0.75, 1, 1.25]);
+  });
+
+  it('y con la figura que de verdad dura, no con el doble', () => {
+    const capture = captureMelody(RAPIDO, { tonic: C, bpm: 100, endedAt: 6 * 150 });
+
+    // Semicorcheas. Con la rejilla vieja salían corcheas: el doble de lo tocado.
+    expect(capture.notes.map((nota) => nota.length)).toEqual([0.25, 0.25, 0.25, 0.25, 0.25, 0.25]);
+  });
+
+  /**
+   * Y la regla general, que es la que no se puede romper: en un punteo lo que se
+   * dibuja es una línea, no un acorde. Dos notas en el mismo punto no son
+   * ilegibles, son **imposibles de leer**: el pentagrama no tiene forma de
+   * enseñarlas.
+   */
+  it('ninguna nota dura mas alla de donde empieza la siguiente', () => {
+    const irregular = [
+      { midi: 60, at: 0 },
+      { midi: 62, at: 130 },
+      { midi: 64, at: 900 },
+      { midi: 65, at: 1000 },
+      { midi: 67, at: 2600 },
+    ];
+    const capture = captureMelody(irregular, { tonic: C, bpm: 100, endedAt: 3200 });
+
+    for (const [i, nota] of capture.notes.entries()) {
+      const siguiente = capture.notes[i + 1];
+      if (siguiente !== undefined) {
+        expect(nota.start + nota.length, `la ${i + 1}ª pisa a la siguiente`).toBeLessThanOrEqual(
+          siguiente.start,
+        );
+      }
+    }
+  });
+
+  /**
+   * **Y recortarla no la deja sin figura.** El hueco entre dos inicios de la
+   * rejilla puede ser 0,75 pulsos —una corchea con puntillo, que no está en la
+   * lista—, así que recortar al hueco exacto escribiría una nota que el
+   * pentagrama no sabe dibujar. Se baja a la figura que cabe.
+   */
+  it('lo recortado sigue teniendo figura', () => {
+    // La primera dura 0,77 pulsos y la segunda empieza en 0,75: la primera se
+    // había ido a la negra y hay que recortarla, y en el hueco solo cabe media.
+    const capture = captureMelody(
+      [
+        { midi: 60, at: 0 },
+        { midi: 62, at: 460 },
+        { midi: 64, at: 1200 },
+      ],
+      { tonic: C, bpm: 100, endedAt: 1800 },
+    );
+
+    expect(capture.notes[1]?.start).toBe(0.75);
+    expect(capture.notes[0]?.length).toBe(0.5);
+    for (const nota of capture.notes) {
+      expect(NOTE_LENGTHS, `${nota.length} no es ninguna figura`).toContain(nota.length);
+    }
   });
 });
 

@@ -79,23 +79,35 @@ export function isDoubtfulNote(note: LeadNote): boolean {
 }
 
 /**
- * La rejilla del tiempo: media pulso.
+ * La rejilla del tiempo: un cuarto de pulso.
  *
- * Es la corchea en un compás de cuatro por cuatro, y es hasta donde llega lo que
- * esta aplicación puede oír y dibujar. Más fino daría notas que el pentagrama no
- * sabe escribir y que el motor de croma nunca ha distinguido.
+ * Es la semicorchea en un compás de cuatro por cuatro. **Era media pulsación —la
+ * corchea— y eso partía los punteos.** Un guitarrista tocando semicorcheas a 100
+ * bpm pone una nota cada 150 ms, y con la rejilla en la corchea cada dos caían en
+ * el mismo sitio: seis notas seguidas salían en cuatro posiciones, dibujadas una
+ * encima de otra. No es un caso raro, es un punteo normal.
+ *
+ * Aquí se decía que más fino daría «notas que el pentagrama no sabe escribir»,
+ * y era verdad mientras la lista de figuras empezara en la corchea. Ahora empieza
+ * en la semicorchea y el dibujo la sabe hacer, así que el argumento se mueve con
+ * ella. Lo que sigue en pie es que **la rejilla y las figuras se mueven juntas**:
+ * una rejilla más fina que la figura más corta vuelve a poner notas donde no se
+ * pueden escribir.
  */
-export const GRID = 0.5;
+export const GRID = 0.25;
 
 /**
  * Las duraciones que existen, en pulsos.
  *
- * Son las seis que tienen figura en un compás de cuatro por cuatro: corchea,
- * negra, negra con puntillo, blanca, blanca con puntillo y redonda. Que la lista
- * viva aquí y no en el dibujo es lo que garantiza que nunca haya una nota sin
- * figura con la que escribirla.
+ * Son las siete que tienen figura en un compás de cuatro por cuatro:
+ * semicorchea, corchea, negra, negra con puntillo, blanca, blanca con puntillo y
+ * redonda. Que la lista viva aquí y no en el dibujo es lo que garantiza que nunca
+ * haya una nota sin figura con la que escribirla.
+ *
+ * La semicorchea entró con la rejilla: sin ella, un punteo normal no se podía
+ * escribir y las notas se apilaban.
  */
-export const NOTE_LENGTHS: readonly number[] = [0.5, 1, 1.5, 2, 3, 4];
+export const NOTE_LENGTHS: readonly number[] = [0.25, 0.5, 1, 1.5, 2, 3, 4];
 
 /** Lo más grave y lo más agudo que se puede escribir, en semitonos sobre la tónica. */
 export const MIN_OFFSET = -12;
@@ -139,6 +151,29 @@ export function snapLength(beats: number): number {
   return NOTE_LENGTHS.reduce((mejor, candidata) =>
     Math.abs(candidata - beats) < Math.abs(mejor - beats) ? candidata : mejor,
   );
+}
+
+/**
+ * La figura más larga que cabe en ese hueco, sin pasarse.
+ *
+ * `snapLength` busca la más **parecida**, y eso sirve para escribir lo que duró
+ * una nota pero no para recortarla: la más parecida a 0,7 pulsos es la negra, que
+ * no cabe. Y un hueco no cae siempre en una figura —dos inicios de la rejilla
+ * pueden estar a 0,75 de distancia, que es una corchea con puntillo y no está en
+ * la lista—, así que hay que bajar a la que cabe.
+ *
+ * El hueco nunca es menor que `GRID`, y `GRID` es la figura más corta, así que
+ * siempre hay una.
+ */
+function figuraQueCabe(beats: number): number {
+  // La lista va de menor a mayor, así que la última que cabe es la más larga.
+  let mejor = NOTE_LENGTHS[0]!;
+  for (const figura of NOTE_LENGTHS) {
+    if (figura <= beats) {
+      mejor = figura;
+    }
+  }
+  return mejor;
 }
 
 export function clampStart(beats: number): number {
@@ -341,10 +376,33 @@ export function captureMelody(
       break;
     }
 
+    // **Dos notas no pueden caer en el mismo sitio, y ninguna puede durar más
+    // allá de donde empieza la siguiente.**
+    //
+    // Redondear cada una por su cuenta no lo garantiza: el inicio va a la
+    // rejilla y la duración a la figura más parecida, y son dos redondeos
+    // distintos. Con la rejilla en la corchea, un punteo de semicorcheas metía
+    // dos notas en cada posición y se dibujaban una encima de otra; con la
+    // rejilla más fina eso casi no pasa, pero «casi» no es una garantía y el
+    // pentagrama no tiene forma de enseñar dos cosas en el mismo punto.
+    //
+    // Se empuja hacia delante y no se descarta: la nota sonó. Lo que se pierde
+    // es exactitud de milisegundos, que es lo que ya se pierde al escribir en
+    // figuras.
+    const anterior = notes.at(-1);
+    const suyo = clampStart((nota.at - desde) / porPulso);
+    const start = anterior === undefined ? suyo : Math.max(suyo, anterior.start + GRID);
+
+    if (anterior !== undefined && anterior.start + anterior.length > start) {
+      // Recortada a una figura que exista, no al hueco exacto: el hueco puede ser
+      // 0,75 —una corchea con puntillo— y en la lista no está.
+      notes[notes.length - 1] = { ...anterior, length: figuraQueCabe(start - anterior.start) };
+    }
+
     notes.push({
       id: `p${notes.length}`,
       offset,
-      start: clampStart((nota.at - desde) / porPulso),
+      start,
       length: snapLength(pulsos),
       // La claridad viaja con la nota. Se calculaba en cada análisis, se
       // guardaba en el historial y no llegaba a ninguna parte.

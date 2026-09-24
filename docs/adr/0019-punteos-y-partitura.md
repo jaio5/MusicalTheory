@@ -1,6 +1,7 @@
 # ADR 0019 — El punteo, y las dos maneras de escribirlo
 
-Fecha: 2026-09-07 · Estado: aceptada · Amplía: [ADR 0018](./0018-el-lienzo-de-montar.md)
+Fecha: 2026-09-07 · Estado: aceptada · Amplía: [ADR 0018](./0018-el-lienzo-de-montar.md) ·
+La rejilla de aquí la corrige [ADR 0049](./0049-la-rejilla-llega-a-la-semicorchea.md)
 
 ## Contexto
 
