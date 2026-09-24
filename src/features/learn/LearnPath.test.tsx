@@ -17,6 +17,9 @@ import {
 
 import { LearnPath } from './LearnPath';
 
+/** Un instante cualquiera: el dominio lo pide por parámetro y aquí da igual cuál. */
+const CUANDO = '2026-09-24T10:00:00.000Z';
+
 const HOY = '2026-07-29';
 
 const ELEMENTAL = COURSES.filter((course) => course.grade === 'elemental').flatMap((course) =>
@@ -163,14 +166,14 @@ describe('Las unidades agrietadas', () => {
  */
 describe('El punto de partida', () => {
   it('abre el curso elegido y deja abierto lo anterior', () => {
-    pintar(startAt(EMPTY_PROGRESS, 'profesional-1'), 'basico');
+    pintar(startAt(EMPTY_PROGRESS, 'profesional-1', CUANDO), 'basico');
 
     expect(screen.getByRole('button', { name: /^reposo, salida y tensión$/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /^qué es un grado$/i })).toBeEnabled();
   });
 
   it('lo que va después del punto de partida sigue cerrado', () => {
-    pintar(startAt(EMPTY_PROGRESS, 'profesional-1'), 'basico');
+    pintar(startAt(EMPTY_PROGRESS, 'profesional-1', CUANDO), 'basico');
 
     expect(screen.getByRole('button', { name: /la mayor, otra vez.*bloqueada$/i })).toBeDisabled();
   });

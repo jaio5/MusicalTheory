@@ -192,6 +192,22 @@ export interface Progress {
    * mentira.
    */
   readonly startCourse: string | null;
+  /**
+   * Cuándo se eligió ese punto de partida, en ISO.
+   *
+   * **Existe para que se pueda retroceder.** Sin esto, la fusión se quedaba
+   * siempre con el punto que abría más camino, y eso convertía el desplegable en
+   * uno de sentido único: elegías un curso anterior, se subía al servidor, el
+   * servidor comparaba índices, ganaba el de antes y el desplegable volvía solo al
+   * de siempre. En un aparato no hay nada que reconciliar —lo de arriba y lo de
+   * abajo son la misma persona— así que lo que gana es lo último que dijo.
+   *
+   * Nulo en lo guardado antes de que esto existiera. Con los dos nulos se decide
+   * como se decidía —por el que abre más camino—, y con uno solo gana el que lo
+   * tiene: el instante únicamente se escribe al elegir, así que tenerlo significa
+   * haber elegido después.
+   */
+  readonly startCourseAt: string | null;
 }
 
 export const EMPTY_PROGRESS: Progress = {
@@ -205,6 +221,7 @@ export const EMPTY_PROGRESS: Progress = {
   composeToday: 0,
   review: EMPTY_REVIEW,
   startCourse: null,
+  startCourseAt: null,
 };
 
 /**
@@ -303,11 +320,16 @@ export function startIndex(progress: Progress): number {
  * No borra nada ni da nada por hecho: mover el punto de partida solo cambia qué
  * está abierto.
  */
-export function startAt(progress: Progress, courseId: string | null): Progress {
+export function startAt(progress: Progress, courseId: string | null, at: string): Progress {
   if (courseId !== null && !COURSES.some((course) => course.id === courseId)) {
     return progress;
   }
-  return progress.startCourse === courseId ? progress : { ...progress, startCourse: courseId };
+  if (progress.startCourse === courseId) {
+    return progress;
+  }
+  // El instante entra por parámetro y no se lee aquí de un reloj, como en el
+  // resto del dominio: así esto se prueba sin esperar ni un milisegundo real.
+  return { ...progress, startCourse: courseId, startCourseAt: at };
 }
 
 /**
@@ -722,29 +744,79 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
       lastDay === null ? 0 : Math.max(composeEarnedOn(a, lastDay), composeEarnedOn(b, lastDay)),
     review: mergeReview(a.review, b.review),
     startCourse: mergeStartCourse(a, b),
+    startCourseAt: mergeStartCourseAt(a, b),
   };
 }
 
 /**
- * De los dos puntos de partida, el que abre más camino.
+ * De los dos puntos de partida, **el último que se eligió**.
  *
- * Y en caso de empate, **el que dice algo**. Eso segundo era un fallo: elegir el
- * primer curso no mueve el índice —ya estaba en cero, como el de quien no ha
- * elegido nada— así que los dos empataban y ganaba el primero de los dos, que al
- * subir el avance es el del servidor. Resultado: elegir «1.º de Elemental» no
- * abría nada distinto —es el primer curso— pero el desplegable se olvidaba de que
- * se lo habías dicho.
+ * Antes era «el que abre más camino», y eso convertía el desplegable en uno de
+ * sentido único: elegías un curso anterior, se subía, el servidor comparaba
+ * índices, ganaba el de antes y el desplegable volvía solo al de siempre. Con la
+ * cuenta abierta no había manera de retroceder el punto de partida, y no se veía
+ * por qué —la pantalla no decía nada, simplemente se deshacía—.
  *
- * El precio de quedarse con lo más abierto sigue siendo el mismo: quien retroceda
- * su punto de partida en un aparato tendrá que hacerlo también en el otro.
+ * El error era tratar una preferencia como si fuera un acumulado. El XP, las
+ * unidades hechas y las medallas son acumulados y ahí «lo mejor de cada lado» es
+ * lo correcto: nada de eso se elige, se gana. Un punto de partida se **dice**, y
+ * lo que hay que respetar de algo que se dice es lo último.
+ *
+ * Sin instante en ninguno de los dos —avance guardado antes de que esto
+ * existiera— se decide como se decidía, por el que abre más camino: así lo viejo
+ * no cambia de sentido por haberse actualizado.
  */
 function mergeStartCourse(a: Progress, b: Progress): string | null {
+  const reciente = elMasReciente(a, b);
+  if (reciente !== null) {
+    return reciente.startCourse;
+  }
   const ia = startIndex(a);
   const ib = startIndex(b);
   if (ia !== ib) {
     return ia > ib ? a.startCourse : b.startCourse;
   }
   return a.startCourse ?? b.startCourse;
+}
+
+/** El instante del punto de partida que gane, para que no se pierda al fusionar. */
+function mergeStartCourseAt(a: Progress, b: Progress): string | null {
+  const reciente = elMasReciente(a, b);
+  if (reciente !== null) {
+    return reciente.startCourseAt;
+  }
+  return a.startCourseAt ?? b.startCourseAt;
+}
+
+/**
+ * Cuál de los dos eligió su punto de partida más tarde, o nulo si no se sabe.
+ *
+ * **Tener instante gana a no tenerlo**, y no es una preferencia arbitraria: el
+ * instante solo se escribe al elegir, así que uno que lo tenga se eligió después
+ * de que esto existiera, y uno que no, antes. Está ordenado aunque no lo parezca.
+ *
+ * Sin esa regla, cada avance ya guardado se llevaba **un primer retroceso
+ * fallido**: lo del servidor no tenía instante, lo nuevo sí, no había con qué
+ * comparar y volvía a decidir el índice. El desplegable rebotaba una vez y a la
+ * segunda funcionaba, que es peor que fallar siempre —parece cosa de suerte—.
+ *
+ * El precio son dos aparatos con versiones distintas: el viejo elige más tarde y
+ * pierde, porque no sabe decir cuándo lo hizo. Dura lo que tarde en actualizarse,
+ * y se arregla volviendo a elegir.
+ */
+function elMasReciente(a: Progress, b: Progress): Progress | null {
+  if (a.startCourseAt === null && b.startCourseAt === null) {
+    return null;
+  }
+  if (a.startCourseAt === null) {
+    return b;
+  }
+  if (b.startCourseAt === null) {
+    return a;
+  }
+  const ta = Date.parse(a.startCourseAt);
+  const tb = Date.parse(b.startCourseAt);
+  return ta === tb ? null : ta > tb ? a : b;
 }
 
 function asStrings(value: unknown): readonly string[] {
@@ -837,7 +909,19 @@ export function parseProgress(raw: unknown): Progress {
     composeToday: lastDay === null ? 0 : Math.min(MAX_COMPOSE_XP, asCount(record['composeToday'])),
     review: asReviewQueue(record['review']),
     startCourse: asCourseId(record['startCourse']),
+    startCourseAt: asInstante(record['startCourseAt']),
   };
+}
+
+/**
+ * Un instante en ISO, o nulo.
+ *
+ * Se comprueba que sea una fecha de verdad y no solo que sea texto: esto viene de
+ * un `localStorage` que cualquiera puede editar, y una cadena cualquiera haría que
+ * la comparación de la fusión devolviera siempre falso sin decir por qué.
+ */
+function asInstante(value: unknown): string | null {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? value : null;
 }
 
 /** Un curso del temario, o nulo. Un curso retirado se olvida. */

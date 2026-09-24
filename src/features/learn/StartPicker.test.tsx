@@ -10,6 +10,9 @@ import { COURSES, EMPTY_PROGRESS, startAt, UNIT_ORDER, type Progress } from '@co
 
 import { StartPicker } from './StartPicker';
 
+/** Un instante cualquiera: el dominio lo pide por parámetro y aquí da igual cuál. */
+const CUANDO = '2026-09-24T10:00:00.000Z';
+
 function pintar(progress: Progress = EMPTY_PROGRESS, plan: PlanId = 'basico') {
   const onChange = vi.fn();
   render(<StartPicker progress={progress} plan={plan} onChange={onChange} />);
@@ -35,13 +38,13 @@ describe('Elegir por dónde empezar', () => {
   });
 
   it('enseña el curso elegido', () => {
-    pintar(startAt(EMPTY_PROGRESS, 'profesional-2'));
+    pintar(startAt(EMPTY_PROGRESS, 'profesional-2', CUANDO));
 
     expect(desplegable().value).toBe('profesional-2');
   });
 
   it('avisa del curso elegido y deja volver al principio', async () => {
-    const onChange = pintar(startAt(EMPTY_PROGRESS, 'profesional-2'));
+    const onChange = pintar(startAt(EMPTY_PROGRESS, 'profesional-2', CUANDO));
 
     await userEvent.selectOptions(desplegable(), '');
 

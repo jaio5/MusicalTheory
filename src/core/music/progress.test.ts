@@ -38,6 +38,9 @@ import {
 } from './progress';
 import { isUnitCracked, MASTERED_HITS } from './review';
 
+/** Un instante cualquiera: el dominio lo pide por parámetro y aquí da igual cuál. */
+const CUANDO = '2026-09-24T10:00:00.000Z';
+
 const C = pitchClassFromName('C');
 
 /** Termina unidades seguidas desde el principio, todas el mismo día. */
@@ -588,7 +591,7 @@ describe('elegir por dónde empezar', () => {
   });
 
   it('elegir un curso abre su primera unidad sin haber hecho nada', () => {
-    const progress = startAt(EMPTY_PROGRESS, 'profesional-1');
+    const progress = startAt(EMPTY_PROGRESS, 'profesional-1', CUANDO);
 
     expect(isUnitUnlocked(progress, PRIMERA_DEL_PROFESIONAL)).toBe(true);
     expect(nextUnit(progress)).toBe(PRIMERA_DEL_PROFESIONAL);
@@ -599,7 +602,7 @@ describe('elegir por dónde empezar', () => {
    * bajar a mirar los grados el día que se pierda.
    */
   it('deja abierto todo lo anterior al punto de partida', () => {
-    const progress = startAt(EMPTY_PROGRESS, 'profesional-1');
+    const progress = startAt(EMPTY_PROGRESS, 'profesional-1', CUANDO);
 
     for (const id of UNIT_ORDER.slice(0, startIndex(progress) + 1)) {
       expect(isUnitUnlocked(progress, id), id).toBe(true);
@@ -608,7 +611,7 @@ describe('elegir por dónde empezar', () => {
 
   // De ahí en adelante la escalera sigue intacta: cada curso usa lo anterior.
   it('de tu punto de partida en adelante sigue siendo una detrás de otra', () => {
-    const progress = startAt(EMPTY_PROGRESS, 'profesional-1');
+    const progress = startAt(EMPTY_PROGRESS, 'profesional-1', CUANDO);
     const segunda = UNIT_ORDER[startIndex(progress) + 1]!;
 
     expect(isUnitUnlocked(progress, segunda)).toBe(false);
@@ -620,7 +623,7 @@ describe('elegir por dónde empezar', () => {
   // Regalar once unidades por elegir un desplegable convertiría el marcador en
   // una mentira.
   it('no da por hechas las unidades que se salta, ni regala XP', () => {
-    const progress = startAt(EMPTY_PROGRESS, 'profesional-2');
+    const progress = startAt(EMPTY_PROGRESS, 'profesional-2', CUANDO);
 
     expect(progress.done).toEqual([]);
     expect(progress.xp).toBe(0);
@@ -628,7 +631,7 @@ describe('elegir por dónde empezar', () => {
   });
 
   it('cuando ya no queda nada por delante, ofrece lo que se saltó', () => {
-    let progress = startAt(EMPTY_PROGRESS, 'profesional-1');
+    let progress = startAt(EMPTY_PROGRESS, 'profesional-1', CUANDO);
     for (const id of UNIT_ORDER.slice(startIndex(progress))) {
       progress = completeUnit(progress, id, '2026-07-30');
     }
@@ -639,12 +642,16 @@ describe('elegir por dónde empezar', () => {
   it('un curso que no existe deja el avance igual', () => {
     const progress = avanzar(2);
 
-    expect(startAt(progress, 'curso-de-laud-medieval')).toBe(progress);
+    expect(startAt(progress, 'curso-de-laud-medieval', '2026-09-24T10:00:00.000Z')).toBe(progress);
     expect(startIndex({ ...progress, startCourse: 'curso-de-laud-medieval' })).toBe(0);
   });
 
   it('se puede volver al principio', () => {
-    const progress = startAt(startAt(EMPTY_PROGRESS, 'profesional-1'), null);
+    const progress = startAt(
+      startAt(EMPTY_PROGRESS, 'profesional-1', '2026-09-24T10:00:00.000Z'),
+      null,
+      '2026-09-24T11:00:00.000Z',
+    );
 
     expect(startIndex(progress)).toBe(0);
     expect(nextUnit(progress)).toBe(UNIT_ORDER[0]);
@@ -656,10 +663,10 @@ describe('elegir por dónde empezar', () => {
     expect(parseProgress({}).startCourse).toBeNull();
   });
 
-  // Se queda con el que abre más camino, como el resto de la fusión.
-  it('al fusionar gana el punto de partida más adelantado', () => {
-    const antes = startAt(EMPTY_PROGRESS, 'elemental-2');
-    const despues = startAt(EMPTY_PROGRESS, 'profesional-1');
+  // Se queda con el último que se eligió, venga de donde venga.
+  it('al fusionar gana el punto de partida elegido más tarde', () => {
+    const antes = startAt(EMPTY_PROGRESS, 'elemental-2', '2026-09-24T10:00:00.000Z');
+    const despues = startAt(EMPTY_PROGRESS, 'profesional-1', '2026-09-24T11:00:00.000Z');
 
     expect(mergeProgress(antes, despues).startCourse).toBe('profesional-1');
     expect(mergeProgress(despues, antes).startCourse).toBe('profesional-1');
@@ -667,9 +674,14 @@ describe('elegir por dónde empezar', () => {
 });
 
 describe('el punto de partida al fusionar', () => {
-  /** Un avance con solo el curso de partida puesto. */
+  /** Un avance con solo el curso de partida puesto, como lo guardaba la versión vieja. */
   function desde(startCourse: string | null): Progress {
     return { ...EMPTY_PROGRESS, startCourse };
+  }
+
+  /** Y uno con el curso y **cuándo se eligió**, que es lo que ahora decide. */
+  function desdeCuando(startCourse: string | null, startCourseAt: string): Progress {
+    return { ...EMPTY_PROGRESS, startCourse, startCourseAt };
   }
 
   it('gana el que abre más camino', () => {
@@ -691,6 +703,95 @@ describe('el punto de partida al fusionar', () => {
 
   it('sin elección en ninguno de los dos, sigue sin haberla', () => {
     expect(mergeProgress(desde(null), desde(null)).startCourse).toBeNull();
+  });
+
+  /**
+   * **El desplegable era de sentido único, y este es el fallo.**
+   *
+   * «El que abre más camino» convertía retroceder en imposible: elegías un curso
+   * anterior, se subía, el servidor comparaba índices, ganaba el de antes y el
+   * desplegable volvía solo al de siempre sin decir por qué. Con la cuenta
+   * abierta, quien hubiera probado Cadencias una vez se quedaba ahí para
+   * siempre.
+   *
+   * El error era tratar una preferencia como un acumulado. El XP y las unidades
+   * hechas se ganan; un punto de partida se dice, y de lo que se dice vale lo
+   * último.
+   */
+  it('se puede retroceder el punto de partida, que antes no se podia', () => {
+    const viejo = desdeCuando('profesional-6', '2026-09-24T10:00:00.000Z');
+    const nuevo = desdeCuando('elemental-2', '2026-09-24T11:00:00.000Z');
+
+    expect(mergeProgress(viejo, nuevo).startCourse).toBe('elemental-2');
+    expect(mergeProgress(nuevo, viejo).startCourse).toBe('elemental-2');
+  });
+
+  it('y se puede volver al principio del todo', () => {
+    const viejo = desdeCuando('profesional-6', '2026-09-24T10:00:00.000Z');
+    const alPrincipio = desdeCuando(null, '2026-09-24T11:00:00.000Z');
+
+    expect(mergeProgress(viejo, alPrincipio).startCourse).toBeNull();
+  });
+
+  // El instante del que gana viaja con él: si no, la siguiente fusión volvería a
+  // no tener con qué comparar y el retroceso se deshace a la segunda.
+  it('el instante del que gana no se pierde al fusionar', () => {
+    const viejo = desdeCuando('profesional-6', '2026-09-24T10:00:00.000Z');
+    const nuevo = desdeCuando('elemental-2', '2026-09-24T11:00:00.000Z');
+
+    expect(mergeProgress(viejo, nuevo).startCourseAt).toBe('2026-09-24T11:00:00.000Z');
+  });
+
+  /**
+   * Lo guardado antes de que el instante existiera no tiene ninguno, y entonces
+   * se decide como se decidía. Que uno lo tenga y el otro no **tampoco** vale
+   * para ordenarlos: no significa que el que lo tiene sea el más reciente.
+   */
+  it('sin instante en ninguno de los dos, decide el que abre mas camino', () => {
+    expect(mergeProgress(desde('elemental-1'), desde('profesional-2')).startCourse).toBe(
+      'profesional-2',
+    );
+  });
+
+  /**
+   * Dos elecciones en el mismo milisegundo no se pueden ordenar, así que decide
+   * la regla de antes. Pasa con dos aparatos a la vez, y con un reloj que no
+   * avanza entre dos pulsaciones.
+   */
+  it('con el mismo instante en los dos, decide el que abre mas camino', () => {
+    const uno = desdeCuando('elemental-2', '2026-09-24T11:00:00.000Z');
+    const otro = desdeCuando('profesional-4', '2026-09-24T11:00:00.000Z');
+
+    expect(mergeProgress(uno, otro).startCourse).toBe('profesional-4');
+    expect(mergeProgress(otro, uno).startCourse).toBe('profesional-4');
+  });
+
+  /**
+   * El instante viene de un `localStorage` que cualquiera puede editar. Una
+   * cadena que no sea una fecha se lee como si no hubiera ninguno: dejarla pasar
+   * haría que la comparación devolviera siempre falso sin decir por qué.
+   */
+  it('un instante que no es una fecha se lee como si no hubiera', () => {
+    expect(parseProgress({ startCourseAt: 'ayer por la tarde' }).startCourseAt).toBeNull();
+    expect(parseProgress({ startCourseAt: 42 }).startCourseAt).toBeNull();
+    expect(parseProgress({ startCourseAt: '2026-09-24T11:00:00.000Z' }).startCourseAt).toBe(
+      '2026-09-24T11:00:00.000Z',
+    );
+  });
+
+  /**
+   * **Y tener instante gana a no tenerlo**, que es lo que evita que cada avance
+   * ya guardado se lleve un primer retroceso fallido: lo del servidor no lo
+   * tenía, lo recién elegido sí, y sin esta regla volvía a decidir el índice. El
+   * desplegable rebotaba una vez y a la segunda funcionaba, que es peor que
+   * fallar siempre porque parece cosa de suerte.
+   */
+  it('lo elegido con instante gana a lo guardado sin el', () => {
+    const viejoSinInstante = desde('profesional-6');
+    const recienElegido = desdeCuando('elemental-2', '2026-09-24T11:00:00.000Z');
+
+    expect(mergeProgress(viejoSinInstante, recienElegido).startCourse).toBe('elemental-2');
+    expect(mergeProgress(recienElegido, viejoSinInstante).startCourse).toBe('elemental-2');
   });
 });
 
@@ -1039,9 +1140,10 @@ describe('la medalla del repaso', () => {
 describe('los bordes del avance guardado', () => {
   // Elegir el curso que ya estaba puesto no cambia nada: el avance es el mismo.
   it('elegir el mismo curso deja el avance igual', () => {
-    const conCurso = startAt(EMPTY_PROGRESS, COURSES[0]!.id);
+    const conCurso = startAt(EMPTY_PROGRESS, COURSES[0]!.id, '2026-09-24T10:00:00.000Z');
 
-    expect(startAt(conCurso, COURSES[0]!.id)).toBe(conCurso);
+    // Y ni siquiera mueve el instante: no se ha elegido nada nuevo.
+    expect(startAt(conCurso, COURSES[0]!.id, '2026-09-24T18:00:00.000Z')).toBe(conCurso);
   });
 
   /**

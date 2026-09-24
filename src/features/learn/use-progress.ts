@@ -295,7 +295,9 @@ export function useProgress({ escuchaComponer = false }: ProgressOptions = {}) {
   const chooseStart = useCallback(
     (courseId: string | null) => {
       setProgress((current) => {
-        const next = startAt(current, courseId);
+        // El instante de ahora, que es lo que hace que la fusión respete lo
+        // último que has dicho en vez de quedarse con lo que más camino abría.
+        const next = startAt(current, courseId, new Date().toISOString());
         if (next !== current) {
           push(next);
         }
