@@ -351,6 +351,14 @@ manda, así que pasan la misma verificación que pasaría una respuesta del mode
 Eso permite probar la pantalla, la reproducción y «quedarme con esta» sin gastar
 un céntimo.
 
+**Que pase la verificación no es que tenga sentido**, y eso costó un fallo: el
+cierre que proponía era `I IV I` —la tónica, un paso fuera y la tónica otra vez—,
+que acaba en casa y por eso el validador lo aceptaba. Un cierre se prepara por
+detrás y no se alarga por delante
+([adr/0051](./adr/0051-un-cierre-se-prepara-por-detras.md)), y ahora hay un test
+que mira **dentro** del cierre para los 27 grados de los dos modos. Los de antes
+solo comprobaban que la salida existiera.
+
 Lo que **no** prueba: si el modelo de verdad devuelve versiones que valgan la
 pena. Eso no lo puede decir nada que no sea el modelo. Por eso todo lo que sale de
 ahí lo lleva escrito en su propio texto —en pantalla se lee «Sin IA»— y en

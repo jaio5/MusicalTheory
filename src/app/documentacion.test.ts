@@ -60,6 +60,7 @@ const EN_LETRA: Readonly<Record<number, string>> = {
   48: 'cuarenta y ocho',
   49: 'cuarenta y nueve',
   50: 'cincuenta',
+  51: 'cincuenta y uno',
 };
 
 describe('lo que la documentación cuenta', () => {

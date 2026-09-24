@@ -26,7 +26,9 @@ import {
   nextDegrees,
   pitchClassFromName,
   resolveProgression,
+  roleOfDegreeSymbol,
   type DegreeSymbol,
+  type HarmonicRole,
   type KeyMode,
   type NoteName,
 } from '@core/music';
@@ -38,6 +40,76 @@ interface Peticion {
   readonly tonic: NoteName;
   readonly mode: KeyMode;
   readonly progression: readonly { readonly degree: DegreeSymbol; readonly beats: number }[];
+}
+
+/** Lo más largo que puede durar un cierre, en compases. */
+const LARGO_MAXIMO_DEL_CIERRE = 4;
+
+/**
+ * Qué grado prepara mejor la tónica, de mejor a peor.
+ *
+ * Es el orden de la cadencia: la dominante es la que tira a casa, la
+ * subdominante lleva sin tirar, y las otras dos llegan de rebote.
+ */
+const PREPARA_MEJOR: readonly HarmonicRole[] = ['dominant', 'subdominant', 'approach', 'tonic'];
+
+/** De los caminos que valen, el que mejor prepara la tónica del final. */
+function mejorPreparado(caminos: readonly DegreeSymbol[][]): DegreeSymbol[] | undefined {
+  let mejor: DegreeSymbol[] | undefined;
+  let mejorRango = PREPARA_MEJOR.length;
+  for (const camino of caminos) {
+    const previo = camino[camino.length - 2]!;
+    const rango = PREPARA_MEJOR.indexOf(roleOfDegreeSymbol(previo));
+    if (rango < mejorRango) {
+      mejor = camino;
+      mejorRango = rango;
+    }
+  }
+  return mejor;
+}
+
+/**
+ * El cierre: los compases que llevan a casa, **sin pasar por casa antes**.
+ *
+ * Esto se escribía andando por el grafo «hasta caer en la tónica», con un mínimo
+ * de dos compases porque una parte de uno no es una parte. Y el mínimo se
+ * cumplía **siguiendo después de haber llegado**: desde un V el primer paso ya
+ * daba la tónica, el bucle no podía parar ahí, y el cierre salía `I IV I` —en Mi
+ * mayor, «Mi La Mi»—. La tónica dos veces, y sin cadencia ninguna: un cierre que
+ * empieza en casa no cierra nada, se va y vuelve.
+ *
+ * **Un cierre no se alarga hacia delante, se prepara por detrás.** Así que se
+ * busca el camino **más corto** que acabe en la tónica y no la toque antes, y
+ * entre los que empatan de largo gana el que mejor la prepara. Por anchura y no
+ * por profundidad, porque lo que se quiere es el más corto: dos compases, que es
+ * lo que mide una cadencia.
+ */
+function cierreHastaCasa(
+  mode: KeyMode,
+  desde: DegreeSymbol,
+  tonica: DegreeSymbol,
+): DegreeSymbol[] | null {
+  let frentes: DegreeSymbol[][] = [[]];
+  for (let largo = 1; largo <= LARGO_MAXIMO_DEL_CIERRE; largo += 1) {
+    const siguientes: DegreeSymbol[][] = [];
+    for (const camino of frentes) {
+      const ultimo = camino[camino.length - 1] ?? desde;
+      for (const salto of nextDegrees(mode, ultimo)) {
+        siguientes.push([...camino, salto.to]);
+      }
+    }
+    // Dos compases al menos: uno solo no es una parte y el validador lo tiraría.
+    // Y como los frentes nunca llevan la tónica dentro, aquí solo puede estar al
+    // final, que es justo lo que se pide de un cierre.
+    const mejor = mejorPreparado(
+      siguientes.filter((camino) => camino.length >= 2 && camino.at(-1) === tonica),
+    );
+    if (mejor !== undefined) {
+      return mejor;
+    }
+    frentes = siguientes.filter((camino) => !camino.includes(tonica));
+  }
+  return null;
 }
 
 /**
@@ -76,32 +148,16 @@ export function versionesSinIA(peticion: Peticion): unknown {
     }
   }
 
-  // 2. Seguir: se alarga por el grafo hasta caer en la tónica, como mucho cuatro
-  //    compases. Si desde el último grado no se llega, no se propone.
-  const tonica = mode === 'minor' ? 'i' : 'I';
-  const cola: { degree: DegreeSymbol; beats: number; move: null }[] = [];
-  let actual = progression[progression.length - 1]?.degree;
-  for (let paso = 0; paso < 4 && actual !== undefined; paso += 1) {
-    const siguiente =
-      nextDegrees(mode, actual).find((m) => m.to === tonica) ?? nextDegrees(mode, actual)[0];
-    /* v8 ignore next 3 -- todo grado del catalogo tiene a donde seguir */
-    if (siguiente === undefined) {
-      break;
-    }
-    cola.push({ degree: siguiente.to, beats: 4, move: null });
-    actual = siguiente.to;
-    // Se para al llegar a casa, pero no con un solo compás: una parte de uno no
-    // es una parte, y el validador la tiraría.
-    if (siguiente.to === tonica && cola.length >= 2) {
-      break;
-    }
-  }
-  // Dos compases al menos, o no es una parte.
-  if (cola.length >= 2 && cola[cola.length - 1]!.degree === tonica) {
+  // 2. Seguir: un cierre que lleva a casa preparándola, no pasando por ella.
+  const tonica: DegreeSymbol = mode === 'minor' ? 'i' : 'I';
+  const ultimo = progression[progression.length - 1]?.degree;
+  const camino = ultimo === undefined ? null : cierreHastaCasa(mode, ultimo, tonica);
+  if (camino !== null) {
+    const cola = camino.map((degree) => ({ degree, beats: 4, move: null }));
     versions.push({
       path: 'seguir',
       title: `${SIN_IA} · cerrar en la tónica`,
-      why: 'Sigue por donde el dominio dice que se suele ir, hasta caer en casa.',
+      why: 'Un cierre por donde el dominio dice que se suele ir: prepara la tónica y cae en ella.',
       sections: [
         {
           name: 'Lo que llevas',

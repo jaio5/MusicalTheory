@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { degreesFor, isValidPath, type DegreeSymbol, type KeyMode } from '@core/music';
+
 import { SIN_IA, ideasSinIA, respuestaSinIA, versionesSinIA } from './fake-model';
 
 /**
@@ -71,6 +73,100 @@ describe('las salidas sin IA', () => {
     });
 
     expect(versions.some((version) => version.path === 'estirar')).toBe(true);
+  });
+});
+
+/**
+ * **Un cierre es una cadencia, y una cadencia no empieza en casa.**
+ *
+ * Esto salía `I IV I` —en Mi mayor, «Mi La Mi»—: la tónica dos veces y sin
+ * cadencia ninguna. La causa era que el cierre se alargaba **hacia delante**
+ * hasta caer en la tónica, con un mínimo de dos compases, y desde un V el primer
+ * paso ya la daba: el bucle no podía parar ahí, así que se iba de casa y volvía.
+ *
+ * Ningún test mataba esto porque ninguno miraba lo que había **dentro** del
+ * cierre; solo que la salida existiera y llevara «Sin IA».
+ */
+describe('el cierre de las salidas sin IA', () => {
+  interface Seccion {
+    readonly name: string;
+    readonly steps: readonly { readonly degree: DegreeSymbol; readonly beats: number }[];
+  }
+
+  /** El cierre que propone cuando lo que llevas acaba en ese grado. */
+  function cierreTras(mode: KeyMode, ultimo: DegreeSymbol) {
+    const tonica: DegreeSymbol = mode === 'minor' ? 'i' : 'I';
+    const progression = [
+      { degree: tonica, beats: 4 },
+      { degree: ultimo, beats: 4 },
+    ];
+    const { versions } = versionesSinIA({ tonic: 'E', mode, progression }) as {
+      versions: readonly { path: string; sections: readonly Seccion[] }[];
+    };
+    const seguir = versions.find((version) => version.path === 'seguir');
+
+    return {
+      tonica,
+      progression,
+      cierre: seguir?.sections.find((seccion) => seccion.name === 'Cierre')?.steps,
+      todos: seguir?.sections.flatMap((seccion) => seccion.steps),
+    };
+  }
+
+  /** Cada grado de los dos modos, que son los sitios donde puede acabar tu parte. */
+  function todosLosFinales(): { mode: KeyMode; ultimo: DegreeSymbol }[] {
+    return (['major', 'minor'] as KeyMode[]).flatMap((mode) =>
+      (degreesFor(mode) as readonly DegreeSymbol[]).map((ultimo) => ({ mode, ultimo })),
+    );
+  }
+
+  it('acabe tu parte donde acabe, hay cierre y acaba en la tonica', () => {
+    for (const { mode, ultimo } of todosLosFinales()) {
+      const { tonica, cierre } = cierreTras(mode, ultimo);
+
+      expect(cierre, `${mode}, acabando en ${ultimo}`).toBeDefined();
+      expect(cierre!.at(-1)!.degree, `${mode}, acabando en ${ultimo}`).toBe(tonica);
+    }
+  });
+
+  /**
+   * La regla que faltaba. No es «que no se repita un acorde» —dos compases del
+   * mismo grado son legítimos en otro sitio—: es que **la tónica es el final**, y
+   * un cierre que la toca antes ya ha cerrado y lo que viene después sobra.
+   */
+  it('la tonica sale una sola vez, y es la ultima', () => {
+    for (const { mode, ultimo } of todosLosFinales()) {
+      const { tonica, cierre } = cierreTras(mode, ultimo);
+      const veces = cierre!.filter((paso) => paso.degree === tonica).length;
+
+      expect(
+        veces,
+        `${mode}, acabando en ${ultimo}: ${cierre!.map((p) => p.degree).join(' ')}`,
+      ).toBe(1);
+    }
+  });
+
+  // Dos compases: uno solo no es una parte, y más de lo justo no es una cadencia.
+  it('mide dos compases', () => {
+    for (const { mode, ultimo } of todosLosFinales()) {
+      expect(cierreTras(mode, ultimo).cierre, `${mode}, acabando en ${ultimo}`).toHaveLength(2);
+    }
+  });
+
+  /**
+   * Y lo que sale de aquí pasa el mismo validador que pasaría una respuesta del
+   * modelo de verdad, que es lo que hace que estas salidas sirvan para probar la
+   * pantalla entera.
+   */
+  it('el validador del dominio lo acepta', () => {
+    for (const { mode, ultimo } of todosLosFinales()) {
+      const { progression, todos } = cierreTras(mode, ultimo);
+
+      expect(
+        isValidPath(mode, 'seguir', progression, todos!),
+        `${mode}, acabando en ${ultimo}`,
+      ).toBe(true);
+    }
   });
 });
 
