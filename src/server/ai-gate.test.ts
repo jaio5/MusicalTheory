@@ -82,6 +82,38 @@ describe('la puerta del cupo', () => {
     expect(spendAi).not.toHaveBeenCalled();
   });
 
+  /**
+   * **Y lo dice como lo que es, no como un fallo de red.**
+   *
+   * La frase de serie —«no hemos podido contactar con el modelo, vuelve a
+   * intentarlo en un minuto»— es mentira aquí: nadie ha intentado contactar con
+   * nada, porque no hay ninguno puesto. Además invita a reintentar algo que no va
+   * a funcionar nunca. Es lo que veía quien levantaba la aplicación con
+   * `docker compose up` sin clave.
+   */
+  it('sin proveedor, la frase no habla de contactar ni de reintentar', async () => {
+    modelAvailable.mockReturnValue(false);
+
+    const { message } = await leer(await abrirPuertaDeIa(puerta()));
+
+    expect(message).toContain('no tiene ningún modelo configurado');
+    expect(message).not.toMatch(/contactar|vuelve a intentarlo/i);
+    // Y en los términos de lo que se pedía, con su número: «Las ideas... no están».
+    expect(message).toContain('las ideas de la IA');
+    expect(message).toContain('no están disponibles');
+  });
+
+  // Y con un sujeto singular concuerda: «preguntarle al profesor no está».
+  it('sin proveedor, el verbo concuerda con un sujeto singular', async () => {
+    modelAvailable.mockReturnValue(false);
+
+    const { message } = await leer(
+      await abrirPuertaDeIa({ ...puerta(), loQueEs: 'Preguntarle al profesor', plural: false }),
+    );
+
+    expect(message).toContain('preguntarle al profesor no está disponible');
+  });
+
   it('sin cuenta, 401', async () => {
     spendAi.mockResolvedValue({ kind: 'sin-cuenta' });
 

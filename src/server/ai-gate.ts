@@ -66,6 +66,11 @@ export async function frenarPorFrecuencia(
   });
 }
 
+/** La misma frase empezando en minúscula, para meterla dentro de otra. */
+function enMinuscula(frase: string): string {
+  return frase.charAt(0).toLowerCase() + frase.slice(1);
+}
+
 export interface PuertaDeIa {
   readonly feature: AiFeature;
   readonly error: ConstructorDeError;
@@ -89,8 +94,26 @@ export interface PuertaDeIa {
 export async function abrirPuertaDeIa(puerta: PuertaDeIa): Promise<NextResponse | null> {
   // Antes de tocar el cupo. `askModel` fallaría igual unas líneas más abajo, pero
   // para entonces la petición ya está contada.
+  //
+  // **Y se dice lo que pasa, que no es lo mismo que lo de abajo.** La frase de
+  // serie —«no hemos podido contactar con el modelo, vuelve a intentarlo en un
+  // minuto»— es mentira aquí: nadie ha intentado contactar con nada, porque no
+  // hay ninguno puesto. Además invita a reintentar algo que no va a funcionar
+  // nunca, por muchos minutos que pasen. Es el caso de una copia levantada sin
+  // clave y sin modelo de casa, que es exactamente lo que hace `docker compose
+  // up` a secas.
   if (!modelAvailable()) {
-    return NextResponse.json(puerta.error('model_unavailable'), { status: 503 });
+    return NextResponse.json(
+      puerta.error(
+        'model_unavailable',
+        // Solo la primera letra en minúscula, no toda la frase: `loQueEs` lleva
+        // dentro «la IA», y bajarla entera la convertía en «la ia».
+        `Esta copia no tiene ningún modelo configurado, así que ${enMinuscula(puerta.loQueEs)} no ${
+          puerta.plural ? 'están disponibles' : 'está disponible'
+        } aquí. Todo lo demás funciona igual.`,
+      ),
+      { status: 503 },
+    );
   }
 
   // Después del límite por minuto: comprobar memoria es gratis y escribir en la
