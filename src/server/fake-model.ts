@@ -98,7 +98,10 @@ function cierreHastaCasa(
         siguientes.push([...camino, salto.to]);
       }
     }
-    // Dos compases al menos: uno solo no es una parte y el validador lo tiraría.
+    // Dos compases al menos. No lo pide `pathProblem` —que mira compases— sino
+    // `songProblem`, que mira partes: `MIN_BARS_PER_SECTION`. Mirar la primera y
+    // creer que un cierre de un compás valía costó un arreglo del revés.
+    //
     // Y como los frentes nunca llevan la tónica dentro, aquí solo puede estar al
     // final, que es justo lo que se pide de un cierre.
     const mejor = mejorPreparado(

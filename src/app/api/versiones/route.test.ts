@@ -130,6 +130,9 @@ describe('el esquema y el catálogo dependen de lo que se pida', () => {
 });
 
 describe('lo que sale', () => {
+  // Una cadencia de verdad. Esto era `i i` —la tónica repetida—, que es justo lo
+  // que el modelo devolvía de más y ahora el dominio rechaza: una parte de un solo
+  // grado no es una parte ([adr/0051](../../../../docs/adr/0051-un-cierre-se-prepara-por-detras.md)).
   const CIERRE = {
     path: 'seguir',
     title: 'Cierre natural',
@@ -138,7 +141,7 @@ describe('lo que sale', () => {
       {
         name: 'Cierre',
         steps: [
-          { degree: 'i', beats: 4, move: null },
+          { degree: 'VI', beats: 4, move: null },
           { degree: 'i', beats: 4, move: null },
         ],
       },
@@ -209,7 +212,8 @@ describe('lo que sale', () => {
     const { body } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
     const pasos = (body['versions'] as { steps: { symbol: string }[] }[])[0]!.steps;
 
-    expect(pasos.map((p) => p.symbol)).toEqual(['Am', 'F', 'C', 'G', 'Am', 'Am']);
+    // Los cuatro tuyos y la cadencia: VI es Fa y i es La menor.
+    expect(pasos.map((p) => p.symbol)).toEqual(['Am', 'F', 'C', 'G', 'F', 'Am']);
   });
 
   it('reintenta una vez y gasta cupo una sola', async () => {

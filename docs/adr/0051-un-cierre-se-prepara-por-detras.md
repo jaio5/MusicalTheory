@@ -4,9 +4,18 @@ Fecha: 2026-09-24 · Estado: aceptada · Respeta la línea de [ADR 0011](./0011-
 
 ## Contexto
 
-En tonalidad de Mi, el cierre que proponía la aplicación era **«Mi · La · Mi»**: la
-tónica dos veces y ninguna cadencia. En grados, `I IV I`, y salía casi siempre
-—con la parte acabando en V, en IV o en vi, que es como acaba casi todo—.
+En tonalidad de Mi, el cierre que proponía la aplicación repetía la tónica. Y
+resultó ser **dos fallos con la misma cara**, uno en cada sitio de donde puede
+salir un cierre:
+
+| Quién lo escribe                             | Qué devolvía | En Mi        |
+| -------------------------------------------- | ------------ | ------------ |
+| El dominio (`fake-model.ts`), sin proveedor  | `I IV I`     | Mi · La · Mi |
+| El modelo (`qwen3:8b`), con Ollama conectado | `I I`        | Mi · Mi      |
+
+El primero salía casi siempre —con la parte acabando en V, en IV o en vi, que es
+como acaba casi todo—. El segundo, medido pidiendo salidas de verdad a `/api/versiones`
+con `I vi IV V` en Mi mayor.
 
 La causa está en `fake-model.ts` y es de tres líneas. El cierre se construía
 andando por el grafo armónico «hasta caer en la tónica», con un mínimo de dos
@@ -44,8 +53,37 @@ el validador. Una muestra:
 | `I`               | `IV I`          | `V I`           |
 
 **Y la regla queda escrita como test, para los 27 grados**: la tónica sale una vez
-y es la última. No es «que no se repita un acorde» —dos compases del mismo grado
-son legítimos en otro sitio—: es que la tónica **es** el final.
+y es la última. No es «que no se repita un acorde» —sostener un acorde dentro de
+una parte es legítimo—: es que la tónica **es** el final.
+
+### Y lo del modelo: una parte de un solo grado no es una parte
+
+Eso arregla al dominio, no al modelo. Para el modelo van dos cosas.
+
+**El validador rechaza una parte añadida de dos o más compases cuyo grado sea
+siempre el mismo**, en `seguir` y en `contraste`.
+
+Hay que decir qué se pierde con eso, porque se pierde algo. Un cierre tiene que
+medir **dos compases**: lo exige `MIN_BARS_PER_SECTION` en `songProblem`, y con
+razón —un puente de un compás no es un puente—. Pero eso significa que, cuando la
+única respuesta honesta es «resuelve», hay que rellenar; y la única manera de
+rellenar una resolución pura es repetir la tónica. Ni con pulsos se salva: `i(8)`
+es un compás y cae por el mínimo igual.
+
+Así que lo que se va es **proponer un cierre que sea solo la tónica**. Y se va a
+propósito: eso es lo único que nadie necesita que se lo diga una IA. Sostener la
+tónica **dentro** de una cadencia sigue valiendo —`VI i(8)` entra—; lo que no entra
+es un cierre que no va a ningún sitio.
+
+**Y el catálogo que lee el modelo lo dice**: `seguir` pide «una cadencia que llegue
+a la tónica. Llegar a ella, no quedarse en ella». El prompt añade que un acorde
+que dura más de un compás va en un compás con más pulsos.
+
+**De paso, una trampa que costó un arreglo del revés**: el mínimo de compases de
+una parte **no está en `pathProblem`**, que es el que mira compases y saltos, sino
+en `songProblem`, que mira partes. Comprobando la primera parece que un cierre de
+un compás vale, y no vale. Dos validadores en dos niveles, y el de las partes es
+el que manda.
 
 ## Consecuencias
 
@@ -60,14 +98,17 @@ antes tampoco se podía decir —y ahora sí— es si las del dominio tienen sen
 
 ## Alternativas descartadas
 
-**Meter la regla en el validador**, en `pathProblem`, para que ninguna respuesta
-—ni la del dominio ni la del modelo— pueda traer la tónica antes del final. Se
-descarta con un contraejemplo: `V I vi IV V I` es una frase entera perfectamente
-buena que pasa por la tónica y acaba en ella, y esa regla la tiraría. El validador
-comprueba **legalidad**, no gusto: que los saltos existan, que tus compases sigan
-ahí y que se cierre en casa. Que lo propuesto tenga sentido es del que lo propone.
-Es la línea que [ADR 0011](./0011-versiones-verificadas-contra-el-dominio.md) trazó, y
-aquí se respeta en vez de moverla.
+**Meter en el validador la regla de «la tónica solo al final»**, para que ninguna
+respuesta pueda traerla antes. Se descarta con un contraejemplo: `V I vi IV V I` es
+una frase entera perfectamente buena que pasa por la tónica y acaba en ella, y esa
+regla la tiraría.
+
+Nótese que **no es la regla que sí entró**. «La parte añadida no puede ser un solo
+grado» no toca ese contraejemplo: la frase larga se mueve. La primera decidiría por
+gusto dónde puede estar un acorde; la segunda solo dice que una parte tenga dentro
+más de un acorde, que es lo que la hace una parte. La línea de [ADR
+0011](./0011-versiones-verificadas-contra-el-dominio.md) —el modelo propone, el
+dominio verifica— se respeta con la segunda y se movería con la primera.
 
 **Parar en el primer compás cuando ya se llega a la tónica**, aceptando un cierre
 de uno. Se descarta porque el validador lo tira, y con razón: una parte con un

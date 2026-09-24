@@ -449,15 +449,54 @@ describe('quedarse en el mismo acorde', () => {
     expect(nextDegrees('minor', 'i').some((m) => m.to === 'i')).toBe(false);
     expect(canFollow('minor', 'i', 'i')).toBe(true);
 
-    const cierraDosCompases = pasos(
+    // Y sostener un acorde **dentro** de una parte sigue valiendo, que es para lo
+    // que está: lo que se mira es la parte entera, no un compás contra el de al lado.
+    const sostieneEnMedio = pasos(
       ['i', 4],
       ['VI', 4],
       ['III', 4],
       ['VII', 4],
-      ['i', 4],
+      ['VII', 4],
       ['i', 4],
     );
-    expect(pathProblem('minor', 'seguir', TUYO, cierraDosCompases)).toBeNull();
+    expect(pathProblem('minor', 'seguir', TUYO, sostieneEnMedio)).toBeNull();
+  });
+
+  /**
+   * **Pero una parte entera de un solo grado no es una parte**, y esto es lo que
+   * devolvía el modelo de verdad como cierre: después de un V, `I I`. En Mi mayor,
+   * «Mi Mi». Pasaba todas las reglas —añade compases, los saltos valen, acaba en la
+   * tónica— y no proponía nada.
+   *
+   * Aquí se aceptaba a propósito, por miedo a «rechazar media música». Y no se
+   * rechaza ninguna: **la misma música se escribe con pulsos**, que llegan a
+   * dieciséis. Lo que se va es una manera redundante de escribirla, no un sonido
+   * ([adr/0051](../../../docs/adr/0051-un-cierre-se-prepara-por-detras.md)).
+   */
+  it('pero dos compases de tonica repetida no cierran nada', () => {
+    const repetida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['i', 4], ['i', 4]);
+    expect(pathProblem('minor', 'seguir', TUYO, repetida)).toBe(
+      'el cierre no se mueve: es el mismo grado repetido',
+    );
+  });
+
+  /**
+   * **Y sostener la tónica dentro de una cadencia sí vale**, que es lo que
+   * distingue esta regla de prohibir un acorde largo: `VI i(8)` entra. Lo que no
+   * entra es un cierre que sea **solo** la tónica, de cualquier manera que se
+   * escriba.
+   */
+  it('pero una cadencia con la tonica sostenida entra', () => {
+    const sostenida = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['VI', 4], ['i', 8]);
+    expect(pathProblem('minor', 'seguir', TUYO, sostenida)).toBeNull();
+  });
+
+  // Y lo mismo para una parte que contrasta: de un solo grado no es una parte.
+  it('una parte que contrasta tampoco puede ser un grado repetido', () => {
+    const plana = pasos(['i', 4], ['VI', 4], ['III', 4], ['VII', 4], ['VI', 4], ['VI', 4]);
+    expect(pathProblem('minor', 'contraste', TUYO, plana)).toBe(
+      'la parte nueva no se mueve: es el mismo grado repetido',
+    );
   });
 });
 

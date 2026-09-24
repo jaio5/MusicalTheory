@@ -126,6 +126,10 @@ que hace su cancion. El resto los escribio una persona a proposito.
 El campo move va nulo siempre salvo en rearmonizar, y ahi solo en los compases
 que cambies.
 
+Un acorde que dura mas de un compas va en UN compas con mas pulsos, no repetido
+en dos compases seguidos. Y una parte de un solo grado no es una parte: se
+descarta.
+
 Responde siempre en espanol, en frases cortas y con verbos activos. Nada de
 exclamaciones. Cada salida lleva un titulo de menos de sesenta caracteres y una
 sola frase que diga que se gana con ella.

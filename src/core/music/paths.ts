@@ -87,7 +87,7 @@ export const PATHS: readonly Path[] = [
   {
     id: 'seguir',
     name: 'Seguir hasta cerrar',
-    why: 'Mantiene tus compases tal cual y añade los que hagan falta para terminar en la tónica.',
+    why: 'Mantiene tus compases tal cual y añade una cadencia que llegue a la tónica. Llegar a ella, no quedarse en ella: la tónica repetida no cierra nada.',
   },
   {
     id: 'otro-final',
@@ -144,6 +144,28 @@ export function canFollow(mode: KeyMode, from: DegreeSymbol, to: DegreeSymbol): 
 /** Si dos compases son el mismo compás. */
 function sameBar(a: PathStep, b: PathStep): boolean {
   return a.degree === b.degree && a.beats === b.beats;
+}
+
+/**
+ * Si la parte añadida va a algún sitio.
+ *
+ * **Un compás puede repetir el de al lado y eso es legítimo** —`canFollow` lo
+ * permite a propósito—, pero una parte **entera** de un solo grado no es una
+ * parte: es el mismo acorde sonando más rato.
+ *
+ * Es lo que devolvía el modelo como cierre: después de un V, `I I`. En Mi mayor,
+ * «Mi Mi». Cumplía la letra de la regla —añade compases y acaba en la tónica— y no
+ * proponía nada. Y para que un acorde dure más está `beats`, que llega a
+ * dieciséis pulsos: repetir el compás no es la manera de decirlo.
+ *
+ * Es el hermano de «es tu canción tal cual», que ya estaba más arriba: una salida
+ * tiene que salir a algún sitio. Con un solo compás añadido no aplica, porque un
+ * compás no puede moverse: un `V` que resuelve en `I` y se acaba es un cierre
+ * perfecto.
+ */
+function laParteSeMueve(pasos: readonly ProposedStep[], desde: number): boolean {
+  const añadidos = pasos.slice(desde);
+  return añadidos.length < 2 || new Set(añadidos.map((paso) => paso.degree)).size >= 2;
 }
 
 /** Si la propuesta empieza exactamente por los `cuantos` primeros compases tuyos. */
@@ -246,6 +268,9 @@ export function pathProblem(
       if (proposed[proposed.length - 1]!.degree !== tonicOf(mode)) {
         return 'seguir tiene que cerrar en la tónica';
       }
+      if (!laParteSeMueve(proposed, original.length)) {
+        return 'el cierre no se mueve: es el mismo grado repetido';
+      }
       return null;
     }
 
@@ -268,6 +293,9 @@ export function pathProblem(
       }
       if (!canFollow(mode, ultimo, original[0]!.degree)) {
         return 'la parte nueva no sabe volver al principio';
+      }
+      if (!laParteSeMueve(proposed, original.length)) {
+        return 'la parte nueva no se mueve: es el mismo grado repetido';
       }
       return null;
     }

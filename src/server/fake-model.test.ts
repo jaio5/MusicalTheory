@@ -146,7 +146,10 @@ describe('el cierre de las salidas sin IA', () => {
     }
   });
 
-  // Dos compases: uno solo no es una parte, y más de lo justo no es una cadencia.
+  /**
+   * Dos compases: una parte de uno la tira `songProblem`
+   * (`MIN_BARS_PER_SECTION`), y más de lo justo no es una cadencia.
+   */
   it('mide dos compases', () => {
     for (const { mode, ultimo } of todosLosFinales()) {
       expect(cierreTras(mode, ultimo).cierre, `${mode}, acabando en ${ultimo}`).toHaveLength(2);
