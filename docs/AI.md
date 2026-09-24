@@ -295,10 +295,21 @@ delante. La primera vez descarga unos
 estricto— y los deja en un volumen, así que solo pasa una vez. Con `OLLAMA_MODEL`
 se cambia sin tocar código.
 
-Está en un fichero de compose aparte porque **pide una gráfica NVIDIA**: sin ella,
-`docker compose up` tiene que seguir funcionando igual. Se puede correr en la CPU
+Está en un **perfil** y no en el grupo de siempre porque **pide una gráfica
+NVIDIA**: sin ella, `docker compose up` tiene que seguir funcionando igual
+([adr/0047](./adr/0047-la-ia-es-un-perfil-no-un-fichero.md); fue un fichero de
+compose aparte y dejó de serlo). Se puede correr en la CPU
 comentando el bloque `deploy`, pero una respuesta pasa de segundos a un minuto
 largo y deja de servir para probar nada con la guitarra en las manos.
+
+**Y si el Ollama es uno que ya corre en tu equipo, la dirección la calcula
+`pnpm docker:up` al levantar.** Dentro del contenedor `localhost` es el
+contenedor, y a la máquina solo se llega por la IP de `eth0`, que cambia al
+reiniciar: por eso `compose.yml` lee `OLLAMA_URL_DOCKER` en vez de traer una
+dirección fija, y por eso arrancar con `docker compose` a secas deja la IA apagada
+([adr/0050](./adr/0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)).
+Cargar el modelo en la gráfica cuesta unos 89 s la primera vez —contestar, menos de
+uno—, y Ollama lo descarga a los cinco minutos sin uso.
 
 Quien hable con él es `server/local-model.ts`, **sin SDK**: Ollama habla JSON por
 HTTP y `fetch` está en el runtime. Las tres decisiones de coste de la API se

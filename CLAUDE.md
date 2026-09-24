@@ -57,6 +57,13 @@ hacerlo.
   descuenta la barra de abajo mientras exista. Si uno se mueve, el otro también:
   separados, la rueda se sale por abajo y nadie lo ve. **Ningún test lo vigila**;
   lo caza la sonda del skill `arrancar` a los dos lados de 640 y de 768.
+- **`docker compose up` a secas deja la IA apagada aunque tengas un Ollama
+  corriendo.** La dirección de un Ollama del equipo es la IP de `eth0`, **cambia al
+  reiniciar** y la calcula `scripts/docker-arriba.sh`: en `compose.yml` no hay
+  ninguna dirección fija que valga —`host.docker.internal` apunta a Windows, no a
+  WSL, y la puerta del puente tampoco llega—. Así que **`pnpm docker:up`, y otra
+  vez después de cada reinicio**
+  ([adr/0050](docs/adr/0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)).
 - **El micrófono es uno, y lo sujeta `state/use-listening.ts`**, no el componente:
   quien monte otro botón de escuchar **no guarda la entrada**.
 - **Una toma dice lo que es, y sin eso los dos motores compiten.** El croma y el de
@@ -214,20 +221,20 @@ camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                    | Contesta                                                          |
-| -------------------------- | ----------------------------------------------------------------- |
-| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests      |
-| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular         |
-| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico         |
-| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen    |
-| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                        |
-| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto            |
-| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti          |
-| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario            |
-| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha   |
-| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron  |
-| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde           |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y nueve |
+| Fichero                    | Contesta                                                         |
+| -------------------------- | ---------------------------------------------------------------- |
+| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests     |
+| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular        |
+| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico        |
+| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen   |
+| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                       |
+| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto           |
+| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti         |
+| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario           |
+| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
+| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
+| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cincuenta       |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

@@ -105,6 +105,13 @@ docker compose --profile ia up     # y además el modelo de casa
 docker compose up ollama           # solo el modelo
 ```
 
+**Con `docker compose` a secas la IA se queda apagada**, aunque tengas un Ollama
+corriendo en el equipo: su dirección es la IP de tu máquina, cambia al reiniciar y
+la calcula `pnpm docker:up`. No hay manera de ponerla fija en `compose.yml`
+([adr/0050](./docs/adr/0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)),
+así que para tener IA de casa: `pnpm docker:up`, **y otra vez después de cada
+reinicio**.
+
 `pnpm docker:up` escribe el `.env` que falte con un `AUTH_SECRET` nuevo, así que no
 hay nada que rellenar a mano. Si el 3000 ya lo tiene otro contenedor tuyo, cambia
 `APP_PORT` en ese `.env`. Los detalles, en

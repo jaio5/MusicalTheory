@@ -112,6 +112,13 @@ services:
       #     IP de la máquina y **cambia al reiniciar**, así que la calcula el
       #     script en lugar de escribirse a mano en un fichero que caduca.
       #
+      # **Y por eso `docker compose up` a secas deja la IA apagada**, aunque tengas
+      # un Ollama corriendo: esta variable la calcula el script, y no hay ninguna
+      # dirección fija que se pueda poner aquí en su lugar. Está medido:
+      # `host.docker.internal` apunta a Windows y no a WSL, y la puerta del puente
+      # tampoco llega
+      # ([adr/0050](docs/adr/0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)).
+      #
       # Vacía a propósito si no hay ninguno: la aplicación dice que no hay modelo
       # configurado y **no gasta cupo**. Apuntando a un Ollama que no contesta sí
       # lo gastaría, que es la razón de que esto no traiga una dirección por
