@@ -59,6 +59,13 @@ hacerlo.
   lo caza la sonda del skill `arrancar` a los dos lados de 640 y de 768.
 - **El micrófono es uno, y lo sujeta `state/use-listening.ts`**, no el componente:
   quien monte otro botón de escuchar **no guarda la entrada**.
+- **Una toma dice lo que es, y sin eso los dos motores compiten.** El croma y el de
+  tono corren a la vez sobre la misma entrada, así que apuntar leía de los dos y un
+  punteo entraba con acordes inventados encima. Se elige rítmica o punteo antes de
+  tocar y solo se apunta lo de ese papel
+  ([adr/0048](docs/adr/0048-una-toma-dice-lo-que-es.md)). **Quien añada otra entrada
+  que apunte tiene que decirlo también**, o se queda con el de por defecto sin
+  enterarse.
 - **La monoespaciada es solo para lo que se alinea en columna** —notas, cents, XP,
   un correo—; lo demás en la sans, y el rótulo de un apartado es `.rotulo`
   ([adr/0024](docs/adr/0024-la-interfaz-se-lee-primero.md)). **Ningún test lo
@@ -172,6 +179,7 @@ nombres viejos de los planes**.
 | El lienzo: arrastrar bloques, estirarlos, escucharlos    | `features/arrange/`                                       |
 | Componer tocando: el micro escribe lo que suena          | `arrange/TocarParaEscribir` + `state/use-tocar-y-apuntar` |
 | Lo tocado convertido en una parte, para los dos sitios   | `state/apuntar-lo-tocado.ts`                              |
+| Qué se estaba tocando en una toma, y qué motor la lee    | `core/music/capture.ts` (`PapelDeLaToma`)                 |
 | Ensayar lo escrito y puntuarlo                           | `core/music/ensayo.ts` + `state/use-ensayo.ts`            |
 | El reparto del banco: áreas, divisores, espacios         | `state/banco.ts`, `ui/Area`, `ui/Divisor`                 |
 | El pentagrama, y la clave de sol dibujada                | `arrange/Staff.tsx` + `arrange/clef.ts`                   |
@@ -206,20 +214,20 @@ camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                    | Contesta                                                          |
-| -------------------------- | ----------------------------------------------------------------- |
-| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests      |
-| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular         |
-| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico         |
-| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen    |
-| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                        |
-| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto            |
-| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti          |
-| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario            |
-| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha   |
-| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron  |
-| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde           |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y siete |
+| Fichero                    | Contesta                                                         |
+| -------------------------- | ---------------------------------------------------------------- |
+| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests     |
+| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular        |
+| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico        |
+| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen   |
+| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                       |
+| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto           |
+| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti         |
+| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario           |
+| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
+| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
+| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y ocho |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

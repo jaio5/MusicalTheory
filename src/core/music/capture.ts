@@ -32,6 +32,41 @@ import { degreeOfChord, gradoDeLaFundamental, type DegreeSymbol } from './progre
 import { MAX_SECTION_DEGREES } from './song';
 import { clampBpm, DEFAULT_BEATS_PER_BAR, msPerBeat } from './tempo';
 
+/**
+ * Qué se está tocando en una toma: la rítmica o el punteo.
+ *
+ * **Lo dice quien toca, y por eso existe esto.** Una toma producía las dos cosas a
+ * la vez —acordes del croma y notas del motor de tono, de la misma grabación— y
+ * nadie le decía nunca a la aplicación cuál de las dos era. Así que adivinaba, y
+ * adivinaba mal: un punteo salía escrito como acordes, que es uno de los fallos
+ * que se vieron tocando.
+ *
+ * No es un detalle de interfaz, es lo que hace que los dos motores dejen de
+ * competir. Después del descuento de armónicos, **un Do rasgueado y un Do pulsado
+ * a solas tienen casi la misma forma** —el Sol de un Do real es su tercer
+ * armónico—, así que ningún umbral los separa. Declararlo lo separa entero, y
+ * además pone cada cosa en el motor que sabe hacerla: el croma es bueno con
+ * acordes y es el que duda, y el de tono es monofónico y es el que afina.
+ */
+export type PapelDeLaToma = 'ritmica' | 'punteo';
+
+/** Cómo se llama cada papel y qué se espera de él, para quien lo elige. */
+export const PAPELES_DE_TOMA: Readonly<
+  Record<PapelDeLaToma, { readonly name: string; readonly what: string }>
+> = {
+  ritmica: {
+    name: 'Rítmica',
+    what: 'Acordes. Se apuntan los cifrados y lo que dura cada uno.',
+  },
+  punteo: {
+    name: 'Punteo',
+    what: 'Notas sueltas. Se apuntan las alturas y sus figuras.',
+  },
+};
+
+/** El papel con el que se empieza, que es el que más se toca. */
+export const PAPEL_POR_DEFECTO: PapelDeLaToma = 'ritmica';
+
 /** Un acorde oído, con el instante en que empezó a sonar. */
 export interface CapturedChord {
   readonly root: PitchClass;

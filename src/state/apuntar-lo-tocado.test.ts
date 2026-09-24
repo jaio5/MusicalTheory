@@ -1,8 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { Capture, MelodyCapture } from '@core/music';
+import {
+  EMPTY_ARRANGEMENT,
+  pitchClassFromName,
+  type Capture,
+  type MelodyCapture,
+} from '@core/music';
 
-import { avisoDeLaCaptura } from './apuntar-lo-tocado';
+import { apuntarLoTocado, avisoDeLaCaptura } from './apuntar-lo-tocado';
+import { useArrangementStore } from './arrangement-store';
+import { useSessionStore } from './session-store';
 
 /**
  * Lo que se cuenta al traer una grabación.
@@ -127,5 +134,77 @@ describe('el aviso de una grabación traída', () => {
     ).toContain('Hay 2 acordes');
     // Y uno bien leído no se cuenta.
     expect(avisoDeLaCaptura({ ...SIN_NADA, steps: [paso(1)] }, SIN_PUNTEO, 'Do mayor')).toBeNull();
+  });
+});
+
+/**
+ * **Una toma escribe solo lo suyo.**
+ *
+ * Los dos motores corren a la vez sobre la misma entrada, así que una toma daba
+ * acordes y notas siempre, y nadie le decía nunca a la aplicación cuál de las
+ * dos era: un punteo salía escrito como acordes. No es que el croma falle, es
+ * que se le estaba preguntando por algo que no era — después del descuento de
+ * armónicos, un Do rasgueado y un Do pulsado a solas tienen casi la misma forma.
+ */
+describe('el papel de la toma', () => {
+  /** La misma grabación: acordes en el croma y notas en el motor de tono. */
+  function conLasDosCosas(): void {
+    useSessionStore.setState({
+      captured: [
+        { root: pitchClassFromName('C'), notes: [0, 4, 7], at: 0 },
+        { root: pitchClassFromName('G'), notes: [7, 11, 2], at: 2000 },
+      ],
+      noteHistory: [
+        { pitchClass: pitchClassFromName('C'), midi: 60, at: 0, clarity: 0.99 },
+        { pitchClass: pitchClassFromName('E'), midi: 64, at: 500, clarity: 0.99 },
+      ],
+      captureStartedAt: 0,
+      captureEndedAt: 4000,
+    });
+  }
+
+  const EN_DO = {
+    tonic: pitchClassFromName('C'),
+    mode: 'major' as const,
+    bpm: 120,
+    beatsPerBar: 4,
+  };
+
+  function laParte(partId: string | null) {
+    return useArrangementStore.getState().arrangement.parts.find((parte) => parte.id === partId);
+  }
+
+  beforeEach(() => {
+    useSessionStore.getState().actions.reset();
+    useArrangementStore.getState().actions.replace(EMPTY_ARRANGEMENT);
+  });
+
+  it('la ritmica escribe acordes y ni una nota', () => {
+    conLasDosCosas();
+
+    const { partId } = apuntarLoTocado({ ...EN_DO, papel: 'ritmica' });
+
+    expect(laParte(partId)?.blocks.length).toBeGreaterThan(0);
+    expect(laParte(partId)?.notes).toEqual([]);
+  });
+
+  it('el punteo escribe notas y ni un acorde', () => {
+    conLasDosCosas();
+
+    const { partId } = apuntarLoTocado({ ...EN_DO, papel: 'punteo' });
+
+    expect(laParte(partId)?.notes.length).toBeGreaterThan(0);
+    expect(laParte(partId)?.blocks).toEqual([]);
+  });
+
+  // Y lo que se dice al no leer nada va en los términos del papel: «ni un acorde
+  // ni una nota» después de grabar un punteo suena a que se esperaban acordes.
+  it('si no se lee nada, lo dice en los terminos de lo que se tocaba', () => {
+    expect(apuntarLoTocado({ ...EN_DO, papel: 'punteo' }).aviso).toBe(
+      'No he podido leer ni una nota de lo que has tocado.',
+    );
+    expect(apuntarLoTocado({ ...EN_DO, papel: 'ritmica' }).aviso).toBe(
+      'No he podido leer ni un acorde de lo que has tocado.',
+    );
   });
 });

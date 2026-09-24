@@ -5,13 +5,25 @@ import {
   captureProgression,
   DUDOSO,
   keyName,
+  PAPEL_POR_DEFECTO,
   type Capture,
   type KeyMode,
   type MelodyCapture,
+  type PapelDeLaToma,
   type PitchClass,
 } from '@core/music';
 
 import { useArrangementStore } from './arrangement-store';
+
+/**
+ * Lo que sale del papel que no se estaba tocando.
+ *
+ * Constantes y no una llamada al capturador con la lista vacía: eso recorrería
+ * una grabación entera para devolver esto mismo, y además diría en el aviso que
+ * «no he podido leer ni un acorde» cuando nadie ha pedido acordes.
+ */
+const CAPTURA_VACIA: Capture = { steps: [], unread: [], dropped: 0, skipped: 0, bars: 0 };
+const PUNTEO_VACIO: MelodyCapture = { notes: [], outOfRange: 0, skipped: 0 };
 import { useSessionStore } from './session-store';
 
 /**
@@ -40,40 +52,62 @@ export function apuntarLoTocado({
   mode,
   bpm,
   beatsPerBar,
+  papel = PAPEL_POR_DEFECTO,
   nombre = 'Lo que has tocado',
 }: {
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
   readonly bpm: number;
   readonly beatsPerBar: number;
+  /**
+   * Qué se estaba tocando. **Solo se apunta lo de ese papel.**
+   *
+   * Los dos motores corren a la vez sobre la misma entrada, así que una toma daba
+   * acordes y notas siempre, y nadie decía nunca cuál era la buena: un punteo
+   * salía escrito como acordes. No es que el croma falle —es que se le estaba
+   * preguntando por algo que no era—.
+   */
+  readonly papel?: PapelDeLaToma;
   readonly nombre?: string;
 }): LoApuntado {
   const sesion = useSessionStore.getState();
 
-  const capture = captureProgression(sesion.captured, {
-    tonic,
-    mode,
-    bpm,
-    endedAt: sesion.captureEndedAt,
-    beatsPerBar,
-  });
+  const capture =
+    papel === 'ritmica'
+      ? captureProgression(sesion.captured, {
+          tonic,
+          mode,
+          bpm,
+          endedAt: sesion.captureEndedAt,
+          beatsPerBar,
+        })
+      : CAPTURA_VACIA;
 
   /**
    * El punteo se lee del historial de notas, que el motor de tono viene
    * llenando desde que se abre el micro. Se recorta al tramo apuntado: lo que
    * sonó antes de darle a apuntar no es parte de esta grabación.
    */
-  const punteo = captureMelody(sesion.noteHistory, {
-    tonic,
-    bpm,
-    startedAt: sesion.captureStartedAt,
-    endedAt: sesion.captureEndedAt,
-  });
+  const punteo =
+    papel === 'punteo'
+      ? captureMelody(sesion.noteHistory, {
+          tonic,
+          bpm,
+          startedAt: sesion.captureStartedAt,
+          endedAt: sesion.captureEndedAt,
+        })
+      : PUNTEO_VACIO;
 
   if (capture.steps.length === 0 && punteo.notes.length === 0) {
+    // Y se dice en los términos del papel que se estaba tocando. «Ni un acorde ni
+    // una nota» después de grabar un punteo suena a que se esperaban acordes, y
+    // nadie los ha pedido.
     return {
       partId: null,
-      aviso: 'No he podido leer ni un acorde ni una nota de lo que has tocado.',
+      aviso:
+        papel === 'ritmica'
+          ? 'No he podido leer ni un acorde de lo que has tocado.'
+          : 'No he podido leer ni una nota de lo que has tocado.',
     };
   }
 

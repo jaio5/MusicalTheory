@@ -230,6 +230,41 @@ describe('Tocar para escribir', () => {
   });
 
   /**
+   * **El papel se elige antes de tocar, y cambia lo que se ve.**
+   *
+   * Los dos motores corren a la vez sobre la misma entrada, así que una toma
+   * daba acordes y notas siempre y nadie decía cuál era la buena: un punteo
+   * salía escrito como acordes. Con el punteo puesto, el acorde que el croma
+   * cree reconocer **no se va a escribir**, así que enseñarlo sería prometer
+   * algo que no pasa.
+   */
+  it('con el punteo puesto no se ensena el acorde que oye el croma', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Punteo' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    suenaUnAcorde();
+
+    await waitFor(() => expect(screen.getByText('Punteo')).toBeInTheDocument());
+    expect(screen.queryByText('C')).not.toBeInTheDocument();
+    expect(screen.getByText(/escuchando el punteo/)).toBeInTheDocument();
+  });
+
+  it('y con la ritmica, que es lo de siempre, si', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Rítmica' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    suenaUnAcorde();
+
+    expect(await screen.findByText('C')).toBeInTheDocument();
+  });
+
+  /**
    * El paso que se olvidaba: antes había que acordarse de pulsar además «traer
    * lo grabado», y sin eso lo tocado no entraba en ninguna parte.
    */

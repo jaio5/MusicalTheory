@@ -25,8 +25,10 @@ import {
   nombreDeFichero,
   soundOf,
   resolveDegree,
+  PAPELES_DE_TOMA,
   type DegreeSymbol,
   type EspecieDeBloque,
+  type PapelDeLaToma,
 } from '@core/music';
 import { descargarBytes, TIPO_MIDI } from '@media/descargar';
 import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
@@ -723,20 +725,28 @@ export function ArrangeCanvas() {
    * solo servía para pedirle salidas a la IA. Aquí cae como una parte más, que se
    * puede mover, estirar y quitar como cualquier otra.
    */
-  const traerGrabado = useCallback(() => {
-    /* v8 ignore next 3 -- sin tonalidad el lienzo entero no se pinta, y con el ni este boton */
-    if (tonic === null) {
-      return;
-    }
-    // La conversión vive en `state/apuntar-lo-tocado.ts` porque la comparten dos
-    // entradas: este botón y el espacio de trabajo de tocar. Escrita dos veces,
-    // una de las dos se quedaría sin la corrección del día que haga falta.
-    const { partId, aviso } = apuntarLoTocado({ tonic, mode, bpm, beatsPerBar });
-    if (partId !== null) {
-      setActivePartId(partId);
-    }
-    setAviso(aviso);
-  }, [beatsPerBar, bpm, mode, tonic]);
+  const traerGrabado = useCallback(
+    (papel: PapelDeLaToma) => {
+      /* v8 ignore next 3 -- sin tonalidad el lienzo entero no se pinta, y con el ni este boton */
+      if (tonic === null) {
+        return;
+      }
+      // La conversión vive en `state/apuntar-lo-tocado.ts` porque la comparten dos
+      // entradas: este botón y el espacio de trabajo de tocar. Escrita dos veces,
+      // una de las dos se quedaría sin la corrección del día que haga falta.
+      //
+      // **Y el papel se dice aquí también.** Los dos motores corren a la vez sobre
+      // la misma entrada, así que traer «lo grabado» sin decir qué era escribía
+      // acordes encima de un punteo. Dos botones y no uno: lo que se elige no es
+      // un ajuste, es qué se tocó.
+      const { partId, aviso } = apuntarLoTocado({ tonic, mode, bpm, beatsPerBar, papel });
+      if (partId !== null) {
+        setActivePartId(partId);
+      }
+      setAviso(aviso);
+    },
+    [beatsPerBar, bpm, mode, tonic],
+  );
 
   /**
    * El bloque elegido, si es uno del que hay que preguntar.
@@ -913,11 +923,18 @@ export function ArrangeCanvas() {
               {capturing ? 'Parar de apuntar' : 'Apuntar lo que toco'}
             </Chip>
           )}
-          {hayGrabado && (
-            <Chip onClick={traerGrabado} tone="quiet" className="px-3 text-xs">
-              Traer lo grabado
-            </Chip>
-          )}
+          {hayGrabado &&
+            (Object.keys(PAPELES_DE_TOMA) as PapelDeLaToma[]).map((papel) => (
+              <Chip
+                key={papel}
+                onClick={() => traerGrabado(papel)}
+                tone="quiet"
+                className="px-3 text-xs"
+                title={PAPELES_DE_TOMA[papel].what}
+              >
+                Traer {PAPELES_DE_TOMA[papel].name.toLowerCase()}
+              </Chip>
+            ))}
           <Chip onClick={anadirParte} tone="quiet" className="px-3 text-xs">
             + Parte
           </Chip>

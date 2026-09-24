@@ -3,7 +3,16 @@
 import { descargarUrl } from '@media/descargar';
 import { useEffect, useRef, useState } from 'react';
 
-import { blockChord, degreesFor, guionDeEnsayo, keyName, writtenBlock } from '@core/music';
+import {
+  blockChord,
+  degreesFor,
+  guionDeEnsayo,
+  keyName,
+  PAPEL_POR_DEFECTO,
+  PAPELES_DE_TOMA,
+  writtenBlock,
+  type PapelDeLaToma,
+} from '@core/music';
 import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
 import { useArrangementStore } from '@state/arrangement-store';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
@@ -55,9 +64,19 @@ export function TocarParaEscribir({
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
   const arrangement = useArrangementStore((state) => state.arrangement);
   const heardChord = useSessionStore((state) => state.heardChord);
+  const reading = useSessionStore((state) => state.reading);
   const apuntados = useSessionStore((state) => state.captured.length);
 
   const { fase, mensaje, segundos, empezar, parar } = useTocarYApuntar(deps);
+  /**
+   * Qué se va a tocar en esta toma.
+   *
+   * **Se elige antes y no se adivina después.** Los dos motores corren a la vez
+   * sobre la misma entrada, así que una toma daba acordes y notas siempre; con
+   * esto solo se apunta lo del papel elegido, y el croma deja de escribir
+   * acordes encima de un punteo.
+   */
+  const [papel, setPapel] = useState<PapelDeLaToma>(PAPEL_POR_DEFECTO);
   const [aviso, setAviso] = useState<string | null>(null);
   /** Si lo último que se tocó llegó a entrar en la canción. */
   const [escrito, setEscrito] = useState(false);
@@ -114,6 +133,7 @@ export function TocarParaEscribir({
       mode: activeKey.mode,
       bpm,
       beatsPerBar,
+      papel,
     });
     setEscrito(apuntado.partId !== null);
     setAviso(apuntado.aviso);
@@ -176,6 +196,33 @@ export function TocarParaEscribir({
           </ol>
         )}
 
+        {/* El papel, antes de empezar y no mientras suena: cambiarlo a mitad
+            dejaría media toma leída con un motor y media con el otro. Mientras
+            se toca se enseña cuál está puesto, que es la mitad de saber qué va a
+            entrar. */}
+        {tocando ? (
+          <p className="rotulo">{PAPELES_DE_TOMA[papel].name}</p>
+        ) : (
+          <fieldset className="flex flex-col items-center gap-2">
+            <legend className="rotulo mb-2 text-center">Qué vas a tocar</legend>
+            <div className="flex gap-2">
+              {(Object.keys(PAPELES_DE_TOMA) as PapelDeLaToma[]).map((cual) => (
+                <Button
+                  key={cual}
+                  onClick={() => setPapel(cual)}
+                  variant={cual === papel ? 'primary' : 'quiet'}
+                  aria-pressed={cual === papel}
+                >
+                  {PAPELES_DE_TOMA[cual].name}
+                </Button>
+              ))}
+            </div>
+            <p className="text-text-muted max-w-prose text-center text-sm">
+              {PAPELES_DE_TOMA[papel].what}
+            </p>
+          </fieldset>
+        )}
+
         <Button
           onClick={() => void (tocando ? pararYEscribir() : empezar())}
           disabled={fase === 'preparando'}
@@ -191,12 +238,19 @@ export function TocarParaEscribir({
           // reconoce, cuántos lleva y cuánto tiempo. Un medidor de nivel aquí
           // sería una cuarta cosa mirando a la vez y ninguna se leería.
           <div className="flex flex-col items-center gap-2">
+            {/* Lo que se enseña es **lo que va a entrar**, no todo lo que el micro
+                oye: con un punteo puesto, el acorde que el croma cree reconocer no
+                se va a escribir, y enseñarlo sería prometer algo que no pasa. */}
             <p className="font-display text-brass-bright text-4xl leading-none" aria-live="polite">
-              {heardChord?.symbol ?? '—'}
+              {papel === 'ritmica' ? (heardChord?.symbol ?? '—') : (reading?.name ?? '—')}
             </p>
             <p className="text-text-muted font-mono text-xs">
-              {apuntados === 1 ? '1 acorde apuntado' : `${apuntados} acordes apuntados`} ·{' '}
-              {segundos}s
+              {papel === 'ritmica'
+                ? apuntados === 1
+                  ? '1 acorde apuntado'
+                  : `${apuntados} acordes apuntados`
+                : 'escuchando el punteo'}{' '}
+              · {segundos}s
             </p>
             <p className="text-text-muted max-w-prose text-sm">
               Toca en {keyName(activeKey.tonic, activeKey.mode)}. Al parar, esto entra en la canción
@@ -206,7 +260,8 @@ export function TocarParaEscribir({
         ) : (
           <p className="text-text-muted max-w-prose text-sm">
             Se abre el micro, se graba el sonido y se apunta lo que suena. Al parar, lo tocado entra
-            en la canción con sus acordes y su punteo.
+            en la canción. Se graba en tomas separadas —primero la rítmica, luego el punteo— para
+            que cada una la lea el motor que sabe hacerla.
           </p>
         )}
 

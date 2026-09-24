@@ -19,6 +19,13 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   alguno**; rasgueando, falla; una inversión —C/E—, falla; una cuerda que roza, la
   escribía **como si estuviera seguro**; y un punteo de dos notas iguales seguidas
   **se apunta como acordes**. El análisis en diferido arrastra lo mismo.
+- **Y una clase entera de falso positivo se ha ido sin tocar el motor**: un punteo
+  ya no entra con acordes inventados encima, porque una toma dice si es rítmica o
+  punteo y solo se apunta lo de ese papel
+  ([adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)). No era que el croma fallara:
+  era que se le preguntaba por algo que no era, y los dos motores competían por la
+  misma señal. **Lo que sigue pendiente es acertar qué acorde es**, y eso sí pide
+  las grabaciones.
 - **De eso, lo que ya está arreglado es la honestidad, no el acierto**
   ([adr/0043](./adr/0043-dos-maneras-de-equivocarse.md)): la confianza mira las dos
   maneras de equivocarse —el empate y el mal parecido— en vez de solo la primera, y

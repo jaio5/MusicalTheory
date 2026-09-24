@@ -240,7 +240,7 @@ describe('lo grabado', () => {
   it('no se ofrece si no se ha grabado nada', () => {
     conTonalidad();
     render(<ArrangeCanvas />);
-    expect(screen.queryByRole('button', { name: 'Traer lo grabado' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Traer rítmica' })).not.toBeInTheDocument();
   });
 
   /**
@@ -261,7 +261,7 @@ describe('lo grabado', () => {
     acciones.stopCapture(6000);
 
     render(<ArrangeCanvas />);
-    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
     await enBloques();
 
     const bloques = tiraDe('Lo que has tocado');
@@ -521,7 +521,7 @@ describe('lo que se oyó, y lo que no', () => {
     ]);
 
     render(<ArrangeCanvas />);
-    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
     await enBloques();
 
     const bloques = tiraDe('Lo que has tocado');
@@ -543,7 +543,7 @@ describe('lo que se oyó, y lo que no', () => {
     ]);
 
     render(<ArrangeCanvas />);
-    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
 
     expect(screen.getByText(/no cabe en C mayor: F#m/)).toBeInTheDocument();
     expect(screen.getByText(/cambiar la tonalidad/)).toBeInTheDocument();
@@ -564,7 +564,7 @@ describe('lo que se oyó, y lo que no', () => {
     ]);
 
     render(<ArrangeCanvas />);
-    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
     await userEvent.click(
       within(screen.getByRole('region', { name: 'Lo que has tocado' })).getAllByLabelText(
         /, grado /,
@@ -596,7 +596,7 @@ describe('lo que se oyó, y lo que no', () => {
     ]);
 
     render(<ArrangeCanvas />);
-    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
     await userEvent.click(
       within(screen.getByRole('region', { name: 'Lo que has tocado' })).getAllByLabelText(
         /, grado /,
@@ -746,7 +746,7 @@ describe('el punteo grabado', () => {
     acciones.stopCapture(1500);
 
     render(<ArrangeCanvas />);
-    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Traer punteo' }));
 
     const notas = within(
       screen.getByRole('region', { name: 'Lo que has tocado' }),
@@ -765,7 +765,7 @@ describe('el punteo grabado', () => {
     acciones.stopCapture(1000);
 
     render(<ArrangeCanvas />);
-    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Traer punteo' }));
     expect(screen.getByText(/He apuntado 1 nota de punteo/)).toBeInTheDocument();
   });
 });
@@ -1191,7 +1191,7 @@ describe('El aviso de lo que acaba de pasar', () => {
     });
     render(<ArrangeCanvas />);
 
-    const traer = screen.queryByRole('button', { name: /Traer lo grabado/ });
+    const traer = screen.queryByRole('button', { name: /Traer rítmica/ });
     if (traer !== null) {
       await userEvent.click(traer);
       const vale = screen.queryByRole('button', { name: 'Vale' });
@@ -1780,7 +1780,7 @@ describe('Traer lo grabado cuando no habia nada legible', () => {
     });
     render(<ArrangeCanvas />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Traer lo grabado' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
 
     expect(screen.getByText(/No he podido leer/)).toBeInTheDocument();
   });
