@@ -21,14 +21,12 @@
 
 import {
   applyMove,
+  cadenciasParaCerrar,
   degreesFor,
   MOVES,
-  nextDegrees,
   pitchClassFromName,
   resolveProgression,
-  roleOfDegreeSymbol,
   type DegreeSymbol,
-  type HarmonicRole,
   type KeyMode,
   type NoteName,
 } from '@core/music';
@@ -40,79 +38,6 @@ interface Peticion {
   readonly tonic: NoteName;
   readonly mode: KeyMode;
   readonly progression: readonly { readonly degree: DegreeSymbol; readonly beats: number }[];
-}
-
-/** Lo más largo que puede durar un cierre, en compases. */
-const LARGO_MAXIMO_DEL_CIERRE = 4;
-
-/**
- * Qué grado prepara mejor la tónica, de mejor a peor.
- *
- * Es el orden de la cadencia: la dominante es la que tira a casa, la
- * subdominante lleva sin tirar, y las otras dos llegan de rebote.
- */
-const PREPARA_MEJOR: readonly HarmonicRole[] = ['dominant', 'subdominant', 'approach', 'tonic'];
-
-/** De los caminos que valen, el que mejor prepara la tónica del final. */
-function mejorPreparado(caminos: readonly DegreeSymbol[][]): DegreeSymbol[] | undefined {
-  let mejor: DegreeSymbol[] | undefined;
-  let mejorRango = PREPARA_MEJOR.length;
-  for (const camino of caminos) {
-    const previo = camino[camino.length - 2]!;
-    const rango = PREPARA_MEJOR.indexOf(roleOfDegreeSymbol(previo));
-    if (rango < mejorRango) {
-      mejor = camino;
-      mejorRango = rango;
-    }
-  }
-  return mejor;
-}
-
-/**
- * El cierre: los compases que llevan a casa, **sin pasar por casa antes**.
- *
- * Esto se escribía andando por el grafo «hasta caer en la tónica», con un mínimo
- * de dos compases porque una parte de uno no es una parte. Y el mínimo se
- * cumplía **siguiendo después de haber llegado**: desde un V el primer paso ya
- * daba la tónica, el bucle no podía parar ahí, y el cierre salía `I IV I` —en Mi
- * mayor, «Mi La Mi»—. La tónica dos veces, y sin cadencia ninguna: un cierre que
- * empieza en casa no cierra nada, se va y vuelve.
- *
- * **Un cierre no se alarga hacia delante, se prepara por detrás.** Así que se
- * busca el camino **más corto** que acabe en la tónica y no la toque antes, y
- * entre los que empatan de largo gana el que mejor la prepara. Por anchura y no
- * por profundidad, porque lo que se quiere es el más corto: dos compases, que es
- * lo que mide una cadencia.
- */
-function cierreHastaCasa(
-  mode: KeyMode,
-  desde: DegreeSymbol,
-  tonica: DegreeSymbol,
-): DegreeSymbol[] | null {
-  let frentes: DegreeSymbol[][] = [[]];
-  for (let largo = 1; largo <= LARGO_MAXIMO_DEL_CIERRE; largo += 1) {
-    const siguientes: DegreeSymbol[][] = [];
-    for (const camino of frentes) {
-      const ultimo = camino[camino.length - 1] ?? desde;
-      for (const salto of nextDegrees(mode, ultimo)) {
-        siguientes.push([...camino, salto.to]);
-      }
-    }
-    // Dos compases al menos. No lo pide `pathProblem` —que mira compases— sino
-    // `songProblem`, que mira partes: `MIN_BARS_PER_SECTION`. Mirar la primera y
-    // creer que un cierre de un compás valía costó un arreglo del revés.
-    //
-    // Y como los frentes nunca llevan la tónica dentro, aquí solo puede estar al
-    // final, que es justo lo que se pide de un cierre.
-    const mejor = mejorPreparado(
-      siguientes.filter((camino) => camino.length >= 2 && camino.at(-1) === tonica),
-    );
-    if (mejor !== undefined) {
-      return mejor;
-    }
-    frentes = siguientes.filter((camino) => !camino.includes(tonica));
-  }
-  return null;
 }
 
 /**
@@ -151,11 +76,10 @@ export function versionesSinIA(peticion: Peticion): unknown {
     }
   }
 
-  // 2. Seguir: un cierre que lleva a casa preparándola, no pasando por ella.
-  const tonica: DegreeSymbol = mode === 'minor' ? 'i' : 'I';
+  // 2. Seguir: la mejor cadencia con la que se puede cerrar desde donde acaba.
   const ultimo = progression[progression.length - 1]?.degree;
-  const camino = ultimo === undefined ? null : cierreHastaCasa(mode, ultimo, tonica);
-  if (camino !== null) {
+  const camino = ultimo === undefined ? undefined : cadenciasParaCerrar(mode, ultimo)[0];
+  if (camino !== undefined) {
     const cola = camino.map((degree) => ({ degree, beats: 4, move: null }));
     versions.push({
       path: 'seguir',

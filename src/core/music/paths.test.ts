@@ -11,8 +11,11 @@ import {
   graphText,
   type PathStep,
   type ProposedStep,
+  cadenciasParaCerrar,
+  cadenciasText,
 } from './paths';
-import { degreesFor, nextDegrees } from './progressions';
+import { degreesFor, nextDegrees, type DegreeSymbol } from './progressions';
+import type { KeyMode } from './keys';
 import { applyMove, MOVES } from './reharmonization';
 
 /** Un movimiento que de verdad se le puede hacer a ese grado, y a dónde lleva. */
@@ -596,5 +599,79 @@ describe('una canción que continúa la tuya', () => {
     expect(songProblem('minor', 'seguir', TUYO, suyas)).toBe(
       'continuar pide al menos una parte más que la yours',
     );
+  });
+});
+
+/**
+ * **Las cadencias con las que se puede cerrar, enumeradas.**
+ *
+ * Existen para el prompt: con el cierre pedido en prosa, el modelo contestaba la
+ * tónica repetida —`I I I I` a temperatura cero, siempre la misma— y con la lista
+ * delante contesta `IV I`
+ * ([adr/0051](../../../docs/adr/0051-un-cierre-se-prepara-por-detras.md)). Y las usa
+ * también el modelo que no piensa para construir el suyo.
+ */
+describe('las cadencias para cerrar', () => {
+  /** Cada grado de los dos modos: desde cualquiera se puede acabar una canción. */
+  function todosLosGrados(): { mode: KeyMode; desde: DegreeSymbol }[] {
+    return (['major', 'minor'] as KeyMode[]).flatMap((mode) =>
+      (degreesFor(mode) as readonly DegreeSymbol[]).map((desde) => ({ mode, desde })),
+    );
+  }
+
+  /**
+   * Lo que sostiene el `v8 ignore` del `return []` de `cadenciasParaCerrar`: desde
+   * cualquier grado del catálogo se llega a casa en cuatro pasos o menos.
+   */
+  it('desde cualquier grado hay alguna', () => {
+    for (const { mode, desde } of todosLosGrados()) {
+      expect(cadenciasParaCerrar(mode, desde).length, `${mode} desde ${desde}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('todas acaban en la tonica y no la tocan antes', () => {
+    for (const { mode, desde } of todosLosGrados()) {
+      const tonica = mode === 'minor' ? 'i' : 'I';
+      for (const cadencia of cadenciasParaCerrar(mode, desde)) {
+        expect(cadencia.at(-1), `${mode} desde ${desde}`).toBe(tonica);
+        expect(
+          cadencia.filter((grado) => grado === tonica),
+          `${mode} desde ${desde}`,
+        ).toHaveLength(1);
+      }
+    }
+  });
+
+  // Dos compases, que es el mínimo de una parte y lo que mide una cadencia.
+  it('todas miden dos compases', () => {
+    for (const { mode, desde } of todosLosGrados()) {
+      for (const cadencia of cadenciasParaCerrar(mode, desde)) {
+        expect(cadencia, `${mode} desde ${desde}`).toHaveLength(2);
+      }
+    }
+  });
+
+  // Y todas son legales: cada salto está en el grafo, empezando por el que sale
+  // del grado donde te quedaste.
+  it('todos sus saltos estan en el grafo', () => {
+    for (const { mode, desde } of todosLosGrados()) {
+      for (const cadencia of cadenciasParaCerrar(mode, desde)) {
+        let anterior = desde;
+        for (const grado of cadencia) {
+          expect(canFollow(mode, anterior, grado), `${mode}: ${anterior} a ${grado}`).toBe(true);
+          anterior = grado;
+        }
+      }
+    }
+  });
+
+  // La mejor primero: la que prepara la tónica con una dominante antes que con
+  // otra cosa. Desde IV en mayor, `V I` va delante de las demás.
+  it('la que mejor prepara va primera', () => {
+    expect(cadenciasParaCerrar('major', 'IV')[0]).toEqual(['V', 'I']);
+  });
+
+  it('en texto van una por linea, para el prompt', () => {
+    expect(cadenciasText('major', 'V')).toBe('- IV I\n- vi I');
   });
 });

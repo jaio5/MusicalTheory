@@ -127,6 +127,44 @@ describe('el esquema y el catálogo dependen de lo que se pida', () => {
     expect(llamada().prompt).toContain('Mapa de saltos');
     expect(llamada().prompt).toContain('i: VII VI iv III bII V');
   });
+
+  /**
+   * **Y las cadencias con las que puede cerrar, enumeradas.** Sin ellas contestaba
+   * la tónica repetida: a temperatura cero —que es la que se le pide— siempre la
+   * misma, `I I I I`. Con la lista delante contesta una cadencia
+   * ([adr/0051](../../../../docs/adr/0051-un-cierre-se-prepara-por-detras.md)).
+   */
+  it('le enumera las cadencias con las que puede cerrar', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
+
+    // Lo tocado acaba en VII, y desde ahí se cierra con VI i.
+    expect(llamada().prompt).toContain('Tu ultimo compas es VII y ya esta puesto');
+    expect(llamada().prompt).toContain('- VI i');
+  });
+
+  /**
+   * Y decirle que su último compás ya está puesto no es un adorno: con «para
+   * cerrar desde V» contestaba `V IV` —leía «desde V» como «empieza por V»— y eso
+   * no cierra.
+   */
+  it('le dice que no empiece el cierre por su ultimo compas', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
+
+    expect(llamada().prompt).toContain('sin empezarla por VII');
+  });
+
+  // Retocar no añade partes, así que no hay nada que cerrar y la lista no va.
+  it('retocando no le habla de cerrar', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'retocar' }));
+
+    expect(llamada().prompt).not.toContain('ya esta puesto');
+  });
 });
 
 describe('lo que sale', () => {

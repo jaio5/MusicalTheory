@@ -13,6 +13,7 @@
 import {
   DEFAULT_ROLE,
   MOVES,
+  cadenciasText,
   PATHS,
   PATHS_BY_KIND,
   degreesFor,
@@ -99,6 +100,26 @@ export function promptDeSalidas(
     `Lo que lleva tocado (grado y pulsos): ${progresion}`,
     queEs(request.role),
   ];
+
+  // **Las cadencias, enumeradas.** Con el cierre pedido en prosa el modelo
+  // contestaba la tónica repetida —a temperatura cero, `I I I I` siempre—: cumplía
+  // la letra y no cerraba nada. Enumerándoselas contesta `IV I`, y es el mismo
+  // truco que el mapa de saltos
+  // ([adr/0051](../../../docs/adr/0051-un-cierre-se-prepara-por-detras.md)).
+  //
+  // **Y hay que decirle que su último compás ya está puesto.** Con «para cerrar
+  // desde V» contestaba `V IV`: leía «desde V» como «empieza por V».
+  //
+  // El último compás existe siempre: el contrato no acepta menos de dos. Y toda
+  // tonalidad tiene con qué cerrar desde cualquier grado, que lo comprueba
+  // `cadenciasParaCerrar` para los suyos.
+  if (request.kind === 'continuar') {
+    const ultimo = request.progression[request.progression.length - 1]!.degree;
+    lines.push(
+      `Tu ultimo compas es ${ultimo} y ya esta puesto. La parte que cierra tiene que ` +
+        `ser una de estas listas, copiada tal cual y sin empezarla por ${ultimo}:\n${cadenciasText(mode, ultimo)}`,
+    );
+  }
 
   lines.push(
     request.kind === 'continuar'

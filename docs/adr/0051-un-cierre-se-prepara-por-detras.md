@@ -75,9 +75,37 @@ propósito: eso es lo único que nadie necesita que se lo diga una IA. Sostener 
 tónica **dentro** de una cadencia sigue valiendo —`VI i(8)` entra—; lo que no entra
 es un cierre que no va a ningún sitio.
 
-**Y el catálogo que lee el modelo lo dice**: `seguir` pide «una cadencia que llegue
-a la tónica. Llegar a ella, no quedarse en ella». El prompt añade que un acorde
-que dura más de un compás va en un compás con más pulsos.
+### Rechazar no basta: hay que enseñarle a cerrar
+
+Con solo la regla, el modelo dejó de colar cierres malos y empezó a no colar
+ninguno: **3 de 3 peticiones sin una sola salida**. Y no es mala suerte, es peor:
+la aplicación le pide `temperature: 0`, así que **la respuesta es siempre la
+misma**. Reintentar no sirve de nada. Medido con el prompt de producción contra
+`qwen3:8b`:
+
+| Prompt                                           | Lo que devuelve como cierre | Válidas    |
+| ------------------------------------------------ | --------------------------- | ---------- |
+| Pidiéndolo en prosa                              | `I I I I` —«Mi Mi Mi Mi»—   | 0 de 2     |
+| Enumerándole las cadencias                       | `V IV` —no cierra—          | 0 de 2     |
+| Y diciéndole que su último compás ya está puesto | **`IV I`**                  | **2 de 2** |
+
+Así que **el prompt le enumera las cadencias legales** desde el grado donde se
+quedó, sacadas del mismo dominio que va a juzgarlas (`cadenciasParaCerrar`). Es el
+truco que ya está usado con el mapa de saltos, y que en las ideas llevó de 0 de 4 a
+4 de 4: enseñarle lo que el validador va a comprobar en vez de pedírselo en prosa.
+
+**Y hay que decirle que su último compás ya está puesto.** El paso intermedio de la
+tabla es literal: con «para cerrar desde V, estas cadencias valen» contestaba
+`V IV`, leyendo «desde V» como «empieza por V». Una frase de más y pasa de 0 a 2.
+
+El catálogo que lee también lo dice: `seguir` pide «una cadencia que llegue a la
+tónica. Llegar a ella, no quedarse en ella». Y el prompt añade que un acorde que
+dura más de un compás va en un compás con más pulsos.
+
+Lo que esto **no** arregla: la causa de rechazo más común no es el cierre, es
+**`un salto que el dominio no conoce`** —el modelo se inventa saltos que no están
+en el grafo, aunque lo tenga delante—. Eso ya pasaba y sigue en el
+[ROADMAP](../ROADMAP.md).
 
 **De paso, una trampa que costó un arreglo del revés**: el mínimo de compases de
 una parte **no está en `pathProblem`**, que es el que mira compases y saltos, sino

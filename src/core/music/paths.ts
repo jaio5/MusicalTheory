@@ -34,6 +34,7 @@
  * cualquier cosa.
  */
 
+import { roleOfDegreeSymbol, type HarmonicRole } from './harmonic-function';
 import { nextDegrees, type DegreeSymbol } from './progressions';
 import { isMove } from './reharmonization';
 import type { KeyMode } from './keys';
@@ -479,6 +480,78 @@ export function isValidPath(
   proposed: readonly ProposedStep[],
 ): boolean {
   return pathProblem(mode, path, original, proposed) === null;
+}
+
+/** Lo más largo que puede medir una cadencia de cierre, en compases. */
+const LARGO_MAXIMO_DE_CADENCIA = 4;
+
+/**
+ * Qué grado prepara mejor la tónica, de mejor a peor.
+ *
+ * Es el orden de la cadencia: la dominante es la que tira a casa, la
+ * subdominante lleva sin tirar, y las otras dos llegan de rebote.
+ */
+const PREPARA_MEJOR: readonly HarmonicRole[] = ['dominant', 'subdominant', 'approach', 'tonic'];
+
+/**
+ * Las cadencias con las que se puede cerrar desde ese grado, la mejor primero.
+ *
+ * **Un cierre no se alarga hacia delante, se prepara por detrás.** Así que esto
+ * busca los caminos **más cortos** que acaben en la tónica **sin tocarla antes**
+ * —un cierre que empieza en casa no cierra nada, se va y vuelve— y los ordena por
+ * lo bien que la preparan.
+ *
+ * Mide dos compases o más: una parte de uno la tira `songProblem` con
+ * `MIN_BARS_PER_SECTION`, y mirar solo `pathProblem` —que no lo pide— hace creer
+ * lo contrario.
+ *
+ * Vive aquí, en el dominio, porque la necesitan dos sitios: el prompt, para
+ * **enumerárselas al modelo** en vez de pedirle un cierre en prosa, y
+ * `server/fake-model.ts`, para construir el suyo. Enumerar lo que el validador va
+ * a comprobar es el truco que llevó las ideas de 0 de 4 a 4 de 4.
+ */
+export function cadenciasParaCerrar(mode: KeyMode, desde: DegreeSymbol): readonly DegreeSymbol[][] {
+  const tonica = tonicOf(mode);
+  let frentes: DegreeSymbol[][] = [[]];
+
+  for (let largo = 1; largo <= LARGO_MAXIMO_DE_CADENCIA; largo += 1) {
+    const siguientes: DegreeSymbol[][] = [];
+    for (const camino of frentes) {
+      const ultimo = camino[camino.length - 1] ?? desde;
+      for (const salto of nextDegrees(mode, ultimo)) {
+        siguientes.push([...camino, salto.to]);
+      }
+    }
+    // Los frentes nunca llevan la tónica dentro, así que aquí solo puede estar al
+    // final: es lo que se pide de un cierre.
+    const cierran = siguientes.filter(
+      (camino) => camino.length >= MIN_BARS_PER_SECTION && camino.at(-1) === tonica,
+    );
+    if (cierran.length > 0) {
+      return cierran.sort(
+        (a, b) =>
+          PREPARA_MEJOR.indexOf(roleOfDegreeSymbol(a[a.length - 2]!)) -
+          PREPARA_MEJOR.indexOf(roleOfDegreeSymbol(b[b.length - 2]!)),
+      );
+    }
+    frentes = siguientes.filter((camino) => !camino.includes(tonica));
+  }
+  /* v8 ignore next 2 -- todo grado de los dos modos cierra en cuatro pasos o menos,
+     y lo comprueba `paths.test.ts` recorriéndolos todos */
+  return [];
+}
+
+/**
+ * Las cadencias de cierre en texto, para el prompt.
+ *
+ * Existe porque el modelo, con el cierre pedido en prosa, contestaba la tónica
+ * repetida: a temperatura cero y siempre la misma, `I I I I`
+ * ([adr/0051](../../../docs/adr/0051-un-cierre-se-prepara-por-detras.md)).
+ */
+export function cadenciasText(mode: KeyMode, desde: DegreeSymbol): string {
+  return cadenciasParaCerrar(mode, desde)
+    .map((cadencia) => `- ${cadencia.join(' ')}`)
+    .join('\n');
 }
 
 /**
