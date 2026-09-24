@@ -23,8 +23,9 @@
     "db:studio": "drizzle-kit studio",
     "docker:up": "bash scripts/docker-arriba.sh",
     "docker:db": "docker compose up -d db",
+    "docker:ia-sola": "docker compose up -d ollama ia-modelo",
     "docker:ia": "bash scripts/docker-arriba.sh --ia",
-    "docker:down": "docker compose down",
+    "docker:down": "docker compose --profile '*' down",
     "usuarios:prueba": "node --env-file=.env scripts/usuarios-de-prueba.ts",
     "banco:ia": "BANCO_IA=1 node --env-file=.env ./node_modules/vitest/vitest.mjs run src/app/banco-de-ia.test.ts"
   },

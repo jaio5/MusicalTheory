@@ -3,7 +3,9 @@
 # Levanta Postgres, aplica las migraciones y arranca la aplicación.
 #
 # Con `--ia` levanta además Ollama y descarga el modelo de casa, para poder probar
-# las tres pantallas de IA sin clave de Anthropic y sin pagar tokens.
+# las tres pantallas de IA sin clave de Anthropic y sin pagar tokens. Es el perfil
+# `ia` de `compose.yml`, más la dirección que la aplicación necesita para hablarle:
+# **las dos cosas van juntas**, y que vayan juntas es lo que hace este script.
 #
 # Existe para que sean cero decisiones: comprueba que Docker es el de verdad,
 # escribe el `.env` que falta con un secreto nuevo y llama a compose. Todo lo que
@@ -74,22 +76,21 @@ APP_PORT=3000
 # el dominio. La clave gana a los dos: mira docs/AI.md.
 ANTHROPIC_API_KEY=
 
-# El modelo de casa. Con \`pnpm docker:ia\` esto lo pone compose; descoméntalo solo
-# si levantas Ollama por tu cuenta y quieres usarlo desde \`pnpm dev\`.
+# El modelo de casa, para \`pnpm dev\`: descoméntalo solo si levantas Ollama por tu
+# cuenta fuera de compose.
 # OLLAMA_URL=http://localhost:11434
 # OLLAMA_MODEL=qwen3:8b
+
+# El modelo de casa dentro de compose. \`pnpm docker:ia\` pone las dos solo, y a
+# mano **hay que descomentar las dos**: la de arriba levanta los contenedores y la
+# de abajo le dice a la aplicación dónde están. Con una sola, Ollama arranca y
+# nadie le habla.
+# COMPOSE_PROFILES=ia
+# OLLAMA_URL_DOCKER=http://ollama:11434
 EOF
   gris 'Escrito .env con un AUTH_SECRET nuevo. No se sube: está en .gitignore.'
 fi
 
-# ---------------------------------------------------------------------------
-# Y arriba. `--build` para que un cambio en el código se note sin acordarse de
-# reconstruir, que es el fallo que hace pensar que un arreglo no ha funcionado.
-#
-# `--ia` no se le pasa a compose: se traduce en un fichero más. Va en un fichero
-# aparte porque pide una gráfica NVIDIA, y `docker compose up` tiene que seguir
-# funcionando en un equipo que no la tenga.
-# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # El modelo de casa que ya corre en el equipo, si lo hay.
 #
@@ -109,18 +110,28 @@ if [[ -z "${OLLAMA_URL_DOCKER:-}" ]]; then
   fi
 fi
 
-ficheros=(-f compose.yml)
+perfiles=()
 resto=()
 mensaje='Levantando Postgres, aplicando migraciones y arrancando la aplicación...'
 
 for arg in "$@"; do
   if [[ "$arg" == '--ia' ]]; then
-    ficheros+=(-f compose.ia.yml)
+    # El perfil levanta los contenedores; la dirección le dice a la aplicación
+    # dónde están. Una sin la otra deja a Ollama arrancado y sin nadie que le
+    # hable, que es peor que no levantarlo: parece que funciona.
+    #
+    # Y pisa lo que hubiera encontrado en el equipo unas líneas más arriba, a
+    # propósito: si levantas el de compose es porque quieres ese.
+    perfiles+=(--profile ia)
+    export OLLAMA_URL_DOCKER='http://ollama:11434'
+    export OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3:8b}"
     mensaje='Levantando todo lo de siempre y, ademas, Ollama con su modelo. La primera vez se descargan unos 5 GB.'
   else
     resto+=("$arg")
   fi
 done
 
+# Y arriba. `--build` para que un cambio en el código se note sin acordarse de
+# reconstruir, que es el fallo que hace pensar que un arreglo no ha funcionado.
 gris "$mensaje"
-exec docker compose "${ficheros[@]}" up --build ${resto[@]+"${resto[@]}"}
+exec docker compose ${perfiles[@]+"${perfiles[@]}"} up --build ${resto[@]+"${resto[@]}"}

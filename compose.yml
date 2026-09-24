@@ -1,14 +1,30 @@
-# La aplicación entera en tres contenedores: la base de datos, las migraciones y
-# el servidor.
+# La aplicación entera, y la IA de casa si la quieres.
+#
+# Cinco servicios en dos grupos. El primero es la aplicación —base de datos,
+# migraciones y servidor— y se levanta siempre. El segundo es el modelo de casa
+# —Ollama y la descarga de sus pesos— y **solo se levanta si lo pides**, porque
+# pide una gráfica NVIDIA y esto tiene que seguir funcionando en un portátil que
+# no la tenga ([adr/0014](docs/adr/0014-un-modelo-de-casa-para-probar.md),
+# [adr/0047](docs/adr/0047-la-ia-es-un-perfil-no-un-fichero.md)).
+#
+#   docker compose up --build              la aplicación, en http://localhost:3000
+#   docker compose --profile ia up --build  además el modelo de casa
+#   docker compose up db                   solo Postgres, para usarlo con `pnpm dev`
+#   docker compose up ollama               solo el modelo, sin la aplicación
+#   docker compose --profile '*' down      parar TODO; con -v además borra los datos
+#
+# **`docker compose down` a secas no para lo que esté en un perfil.** Deja Ollama
+# corriendo —cinco gigas de pesos en la gráfica— y encima falla al borrar la red
+# con un «resource is still in use» que no dice quién la usa. Por eso `pnpm
+# docker:down` lleva `--profile '*'`, que significa «todos».
+#
+# Y `pnpm docker:up` / `pnpm docker:ia` hacen lo mismo comprobando antes que
+# Docker es el de verdad y escribiendo el `.env` que falte.
 #
 # Existe para que las cuentas se puedan probar de verdad. Sin base de datos la
 # aplicación funciona —anónima, con plan gratis y el avance en el navegador—, y eso
 # significa que todo lo que cuelga de una cuenta se escribió sin poder ejecutarlo:
 # entrar, registrarse, el plan, la fusión del avance y el cupo de la IA.
-#
-#   docker compose up --build     todo, en http://localhost:3000
-#   docker compose up db          solo Postgres, para usarlo con `pnpm dev`
-#   docker compose down           parar; con -v además borra los datos
 #
 # Las contraseñas de aquí son para tu portátil. Lo que salga a internet va con
 # `POSTGRES_PASSWORD` y `AUTH_SECRET` puestos de verdad, y eso lo explica
@@ -17,6 +33,10 @@
 name: caos-ordenado
 
 services:
+  # --------------------------------------------------------------------------
+  # La aplicación. Sin perfil, así que es lo que sale con `docker compose up`.
+  # --------------------------------------------------------------------------
+
   db:
     image: postgres:17-alpine
     # Vuelve sola al encender Docker, pero no si la paraste a mano. Es lo que hace
@@ -76,15 +96,26 @@ services:
       # La IA es opcional: sin clave, el profesor y las ideas contestan que no hay
       # modelo configurado y todo lo demás funciona igual.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      # El modelo de casa que ya corre en el equipo, si lo hay.
+      # A qué modelo de casa hablarle, si hay alguno.
       #
       # **No sale de `OLLAMA_URL` del `.env`**, y por eso tiene otro nombre: aquella
       # dice `localhost` porque la usa `pnpm dev`, y dentro de un contenedor
-      # `localhost` es el propio contenedor. La calcula `scripts/docker-arriba.sh`,
-      # porque la IP de la máquina cambia al reiniciar y escrita a mano caduca.
+      # `localhost` es el propio contenedor.
       #
-      # Con `pnpm docker:ia` esto lo pisa `compose.ia.yml`, que levanta su propio
-      # Ollama y no depende de nada del equipo.
+      # Vale para las dos maneras de tener un Ollama, y por eso es una variable y
+      # no una dirección fija:
+      #
+      #   - El del perfil `ia` de aquí abajo, que se llama `ollama` en esta red.
+      #     Lo pone `scripts/docker-arriba.sh --ia`, y a mano son las **dos líneas
+      #     juntas** que el `.env` trae comentadas: el perfil y esta dirección.
+      #   - Uno que ya corra en tu equipo, fuera de compose. Ahí la dirección es la
+      #     IP de la máquina y **cambia al reiniciar**, así que la calcula el
+      #     script en lugar de escribirse a mano en un fichero que caduca.
+      #
+      # Vacía a propósito si no hay ninguno: la aplicación dice que no hay modelo
+      # configurado y **no gasta cupo**. Apuntando a un Ollama que no contesta sí
+      # lo gastaría, que es la razón de que esto no traiga una dirección por
+      # defecto (`docs/AI.md`).
       OLLAMA_URL: ${OLLAMA_URL_DOCKER:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5}
@@ -103,6 +134,80 @@ services:
         condition: service_healthy
       migraciones:
         condition: service_completed_successfully
+      # **`required: false` es lo que hace que los dos grupos sean separables.**
+      # Con el perfil `ia` puesto, la aplicación espera a que el modelo esté
+      # descargado antes de aceptar peticiones —si no, la primera pregunta
+      # contesta un 502 mientras bajan cinco gigas, y eso no se parece en nada a
+      # «está descargando»—. Sin el perfil, esta línea no existe: no arrastra el
+      # servicio ni impide arrancar.
+      ia-modelo:
+        condition: service_completed_successfully
+        required: false
+
+  # --------------------------------------------------------------------------
+  # El modelo de casa. Solo con `--profile ia`, o nombrándolo.
+  #
+  # Lo que se levanta aquí no sabe nada de la aplicación: es un servidor de modelos
+  # genérico al que se le habla por HTTP desde `src/server/local-model.ts`.
+  #
+  # **Con `ANTHROPIC_API_KEY` puesta, esto no se usa.** La clave gana al modelo
+  # local a propósito, y el porqué está en `src/server/ai-model.ts`: una variable de
+  # probar que se queda puesta no puede degradar en silencio lo que se sirve.
+  # --------------------------------------------------------------------------
+
+  ollama:
+    profiles: ['ia']
+    # Sin versión fija a propósito: es una herramienta de desarrollo, no algo que
+    # se despliegue, y los modelos nuevos piden Ollama nuevo.
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      # Los pesos, fuera del contenedor. Son cinco gigas por modelo: volver a
+      # descargarlos en cada `up` sería inaceptable, y es lo que pasa sin esto.
+      - modelos:/root/.ollama
+    ports:
+      # Abierto al equipo para poder apuntar aquí desde `pnpm dev` con
+      # OLLAMA_URL=http://localhost:11434, igual que se hace con Postgres.
+      - '${OLLAMA_PORT:-11434}:11434'
+    healthcheck:
+      # Que el proceso esté arrancado no significa que conteste: `ollama list`
+      # habla con la API por dentro, que es justo lo que va a hacer la aplicación.
+      test: ['CMD-SHELL', 'ollama list >/dev/null 2>&1 || exit 1']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            # Sin gráfica NVIDIA, comenta estas cuatro líneas: funciona igual en la
+            # CPU, pero una respuesta pasa de tres segundos a un minuto largo y
+            # deja de servir para probar nada con la guitarra en las manos.
+            #
+            # Que esto viva en un perfil es justo lo que permite que siga aquí: sin
+            # `--profile ia` este servicio no se levanta, así que un equipo sin
+            # gráfica hace `docker compose up` y no se entera de que existe.
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # La descarga del modelo, en su propio contenedor y una sola vez.
+  #
+  # Misma decisión que las migraciones: una tarea que termina no vive dentro del
+  # arranque de otro servicio.
+  ia-modelo:
+    profiles: ['ia']
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ['/bin/ollama']
+    command: ['pull', '${OLLAMA_MODEL:-qwen3:8b}']
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: 'no'
 
 volumes:
   datos:
+  modelos:

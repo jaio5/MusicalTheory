@@ -32,8 +32,13 @@ de datos ni claves. Si tocas `src/server/db/schema.ts`: `pnpm db:generate` escri
 la migración y `pnpm db:migrate` la aplica; no se aplican solas al arrancar.
 
 **Las cuentas piden base de datos, y la da Docker:** `pnpm docker:up` levanta todo,
-`pnpm docker:db` solo Postgres para usarlo con `pnpm dev`, y `pnpm docker:ia` añade
-un Ollama sin clave ni factura. Escribe el `.env` que falte; si el 3000 está
+`pnpm docker:db` solo Postgres para usarlo con `pnpm dev`, `pnpm docker:ia` añade
+un Ollama sin clave ni factura y `pnpm docker:ia-sola` levanta ese Ollama **sin la
+aplicación**. Es un solo `compose.yml` con la IA en un perfil
+([adr/0047](docs/adr/0047-la-ia-es-un-perfil-no-un-fichero.md)), así que
+`docker compose up` no la toca y `docker compose --profile ia up` la trae.
+**`docker compose down` a secas no para un perfil**: deja Ollama corriendo, y por
+eso `docker:down` lleva `--profile '*'`. Escribe el `.env` que falte; si el 3000 está
 ocupado, `APP_PORT`. **Para verlo funcionando**, el skill
 `.claude/skills/arrancar/`: navegador de verdad, micrófono falso y las trampas de
 hacerlo.
@@ -201,20 +206,20 @@ camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                    | Contesta                                                         |
-| -------------------------- | ---------------------------------------------------------------- |
-| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests     |
-| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular        |
-| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico        |
-| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen   |
-| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                       |
-| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto           |
-| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti         |
-| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario           |
-| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
-| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
-| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y seis |
+| Fichero                    | Contesta                                                          |
+| -------------------------- | ----------------------------------------------------------------- |
+| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests      |
+| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular         |
+| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico         |
+| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen    |
+| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                        |
+| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto            |
+| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti          |
+| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario            |
+| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha   |
+| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron  |
+| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde           |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cuarenta y siete |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

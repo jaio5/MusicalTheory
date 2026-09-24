@@ -89,10 +89,20 @@ pnpm db:migrate
 ### Con cuentas, sin montar nada: Docker
 
 ```bash
-pnpm docker:up     # Postgres, migraciones y la aplicación, en http://localhost:3000
-pnpm docker:db     # solo Postgres, para usarlo desde `pnpm dev`
-pnpm docker:ia     # además, un modelo en tu equipo para probar la IA sin clave
-pnpm docker:down   # parar; con -v además borra los datos
+pnpm docker:up       # Postgres, migraciones y la aplicación, en http://localhost:3000
+pnpm docker:db       # solo Postgres, para usarlo desde `pnpm dev`
+pnpm docker:ia       # además, un modelo en tu equipo para probar la IA sin clave
+pnpm docker:ia-sola  # solo ese modelo, sin la aplicación
+pnpm docker:down     # parar todo; con -v además borra los datos
+```
+
+Por debajo es un solo `compose.yml` y la IA va en un **perfil**, así que también
+sirve `docker compose` a secas:
+
+```bash
+docker compose up                  # la aplicación
+docker compose --profile ia up     # y además el modelo de casa
+docker compose up ollama           # solo el modelo
 ```
 
 `pnpm docker:up` escribe el `.env` que falte con un `AUTH_SECRET` nuevo, así que no
@@ -105,7 +115,17 @@ hay nada que rellenar a mano. Si el 3000 ya lo tiene otro contenedor tuyo, cambi
 `pnpm docker:ia` levanta además un [Ollama](https://ollama.com) con `qwen3:8b`, y
 la aplicación le pregunta a él mientras no haya clave de Anthropic. La primera vez
 descarga unos 5 GB y los guarda; **pide una gráfica NVIDIA**, y sin ella hay que
-comentar el bloque `deploy` de `compose.ia.yml` y armarse de paciencia.
+comentar el bloque `deploy` de `compose.yml` y armarse de paciencia.
+
+Va en un perfil y no en un fichero aparte
+([adr/0047](./docs/adr/0047-la-ia-es-un-perfil-no-un-fichero.md)), lo que permite
+levantarlo **solo a él** con `pnpm docker:ia-sola` para iterar sobre los prompts
+con `pnpm dev` delante, sin Postgres ni contenedor de la aplicación.
+
+A mano, el perfil y la dirección **van juntos**: `COMPOSE_PROFILES=ia` levanta los
+contenedores y `OLLAMA_URL_DOCKER=http://ollama:11434` le dice a la aplicación
+dónde están. El `.env` las trae comentadas en líneas consecutivas, y
+`pnpm docker:ia` pone las dos por ti.
 
 No es lo mismo que la API y no pretende serlo: sirve para ajustar los prompts sin
 factura. Lo que hace y lo que no, en [docs/AI.md](./docs/AI.md).

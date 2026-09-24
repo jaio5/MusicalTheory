@@ -286,7 +286,11 @@ En producción, sin ninguno de los tres, las rutas contestan 503 y no gastan cup
 pnpm docker:ia     # Postgres, migraciones, Ollama con su modelo, y la aplicación
 ```
 
-Levanta `compose.ia.yml` encima de `compose.yml`. La primera vez descarga unos
+Levanta el perfil `ia` de `compose.yml`
+([adr/0047](./adr/0047-la-ia-es-un-perfil-no-un-fichero.md)); a mano es
+`docker compose --profile ia up`, y `docker compose up ollama` levanta **solo el
+modelo**, sin la aplicación, para iterar sobre los prompts con `pnpm dev`
+delante. La primera vez descarga unos
 5 GB —`qwen3:8b`, que de su tamaño es el que mejor respeta un esquema JSON
 estricto— y los deja en un volumen, así que solo pasa una vez. Con `OLLAMA_MODEL`
 se cambia sin tocar código.

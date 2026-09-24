@@ -41,9 +41,14 @@ Cuatro cosas lo definen:
    configuradas serviría en silencio respuestas de un modelo de ocho mil millones
    de parámetros a quien ha pagado el plan Pro. Para probar en local se quita la
    clave, que es lo explícito.
-4. **En un fichero de compose aparte** (`compose.ia.yml`, `pnpm docker:ia`),
-   porque pide una gráfica NVIDIA y `docker compose up` tiene que seguir
-   funcionando en un equipo que no la tenga.
+4. **Fuera de lo que levanta `docker compose up`**, porque pide una gráfica
+   NVIDIA y eso tiene que seguir funcionando en un equipo que no la tenga.
+
+   > Esto se hizo con un fichero aparte, `compose.ia.yml`, y desde el 24 de
+   > septiembre de 2026 se hace con un **perfil** dentro del mismo `compose.yml`
+   > ([ADR 0047](./0047-la-ia-es-un-perfil-no-un-fichero.md)). El motivo no
+   > cambia; el mecanismo sirve mejor, porque además deja levantar la IA sola y
+   > no obliga a editar un fichero versionado para quitarle la gráfica.
 
 Las tres decisiones de coste que se tomaron para la API se traducen, no se
 reinventan: no pensar (`think: false`), el mismo tope de tokens que impone el
