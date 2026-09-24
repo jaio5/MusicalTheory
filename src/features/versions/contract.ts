@@ -16,7 +16,7 @@
  * tonalidad.
  */
 
-import { MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
+import { MAX_DIRECTRICES_LENGTH, MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
 import {
   DEFAULT_ROLE,
   degreesFor,
@@ -49,7 +49,38 @@ import { isRecord } from '@core/parse';
  * de gasto antes que reglas del contrato: cada grado y cada versión son tokens, y
  * de los tokens salen los cupos.
  */
-export { MAX_VERSION_DEGREES, MAX_VERSIONS };
+export { MAX_DIRECTRICES_LENGTH, MAX_VERSION_DEGREES, MAX_VERSIONS };
+
+/**
+ * La marca que delimita tus directrices dentro del prompt.
+ *
+ * Mismo mecanismo que la pregunta del profesor —`MARCA_PREGUNTA`— y por la misma
+ * razón: lo de dentro lo escribes tú, así que el prompt de sistema dice que es un
+ * dato y nunca una instrucción. No es una defensa perfecta, ninguna lo es contra
+ * una inyección decidida, pero convierte el «ignora lo anterior» en una frase más
+ * dentro de un bloque marcado.
+ *
+ * Y `parseVersionsRequest` la borra de lo que escribas, porque si no, escribirla
+ * cerraría el bloque antes de tiempo y lo de después se leería como instrucciones
+ * nuestras: exactamente lo que se está evitando.
+ */
+export const MARCA_DIRECTRICES = '###DIRECTRICES###';
+
+/**
+ * Lo más largos que pueden ser el título y el porqué de una salida.
+ *
+ * **Son la única prosa del modelo que llega a la pantalla** —los acordes se
+ * recalculan contra el dominio, el texto no— y no tenían tope ninguno: ni en el
+ * esquema ni al validar, solo «que no esté vacío». Con `MARCA_DIRECTRICES` abierto
+ * eso pasó a ser lo que una inyección podría usar para escribirte algo, así que se
+ * cierra por construcción y no confiando en que el prompt se respete. El prompt ya
+ * pide menos de sesenta caracteres de título y una sola frase: esto es lo mismo,
+ * pero comprobado.
+ */
+export const MAX_VERSION_TITLE_LENGTH = 60;
+
+/** Lo más largo que puede ser el porqué de una salida. Una frase. */
+export const MAX_VERSION_WHY_LENGTH = 200;
 
 /** Un compás de la progresión que se manda: el grado y lo que dura. */
 export interface VersionStep {
@@ -83,6 +114,15 @@ export interface VersionsRequest {
    * validador comprueba —que es la regla que ya costó una vez, con las ideas—.
    */
   readonly kind: PathKind;
+  /**
+   * Lo que le pides con tus palabras: «que suene a rock lento», «un punteo en el
+   * estribillo».
+   *
+   * Opcional, y ausente cuando no escribes nada: un campo vacío en el prompt es
+   * una línea que el modelo tiene que interpretar, y lo que interpreta es que le
+   * falta algo.
+   */
+  readonly directrices?: string;
   /**
    * Qué es lo que le mandas: el estribillo, una estrofa, o solo una idea.
    *
@@ -187,6 +227,20 @@ function asBeats(value: unknown): number {
  * Nada se reenvía tal cual: la petición se reconstruye desde los campos que
  * pasan y todo lo demás se ignora, igual que en las ideas.
  */
+/**
+ * Tus directrices, acotadas: sin la marca, sin espacios de sobra y con su tope.
+ *
+ * Devuelve nulo cuando no hay nada que mandar, que es el caso normal: el campo se
+ * omite en vez de viajar vacío.
+ */
+function leerDirectrices(crudo: unknown): string | null {
+  if (typeof crudo !== 'string') {
+    return null;
+  }
+  const limpias = crudo.split(MARCA_DIRECTRICES).join(' ').trim();
+  return limpias === '' ? null : limpias.slice(0, MAX_DIRECTRICES_LENGTH);
+}
+
 export function parseVersionsRequest(body: unknown): VersionsRequest | null {
   const leido = cuerpoConTonalidad(body);
   if (leido === null) {
@@ -240,7 +294,13 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
     progression: VersionStep[];
     kind: PathKind;
     role: SectionRole;
+    directrices?: string;
   } = { key: { tonic, mode }, progression, kind, role };
+
+  const directrices = leerDirectrices(campos['directrices']);
+  if (directrices !== null) {
+    request.directrices = directrices;
+  }
 
   return request;
 }
@@ -413,8 +473,10 @@ export function validateVersions(payload: unknown, request: VersionsRequest): Ve
     }));
 
     versions.push({
-      title,
-      why,
+      // Recortados y no descartados: un porqué de más es prosa de sobra, no una
+      // salida mala, y tirar la progresión por eso sería tirar lo que sí vale.
+      title: title.slice(0, MAX_VERSION_TITLE_LENGTH),
+      why: why.slice(0, MAX_VERSION_WHY_LENGTH),
       path: path.id,
       sections,
       steps: sections.flatMap((seccion) => seccion.steps),

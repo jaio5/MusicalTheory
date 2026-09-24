@@ -179,7 +179,7 @@ nombres viejos de los planes**.
 | El cuerpo común de las tres rutas, y sus puertas         | `server/ai-route.ts`, `server/ai-gate.ts`                 |
 | La llamada al modelo, y el único sitio con el SDK        | `server/ask-model.ts`                                     |
 | Quién contesta —API, modelo de casa o dominio—           | `server/ai-model.ts`, `local-model.ts`                    |
-| Por dónde entra texto libre, y qué lo acota              | `features/learn/teacher-contract.ts`                      |
+| Por dónde entra texto libre, y qué lo acota              | `learn/teacher-contract.ts`, `versions/contract.ts`       |
 | Una canción guardada, y qué papel hace cada parte        | `core/music/song.ts` (`ROLES`), `server/songs-repo.ts`    |
 | Un acorde cualquiera, convertido en bloque               | `core/music/capture.ts` (`comoBloque`)                    |
 | El montaje por bloques, y lo que dura cada acorde        | `core/music/arrangement.ts` + `state/`                    |
@@ -234,7 +234,7 @@ Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqu�
 | `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha  |
 | `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron |
 | `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde          |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cincuenta y uno |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cincuenta y dos |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

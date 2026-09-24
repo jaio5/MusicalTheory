@@ -121,6 +121,15 @@ export const MAX_IDEAS = 4;
 /** Lo más larga que puede ser una pregunta al profesor, en caracteres. */
 export const MAX_QUESTION_LENGTH = 240;
 
+/**
+ * Lo más largas que pueden ser las directrices de una salida, en caracteres.
+ *
+ * Lo mismo que una pregunta al profesor, y por lo mismo: es una o dos frases
+ * —«que suene a rock lento», «con un punteo en el estribillo»—, no un guion. Con
+ * más, lo que se gana es que el modelo tenga más de donde desviarse.
+ */
+export const MAX_DIRECTRICES_LENGTH = 240;
+
 /** Cuántas notas recientes se le mandan como contexto. */
 export const MAX_RECENT_NOTES = 32;
 

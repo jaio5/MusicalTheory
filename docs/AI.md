@@ -435,8 +435,18 @@ comerse la holgura del presupuesto de tokens.
 
 ## Por dónde entra texto que no controlamos
 
-Toda la superficie, contada: **un campo y 240 caracteres**, la pregunta del
-profesor. Nada más.
+Toda la superficie, contada: **dos campos y 480 caracteres**. La pregunta del
+profesor, y las directrices de una salida —«a qué quieres que suene»—, que son 240
+cada una. Nada más.
+
+Fueron uno solo hasta el 24 de septiembre de 2026
+([adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md)), y el segundo se abrió a
+sabiendas: los dos que 0015 cerró no hacían falta —el título de la unidad estaba en
+el temario y el nombre de la canción no lo mandaba ni el cliente— y este **es la
+función**, porque a qué quieres que suene tu canción no cabe en un menú
+([adr/0052](./adr/0052-el-segundo-canal-de-texto-libre.md)). Va acotado con lo
+mismo, y a propósito: dos maneras de acotar lo mismo serían dos superficies que
+revisar.
 
 `/api/ideas` no acepta ni un carácter libre —tónica, modo, escala, grados y
 cifrados van contra enumerados, y lo que no encaja se descarta en silencio—.
@@ -457,7 +467,7 @@ unidad que se lee viaja por su identificador. El nombre de la canción **ya no s
 manda**: solo construía una línea del prompt, no volvía en la respuesta, no se
 guardaba, y el cliente ni siquiera lo enviaba.
 
-Alrededor de ese único canal hay dos cosas, y las dos están en
+Alrededor del canal del profesor hay dos cosas, y las dos están en
 [adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md):
 
 1. **La pregunta va entre marcas `###PREGUNTA###`** y el prompt de sistema dice
@@ -469,6 +479,14 @@ Alrededor de ese único canal hay dos cosas, y las dos están en
    lo decide antes de contestar—. Con `fuera`, `validateTeacherAnswer` tira su
    texto y su ejemplo enteros y devuelve una frase nuestra. Su prosa no llega a la
    pantalla.
+
+**El de las directrices lleva la primera y no la segunda**, y el porqué está en
+[adr/0052](./adr/0052-el-segundo-canal-de-texto-libre.md): del profesor lo que
+llega a la pantalla **es** su prosa, y de una salida son acordes recalculados
+contra el dominio más un título y un porqué. Esos dos no tenían tope ninguno —ni en
+el esquema ni al validar— y ahora caben en 60 y 200 caracteres: son la única prosa
+del modelo que se pinta, así que se cierran por construcción en vez de confiar en
+que el prompt se respete.
 
 **Y lo que de verdad limita el abuso no es ninguna de las dos.** Contra alguien
 decidido, una inyección que funcione hará que el modelo conteste `musica`. Lo que

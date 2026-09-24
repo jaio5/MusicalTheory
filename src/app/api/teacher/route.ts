@@ -51,9 +51,9 @@ function buildPrompt(request: TeacherRequest, validDegrees: readonly string[]): 
     lines.push(`Está leyendo sobre: ${topic}.`);
   }
 
-  // La pregunta va marcada y al final: es el único texto libre que entra al
-  // modelo en toda la aplicación, y el prompt de sistema dice que lo de dentro
-  // de las marcas es un dato. La marca ya se le ha quitado a la pregunta al
+  // La pregunta va marcada y al final: es uno de los dos textos libres que entran
+  // al modelo —el otro son las directrices de una salida— y el prompt de sistema
+  // dice que lo de dentro de las marcas es un dato. La marca ya se le ha quitado a la pregunta al
   // validarla, así que nadie puede cerrar el bloque antes de tiempo.
   lines.push(`${MARCA_PREGUNTA}\n${request.question}\n${MARCA_PREGUNTA}`);
   return lines.join('\n');

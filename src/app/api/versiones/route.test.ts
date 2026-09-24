@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { MARCA_DIRECTRICES } from '@features/versions/contract';
 import type * as AskModel from '@server/ask-model';
 
 /**
@@ -155,6 +156,33 @@ describe('el esquema y el catálogo dependen de lo que se pida', () => {
     await POST(pedir({ ...TOCADO, kind: 'continuar' }));
 
     expect(llamada().prompt).toContain('sin empezarla por VII');
+  });
+
+  /**
+   * **Y lo que le pides con tus palabras, delimitado y al final.**
+   *
+   * Al final porque es lo último que lee y tiene que pesar más que el catálogo;
+   * delimitado porque lo escribes tú, y el prompt de sistema tiene dicho que lo de
+   * dentro de las marcas es un dato y nunca una instrucción.
+   */
+  it('le pasa tus directrices entre marcas y al final', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'continuar', directrices: 'a rock lento' }));
+
+    const { prompt } = llamada();
+    expect(prompt).toContain(`${MARCA_DIRECTRICES}\na rock lento\n${MARCA_DIRECTRICES}`);
+    expect(prompt.trimEnd().endsWith(MARCA_DIRECTRICES)).toBe(true);
+  });
+
+  // Sin escribir nada, la marca no aparece: un bloque vacío es una línea que el
+  // modelo interpreta.
+  it('sin directrices no mete el bloque', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
+
+    expect(llamada().prompt).not.toContain(MARCA_DIRECTRICES);
   });
 
   // Retocar no añade partes, así que no hay nada que cerrar y la lista no va.

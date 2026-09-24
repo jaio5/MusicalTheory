@@ -11,7 +11,12 @@ import { AccountProvider } from '@state/account';
 import { useArrangementStore } from '@state/arrangement-store';
 import { useSessionStore } from '@state/session-store';
 
-import { versionsError, type Version, type VersionsRequest } from './contract';
+import {
+  MAX_DIRECTRICES_LENGTH,
+  versionsError,
+  type Version,
+  type VersionsRequest,
+} from './contract';
 import { VersionsPanel } from './VersionsPanel';
 
 const C = pitchClassFromName('C');
@@ -124,6 +129,55 @@ describe('cuándo se puede pedir', () => {
 
     const request = fetchVersions.mock.calls[0]![0] as VersionsRequest;
     expect(request.progression.map((step) => step.degree)).toEqual(['I', 'V']);
+  });
+});
+
+/**
+ * **A qué quieres que suene, con tus palabras.**
+ *
+ * Es la mitad que faltaba: el selector de arriba dice *qué* le mandas y esto dice
+ * *qué quieres*. Sin ello el modelo continuaba siempre por lo obvio, porque nadie
+ * le había dicho otra cosa.
+ */
+describe('las directrices', () => {
+  /** Pide salidas escribiendo eso —o nada— en el campo. */
+  async function pedirCon(texto?: string) {
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA] }));
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} />));
+    componiendo(['I', 'V']);
+
+    if (texto !== undefined) {
+      await userEvent.type(screen.getByLabelText('A qué quieres que suene'), texto);
+    }
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+
+    return fetchVersions.mock.calls[0]![0] as VersionsRequest;
+  }
+
+  it('lo que escribes viaja con la peticion', async () => {
+    expect((await pedirCon('a rock lento')).directrices).toBe('a rock lento');
+  });
+
+  /**
+   * Y sin escribir nada el campo no va: un bloque vacío en el prompt es una línea
+   * que el modelo interpreta, y lo que interpreta es que le falta algo.
+   */
+  it('sin escribir nada no se manda el campo', async () => {
+    expect(await pedirCon()).not.toHaveProperty('directrices');
+  });
+
+  it('solo espacios es no haber escrito nada', async () => {
+    expect(await pedirCon('   ')).not.toHaveProperty('directrices');
+  });
+
+  // El tope es una palanca de gasto, así que el campo no deja pasarse de él.
+  it('el campo no deja escribir mas que el tope', async () => {
+    render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} />));
+
+    expect(screen.getByLabelText('A qué quieres que suene')).toHaveAttribute(
+      'maxLength',
+      String(MAX_DIRECTRICES_LENGTH),
+    );
   });
 });
 

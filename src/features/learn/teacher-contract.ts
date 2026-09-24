@@ -38,9 +38,11 @@ export const MAX_ANSWER_LENGTH = 900;
 /**
  * La marca que encierra la pregunta dentro del prompt.
  *
- * La pregunta es el **único** texto libre que queda entrando al modelo en toda la
- * aplicación, así que va delimitada y el prompt de sistema dice que lo de dentro
- * es un dato y no una instrucción. No es una defensa perfecta —ninguna lo es
+ * La pregunta es **uno de los dos** textos libres que entran al modelo en toda la
+ * aplicación —el otro son las directrices de una salida, `MARCA_DIRECTRICES`—, así
+ * que va delimitada y el prompt de sistema dice que lo de dentro es un dato y no
+ * una instrucción. Los dos van igual, y a propósito: dos maneras de acotar lo
+ * mismo serían dos superficies que revisar. No es una defensa perfecta —ninguna lo es
  * contra una inyección decidida— pero convierte el caso habitual, el «ignora lo
  * anterior», en una frase más dentro de un bloque marcado.
  *

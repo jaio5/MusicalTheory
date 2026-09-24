@@ -23,7 +23,7 @@ import {
   type SectionRole,
 } from '@core/music';
 
-import type { VersionsRequest } from './contract';
+import { MARCA_DIRECTRICES, type VersionsRequest } from './contract';
 
 /**
  * El catálogo de movimientos, escrito para el modelo.
@@ -128,6 +128,17 @@ export function promptDeSalidas(
           'que digan algo que no estuviera ya.'
       : `Devuelve hasta tres salidas distintas para esos ${request.progression.length} compases.`,
   );
+
+  // **Tus directrices, marcadas y al final.** Es el segundo texto libre que entra
+  // al modelo —el otro es la pregunta del profesor— y va igual: delimitado, con el
+  // prompt de sistema diciendo que lo de dentro es un dato, y con la marca ya
+  // borrada al validar para que nadie cierre el bloque antes de tiempo.
+  //
+  // Al final a propósito: es lo último que lee, y tiene que pesar más que el
+  // catálogo que va arriba.
+  if (request.directrices !== undefined) {
+    lines.push(`${MARCA_DIRECTRICES}\n${request.directrices}\n${MARCA_DIRECTRICES}`);
+  }
 
   return lines.join('\n');
 }

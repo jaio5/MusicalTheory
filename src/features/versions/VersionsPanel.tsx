@@ -37,6 +37,7 @@ import { PlanLock } from '@ui/PlanLock';
 
 import {
   ERROR_MESSAGES,
+  MAX_DIRECTRICES_LENGTH,
   type Version,
   type VersionsErrorCode,
   type VersionsRequest,
@@ -123,6 +124,7 @@ export function VersionsPanel({
    * quien lo ha tocado, no el que cuenta los grados.
    */
   const [role, setRole] = useState<SectionRole>(DEFAULT_ROLE);
+  const [directrices, setDirectrices] = useState('');
 
   const { pedir: player, parar } = useProgressionPlayer(createPlayer);
 
@@ -322,6 +324,9 @@ export function VersionsPanel({
       })),
       kind,
       role,
+      // Vacío es no mandar nada: una línea en blanco en el prompt es una línea
+      // que el modelo interpreta, y lo que interpreta es que le falta algo.
+      ...(directrices.trim() === '' ? {} : { directrices: directrices.trim() }),
     };
 
     try {
@@ -491,6 +496,28 @@ export function VersionsPanel({
           </Button>
         )}
       </div>
+
+      {/* A qué quieres que suene, con tus palabras. La mitad que faltaba: el
+          selector de arriba dice **qué** le mandas y esto dice **qué quieres**, y
+          sin ello el modelo continuaba siempre por lo obvio porque nadie le había
+          dicho otra cosa.
+
+          Una línea y no un cuadro grande: son una o dos frases, y un cuadro
+          grande pide un guion que luego no se lee. Lo escrito a mano llega
+          delimitado al prompt y el modelo tiene dicho que es un dato
+          (`MARCA_DIRECTRICES`). */}
+      <label className="mt-3 block">
+        <span className="rotulo">A qué quieres que suene</span>
+        <input
+          type="text"
+          value={directrices}
+          maxLength={MAX_DIRECTRICES_LENGTH}
+          onChange={(event) => setDirectrices(event.target.value)}
+          disabled={pending || analizando}
+          placeholder="Que suene a rock lento, con un punteo en el estribillo"
+          className="border-border bg-surface text-text placeholder:text-text-muted focus:border-brass-dim min-h-tap mt-1 w-full rounded-md border px-3 text-sm transition-colors"
+        />
+      </label>
 
       {/* Lo que se va a mandar, dicho antes de mandarlo: con la guitarra puesta,
           pulsar un botón que gasta cupo sin saber sobre qué es lo que hace que
