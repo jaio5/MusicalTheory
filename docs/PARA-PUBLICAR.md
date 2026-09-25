@@ -75,6 +75,21 @@ El detalle entero, con la tabla de qué da cada plan y qué se guarda de ti, est
   fallos que ningún test veía. No hay nada que lo repita solo.
 - **El límite de frecuencia en memoria** es por instancia. Con base de datos se
   comparte; con varias instancias y sin ella, cada una lleva su cuenta.
+- **Entrar no tiene límite de intentos.** Lo tienen el registro, el cambio de
+  cuenta y las tres rutas de IA; el `authorize` de `server/auth.ts` no. Contra
+  probar contraseñas solo está el coste de `scrypt` —unos cien milisegundos—, y eso
+  es además el problema al revés: **cada intento cuesta cien milisegundos de
+  procesador nuestros y nada suyo**. El arreglo es el mismo
+  `esperaPorFrecuencia` que ya usa el registro, con la clave por correo y por
+  dirección.
+- **Registrarse no exige verificar el correo, y el plan gratis da quince
+  peticiones de IA.** Así que una dirección inventada son quince llamadas al
+  modelo pagadas, y el registro admite cinco por minuto.
+  [ADR 0015](./adr/0015-un-solo-canal-de-texto-libre.md) apoya su argumento en que
+  el abuso «se hace inútil» por el cupo y la cuenta obligatoria: el cupo aguanta,
+  **la cuenta obligatoria hoy no es una barrera**. Lo que hay que decidir es si la
+  IA gratis se pone detrás de un correo verificado —no la aplicación, que funciona
+  sin cuenta a propósito—.
 
 ## Qué decidir cuando llegue el momento
 
