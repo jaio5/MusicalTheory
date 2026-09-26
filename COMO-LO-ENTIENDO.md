@@ -11,6 +11,9 @@ Cada afirmación va marcada, y la marca es lo importante:
 - **[S]** supuesto. Creo que es así pero no lo he verificado, o no se puede
   verificar leyendo: es una intención, no un hecho.
 - **[?]** no lo sé y afecta a decisiones. Son las preguntas que más me frenan.
+- **[D]** **decidido por ti**, en la primera ronda de correcciones. Manda sobre
+  cualquier **[C]**: si el código dice otra cosa, el código está pendiente de
+  cambiar, y debajo pongo qué hace falta para ello.
 
 Lo que más necesito corregido son las **[S]** sobre cómo se usa esto. El código
 me dice lo que hace; no me dice si es lo que querías.
@@ -57,28 +60,39 @@ recuerda su propio reparto, y el de fábrica dice qué importa en cada uno:
 
 ### Cómo creo que la usas
 
-**[S]** El recorrido que tengo en la cabeza es:
+**[D]** El recorrido, corregido:
 
 1. Eliges tonalidad en la rueda.
-2. Vas a `tocando`, **dices si la toma es rítmica o punteo**, grabas un trozo con
-   la guitarra y lo traes al lienzo.
-3. Pasas a `escribir` para arreglar lo que el micro entendió mal, arrastrar
-   bloques y ver la partitura.
+2. Grabas con la guitarra. **No le dices si es punteo o acordes: se transcribe
+   solo**, a partitura y a notas.
+3. **Corriges lo que haya entendido mal**, que es un paso de primera clase y no un
+   remiendo.
 4. `ensayar` para tocarlo contra el metrónomo cuando ya hay algo.
 5. Las salidas, para que la IA te diga por dónde seguir.
 
-**[?]** **Creo que este recorrido es donde más me equivoco.** Tres dudas
-concretas:
+**[D] Se monta en muchas sesiones.** Puede caber en una, pero eso es un caso de
+las muchas y no al revés: **hay que enfocarlo a muchas**.
 
-- **¿Grabas de verdad con la guitarra, o escribes a mano y grabar es la excepción?**
-  Yo he asumido que grabar es la puerta de entrada porque es el espacio de fábrica.
-  Si en la práctica escribes a mano y el micro es un juguete, mis arreglos de esta
-  semana han ido al sitio equivocado.
-- **¿Una canción se monta en una sesión o en muchas?** Si es en muchas, que el
-  lienzo no se guarde solo es un fallo grave y no «un detalle anotado en el
-  ROADMAP».
-- **¿Usas los tres espacios o vives en uno?** Si vives en `escribir`, los repartos
-  de fábrica de los otros dos no importan nada.
+**[D] Vives en un espacio**, y son los componentes los que te dejan usar ese mismo
+espacio para varias cosas. Los tres espacios no son tres sitios donde ir viviendo.
+
+### Lo que esas tres decisiones cambian
+
+**Que se transcriba solo contradice
+[adr/0048](docs/adr/0048-una-toma-dice-lo-que-es.md)**, que escribí anteayer y
+decidía justo lo contrario. Lo hablo en el apartado 3, porque no es un cambio de
+una línea.
+
+**Que se monte en muchas sesiones sube «el lienzo no se guarda solo»** de detalle
+del ROADMAP a fallo de los que estorban a diario: hoy, si cierras, la canción se
+guarda solo si te acuerdas de guardarla como canción desde su pestaña, y al
+reabrirla los bloques vuelven desagrupados. Con sesiones largas eso no es una
+molestia, es perder trabajo.
+
+**Que vivas en un espacio baja la prioridad de los tres repartos de fábrica** y
+sube la de que las áreas se puedan tener todas a mano en uno. Lo que había
+entendido yo —tres sitios, uno por tarea— hacía que cambiar de espacio fuera el
+gesto central; no lo es.
 
 ### Lo que sé que está flojo
 
@@ -89,12 +103,14 @@ se ve igual que uno lleno.
 **[C]** La rejilla llega a la semicorchea desde anteayer; antes era la corchea y
 apilaba las notas de cualquier punteo normal.
 
-**[S]** Y creo que el orden para arreglarlo es silencios → ligaduras → segunda
-voz → tresillos → clave de fa → MusicXML, porque los dos primeros son lo que se
-ve y no piden tocar el modelo.
+**[D]** El orden queda confirmado: **silencios → ligaduras → segunda voz →
+tresillos → clave de fa → MusicXML**. Los dos primeros son lo que se ve y no piden
+tocar el modelo; MusicXML va al final porque sale casi solo cuando los dos
+primeros estén.
 
-**[?]** ¿O lo que te falta de verdad es **exportar** —MusicXML, para abrirlo en
-MuseScore— y lo demás te da igual porque lo arreglarías allí?
+Y el paso 3 del recorrido —corregir lo que el micro entendió mal— **se apoya en
+los dos primeros**: mientras un compás no se cierre, no hay forma de que la
+partitura te enseñe que ahí falta algo.
 
 ---
 
@@ -110,32 +126,55 @@ MuseScore— y lo demás te da igual porque lo arreglarías allí?
   Es el mismo motor del afinador y es el fiable.
 
 **[C]** Antes apuntaban los dos a la vez, así que un punteo entraba con acordes
-inventados encima. Ahora **la toma declara qué es** —rítmica o punteo— y solo
-corre el motor que toca.
+inventados encima. Hoy **la toma declara qué es** —rítmica o punteo— y solo corre
+el motor que toca.
+
+**[D] Y eso hay que quitarlo: tiene que transcribirse solo.** Grabas, la aplicación
+decide si lo que oyó son notas o acordes, y tú corriges lo que haya entendido mal.
 
 **[C]** Y hay un límite que no se arregla afinando umbrales: después del descuento
 de armónicos, **una nota sola tiene casi la misma forma que su acorde mayor**. Un
 Do pulsado y un Do rasgueado no se distinguen.
 
-### Cómo creo que lo usas
+### La contradicción, y cómo creo que se sale de ella
 
-**[S]** Grabas por tomas: primero la rítmica entera, después el punteo. Es un
-gesto más a cambio de que entre lo que tocaste.
+Hay que decirlo claro: **[adr/0048](docs/adr/0048-una-toma-dice-lo-que-es.md) decide
+lo contrario de lo que acabas de pedir**, lo escribí yo hace dos días, y la razón
+que da está medida y sigue siendo verdad:
 
-**[?]** **¿Con qué grabas?** Esto cambia todo lo demás. Si es el micro del
-portátil con la guitarra acústica delante, el croma va a fallar más de lo que
-dicen mis medidas, que están hechas con WAV sintéticos. Si es una eléctrica por
-interfaz, es otra historia.
+> Después del descuento de armónicos, **una nota sola tiene casi la misma forma que
+> su acorde mayor**. Un Do pulsado y un Do rasgueado no se distinguen con lo que hay.
 
-**[?]** **¿Cuánto grabas de una vez?** Cuatro compases o una canción entera. Lo he
-supuesto corto y puede que esté mal.
+Eso no lo cambia una decisión. Lo que sí cambia tu decisión es **el problema**:
+yo estaba intentando _acertar siempre_, y tú no has pedido eso. Has pedido que
+transcriba solo **y que se pueda corregir**. Con eso, fallar deja de ser
+inaceptable y pasa a ser normal, que es lo que va a ser de todas formas.
 
-**[S]** Y creo que lo que más te molestaría de aquí es **que no se puedan corregir
-las notas después** cómodamente: el reconocimiento va a fallar siempre, así que lo
-que importa es lo rápido que se arregla a mano.
+Así que lo que en el documento anterior era una suposición mía pasa a ser la mitad
+del trabajo: **corregir tiene que costar un gesto.** Cambiar un acorde por una nota
+y al revés, en la partitura, sin ir a otra pantalla.
 
-**[?]** ¿Es eso, o preferirías que fallara menos aunque corregir siguiera siendo
-igual de incómodo?
+**[S]** El orden que propongo, y aquí es donde más me puedes corregir otra vez:
+
+1. **Corregir bien primero.** Mientras corregir sea incómodo, una transcripción
+   automática que falla es peor que un selector que acierta.
+2. **Después la detección**, que es contar cuántas notas suenan a la vez y no
+   afinar umbrales: es lo único que de verdad separa un punteo de un rasgueo.
+   Pide calibrar con grabaciones de tu guitarra, que es lo que
+   [adr/0043](docs/adr/0043-dos-maneras-de-equivocarse.md) ya dejó anotado como
+   pendiente.
+3. **Y el selector se cae solo** cuando la detección acierte. Quitarlo antes
+   devuelve los acordes inventados encima del punteo, que es el fallo que 0048 vino
+   a cerrar: sería cambiar un gesto molesto por una parte que hay que limpiar a
+   mano.
+
+**[?]** Dos cosas que sigo sin saber y que cambian el punto 2:
+
+- **¿Con qué grabas?** Micro del portátil con acústica delante, o eléctrica por
+  interfaz. Mis medidas están hechas con WAV sintéticos, y con una guitarra real el
+  croma falla más. Sin saber esto no puedo calibrar contra lo que vas a usar.
+- **¿Cuánto grabas de una vez?** Cuatro compases o una canción entera. Lo he
+  supuesto corto.
 
 ---
 
@@ -271,17 +310,28 @@ función que más pules es la que menos gente va a ver.
 
 ## 9. Las tres o cuatro cosas que más me preocupa haber entendido mal
 
-Si solo corriges cuatro líneas de todo esto, que sean estas:
+### Ronda 1 — contestado
 
-1. **[?] Que grabar con el micro es la puerta de entrada a componer.** Todo mi
-   trabajo de esta semana lo da por hecho.
-2. **[?] Que las salidas son «tres opciones para elegir» y no «escríbeme la
+1. **[D] Grabar con la guitarra es la puerta de entrada**, y se transcribe solo.
+   Acerté en la puerta y me equivoqué en el gesto: sobra declarar qué estás
+   tocando.
+2. **[D] Se monta en muchas sesiones.** Guardar solo sube a lo urgente.
+3. **[D] Se vive en un espacio**, y los componentes lo hacen servir para varias
+   cosas.
+4. **[D] El orden de la partitura es el que propuse**, con MusicXML al final y no
+   al principio.
+
+### Ronda 2 — lo que sigue abierto
+
+1. **[?] Que las salidas son «tres opciones para elegir» y no «escríbeme la
    canción».** Decide si el modelo local sirve o si hay que asumir que esto se
    paga.
-3. **[?] Que aprender es el andamio y componer el corazón.** Si es al revés, mis
+2. **[?] Que aprender es el andamio y componer el corazón.** Si es al revés, mis
    prioridades están invertidas.
-4. **[?] Que lo que quieres de la partitura es leerla aquí** y no exportarla a
-   MuseScore. Si es exportar, el orden de trabajo cambia entero.
+3. **[?] Con qué grabas y cuánto de una vez.** Sin eso no puedo calibrar la
+   detección automática contra lo que vas a usar de verdad.
+4. **[?] Si «input de sonido» en las salidas era subir el audio**, que es el
+   apartado 10 y cambia la promesa de privacidad.
 
 ---
 

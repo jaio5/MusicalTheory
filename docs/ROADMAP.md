@@ -19,6 +19,17 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   alguno**; rasgueando, falla; una inversión —C/E—, falla; una cuerda que roza, la
   escribía **como si estuviera seguro**; y un punteo de dos notas iguales seguidas
   **se apunta como acordes**. El análisis en diferido arrastra lo mismo.
+- **Y hay que quitar el selector de rítmica o punteo: tiene que transcribirse
+  solo.** Decidido el 26 de septiembre de 2026 por quien la usa, y **revierte
+  [adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)**. La medida de aquel sigue en
+  pie —tras el descuento de armónicos, una nota sola y su acorde mayor tienen casi
+  la misma forma— pero cambia el objetivo: no hay que acertar siempre, hay que
+  transcribir solo **y dejar corregir**. Tres pasos, en este orden: que corregir
+  cueste un gesto —cambiar un acorde por una nota y al revés, en la partitura—;
+  después contar cuántas notas suenan a la vez, que es lo único que separa un
+  punteo de un rasgueo y pide las grabaciones de calibración de abajo; y el
+  selector se cae solo cuando eso acierte. **Quitarlo antes devuelve los acordes
+  inventados encima del punteo**, que es el fallo que 0048 cerró.
 - **Y una clase entera de falso positivo se ha ido sin tocar el motor**: un punteo
   ya no entra con acordes inventados encima, porque una toma dice si es rítmica o
   punteo y solo se apunta lo de ese papel
@@ -88,6 +99,14 @@ El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
 ([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
 la manera normal de componer aquí.
 
+- **El lienzo no se guarda solo, y eso es lo primero de esta sección.** Se guarda
+  como canción desde la pestaña de Canciones, y ahí la duración de los bloques se
+  convierte en compases repetidos, así que reabrir una canción da los bloques
+  desagrupados. Estaba anotado como un detalle razonado y **sube a urgente el 26 de
+  septiembre de 2026**, porque quien la usa ha dicho que una canción se monta en
+  **muchas** sesiones y no en una: con sesiones largas esto no es una molestia, es
+  perder trabajo.
+
 - **Que la marca de «oído» sirva de algo medible.** Los compases que leyó el micro
   y nadie confirmó viajan al modelo marcados, y el prompt le dice que no se fíe de
   ellos. **No está medido**: no se sabe si cambia lo que devuelve, y no se sabrá
@@ -108,10 +127,6 @@ la manera normal de componer aquí.
 - **Exportar a MusicXML o a PDF.** El MIDI ya sale
   ([adr/0041](./adr/0041-la-cancion-sale-en-midi.md)); lo otro, cuando la
   partitura tenga silencios, ligaduras y tresillos, que es lo de arriba.
-- **El lienzo no se guarda solo.** Se guarda como canción desde la pestaña de
-  Canciones, y ahí la duración de los bloques se convierte en compases repetidos.
-  Es a propósito y está razonado, pero significa que reabrir una canción da los
-  bloques desagrupados.
 - **En la partitura no se mueven acordes de una parte a otra.** Dentro de una
   parte se reordenan arrastrando el cifrado; para llevárselo al estribillo hay que
   pasar a la vista de bloques, que es donde se ven las dos partes a la vez.

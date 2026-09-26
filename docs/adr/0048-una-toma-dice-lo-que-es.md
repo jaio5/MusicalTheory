@@ -1,6 +1,15 @@
 # ADR 0048 — Una toma dice lo que es
 
-Fecha: 2026-09-24 · Estado: aceptada · Corrige un supuesto de [ADR 0034](./0034-tres-maneras-de-escribir-la-misma-cancion.md)
+Fecha: 2026-09-24 · Estado: **en revisión** · Corrige un supuesto de [ADR 0034](./0034-tres-maneras-de-escribir-la-misma-cancion.md)
+
+> **Esto se va a revertir.** El 26 de septiembre de 2026, quien usa la aplicación
+> decidió que **no hay que declarar la toma: tiene que transcribirse sola**, y que
+> lo que importa es poder corregir lo que se entienda mal. La medida de aquí abajo
+> sigue siendo verdad —una nota sola y su acorde mayor tienen casi la misma forma—,
+> pero el objetivo cambia: no acertar siempre, sino transcribir y dejar arreglar.
+> Lo que hace falta antes de quitar el selector está en el
+> [ROADMAP](../ROADMAP.md), y el orden importa: quitarlo hoy devuelve los acordes
+> inventados encima del punteo, que es justo lo que esto cerró.
 
 ## Contexto
 
