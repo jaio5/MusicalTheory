@@ -19,6 +19,13 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   alguno**; rasgueando, falla; una inversión —C/E—, falla; una cuerda que roza, la
   escribía **como si estuviera seguro**; y un punteo de dos notas iguales seguidas
   **se apunta como acordes**. El análisis en diferido arrastra lo mismo.
+- **La claqueta: hecha.** Al grabar se cuentan dos compases y se calla, y lo
+  apuntado empieza donde cae el compás uno
+  ([adr/0053](./adr/0053-la-claqueta-cuenta-y-se-calla.md)). Antes se convertía lo
+  tocado con el `bpm` de los ajustes sin darte ningún pulso al que agarrarte. **Lo
+  que queda es medirla tocando**: la claqueta se calla, así que se puede seguir
+  yendo de tempo, y con tomas cortas eso debería ser pequeño —pero es una
+  suposición hasta que se pruebe con una guitarra delante—.
 - **Y hay que quitar el selector de rítmica o punteo: tiene que transcribirse
   solo.** Decidido el 26 de septiembre de 2026 por quien la usa, y **revierte
   [adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)**. La medida de aquel sigue en

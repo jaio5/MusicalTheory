@@ -67,7 +67,7 @@ export function TocarParaEscribir({
   const reading = useSessionStore((state) => state.reading);
   const apuntados = useSessionStore((state) => state.captured.length);
 
-  const { fase, mensaje, segundos, empezar, parar } = useTocarYApuntar(deps);
+  const { fase, mensaje, segundos, cuenta, empezar, parar } = useTocarYApuntar(deps);
   /**
    * Qué se va a tocar en esta toma.
    *
@@ -114,6 +114,19 @@ export function TocarParaEscribir({
     );
   }
 
+  /**
+   * Cortar la cuenta atrás.
+   *
+   * No pasa por `pararYEscribir` a propósito: allí se apunta lo tocado, y
+   * durante la cuenta no se ha tocado nada, así que lo que salía era «no he
+   * podido leer nada». Cancelar no es fallar.
+   */
+  async function dejarlo(): Promise<void> {
+    setAviso(null);
+    setEscrito(false);
+    await parar();
+  }
+
   async function pararYEscribir(): Promise<void> {
     setEscrito(false);
     const nueva = await parar();
@@ -148,6 +161,7 @@ export function TocarParaEscribir({
   }
 
   const tocando = fase === 'tocando';
+  const contando = fase === 'contando';
 
   /**
    * Lo que ya hay escrito, para no tocar a ciegas.
@@ -223,15 +237,44 @@ export function TocarParaEscribir({
           </fieldset>
         )}
 
+        {/* **Contando también se para**, y con el mismo botón: pulsarlo durante la
+            cuenta la corta y no graba nada. Deshabilitarlo ahí dejaba dos
+            compases en los que el único botón de la pantalla no hacía nada y
+            después arrancaba solo. */}
         <Button
-          onClick={() => void (tocando ? pararYEscribir() : empezar())}
+          onClick={() => void (contando ? dejarlo() : tocando ? pararYEscribir() : empezar())}
           disabled={fase === 'preparando'}
-          variant={tocando ? 'quiet' : 'primary'}
+          variant={tocando || contando ? 'quiet' : 'primary'}
           className="min-w-56"
         >
-          {tocando ? <IconoParar /> : <IconoMicro />}
-          {fase === 'preparando' ? 'Abriendo el micro…' : tocando ? 'Parar y escribirlo' : 'Tocar'}
+          {tocando || contando ? <IconoParar /> : <IconoMicro />}
+          {fase === 'preparando'
+            ? 'Abriendo el micro…'
+            : contando
+              ? 'Dejarlo'
+              : tocando
+                ? 'Parar y escribirlo'
+                : 'Tocar'}
         </Button>
+
+        {/* La cuenta, además de oírse.
+            Un número que baja dice cuándo entrar mejor que cuatro clics a los que
+            hay que ponerles la cuenta uno mismo, y sobre todo dice **que la
+            aplicación está haciendo algo**: dos compases de espera sin nada en
+            pantalla se leen como que se ha quedado colgada.
+
+            `tabular-nums` y **no** monoespaciada: la regla la reserva para lo que se
+            alinea en columna y esto es una cifra sola
+            ([adr/0024](../../../docs/adr/0024-la-interfaz-se-lee-primero.md)).
+            Con cifras de ancho fijo ya no salta al bajar de 10 a 9. */}
+        {contando && cuenta !== null && (
+          <p className="text-center" aria-live="polite">
+            <span className="text-fluid-hero tabular-nums">{cuenta}</span>
+            <span className="text-text-muted mt-1 block text-sm">
+              Entra cuando se calle: se calla para que el micro no la oiga.
+            </span>
+          </p>
+        )}
 
         {tocando ? (
           // Las tres señales de que te está oyendo, y ninguna más: el acorde que

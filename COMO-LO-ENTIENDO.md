@@ -64,8 +64,12 @@ decir en pantalla: **para eléctrica, por interfaz**. Eso permite exigir señal
 limpia ahí en vez de intentar arreglar una eléctrica por ampli captada con el micro
 del portátil, que es el caso donde el croma se pierde y el afinador también.
 
-**4. Cuatro u ocho compases.** Es el caso bueno para el reconocimiento y quita de
-la mesa lo de partir una toma larga en partes.
+**4. Cuatro u ocho compases, pero no fijos.** Matizado el 26 de septiembre: **no
+hace falta grabar ocho compases; eliges qué grabar y de qué parte**. Así que el
+número no es una regla, es el orden de magnitud: tomas cortas, tú decides dónde
+empiezan y dónde acaban, y el selector de parte —idea, estrofa, estribillo— dice a
+qué pertenece lo que entra. Quita de la mesa lo de partir una toma larga, y **no**
+hay que poner ningún tope de duración.
 
 **5. Claqueta obligatoria.** Es la respuesta más rentable de las ocho: el
 metrónomo ya está escrito (`features/metronome/`) y hoy **no suena al grabar**, así
@@ -149,6 +153,17 @@ que hay que decir: **hoy el envío de correo no está probado contra un proveedo
 verdad**, solo el flujo contra Postgres, y eso está anotado en
 `docs/PARA-PUBLICAR.md`. O sea que esta decisión convierte «mandar correos» en
 requisito de la IA, y antes no lo era de nada.
+
+### Hecho
+
+**La claqueta, el 26 de septiembre de 2026.** Dos compases de cuenta atrás con el
+`bpm` de los ajustes, callada al grabar, y lo apuntado empieza donde cae el compás
+uno —un pulso después del último clic—.
+[adr/0053](docs/adr/0053-la-claqueta-cuenta-y-se-calla.md).
+
+**Lo que queda de esa pieza es medirla tocando**: callada, se puede seguir yendo de
+tempo. Con tomas cortas debería ser pequeño, pero eso es una suposición mía hasta
+que la pruebes con la guitarra delante.
 
 **16. Se empieza por la claqueta.** Y estoy de acuerdo, por lo que ya está escrito
 arriba: el metrónomo existe, hoy no suena al grabar, y de que la rejilla sea de fiar

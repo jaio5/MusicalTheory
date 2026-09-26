@@ -8,6 +8,9 @@ import type { Recording, SessionRecorder } from '@media/session-recorder';
 import { StreamRecorder } from '@media/stream-recorder';
 
 import { canShareStream } from '@audio/stream-source';
+import { WebAudioMetronome, type Metronome } from '@audio/metronome';
+
+import { contarAtras } from './cuenta-atras';
 
 import { entradaActiva, useListening, type ListeningDeps } from './use-listening';
 import { useSessionStore } from './session-store';
@@ -40,7 +43,7 @@ import { useSessionStore } from './session-store';
  * ya hacía la grabadora.
  */
 
-export type FaseDeTocar = 'quieto' | 'preparando' | 'tocando';
+export type FaseDeTocar = 'quieto' | 'preparando' | 'contando' | 'tocando';
 
 export interface Toma {
   readonly recording: Recording;
@@ -54,6 +57,13 @@ export interface TocarYApuntar {
   readonly mensaje: string | null;
   /** Cuántos segundos llevas tocando. */
   readonly segundos: number;
+  /**
+   * Golpes que quedan de la cuenta atrás, o nulo si no está contando.
+   *
+   * Se enseña además de oírse: un número que baja dice cuándo entrar mejor que
+   * cuatro clics a los que hay que ponerle la cuenta uno mismo.
+   */
+  readonly cuenta: number | null;
   readonly empezar: () => Promise<void>;
   /** Para, y devuelve la toma de audio si la hubo. */
   readonly parar: () => Promise<Toma | null>;
@@ -62,6 +72,7 @@ export interface TocarYApuntar {
 export interface TocarDeps extends ListeningDeps {
   readonly createMic?: () => MicInput;
   readonly createRecorder?: () => SessionRecorder;
+  readonly createMetronome?: () => Metronome;
 }
 
 /**
@@ -84,9 +95,13 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
   const [fase, setFase] = useState<FaseDeTocar>('quieto');
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [segundos, setSegundos] = useState(0);
+  const [cuenta, setCuenta] = useState<number | null>(null);
 
   const micRef = useRef<MicInput | null>(null);
   const grabadorRef = useRef<SessionRecorder | null>(null);
+  const metronomoRef = useRef<Metronome | null>(null);
+  /** Cómo cortar la cuenta atrás si se para en mitad. Nulo si no está contando. */
+  const cortarCuentaRef = useRef<(() => void) | null>(null);
 
   // Las fábricas en una referencia, y no en las dependencias: un componente que
   // pase funciones anónimas las cambia en cada render, y ahí dentro eso cerraría
@@ -111,6 +126,35 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
     };
   }, [tocando]);
 
+  /**
+   * Cuenta los dos compases y dice dónde cae el compás uno.
+   *
+   * El tempo sale del ajuste que ya hay y no se pregunta aquí: es el mismo con el
+   * que después se miden los pulsos de cada acorde, así que dos sitios donde
+   * elegirlo serían dos tempos distintos para la misma toma.
+   */
+  const contarAntesDeApuntar = useCallback(async (): Promise<{
+    readonly fase: 'contada' | 'cortada';
+    readonly empiezaEn: number;
+  }> => {
+    const { bpm, beatsPerBar } = useSessionStore.getState();
+    const metronomo = fabricas.current.createMetronome?.() ?? new WebAudioMetronome();
+    metronomoRef.current = metronomo;
+    setFase('contando');
+
+    const cuentaAtras = contarAtras({ metronomo, bpm, beatsPerBar, alQuedar: setCuenta });
+    cortarCuentaRef.current = cuentaAtras.cortar;
+
+    const empiezaEn = await cuentaAtras.terminada;
+
+    cortarCuentaRef.current = null;
+    setCuenta(null);
+    metronomoRef.current = null;
+    await metronomo.dispose();
+
+    return empiezaEn === null ? { fase: 'cortada', empiezaEn: 0 } : { fase: 'contada', empiezaEn };
+  }, []);
+
   const empezar = useCallback(async () => {
     setMensaje(null);
     setSegundos(0);
@@ -121,6 +165,20 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
     // apuntar y entonces no se empieza.
     await escucha.start();
     if (useSessionStore.getState().listening !== 'listening') {
+      setFase('quieto');
+      return;
+    }
+
+    // **La cuenta atrás va aquí: con el micro ya abierto y antes de grabar.**
+    //
+    // Antes del micro no puede ir, porque abrirlo pide permiso y puede tardar: la
+    // cuenta se quedaría sonando mientras el navegador pregunta. Y antes de
+    // grabar porque así **la claqueta no entra en la toma**: el audio que se
+    // descarga —y el que algún día suba al modelo— empieza donde empiezas a
+    // tocar, no con dos compases de clic.
+    const { fase: faseDeLaCuenta, empiezaEn } = await contarAntesDeApuntar();
+    if (faseDeLaCuenta === 'cortada') {
+      await escucha.stop();
       setFase('quieto');
       return;
     }
@@ -163,15 +221,24 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       setMensaje(motivo ?? 'No he podido grabar el sonido, pero te sigo oyendo.');
     }
 
+    // **El tramo empieza donde cae el compás uno**, que es un pulso después del
+    // último clic y lo calcula la cuenta atrás. Puesto en el instante del último
+    // clic, todo lo tocado saldría desplazado un pulso.
+    //
     // **`performance.now` y no `Date.now`.** Es el reloj con el que se apuntan
     // los acordes del motor y las notas del historial, y mezclarlos deja los
     // instantes a mil millones de distancia: el punteo se quedaría entero fuera
     // del tramo y no aparecería ni una nota.
-    acciones.startCapture(performance.now());
+    acciones.startCapture(empiezaEn);
     setFase('tocando');
-  }, [acciones, escucha]);
+  }, [acciones, contarAntesDeApuntar, escucha]);
 
   const parar = useCallback(async (): Promise<Toma | null> => {
+    // **Parar en mitad de la cuenta la corta y no empieza nada.** Sin esto, el
+    // botón no hacía nada durante dos compases y luego arrancaba solo: pulsar
+    // para no grabar y acabar grabando es lo contrario de lo que se pidió.
+    cortarCuentaRef.current?.();
+
     acciones.stopCapture(performance.now());
 
     const grabador = grabadorRef.current;
@@ -198,10 +265,15 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
     return () => {
       void grabadorRef.current?.stop();
       void micRef.current?.stop();
+      // La claqueta también: irse de la pantalla contando dejaba el clic sonando
+      // encima de la pantalla siguiente.
+      cortarCuentaRef.current?.();
+      void metronomoRef.current?.dispose();
       grabadorRef.current = null;
       micRef.current = null;
+      metronomoRef.current = null;
     };
   }, []);
 
-  return { fase, mensaje, segundos, empezar, parar };
+  return { fase, mensaje, segundos, cuenta, empezar, parar };
 }

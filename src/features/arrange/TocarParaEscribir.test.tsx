@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AudioInput, AudioInputState } from '@audio/audio-input';
 import type { StreamSource } from '@audio/stream-source';
 import type { ChordEngine } from '@audio/chord-engine';
+import type { Metronome, MetronomeOptions } from '@audio/metronome';
 import type { PitchEngine } from '@audio/pitch-engine';
 import { pitchClassFromName } from '@core/music';
 import type { MicInput, MicState } from '@media/mic-input';
@@ -150,6 +151,45 @@ class GrabadorFalso implements SessionRecorder {
   }
 }
 
+/**
+ * Un metrónomo de mentira: los pulsos los da el test.
+ *
+ * Hace falta uno porque en jsdom no hay `AudioContext`, así que el de verdad no
+ * arranca y la cuenta se salta sola —a propósito, para no colgar la grabación—.
+ * Con esto se puede probar la cuenta de verdad, golpe a golpe.
+ */
+class MetronomoFalso implements Metronome {
+  static ultimo: MetronomoFalso | null = null;
+  running = false;
+  #onBeat: ((beat: number) => void) | undefined;
+  #dados = 0;
+
+  constructor() {
+    MetronomoFalso.ultimo = this;
+  }
+
+  async start(options: MetronomeOptions): Promise<void> {
+    this.#onBeat = options.onBeat;
+    this.running = true;
+  }
+
+  setBpm(): void {}
+
+  stop(): void {
+    this.running = false;
+  }
+
+  async dispose(): Promise<void> {
+    this.running = false;
+  }
+
+  /** Un golpe, como si hubiera sonado el clic. */
+  pulso(): void {
+    this.#onBeat?.(this.#dados % 4);
+    this.#dados += 1;
+  }
+}
+
 const DEPS = {
   createInput: () => new EntradaFalsa(),
   createEngine: () => new MotorFalso(),
@@ -157,6 +197,18 @@ const DEPS = {
   createMic: () => new MicFalso(),
   createRecorder: () => new GrabadorFalso(),
 };
+
+/** Lo mismo, pero con una claqueta que se puede llevar a mano. */
+const DEPS_CON_CLAQUETA = { ...DEPS, createMetronome: () => new MetronomoFalso() };
+
+/** Da los golpes que se le digan, esperando a que React se entere. */
+async function golpes(cuantos: number): Promise<void> {
+  for (let i = 0; i < cuantos; i += 1) {
+    await act(async () => {
+      MetronomoFalso.ultimo?.pulso();
+    });
+  }
+}
 
 const C = pitchClassFromName('C');
 
@@ -198,6 +250,90 @@ function suenaUnAcorde(): void {
     alternatives: [],
   });
 }
+
+/**
+ * **La claqueta: dos compases y se calla.**
+ *
+ * Antes de esto se apuntaba desde la pulsación, y la transcripción convertía lo
+ * tocado con el `bpm` de los ajustes: si tocabas a otro tempo, todo caía en el
+ * sitio equivocado y nadie te había dado un pulso al que agarrarte
+ * ([adr/0053](../../../docs/adr/0053-la-claqueta-cuenta-y-se-calla.md)).
+ */
+describe('la claqueta antes de apuntar', () => {
+  beforeEach(() => {
+    MetronomoFalso.ultimo = null;
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+  });
+
+  it('cuenta dos compases antes de empezar a apuntar', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    // Contando: ni se apunta todavía, ni el botón dice «parar y escribirlo».
+    expect(await screen.findByText('8')).toBeInTheDocument();
+    expect(useSessionStore.getState().capturing).toBe(false);
+    expect(screen.getByRole('button', { name: /Dejarlo/ })).toBeInTheDocument();
+
+    // Siete golpes y sigue contando; con el octavo, arranca.
+    await golpes(7);
+    expect(useSessionStore.getState().capturing).toBe(false);
+
+    await golpes(1);
+    await waitFor(() => {
+      expect(useSessionStore.getState().capturing).toBe(true);
+    });
+    expect(screen.getByRole('button', { name: /Parar y escribirlo/ })).toBeInTheDocument();
+  });
+
+  /**
+   * **Y al empezar a tocar se calla.** Es la razón de ser de todo esto: el clic
+   * sale por los altavoces y el micro lo oye, así que uno que siguiera sonando
+   * entraría en el análisis como señal.
+   */
+  it('se calla en cuanto se empieza a apuntar', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await golpes(8);
+    await waitFor(() => {
+      expect(useSessionStore.getState().capturing).toBe(true);
+    });
+
+    expect(MetronomoFalso.ultimo?.running, 'la claqueta sigue sonando').toBe(false);
+  });
+
+  // La cuenta se ve además de oírse: dos compases sin nada en pantalla se leen
+  // como que la aplicación se ha quedado colgada.
+  it('la cuenta se ve bajar', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    expect(await screen.findByText('8')).toBeInTheDocument();
+
+    await golpes(3);
+    expect(screen.getByText('5')).toBeInTheDocument();
+  });
+
+  /**
+   * Cortar la cuenta no es fallar al tocar. Sin un camino propio, parar aquí
+   * pasaba por apuntar lo tocado —que es nada— y contestaba «no he podido leer
+   * nada», que es culpar a quien solo ha cambiado de idea.
+   */
+  it('cortarla no escribe nada ni dice que no se ha entendido', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await golpes(2);
+    await userEvent.click(screen.getByRole('button', { name: /Dejarlo/ }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Tocar$/ })).toBeInTheDocument();
+    });
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
+    expect(screen.queryByText(/no he podido leer/i)).not.toBeInTheDocument();
+  });
+});
 
 describe('Tocar para escribir', () => {
   it('sin tonalidad no se puede empezar, y se dice por que', () => {
