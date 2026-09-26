@@ -53,7 +53,7 @@ import {
 } from './arrangement';
 import { MAX_LEAD_NOTES, type LeadNote } from './melody';
 import { pitchClassFromName } from './notes';
-import { MAX_BARS, type Song } from './song';
+import { MAX_BARS, parseSong, type Song } from './song';
 
 function bloque(id: string, degree: Block['degree'], beats = 4): Block {
   return writtenBlock(id, degree, beats);
@@ -270,6 +270,129 @@ describe('montaje y canción', () => {
   it('un bloque de dos compases se guarda como el grado dos veces', () => {
     const a = resizeBlock(arrangementFromSong(cancion, 4), 'c0b0', 8);
     expect(sectionsFromArrangement(a, 4)[0]?.degrees).toEqual(['I', 'I', 'V', 'vi', 'IV']);
+  });
+
+  /**
+   * **Y la agrupación vuelve.** Un grado sigue siendo un compás —eso lo leen la
+   * ruta de salidas y la de canciones— pero aparte se guarda cuántos compases
+   * ocupaba cada bloque, así que abrir no deja dos bloques de uno donde había uno
+   * de dos. Con una canción que se monta en varias sesiones, volver a juntarlos a
+   * mano era trabajo repetido cada vez.
+   */
+  it('un bloque de dos compases vuelve siendo uno de dos', () => {
+    const estirado = resizeBlock(arrangementFromSong(cancion, 4), 'c0b0', 8);
+    const secciones = sectionsFromArrangement(estirado, 4);
+
+    expect(secciones[0]?.compasesPorBloque).toEqual([2, 1, 1, 1]);
+
+    const vuelta = arrangementFromSong({ ...cancion, sections: secciones }, 4);
+    expect(vuelta.parts[0]?.blocks.map((b) => [b.degree, b.beats])).toEqual([
+      ['I', 8],
+      ['V', 4],
+      ['vi', 4],
+      ['IV', 4],
+    ]);
+  });
+
+  // Y con todos los bloques de un compás no se escribe: no diría nada y haría
+  // crecer el documento de todas las canciones.
+  it('sin agrupar de verdad, el campo no se escribe', () => {
+    expect(sectionsFromArrangement(arrangementFromSong(cancion, 4), 4)[0]).not.toHaveProperty(
+      'compasesPorBloque',
+    );
+  });
+
+  /**
+   * Las canciones de antes no lo traen y no están rotas: sale un bloque por
+   * compás, que es lo que salía siempre.
+   */
+  it('una cancion de antes sigue abriendo un bloque por compas', () => {
+    const a = arrangementFromSong(cancion, 4);
+    expect(a.parts[0]?.blocks).toHaveLength(4);
+    expect(a.parts[0]?.blocks.every((b) => b.beats === 4)).toBe(true);
+  });
+
+  /**
+   * **El tope de compases puede cortar a mitad de un bloque**, y entonces la
+   * agrupación tiene que contar los compases que de verdad entraron. Apuntando los
+   * que se pedían saldría una lista que no suma, y al abrirla se descartaría
+   * entera: la canción volvería desagrupada del todo por culpa del último bloque.
+   */
+  it('el tope corta el bloque y la agrupacion sigue sumando', () => {
+    // Diecisiete bloques de dos compases son treinta y cuatro: dos más del tope.
+    const muchos: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'P',
+          blocks: Array.from({ length: 17 }, (_, i) => bloque(`b${i}`, 'I', 8)),
+          notes: [],
+          bars: 4,
+        },
+      ],
+    };
+    const seccion = sectionsFromArrangement(muchos, 4)[0]!;
+
+    expect(seccion.degrees).toHaveLength(MAX_PART_BLOCKS);
+    const suma = seccion.compasesPorBloque!.reduce((total, cuantos) => total + cuantos, 0);
+    expect(suma, 'la agrupacion no suma los compases que hay').toBe(seccion.degrees.length);
+  });
+
+  /**
+   * Y una agrupación que no suma se descarta entera: es de otra canción o de otro
+   * compás, y aplicarla movería los acordes de sitio.
+   */
+  it('una agrupacion que no suma se ignora', () => {
+    const rota = parseSong(
+      {
+        tonic: 0,
+        mode: 'major',
+        sections: [{ name: 'A', degrees: ['I', 'V', 'vi', 'IV'], compasesPorBloque: [2, 2, 2] }],
+      },
+      'x',
+    );
+
+    expect(rota?.sections[0]).not.toHaveProperty('compasesPorBloque');
+    expect(arrangementFromSong(rota!, 4).parts[0]?.blocks).toHaveLength(4);
+  });
+
+  // Y una que sí suma se lee, que es el camino por el que llega una canción
+  // guardada de verdad: desde el `jsonb`, no desde el lienzo.
+  it('una agrupacion guardada se lee y agrupa', () => {
+    const leida = parseSong(
+      {
+        tonic: 0,
+        mode: 'major',
+        sections: [{ name: 'A', degrees: ['I', 'I', 'V', 'IV'], compasesPorBloque: [2, 1, 1] }],
+      },
+      'x',
+    );
+
+    expect(leida?.sections[0]?.compasesPorBloque).toEqual([2, 1, 1]);
+    expect(arrangementFromSong(leida!, 4).parts[0]?.blocks.map((b) => [b.degree, b.beats])).toEqual(
+      [
+        ['I', 8],
+        ['V', 4],
+        ['IV', 4],
+      ],
+    );
+  });
+
+  // Un número que no es un número de compases tira la lista entera: medio
+  // agrupada sería peor que sin agrupar, porque nadie sabría qué falta.
+  it('un valor que no es un compas tira la agrupacion', () => {
+    for (const malo of [0, -1, 1.5, 'dos', null]) {
+      const leida = parseSong(
+        {
+          tonic: 0,
+          mode: 'major',
+          sections: [{ name: 'A', degrees: ['I', 'I', 'V'], compasesPorBloque: [malo, 1] }],
+        },
+        'x',
+      );
+
+      expect(leida?.sections[0], `con ${String(malo)}`).not.toHaveProperty('compasesPorBloque');
+    }
   });
 
   it('un bloque más corto que el compás sigue contando una vez', () => {

@@ -106,13 +106,19 @@ El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
 ([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
 la manera normal de componer aquí.
 
-- **El lienzo no se guarda solo, y eso es lo primero de esta sección.** Se guarda
-  como canción desde la pestaña de Canciones, y ahí la duración de los bloques se
-  convierte en compases repetidos, así que reabrir una canción da los bloques
-  desagrupados. Estaba anotado como un detalle razonado y **sube a urgente el 26 de
+- **El lienzo no se guarda solo, y eso es lo primero de esta sección.** Hay que
+  guardarlo como canción desde la pestaña de Canciones, y si no te acuerdas se
+  pierde. Estaba anotado como un detalle razonado y **sube a urgente el 26 de
   septiembre de 2026**, porque quien la usa ha dicho que una canción se monta en
   **muchas** sesiones y no en una: con sesiones largas esto no es una molestia, es
   perder trabajo.
+- **Y reabrir ya no desagrupa los bloques: hecho.** Un grado sigue siendo un
+  compás, que es lo que leen la ruta de salidas y la de canciones, pero la
+  agrupación se guarda aparte en `compasesPorBloque`. Aquí ponía que arreglarlo
+  pedía tocar el esquema de la base de datos, y **era falso**: la canción vive en
+  una columna `jsonb`, así que un campo opcional más no pide ninguna migración,
+  igual que no la pidieron `sources` ni `especies`. Las canciones de antes no lo
+  traen y siguen abriendo un bloque por compás.
 
 - **Que la marca de «oído» sirva de algo medible.** Los compases que leyó el micro
   y nadie confirmó viajan al modelo marcados, y el prompt le dice que no se fíe de

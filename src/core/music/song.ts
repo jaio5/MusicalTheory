@@ -165,6 +165,26 @@ export interface SongSection {
    */
   readonly especies?: readonly (EspecieDeBloque | null)[];
   /**
+   * Cuántos compases ocupa cada bloque, en orden.
+   *
+   * **Es lo único que se perdía de un lienzo al guardarlo.** Un grado es un
+   * compás —eso no cambia, lo leen la ruta de salidas y la de canciones— así que
+   * un bloque de dos compases se escribe como el mismo grado dos veces. Al
+   * reabrirlo salían dos bloques de uno donde había uno de dos: no cambia ni una
+   * nota, pero hay que volver a juntarlos a mano, y con una canción que se monta
+   * en varias sesiones eso es trabajo repetido cada vez.
+   *
+   * Se guarda en **compases y no en pulsos** para que no dependa del compás que
+   * haya puesto: son enteros que suman `degrees.length`, y si no suman se lee
+   * como antes —un bloque por compás— en vez de dar una agrupación inventada.
+   *
+   * Opcional, y solo se escribe cuando algún bloque pasa de un compás: con todos
+   * de uno no diría nada y haría crecer el documento. Aquí no hizo falta ninguna
+   * migración: la canción vive en una columna `jsonb`, que es lo mismo que
+   * permitió añadir `sources` y `especies`.
+   */
+  readonly compasesPorBloque?: readonly number[];
+  /**
    * Compases que ocupa la parte, aunque no estén llenos.
    *
    * Es sitio para escribir, no sonido: una parte de ocho compases con dos
@@ -401,6 +421,27 @@ function asSources(value: unknown, cuantos: number): BlockSource[] {
   });
 }
 
+/**
+ * La agrupación en bloques, o vacía si no cuadra.
+ *
+ * Se comprueba que sumen los compases que hay: una lista que no suma es una
+ * agrupación de otra canción o de otro compás, y aplicarla movería los acordes de
+ * sitio. Vacía quiere decir «como antes»: un bloque por compás.
+ */
+function asCompasesPorBloque(value: unknown, compases: number): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const leidos = value.map((crudo) =>
+    typeof crudo === 'number' && Number.isInteger(crudo) && crudo >= 1 ? crudo : 0,
+  );
+  if (leidos.some((cuantos) => cuantos === 0)) {
+    return [];
+  }
+  const suma = leidos.reduce((total, cuantos) => total + cuantos, 0);
+  return suma === compases ? leidos : [];
+}
+
 /** Las especies guardadas, una por grado. Lo que no reconozca, ninguna. */
 function asEspecies(value: unknown, cuantos: number): (EspecieDeBloque | null)[] {
   const crudas = Array.isArray(value) ? value : [];
@@ -427,6 +468,7 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
         const lead = asLead(record['lead']);
         const sources = asSources(record['sources'], degrees.length);
         const especies = asEspecies(record['especies'], degrees.length);
+        const compasesPorBloque = asCompasesPorBloque(record['compasesPorBloque'], degrees.length);
         const bars = record['bars'];
 
         // Se omite lo que no dice nada, igual que al escribir. Leer y guardar
@@ -444,6 +486,8 @@ function asSections(value: unknown, mode: KeyMode): SongSection[] {
           ...(lead.length > 0 ? { lead } : {}),
           ...(sources.some((source) => source !== 'written') ? { sources } : {}),
           ...(especies.some((especie) => especie !== null) ? { especies } : {}),
+          // Solo si agrupa de verdad: con un bloque por compás no dice nada.
+          ...(compasesPorBloque.some((cuantos) => cuantos > 1) ? { compasesPorBloque } : {}),
         };
       })
       // Una sección sin un solo acorde no es una sección: es una fila vacía que

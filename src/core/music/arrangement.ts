@@ -983,7 +983,34 @@ function idDePosicion(prefijo: string, parte: number, bloque?: number): string {
  * Cada grado ocupa un compás, que es lo que un grado significa en `song.ts`. Al
  * volver a guardar, un bloque que nadie haya tocado escribe exactamente el mismo
  * grado: abrir y guardar no cambia una canción.
+ *
+ * **Y los bloques vuelven agrupados como estaban** si la canción trae
+ * `compasesPorBloque`. Sin ese campo —las canciones de antes— sale un bloque por
+ * compás, que es lo que salía siempre: no se pierde nada, solo hay que volver a
+ * juntarlos.
  */
+/**
+ * Dónde empieza cada bloque y cuántos compases ocupa.
+ *
+ * Sin `compasesPorBloque` es un bloque por compás, que es lo de siempre. Con él,
+ * los compases que dice cada uno: ya viene comprobado de `parseSong` —suman los
+ * que hay o no se lee—, así que aquí solo hay que recorrerlo.
+ */
+function primerCompasDeCadaBloque(
+  section: SongSection,
+): readonly { readonly desde: number; readonly compases: number }[] {
+  const agrupados = section.compasesPorBloque;
+  if (agrupados === undefined) {
+    return section.degrees.map((_, desde) => ({ desde, compases: 1 }));
+  }
+  let desde = 0;
+  return agrupados.map((compases) => {
+    const bloque = { desde, compases };
+    desde += compases;
+    return bloque;
+  });
+}
+
 export function arrangementFromSong(
   song: Song,
   beatsPerBar: number = DEFAULT_BEATS_PER_BAR,
@@ -994,17 +1021,20 @@ export function arrangementFromSong(
     parts: song.sections.map((section, parte) => ({
       id: idDePosicion(prefijo, parte),
       name: section.name,
-      blocks: section.degrees.map((degree, bloque) => ({
+      blocks: primerCompasDeCadaBloque(section).map(({ desde, compases }, bloque) => ({
         ...writtenBlock(
           idDePosicion(prefijo, parte, bloque),
-          degree,
-          porCompas,
-          section.especies?.[bloque] ?? undefined,
+          section.degrees[desde]!,
+          porCompas * compases,
+          section.especies?.[desde] ?? undefined,
         ),
         // De dónde salió cada acorde vuelve tal cual. Lo que se guardó como
         // oído sigue siendo oído al reabrirlo: si no, guardar y volver a abrir
         // sería una manera de dar por buena una lectura que nadie miró.
-        source: section.sources?.[bloque] ?? 'written',
+        //
+        // Del primer compás del bloque, que es de donde salió: los dos compases
+        // de un bloque de dos se guardaron con la misma procedencia.
+        source: section.sources?.[desde] ?? 'written',
       })),
       notes: (section.lead ?? []).map(([offset, start, length], nota) => ({
         id: `${idDePosicion(prefijo, parte)}n${nota}`,
@@ -1020,17 +1050,16 @@ export function arrangementFromSong(
 /**
  * Las secciones que guardaría este montaje.
  *
- * **Aquí es donde se pierde la duración**, y conviene saber por qué se pierde en
- * vez de arreglarlo: una canción guardada es una lista de grados, la leen la API
- * de salidas y la de canciones, y las dos llevan meses funcionando así. Un
- * bloque de dos compases se escribe como el mismo grado dos veces, que suena
- * igual y cabe en el formato de siempre. Lo que se pierde al abrirla otra vez es
- * saber que eran un bloque y no dos, y eso no cambia ni una nota.
+ * **Un grado sigue siendo un compás**, que es lo que un grado significa en
+ * `song.ts` y lo que leen la ruta de salidas y la de canciones: un bloque de dos
+ * compases se escribe como el mismo grado dos veces.
  *
- * Cambiar el formato para conservarlo tendría que tocar el esquema de la base de
- * datos, el contrato de las dos rutas y todas las canciones ya guardadas, y a
- * cambio daría un lienzo con los bloques agrupados como estaban. No compensa
- * todavía.
+ * Lo que antes se perdía —saber que eran un bloque y no dos— ahora va aparte, en
+ * `compasesPorBloque`. Aquí decía que arreglarlo «tendría que tocar el esquema de
+ * la base de datos», y **era falso**: la canción vive en una columna `jsonb`, así
+ * que un campo opcional más no pide ninguna migración, igual que no la pidieron
+ * `sources` ni `especies`. Con canciones que se montan en varias sesiones, volver
+ * a juntar los bloques a mano cada vez que se abre sí compensaba.
  */
 export function sectionsFromArrangement(
   arrangement: Arrangement,
@@ -1044,10 +1073,15 @@ export function sectionsFromArrangement(
       const degrees: DegreeSymbol[] = [];
       const sources: BlockSource[] = [];
       const especies: (EspecieDeBloque | null)[] = [];
+      const compasesPorBloque: number[] = [];
       for (const block of part.blocks) {
         // Al menos una vez: un bloque más corto que el compás sigue siendo un
         // acorde de la canción, y redondear a cero lo borraría sin decirlo.
         const compases = Math.max(1, Math.round(block.beats / porCompas));
+        // Los que de verdad entran, que el tope puede cortar a mitad de un
+        // bloque: apuntar los que se pedían dejaría una agrupación que no suma y
+        // al abrirla se descartaría entera.
+        const antes = degrees.length;
         for (let i = 0; i < compases && degrees.length < MAX_PART_BLOCKS; i += 1) {
           degrees.push(block.degree);
           // La procedencia va en paralelo y se repite con el grado: los dos
@@ -1056,6 +1090,9 @@ export function sectionsFromArrangement(
           // Y la séptima igual. Sin esto, un `Fmaj7` se guardaba como `IV` y
           // volvía como un `F`: escribías un acorde y te devolvían otro.
           especies.push(block.especie ?? null);
+        }
+        if (degrees.length > antes) {
+          compasesPorBloque.push(degrees.length - antes);
         }
       }
       const lead = part.notes.map((note) => [note.offset, note.start, note.length] as const);
@@ -1077,6 +1114,9 @@ export function sectionsFromArrangement(
         ...(lead.length > 0 ? { lead } : {}),
         ...(sources.some((source) => source !== 'written') ? { sources } : {}),
         ...(especies.some((especie) => especie !== null) ? { especies } : {}),
+        // Solo si agrupa: con todos los bloques de un compás no diría nada y
+        // haría crecer el documento.
+        ...(compasesPorBloque.some((cuantos) => cuantos > 1) ? { compasesPorBloque } : {}),
       };
     })
     .filter((section) => section.degrees.length > 0);
