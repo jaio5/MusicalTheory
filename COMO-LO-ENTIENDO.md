@@ -165,6 +165,15 @@ uno —un pulso después del último clic—.
 tempo. Con tomas cortas debería ser pequeño, pero eso es una suposición mía hasta
 que la pruebes con la guitarra delante.
 
+**Reabrir ya no desagrupa los bloques.** La agrupación se guarda aparte
+(`compasesPorBloque`), sin migración y sin romper lo guardado. Hacía falta antes de
+guardar solo: si no, autoguardar habría ido degradando la canción cada vez.
+
+**Y lo dudoso se pregunta solo** —tu respuesta 7—, una pregunta a la vez y con la
+cuenta de las que quedan. Antes la corrección existía pero solo para el bloque que
+tuvieras elegido, o sea que había que ir a buscarlos. Es el paso 1 de los tres para
+quitar el selector de rítmica o punteo.
+
 **16. Se empieza por la claqueta.** Y estoy de acuerdo, por lo que ya está escrito
 arriba: el metrónomo existe, hoy no suena al grabar, y de que la rejilla sea de fiar
 cuelgan las figuras, los compases y los silencios. Es la respuesta más rentable de

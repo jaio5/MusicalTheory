@@ -50,9 +50,11 @@ import {
   sectionsFromArrangement,
   type Arrangement,
   type Block,
+  bloquesEnDuda,
 } from './arrangement';
 import { MAX_LEAD_NOTES, type LeadNote } from './melody';
 import { pitchClassFromName } from './notes';
+import type { DegreeSymbol } from './progressions';
 import { MAX_BARS, parseSong, type Song } from './song';
 
 function bloque(id: string, degree: Block['degree'], beats = 4): Block {
@@ -1162,5 +1164,53 @@ describe('lo que faltaba por mirar del montaje', () => {
     expect(menor.parts[0]!.blocks[0]!.degree).toBe('i');
     // `IV` se dice `iv` en menor; `V/ii` no existe allí y se cae.
     expect(menor.parts[0]!.blocks[0]!.alternatives).toEqual(['iv']);
+  });
+});
+
+/**
+ * La cola de lo que hay que preguntar.
+ *
+ * Existe para que no haya que ir a buscarlo: la corrección estaba puesta y solo
+ * aparecía para el bloque que tuvieras elegido.
+ */
+describe('los bloques en duda', () => {
+  /** Un bloque oído, con la claridad y las alternativas que se digan. */
+  function oido(id: string, confidence: number, alternatives: DegreeSymbol[] = ['vi']): Block {
+    return { ...bloque(id, 'I', 4), source: 'heard', confidence, alternatives };
+  }
+
+  function montaje(...blocks: Block[]): Arrangement {
+    return { parts: [{ id: 'p', name: 'P', blocks, notes: [], bars: 4 }] };
+  }
+
+  it('salen los dudosos, en el orden de la canción', () => {
+    const a = montaje(oido('a', 0.5), oido('b', 0.01), oido('c', 0.02));
+
+    expect(bloquesEnDuda(a).map((b) => b.id)).toEqual(['b', 'c']);
+  });
+
+  // De varias partes, todos: la cola es de la canción y no de una parte.
+  it('recorre todas las partes', () => {
+    const a: Arrangement = {
+      parts: [
+        { id: 'p1', name: 'A', blocks: [oido('a', 0.01)], notes: [], bars: 4 },
+        { id: 'p2', name: 'B', blocks: [oido('b', 0.01)], notes: [], bars: 4 },
+      ],
+    };
+
+    expect(bloquesEnDuda(a).map((b) => b.id)).toEqual(['a', 'b']);
+  });
+
+  /**
+   * Sin alternativas no se pregunta: no hay nada que ofrecer, y preguntar sin
+   * opciones es dar trabajo sin dar salida.
+   */
+  it('uno dudoso sin alternativas no entra en la cola', () => {
+    expect(bloquesEnDuda(montaje(oido('a', 0.01, [])))).toEqual([]);
+  });
+
+  // Y lo escrito a mano no se pregunta nunca, por dudoso que parezca el número.
+  it('lo escrito a mano no entra', () => {
+    expect(bloquesEnDuda(montaje(bloque('a', 'I', 4)))).toEqual([]);
   });
 });

@@ -582,6 +582,60 @@ describe('lo que se oyó, y lo que no', () => {
     expect(screen.queryByRole('heading', { name: /No lo oí claro/ })).not.toBeInTheDocument();
   });
 
+  /**
+   * **Y no hay que ir a buscarlos.** Aquí solo se preguntaba del bloque que
+   * tuvieras elegido, así que había que dar con los dudosos pulsándolos uno a uno:
+   * quien no supiera que están marcados no los arreglaba nunca. Ahora la pregunta
+   * sale sola, **una y con la cuenta de las que quedan**, que no es lo mismo que
+   * abrirlas todas —eso llenaría la columna de preguntas—.
+   */
+  it('pregunta sin que haya que elegir el bloque, y dice cuantas quedan', async () => {
+    conTonalidad();
+    grabacion([
+      {
+        root: 0,
+        notes: triada(0, 4),
+        at: 0,
+        margin: 0.01,
+        alternatives: [{ root: 9, notes: triada(9, 3) }],
+      },
+      {
+        root: 5,
+        notes: triada(5, 4),
+        at: 4000,
+        margin: 0.01,
+        alternatives: [{ root: 2, notes: triada(2, 3) }],
+      },
+    ]);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
+
+    // Sin pulsar ningún bloque, ya pregunta, y dice que son dos.
+    expect(screen.getByRole('heading', { name: /No lo oí claro/ })).toBeInTheDocument();
+    expect(screen.getByText(/quedan 2/)).toBeInTheDocument();
+
+    // Se resuelve una y aparece la siguiente, ya sin cuenta porque queda una.
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'Corregir el acorde' })).getByRole('button', {
+        name: /^Am/,
+      }),
+    );
+    expect(screen.getByRole('heading', { name: /No lo oí claro/ })).toBeInTheDocument();
+    expect(screen.queryByText(/quedan/)).not.toBeInTheDocument();
+  });
+
+  // Y cuando no queda ninguna, la pregunta desaparece.
+  it('sin nada dudoso no pregunta nada', async () => {
+    conTonalidad();
+    grabacion([{ root: 0, notes: triada(0, 4), at: 0, margin: 0.5, alternatives: [] }]);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
+
+    expect(screen.queryByRole('heading', { name: /No lo oí claro/ })).not.toBeInTheDocument();
+  });
+
   // Si el motor dudó y acertó, decírselo tiene que dejar de preguntar.
   it('se puede dar por bueno lo que se oyó', async () => {
     conTonalidad();

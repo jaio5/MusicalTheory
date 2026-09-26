@@ -14,6 +14,7 @@ import {
   chordAt,
   findBlock,
   findNote,
+  bloquesEnDuda,
   isDoubtful,
   writeNote,
   melodyEnd,
@@ -749,19 +750,32 @@ export function ArrangeCanvas() {
   );
 
   /**
-   * El bloque elegido, si es uno del que hay que preguntar.
+   * De qué acorde se pregunta: el elegido si es dudoso, y si no, **el primero que
+   * lo sea.**
    *
-   * Solo cuando está elegido: marcar los dudosos en el lienzo ya avisa de que
-   * hay algo que mirar, y abrir la corrección de todos a la vez llenaría la
-   * columna de preguntas sobre compases que a lo mejor ni importan.
+   * Aquí solo se preguntaba del elegido, con esta razón: abrir la corrección de
+   * todos a la vez llenaría la columna de preguntas sobre compases que a lo mejor
+   * ni importan. La razón es buena y sigue en pie, **pero preguntar solo del
+   * elegido significa que hay que ir a buscarlos**: quien no supiera que los
+   * dudosos están marcados no los arreglaba nunca.
+   *
+   * Así que ni todos ni ninguno: **uno, y cuántos quedan.** Se arregla o se da por
+   * bueno, y aparece el siguiente. Que la transcripción pregunte lo que no tiene
+   * claro en vez de esperar a que lo encuentres es lo que pidió quien la usa, y es
+   * el primer paso para que la toma no tenga que declarar lo que es
+   * ([adr/0048](../../../docs/adr/0048-una-toma-dice-lo-que-es.md)).
+   *
+   * El elegido manda sobre la cola: si estás mirando un acorde concreto, la
+   * pregunta es de ése.
    */
   const bloqueElegido = selectedBlockId === null ? null : findBlock(arrangement, selectedBlockId);
+  const cola = bloquesEnDuda(arrangement);
   const enDuda =
     bloqueElegido !== null &&
     isDoubtful(bloqueElegido.block) &&
     bloqueElegido.block.alternatives.length > 0
       ? bloqueElegido.block
-      : null;
+      : (cola[0] ?? null);
 
   const pulsos = arrangementBeats(arrangement);
 
@@ -1224,7 +1238,17 @@ export function ArrangeCanvas() {
               aria-label="Corregir el acorde"
               className="border-brass-dim mb-4 rounded-md border border-dashed p-3"
             >
-              <h3 className="rotulo">No lo oí claro. ¿Era esto?</h3>
+              <h3 className="rotulo">
+                No lo oí claro. ¿Era esto?
+                {cola.length > 1 && (
+                  // Cuántas quedan, para que se vea que esto se acaba. Sin el
+                  // número, arreglar uno y ver aparecer otro parece que no
+                  // avanza.
+                  <span className="text-text-muted ml-2 text-xs font-normal">
+                    quedan {cola.length}
+                  </span>
+                )}
+              </h3>
               <p className="text-text-muted mt-1 text-xs">
                 Apunté {resolveDegree(tonic, mode, enDuda.degree).symbol} y estuve a punto de decir
                 otra cosa.

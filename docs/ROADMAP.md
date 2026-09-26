@@ -26,6 +26,11 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   que queda es medirla tocando**: la claqueta se calla, así que se puede seguir
   yendo de tempo, y con tomas cortas eso debería ser pequeño —pero es una
   suposición hasta que se pruebe con una guitarra delante—.
+- **Preguntar lo dudoso sin tener que ir a buscarlo: hecho.** La corrección estaba
+  puesta y solo aparecía para el bloque que tuvieras elegido, así que había que dar
+  con los dudosos pulsándolos uno a uno. Ahora la pregunta sale sola, **una y con la
+  cuenta de las que quedan** —ni todas, que llenaría la columna, ni ninguna—. Es el
+  paso 1 de los tres que hacen falta para quitar el selector.
 - **Y hay que quitar el selector de rítmica o punteo: tiene que transcribirse
   solo.** Decidido el 26 de septiembre de 2026 por quien la usa, y **revierte
   [adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)**. La medida de aquel sigue en

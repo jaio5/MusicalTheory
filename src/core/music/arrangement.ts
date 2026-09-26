@@ -181,6 +181,24 @@ export function isDoubtful(block: Block): boolean {
 }
 
 /**
+ * Los acordes que hay que preguntar, en el orden en que están en la canción.
+ *
+ * **Existe para que no haya que ir a buscarlos.** La corrección estaba puesta y
+ * solo aparecía para el bloque que tuvieras elegido, así que había que dar con los
+ * dudosos pulsándolos uno a uno: quien no supiera que están marcados no los
+ * arreglaba nunca.
+ *
+ * Solo los que traen alternativas: de un acorde del que el motor dudó **sin** tener
+ * segundo candidato no hay nada que ofrecer, y preguntar sin opciones es dar
+ * trabajo sin dar salida. Ése se cambia con el buscador, como cualquier otro.
+ */
+export function bloquesEnDuda(arrangement: Arrangement): readonly Block[] {
+  return arrangement.parts.flatMap((part) =>
+    part.blocks.filter((block) => isDoubtful(block) && block.alternatives.length > 0),
+  );
+}
+
+/**
  * Un tramo con nombre: la estrofa, el estribillo, el puente.
  *
  * Los acordes van en `blocks`, uno detrás de otro y cada uno con lo que dura. El
