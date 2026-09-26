@@ -89,7 +89,10 @@ El detalle entero, con la tabla de qué da cada plan y qué se guarda de ti, est
   el abuso «se hace inútil» por el cupo y la cuenta obligatoria: el cupo aguanta,
   **la cuenta obligatoria hoy no es una barrera**. Lo que hay que decidir es si la
   IA gratis se pone detrás de un correo verificado —no la aplicación, que funciona
-  sin cuenta a propósito—.
+  sin cuenta a propósito—. **Decidido el 26 de septiembre de 2026: se verifica antes
+  de la IA y antes de subir audio.** Y eso convierte mandar correos en requisito de
+  la IA, cuando hoy no lo es de nada: el envío sigue sin probarse contra un
+  proveedor de verdad, que es el primer punto de esta lista.
 
 ## Qué decidir cuando llegue el momento
 

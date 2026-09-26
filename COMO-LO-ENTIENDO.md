@@ -20,6 +20,143 @@ me dice lo que hace; no me dice si es lo que querías.
 
 ---
 
+## 0. El test, contestado
+
+Contestado el 26 de septiembre de 2026. **Esta tabla es la referencia**: manda
+sobre cualquier cosa que yo suponga más abajo.
+
+| #   | Pregunta                              | Tu respuesta                                                                   |
+| --- | ------------------------------------- | ------------------------------------------------------------------------------ |
+| 1   | Qué esperas de las salidas            | **Tres opciones para elegir**                                                  |
+| 2   | Qué manda, componer o aprender        | **Componer es el corazón**                                                     |
+| 3   | Con qué grabas                        | **Pensado para todos**: acústica por móvil u ordenador, eléctrica por interfaz |
+| 4   | Cuánto grabas de una vez              | **Cuatro u ocho compases**                                                     |
+| 5   | Claqueta al grabar                    | **Obligatoria**                                                                |
+| 6   | El «input de sonido» de las salidas   | **Subir el audio de verdad**                                                   |
+| 7   | Cómo corregir la transcripción        | **Lo dudoso me lo pregunta; el resto lo toco yo**                              |
+| 8   | Cómo se guarda el lienzo              | **Solo, con nombre automático, en la cuenta**                                  |
+| 9   | Qué pasa sin cuenta                   | **No se guarda nada**: la sesión, y descargar lo hecho                         |
+| 10  | El audio subido                       | **Se guarda hasta que tú lo borres**                                           |
+| 11  | Segunda guitarra y capas              | **Sí, pero más adelante**                                                      |
+| 12  | El chat de salidas                    | **Memoria corta, de la misma sesión**                                          |
+| 13  | Sin cuenta: ¿también se va el avance? | **No**: solo la canción. El avance se queda                                    |
+| 14  | Dónde vive el audio subido            | **En el servidor, con la cuenta**                                              |
+| 15  | En qué plan entra subir audio         | **En todos los que tengan IA**                                                 |
+| 16  | Por dónde empiezo                     | **La claqueta al grabar**                                                      |
+| 17  | La claqueta y la fuga por el micro    | **Solo en la cuenta atrás; al grabar, callada**                                |
+| 18  | De dónde sale el tempo                | **Del ajuste de bpm que ya hay**                                               |
+| 19  | Compases de cuenta atrás              | **Dos**                                                                        |
+| 20  | El correo sin verificar               | **Verificar antes de la IA y de subir audio**                                  |
+
+### Lo que cada una desbloquea o cambia
+
+**1. Tres opciones.** El `qwen3:8b` de tu equipo llega de sobra, así que seguir
+puliendo el prompt local tiene sentido y no hace falta dar por supuesto que las
+salidas se pagan. Y encaja con lo que ya hay: hasta tres salidas por tanda.
+
+**2. Componer manda.** Confirma mi orden. El avance, la racha y las medallas son
+secundarios; lo que se pule primero es el taller.
+
+**3. Pensado para todos.** No es una respuesta, es un requisito, y cambia cómo hay
+que calibrar: **el caso contra el que hay que medir es el peor** —micro de móvil o
+de portátil con una acústica delante—, no el bueno. Y da una regla que se puede
+decir en pantalla: **para eléctrica, por interfaz**. Eso permite exigir señal
+limpia ahí en vez de intentar arreglar una eléctrica por ampli captada con el micro
+del portátil, que es el caso donde el croma se pierde y el afinador también.
+
+**4. Cuatro u ocho compases.** Es el caso bueno para el reconocimiento y quita de
+la mesa lo de partir una toma larga en partes.
+
+**5. Claqueta obligatoria.** Es la respuesta más rentable de las ocho: el
+metrónomo ya está escrito (`features/metronome/`) y hoy **no suena al grabar**, así
+que la transcripción convierte lo que toques con el `bpm` de los ajustes y si tocas
+a otro tempo todo cae mal. Con claqueta, la rejilla pasa a ser de fiar, y de ahí
+cuelgan las figuras, los compases y los silencios.
+
+**6. Subir el audio.** Es la que hay que hablar, y está en el apartado 10.
+
+**7. Lo dudoso me lo pregunta.** Aprovecha lo que ya existe y nadie usa: el motor
+**ya sabe cuándo duda**, con dos medidas distintas —el empate con el segundo
+candidato y lo poco que se parece— y con sus candidatos alternativos
+([adr/0043](docs/adr/0043-dos-maneras-de-equivocarse.md)). Hoy eso solo pinta un
+aviso; con tu respuesta pasa a ser una cola de preguntas: «esto sonó a Do o a La
+menor, ¿cuál era?».
+
+**8 y 9. Guardado en la cuenta, y sin cuenta no se guarda nada.** La cuenta existe
+porque hay planes de pago: da la IA —profesor, ideas, salidas— y da guardar. Sin
+cuenta funcionan **aprender, componer sin IA y afinar**, se puede descargar lo
+hecho, y al cerrar el navegador se pierde: vale para la sesión.
+
+**Y esto contradice lo que hace hoy.** Hoy, sin cuenta, el avance **sí** sobrevive
+a cerrar el navegador: vive en IndexedDB, y hay una función entera
+—`use-progress.ts` con `mergeProgress`— que existe para que estudiar sin cuenta y
+registrarse después **no pierda nada**. `CLAUDE.md` lo vende como una virtud: «todo
+el mundo es anónimo, con plan gratis y el avance en su navegador».
+
+Así que hay que decidir si tu respuesta alcanza también al avance de aprender o
+solo a la canción. Lo pregunto en la tanda siguiente, porque quitar la persistencia
+anónima tira esa fusión y cambia lo que promete la portada.
+
+**10. El audio se guarda hasta que lo borres.** Es la opción más pesada de las tres
+y hay que decirlo: pide sitio donde guardarlo, borrado a petición, borrado al
+cerrar la cuenta, un tope por cuenta y contarlo en la política de privacidad. Y
+añade algo que hoy no existe en ninguna parte del proyecto: **grabaciones tuyas en
+reposo, en un servidor.** La revisión de seguridad de ayer no cubre eso porque no
+había nada parecido.
+
+**11. Las capas, más adelante.** Primero que la transcripción de una voz sea de
+fiar —claqueta, corregir lo dudoso, silencios— y las capas cuando eso esté. Encaja
+con el orden de la partitura que ya confirmaste: la segunda voz iba tercera.
+
+**12. Memoria corta en el chat.** El punto medio y el más barato: recuerda mientras
+no cierres y no se guarda en ningún sitio. Permite «eso pero más oscuro» sin tener
+que guardar conversaciones ni decidir cuánto duran.
+
+**13. La contradicción se resuelve por lo estrecho: solo la canción.** El avance de
+aprender sigue como está —vive en el navegador y se fusiona al registrarte—, así que
+no hay que tirar `mergeProgress` ni cambiar lo que promete la portada. Lo que no
+sobrevive sin cuenta es la canción.
+
+**14 y 15. El audio vive en el servidor, con la cuenta, y entra en todos los planes
+que tengan IA.** Aquí tengo que cruzar dos cosas y decírtelo, porque juntas pesan
+más que separadas:
+
+- El plan **gratis ya tiene IA** —el profesor, con quince peticiones al mes—, así
+  que «todos los que tengan IA» incluye el gratis.
+- Y **registrarse no exige verificar el correo**, que es lo que anoté ayer en
+  `docs/PARA-PUBLICAR.md` al revisar la seguridad.
+
+Las dos juntas significan que **una dirección inventada puede dejar audio guardado
+en tu servidor**. Antes eso costaba quince llamadas al modelo; ahora cuesta
+almacenamiento que no se borra hasta que alguien lo borre, de una cuenta que no
+tiene detrás a nadie comprobable. No digo que la decisión esté mal: digo que
+**subir audio sube de golpe lo que cuesta no verificar el correo**, y que eso hay
+que resolverlo antes de que exista la función y no después.
+
+**17, 18 y 19. La claqueta: dos compases de cuenta atrás, con el bpm que ya hay, y
+callada mientras grabas.** Resuelve la fuga del todo —el micro no la oye, así que el
+croma no la ve— y no pide trabajo nuevo de tempo.
+
+Y tiene un intercambio que hay que medir, no suponer: **callada, puedes irte de
+tempo, y la transcripción va a seguir creyéndose el bpm del ajuste.** Con cuatro u
+ocho compases la deriva suele ser pequeña, pero es exactamente lo que hay que
+comprobar tocando antes de dar la claqueta por terminada. Si se va, las salidas
+serían: dejarla sonar con auriculares pedidos, o detectar el tempo de verdad.
+
+**20. Verificar el correo antes de la IA y de subir audio.** La aplicación se sigue
+usando sin verificar; lo que cuesta dinero y ocupa disco, no. Con una dependencia
+que hay que decir: **hoy el envío de correo no está probado contra un proveedor de
+verdad**, solo el flujo contra Postgres, y eso está anotado en
+`docs/PARA-PUBLICAR.md`. O sea que esta decisión convierte «mandar correos» en
+requisito de la IA, y antes no lo era de nada.
+
+**16. Se empieza por la claqueta.** Y estoy de acuerdo, por lo que ya está escrito
+arriba: el metrónomo existe, hoy no suena al grabar, y de que la rejilla sea de fiar
+cuelgan las figuras, los compases y los silencios. Es la respuesta más rentable de
+las dieciséis.
+
+---
+
 ## 1. Qué creo que es esto
 
 **[C]** Una aplicación web de una sola persona, sin backend obligatorio: sin
@@ -345,8 +482,27 @@ función que más pules es la que menos gente va a ver.
 - **No examinar a nadie** para colocarle de nivel.
 - **No cobrar** todavía.
 
-**[?]** La primera es la que más me ha frenado. Cuando pediste «darle un input de
-sonido a las salidas», lo implementé como «el micro lo convierte en símbolos aquí
-y viajan los símbolos». **¿Era eso lo que querías, o querías subir el audio de
-verdad?** Si es lo segundo hace falta un ADR y cambia la promesa de privacidad de
-la aplicación, así que no lo he hecho por mi cuenta.
+**[D] Y la primera cae: quieres subir el audio de verdad.**
+
+Lo hago, pero te lo digo una vez y sigo: **esto no es una función más, cambia lo
+que la aplicación promete.** Hoy hay escrito, en `CLAUDE.md` y en la regla 4 de las
+capas, que el audio no sale del dispositivo, y la pantalla de registro lo dice con
+estas palabras: «Nada de audio». Eso pasa a ser mentira el día que se suba, y una
+documentación que miente es peor que no tenerla.
+
+Lo que hace falta antes de escribir una línea, y no es opcional:
+
+- **Un ADR** que lo decida, con lo descartado. La regla dice que no se hace sin
+  uno, y este es exactamente el caso para el que se escribió esa regla.
+- **Decir en pantalla qué se sube, a dónde va y cuánto se guarda**, y cambiar el
+  texto del registro. Si el audio va a la API de Anthropic, quien lo graba tiene
+  que saber que sale de su equipo y llega a un tercero.
+- **Decidir la retención**: si se guarda, dónde y cuánto, o si se manda y se
+  descarta. Esto hay que contestarlo antes, no después.
+- **Y que siga funcionando sin subirlo.** Todo el reconocimiento de hoy vive en el
+  navegador y es lo que hace que la aplicación funcione sin cuenta; subir audio
+  tiene que ser algo que se añade, no algo de lo que dependa componer.
+
+Lo que **no** cambia: lo que vuelva del modelo se sigue validando contra el
+dominio. Que oiga la grabación no le da permiso para escribir un grado que no
+existe.
