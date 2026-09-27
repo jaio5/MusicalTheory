@@ -51,6 +51,7 @@ import { ZONA_ESTIRAR_PX, anchoDeBloque, pulsoQueCabe } from './BlockButton';
 import { Marca } from '@ui/Marca';
 
 import { ChordEntry } from './ChordEntry';
+import { CorregirAcorde } from './CorregirAcorde';
 import { Figura, nombreDeFigura } from './Figura';
 import { PartRow, type Punteo } from './PartRow';
 import { useArrangementPlayer } from './use-arrangement-player';
@@ -1230,57 +1231,17 @@ export function ArrangeCanvas() {
           {/*
             Corregir va lo primero, y solo cuando hay algo que corregir.
 
-            Si hay un acorde elegido del que el motor dudó, lo que hace falta
-            ahora no es poner otro: es arreglar ese. Aparece encima de todo y
-            desaparece en cuanto se resuelve.
+            Vive en su propio fichero: `ArrangeCanvas` son mil cuatrocientas líneas
+            en una función, y esta pieza depende de cinco cosas y hace una sola.
           */}
-          {enDuda !== null && (
-            <section
-              aria-label="Corregir el acorde"
-              className="border-brass-dim mb-4 rounded-md border border-dashed p-3"
-            >
-              <h3 className="rotulo">
-                No lo oí claro. ¿Era esto?
-                {cola.length > 1 && (
-                  // Cuántas quedan, para que se vea que esto se acaba. Sin el
-                  // número, arreglar uno y ver aparecer otro parece que no
-                  // avanza.
-                  <span className="text-text-muted ml-2 text-xs font-normal">
-                    quedan {cola.length}
-                  </span>
-                )}
-              </h3>
-              <p className="text-text-muted mt-1 text-xs">
-                Apunté {resolveDegree(tonic, mode, enDuda.degree).symbol} y estuve a punto de decir
-                otra cosa.
-              </p>
-              <ul className="mt-2 flex flex-wrap gap-1">
-                {enDuda.alternatives.map((otro) => (
-                  <li key={otro}>
-                    <button
-                      type="button"
-                      onClick={() => acciones.fixBlock(enDuda.id, otro)}
-                      className="border-border text-text hover:border-brass-dim hover:bg-surface-raised min-h-tap inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-medium"
-                    >
-                      {resolveDegree(tonic, mode, otro).symbol}
-                      <span className="text-text-muted text-xs">{otro}</span>
-                    </button>
-                  </li>
-                ))}
-                <li>
-                  {/* Dar por bueno lo que se oyó también es corregir: deja de
-                      preguntar y el acorde pasa a valer como escrito. */}
-                  <button
-                    type="button"
-                    onClick={() => acciones.confirmBlock(enDuda.id)}
-                    className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex items-center rounded-md border px-3 text-sm"
-                  >
-                    Estaba bien
-                  </button>
-                </li>
-              </ul>
-            </section>
-          )}
+          <CorregirAcorde
+            enDuda={enDuda}
+            cuantos={cola.length}
+            tonic={tonic}
+            mode={mode}
+            onCorregir={acciones.fixBlock}
+            onConfirmar={acciones.confirmBlock}
+          />
 
           {/* Escribir va antes que elegir: quien sabe cómo se llama el acorde no
               tiene por qué buscarlo en una lista, y quien no lo sabe pasa de
