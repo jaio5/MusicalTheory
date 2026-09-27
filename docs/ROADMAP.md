@@ -206,7 +206,7 @@ Lo que queda, en el orden en que se hace:
     oído aquí es una progresión de acordes: no sabe hacer sonar una melodía. Eso
     es otra máquina.
 - **No hay nada de ritmo, de lectura ni de acordes en el mástil**, y la aplicación
-  los da por sabidos: componer ofrece seis figuras y un compás de 1 a 6, «Ensayar»
+  los da por sabidos: componer ofrece siete figuras y un compás de 1 a 6, «Ensayar»
   te **puntúa** contra el metrónomo, la vista por defecto del arreglo es una
   partitura con clave y armadura, y el panel de acordes enseña seis posiciones con
   su cejilla. Las diez unidades de tocar son **escalas, todas**: se terminan los

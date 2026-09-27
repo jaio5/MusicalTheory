@@ -32,7 +32,7 @@ import { useMedida } from '@ui/use-medida';
  *
  * Se dibuja lo que el modelo tiene: cinco líneas, la armadura de la tonalidad, la
  * indicación de compás, barras de compás con su barra final, los cifrados encima y
- * una figura por nota, de la corchea a la redonda con sus puntillos.
+ * una figura por nota, de la semicorchea a la redonda con sus puntillos.
  *
  * Las medidas del grabado —cabeza, plica, líneas adicionales— **salen del espacio
  * del pentagrama y no de píxeles probados a ojo**, y están juntas más abajo con el
@@ -40,7 +40,7 @@ import { useMedida } from '@ui/use-medida';
  * medio y la adicional sobresale de la cabeza. Puestas a ojo, la partitura se leía
  * como cinco rayas con puntitos. **No hay ligaduras, ni tresillos, ni dos voces, ni
  * silencios escritos.** No es una renuncia de dibujo: es que el modelo no tiene
- * ninguna de esas cosas, y `melody.ts` limita las duraciones justo a las seis que
+ * ninguna de esas cosas, y `melody.ts` limita las duraciones justo a las siete que
  * tienen figura para que nunca haya una nota que no se pueda escribir.
  *
  * Una nota que dura más de lo que le queda al compás se dibuja donde empieza y

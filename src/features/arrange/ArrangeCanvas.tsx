@@ -1019,7 +1019,7 @@ export function ArrangeCanvas() {
             </Chip>
           )}
 
-          {/* Las seis figuras que el modelo sabe escribir. Se ven en las dos
+          {/* Las figuras que el modelo sabe escribir, que son siete. Se ven en las dos
               pieles del punteo porque en las dos se escriben notas. */}
           {punteo !== 'oculto' && (
             <span

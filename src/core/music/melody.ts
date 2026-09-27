@@ -29,8 +29,9 @@
  * ## El tiempo va en pulsos, y las duraciones son las que se pueden dibujar
  *
  * `start` son pulsos desde que empieza la parte, y `length` lo que dura. Las dos
- * caen en una rejilla de media pulso, y `length` además se limita a las seis que
- * tienen figura —de la corchea a la redonda, con sus puntillos—. Es lo que hace
+ * caen en una rejilla de un cuarto de pulso, y `length` además se limita a las
+ * siete que tienen figura —de la semicorchea a la redonda, con sus puntillos—. Es
+ * lo que hace
  * que la misma melodía se pueda enseñar como bloques y como partitura sin que la
  * segunda tenga que inventarse una figura para un valor que no existe.
  *
