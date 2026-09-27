@@ -4,6 +4,7 @@ import { useCallback, useRef } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
+  figuraDe,
   isDoubtfulNote,
   keySignature,
   MAX_OFFSET,
@@ -227,29 +228,6 @@ const SIN_PENTAGRAMA = { left: 0, top: 0 } as DOMRect;
 
 function yDeStep(step: number): number {
   return BASE - (step - STEP_BASE) * PASO;
-}
-
-/** La figura con la que se escribe esa duración. */
-function figura(length: number): {
-  hueca: boolean;
-  plica: boolean;
-  /**
-   * Cuántos corchetes lleva la plica: uno la corchea, **dos la semicorchea**.
-   *
-   * Era un sí o no, y con la semicorchea deja de valer: las dos llevarían uno y
-   * un punteo rápido saldría escrito al doble de lo que dura. Es lo mismo que
-   * pasa en cualquier partitura —el número de corchetes *es* la figura—.
-   */
-  corchetes: number;
-  punto: boolean;
-} {
-  return {
-    hueca: length >= 2,
-    plica: length < 4,
-    corchetes: length < 0.5 ? 2 : length < 1 ? 1 : 0,
-    // Los puntillos son los dos valores de la lista que no son potencia de dos.
-    punto: length === 1.5 || length === 3,
-  };
 }
 
 export interface StaffProps {
@@ -602,7 +580,7 @@ export function Staff({
                 // Toda letra de una armadura tiene altura: las dos tablas llevan
                 // las siete. El seis es para que TypeScript se quede tranquilo.
                 yDeStep(
-                  /* v8 ignore next */
+                  /* v8 ignore next -- las dos tablas llevan las siete letras */
                   (armadura.accidental === 'sharp' ? ALTURA_SOSTENIDOS : ALTURA_BEMOLES)[letra] ??
                     6,
                 ) + 4
@@ -853,7 +831,7 @@ export function Staff({
             const escrita = writeNote(note, tonic, mode);
             const x = margen + note.start * porPulso + 6;
             const y = yDeStep(escrita.step);
-            const { hueca, plica, corchetes, punto } = figura(note.length);
+            const { hueca, plica, corchetes, punto } = figuraDe(note.length);
             const arriba = escrita.step < 6;
 
             /*
@@ -879,7 +857,7 @@ export function Staff({
                     // alteración contraria: en Sol mayor un «Fa bemol» sale
                     // escrito Mi, y en Fa un «Si sostenido» sale Do. Lo decide
                     // `writeNote`, y esto es el por si acaso.
-                    /* v8 ignore next 3 */
+                    /* v8 ignore next 3 -- `writeNote` no devuelve la alteracion contraria a la armadura */
                     escrita.accidental === '#'
                     ? '♯'
                     : '♭'

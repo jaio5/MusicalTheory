@@ -48,7 +48,7 @@ export interface Usage {
   readonly today: number;
 }
 
-export const NO_USAGE: Usage = { month: 0, today: 0 };
+const NO_USAGE: Usage = { month: 0, today: 0 };
 
 export type SpendResult =
   | { readonly kind: 'ok'; readonly usage: Usage }

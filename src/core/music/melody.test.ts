@@ -18,6 +18,7 @@ import {
   snapToGrid,
   writeNote,
   type LeadNote,
+  figuraDe,
 } from './melody';
 import { pitchClassFromName } from './notes';
 
@@ -180,6 +181,48 @@ describe('offsetOfStep', () => {
       midiOf(nota({ offset: offsetOfStep(step, Fs, 'major') }), Fs),
     );
     expect(new Set(alturas.map((m) => m % 12)).size).toBe(7);
+  });
+});
+
+/**
+ * **Cómo se escribe cada duración, en un solo sitio.**
+ *
+ * Esto estaba dos veces —el pentagrama y la figura suelta del selector— y al bajar
+ * la rejilla a la semicorchea solo se arregló una: la semicorchea se dibujaba con
+ * un corchete, igual que la corchea, y se llamaba «0.25 pulsos». Es el fallo que la
+ * duplicación produce siempre, así que lo que se prueba aquí es que **todas** las
+ * duraciones que se pueden escribir tienen figura y nombre.
+ */
+describe('la figura de una duración', () => {
+  it('las siete que existen tienen nombre, y ninguno es un numero', () => {
+    for (const length of NOTE_LENGTHS) {
+      const { nombre } = figuraDe(length);
+
+      expect(nombre, `${length} sin nombre`).not.toContain('pulsos');
+      expect(nombre).not.toBe('');
+    }
+  });
+
+  /**
+   * El número de corchetes **es** la figura: con uno para las dos, un punteo de
+   * semicorcheas se lee al doble de lo que dura.
+   */
+  it('la semicorchea lleva dos corchetes y la corchea uno', () => {
+    expect(figuraDe(0.25)).toMatchObject({ nombre: 'semicorchea', corchetes: 2 });
+    expect(figuraDe(0.5)).toMatchObject({ nombre: 'corchea', corchetes: 1 });
+    expect(figuraDe(1).corchetes).toBe(0);
+  });
+
+  it('de la blanca arriba la cabeza va hueca, y la redonda no lleva plica', () => {
+    expect(figuraDe(1).hueca).toBe(false);
+    expect(figuraDe(2).hueca).toBe(true);
+    expect(figuraDe(4).plica).toBe(false);
+    expect(figuraDe(2).plica).toBe(true);
+  });
+
+  // Los puntillos son los dos valores de la lista que no son potencia de dos.
+  it('solo llevan puntillo la negra y la blanca con puntillo', () => {
+    expect(NOTE_LENGTHS.filter((length) => figuraDe(length).punto)).toEqual([1.5, 3]);
   });
 });
 

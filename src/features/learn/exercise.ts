@@ -75,7 +75,7 @@ export const INITIAL_PROGRESS: ExerciseProgress = {
  * cuerda de al lado— y apuntar eso llenaría la cola de repaso con la escala
  * entera cada vez. A la segunda ya no es buscar: es que no está.
  */
-export const STUMBLE_THRESHOLD = 2;
+const STUMBLE_THRESHOLD = 2;
 
 /** Los pasos que costaron lo bastante como para volver a verlos. */
 export function stumbledSteps(

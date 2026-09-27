@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  NOTE_LENGTHS,
   EMPTY_ARRANGEMENT,
   MAX_BARS,
   pitchClassFromName,
@@ -493,6 +494,35 @@ describe('las dos vistas del punteo enseñan lo mismo', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Solo la escala' }));
     expect(screen.queryByText(/no es de la escala/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * **El selector de duración: una figura por duración, y ninguna repetida.**
+ *
+ * Recorre `NOTE_LENGTHS`, así que cuando la rejilla bajó a la semicorchea
+ * ([adr/0049](../../../docs/adr/0049-la-rejilla-llega-a-la-semicorchea.md)) le
+ * apareció un séptimo botón. Y salía mal: el nombre era «0.25 pulsos» y el dibujo
+ * llevaba un corchete, igual que la corchea, porque la figura se dibujaba en dos
+ * sitios y solo se arregló uno.
+ */
+describe('las duraciones que se pueden elegir', () => {
+  it('hay una por duracion, con nombre de figura y sin repetir', () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    const botones = within(screen.getByRole('group', { name: 'Duración de la nota' })).getAllByRole(
+      'button',
+    );
+    const nombres = botones.map((boton) => boton.getAttribute('aria-label'));
+
+    expect(botones).toHaveLength(NOTE_LENGTHS.length);
+    expect(new Set(nombres).size, `hay nombres repetidos: ${nombres.join(', ')}`).toBe(
+      nombres.length,
+    );
+    // Ninguno se llama por su número: eso es lo que salía sin nombre de figura.
+    expect(nombres.some((nombre) => nombre?.includes('pulsos'))).toBe(false);
+    expect(nombres).toContain('semicorchea');
   });
 });
 

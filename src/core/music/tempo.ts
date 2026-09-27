@@ -34,7 +34,7 @@ export function msPerBeat(bpm: number): number {
  * tiempo musical —se mide en compases, no en segundos— y lo que dure depende del
  * tempo y de los pulsos por compás.
  */
-export const COMPASES_DE_CUENTA = 2;
+const COMPASES_DE_CUENTA = 2;
 
 /**
  * Cuántos golpes de cuenta atrás, con esos pulsos por compás.

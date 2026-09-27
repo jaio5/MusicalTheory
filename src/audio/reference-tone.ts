@@ -6,7 +6,7 @@
  * se pierde contra el ampli y la de sierra es demasiado agresiva.
  */
 
-import { cerrarContexto, contextoDespierto } from './audio-context';
+import { cerrarContexto, contextoDespierto, pararOscilador } from './audio-context';
 
 export interface ReferenceTone {
   /** Suena una nota. Si ya sonaba otra, la corta. */
@@ -71,12 +71,7 @@ export class WebAudioReferenceTone implements ReferenceTone {
     }
     this.#oscillator = null;
     oscillator.onended = null;
-    try {
-      oscillator.stop();
-    } catch {
-      // Ya había parado solo: no es un error, es una carrera normal entre el
-      // temporizador del oscilador y la pulsación del usuario.
-    }
+    pararOscilador(oscillator);
   }
 
   async dispose(): Promise<void> {

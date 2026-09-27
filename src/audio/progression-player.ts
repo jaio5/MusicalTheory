@@ -19,7 +19,7 @@
 
 import { midiToFrequency, type ScheduledStep } from '@core/music';
 
-import { cerrarContexto, contextoDespierto } from './audio-context';
+import { cerrarContexto, contextoDespierto, pararOscilador } from './audio-context';
 
 export interface ProgressionPlayer {
   /**
@@ -118,12 +118,7 @@ export class WebAudioProgressionPlayer implements ProgressionPlayer {
     const sonando = this.#oscillators;
     this.#oscillators = [];
     for (const oscillator of sonando) {
-      try {
-        oscillator.stop();
-      } catch {
-        // Ya había parado solo: es una carrera normal entre su temporizador y
-        // la pulsación de quien está escuchando, no un error.
-      }
+      pararOscilador(oscillator);
     }
   }
 

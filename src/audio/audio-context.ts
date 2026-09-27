@@ -33,6 +33,23 @@ export async function contextoDespierto(actual: AudioContext | null): Promise<Au
   return context;
 }
 
+/**
+ * Para un oscilador que a lo mejor ya había parado solo.
+ *
+ * **Parar uno que ya acabó lanza**, y no es un error: es una carrera normal entre
+ * su propio temporizador y la pulsación de quien está escuchando. Estaba escrito
+ * dos veces, con el mismo `try` y la misma explicación en
+ * `progression-player.ts` y en `reference-tone.ts`, que es la manera de que la
+ * razón se pierda en una de las dos.
+ */
+export function pararOscilador(oscillator: OscillatorNode): void {
+  try {
+    oscillator.stop();
+  } catch {
+    // Ya había parado solo.
+  }
+}
+
 /** Cierra el contexto si hay uno y no estaba ya cerrado. */
 export async function cerrarContexto(context: AudioContext | null): Promise<void> {
   if (context !== null && context.state !== 'closed') {

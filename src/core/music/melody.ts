@@ -109,6 +109,62 @@ export const GRID = 0.25;
  */
 export const NOTE_LENGTHS: readonly number[] = [0.25, 0.5, 1, 1.5, 2, 3, 4];
 
+/**
+ * Cómo se escribe una duración: la figura, en datos.
+ *
+ * **Vive aquí porque son hechos de notación y no píxeles**, y porque los pedían
+ * dos dibujos que no se conocen: el pentagrama (`arrange/Staff.tsx`) y la figura
+ * suelta del selector de duración (`arrange/Figura.tsx`). Estaban los dos con su
+ * propia copia, y eso costó un fallo de los que la duplicación produce siempre:
+ * al bajar la rejilla a la semicorchea ([adr/0049](../../../docs/adr/0049-la-rejilla-llega-a-la-semicorchea.md))
+ * se le pusieron dos corchetes en el pentagrama y en el selector se quedó con uno,
+ * así que la semicorchea se dibujaba igual que la corchea y se llamaba «0.25
+ * pulsos».
+ */
+export interface Figura {
+  /** El nombre, que es lo que oye quien no ve el dibujo. */
+  readonly nombre: string;
+  /** Si la cabeza va sin rellenar: la blanca y las más largas. */
+  readonly hueca: boolean;
+  /** Si lleva plica. La redonda no. */
+  readonly plica: boolean;
+  /**
+   * Cuántos corchetes lleva la plica: uno la corchea, **dos la semicorchea**.
+   *
+   * Era un sí o no, y con la semicorchea dejó de valer: las dos llevarían uno y un
+   * punteo rápido saldría escrito al doble de lo que dura. Es lo mismo que pasa en
+   * cualquier partitura: el número de corchetes **es** la figura.
+   */
+  readonly corchetes: number;
+  /** Si lleva puntillo. */
+  readonly punto: boolean;
+}
+
+/** Cómo se llama cada duración de `NOTE_LENGTHS`. */
+const NOMBRES: Readonly<Record<number, string>> = {
+  0.25: 'semicorchea',
+  0.5: 'corchea',
+  1: 'negra',
+  1.5: 'negra con puntillo',
+  2: 'blanca',
+  3: 'blanca con puntillo',
+  4: 'redonda',
+};
+
+export function figuraDe(length: number): Figura {
+  return {
+    // Nunca hace falta el respaldo con una duración de `NOTE_LENGTHS`, que son
+    // las únicas que el modelo deja escribir; está para que un número que venga
+    // de fuera se lea como algo en vez de quedarse en blanco.
+    nombre: NOMBRES[length] ?? `${length} pulsos`,
+    hueca: length >= 2,
+    plica: length < 4,
+    corchetes: length < 0.5 ? 2 : length < 1 ? 1 : 0,
+    // Los puntillos son los dos valores de la lista que no son potencia de dos.
+    punto: length === 1.5 || length === 3,
+  };
+}
+
 /** Lo más grave y lo más agudo que se puede escribir, en semitonos sobre la tónica. */
 export const MIN_OFFSET = -12;
 export const MAX_OFFSET = 24;

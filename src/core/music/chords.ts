@@ -21,7 +21,7 @@ export type ChordQuality = 'major' | 'minor' | 'diminished' | 'augmented';
 /** Grado dentro de la escala, contado desde 1 en la tónica. */
 export type Degree = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
-export const DEGREES: readonly Degree[] = [1, 2, 3, 4, 5, 6, 7];
+const DEGREES: readonly Degree[] = [1, 2, 3, 4, 5, 6, 7];
 
 export interface DiatonicChord {
   readonly degree: Degree;

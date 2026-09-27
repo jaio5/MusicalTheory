@@ -9,7 +9,13 @@
  *
  * Las proporciones son las del pentagrama, en pequeño: la cabeza ocupa un
  * espacio, va inclinada, la plica sale de su canto y el puntillo se pone detrás.
+ *
+ * **Lo que se dibuja de cada duración lo dice el dominio** (`figuraDe`), que es lo
+ * que hace que esto y el pentagrama no puedan decir cosas distintas: lo decían, y
+ * la semicorchea salía aquí con un corchete y allí con dos.
  */
+
+import { figuraDe } from '@core/music';
 
 /** Medio espacio, que es de donde salen todas las medidas de aquí. */
 const PASO = 3.2;
@@ -21,31 +27,20 @@ const MEDIO_ANCHO = Math.hypot(
   CABEZA_RY * Math.sin((INCLINACION * Math.PI) / 180),
 );
 const PLICA = 3.5 * 2 * PASO;
-
-/** Cómo se llama cada duración, que es lo que oye quien no ve el dibujo. */
-const NOMBRE_DE_FIGURA: Readonly<Record<number, string>> = {
-  0.5: 'corchea',
-  1: 'negra',
-  1.5: 'negra con puntillo',
-  2: 'blanca',
-  3: 'blanca con puntillo',
-  4: 'redonda',
-};
+/** Lo que baja el segundo corchete respecto al primero. */
+const SEPARACION_CORCHETES = 4;
 
 export function nombreDeFigura(length: number): string {
-  return NOMBRE_DE_FIGURA[length] ?? `${length} pulsos`;
+  return figuraDe(length).nombre;
 }
 
 export interface FiguraProps {
-  /** La duración en pulsos: una de las seis que el modelo sabe escribir. */
+  /** La duración en pulsos: una de las siete que el modelo sabe escribir. */
   readonly length: number;
 }
 
 export function Figura({ length }: FiguraProps) {
-  const hueca = length >= 2;
-  const plica = length < 4;
-  const corchete = length < 1;
-  const punto = length === 1.5 || length === 3;
+  const { hueca, plica, corchetes, punto } = figuraDe(length);
 
   const x = 8;
   const y = 24;
@@ -73,14 +68,17 @@ export function Figura({ length }: FiguraProps) {
           strokeWidth={1}
         />
       )}
-      {corchete && (
+      {/* Uno la corchea y **dos la semicorchea**: el número de corchetes es la
+          figura, así que con uno solo las dos se dibujaban igual. */}
+      {Array.from({ length: corchetes }, (_, i) => (
         <path
-          d={`M ${x + MEDIO_ANCHO} ${y - PLICA} q 5 3 4 8`}
+          key={i}
+          d={`M ${x + MEDIO_ANCHO} ${y - PLICA + i * SEPARACION_CORCHETES} q 5 3 4 8`}
           fill="none"
           stroke="currentColor"
           strokeWidth={1.2}
         />
-      )}
+      ))}
     </svg>
   );
 }

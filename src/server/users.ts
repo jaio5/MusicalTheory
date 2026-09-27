@@ -34,7 +34,7 @@ export interface User {
  * expresión regular exhaustiva rechaza direcciones válidas y no evita ninguna
  * falsa. Lo que de verdad comprueba que un correo existe es escribirle.
  */
-export function normalizeEmail(raw: unknown): string | null {
+function normalizeEmail(raw: unknown): string | null {
   if (typeof raw !== 'string') {
     return null;
   }
@@ -56,7 +56,7 @@ export function normalizeEmail(raw: unknown): string | null {
  * y nulo son lo mismo aquí —«no lo he dicho»—, y por eso borrarlo es una
  * operación válida y no un error.
  */
-export function normalizeName(raw: unknown): string | null {
+function normalizeName(raw: unknown): string | null {
   if (typeof raw !== 'string') {
     return null;
   }
