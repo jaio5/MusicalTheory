@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DEMASIADOS_INTENTOS } from '@core/auth-errors';
+
 import { levantarBaseDePrueba, type BaseDePrueba } from './db/para-tests';
 import type * as Auth from './auth';
 import type * as Users from './users';
@@ -25,6 +27,11 @@ vi.mock('next-auth', () => ({
   default: (config: Record<string, never>) => {
     configuracion = config;
     return { handlers: {}, signIn: vi.fn(), signOut: vi.fn(), auth: () => authFalso() };
+  },
+  // **La clase se trae de verdad**, no una copia: es la que Auth.js reconoce para
+  // dejar pasar su `code` hasta el cliente, y una imitación no lo sería.
+  CredentialsSignin: class extends Error {
+    code = 'credentials';
   },
 }));
 
@@ -56,14 +63,26 @@ beforeEach(async () => {
   authFalso.mockResolvedValue(null);
 });
 
-/** El `authorize` del proveedor de correo y contraseña. */
-function autorizar(credenciales: Record<string, unknown>) {
+/**
+ * El `authorize` del proveedor de correo y contraseña.
+ *
+ * La petición se puede dar o no: sin ella el tope cuenta solo por correo, que es
+ * lo que hace el código si Auth.js algún día no la pasara.
+ */
+function autorizar(credenciales: Record<string, unknown>, request?: Request) {
   const proveedor = (
     configuracion['providers'] as unknown as {
-      authorize: (raw: unknown) => Promise<unknown>;
+      authorize: (raw: unknown, request?: Request) => Promise<unknown>;
     }[]
   )[0]!;
-  return proveedor.authorize(credenciales);
+  return proveedor.authorize(credenciales, request);
+}
+
+/** Una petición desde esa dirección, que es lo que mira el tope. */
+function desde(ip: string): Request {
+  return new Request('https://ejemplo.test/api/auth/callback/credentials', {
+    headers: { 'x-forwarded-for': ip },
+  });
 }
 
 function callbacks() {
@@ -96,6 +115,89 @@ describe('la configuracion que recibe Auth.js', () => {
     // La cabecera del anfitrión la pone el proxy con certificado, y sin esto
     // Auth.js no se la cree.
     expect(configuracion['trustHost']).toBe(true);
+  });
+});
+
+/**
+ * **El tope de intentos, que no existía.**
+ *
+ * Lo tenían el registro, el cambio de cuenta y las tres rutas de IA, y entrar no.
+ * Contra probar contraseñas solo estaba el coste de `scrypt`, y eso es el problema
+ * al revés: cada intento cuesta cien milisegundos de procesador nuestros y nada de
+ * quien lo prueba ([adr/0054](../../docs/adr/0054-entrar-tiene-tope-de-intentos.md)).
+ */
+describe('el tope de intentos al entrar', () => {
+  const CORREO = 'topes@ejemplo.test';
+
+  /** Prueba a entrar con la contraseña mal, tantas veces. */
+  async function fallar(veces: number, request?: Request) {
+    const salidas: unknown[] = [];
+    for (let i = 0; i < veces; i += 1) {
+      salidas.push(
+        await autorizar({ email: CORREO, password: 'la-que-no-es' }, request).catch(
+          (fallo: unknown) => fallo,
+        ),
+      );
+    }
+    return salidas;
+  }
+
+  it('a la sexta deja de comprobar y lo dice con su codigo', async () => {
+    const salidas = await fallar(6, desde('10.0.0.1'));
+
+    // Las cinco primeras contestan que no cuadra; la sexta ya no comprueba.
+    expect(salidas.slice(0, 5)).toEqual([null, null, null, null, null]);
+    expect(salidas[5]).toMatchObject({ code: DEMASIADOS_INTENTOS });
+  });
+
+  /**
+   * **Y no deja entrar aunque la contraseña sea la buena.** Es la mitad que de
+   * verdad para el ataque: si al pasarse de intentos siguiera comprobando, el tope
+   * solo molestaría a quien se equivoca.
+   */
+  it('pasado el tope, no entra ni con la contraseña buena', async () => {
+    await users.createUser({ email: CORREO, password: 'la-buena-de-verdad' });
+    await fallar(5, desde('10.0.0.2'));
+
+    await expect(
+      autorizar({ email: CORREO, password: 'la-buena-de-verdad' }, desde('10.0.0.2')),
+    ).rejects.toMatchObject({ code: DEMASIADOS_INTENTOS });
+  });
+
+  /**
+   * **Se cuenta por correo además de por dirección**, y por eso probar la misma
+   * cuenta desde muchos sitios tampoco sirve: con solo la dirección, cambiar de
+   * salida a internet dejaba el ataque abierto.
+   */
+  it('cambiar de direccion no reinicia el tope de esa cuenta', async () => {
+    for (let i = 0; i < 5; i += 1) {
+      await autorizar({ email: CORREO, password: 'no' }, desde(`10.0.1.${i}`));
+    }
+
+    await expect(
+      autorizar({ email: CORREO, password: 'no' }, desde('10.0.1.99')),
+    ).rejects.toMatchObject({ code: DEMASIADOS_INTENTOS });
+  });
+
+  // Y el tope de una cuenta no cierra la puerta a otra: si no, bastaría con probar
+  // cinco veces para dejar sin entrar a quien tú quisieras.
+  it('el tope de una cuenta no afecta a otra', async () => {
+    await users.createUser({ email: 'otra@ejemplo.test', password: 'la-suya-buena' });
+    await fallar(5, desde('10.0.2.1'));
+
+    await expect(
+      autorizar({ email: 'otra@ejemplo.test', password: 'la-suya-buena' }, desde('10.0.2.9')),
+    ).resolves.toMatchObject({ email: 'otra@ejemplo.test' });
+  });
+
+  // El mismo correo en mayúsculas es el mismo cupo: si no, alternar mayúsculas
+  // multiplicaría los intentos por cuenta.
+  it('las mayusculas del correo no dan otro cupo', async () => {
+    await fallar(5, desde('10.0.3.1'));
+
+    await expect(
+      autorizar({ email: CORREO.toUpperCase(), password: 'no' }, desde('10.0.3.1')),
+    ).rejects.toMatchObject({ code: DEMASIADOS_INTENTOS });
   });
 });
 

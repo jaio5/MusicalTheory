@@ -75,13 +75,12 @@ El detalle entero, con la tabla de qué da cada plan y qué se guarda de ti, est
   fallos que ningún test veía. No hay nada que lo repita solo.
 - **El límite de frecuencia en memoria** es por instancia. Con base de datos se
   comparte; con varias instancias y sin ella, cada una lleva su cuenta.
-- **Entrar no tiene límite de intentos.** Lo tienen el registro, el cambio de
-  cuenta y las tres rutas de IA; el `authorize` de `server/auth.ts` no. Contra
-  probar contraseñas solo está el coste de `scrypt` —unos cien milisegundos—, y eso
-  es además el problema al revés: **cada intento cuesta cien milisegundos de
-  procesador nuestros y nada suyo**. El arreglo es el mismo
-  `esperaPorFrecuencia` que ya usa el registro, con la clave por correo y por
-  dirección.
+- ~~**Entrar no tiene límite de intentos.**~~ **Hecho el 27 de septiembre de
+  2026**: cinco por minuto, contados por dirección **y** por correo, y antes de
+  comprobar la contraseña, que es lo que evita gastar el `scrypt` que el tope viene
+  a proteger ([adr/0054](./adr/0054-entrar-tiene-tope-de-intentos.md)). Lo que sigue
+  en pie es lo de abajo: **el contador de memoria es por instancia**, así que sin
+  base de datos cada una lleva su cuenta.
 - **Registrarse no exige verificar el correo, y el plan gratis da quince
   peticiones de IA.** Así que una dirección inventada son quince llamadas al
   modelo pagadas, y el registro admite cinco por minuto.

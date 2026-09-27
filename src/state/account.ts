@@ -13,6 +13,8 @@ import {
   type PlanId,
 } from '@core/billing';
 
+import { DEMASIADOS_INTENTOS } from '@core/auth-errors';
+
 import { apiErrorFrom, apiErrorOf } from './api-error';
 
 /**
@@ -157,7 +159,13 @@ export async function signInWithPassword(email: string, password: string): Promi
   try {
     const result = await signIn('credentials', { email, password, redirect: false });
     if (result?.error !== undefined && result.error !== null) {
-      return { ok: false, message: 'El correo o la contraseña no son correctos.' };
+      // **Pasarse de intentos no es tener la contraseña mal**, y decir que lo es
+      // manda a cambiar una contraseña que está bien. El servidor lo distingue con
+      // su código y aquí se traduce
+      // ([adr/0054](../../docs/adr/0054-entrar-tiene-tope-de-intentos.md)).
+      return result.code === DEMASIADOS_INTENTOS
+        ? { ok: false, message: 'Demasiados intentos. Espera un minuto y vuelve a probar.' }
+        : { ok: false, message: 'El correo o la contraseña no son correctos.' };
     }
     return { ok: true };
   } catch {

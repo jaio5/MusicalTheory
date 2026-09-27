@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DEMASIADOS_INTENTOS } from '@core/auth-errors';
+
 /**
  * Lo que el navegador hace con la cuenta.
  *
@@ -76,6 +78,21 @@ describe('entrar', () => {
     expect(result.ok).toBe(false);
     expect(result.ok === false && result.message).not.toMatch(/correo no existe|no registrado/i);
     expect(result.ok === false && result.message).toMatch(/correo o la contraseña/i);
+  });
+
+  /**
+   * **Pasarse de intentos no es tener la contraseña mal**, y decir que lo es manda
+   * a cambiar una contraseña que funciona. El servidor las distingue con su código
+   * ([adr/0054](../../docs/adr/0054-entrar-tiene-tope-de-intentos.md)).
+   */
+  it('pasarse de intentos se dice como lo que es', async () => {
+    signIn.mockResolvedValue({ error: 'CredentialsSignin', code: DEMASIADOS_INTENTOS });
+
+    const result = await signInWithPassword('a@b.c', 'la-buena');
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.message).toMatch(/demasiados intentos/i);
+    expect(result.ok === false && result.message).not.toMatch(/correo o la contraseña/i);
   });
 
   it('si la red falla, lo dice sin culpar a las credenciales', async () => {

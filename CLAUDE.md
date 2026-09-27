@@ -111,6 +111,11 @@ hacerlo.
   aquí arriba» quedaba detrás de la rueda que lo tapaba. Ha mordido en la unidad y
   en componer estrecho. Lo que cabe ahí abajo es `ui/CuatroTonalidades`, y flotar
   no se toca: está peleado dos veces y lo vigila `screens/coherencia`.
+- **Entrar tiene tope de intentos, y va antes de comprobar la contraseña**: cinco
+  por minuto contados **por dirección y por correo**, porque con una sola clave queda
+  abierto el otro ataque. Comprobar primero gastaría el `scrypt` que el tope viene a
+  proteger, y `scrypt` cuesta cien milisegundos nuestros y nada de quien lo prueba
+  ([adr/0054](docs/adr/0054-entrar-tiene-tope-de-intentos.md)).
 - **Las burbujas de validación del navegador salen en su idioma**, no en el de la
   aplicación. Por eso `ui/Formulario` va con `noValidate` y lo que falta se dice
   con `ui/Aviso`. Un `<form>` escrito a mano vuelve a traerlas.
@@ -206,6 +211,7 @@ nombres viejos de los planes**.
 | La cola de repaso de lo fallado                           | `core/music/review.ts`                                    |
 | Por qué una pregunta sale o vuelve a la cola              | `core/music/review.ts` (`mergeReview` manda)              |
 | Cuentas, contraseñas, base de datos y cupos               | `src/server/`                                             |
+| El tope de intentos al entrar, y por qué son dos claves   | `server/auth.ts`, `core/auth-errors.ts`                   |
 | El marco de una pantalla y sus apartados                  | `src/ui/Screen.tsx` (`Screen`, `WorkHeader`)              |
 | Lo que se ve cuando todavía no hay nada                   | `src/ui/Vacio.tsx`, `ui/EmpezarPorTonalidad`              |
 | Un formulario, y el error que se anuncia                  | `src/ui/Formulario.tsx`, `src/ui/Aviso.tsx`               |
@@ -229,20 +235,20 @@ camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                    | Contesta                                                          |
-| -------------------------- | ----------------------------------------------------------------- |
-| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests      |
-| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular         |
-| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico         |
-| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen    |
-| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                        |
-| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto            |
-| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti          |
-| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario            |
-| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha   |
-| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron  |
-| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde           |
-| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cincuenta y tres |
+| Fichero                    | Contesta                                                            |
+| -------------------------- | ------------------------------------------------------------------- |
+| `docs/ESTILO.md`           | Cómo se escribe: idioma, comentarios, interfaz, temas, tests        |
+| `docs/ARCHITECTURE.md`     | Capas, qué importa qué, notas para quien viene de Angular           |
+| `docs/DOMAIN-MUSIC.md`     | La teoría que implementa el código, en lenguaje de músico           |
+| `docs/AUDIO-PITCH.md`      | Cómo se detecta el tono y el acorde, y qué limitaciones tienen      |
+| `docs/RECORDING.md`        | Permisos, canvas, formatos, descarga local                          |
+| `docs/AI.md`               | Contrato de los route handlers y las puertas del gasto              |
+| `docs/CUENTAS-Y-PLANES.md` | Qué da cada plan, qué cuesta la IA y qué se guarda de ti            |
+| `docs/ROADMAP.md`          | **Lo que falta**, ordenado por lo que estorba a diario              |
+| `docs/PARA-PUBLICAR.md`    | **Lo que hará falta al publicar y cobrar.** Nada está en marcha     |
+| `docs/HISTORIA.md`         | Las fases hechas, una línea cada una, y los fallos que enseñaron    |
+| `docs/DESPLIEGUE.md`       | Qué hace falta para publicar y qué se rompe según dónde             |
+| `docs/adr/`                | Decisiones con sus alternativas descartadas. Van cincuenta y cuatro |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

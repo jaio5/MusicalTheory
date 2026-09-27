@@ -17,12 +17,16 @@
  * cambia nada de lo que hay aquí.
  */
 
-import NextAuth, { type DefaultSession } from 'next-auth';
+import NextAuth, { CredentialsSignin, type DefaultSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 
 import { verifyPassword } from './password';
 import { findUserWithPassword } from './users';
 import { hasDatabase } from './db/client';
+import { DEMASIADOS_INTENTOS } from '@core/auth-errors';
+
+import { requesterKey, SlidingWindowRateLimiter } from './rate-limit';
+import { limitRequest } from './rate-limit-db';
 
 declare module 'next-auth' {
   interface Session {
@@ -71,6 +75,74 @@ export function authAvailable(): boolean {
   return hasDatabase() && secret() !== null;
 }
 
+/**
+ * Cuántos intentos de entrar se aceptan, y en cuánto tiempo.
+ *
+ * Cinco por minuto, el mismo que el registro. No es un número afinado contra
+ * nada: es el que deja entrar a quien se equivoca dos veces al teclear y corta a
+ * quien prueba contraseñas, que es toda la diferencia que hace falta.
+ */
+const LIMITE_ENTRAR = { limit: 5, windowMs: 60_000 } as const;
+
+/** El de memoria, para las copias sin base de datos. */
+const limitador = new SlidingWindowRateLimiter(LIMITE_ENTRAR);
+
+/**
+ * Se ha probado demasiadas veces.
+ *
+ * `CredentialsSignin` y no un `Error` cualquiera: es la que Auth.js deja pasar con
+ * su `code` hasta el resultado de `signIn`. Cualquier otra se convierte en un
+ * error genérico y la pantalla no podría distinguirla.
+ */
+class DemasiadosIntentos extends CredentialsSignin {
+  override code = DEMASIADOS_INTENTOS;
+}
+
+/**
+ * Si ya se ha probado demasiadas veces.
+ *
+ * Devuelve un sí o un no y no los segundos que faltan: la ventana es de un minuto
+ * y eso es lo que dice el mensaje, así que el número exacto no se usa para nada y
+ * pasarlo sería llevarlo hasta la pantalla para no enseñarlo.
+ *
+ * **Se cuenta por dos claves, y las dos hacen falta**: por dirección, que corta a
+ * quien prueba muchas contraseñas desde un sitio; y por correo, que corta a quien
+ * prueba la misma cuenta desde muchos sitios. Con una sola, la otra manera queda
+ * abierta.
+ *
+ * Se cuenta **antes de saber si la cuenta existe y para cualquier correo**, así
+ * que esto no dice si alguien tiene cuenta aquí: un correo inventado se limita
+ * igual que uno de verdad.
+ */
+async function pasadoDeIntentos(request: Request | undefined, correo: unknown): Promise<boolean> {
+  const claves: string[] = [];
+  // Auth.js siempre pasa la petición; el `?.` es para no depender de ello, y si
+  // algún día no llegara **sigue contando por correo**, que es la clave que para
+  // a quien va a por una cuenta concreta.
+  const direccion = request?.headers;
+  if (direccion !== undefined) {
+    claves.push(`entrar:${requesterKey(direccion)}`);
+  }
+  // En minúsculas y sin espacios, que es como se guarda: si no, «A@b.com» y
+  // «a@b.com» serían dos cupos para la misma cuenta.
+  if (typeof correo === 'string') {
+    claves.push(`entrar:correo:${correo.trim().toLowerCase()}`);
+  }
+
+  for (const key of claves) {
+    const { allowed } = await limitRequest({
+      memoria: limitador,
+      key,
+      now: Date.now(),
+      options: LIMITE_ENTRAR,
+    });
+    if (!allowed) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   // Detrás de un proxy con certificado —que es como se sirve esto— la cabecera
   // del anfitrión la pone el proxy, y Auth.js necesita que se le diga que puede
@@ -87,8 +159,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: 'Correo', type: 'email' },
         password: { label: 'Contraseña', type: 'password' },
       },
-      async authorize(raw) {
+      async authorize(raw, request) {
         const password = typeof raw?.['password'] === 'string' ? raw['password'] : '';
+
+        // **El tope de intentos, antes de comprobar la contraseña.**
+        //
+        // Aquí no había ninguno, y lo tenían el registro, el cambio de cuenta y
+        // las tres rutas de IA. Contra probar contraseñas solo estaba el coste de
+        // `scrypt`, y eso es el problema al revés: **cada intento cuesta cien
+        // milisegundos de procesador nuestros y nada de quien lo prueba**, así que
+        // servía igual para tumbar el servidor que para adivinar una contraseña
+        // ([adr/0054](../../docs/adr/0054-entrar-tiene-tope-de-intentos.md)).
+        //
+        // Antes de `verifyPassword` a propósito: comprobar primero gastaría el
+        // `scrypt` que esto viene a evitar.
+        if (await pasadoDeIntentos(request, raw?.['email'])) {
+          throw new DemasiadosIntentos();
+        }
+
         const found = await findUserWithPassword(raw?.['email']);
 
         const ok = await verifyPassword(password, found?.passwordHash ?? HASH_DE_NADIE);
