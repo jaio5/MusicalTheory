@@ -48,7 +48,7 @@ import { clampBpm, DEFAULT_BEATS_PER_BAR, msPerBeat } from './tempo';
  * además pone cada cosa en el motor que sabe hacerla: el croma es bueno con
  * acordes y es el que duda, y el de tono es monofónico y es el que afina.
  */
-export type PapelDeLaToma = 'ritmica' | 'punteo';
+export type PapelDeLaToma = 'ritmica' | 'punteo' | 'solo-grabar';
 
 /** Cómo se llama cada papel y qué se espera de él, para quien lo elige. */
 export const PAPELES_DE_TOMA: Readonly<
@@ -61,6 +61,21 @@ export const PAPELES_DE_TOMA: Readonly<
   punteo: {
     name: 'Punteo',
     what: 'Notas sueltas. Se apuntan las alturas y sus figuras.',
+  },
+  /**
+   * Guardar el sonido y no escribir nada.
+   *
+   * Era una herramienta aparte —una pastilla «Grabar» en la barra de abajo— y
+   * hacía lo mismo que esto menos transcribir: su propio reproductor, su propia
+   * descarga y **su propio micrófono**, que es la trampa que este proyecto tiene
+   * escrita —dos `getUserMedia` sobre el mismo aparato son dos permisos y dos
+   * pilotos—. Lo único suyo era no tocar la canción, y eso es un papel de la toma,
+   * no otra pantalla
+   * ([adr/0056](../../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md)).
+   */
+  'solo-grabar': {
+    name: 'Solo grabar',
+    what: 'Se guarda el sonido y no se escribe nada en la canción.',
   },
 };
 

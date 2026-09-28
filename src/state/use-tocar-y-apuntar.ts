@@ -64,7 +64,14 @@ export interface TocarYApuntar {
    * cuatro clics a los que hay que ponerle la cuenta uno mismo.
    */
   readonly cuenta: number | null;
-  readonly empezar: () => Promise<void>;
+  /**
+   * Empieza. Con `conCuenta` en falso no cuenta los dos compases.
+   *
+   * Lo pide «solo grabar»: ahí no se escribe nada, así que no hay rejilla que
+   * cuadrar y la cuenta solo sería esperar por esperar
+   * ([adr/0056](../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md)).
+   */
+  readonly empezar: (conCuenta?: boolean) => Promise<void>;
   /** Para, y devuelve la toma de audio si la hubo. */
   readonly parar: () => Promise<Toma | null>;
 }
@@ -155,83 +162,91 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
     return empiezaEn === null ? { fase: 'cortada', empiezaEn: 0 } : { fase: 'contada', empiezaEn };
   }, []);
 
-  const empezar = useCallback(async () => {
-    setMensaje(null);
-    setSegundos(0);
-    setFase('preparando');
+  const empezar = useCallback(
+    async (conCuenta = true) => {
+      setMensaje(null);
+      setSegundos(0);
+      setFase('preparando');
 
-    // Primero el análisis: es lo que de verdad hace falta para escribir. Si el
-    // sonido no se puede grabar se sigue sin él, pero sin motor no hay nada que
-    // apuntar y entonces no se empieza.
-    await escucha.start();
-    if (useSessionStore.getState().listening !== 'listening') {
-      setFase('quieto');
-      return;
-    }
-
-    // **La cuenta atrás va aquí: con el micro ya abierto y antes de grabar.**
-    //
-    // Antes del micro no puede ir, porque abrirlo pide permiso y puede tardar: la
-    // cuenta se quedaría sonando mientras el navegador pregunta. Y antes de
-    // grabar porque así **la claqueta no entra en la toma**: el audio que se
-    // descarga —y el que algún día suba al modelo— empieza donde empiezas a
-    // tocar, no con dos compases de clic.
-    const { fase: faseDeLaCuenta, empiezaEn } = await contarAntesDeApuntar();
-    if (faseDeLaCuenta === 'cortada') {
-      await escucha.stop();
-      setFase('quieto');
-      return;
-    }
-
-    // El micro de análisis ya está abierto: se le pide prestado el flujo en vez
-    // de abrir otro. Solo si no tiene —una entrada de mentira en un test, o un
-    // navegador raro— se cae al micrófono de `media/`, que es lo que se hacía
-    // siempre.
-    const prestado = flujoPrestado();
-    let flujo = prestado;
-    let motivo: string | null = null;
-
-    if (flujo === null) {
-      const mic = fabricas.current.createMic?.() ?? new BrowserMicInput();
-      micRef.current = mic;
-      await mic.start();
-      if (mic.state === 'running' && mic.stream !== null) {
-        flujo = mic.stream;
-      } else {
-        motivo = mic.errorMessage;
-        micRef.current = null;
+      // Primero el análisis: es lo que de verdad hace falta para escribir. Si el
+      // sonido no se puede grabar se sigue sin él, pero sin motor no hay nada que
+      // apuntar y entonces no se empieza.
+      await escucha.start();
+      if (useSessionStore.getState().listening !== 'listening') {
+        setFase('quieto');
+        return;
       }
-    }
 
-    if (flujo !== null) {
-      const grabador = fabricas.current.createRecorder?.() ?? new StreamRecorder();
-      grabadorRef.current = grabador;
-      await grabador.start({ audio: flujo });
-      if (grabador.state !== 'recording') {
-        motivo = grabador.errorMessage;
-        grabadorRef.current = null;
-        await micRef.current?.stop();
-        micRef.current = null;
+      // **La cuenta atrás va aquí: con el micro ya abierto y antes de grabar.**
+      //
+      // Antes del micro no puede ir, porque abrirlo pide permiso y puede tardar: la
+      // cuenta se quedaría sonando mientras el navegador pregunta. Y antes de
+      // grabar porque así **la claqueta no entra en la toma**: el audio que se
+      // descarga —y el que algún día suba al modelo— empieza donde empiezas a
+      // tocar, no con dos compases de clic.
+      // Sin cuenta cuando no se va a escribir nada: no hay rejilla que cuadrar, así
+      // que contar sería esperar por esperar.
+      const cuentaAtras = conCuenta
+        ? await contarAntesDeApuntar()
+        : ({ fase: 'contada', empiezaEn: performance.now() } as const);
+      if (cuentaAtras.fase === 'cortada') {
+        await escucha.stop();
+        setFase('quieto');
+        return;
       }
-    }
+      const { empiezaEn } = cuentaAtras;
 
-    if (grabadorRef.current === null) {
-      // Se sigue: lo que se viene a hacer es escribir la canción, y quedarse sin
-      // la toma de audio no impide ninguna de las dos cosas.
-      setMensaje(motivo ?? 'No he podido grabar el sonido, pero te sigo oyendo.');
-    }
+      // El micro de análisis ya está abierto: se le pide prestado el flujo en vez
+      // de abrir otro. Solo si no tiene —una entrada de mentira en un test, o un
+      // navegador raro— se cae al micrófono de `media/`, que es lo que se hacía
+      // siempre.
+      const prestado = flujoPrestado();
+      let flujo = prestado;
+      let motivo: string | null = null;
 
-    // **El tramo empieza donde cae el compás uno**, que es un pulso después del
-    // último clic y lo calcula la cuenta atrás. Puesto en el instante del último
-    // clic, todo lo tocado saldría desplazado un pulso.
-    //
-    // **`performance.now` y no `Date.now`.** Es el reloj con el que se apuntan
-    // los acordes del motor y las notas del historial, y mezclarlos deja los
-    // instantes a mil millones de distancia: el punteo se quedaría entero fuera
-    // del tramo y no aparecería ni una nota.
-    acciones.startCapture(empiezaEn);
-    setFase('tocando');
-  }, [acciones, contarAntesDeApuntar, escucha]);
+      if (flujo === null) {
+        const mic = fabricas.current.createMic?.() ?? new BrowserMicInput();
+        micRef.current = mic;
+        await mic.start();
+        if (mic.state === 'running' && mic.stream !== null) {
+          flujo = mic.stream;
+        } else {
+          motivo = mic.errorMessage;
+          micRef.current = null;
+        }
+      }
+
+      if (flujo !== null) {
+        const grabador = fabricas.current.createRecorder?.() ?? new StreamRecorder();
+        grabadorRef.current = grabador;
+        await grabador.start({ audio: flujo });
+        if (grabador.state !== 'recording') {
+          motivo = grabador.errorMessage;
+          grabadorRef.current = null;
+          await micRef.current?.stop();
+          micRef.current = null;
+        }
+      }
+
+      if (grabadorRef.current === null) {
+        // Se sigue: lo que se viene a hacer es escribir la canción, y quedarse sin
+        // la toma de audio no impide ninguna de las dos cosas.
+        setMensaje(motivo ?? 'No he podido grabar el sonido, pero te sigo oyendo.');
+      }
+
+      // **El tramo empieza donde cae el compás uno**, que es un pulso después del
+      // último clic y lo calcula la cuenta atrás. Puesto en el instante del último
+      // clic, todo lo tocado saldría desplazado un pulso.
+      //
+      // **`performance.now` y no `Date.now`.** Es el reloj con el que se apuntan
+      // los acordes del motor y las notas del historial, y mezclarlos deja los
+      // instantes a mil millones de distancia: el punteo se quedaría entero fuera
+      // del tramo y no aparecería ni una nota.
+      acciones.startCapture(empiezaEn);
+      setFase('tocando');
+    },
+    [acciones, contarAntesDeApuntar, escucha],
+  );
 
   const parar = useCallback(async (): Promise<Toma | null> => {
     // **Parar en mitad de la cuenta la corta y no empieza nada.** Sin esto, el

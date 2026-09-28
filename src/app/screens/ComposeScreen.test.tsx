@@ -43,26 +43,39 @@ beforeEach(() => {
  */
 describe('Componer en una pantalla estrecha', () => {
   /**
-   * Grabar dejó de ser una franja fija arriba.
+   * **Grabar dejó de ser una herramienta y pasó a ser un papel de la toma.**
    *
-   * Cuando grababa vídeo tenía que esconderse en el móvil: se llevaba un renglón
-   * entero para algo que pide trípode y pantalla grande. Grabando solo el sonido
-   * ya no hay franja que esconder —es una herramienta más de la fila de abajo—,
-   * así que la pregunta cambia: **que esté disponible en cualquier ancho**, que
-   * es justo lo contrario de lo que se defendía antes
-   * ([adr/0023](../../../docs/adr/0023-grabar-solo-el-sonido.md)).
+   * Primero fue una franja fija arriba, con vídeo; al quedarse en solo sonido bajó
+   * a una pastilla de la fila de abajo
+   * ([adr/0023](../../../docs/adr/0023-grabar-solo-el-sonido.md)). Y ahí hacía lo
+   * mismo que «Tocando» menos transcribir —su reproductor, su descarga y **su
+   * propio micrófono**—, así que lo único suyo, no escribir en la canción, se ha
+   * ido donde vive lo demás: al papel de la toma
+   * ([adr/0056](../../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md)).
+   *
+   * Lo que se prueba aquí es que **ya no está en la fila de abajo**, que es lo que
+   * libera una pastilla de una barra que no cabe en ningún móvil.
    */
-  it('grabar es una herramienta más, y está también en el movil', async () => {
+  it('grabar ya no es una pastilla de la fila de abajo', () => {
     render(<ComposeScreen />);
 
-    const pestana = screen.getByRole('button', { name: 'Grabar' });
-    expect(pestana.className, 'la pestaña de grabar no se esconde en móvil').not.toContain(
-      'hidden',
-    );
+    const abajo = screen.getByRole('region', { name: 'Qué se ve abajo' });
+    expect(within(abajo).queryByRole('button', { name: 'Grabar' })).not.toBeInTheDocument();
+  });
 
-    await userEvent.click(pestana);
+  /**
+   * Y está donde se toca, en cualquier ancho: es el tercer papel de la toma.
+   *
+   * Con tonalidad puesta, porque `/componer` la pide antes que nada: sin ella la
+   * pantalla entera es la rueda. Eso es lo único del grabador suelto que **no** se
+   * ha podido conservar, y está dicho en
+   * [adr/0056](../../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md).
+   */
+  it('grabar sin escribir es un papel de la toma', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
 
-    expect(screen.getByRole('button', { name: /grabar lo que tocas/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Solo grabar' })).toBeInTheDocument();
   });
 
   /**

@@ -82,6 +82,14 @@ hacerlo.
   donde caen los ataques.
 - **El micrófono es uno, y lo sujeta `state/use-listening.ts`**, no el componente:
   quien monte otro botón de escuchar **no guarda la entrada**.
+- **Grabar sin escribir es un papel de la toma, no otra pantalla.** Había una
+  pastilla «Grabar» en la fila de abajo que hacía lo mismo menos transcribir, con
+  **su propio micrófono** —dos `getUserMedia` sobre el mismo aparato son dos
+  permisos y dos pilotos—. Ahora es `solo-grabar`, el tercer papel: no escribe, no
+  cuenta compases y no pide tonalidad
+  ([adr/0056](docs/adr/0056-grabar-es-un-papel-de-la-toma.md)). **Lo que no se
+  conservó**: la pantalla de componer pide tonalidad antes que nada, así que para
+  llegar a «Solo grabar» hay que elegir una aunque no se use.
 - **Una toma dice lo que es, y sin eso los dos motores compiten.** El croma y el de
   tono corren a la vez sobre la misma entrada, así que apuntar leía de los dos y un
   punteo entraba con acordes inventados encima. Se elige rítmica o punteo antes de
@@ -205,7 +213,7 @@ nombres viejos de los planes**.
 | Lo que el copiloto propone y nadie ha aceptado            | `state/propuesta.ts`, `arrange/BloqueFantasma`                |
 | Oír una progresión desde un componente                    | `state/use-progression-player.ts`                             |
 | Un estado que se mira y al que uno se apunta              | `core/estado-observable.ts` (`Emisor`)                        |
-| Grabar el sonido y descargarlo                            | `src/media/`, `features/recorder/`                            |
+| Grabar el sonido y descargarlo                            | `src/media/` + `arrange/TocarParaEscribir` («Solo grabar»)    |
 | Llevarte la canción a un secuenciador                     | `core/music/midi.ts`, `media/descargar.ts`                    |
 | Rutas de servidor de la IA                                | `app/api/ideas`, `/teacher`, `/versiones`                     |
 | El cuerpo común de las tres rutas, y sus puertas          | `server/ai-route.ts`, `server/ai-gate.ts`                     |
@@ -255,21 +263,21 @@ camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                        | Contesta                                                           |
-| ------------------------------ | ------------------------------------------------------------------ |
-| `docs/ESTILO.md`               | Cómo se escribe: idioma, comentarios, interfaz, temas, tests       |
-| `docs/ENCONTRAR-UN-FICHERO.md` | Cómo está ordenado el código y cómo llegar al fichero que buscas   |
-| `docs/ARCHITECTURE.md`         | Capas, qué importa qué, notas para quien viene de Angular          |
-| `docs/DOMAIN-MUSIC.md`         | La teoría que implementa el código, en lenguaje de músico          |
-| `docs/AUDIO-PITCH.md`          | Cómo se detecta el tono y el acorde, y qué limitaciones tienen     |
-| `docs/RECORDING.md`            | Permisos, canvas, formatos, descarga local                         |
-| `docs/AI.md`                   | Contrato de los route handlers y las puertas del gasto             |
-| `docs/CUENTAS-Y-PLANES.md`     | Qué da cada plan, qué cuesta la IA y qué se guarda de ti           |
-| `docs/ROADMAP.md`              | **Lo que falta**, ordenado por lo que estorba a diario             |
-| `docs/PARA-PUBLICAR.md`        | **Lo que hará falta al publicar y cobrar.** Nada está en marcha    |
-| `docs/HISTORIA.md`             | Las fases hechas, una línea cada una, y los fallos que enseñaron   |
-| `docs/DESPLIEGUE.md`           | Qué hace falta para publicar y qué se rompe según dónde            |
-| `docs/adr/`                    | Decisiones con sus alternativas descartadas. Van cincuenta y cinco |
+| Fichero                        | Contesta                                                          |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `docs/ESTILO.md`               | Cómo se escribe: idioma, comentarios, interfaz, temas, tests      |
+| `docs/ENCONTRAR-UN-FICHERO.md` | Cómo está ordenado el código y cómo llegar al fichero que buscas  |
+| `docs/ARCHITECTURE.md`         | Capas, qué importa qué, notas para quien viene de Angular         |
+| `docs/DOMAIN-MUSIC.md`         | La teoría que implementa el código, en lenguaje de músico         |
+| `docs/AUDIO-PITCH.md`          | Cómo se detecta el tono y el acorde, y qué limitaciones tienen    |
+| `docs/RECORDING.md`            | Permisos, canvas, formatos, descarga local                        |
+| `docs/AI.md`                   | Contrato de los route handlers y las puertas del gasto            |
+| `docs/CUENTAS-Y-PLANES.md`     | Qué da cada plan, qué cuesta la IA y qué se guarda de ti          |
+| `docs/ROADMAP.md`              | **Lo que falta**, ordenado por lo que estorba a diario            |
+| `docs/PARA-PUBLICAR.md`        | **Lo que hará falta al publicar y cobrar.** Nada está en marcha   |
+| `docs/HISTORIA.md`             | Las fases hechas, una línea cada una, y los fallos que enseñaron  |
+| `docs/DESPLIEGUE.md`           | Qué hace falta para publicar y qué se rompe según dónde           |
+| `docs/adr/`                    | Decisiones con sus alternativas descartadas. Van cincuenta y seis |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,

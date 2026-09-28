@@ -121,6 +121,23 @@ describe('abrir el microfono para grabar', () => {
     expect(micro.state).toBe('idle');
   });
 
+  /**
+   * **Pararlo sin haberlo abierto no revienta y no cambia nada.**
+   *
+   * Pasa de verdad: quien monta esto lo para al desmontarse, y desmontarse sin
+   * haber grabado es lo normal. Lo cubría el grabador suelto, que llamaba a `stop`
+   * en su limpieza; al juntarlo con «Tocando» ese camino se quedó sin nadie que lo
+   * recorriera ([adr/0056](../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md)).
+   */
+  it('pararlo sin haberlo abierto no suelta nada ni cambia el estado', async () => {
+    const micro = new BrowserMicInput();
+
+    await micro.stop();
+
+    expect(paradas).toHaveLength(0);
+    expect(micro.state).toBe('idle');
+  });
+
   it('avisa de cada cambio de estado a quien se haya suscrito', async () => {
     const micro = new BrowserMicInput();
     const vistos: string[] = [];

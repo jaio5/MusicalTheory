@@ -335,6 +335,110 @@ describe('la claqueta antes de apuntar', () => {
   });
 });
 
+/**
+ * **Solo grabar: el tercer papel, que antes era otra pantalla.**
+ *
+ * Había una herramienta aparte —una pastilla «Grabar» en la fila de abajo— que
+ * hacía lo mismo que esto menos transcribir, con su propio reproductor, su propia
+ * descarga y **su propio micrófono**. Lo único suyo era no escribir en la canción,
+ * y eso es un papel de la toma
+ * ([adr/0056](../../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md)).
+ */
+describe('solo grabar', () => {
+  beforeEach(() => {
+    MetronomoFalso.ultimo = null;
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+  });
+
+  /** Elige «Solo grabar», graba y para. */
+  async function unaToma() {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Solo grabar' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Parar y escribirlo/ })).toBeInTheDocument();
+    });
+    suenaUnAcorde();
+    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+  }
+
+  /**
+   * **No cuenta los dos compases.** No se escribe nada, así que no hay rejilla que
+   * cuadrar y contar sería esperar por esperar.
+   */
+  it('no cuenta compases antes de empezar', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Solo grabar' }));
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+
+    await waitFor(() => {
+      expect(useSessionStore.getState().capturing).toBe(true);
+    });
+    expect(screen.queryByText('8'), 'ha contado').not.toBeInTheDocument();
+  });
+
+  /**
+   * Y no escribe. Sin este camino, la toma pasaba por leer los dos motores, no
+   * encontraba nada —porque no se le ha pedido— y contestaba «no he podido leer ni
+   * un acorde», que es culpar al micro de hacer lo que se le mandó.
+   */
+  it('no escribe nada en la cancion, y no lo llama fallo', async () => {
+    await unaToma();
+
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
+    expect(screen.queryByText(/no he podido leer/i)).not.toBeInTheDocument();
+  });
+
+  // La toma sí se queda: para oírla y llevártela, que es a lo que se venía.
+  it('la toma se queda para oirla y descargarla', async () => {
+    await unaToma();
+
+    expect(await screen.findByLabelText('La toma que acabas de grabar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Descargar/ })).toBeInTheDocument();
+  });
+
+  /**
+   * **Y se puede grabar sin haber elegido tonalidad**, que era lo único que el
+   * grabador suelto hacía y esto no: los otros dos papeles escriben grados sobre
+   * una tonalidad, y este no escribe nada.
+   *
+   * Aquí se prueba la pantalla sola. En `/componer` hay otra puerta antes —la
+   * pantalla entera pide la tonalidad—, y eso está dicho en
+   * [adr/0056](../../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md).
+   */
+  it('sin tonalidad se puede grabar, y se llega desde el aviso', async () => {
+    useSessionStore.getState().actions.reset();
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+
+    // Sin tonalidad lo que sale es el aviso, con la salida a mano.
+    expect(screen.getByText(/Elige una tonalidad y toca/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Solo grabar' }));
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Parar y escribirlo/ })).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+
+    expect(await screen.findByLabelText('La toma que acabas de grabar')).toBeInTheDocument();
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
+  });
+
+  /**
+   * Y se puede tirar. Lo traía el grabador suelto y aquí no estaba: la toma solo
+   * desaparecía cuando la reemplazaba la siguiente.
+   */
+  it('se puede tirar la toma', async () => {
+    await unaToma();
+    expect(await screen.findByLabelText('La toma que acabas de grabar')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Descartar la toma' }));
+
+    expect(screen.queryByLabelText('La toma que acabas de grabar')).not.toBeInTheDocument();
+  });
+});
+
 describe('Tocar para escribir', () => {
   it('sin tonalidad no se puede empezar, y se dice por que', () => {
     render(<TocarParaEscribir deps={DEPS} />);

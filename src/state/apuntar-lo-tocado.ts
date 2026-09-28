@@ -70,6 +70,14 @@ export function apuntarLoTocado({
   readonly papel?: PapelDeLaToma;
   readonly nombre?: string;
 }): LoApuntado {
+  // **Solo grabar no escribe nada, y eso no es un fallo.** Sin este camino, la
+  // toma pasaba por leer los dos motores, no encontraba nada que apuntar —porque
+  // no se le ha pedido— y contestaba «no he podido leer ni un acorde», que es
+  // culpar al micro de hacer justo lo que se le mandó.
+  if (papel === 'solo-grabar') {
+    return { partId: null, aviso: null };
+  }
+
   const sesion = useSessionStore.getState();
 
   const capture =

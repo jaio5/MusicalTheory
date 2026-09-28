@@ -9,7 +9,6 @@ import { GananciaAlComponer, useProgress } from '@features/learn';
 import { IdeasPanel } from '@features/ideas';
 import { Metronome } from '@features/metronome';
 import { CurrentChord, HeardChord, NextChords, Voicings } from '@features/path';
-import { Grabadora } from '@features/recorder';
 import { ResumeLast, SessionsPanel } from '@features/sessions';
 import { SongsPanel } from '@features/songs';
 import { VersionsPanel } from '@features/versions';
@@ -34,7 +33,6 @@ import {
   IconoIdeas,
   IconoMastil,
   IconoMicro,
-  IconoPunto,
   IconoSalidas,
   IconoSesiones,
   IconoTocar,
@@ -91,7 +89,6 @@ const EDITORES: readonly Editor[] = [
     aSuProporcion: true,
     rotulos: RotulosDelMastil,
   },
-  { id: 'grabar', name: 'Grabar', Icono: IconoPunto, render: Grabadora, entero: true },
   { id: 'ideas', name: 'Ideas', Icono: IconoIdeas, render: IdeasPanel },
   // Salidas al lado de Ideas porque las dos preguntan al modelo, y las dos
   // cuestan una petición del cupo: tenerlas juntas dice sin decirlo cuáles son

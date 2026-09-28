@@ -21,7 +21,7 @@ import { Aviso } from '@ui/Aviso';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
 import { reloj } from '@core/reloj';
-import { IconoDescargar, IconoMicro, IconoParar, IconoSonar } from '@ui/icons';
+import { IconoDescargar, IconoMicro, IconoPapelera, IconoParar, IconoSonar } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
 
 /**
@@ -98,7 +98,13 @@ export function TocarParaEscribir({
     };
   }, []);
 
-  if (activeKey === null) {
+  // **Solo grabar no pide tonalidad**, y es lo único que había que salvar del
+  // grabador suelto: allí se podía capturar una idea sin haber elegido nada. Los
+  // otros dos papeles sí la piden, porque lo que escriben son grados sobre ella
+  // ([adr/0056](../../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md)).
+  const soloGrabar = papel === 'solo-grabar';
+
+  if (activeKey === null && !soloGrabar) {
     return (
       // Dentro de una caja que se desplaza, como todo lo que puede no caber: un
       // estado vacío centrado en una caja que recorta se sale por arriba y por
@@ -107,8 +113,14 @@ export function TocarParaEscribir({
         <div className="my-auto">
           <Vacio icono={<IconoMicro />} titulo="Elige una tonalidad y toca">
             Lo que toques se escribe en grados sobre la tonalidad que tengas puesta, así que hace
-            falta saber cuál es antes de empezar.
+            falta saber cuál es antes de empezar. Si solo quieres guardar el sonido, elige «Solo
+            grabar» abajo.
           </Vacio>
+          <div className="mt-4 flex justify-center">
+            <Button onClick={() => setPapel('solo-grabar')} variant="quiet">
+              Solo grabar
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -121,6 +133,22 @@ export function TocarParaEscribir({
    * durante la cuenta no se ha tocado nada, así que lo que salía era «no he
    * podido leer nada». Cancelar no es fallar.
    */
+  /**
+   * Tirar la toma.
+   *
+   * Lo traía el grabador suelto y aquí no estaba: la toma solo desaparecía cuando
+   * la reemplazaba la siguiente. Al juntarlos había que quedárselo, porque decidir
+   * que una toma no vale es la mitad de grabar.
+   */
+  function tirarLaToma(url: string): void {
+    // La dirección entra por parámetro y no se lee de la referencia: el botón solo
+    // existe habiendo toma, así que preguntarse si hay alguna sería una rama que no
+    // puede darse.
+    URL.revokeObjectURL(url);
+    urlRef.current = null;
+    setToma(null);
+  }
+
   async function dejarlo(): Promise<void> {
     setAviso(null);
     setEscrito(false);
@@ -137,7 +165,10 @@ export function TocarParaEscribir({
     urlRef.current = nueva?.url ?? null;
     setToma(nueva);
 
-    /* v8 ignore next 3 -- sin tonalidad esta pantalla no pinta el boton de parar, asi que no se llega aqui */
+    // Sin tonalidad no hay grados sobre los que escribir, y es el caso en que se
+    // puede grabar sin haberla elegido. **Que «solo grabar» no escriba lo decide
+    // `apuntarLoTocado`**, no esto: es lo que significa ese papel, y saberlo en dos
+    // sitios es la manera de que un día digan cosas distintas.
     if (activeKey === null) {
       return;
     }
@@ -179,9 +210,12 @@ export function TocarParaEscribir({
   // hay un fotograma con los grados del modo anterior dentro, y `blockChord` no
   // perdona un `I` en menor. Medido: reventaba la pantalla entera al saltar a la
   // escala que propone una idea.
-  const loQueYaHay = guionDeEnsayo(arrangement, beatsPerBar).filter((sitio) =>
-    degreesFor(activeKey.mode).includes(sitio.degree),
-  );
+  const loQueYaHay =
+    activeKey === null
+      ? []
+      : guionDeEnsayo(arrangement, beatsPerBar).filter((sitio) =>
+          degreesFor(activeKey.mode).includes(sitio.degree),
+        );
 
   return (
     // `my-auto` en el hijo y no `justify-center` aquí, que es la regla de la
@@ -201,7 +235,7 @@ export function TocarParaEscribir({
                 className="border-border text-text-muted rounded-md border px-2.5 py-1 font-mono text-sm"
               >
                 {
-                  blockChord(activeKey.tonic, activeKey.mode, {
+                  blockChord(activeKey!.tonic, activeKey!.mode, {
                     ...writtenBlock(sitio.blockId, sitio.degree, sitio.beats, sitio.especie),
                   }).symbol
                 }
@@ -242,7 +276,9 @@ export function TocarParaEscribir({
             compases en los que el único botón de la pantalla no hacía nada y
             después arrancaba solo. */}
         <Button
-          onClick={() => void (contando ? dejarlo() : tocando ? pararYEscribir() : empezar())}
+          onClick={() =>
+            void (contando ? dejarlo() : tocando ? pararYEscribir() : empezar(!soloGrabar))
+          }
           disabled={fase === 'preparando'}
           variant={tocando || contando ? 'quiet' : 'primary'}
           className="min-w-56"
@@ -296,8 +332,9 @@ export function TocarParaEscribir({
               · {segundos}s
             </p>
             <p className="text-text-muted max-w-prose text-sm">
-              Toca en {keyName(activeKey.tonic, activeKey.mode)}. Al parar, esto entra en la canción
-              como una parte y se puede seguir por bloques o en la partitura.
+              {activeKey === null
+                ? 'Al parar, la toma se queda aquí para oírla y descargarla. No se escribe nada en la canción.'
+                : `Toca en ${keyName(activeKey.tonic, activeKey.mode)}. Al parar, esto entra en la canción como una parte y se puede seguir por bloques o en la partitura.`}
             </p>
           </div>
         ) : (
@@ -352,6 +389,15 @@ export function TocarParaEscribir({
             <Chip tone="quiet" className="px-3 text-xs" onClick={descargar}>
               <IconoDescargar />
               Descargar
+            </Chip>
+            <Chip
+              tone="quiet"
+              className="px-3 text-xs"
+              onClick={() => tirarLaToma(toma.url)}
+              ariaLabel="Descartar la toma"
+            >
+              <IconoPapelera />
+              Tirarla
             </Chip>
           </div>
         )}
