@@ -1,5 +1,9 @@
 # Arquitectura
 
+> Este documento contesta **por qué** las capas son así. Si lo que buscas es
+> **dónde está el fichero que quieres tocar**, eso lo contesta
+> [ENCONTRAR-UN-FICHERO.md](./ENCONTRAR-UN-FICHERO.md).
+
 ## La idea en una frase
 
 La teoría musical no sabe que existe un navegador, y la interfaz no sabe cómo
