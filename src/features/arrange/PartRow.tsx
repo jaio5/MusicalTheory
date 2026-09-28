@@ -155,7 +155,13 @@ export function PartRow({
         dropPart ? 'bg-surface-raised' : ''
       }`}
     >
-      <div className="flex items-center gap-2">
+      {/* En el móvil esta fila no cabe: «Quitar» se salía cuarenta píxeles por el
+          borde derecho y **no había manera de llegar a él**, porque quien
+          recortaba era la pantalla y no una caja con desplazamiento —por eso la
+          sonda de medidas tampoco lo veía—. Se desplaza a lo ancho, como la barra
+          del lienzo, y el degradado dice que sigue. De `sm` para arriba cabe y no
+          se toca nada. */}
+      <div className="hay-mas-al-lado flex items-center gap-2 max-sm:overflow-x-auto max-sm:[&>*]:shrink-0">
         {editando ? (
           <TextField
             label="Nombre de la parte"
@@ -319,7 +325,7 @@ export function PartRow({
         <ul
           aria-label={`Acordes de ${part.name}`}
           data-parte-vacia={part.blocks.length === 0 ? part.id : undefined}
-          className="mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
+          className="hay-mas-al-lado mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
         >
           {part.blocks.length === 0 && (
             <li
@@ -429,7 +435,7 @@ export function PartRow({
       {propuesta.length > 0 && (
         <ul
           aria-label={`Lo propuesto para ${part.name}`}
-          className="mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
+          className="hay-mas-al-lado mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
         >
           {propuesta.map((degree, indice) => (
             <li key={`fantasma-${indice}`} className="flex">

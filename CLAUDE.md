@@ -106,6 +106,16 @@ hacerlo.
 - **Un montaje son grados, y los grados no se llaman igual en mayor que en menor**:
   `state/montaje-en-su-modo.ts` lo traduce en cuanto cambia la tonalidad, y sin eso
   componer se cae entera ([adr/0030](docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)).
+- **En el móvil hay tres tiras que no caben y se arrastran**, y sin pista parecen
+  rotas: la última pastilla sale partida contra el borde. La clase `hay-mas-al-lado`
+  de `globals.css` lo dice **solo cuando de verdad queda algo**, sin medir nada —dos
+  capas de fondo que viajan con el contenido tapan a otras dos pegadas al marco—. La
+  de abajo usa `no-cabe-nunca`, que difumina el contenido, porque sus pastillas son
+  opacas y tapan el fondo: mide 657 px y no cabe en ninguna pantalla de móvil.
+- **«Se ve» no es `top >= 0`**, y por eso `traerLaCancionALaVista` pregunta quién hay
+  en el borde de la canción: encima flotan la tonalidad y las tiras de área, así que
+  la parte puede estar en el píxel 116 y estar tapada. Se reserva hueco con
+  `scroll-margin-top`, sacado del alto de lo que tapa y no de un número a mano.
 - **La barra de tonalidad flota y se abre sola cuando no hay tonalidad**, así que
   **lo que pongas debajo no se ve**: un aviso que dijera «elígela en la rueda de
   aquí arriba» quedaba detrás de la rueda que lo tapaba. Ha mordido en la unidad y

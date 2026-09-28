@@ -1741,7 +1741,9 @@ describe('La canción, traída a la vista', () => {
     const mirar = vi.fn();
     Element.prototype.scrollIntoView = mirar;
     const caja = Element.prototype.getBoundingClientRect;
-    Element.prototype.getBoundingClientRect = () => ({ top: -200 }) as DOMRect;
+    Element.prototype.getBoundingClientRect = () => ({ top: -200, left: 0, width: 390 }) as DOMRect;
+    // Nada la tapa: se baja por haberse salido, y sin reservar hueco arriba.
+    const donde = vi.spyOn(document, 'elementFromPoint').mockReturnValue(null);
     conTonalidad();
     render(<ArrangeCanvas />);
 
@@ -1749,6 +1751,80 @@ describe('La canción, traída a la vista', () => {
     await waitFor(() => expect(mirar).toHaveBeenCalled());
 
     Element.prototype.getBoundingClientRect = caja;
+    donde.mockRestore();
+  });
+
+  /**
+   * **Y estar dentro de la pantalla no es verse.**
+   *
+   * Encima de la canción flotan la barra de tonalidad y las tiras de área, así que
+   * la parte puede estar en el píxel 116 —dentro— y debajo del cromo. Medido con
+   * capturas en un móvil: escribías cuatro acordes y veías «Añadir otra parte» y
+   * las sugerencias, con la canción escondida detrás.
+   */
+  it('si algo la tapa, tambien se baja, dejando hueco para lo que tapa', async () => {
+    const mirar = vi.fn();
+    Element.prototype.scrollIntoView = mirar;
+    const caja = Element.prototype.getBoundingClientRect;
+    // Dentro de la pantalla: con la regla vieja no se movía nada.
+    Element.prototype.getBoundingClientRect = () =>
+      ({ top: 116, left: 0, width: 390, bottom: 320 }) as DOMRect;
+
+    const barra = document.createElement('div');
+    document.body.append(barra);
+    const donde = vi.spyOn(document, 'elementFromPoint').mockReturnValue(barra);
+
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    await waitFor(() => expect(mirar).toHaveBeenCalled());
+
+    Element.prototype.getBoundingClientRect = caja;
+    donde.mockRestore();
+    barra.remove();
+  });
+
+  /**
+   * Y lo que hay en su borde **puede ser ella misma**: la propia canción, o una de
+   * sus partes. Eso no es que la tapen, así que tampoco se mueve nada.
+   */
+  it('si en su borde esta ella misma, no se mueve', async () => {
+    const mirar = vi.fn();
+    Element.prototype.scrollIntoView = mirar;
+    const caja = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = () => ({ top: 200, left: 0, width: 390 }) as DOMRect;
+    const donde = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation(() => document.querySelector('[aria-label="Estrofa"]'));
+
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    await new Promise((listo) => requestAnimationFrame(() => setTimeout(listo, 0)));
+
+    expect(mirar).not.toHaveBeenCalled();
+
+    Element.prototype.getBoundingClientRect = caja;
+    donde.mockRestore();
+  });
+
+  // Y si se ve entera y nada la tapa, no se le mueve la vista a nadie.
+  it('si ya se ve, no se toca la vista', async () => {
+    const mirar = vi.fn();
+    Element.prototype.scrollIntoView = mirar;
+    const caja = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = () => ({ top: 400, left: 0, width: 390 }) as DOMRect;
+    const donde = vi.spyOn(document, 'elementFromPoint').mockReturnValue(null);
+
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    await new Promise((listo) => requestAnimationFrame(() => setTimeout(listo, 0)));
+
+    expect(mirar).not.toHaveBeenCalled();
+
+    Element.prototype.getBoundingClientRect = caja;
+    donde.mockRestore();
   });
 });
 

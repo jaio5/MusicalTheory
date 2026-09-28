@@ -323,6 +323,64 @@
     color: var(--color-text-muted);
   }
 
+  /*
+   * Que se vea que una tira sigue hacia el lado.
+   *
+   * En el móvil hay tres barras que no caben y se arrastran —la del lienzo, la de
+   * la parte y la de abajo—, y **nada decía que hubiera más**: la última pastilla
+   * salía partida contra el borde y parecía rota, no desplazable.
+   *
+   * Sin medir nada y sin JavaScript. Las dos primeras capas viajan **con el
+   * contenido** y tapan a las otras dos, que están pegadas **al marco**: pegado al
+   * borde izquierdo la tapa cubre su sombra, y al arrastrar la tapa se va y la
+   * sombra aparece. Por eso la pista sale solo cuando de verdad queda algo, que es
+   * justo lo que una sombra puesta siempre no consigue.
+   *
+   * El color de la tapa es el del fondo de detrás, y se puede cambiar con
+   * `--tira-fondo` donde la tira no esté sobre el fondo de la página.
+   *
+   * Solo por debajo de 640: de ahí para arriba estas tiras se envuelven o caben
+   * enteras, y una sombra sin nada que esconder es suciedad.
+   */
+  @media (width < 40rem) {
+    .hay-mas-al-lado {
+      background:
+        linear-gradient(to right, var(--tira-fondo, var(--color-background)) 55%, transparent) 0 0 /
+          34px 100% no-repeat local,
+        linear-gradient(to left, var(--tira-fondo, var(--color-background)) 55%, transparent) 100%
+          0 / 34px 100% no-repeat local,
+        linear-gradient(
+            to right,
+            color-mix(in srgb, var(--color-text) 20%, transparent),
+            transparent
+          )
+          0 0 / 22px 100% no-repeat scroll,
+        linear-gradient(
+            to left,
+            color-mix(in srgb, var(--color-text) 20%, transparent),
+            transparent
+          )
+          100% 0 / 22px 100% no-repeat scroll;
+    }
+  }
+
+  /*
+   * La variante para una tira que **no cabe nunca**.
+   *
+   * La de abajo de componer mide 657 y ninguna pantalla de móvil llega, medido de
+   * 320 a 640. Ahí el degradado del fondo de arriba no sirve: sus pastillas son
+   * opacas y lo tapan, así que se difumina **el contenido**, que sí se ve.
+   *
+   * Y por eso es una clase aparte y no la de arriba: esta miente si la tira
+   * llegara a caber —seguiría difuminando el último—, y se puede poner solo donde
+   * está comprobado que no cabe.
+   */
+  @media (width < 40rem) {
+    .no-cabe-nunca {
+      mask-image: linear-gradient(to right, black calc(100% - 30px), transparent);
+    }
+  }
+
   /* Y el de la unidad que toca ahora, que además brilla un poco. */
   .halo-aquí {
     box-shadow:

@@ -660,6 +660,18 @@ export function ArrangeCanvas() {
    * Se espera un fotograma porque el bloque nuevo todavía no está pintado cuando
    * esto se llama, y se mira antes de mover: si ya se ve, no se toca la vista de
    * nadie.
+   *
+   * **Y «se ve» no es `top >= 0`.** Eso fue lo que se midió y no bastaba: en el
+   * móvil, encima de la canción flotan la barra de tonalidad y las tiras de área
+   * —flotan a propósito, `ui/Disclosure`—, así que la parte podía estar en el
+   * píxel 116, dentro de la pantalla, y **debajo de las barras**. Medido con
+   * capturas: escribías cuatro acordes y lo que veías era «Añadir otra parte» y
+   * las sugerencias, con la canción escondida detrás del cromo.
+   *
+   * Así que se pregunta quién hay en su borde de arriba. Si no es ella, la tapa
+   * algo, y `scroll-margin-top` es lo que le dice al navegador cuánto hueco dejar
+   * por encima al traerla: se saca del alto de lo que tapa, no de un número
+   * escrito a mano que caducaría al mover una barra.
    */
   const traerLaCancionALaVista = useCallback(() => {
     requestAnimationFrame(() => {
@@ -668,10 +680,16 @@ export function ArrangeCanvas() {
       if (caja === null) {
         return;
       }
-      const { top } = caja.getBoundingClientRect();
-      if (top < 0) {
-        caja.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      const { top, left, width } = caja.getBoundingClientRect();
+      const enSuBorde = document.elementFromPoint(left + width / 2, top + 2);
+      const tapa = enSuBorde !== null && !caja.contains(enSuBorde) ? enSuBorde : null;
+
+      if (top >= 0 && tapa === null) {
+        return;
       }
+      caja.style.scrollMarginTop =
+        tapa === null ? '' : `${Math.ceil(tapa.getBoundingClientRect().bottom)}px`;
+      caja.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
   }, []);
 
@@ -879,7 +897,7 @@ export function ArrangeCanvas() {
         alcanza arrastrando, que es lo que hace cualquier barra de herramientas
         en un móvil. `shrink-0` para que la fila no ceda su altura.
       */}
-      <div className="border-border flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2 sm:flex-wrap sm:overflow-x-visible [&>*]:shrink-0 sm:[&>*]:shrink">
+      <div className="border-border hay-mas-al-lado flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2 sm:flex-wrap sm:overflow-x-visible [&>*]:shrink-0 sm:[&>*]:shrink">
         <Button
           onClick={() => player.toggle(null)}
           disabled={pulsos === 0}

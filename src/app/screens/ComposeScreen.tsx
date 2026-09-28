@@ -769,7 +769,7 @@ export function ComposeScreen() {
           aria-label="Qué se ve abajo"
           className="border-border flex shrink-0 flex-col border-t"
         >
-          <div className="flex gap-1.5 overflow-x-auto px-3 py-2">
+          <div className="no-cabe-nunca flex gap-1.5 overflow-x-auto px-3 py-2">
             {EDITORES.map((candidato) => (
               <Chip
                 key={candidato.id}
