@@ -19,6 +19,7 @@ const PETICION = {
   schema: { type: 'object', properties: { ideas: { type: 'array' } } },
   maxTokens: 700,
   model: 'qwen3:8b',
+  intento: 0,
 } as const;
 
 describe('lo que se le manda a Ollama', () => {
@@ -34,6 +35,24 @@ describe('lo que se le manda a Ollama', () => {
     // se perdiera por el camino, el peor caso que supone la aritmética de los
     // cupos dejaría de ser el que impone el servidor.
     expect(cuerpoOllama(PETICION).options).toEqual({ num_predict: 700, temperature: 0 });
+  });
+
+  /**
+   * **El reintento pide algo distinto, o no es un reintento.**
+   *
+   * La ruta vuelve a preguntar cuando lo que llega no pasa la validación del
+   * dominio. Con la misma petición a temperatura cero la respuesta es la misma, así
+   * que se esperaba el doble —medido, 14 s en vez de 7— para el mismo «no». Es el
+   * mismo razonamiento que ya estaba escrito para una respuesta cortada por el tope
+   * de tokens, que por eso no se reintenta.
+   */
+  it('en el reintento sube la temperatura, para que pueda contestar otra cosa', () => {
+    expect(cuerpoOllama({ ...PETICION, intento: 0 }).options).toMatchObject({ temperature: 0 });
+    expect(cuerpoOllama({ ...PETICION, intento: 1 }).options).toMatchObject({
+      temperature: expect.any(Number) as number,
+    });
+    const segunda = cuerpoOllama({ ...PETICION, intento: 1 }).options as { temperature: number };
+    expect(segunda.temperature).toBeGreaterThan(0);
   });
 
   it('le pasa el esquema tal cual, para que constriña la generación', () => {

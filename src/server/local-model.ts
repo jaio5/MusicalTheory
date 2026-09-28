@@ -40,6 +40,14 @@ export interface PeticionLocal {
   readonly maxTokens: number;
   /** El modelo, tal y como lo nombra Ollama: `qwen3:8b`. */
   readonly model: string;
+  /**
+   * Qué intento es, empezando en cero.
+   *
+   * Lo único que cambia con él es la temperatura, y para eso existe: **repetir la
+   * misma petición a temperatura cero da la misma respuesta**, así que el
+   * reintento de la ruta era una espera sin ninguna posibilidad de acertar.
+   */
+  readonly intento: number;
 }
 
 /**
@@ -63,7 +71,12 @@ export interface PeticionLocal {
  * - **`format`** es el `output_config.format`. Ollama acepta el esquema JSON tal
  *   cual y constriñe la generación, igual que la salida estructurada de la API.
  *
- * `temperature: 0` porque la variedad se pide en el prompt. Un modelo pequeño con
+ * `temperature: 0` en el primer intento porque la variedad se pide en el prompt.
+ * **En el reintento no**, y esa es la corrección: la ruta vuelve a preguntar cuando
+ * lo que llega no pasa la validación del dominio, y con la misma petición a
+ * temperatura cero la segunda respuesta es **la misma**. Se esperaba el doble para
+ * el mismo «no»: medido, 14 s en vez de 7, y sin ninguna posibilidad de acertar. Un
+ * modelo pequeño con
  * temperatura alta se inventa grados que no existen en el modo, y eso el
  * validador lo tira: es gastar segundos para no servir nada.
  */
@@ -73,7 +86,7 @@ export function cuerpoOllama(peticion: PeticionLocal): Record<string, unknown> {
     stream: false,
     think: false,
     format: peticion.schema,
-    options: { num_predict: peticion.maxTokens, temperature: 0 },
+    options: { num_predict: peticion.maxTokens, temperature: peticion.intento > 0 ? 0.8 : 0 },
     messages: [
       { role: 'system', content: peticion.system },
       { role: 'user', content: peticion.prompt },

@@ -107,6 +107,10 @@ export async function responderConModelo<Peticion, Respuesta>(
 
   // Un reintento y basta. Encadenar más cuesta dinero y tiempo, y quien está
   // delante prefiere un «no ha salido» rápido a treinta segundos de espera.
+  //
+  // Y el reintento **pide algo distinto**: el número de intento viaja hasta el
+  // modelo, que sube la temperatura en el segundo. Sin eso, con el modelo de casa
+  // la segunda llamada era la misma pregunta con la misma respuesta.
   for (let intento = 0; intento < MAX_MODEL_ATTEMPTS; intento += 1) {
     let payload: unknown;
     try {
@@ -116,6 +120,11 @@ export async function responderConModelo<Peticion, Respuesta>(
         schema: ruta.schema(peticion),
         maxTokens: ruta.maxTokens,
         sinClave: () => ruta.sinClave(peticion),
+        // **Qué intento es, y no es un adorno.** El modelo de casa va a
+        // temperatura cero, así que repetir la misma petición daba exactamente la
+        // misma respuesta: el reintento era esperar el doble para el mismo «no».
+        // Con esto, la segunda tiene de verdad otra oportunidad.
+        intento,
       });
     } catch (fallo) {
       // Una respuesta cortada por el tope de tokens **no se reintenta**: el

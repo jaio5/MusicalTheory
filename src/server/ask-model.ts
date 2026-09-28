@@ -101,6 +101,15 @@ export interface AskModelInput {
    * dominio.
    */
   readonly sinClave: () => unknown;
+  /**
+   * Qué intento es, empezando en cero.
+   *
+   * Lo pasa la ruta, que es quien reintenta. Solo lo usa el modelo de casa, para
+   * subir la temperatura en el segundo: con la misma petición a temperatura cero
+   * la respuesta es la misma, así que reintentar era esperar el doble para el
+   * mismo «no». La API de Anthropic ya contesta distinto por su cuenta.
+   */
+  readonly intento?: number;
 }
 
 /**
@@ -123,6 +132,7 @@ export async function askModel({
   schema,
   maxTokens,
   sinClave,
+  intento,
 }: AskModelInput): Promise<unknown> {
   const proveedor = modelProvider();
 
@@ -136,7 +146,7 @@ export async function askModel({
     // La URL está, porque es justo lo que mira `modelProvider` para decir
     // «local». El `?? ''` es para el compilador, no para nadie más.
     return askLocalModel(
-      { prompt, system, schema, maxTokens, model: configuredModel() },
+      { prompt, system, schema, maxTokens, model: configuredModel(), intento: intento ?? 0 },
       /* v8 ignore next -- la URL esta, porque es lo que hace que el proveedor sea «local» */
       localModelUrl() ?? '',
     );

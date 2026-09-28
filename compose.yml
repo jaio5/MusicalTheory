@@ -168,6 +168,18 @@ services:
     # se despliegue, y los modelos nuevos piden Ollama nuevo.
     image: ollama/ollama:latest
     restart: unless-stopped
+    environment:
+      # **El modelo se queda cargado mientras el contenedor viva.**
+      #
+      # De serie Ollama lo descarga a los cinco minutos sin uso, y volver a
+      # cargarlo cuesta lo que cueste leer cinco gigas: 2,7 s si el fichero sigue
+      # en la caché del sistema y **86 s si no**. Con quince gigas de RAM y ocho en
+      # caché, ese fichero compite con todo lo demás, así que la espera larga
+      # vuelve cuando menos se espera —y es justo la queja que trajo esto aquí—.
+      #
+      # Cuesta 5,6 GB de gráfica retenidos. Con una de 12 sobra; con una más
+      # pequeña, pon aquí `5m` y recupera el comportamiento de antes.
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:--1}
     volumes:
       # Los pesos, fuera del contenedor. Son cinco gigas por modelo: volver a
       # descargarlos en cada `up` sería inaceptable, y es lo que pasa sin esto.
