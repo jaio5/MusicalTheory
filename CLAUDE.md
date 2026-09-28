@@ -57,13 +57,22 @@ hacerlo.
   descuenta la barra de abajo mientras exista. Si uno se mueve, el otro también:
   separados, la rueda se sale por abajo y nadie lo ve. **Ningún test lo vigila**;
   lo caza la sonda del skill `arrancar` a los dos lados de 640 y de 768.
-- **`docker compose up` a secas deja la IA apagada aunque tengas un Ollama
-  corriendo.** La dirección de un Ollama del equipo es la IP de `eth0`, **cambia al
-  reiniciar** y la calcula `scripts/docker-arriba.sh`: en `compose.yml` no hay
-  ninguna dirección fija que valga —`host.docker.internal` apunta a Windows, no a
-  WSL, y la puerta del puente tampoco llega—. Así que **`pnpm docker:up`, y otra
-  vez después de cada reinicio**
+- **Qué hace falta para que `docker compose up -d` traiga la IA: dos líneas en el
+  `.env`.** `COMPOSE_PROFILES=ia` enciende el perfil y `OLLAMA_URL_DOCKER=http://ollama:11434`
+  le dice a la aplicación dónde está. Van juntas y no sirve una sin la otra. Con
+  ellas puestas no hace falta el script ni acordarse de nada, **porque `ollama` es un
+  nombre fijo de la red de compose**: no depende de ninguna IP
+  ([adr/0055](docs/adr/0055-la-ia-se-enciende-desde-el-env.md)).
+- **Y un Ollama del equipo, en cambio, solo lo encuentra el script.** Su dirección es
+  la IP de `eth0`, **cambia al reiniciar**, y en `compose.yml` no hay ninguna fija que
+  valga —`host.docker.internal` apunta a Windows, no a WSL, y la puerta del puente
+  tampoco llega—. Ése es el camino de `pnpm docker:up`
   ([adr/0050](docs/adr/0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)).
+- **Los dos Ollama chocan en el 11434.** Con uno nativo corriendo, el contenedor no
+  puede publicar ahí y `up` falla con «port is already allocated». Se mueve con
+  `OLLAMA_PORT` —aquí el 11435—, y solo afecta a mirarlo desde fuera: dentro de
+  compose la aplicación le habla por el nombre y por el 11434 de la red interna. Es
+  el mismo choque que el 5432 de Postgres.
 - **Al grabar se cuentan dos compases y la claqueta se calla**, y lo que se apunta
   empieza **un pulso después del último clic**: ahí cae el compás uno, y el tramo se
   mide desde ese instante, así que equivocarse ahí desplaza la canción entera un
@@ -246,21 +255,21 @@ camino**; lo demás son `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`,
 
 Leer el que toque antes de tocar código de esa zona. **Son la fuente del porqué.**
 
-| Fichero                        | Contesta                                                            |
-| ------------------------------ | ------------------------------------------------------------------- |
-| `docs/ESTILO.md`               | Cómo se escribe: idioma, comentarios, interfaz, temas, tests        |
-| `docs/ENCONTRAR-UN-FICHERO.md` | Cómo está ordenado el código y cómo llegar al fichero que buscas    |
-| `docs/ARCHITECTURE.md`         | Capas, qué importa qué, notas para quien viene de Angular           |
-| `docs/DOMAIN-MUSIC.md`         | La teoría que implementa el código, en lenguaje de músico           |
-| `docs/AUDIO-PITCH.md`          | Cómo se detecta el tono y el acorde, y qué limitaciones tienen      |
-| `docs/RECORDING.md`            | Permisos, canvas, formatos, descarga local                          |
-| `docs/AI.md`                   | Contrato de los route handlers y las puertas del gasto              |
-| `docs/CUENTAS-Y-PLANES.md`     | Qué da cada plan, qué cuesta la IA y qué se guarda de ti            |
-| `docs/ROADMAP.md`              | **Lo que falta**, ordenado por lo que estorba a diario              |
-| `docs/PARA-PUBLICAR.md`        | **Lo que hará falta al publicar y cobrar.** Nada está en marcha     |
-| `docs/HISTORIA.md`             | Las fases hechas, una línea cada una, y los fallos que enseñaron    |
-| `docs/DESPLIEGUE.md`           | Qué hace falta para publicar y qué se rompe según dónde             |
-| `docs/adr/`                    | Decisiones con sus alternativas descartadas. Van cincuenta y cuatro |
+| Fichero                        | Contesta                                                           |
+| ------------------------------ | ------------------------------------------------------------------ |
+| `docs/ESTILO.md`               | Cómo se escribe: idioma, comentarios, interfaz, temas, tests       |
+| `docs/ENCONTRAR-UN-FICHERO.md` | Cómo está ordenado el código y cómo llegar al fichero que buscas   |
+| `docs/ARCHITECTURE.md`         | Capas, qué importa qué, notas para quien viene de Angular          |
+| `docs/DOMAIN-MUSIC.md`         | La teoría que implementa el código, en lenguaje de músico          |
+| `docs/AUDIO-PITCH.md`          | Cómo se detecta el tono y el acorde, y qué limitaciones tienen     |
+| `docs/RECORDING.md`            | Permisos, canvas, formatos, descarga local                         |
+| `docs/AI.md`                   | Contrato de los route handlers y las puertas del gasto             |
+| `docs/CUENTAS-Y-PLANES.md`     | Qué da cada plan, qué cuesta la IA y qué se guarda de ti           |
+| `docs/ROADMAP.md`              | **Lo que falta**, ordenado por lo que estorba a diario             |
+| `docs/PARA-PUBLICAR.md`        | **Lo que hará falta al publicar y cobrar.** Nada está en marcha    |
+| `docs/HISTORIA.md`             | Las fases hechas, una línea cada una, y los fallos que enseñaron   |
+| `docs/DESPLIEGUE.md`           | Qué hace falta para publicar y qué se rompe según dónde            |
+| `docs/adr/`                    | Decisiones con sus alternativas descartadas. Van cincuenta y cinco |
 
 Tres reglas sobre lo que se escribe aquí: **toda decisión con alternativas reales
 se escribe como ADR** con sus descartadas; **cuando cambies comportamiento,
