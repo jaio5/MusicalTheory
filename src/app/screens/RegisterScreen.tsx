@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { displayName, monthlyAiRequests } from '@core/billing';
+import { displayName } from '@core/billing';
 import { AccessForm } from '@features/account';
 import { useAccount } from '@state/account';
 import { estiloBoton } from '@ui/Button';
-import { IconoCamino, IconoProfesor, IconoTocar } from '@ui/icons';
 import { Screen } from '@ui/Screen';
+
+import { QueTeDaLaCuenta } from './QueTeDaLaCuenta';
 
 /**
  * Crear tu cuenta.
@@ -93,73 +94,32 @@ export function RegisterScreen() {
     <Screen
       title="Crear tu cuenta"
       lead="Tu avance deja de vivir en este navegador y te lo llevas al móvil, al portátil o a donde estudies."
+      ancho="lectura"
+      aside={<QueTeDaLaCuenta accounts={accounts} />}
     >
-      {/* Dos columnas solo cuando hay algo que poner en la segunda. Sin cuentas
-          configuradas, «Qué te da» no existe y la rejilla dejaba el aviso pegado
-          a la izquierda con el resto de la pantalla en blanco. */}
-      <div
-        className={`grid gap-6 lg:gap-10 ${
-          accounts ? 'lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]' : 'max-w-md'
-        }`}
-      >
-        {/* El formulario, en su tarjeta y con el muñeco asomando por arriba (`marco`,
-            el mismo de /cuenta): es lo único que hay que hacer en esta pantalla y
-            tiene que verse como tal. Sin cuentas no hay formulario, solo el aviso
-            de `AccessForm`, y va suelto: una tarjeta encendida prometía algo que
-            rellenar. */}
+      {/*
+        **Dos columnas, y el formulario primero**, con las razones en la columna
+        de al lado (`aside` de `ui/Screen`).
+
+        Sin cuentas configuradas, «Qué te da» no puede prometerse —no hay cuenta
+        que crear— y la rejilla dejaba el aviso pegado a la izquierda con el resto
+        de la pantalla en blanco: el 23 % del ancho usado a 1920. Ahí el lado dice
+        lo que sí funciona sin cuenta, con un enlace a cada sitio.
+
+        El formulario, en su tarjeta y con el muñeco asomando por arriba (`marco`,
+        el mismo de /cuenta): es lo único que hay que hacer en esta pantalla y
+        tiene que verse como tal. Sin cuentas no hay formulario, solo el aviso de
+        `AccessForm`, y va suelto: una tarjeta encendida prometía algo que
+        rellenar.
+      */}
+      {/* Con formulario, el ancho de un formulario; con el aviso solo, lo que mida
+          el aviso, para que lo de al lado no quede a un palmo. */}
+      <div className={accounts ? 'w-full lg:w-[26rem]' : 'w-full'}>
         <AccessForm
           inicial="crear"
           marco={accounts}
           onDone={(comoEntro) => setReciencreada(comoEntro === 'crear')}
         />
-
-        {accounts && (
-          <section aria-label="Qué te da la cuenta" className="flex flex-col gap-4">
-            <h2 className="rotulo">Qué te da</h2>
-
-            <ul className="flex flex-col gap-3">
-              {[
-                {
-                  Icono: IconoCamino,
-                  titulo: 'Tu avance, en tu cuenta',
-                  texto:
-                    'Las unidades, el XP, la racha y lo que fallaste dejan de depender de este navegador. Al entrar en otro aparato se juntan quedándose lo mejor de cada lado.',
-                },
-                {
-                  Icono: IconoProfesor,
-                  titulo: 'El profesor',
-                  texto: `Cada pregunta es una llamada a un modelo que se paga, así que hace falta saber de quién es el gasto. Sin pagar nada son ${monthlyAiRequests('gratis', account.aiModel)} preguntas al mes.`,
-                },
-                {
-                  Icono: IconoTocar,
-                  titulo: 'Un plan, si lo quieres',
-                  texto:
-                    'Los tres planes abren el Grado Profesional, el repaso y más IA. No hace falta ninguno para empezar.',
-                },
-              ].map(({ Icono, titulo, texto }) => (
-                <li key={titulo} className="superficie flex gap-3 p-4">
-                  <span className="text-brass-bright mt-0.5 shrink-0">
-                    <Icono />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-text text-sm">{titulo}</p>
-                    <p className="text-text-muted mt-1 text-sm">{texto}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <p className="text-text-muted max-w-prose text-sm">
-              Sin cuenta la aplicación funciona <strong className="text-text">entera</strong> menos
-              la IA: el afinador, la rueda, el mástil, el metrónomo, componer, grabar y los cuatro
-              cursos del Grado Elemental. El avance se queda guardado en este navegador.{' '}
-              <Link href="/planes" className="enlace">
-                Ver los tres planes
-              </Link>
-              .
-            </p>
-          </section>
-        )}
       </div>
     </Screen>
   );

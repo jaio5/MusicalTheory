@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   captureProgression,
   comoBloque,
+  RETARDO_DEL_ACORDE_MS,
   capturedDegrees,
   triadInside,
   triadQuality,
@@ -542,5 +543,153 @@ describe('una quinta sobre una fundamental de fuera', () => {
 
     expect(conGrado).toHaveLength(11);
     expect(conGrado).not.toContain(Fs);
+  });
+});
+
+/**
+ * **Contra la rejilla de la toma.** Con el compás uno de la cuenta, cada cambio
+ * se cuadra en su pulso, descontado lo que tarda el motor en decirlo.
+ */
+describe('la progresion en la rejilla de la toma', () => {
+  // Sin retardo, para leer las cuentas; el de verdad tiene su test.
+  const REJILLA = {
+    tonic: C,
+    mode: 'major' as const,
+    bpm: BPM,
+    beatsPerBar: 4,
+    startedAt: 10_000,
+    retardoMs: 0,
+  };
+  const en = (pulso: number) => 10_000 + pulso * PULSO;
+  const resumen = (steps: readonly { degree: string; beats: number }[]) =>
+    steps.map((step) => `${step.degree}/${step.beats}`);
+
+  it('cada cambio cae en su pulso aunque se oiga un poco tarde o pronto', () => {
+    const { steps } = captureProgression(
+      [mayor(C, en(0.3)), mayor(F, en(4.2)), mayor(G, en(5.9)), mayor(C, en(8.1))],
+      { ...REJILLA, endedAt: en(14), sonoHasta: en(11.8) },
+    );
+    // El cambio a mitad de compás —el Sol en el pulso 6— se queda donde estaba.
+    expect(resumen(steps)).toEqual(['I/4', 'IV/2', 'V/2', 'I/4']);
+  });
+
+  it('el retardo del motor se descuenta, y por defecto es el medido', () => {
+    expect(RETARDO_DEL_ACORDE_MS).toBe(520);
+    const tarde = (pulso: number) => en(pulso) + RETARDO_DEL_ACORDE_MS;
+    const { steps } = captureProgression([mayor(C, tarde(0)), mayor(G, tarde(2))], {
+      ...REJILLA,
+      retardoMs: undefined,
+      // Parar es pulsar un botón: eso no lleva el retardo del motor.
+      endedAt: en(4),
+    });
+    expect(resumen(steps)).toEqual(['I/2', 'V/2']);
+  });
+
+  it('lo que suena antes del primero se lo queda el, hasta su compas', () => {
+    // Entra en el segundo pulso del compás dos: el primer compás vacío no se
+    // escribe, y el bloque empieza en el uno del suyo.
+    const { steps } = captureProgression([mayor(C, en(5)), mayor(G, en(8))], {
+      ...REJILLA,
+      endedAt: en(12),
+    });
+    expect(resumen(steps)).toEqual(['I/4', 'V/4']);
+  });
+
+  it('lo que no se lee no se lleva su tiempo: se lo queda el de antes', () => {
+    const { steps, dropped } = captureProgression(
+      [mayor(C, en(0)), mayor(Fs, en(4)), mayor(G, en(8))],
+      { ...REJILLA, endedAt: en(12) },
+    );
+    expect(dropped).toBe(1);
+    expect(resumen(steps)).toEqual(['I/8', 'V/4']);
+  });
+
+  it('y si era el primero, el de despues', () => {
+    const { steps } = captureProgression([mayor(Fs, en(0)), mayor(G, en(4))], {
+      ...REJILLA,
+      endedAt: en(8),
+    });
+    expect(resumen(steps)).toEqual(['V/8']);
+  });
+
+  it('un acorde de paso que dura menos de medio pulso se salta', () => {
+    const { steps, skipped } = captureProgression(
+      [mayor(C, en(0)), mayor(E, en(3.9)), mayor(F, en(4.1))],
+      { ...REJILLA, endedAt: en(8) },
+    );
+    expect(skipped).toBe(1);
+    expect(resumen(steps)).toEqual(['I/4', 'IV/4']);
+  });
+
+  it('dos cambios en el mismo pulso: vale el segundo', () => {
+    const { steps, skipped } = captureProgression(
+      [mayor(C, en(0)), mayor(F, en(3.6)), mayor(G, en(4.2))],
+      { ...REJILLA, minBeats: 0.1, endedAt: en(8) },
+    );
+    expect(skipped).toBe(1);
+    expect(resumen(steps)).toEqual(['I/4', 'V/4']);
+  });
+
+  it('el ultimo acaba cuando dejo de sonar, redondeado hacia arriba', () => {
+    const { steps } = captureProgression([mayor(C, en(0))], {
+      ...REJILLA,
+      endedAt: en(7),
+      sonoHasta: en(3.4),
+    });
+    expect(resumen(steps)).toEqual(['I/4']);
+  });
+
+  it('un acorde de toda la toma sale en bloques de cuatro compases', () => {
+    const { steps } = captureProgression([mayor(C, en(0))], { ...REJILLA, endedAt: en(40) });
+    expect(resumen(steps)).toEqual(['I/16', 'I/16', 'I/8']);
+  });
+
+  it('sin tope, devuelve todos los pasos', () => {
+    const muchos = Array.from({ length: 40 }, (_, i) => mayor(i % 2 === 0 ? C : G, en(i * 2)));
+    expect(
+      captureProgression(muchos, { ...REJILLA, endedAt: en(80), tope: Infinity }).steps,
+    ).toHaveLength(40);
+    expect(captureProgression(muchos, { ...REJILLA, endedAt: en(80) }).steps).toHaveLength(32);
+  });
+
+  it('sin acordes, nada', () => {
+    expect(captureProgression([], { ...REJILLA, endedAt: en(4) }).steps).toEqual([]);
+  });
+
+  it('sin compas dicho, el de cuatro', () => {
+    const { steps } = captureProgression([mayor(C, en(5)), mayor(G, en(8))], {
+      ...REJILLA,
+      beatsPerBar: undefined,
+      endedAt: en(12),
+    });
+    expect(resumen(steps)).toEqual(['I/4', 'V/4']);
+  });
+});
+
+/**
+ * **Una séptima oída se escribe como su tríada.** Con una guitarra el croma ve
+ * cuatro notas casi siempre: el quinto armónico de la quinta es la séptima mayor.
+ */
+describe('las cuatriadas que pone la guitarra', () => {
+  it('un Cmaj7 oido es el I, y un C7 seguido de un Cmaj7 es el mismo acorde', () => {
+    const { steps } = captureProgression(
+      [
+        { root: C, notes: [C, E, G, B], at: 0 },
+        { root: C, notes: [C, E, G, Bb], at: 2 * PULSO },
+        { root: A, notes: [A, C, E, G], at: 4 * PULSO },
+      ],
+      { tonic: C, mode: 'major', bpm: BPM, endedAt: 8 * PULSO },
+    );
+    expect(steps.map((step) => `${step.degree}/${step.beats}`)).toEqual(['I/4', 'vi/4']);
+  });
+
+  it('sin tercera no hay tríada: se comparan las notas', () => {
+    const quinta = { root: C, notes: [C, G], at: 0 };
+    const { steps, dropped } = captureProgression(
+      [quinta, { ...quinta, at: PULSO }, { root: C, notes: [C, D, G], at: 2 * PULSO }],
+      { tonic: C, mode: 'major', bpm: BPM, endedAt: 4 * PULSO },
+    );
+    expect(steps).toEqual([]);
+    expect(dropped).toBe(2);
   });
 });

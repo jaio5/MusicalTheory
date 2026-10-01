@@ -3,7 +3,7 @@
  *
  * La hoja de estilos ya anula transiciones y animaciones CSS, así que lo que se
  * mueve con CSS no tiene que preguntar nada. Esto es para lo que decide desde
- * JavaScript si se mueve o no: un vídeo que arranca solo, un muñeco que se
+ * JavaScript si se mueve o no: la escena de la portada, un muñeco que se
  * asoma. La rueda de quintas preguntaba aquí mientras la movía GSAP, que se
  * saltaba la regla; ya no ([adr/0057](../../docs/adr/0057-la-rueda-gira-sin-gsap.md)).
  *

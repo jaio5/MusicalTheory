@@ -1,8 +1,15 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
-import { keyName, pitchClassFromName, type KeyMode, type NoteName } from '@core/music';
+import {
+  accidentalForKey,
+  diatonicTriads,
+  keyName,
+  pitchClassFromName,
+  type KeyMode,
+  type NoteName,
+} from '@core/music';
 import { useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
 import { Button } from './Button';
@@ -129,6 +136,65 @@ function FilaDeSalida() {
   );
 }
 
+/**
+ * Las cuatro de salida **en grande**, para cuando son la pantalla entera.
+ *
+ * En la entrada de componer eran cuatro botones de setenta píxeles en una caja
+ * de 384 en medio de un hueco de 960 por 580: el sitio de la primera decisión de
+ * la aplicación usaba un tercio del ancho y se leía como un aviso. Ahora cada
+ * tonalidad es una tarjeta con lo que trae —sus tres acordes principales, el I,
+ * el IV y el V—, que es justo lo que no sabe quien no sabe cuál elegir: «Do
+ * mayor» no dice nada y «C · F · G» dice que son los de siempre.
+ *
+ * El nombre del botón sigue siendo el de la tonalidad (`aria-labelledby`), y los
+ * acordes van como descripción: la rueda de al lado tiene otro «C mayor» y los dos se tienen que
+ * poder buscar igual. Cuatro en fila desde 36 rem **de caja** y dos por dos por
+ * debajo, por lo mismo que la fila pequeña: la caja no es la ventana.
+ */
+function TonalidadesDeSalida() {
+  const actions = useSessionStore((state) => state.actions);
+  const id = useId();
+
+  return (
+    <div className="@container w-full max-w-4xl">
+      <div
+        role="group"
+        aria-label="Tonalidades para empezar"
+        className="grid grid-cols-2 gap-3 @min-[36rem]:grid-cols-4"
+      >
+        {DE_SALIDA.map(({ nota, modo }) => {
+          const tonic = pitchClassFromName(nota);
+          const triadas = diatonicTriads(
+            tonic,
+            modo === 'major' ? 'major' : 'naturalMinor',
+            accidentalForKey(tonic, modo),
+          );
+          const acordes = [triadas[0]!, triadas[3]!, triadas[4]!].map((c) => c.symbol);
+          const idNombre = `${id}-${nota}-${modo}`;
+          const idAcordes = `${idNombre}-acordes`;
+          return (
+            <button
+              key={`${nota}-${modo}`}
+              type="button"
+              aria-labelledby={idNombre}
+              aria-describedby={idAcordes}
+              className="superficie tarjeta-pulsable min-h-tap flex flex-col items-start gap-1 p-4 text-left @min-[36rem]:p-5"
+              onClick={() => actions.pinKey({ tonic, mode: modo })}
+            >
+              <span id={idNombre} className="titular text-text text-lg @min-[36rem]:text-xl">
+                {keyName(tonic, modo)}
+              </span>
+              <span id={idAcordes} className="text-text-muted font-mono text-sm">
+                {acordes.join(' · ')}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function EmpezarPorTonalidad({ deps }: { readonly deps?: ListeningDeps } = {}) {
   const listening = useSessionStore((state) => state.listening);
   // Reconocer acordes además de notas: es lo que hace falta en componer, que es
@@ -142,8 +208,8 @@ export function EmpezarPorTonalidad({ deps }: { readonly deps?: ListeningDeps } 
       icono={<IconoComponer />}
       titulo="Empieza eligiendo la tonalidad"
       accion={
-        <div className="flex flex-col items-center gap-3">
-          <FilaDeSalida />
+        <div className="flex w-full flex-col items-center gap-4">
+          <TonalidadesDeSalida />
 
           {/*
             Y la tercera salida, **ofrecida y no solo mencionada**.

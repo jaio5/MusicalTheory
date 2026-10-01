@@ -4,6 +4,7 @@ export * from './GananciaAlComponer';
 export * from './LearnPanel';
 export * from './LearnPath';
 export * from './Question';
+export * from './ComoFuncionaElRepaso';
 export * from './ReviewSession';
 export * from './StartPicker';
 export * from './Teacher';

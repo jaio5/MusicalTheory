@@ -74,12 +74,13 @@ El detalle entero, con la tabla de qué da cada plan y qué se guarda de ti, est
 - **Nada de las cuentas está probado contra Postgres de forma continua.** Se
   ejecutó a mano dos veces —el 25 y el 26 de agosto de 2026— y las dos salieron
   fallos que ningún test veía. No hay nada que lo repita solo.
-- **Brotli y la caché de lo estático, sin poner.** `next start` sirve gzip y no
-  Brotli, y lo de `public/` —el vídeo y el póster de la portada— sale con
-  `max-age=0`. Lo que hace falta está escrito en
+- **Brotli, sin poner.** `next start` sirve gzip y no Brotli. Lo que hace falta
+  está escrito en
   [DESPLIEGUE.md](./DESPLIEGUE.md#lo-que-hay-que-saber-una-vez-publicado): Brotli en
-  el proxy o la CDN, y caché larga con nombre versionado. **No se ha ejecutado**:
-  no hay proxy delante de ninguna copia publicada, porque no hay ninguna.
+  el proxy o la CDN. **No se ha ejecutado**: no hay proxy delante de ninguna copia
+  publicada, porque no hay ninguna. La caché de lo estático ya no hace falta: lo que
+  había en `public/` —el vídeo de la portada— se fue, y lo que lo sustituye llega con
+  huella en el nombre ([adr/0069](./adr/0069-la-portada-es-una-escena-de-pixel.md)).
 - **El límite de frecuencia en memoria** es por instancia. Con base de datos se
   comparte; con varias instancias y sin ella, cada una lleva su cuenta.
 - ~~**Entrar no tiene límite de intentos.**~~ **Hecho el 27 de septiembre de

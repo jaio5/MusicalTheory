@@ -19,6 +19,10 @@ import {
   writeNote,
   type LeadNote,
   figuraDe,
+  cuantizar,
+  RETARDO_DEL_TONO_MS,
+  transcribirPunteo,
+  type FotogramaDeTono,
 } from './melody';
 import { pitchClassFromName } from './notes';
 
@@ -471,5 +475,202 @@ describe('el tope del punteo al leerlo', () => {
     });
 
     expect(punteo.notes).toHaveLength(MAX_LEAD_NOTES);
+  });
+});
+
+/**
+ * **El punteo de una toma entera, desde cada análisis del motor.**
+ *
+ * Aquí los análisis se escriben a mano —qué altura, qué nivel, cada cincuenta
+ * milisegundos— para fijar cada regla por separado. Con una guitarra sintética y
+ * el clic encima se mide entero en `audio/toma-sintetica.test.ts`.
+ */
+describe('transcribir un punteo', () => {
+  /** A 60 pulsos, un pulso es un segundo: las cuentas se leen solas. */
+  const OPCIONES = { tonic: C, bpm: 60, startedAt: 0, endedAt: 60_000, retardoMs: 0 };
+
+  /**
+   * Una nota: de `desde` a `hasta` segundos, un análisis cada 50 ms, con un
+   * nivel que cae desde `nivel`. Es lo que hace una cuerda pulsada.
+   */
+  function sonar(midi: number, desde: number, hasta: number, nivel = 0.1, final = nivel / 4) {
+    const fotogramas: FotogramaDeTono[] = [];
+    const n = Math.round((hasta - desde) * 20);
+    for (let i = 0; i < n; i += 1) {
+      fotogramas.push({
+        at: desde * 1000 + i * 50,
+        midi: midi + 0.03,
+        clarity: 0.97,
+        rms: nivel + ((final - nivel) * i) / Math.max(1, n - 1),
+      });
+    }
+    return fotogramas;
+  }
+
+  function silencio(desde: number, hasta: number) {
+    return Array.from({ length: Math.round((hasta - desde) * 20) }, (_, i) => ({
+      at: desde * 1000 + i * 50,
+      midi: null,
+      clarity: 0,
+      rms: 0.0005,
+    }));
+  }
+
+  const resumen = (notas: readonly LeadNote[]) =>
+    notas.map((nota) => `${nota.offset}@${nota.start}/${nota.length}`);
+
+  it('cada nota en su sitio, con su largo y sus silencios', () => {
+    const { notes } = transcribirPunteo(
+      [
+        ...sonar(60, 0, 0.95),
+        ...sonar(64, 1, 1.45),
+        ...sonar(67, 1.5, 1.95),
+        ...silencio(2, 3),
+        ...sonar(72, 3, 4.9),
+        ...silencio(4.9, 6),
+      ],
+      OPCIONES,
+    );
+    // Do negra, Mi y Sol corcheas, un silencio de negra y un Do agudo de blanca.
+    expect(resumen(notes)).toEqual(['0@0/1', '4@1/0.5', '7@1.5/0.5', '12@3/2']);
+  });
+
+  it('tres iguales seguidas son tres, porque el nivel vuelve a subir', () => {
+    const { notes } = transcribirPunteo(
+      [...sonar(64, 0, 1), ...sonar(64, 1, 2), ...sonar(64, 2, 3)],
+      OPCIONES,
+    );
+    expect(resumen(notes)).toEqual(['4@0/1', '4@1/1', '4@2/1']);
+  });
+
+  it('un temblor de la cuerda no es un ataque', () => {
+    // Sube un 30 %, que es lo que tiembla una cuerda sola, y no cuenta.
+    const fotogramas = sonar(64, 0, 2, 0.1, 0.02).map((fotograma, i) =>
+      i === 20 ? { ...fotograma, rms: fotograma.rms * 1.3 } : fotograma,
+    );
+    expect(resumen(transcribirPunteo(fotogramas, OPCIONES).notes)).toEqual(['4@0/2']);
+  });
+
+  // Un corte del sonido —la tarjeta con el equipo cargado— baja el nivel y lo
+  // devuelve a donde estaba: es un salto sobre el valle, pero no vuelve al ataque.
+  it('un hueco en el sonido no es volver a pulsar', () => {
+    const fotogramas = sonar(62, 0, 2, 0.1, 0.01).map((fotograma, i) =>
+      i === 25 ? { ...fotograma, rms: 0.0005 } : fotograma,
+    );
+    expect(resumen(transcribirPunteo(fotogramas, OPCIONES).notes)).toEqual(['2@0/2']);
+  });
+
+  it('un analisis suelto con otra altura no es una nota: es un armonico', () => {
+    const fotogramas = sonar(60, 0, 1).map((fotograma, i) =>
+      i === 10 ? { ...fotograma, midi: 72 } : i === 14 ? { ...fotograma, midi: null } : fotograma,
+    );
+    expect(resumen(transcribirPunteo(fotogramas, OPCIONES).notes)).toEqual(['0@0/1']);
+  });
+
+  it('una nota de un solo analisis tampoco, y se cuenta como saltada', () => {
+    const captura = transcribirPunteo(
+      [
+        ...sonar(60, 0, 0.95),
+        ...silencio(0.95, 1.5),
+        ...sonar(65, 1.5, 1.55),
+        ...silencio(1.55, 2),
+      ],
+      OPCIONES,
+    );
+    expect(resumen(captura.notes)).toEqual(['0@0/1']);
+    expect(captura.skipped).toBe(1);
+  });
+
+  it('una nota que se apaga sola dura hasta la siguiente; una cortada, no', () => {
+    const sola = transcribirPunteo(
+      [...sonar(62, 0, 1.5, 0.05, 0.002), ...silencio(1.5, 3), ...sonar(67, 3, 3.95)],
+      OPCIONES,
+    );
+    // Se dejó sonar: la blanca con puntillo, no una negra y media de silencio.
+    expect(resumen(sola.notes)).toEqual(['2@0/3', '7@3/1']);
+
+    const cortada = transcribirPunteo(
+      [...sonar(62, 0, 1.5, 0.1, 0.05), ...silencio(1.5, 3), ...sonar(67, 3, 3.95)],
+      OPCIONES,
+    );
+    expect(resumen(cortada.notes)).toEqual(['2@0/1.5', '7@3/1']);
+  });
+
+  it('un hueco de una semicorchea o menos es levantar la pua, no un silencio', () => {
+    const { notes } = transcribirPunteo([...sonar(60, 0, 0.3), ...sonar(62, 0.5, 1)], OPCIONES);
+    expect(resumen(notes)).toEqual(['0@0/0.5', '2@0.5/0.5']);
+  });
+
+  it('mas de una redonda sale partida en iguales seguidas', () => {
+    const { notes } = transcribirPunteo(sonar(60, 0, 6, 0.1, 0.05), OPCIONES);
+    expect(resumen(notes)).toEqual(['0@0/4', '0@4/2']);
+  });
+
+  it('dos notas en la misma casilla: la segunda se empuja a la siguiente', () => {
+    const { notes } = transcribirPunteo([...sonar(60, 0, 0.1), ...sonar(62, 0.1, 1)], OPCIONES);
+    // La segunda dura tres cuartos, que no tienen figura: a igual distancia entre
+    // la corchea y la negra gana la negra, porque nada viene detrás.
+    expect(resumen(notes)).toEqual(['0@0/0.25', '2@0.25/1']);
+  });
+
+  it('lo que no cabe en el pentagrama se cuenta y no se escribe', () => {
+    const captura = transcribirPunteo([...sonar(30, 0, 1), ...sonar(60, 1, 2)], OPCIONES);
+    expect(resumen(captura.notes)).toEqual(['0@1/1']);
+    expect(captura.outOfRange).toBe(1);
+  });
+
+  it('lo de antes del compas uno no es de la toma, pero un pelo pronto si es el uno', () => {
+    const captura = transcribirPunteo([...sonar(55, -2, -1.5), ...sonar(60, -0.1, 1)], {
+      ...OPCIONES,
+      startedAt: 0,
+    });
+    expect(resumen(captura.notes)).toEqual(['0@0/1']);
+  });
+
+  it('el retardo del motor se descuenta antes de cuadrar', () => {
+    // A 240, la semicorchea dura 62 ms: sin descontar 40, caería en la siguiente.
+    const tarde = sonar(60, 0.04, 0.5);
+    const con = transcribirPunteo(tarde, { ...OPCIONES, bpm: 240, retardoMs: 40 });
+    const sin = transcribirPunteo(tarde, { ...OPCIONES, bpm: 240, retardoMs: 0 });
+    expect(con.notes[0]!.start).toBe(0);
+    expect(sin.notes[0]!.start).toBe(0.25);
+    // Y por defecto, el del motor.
+    expect(RETARDO_DEL_TONO_MS).toBe(40);
+    expect(
+      transcribirPunteo(tarde, { tonic: C, bpm: 240, startedAt: 0, endedAt: 9e9 }).notes[0]!.start,
+    ).toBe(0);
+  });
+
+  it('sin analisis no hay notas', () => {
+    expect(transcribirPunteo([], OPCIONES)).toEqual({ notes: [], skipped: 0, outOfRange: 0 });
+  });
+
+  it('la claridad de la nota es la peor despues del ataque', () => {
+    const fotogramas = sonar(60, 0, 1).map((fotograma, i) =>
+      i === 0
+        ? { ...fotograma, clarity: 0.3 }
+        : i === 5
+          ? { ...fotograma, clarity: 0.6 }
+          : fotograma,
+    );
+    const [nota] = transcribirPunteo(fotogramas, OPCIONES).notes;
+    expect(nota!.clarity).toBe(0.6);
+    expect(isDoubtfulNote(nota!)).toBe(true);
+  });
+});
+
+describe('cuadrar un instante en la rejilla', () => {
+  it('va a la casilla mas cercana', () => {
+    expect(cuantizar(0.1)).toBe(0);
+    expect(cuantizar(0.2)).toBe(0.25);
+    expect(cuantizar(1.6)).toBe(1.5);
+  });
+
+  // En el empate gana el sitio fuerte: el pulso a la corchea, la corchea a la
+  // semicorchea. Es lo que haría quien escribe a mano.
+  it('en los empates gana el sitio fuerte', () => {
+    expect(cuantizar(0.125)).toBe(0);
+    expect(cuantizar(0.375)).toBe(0.5);
+    expect(cuantizar(0.86)).toBe(1);
   });
 });

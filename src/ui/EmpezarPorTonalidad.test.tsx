@@ -114,3 +114,22 @@ describe('empezar por la tonalidad', () => {
     expect(screen.queryByRole('button', { name: /abrir el micrófono/i })).not.toBeInTheDocument();
   });
 });
+
+describe('las cuatro, cuando son la pantalla entera', () => {
+  /**
+   * «C mayor» no le dice nada a quien no sabe cuál elegir, y «C · F · G» le dice
+   * que son los de siempre. Los acordes van como descripción y no en el nombre:
+   * la rueda de al lado tiene otro «C mayor» y los dos se buscan igual.
+   */
+  it('cada tarjeta dice sus tres acordes principales, sin cambiar de nombre', () => {
+    render(<EmpezarPorTonalidad />);
+
+    const doMayor = screen.getByRole('button', {
+      name: keyName(pitchClassFromName('C'), 'major'),
+    });
+    expect(doMayor).toHaveAccessibleDescription('C · F · G');
+    expect(
+      screen.getByRole('button', { name: keyName(pitchClassFromName('E'), 'minor') }),
+    ).toHaveAccessibleDescription('Em · Am · Bm');
+  });
+});

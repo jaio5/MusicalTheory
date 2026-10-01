@@ -17,7 +17,7 @@
 
 /** Un cambio programado en un parámetro. */
 export interface Cambio {
-  readonly clase: 'valor' | 'rampa' | 'rampa-exponencial';
+  readonly clase: 'valor' | 'rampa';
   readonly valor: number;
   readonly cuando: number;
 }
@@ -35,15 +35,15 @@ class ParametroFalso {
     return this;
   }
 
-  exponentialRampToValueAtTime(valor: number, cuando: number): this {
-    this.cambios.push({ clase: 'rampa-exponencial', valor, cuando });
-    return this;
-  }
-
   /** El volumen más alto al que llega, que es lo que se compara entre sonidos. */
   get maximo(): number {
     return Math.max(0, ...this.cambios.map((c) => c.valor));
   }
+}
+
+/** Un parámetro que programa cambios y además tiene valor. */
+class ParametroConValor extends ParametroFalso {
+  value = 1;
 }
 
 export class OsciladorFalso {
@@ -108,12 +108,60 @@ export class GananciaFalsa {
   }
 }
 
+/** Un trozo de sonido ya hecho, como el golpe del metrónomo. */
+export class BufferFalso {
+  readonly datos: Float32Array;
+  constructor(
+    readonly numberOfChannels: number,
+    readonly length: number,
+    readonly sampleRate: number,
+  ) {
+    this.datos = new Float32Array(length);
+  }
+
+  copyToChannel(origen: Float32Array): void {
+    this.datos.set(origen);
+  }
+}
+
+/** Lo que reproduce un buffer: se apunta cuándo y cuál. */
+export class FuenteFalsa {
+  buffer: BufferFalso | null = null;
+  empiezaEn: number | null = null;
+  salida: unknown = null;
+
+  connect<T>(destino: T): T {
+    this.salida = destino;
+    return destino;
+  }
+
+  start(cuando: number): void {
+    this.empiezaEn = cuando;
+  }
+
+  /** Lo más fuerte que suena el golpe, mirando sus muestras. Sin buffer, cero. */
+  get pico(): number {
+    return this.buffer === null ? 0 : Math.max(0, ...Array.from(this.buffer.datos, Math.abs));
+  }
+}
+
+/** Una ganancia que guarda su valor, como la de salida del metrónomo. */
+export type GananciaConValor = GananciaFalsa & { readonly gain: { value: number } };
+
 export class ContextoDeAudioFalso {
   state: 'running' | 'suspended' | 'closed' = 'running';
   currentTime = 0;
+  readonly sampleRate = 48_000;
+  /** Lo que tarda en salir por el altavoz, en segundos. */
+  baseLatency = 0;
+  outputLatency = 0;
   readonly destination = {};
   /** Todos los osciladores que se han creado, en orden. */
   readonly osciladores: OsciladorFalso[] = [];
+  /** Todos los buffers que se han reproducido, en orden. */
+  readonly fuentes: FuenteFalsa[] = [];
+  /** Las ganancias de valor fijo: la salida del metrónomo es la primera. */
+  readonly salidas: GananciaConValor[] = [];
   reanudaciones = 0;
   cierres = 0;
 
@@ -133,8 +181,23 @@ export class ContextoDeAudioFalso {
     return oscilador;
   }
 
-  createGain(): GananciaFalsa {
-    return new GananciaFalsa();
+  createGain(): GananciaConValor {
+    // Las dos formas de ganancia a la vez: la que programa rampas (el
+    // reproductor, la nota de referencia) y la que se fija con un valor (el
+    // volumen del metrónomo). Cada pieza usa la suya.
+    const ganancia = Object.assign(new GananciaFalsa(), { gain: new ParametroConValor() });
+    this.salidas.push(ganancia);
+    return ganancia;
+  }
+
+  createBuffer(canales: number, largo: number, sampleRate: number): BufferFalso {
+    return new BufferFalso(canales, largo, sampleRate);
+  }
+
+  createBufferSource(): FuenteFalsa {
+    const fuente = new FuenteFalsa();
+    this.fuentes.push(fuente);
+    return fuente;
   }
 
   /** Mueve el reloj del audio, que es lo único que aquí pasa el tiempo. */

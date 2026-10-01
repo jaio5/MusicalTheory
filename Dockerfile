@@ -33,7 +33,10 @@ ENV PORT=3000
 RUN addgroup -g 1001 nodejs && adduser -u 1001 -G nodejs -S nextjs
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=build --chown=nextjs:nodejs /app/public ./public
+# No hay `public/`: lo único que vivía ahí era el vídeo de la portada, y la escena
+# que lo sustituye llega por `.next/static` con huella en el nombre (adr/0069).
+# Si vuelve a haber una carpeta pública, se copia aquí a `./public`; sin ella, el
+# `COPY` falla y la imagen no se construye.
 USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]

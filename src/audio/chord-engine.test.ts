@@ -116,6 +116,51 @@ describe('Motor de acordes', () => {
     expect(heard.map((chord) => chord?.best.symbol)).toEqual(['C', 'Am']);
   });
 
+  /**
+   * **La cuarta nota que ponen los armónicos no cambia de acorde.** Con una
+   * guitarra el cifrado parpadea entre C7, Cmaj7 y C6 de un análisis a otro;
+   * confirmando por cifrado, cuatro iguales seguidos no llegaban nunca.
+   */
+  it('un Do que parpadea entre cuatriadas se confirma igual, y una vez', async () => {
+    vi.useFakeTimers();
+    const input = new FakeInput();
+    const engine = new ChromaChordEngine({ smoothing: 1 });
+    const heard: (ChordReading | null)[] = [];
+    engine.subscribe((chord) => heard.push(chord));
+    await engine.start(input);
+
+    // Do con la séptima mayor, luego con la menor, luego con la sexta.
+    for (const cuarta of [493.9, 466.2, 440.0, 493.9, 466.2, 440.0]) {
+      input.peaks = [...C_MAJOR, cuarta];
+      await vi.advanceTimersByTimeAsync(1000 / engine.options.rate);
+    }
+    engine.stop();
+    vi.useRealTimers();
+
+    expect(heard).toHaveLength(1);
+    expect(heard[0]!.best.root).toBe(0);
+  });
+
+  /** **Hasta mil hercios**: por encima no hay fundamentales de guitarra, solo armónicos. */
+  it('no mira por encima de mil hercios, salvo que se le pida', async () => {
+    vi.useFakeTimers();
+    const input = new FakeInput();
+    // Un Do mayor en la octava seis: solo existe por encima de mil.
+    input.peaks = C_MAJOR.map((hz) => hz * 4);
+    const engine = new ChromaChordEngine();
+    expect(engine.options.maxHz).toBe(1000);
+    const nada = await listen(input, engine, 12);
+    engine.stop();
+
+    const ancho = new ChromaChordEngine({ maxHz: 2200 });
+    const algo = await listen(input, ancho, 12);
+    ancho.stop();
+    vi.useRealTimers();
+
+    expect(nada.filter((chord) => chord !== null)).toEqual([]);
+    expect(algo.at(-1)?.best.symbol).toBe('C');
+  });
+
   it('con la entrada parada no analiza nada', async () => {
     const input = new FakeInput();
     input.state = 'idle';

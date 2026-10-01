@@ -20,8 +20,14 @@ import type { ReactNode } from 'react';
  * y «+»—, salían de cuarenta y dos con el relleno incluido. Dos píxeles de menos
  * en los dos únicos botones que se dan a ciegas mientras suena el clic.
  *
- * El estado va en `aria-pressed` y no solo en el color, porque un lector de
- * pantalla no ve el borde de latón. `acierto` y `fallo` son los dos colores que
+ * **Lo marcado lleva su piloto** (`.piloto` de `globals.css`): letra de latón vivo
+ * sobre la superficie alzada y una luz encendida debajo. Era un borde de latón
+ * vivo, y al lado de un botón principal relleno del mismo latón no se sabía cuál
+ * de los dos estaba puesto y cuál se pulsaba. El estado va además en
+ * `aria-pressed`, porque un lector de pantalla no ve la luz.
+ *
+ * `quiet` va sin borde hasta que se pasa por encima: es lo secundario de una fila,
+ * y seis contornos iguales en fila se leen como una rejilla, no como opciones. `acierto` y `fallo` son los dos colores que
  * necesita una respuesta ya contestada, y están aquí y no sueltos en la pregunta
  * porque son la misma pieza en otro estado, no otra pieza.
  *
@@ -34,8 +40,10 @@ import type { ReactNode } from 'react';
  * `className`, que es una decisión por sitio y no por componente.
  */
 const TONOS = {
-  normal: 'border-border text-text enabled:hover:border-brass-dim enabled:hover:bg-surface-raised',
-  quiet: 'border-border text-text-muted enabled:hover:bg-surface-raised enabled:hover:text-text',
+  normal:
+    'border-border bg-surface text-text enabled:hover:border-brass-dim enabled:hover:bg-surface-raised',
+  quiet:
+    'border-transparent text-text-muted enabled:hover:border-border enabled:hover:bg-surface-raised enabled:hover:text-text',
   acierto: 'border-tube-bright text-tube-bright',
   fallo: 'border-oxblood-bright text-oxblood-bright',
 } as const;
@@ -109,10 +117,12 @@ export function Chip({
       // entonces, y quedaban por debajo del contraste mínimo. Se apaga lo que ya
       // no dice nada —las opciones que ni eran ni se eligieron— y se queda a todo
       // color lo que corrige.
-      className={`min-h-tap min-w-tap inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 enabled:active:translate-y-px disabled:cursor-default ${
+      className={`min-h-tap min-w-tap ease-salida inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 enabled:active:translate-y-px disabled:cursor-default ${
         corregido ? '' : 'disabled:opacity-40'
       } ${
-        marcado ? 'border-brass-bright text-brass-bright bg-surface-raised filo-latón' : TONOS[tone]
+        marcado
+          ? 'border-brass-dim text-brass-bright bg-surface-raised filo-latón piloto'
+          : TONOS[tone]
       } ${TAMANOS[tamano]} ${className}`}
     >
       {children}

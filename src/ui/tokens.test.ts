@@ -4,7 +4,16 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { fluidSizes, fonts, paletaClara, paletaOscura, radii, tap, VARIABLES_CSS } from './tokens';
+import {
+  durations,
+  fluidSizes,
+  fonts,
+  paletaClara,
+  paletaOscura,
+  radii,
+  tap,
+  VARIABLES_CSS,
+} from './tokens';
 
 /**
  * Los tokens viven dos veces: aquí en TypeScript, que es lo que lee el código,
@@ -84,6 +93,38 @@ describe('los tokens de diseño no se separan del CSS', () => {
   it('define el alto mínimo de lo que se pulsa con el mismo valor', () => {
     expect(cssValue('spacing-tap')).toBe(tap);
   });
+
+  /**
+   * Las duraciones estaban solo aquí, y la hoja escribía las suyas a mano —160 ms
+   * en un sitio, 150 en un botón—. Ahora las clases de la hoja piden
+   * `--duracion-*`, y este es el espejo.
+   */
+  it('define cada duración con el mismo valor', () => {
+    for (const [token, value] of Object.entries(durations)) {
+      expect(cssValue(`duracion-${token}`), `falta o no coincide --duracion-${token}`).toBe(
+        `${value}ms`,
+      );
+    }
+  });
+});
+
+/**
+ * La sala es oscura en los dos temas, y por eso sus dos colores no cambian.
+ *
+ * Son lo que va encima de la escena de la portada y el velo de detrás de un
+ * `popover`: si `night` se aclarara con el tema, el botón de parar la escena
+ * saldría blanco sobre la sala y el velo dejaría de velar.
+ */
+describe('la sala no cambia con el tema', () => {
+  it('night y bulb valen lo mismo de día y de noche, y night es la pared de noche', () => {
+    expect(paletaClara.night).toBe(paletaOscura.night);
+    expect(paletaClara.bulb).toBe(paletaOscura.bulb);
+    expect(paletaOscura.night).toBe(paletaOscura.background);
+  });
+
+  it('lo que se escribe sobre la sala se lee', () => {
+    expect(contraste(paletaOscura.bulb, paletaOscura.night)).toBeGreaterThanOrEqual(4.5);
+  });
 });
 
 describe('el tema oscuro cumple lo que dice el proyecto', () => {
@@ -115,13 +156,14 @@ describe('el tema oscuro cumple lo que dice el proyecto', () => {
    *
    * Decía «el fondo es negro cálido: más rojo que azul», que era la identidad del
    * amplificador escrita en un test. Ahora dice lo contrario, y **eso es lo que
-   * tiene que hacer**: el fondo es grafito frío a propósito
+   * tiene que hacer**: el fondo es tinta fría a propósito —el azul de la pared de
+   * la sala a oscuras, [adr/0070](../../../docs/adr/0070-la-sala-encendida.md)—
    * ([adr/0027](../../../docs/adr/0027-grafito-y-ambar.md)), porque un pardo a
    * esta luminancia se lee como marrón viejo y le come el sitio al único color
    * cálido que queda, que es el acento. Si alguien vuelve a calentar el fondo,
    * que falle aquí y no dentro de tres semanas mirando una captura.
    */
-  it('el fondo es grafito frío: más azul que rojo', () => {
+  it('el fondo es tinta fría: más azul que rojo', () => {
     const red = Number.parseInt(paletaOscura.background.slice(1, 3), 16);
     const blue = Number.parseInt(paletaOscura.background.slice(5, 7), 16);
     expect(blue).toBeGreaterThan(red);
@@ -245,10 +287,15 @@ describe('lo que se escribe se puede leer', () => {
   it.each([
     ['claro', paletaClara],
     ['oscuro', paletaOscura],
-  ])('en el tema %s, lo que se dibuja llega a 3:1 sobre el fondo', (_nombre, paleta) => {
+  ])('en el tema %s, lo que se dibuja llega a 3:1 sobre los tres fondos', (_nombre, paleta) => {
+    // Sobre los tres y no solo sobre el de la página: la barra de lo hecho corre
+    // por el carril de una tarjeta, y el verde de antes daba 2,5:1 sobre la
+    // superficie alta con este test en verde porque solo miraba el fondo.
     for (const token of ['brass', 'brassBright', 'oxbloodBright', 'tube', 'tubeBright'] as const) {
-      const ratio = contraste(paleta[token], paleta.background);
-      expect(Number(ratio.toFixed(2)), `${token} sobre el fondo`).toBeGreaterThanOrEqual(3);
+      for (const fondo of FONDOS) {
+        const ratio = contraste(paleta[token], paleta[fondo]);
+        expect(Number(ratio.toFixed(2)), `${token} sobre ${fondo}`).toBeGreaterThanOrEqual(3);
+      }
     }
   });
 });

@@ -150,6 +150,81 @@ razonamiento entero, con lo que se descartó, está en
 **El audio no sale del equipo.** Las muestras se quedan en memoria, se analizan
 ahí y lo que sale son símbolos.
 
+## La toma: el clic suena, y se transcribe todo
+
+En «Tocando» se cuentan dos compases y **el clic sigue sonando toda la toma**,
+con el tempo y el compás de la pantalla y el volumen que se elija (quitarlo no
+para el pulso: el metrónomo sigue contando en silencio). El compás uno cae un
+pulso después del último clic de la cuenta, medido desde **cuándo suena** ese
+clic —el reloj del audio más lo que tarda el altavoz— y no desde el aviso del
+temporizador (`audio/metronome.ts`, `state/cuenta-atras.ts`).
+
+**El micro oye el clic, y eso se resuelve por su timbre, no por su tiempo.** La
+onda cuadrada de 1000/1600 Hz que había tiene periodo dentro del rango del motor
+de tono: metía un Si 5 en cada silencio y partía las notas largas en el pulso.
+El golpe es ahora **ruido filtrado por encima de 4,5 kHz**: no se repite, así que
+la autocorrelación no le encuentra periodo, y vive donde no mira ningún motor.
+Detrás hay dos redes más: la entrada analiza a través de dos pasos bajos a 3 kHz
+(`web-audio-input.ts`), y un ataque de la misma nota solo cuenta si el nivel
+vuelve a la mitad de su golpe inicial —un clic o un hueco del sonido no llegan—.
+
+**El punteo se transcribe de cada análisis** (`transcribirPunteo`, en
+`core/music/melody.ts`), no del historial de la sesión, que guarda veinticuatro
+entradas y apunta la misma nota cada cuarto de segundo. Con cada análisis hay
+ataques —la misma altura que vuelve a sonar fuerte es otra nota—, finales —una
+nota acaba cuando deja de oírse, y si se apagó sola, se dejó sonar hasta la
+siguiente—, silencios, y fuera las fantasmas: un análisis suelto con otra altura
+entre dos iguales se corrige a la de sus vecinas, y una nota de un análisis no
+cuenta. Cada instante se descuenta lo que tarda el motor en reconocer una nota
+(40 ms) y se cuadra en la semicorchea, prefiriendo el sitio fuerte en los
+empates.
+
+**La rítmica se cuadra en la rejilla de la toma** (`captureProgression` con
+`startedAt`): cada cambio cae en su pulso, descontado lo que tarda el motor de
+acordes en decirlo (520 ms, medido), y el último acaba cuando dejó de sonar. Una
+cuatríada oída se escribe como su tríada, porque con una guitarra el croma casi
+siempre ve cuatro notas (el quinto armónico de la quinta es la séptima mayor), y
+el motor de acordes mira hasta 1000 Hz y no hasta 2200: por encima no hay
+fundamentales de guitarra, solo armónicos.
+
+**No hay tope de compases.** Una toma larga se reparte en varias partes seguidas
+—64 notas o 32 bloques cada una, cortando en una barra donde la parte de antes
+acaba justo, para que al tocarlas seguidas cada nota caiga donde se tocó—, y a
+los diez minutos se
+para sola escribiendo lo tocado.
+
+### Lo medido
+
+Con una guitarra sintética de Karplus-Strong (`audio/guitarra-sintetica.ts`, y el
+mismo algoritmo en Python para los WAV) a 90 pulsos, en Chromium con el sonido
+metido como micrófono, el clic de la aplicación colándose en él a 0,6 de su
+nivel, y comparando lo escrito en la partitura con lo tocado:
+
+| Toma                               | Antes                      | Después                         |
+| ---------------------------------- | -------------------------- | ------------------------------- |
+| Punteo de 20 notas, altura         | 3/20                       | 20/20                           |
+| Punteo, ataque en su casilla       | 3/20                       | 20/20                           |
+| Punteo, duración                   | 2/20                       | 20/20                           |
+| Punteo, notas fantasma             | 0 (solo apuntaba 4)        | 0                               |
+| Punteo con la onda cuadrada sumada | 3/20, 2/20, 2/20 y 1 falsa | 20/20, 20/20, 18/20 y 3 falsas  |
+| Rítmica C–Am–F/G–C, acordes leídos | 0/5                        | 4/5 (el Am sale como C, dudoso) |
+| Rítmica, cambios en su pulso       | 0/5                        | 4/5                             |
+| Rítmica, largos                    | 0/5                        | 3/5                             |
+
+El «antes» apuntaba cuatro o cinco notas porque el historial se quedaba con las
+últimas veinticuatro entradas, y en la rítmica todo acorde salía como cuatríada
+y se descartaba. Las cifras del «después» las fija `audio/toma-sintetica.test.ts`
+con la misma señal. Con la máquina muy cargada (carga 15 a 20) algunas tomas en
+Chromium salieron peor; las sondas mostraron que el sonido de prueba llegaba
+desplazado al análisis, que es cosa del micrófono fingido y no se ha visto con
+uno de verdad —pero no se ha medido con uno de verdad—.
+
+**Lo que no aguanta:** el La menor de la postura abierta se lee Esus4 y C6 y se
+escribe como Do, marcado como dudoso; no hay tresillos ni ligaduras en la
+partitura, así que un tresillo cae en la semicorchea más cercana y una nota de
+más de cuatro pulsos sale partida en dos iguales; y la latencia de entrada del
+micro no se descuenta, porque el navegador no la da de forma fiable.
+
 ## Limitaciones que hay que asumir
 
 **Es monofónico.** La autocorrelación devuelve _un_ periodo. Si suenan dos

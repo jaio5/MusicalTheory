@@ -11,7 +11,13 @@
  * enseñarlos todos sería un cartel parpadeando.
  */
 
-import { PARECIDO_MINIMO, readChord, type Accidental, type ChordReading } from '@core/music';
+import {
+  PARECIDO_MINIMO,
+  readChord,
+  triadInside,
+  type Accidental,
+  type ChordReading,
+} from '@core/music';
 
 import type { AudioInput } from './audio-input';
 import { chromaFromSpectrum } from './chroma';
@@ -27,6 +33,19 @@ export interface ChordEngineOptions {
   /** Por debajo de esto no se parece a ningún acorde. */
   readonly minScore: number;
   readonly accidental: Accidental;
+  /**
+   * Hasta dónde se mira el espectro, en hercios.
+   *
+   * **Mil, y no los 2200 del croma**, porque en un acorde de guitarra por encima
+   * de mil no suena ninguna fundamental —la nota más aguda de una postura abierta
+   * es un Sol 4, a 392 Hz, y en el traste doce de la primera, un Mi 5 a 659—:
+   * solo hay armónicos, y los armónicos mienten. Medido con cuerdas pulsadas
+   * sintéticas (`guitarra-sintetica.ts`), mirando hasta 2200 ningún acorde de
+   * C, Am, F y G pasaba del parecido mínimo: el quinto armónico de la quinta les
+   * añadía una séptima mayor y el de la fundamental una tercera mayor de más.
+   * Mirando hasta mil, los cuatro salen con su fundamental y por encima del suelo.
+   */
+  readonly maxHz: number;
 }
 
 /**
@@ -45,7 +64,25 @@ const DEFAULT_CHORD_ENGINE_OPTIONS: ChordEngineOptions = {
   confirmations: 4,
   minScore: PARECIDO_MINIMO,
   accidental: 'sharp',
+  maxHz: 1000,
 };
+
+/**
+ * Qué acorde es, a efectos de confirmarlo: la fundamental y la tríada de dentro.
+ *
+ * Se confirmaba por el cifrado, y con una guitarra el cifrado **parpadea entre
+ * C7, Cmaj7 y C6 de un análisis al siguiente**: la cuarta nota la ponen los
+ * armónicos y cambia con cada rasgueo. Cuatro iguales seguidos no llegaban casi
+ * nunca y el acorde no se decía. Con la tríada como identidad, los tres son el
+ * mismo Do mayor —que es lo que se tocó— y se confirma en cuatro décimas.
+ */
+function identidadDe(reading: ChordReading | null): string | null {
+  if (reading === null) {
+    return null;
+  }
+  const { root, notes, symbol } = reading.best;
+  return `${root}:${triadInside(root, notes) ?? symbol}`;
+}
 
 export interface ChordEngine {
   readonly running: boolean;
@@ -125,6 +162,7 @@ export class ChromaChordEngine implements ChordEngine {
     const chroma = chromaFromSpectrum(spectrum, {
       sampleRate: input.sampleRate,
       fftSize: input.spectrumSize,
+      maxHz: this.options.maxHz,
     });
 
     // Media móvil: un acorde dura segundos y un análisis dura una décima, así
@@ -138,20 +176,20 @@ export class ChromaChordEngine implements ChordEngine {
       accidental: this.#accidental,
       minScore: this.options.minScore,
     });
-    const symbol = reading?.best.symbol ?? null;
+    const identidad = identidadDe(reading);
 
-    if (symbol !== this.#candidate) {
-      this.#candidate = symbol;
+    if (identidad !== this.#candidate) {
+      this.#candidate = identidad;
       this.#seen = 1;
       return;
     }
 
     this.#seen += 1;
-    if (this.#seen < this.options.confirmations || symbol === this.#announced) {
+    if (this.#seen < this.options.confirmations || identidad === this.#announced) {
       return;
     }
 
-    this.#announced = symbol;
+    this.#announced = identidad;
     this.#oidos.emitir(reading);
   }
 }

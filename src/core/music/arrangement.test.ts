@@ -604,6 +604,16 @@ describe('el punteo', () => {
     expect(findNote(a, 'n')?.note).toMatchObject({ start: 1.25, length: 2, offset: 24 });
   });
 
+  it('una nota oída conserva su duda, y una escrita a mano no se inventa ninguna', () => {
+    let a = addNote(montaje(), 'estrofa', nota('sucia', { clarity: 0.6 }));
+    a = addNote(a, 'estrofa', nota('pasada', { start: 1, clarity: 3 }));
+    a = addNote(a, 'estrofa', nota('a-mano', { start: 2 }));
+
+    expect(findNote(a, 'sucia')?.note.clarity).toBe(0.6);
+    expect(findNote(a, 'pasada')?.note.clarity).toBe(1);
+    expect(findNote(a, 'a-mano')?.note).not.toHaveProperty('clarity');
+  });
+
   it('mover cambia el momento y la altura de una vez', () => {
     const a = moveNote(conNotas(), 'n1', 3, -5);
     expect(findNote(a, 'n1')?.note).toMatchObject({ start: 3, offset: -5 });

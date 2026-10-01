@@ -134,7 +134,11 @@ function Stopped({
   const blocked = listening === 'unsupported';
 
   return (
-    <>
+    // **El hueco del instrumento**, y no el de un aviso: en un escritorio el
+    // afinador ocupa todo el alto que deje la ventana —con suelo y techo—, y
+    // apagado se centra dentro. Era una tarjeta de 360 px en medio de 800 de
+    // negro. En un teléfono no tiene alto propio: ahí manda la pantalla.
+    <div className="flex flex-col justify-center md:min-h-[min(44rem,calc(100dvh-14rem))]">
       <Vacio
         icono={<IconoMicro />}
         titulo="Necesitamos oírte para afinarte"
@@ -154,7 +158,7 @@ function Stopped({
           {message}
         </p>
       )}
-    </>
+    </div>
   );
 }
 
@@ -195,7 +199,7 @@ function Listening({
     // a mano —que se queda corto en un teléfono y largo en un monitor— se pinta
     // **la misma nota con huecos** debajo de la espera, invisible y fuera del
     // árbol de accesibilidad: mide lo que va a medir porque es lo mismo.
-    <div className="mt-6 grid">
+    <div className="mt-6 grid md:min-h-[min(40rem,calc(100dvh-20rem))]">
       <NotaYAguja
         reading={reading}
         tuningId={tuningId}
@@ -293,7 +297,7 @@ function NotaYAguja({
         <span
           // Ocho o nueve veces el cuerpo del texto. Es lo primero que se busca
           // al mirar la pantalla desde donde se está tocando.
-          className={`font-display text-8xl sm:text-9xl ${status === 'afinada' ? 'text-tube-bright' : 'text-brass-bright'}`}
+          className={`font-display text-8xl sm:text-9xl xl:text-[10rem] min-[112rem]:text-[13rem] ${status === 'afinada' ? 'text-tube-bright' : 'text-brass-bright'}`}
         >
           {vacia ? '—' : noteName(reading.pitchClass)}
           <span className="text-text-muted text-4xl">{vacia ? '' : reading.octave}</span>

@@ -107,8 +107,19 @@ la pantalla: un objeto grande retenido es memoria que no vuelve.
 - **La toma vive en memoria y no se guarda.** Al descartarla o al recargar, se
   pierde. Guardarla junto a las sesiones pide antes decidir cuánto se guarda y qué
   se borra, y eso es otra decisión ([adr/0023](./adr/0023-grabar-solo-el-sonido.md)).
-- Un minuto de Opus son algo menos de dos megas. Una toma larga cabe de sobra en
-  memoria, que es justo lo contrario de lo que pasaba con el vídeo en 1080p.
+- Un minuto de Opus sale por un mega en Chromium: medido, 236 KB una toma de
+  catorce segundos. Una toma larga cabe de sobra en memoria, que es justo lo
+  contrario de lo que pasaba con el vídeo en 1080p.
+- **Una toma de «Tocando» no tiene tope de compases**, solo el de diez minutos
+  (`TOPE_DE_LA_TOMA_S`), que no es musical: es la red para quien deja el micro
+  abierto y se va. A los diez minutos se para sola y escribe lo tocado. Además
+  del sonido, mientras dura se guardan los análisis del motor de tono para
+  transcribirla —unos 130 bytes cada uno, veinte por segundo: megabyte y medio en
+  diez minutos—.
+- **El clic del metrónomo suena durante la toma y no entra en lo grabado de forma
+  que importe**: es un golpe de ruido muy agudo, sin altura. Se oye en lo que te
+  descargas si sale por los altavoces, como en cualquier grabación hecha con
+  claqueta; con auriculares, no.
 - Grabar y analizar a la vez cuesta poco: `MediaRecorder` codifica fuera del hilo
   principal, y ahí ya no hay ningún canvas compitiendo con los dos motores de
   análisis.

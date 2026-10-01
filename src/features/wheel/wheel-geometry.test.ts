@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { escalaDesdeElCentro, pointAt } from './WheelOfFifths';
+import {
+  DIANA,
+  escalaDesdeElCentro,
+  HOLGURA,
+  INNER_RADIUS,
+  pointAt,
+  RING_RADIUS,
+} from './WheelOfFifths';
 
 /**
  * Estas pruebas existen por un fallo concreto: `Math.cos` devolvía el último
@@ -66,5 +73,36 @@ describe('la escala de los anillos', () => {
     for (const numero of escrito.match(/[\d.]+/g) ?? []) {
       expect(Number.isInteger(Number(numero) * 1000)).toBe(true);
     }
+  });
+});
+
+/**
+ * Las dianas de las veinticuatro tonalidades: que midan lo mismo y que no se
+ * pisen. Se pisaban —el borde de dentro de cada mayor caía siete unidades encima
+ * de su relativa menor— y desde fuera no se veía: pulsar la parte baja de la «C»
+ * elegía La menor.
+ */
+describe('las dianas de la rueda', () => {
+  const distancia = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(a.x - b.x, a.y - b.y);
+
+  it('dos vecinas del anillo de dentro no se tocan', () => {
+    for (let position = 0; position < 12; position += 1) {
+      const aqui = pointAt(position, INNER_RADIUS);
+      const alLado = pointAt(position + 1, INNER_RADIUS);
+      expect(distancia(aqui, alLado)).toBeGreaterThanOrEqual(DIANA + HOLGURA);
+    }
+  });
+
+  it('una mayor y su relativa menor tampoco, aunque compartan sitio', () => {
+    for (let position = 0; position < 12; position += 1) {
+      const fuera = pointAt(position, RING_RADIUS);
+      const dentro = pointAt(position, INNER_RADIUS);
+      expect(distancia(fuera, dentro)).toBeGreaterThanOrEqual(DIANA + HOLGURA);
+    }
+  });
+
+  it('la de fuera cabe en el lienzo', () => {
+    expect(RING_RADIUS + DIANA / 2).toBeLessThanOrEqual(130);
   });
 });

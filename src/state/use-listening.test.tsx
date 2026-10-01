@@ -10,7 +10,7 @@ import type { PitchEngine } from '@audio/pitch-engine';
 import type { ChordMatch, ChordReading } from '@core/music';
 
 import { useSessionStore } from './session-store';
-import { useListening, type ListeningDeps } from './use-listening';
+import { motorDeTonoActivo, useListening, type ListeningDeps } from './use-listening';
 
 class FakeInput implements AudioInput {
   state: AudioInputState = 'idle';
@@ -159,6 +159,19 @@ describe('El micrófono es uno solo', () => {
 
     expect(entrada.state, 'el micro se ha quedado abierto').toBe('idle');
     expect(useSessionStore.getState().listening).toBe('idle');
+  });
+
+  // La toma se apunta a cada análisis del mismo motor: no abre otro.
+  it('el motor que escucha se presta a quien lo pide, y se suelta al parar', async () => {
+    const motor = new SilentPitchEngine();
+    render(<DosBotones deps={{ createInput: () => new FakeInput(), createEngine: () => motor }} />);
+    expect(motorDeTonoActivo()).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: /arrancar desde el afinador/i }));
+    await waitFor(() => expect(motorDeTonoActivo()).toBe(motor));
+
+    await userEvent.click(screen.getByRole('button', { name: /parar desde la barra/i }));
+    expect(motorDeTonoActivo()).toBeNull();
   });
 
   it('y no se abre dos veces si se pulsan los dos', async () => {

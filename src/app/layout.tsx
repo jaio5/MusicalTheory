@@ -6,6 +6,7 @@ import { currentAccount } from '@server/entitlements';
 import { AccountProvider } from '@state/account';
 import { GUION_TEMA } from '@state/theme';
 
+import { CLASES_DE_FUENTES } from './fuentes';
 import './globals.css';
 
 /**
@@ -75,7 +76,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const numero = (await headers()).get('x-nonce') ?? undefined;
 
   return (
-    <html lang="es" suppressHydrationWarning>
+    // Las variables de las tres letras van en el `<html>` y no en el `<body>`:
+    // `globals.css` las lee desde `:root`, y la barra de desplazamiento y lo que
+    // pinta el navegador fuera del `<body>` también cuentan.
+    <html lang="es" className={CLASES_DE_FUENTES} suppressHydrationWarning>
       <head>
         {/*
           El tema elegido, aplicado **antes de pintar**. Sin esto el navegador

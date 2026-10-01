@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 
 import { cheapestPlanWith, unitAccess, type PlanId, type UnitAccess } from '@core/billing';
 import { IconoCandado, IconoGrieta, IconoLlave, IconoTeoria, IconoTocar } from '@ui/icons';
@@ -29,6 +29,11 @@ const PLAN_DEL_PROFESIONAL = cheapestPlanWith('grado-profesional')!.name;
 /**
  * Dónde cae el centro de cada nodo del zigzag: un tanto por ciento del ancho de la
  * fila y la mitad del círculo, que en el nodo de «aquí» es mayor.
+ *
+ * El tanto por ciento se multiplica por `--amplitud`, que pone la caja del camino
+ * según lo que mida: 1 hasta 64 rem, 1,5 hasta 80 y 2 desde ahí. Los dos
+ * que lo usan —el sangrado y el tramo— leen la misma variable, así que la línea
+ * sigue cayendo en el centro del nodo a cualquier ancho.
  *
  * Lo comparten el sangrado de la fila y el tramo de camino que la une con la
  * anterior: si cada uno tuviera su tabla, la línea acabaría un poco al lado del
@@ -79,12 +84,21 @@ export function LearnPath({
   const [explicada, setExplicada] = useState<string | null>(null);
 
   return (
-    <div className="min-h-0 grow overflow-y-auto">
+    <div className="@container min-h-0 grow overflow-y-auto">
       {/* El camino es **uno y vertical**. Llegó a partirse en dos columnas para
           llenar el ancho de un portátil y dejó de ser un camino: dos rutas
-          paralelas no se recorren, se comparan. El ancho se llena centrando la
-          cinta y dejándola respirar a los lados, no cortándola. */}
-      <div className="mx-auto w-full max-w-2xl">
+          paralelas no se recorren, se comparan.
+
+          **Y el ancho se llena como un mapa, no como una cinta.** Era una cinta de
+          672 px centrada: a 1920 la columna del camino medía 1490 y dos tercios
+          eran negro. Ahora, en cuanto la caja pasa de 48 rem, cada curso pone su
+          cartel a la izquierda —y lo deja pegado mientras bajas por sus
+          unidades— y el sendero serpentea a la derecha, más abierto cuanto más
+          sitio hay (`--amplitud`). Sigue siendo un solo camino que se recorre de
+          arriba abajo; lo que ha crecido es el paisaje alrededor. Todo medido
+          sobre la caja, porque al lado va la columna de la meta y la ventana no
+          sabe cuánto deja. */}
+      <div className="@min-[48rem]:px-margen mx-auto w-full max-w-2xl @min-[48rem]:max-w-[110rem] @min-[64rem]:[--amplitud:1.5] @min-[80rem]:[--amplitud:2]">
         {/* La leyenda de los dos candados. Se distinguían solo en el `title`, que
             en una pantalla táctil no existe, y con el nombre del nodo a un lado
             nada decía qué era cada icono. Dos frases y los mismos iconos que los
@@ -131,12 +145,17 @@ export function LearnPath({
                 const porcentaje = Math.round(hecho * 100);
 
                 return (
-                  <li key={course.id} className="px-3 py-4">
+                  <li
+                    key={course.id}
+                    className="px-3 py-4 @min-[48rem]:grid @min-[48rem]:grid-cols-[minmax(15rem,20rem)_minmax(0,1fr)] @min-[48rem]:items-start @min-[48rem]:gap-x-[clamp(2rem,4vw,5rem)] @min-[48rem]:px-0 @min-[48rem]:py-8"
+                  >
                     {/* El curso es una parada del camino, no un encabezado: tarjeta
                       con su anillo de avance, para saber de un vistazo cuánto te
                       queda de este tramo antes de meterte en él. */}
+                    {/* Pegado debajo de la cabecera del grado mientras se bajan sus
+                        unidades: es el cartel del tramo por el que vas. */}
                     <div
-                      className={`flex items-center gap-3 p-3 ${
+                      className={`flex items-center gap-3 p-3 @min-[48rem]:sticky @min-[48rem]:top-20 ${
                         hecho > 0 && hecho < 1 ? 'superficie-viva' : 'superficie'
                       }`}
                     >
@@ -158,7 +177,7 @@ export function LearnPath({
                       </div>
                     </div>
 
-                    <ul className="mt-2 flex flex-col items-start">
+                    <ul className="mt-2 flex flex-col items-start @min-[48rem]:mt-0">
                       {course.units.map((unit, index) => {
                         // Una sola vez por unidad: `unitAccess` recorre los diez
                         // cursos y el orden entero de unidades, y se llamaba tres
@@ -168,11 +187,13 @@ export function LearnPath({
                         return (
                           <li
                             key={unit.id}
-                            className={`relative w-full ${index > 0 ? 'pt-8' : ''}`}
+                            className={`relative w-full pl-[calc(var(--zigzag)*var(--amplitud,1))] ${index > 0 ? 'pt-8' : ''}`}
                             // El zigzag: cuatro posiciones que van y vuelven, en
                             // porcentaje del ancho para que aguante una columna
                             // estrecha sin salirse.
-                            style={{ paddingLeft: `${ZIGZAG[index % 4]}%` }}
+                            // El sangrado va en una variable y la cuenta en la clase:
+                            // así la multiplica `--amplitud`, que pone la caja.
+                            style={{ '--zigzag': `${ZIGZAG[index % 4]}%` } as CSSProperties}
                           >
                             {/* El tramo de camino que llega a este nodo: **une el
                             centro del anterior con el de este**. Eran trazos
@@ -231,6 +252,12 @@ export function LearnPath({
  * la caja del SVG se coloca con `calc` y lo que se dibuja dentro es solo una
  * diagonal en coordenadas de 0 a 1. `non-scaling-stroke` mantiene el grosor y el
  * punteado en píxeles de pantalla aunque la caja se estire.
+ *
+ * **Los números van en variables y la cuenta en la clase**, y no en un `calc`
+ * escrito en el `style`: la cuenta multiplica por `--amplitud`, y un `var()`
+ * dentro de un `calc` en línea tumbaba a jsdom al calcular estilos —toda la
+ * pantalla del camino dejaba de poder probarse—. En una clase no lo evalúa nadie
+ * más que el navegador.
  */
 function Tramo({
   desde,
@@ -252,12 +279,15 @@ function Tramo({
       <svg
         viewBox="0 0 1 1"
         preserveAspectRatio="none"
-        className="absolute inset-y-0 overflow-visible"
-        style={{
-          left: `calc(${izquierda.pct}% + ${izquierda.mitad}px)`,
-          width: `calc(${derecha.pct - izquierda.pct}% + ${derecha.mitad - izquierda.mitad}px)`,
-          height: '100%',
-        }}
+        className="absolute inset-y-0 left-[calc(var(--desde)*var(--amplitud,1)_+_var(--desde-px))] h-full w-[calc(var(--tramo)*var(--amplitud,1)_+_var(--tramo-px))] overflow-visible"
+        style={
+          {
+            '--desde': `${izquierda.pct}%`,
+            '--desde-px': `${izquierda.mitad}px`,
+            '--tramo': `${derecha.pct - izquierda.pct}%`,
+            '--tramo-px': `${derecha.mitad - izquierda.mitad}px`,
+          } as CSSProperties
+        }
       >
         <line
           x1={haciaLaDerecha ? 0 : 1}

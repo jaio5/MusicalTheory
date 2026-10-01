@@ -28,6 +28,26 @@ const DEFAULT_FRAME_SIZE = 2048;
  */
 const DEFAULT_SPECTRUM_SIZE = 8192;
 
+/**
+ * Por encima de esto no se analiza nada, en hercios.
+ *
+ * **Lo pide el clic del metrónomo**, que ahora suena durante toda la toma y el
+ * micro lo oye. Es un golpe de ruido por encima de 4,5 kHz (`metronome.ts`), y
+ * con dos pasos bajos aquí delante llega al análisis unos veinte decibelios más
+ * abajo. No se pierde nada que se mire: el motor de tono llega a 1400 Hz y el de
+ * acordes a mil; a 2,2 kHz, lo más alto que mira el croma por defecto, se quedan
+ * dos decibelios.
+ *
+ * Es la segunda red, no la primera. Lo que deja fuera al clic es que no tiene
+ * altura y que su golpe no llega a la mitad del ataque de una nota
+ * (`transcribirPunteo`): medido con una guitarra sintética y el clic sumado a su
+ * volumen de fuga, sin el filtro la toma ya sale entera. El filtro cubre lo que
+ * esa medida no prueba —un clic más fuerte que la cuerda— y le quita al croma lo
+ * que no es suyo. La toma que se graba para oírla no pasa por aquí: se graba el
+ * micro tal cual.
+ */
+export const CORTE_DEL_ANALISIS_HZ = 3000;
+
 export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
   readonly frameSize: number;
   readonly spectrumSize: number;
@@ -135,8 +155,16 @@ export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
       // La entrada no se conecta a los altavoces a propósito: con el ampli
       // abierto sería un acople inmediato.
       const source = this.#context.createMediaStreamSource(this.#stream);
-      source.connect(this.#analyser);
-      source.connect(this.#spectrumAnalyser);
+      // Dos pasos bajos seguidos: con uno solo, el clic llegaba a medias.
+      const filtros = [0, 1].map(() => {
+        const filtro = this.#context!.createBiquadFilter();
+        filtro.type = 'lowpass';
+        filtro.frequency.value = CORTE_DEL_ANALISIS_HZ;
+        return filtro;
+      });
+      source.connect(filtros[0]!).connect(filtros[1]!);
+      filtros[1]!.connect(this.#analyser);
+      filtros[1]!.connect(this.#spectrumAnalyser);
 
       this.#vigilarContexto(this.#context);
     } catch {

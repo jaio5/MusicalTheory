@@ -8,6 +8,7 @@ import { AccountMenu } from '@features/account';
 import { MicButton } from '@features/workspace';
 import { useSessionStore } from '@state/session-store';
 import { IconoAfinar, IconoCamino, IconoComponer, IconoProfesor } from '@ui/icons';
+import { Mascota } from '@ui/Mascota';
 import { ThemeToggle } from '@ui/ThemeToggle';
 
 /**
@@ -127,13 +128,29 @@ export function AppShell({ children }: { children: ReactNode }) {
         Saltar al contenido
       </a>
 
-      <header className="border-border bg-surface flex shrink-0 items-center gap-2 border-b px-3 py-2 sm:gap-3">
+      {/* La barra deja ver la sala por detrás, con el velo justo para leer: un
+          rectángulo opaco encima de la luz de la bombilla la cortaba en recto. */}
+      <header className="border-border bg-surface/80 flex shrink-0 items-center gap-2 border-b px-3 py-2 backdrop-blur-md sm:gap-3 md:px-4">
+        {/* **La marca lleva al profesor delante**, a 32 px —un píxel de pantalla
+            por cada uno del dibujo—: es lo que une cada pantalla con la sala de la
+            portada, y la válvula es más reconocible de reojo que dos palabras. El
+            nombre lo dice el texto, así que el muñeco va decorativo.
+
+            **Y el nombre se calla donde no cabe**, que son dos tramos: por debajo
+            de 360, con los tres botones redondos al lado, y entre 768 y 1023, donde
+            sube la navegación entera. En los dos, con la cuenta configurada, la
+            barra pedía 44 px más de los que había y se llevaba el botón de la
+            cuenta por la derecha —el marco recorta y no desplaza—. Ahí queda el
+            muñeco solo, y el nombre sigue siendo el del enlace para quien no ve. */}
         <Link
           href="/"
-          className="text-text hover:text-brass-bright min-h-tap font-display mr-1 inline-flex shrink-0 items-center text-sm whitespace-nowrap transition-colors sm:text-base"
+          className="group text-text hover:text-brass-bright min-h-tap mr-1 inline-flex shrink-0 items-center gap-2 whitespace-nowrap transition-colors"
           title="Volver a la portada"
         >
-          Caos ordenado
+          <Mascota decorativa className="size-8 shrink-0 drop-shadow-none" />
+          <span className="titular text-[0.9375rem] max-[22.5rem]:sr-only sm:text-base md:max-lg:sr-only">
+            Caos ordenado
+          </span>
         </Link>
 
         {/* Desde 768 y no desde 640, que es donde estaba y no cabía.
@@ -156,9 +173,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               href={screen.href}
               aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
               title={screen.summary}
-              className={`min-h-tap inline-flex items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors ${
+              // La pantalla en la que estás lleva su piloto encendido, como una
+              // pastilla marcada: el mismo «esto es lo que hay ahora» en toda la
+              // aplicación, y no un fondo de latón que se confundía con un botón.
+              className={`min-h-tap inline-flex items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-150 ${
                 isHere(pathname, screen.href)
-                  ? 'bg-brass-dim/25 text-brass-bright'
+                  ? 'bg-surface-raised text-brass-bright piloto'
                   : 'text-text-muted hover:bg-surface-raised hover:text-text'
               }`}
             >
@@ -185,21 +205,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           anuncie dos veces la misma lista. */}
       <nav
         aria-label="Pantallas, abajo"
-        className="border-border bg-surface flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="border-border bg-surface/90 flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
       >
         {SCREENS.map((screen) => (
           <Link
             key={screen.href}
             href={screen.href}
             aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
-            className={`flex grow basis-0 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors ${
-              isHere(pathname, screen.href) ? 'text-brass-bright' : 'text-text-muted'
+            className={`flex grow basis-0 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors duration-150 ${
+              isHere(pathname, screen.href) ? 'text-brass-bright piloto' : 'text-text-muted'
             }`}
           >
             <span
               aria-hidden="true"
-              className={`flex min-h-7 items-center rounded-full px-4 transition-colors ${
-                isHere(pathname, screen.href) ? 'bg-brass-dim/25' : ''
+              className={`flex min-h-7 items-center rounded-full px-4 transition-colors duration-150 ${
+                isHere(pathname, screen.href) ? 'bg-surface-raised' : ''
               }`}
             >
               <screen.Icono />

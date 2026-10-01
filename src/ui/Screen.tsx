@@ -20,33 +20,58 @@ import type { ReactNode } from 'react';
  * - La vuelta atrás, encima del título, porque leer «← Camino» después del
  *   título obliga a subir la vista dos veces.
  *
- * El ancho sale de tres opciones con nombre y no de un número por pantalla, y
- * las tres empiezan en el mismo borde izquierdo:
- * `lectura` para lo que se lee seguido, `normal` para lo que se maneja y `ancha`
- * para lo que se compara en rejilla. Tres, porque cuatro ya nadie las distingue.
+ * El ancho sale de **dos** opciones con nombre y no de un número por pantalla,
+ * y las dos empiezan en el mismo borde izquierdo: `lectura` para lo que se lee
+ * seguido y `completo` para todo lo demás. Lo que se maneja y lo que se compara
+ * ya no se distinguen por lo estrecho de su columna, sino por cómo se reparten
+ * dentro del ancho entero: en rejilla, en columnas o con algo al lado (`aside`).
  */
 const ANCHOS = {
   /**
    * Texto seguido y ejercicios. **El único que se queda estrecho**, y no por
    * ahorrar sitio: un renglón de noventa caracteres se lee de una pasada y uno de
    * doscientos obliga a buscar dónde empezaba el siguiente. Lo que llena el ancho
-   * aquí no es el texto, es lo que va al lado.
+   * aquí no es el texto, es lo que va al lado: por eso con `lectura` el `aside`
+   * se queda con todo lo que sobra.
    */
   lectura: 'max-w-3xl',
-  /** Lo normal: formularios, ajustes, una conversación. */
-  normal: 'max-w-5xl',
-  /** Rejillas que se comparan de un vistazo, como las tarjetas de plan. */
-  ancha: 'max-w-7xl',
+  /**
+   * Todo el ancho de la pantalla. Eran dos —`normal`, de 1024 px, y `ancha`, de
+   * 1280— y los dos dejaban vacío el resto: a 1920 la cuenta usaba el 23 % del
+   * ancho y los planes el 61 %. El ancho de un párrafo lo pone el párrafo
+   * (`max-w-prose`); el de la pantalla es el de la pantalla.
+   */
+  completo: '',
 } as const;
 
 export type Ancho = keyof typeof ANCHOS;
+
+/**
+ * Las dos columnas cuando hay algo que va al lado.
+ *
+ * Con `completo`, lo de al lado es una columna que acompaña —una tercera parte
+ * del ancho, nunca menos de 20 rem—; con `lectura`, lo principal se queda en
+ * **lo que mide**, hasta la medida de lectura (`fit-content`), y lo de al lado se
+ * lleva lo que sobre. Con una columna fija de 44 rem, un formulario de 28 dejaba
+ * dieciséis de negro entre él y lo que lo acompaña.
+ *
+ * **Y `lectura` se parte antes, desde `md`**: lo suyo es estrecho y cabe con algo
+ * al lado ya en una tableta o en un teléfono tumbado (844 × 390), donde apilado
+ * dejaba lo de al lado fuera de la pantalla y media pantalla en negro a la
+ * derecha. Una conversación no: por debajo de `lg` se quedaría en 400 px.
+ */
+const CON_LADO: Readonly<Record<Ancho, string>> = {
+  lectura: 'md:grid-cols-[fit-content(44rem)_minmax(0,1fr)]',
+  completo: 'lg:grid-cols-[minmax(0,1fr)_minmax(20rem,32%)]',
+};
 
 export function Screen({
   title,
   lead,
   back,
   actions,
-  ancho = 'normal',
+  ancho = 'completo',
+  aside,
   children,
 }: {
   readonly title: string;
@@ -57,8 +82,19 @@ export function Screen({
   /** La acción principal. Una, y solo si la pantalla tiene una de verdad. */
   readonly actions?: ReactNode;
   readonly ancho?: Ancho;
+  /**
+   * Lo que acompaña a lo principal: la tonalidad del profesor, por qué crear una
+   * cuenta. Desde `lg` (desde `md` con `lectura`) va en su columna a la derecha, y se queda a la vista
+   * mientras se desplaza lo principal; en estrecho va debajo, porque lo
+   * principal es a lo que se viene.
+   */
+  readonly aside?: ReactNode;
   readonly children: ReactNode;
 }) {
+  const principal = (
+    <div className={`flex min-w-0 flex-col gap-10 md:gap-14 ${ANCHOS[ancho]}`}>{children}</div>
+  );
+
   return (
     // Un solo sitio que hace scroll. Había pantallas con tres cajas con scroll
     // dentro, y entonces la rueda del ratón mueve lo que no esperas.
@@ -69,39 +105,59 @@ export function Screen({
         Cada ancho se centraba por su cuenta, y eso ponía el título en un sitio
         distinto según la pantalla: medido a 1440, Planes empezaba en x=112,
         Profesor y Registro en 240 y Cuenta en 368. Al cambiar de una a otra el
-        título saltaba, que es justo lo que este marco venía a quitar. Ahora se
-        centra la caja del más ancho y las estrechas se quedan a su izquierda: lo
-        que sobra en una pantalla de lectura queda a la derecha, donde no se lee.
+        título saltaba, que es justo lo que este marco venía a quitar.
+
+        **Y la caja ya no se queda en 1280.** Centrar una caja de 80 rem dejaba a
+        1920 trescientos píxeles de negro a cada lado, y a 2560 seiscientos noventa:
+        en un monitor la aplicación era una columna en medio de una pared. Ahora la
+        caja llega hasta 2560 (`max-w-pantalla`) y el margen crece con la pantalla
+        (`px-margen`), así que el título cae siempre a un margen del borde y lo que
+        hay debajo se reparte en columnas en vez de dejar sitio.
       */}
-      <div className="mx-auto w-full max-w-7xl p-4 md:p-8">
-        <div className={`flex flex-col gap-8 ${ANCHOS[ancho]}`}>
-          <header>
+      <div className="max-w-pantalla px-margen mx-auto w-full pt-6 pb-16 md:pt-10">
+        {/*
+          **Dos ritmos y no uno.** Entre la cabecera y lo primero hay más aire que
+          entre dos apartados, y entre dos apartados más que dentro de uno: con el
+          mismo hueco en todas partes —eran `gap-8` para todo— la pantalla se lee
+          como una lista de cajas iguales y no se sabe dónde empieza nada.
+        */}
+        <div className="flex flex-col gap-10 md:gap-14">
+          <header className="entra-pantalla">
             {back !== undefined && (
               <Link
                 href={back.href}
-                className="text-text-muted hover:text-text min-h-tap -mx-2 mb-2 inline-flex items-center gap-1 px-2 text-sm"
+                className="text-text-muted hover:text-brass-bright min-h-tap -mx-2 mb-1 inline-flex items-center gap-1.5 px-2 text-sm font-medium transition-colors"
               >
-                ← {back.label}
+                <span aria-hidden="true">←</span> {back.label}
               </Link>
             )}
 
-            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
               <div className="min-w-0">
-                {/* En la serif de la portada y no en la de sistema: es la letra
-                    con la que esta aplicación se presenta, y usarla solo fuera
-                    hacía que dentro pareciera otra aplicación. */}
-                <h1 className="text-text font-display text-3xl leading-tight tracking-tight md:text-4xl">
-                  {title}
-                </h1>
+                {/* La letra del flight case, a tamaño de título de verdad: es lo
+                    que dice dónde estás desde el otro lado de la habitación, con la
+                    guitarra puesta. Crece con la pantalla y no pasa de 48 px. */}
+                <h1 className="titular text-text text-fluid-title">{title}</h1>
                 {lead !== undefined && (
-                  <p className="text-text-muted mt-2 max-w-prose text-sm">{lead}</p>
+                  <p className="text-text-muted text-fluid-subtitle mt-3 max-w-[60ch]">{lead}</p>
                 )}
               </div>
               {actions !== undefined && <div className="shrink-0">{actions}</div>}
             </div>
           </header>
 
-          {children}
+          {aside === undefined ? (
+            principal
+          ) : (
+            // `items-start` y `sticky` en lo de al lado: si lo principal es largo,
+            // lo que lo acompaña se queda a la vista en vez de quedarse arriba.
+            <div
+              className={`grid items-start gap-10 md:gap-x-[clamp(2rem,4vw,5rem)] ${CON_LADO[ancho]}`}
+            >
+              {principal}
+              <aside className="flex min-w-0 flex-col gap-8 md:sticky md:top-6">{aside}</aside>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -151,16 +207,19 @@ export function WorkHeader({
   readonly accionesCrecen?: boolean;
 }) {
   return (
-    <div className="border-border flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5">
+    <div className="border-border flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 md:px-4">
       {back !== undefined && (
         <Link
           href={back.href}
-          className="text-text-muted hover:text-text min-h-tap -mx-2 inline-flex shrink-0 items-center gap-1 px-2 text-sm"
+          className="text-text-muted hover:text-brass-bright min-h-tap -mx-2 inline-flex shrink-0 items-center gap-1.5 px-2 text-sm font-medium transition-colors"
         >
-          ← {back.label}
+          <span aria-hidden="true">←</span> {back.label}
         </Link>
       )}
-      <h1 className="text-text font-display shrink-0 text-base">{title}</h1>
+      {/* La misma letra que el título de `Screen`, a la altura de la franja: el
+          taller no puede gastar sesenta píxeles en decir dónde estás, pero sí
+          decirlo con la voz de la casa. */}
+      <h1 className="titular text-text shrink-0 text-lg">{title}</h1>
       {/*
         `flex-1` con base cero, y no solo `min-w-0`: es lo que hace que la línea
         comparta fila con el rótulo en vez de bajarse a la suya.
@@ -174,7 +233,7 @@ export function WorkHeader({
         de 640 —casi una cuarta parte de la pantalla— en decir dónde estás.
       */}
       {lead !== undefined && (
-        <p className="text-text-muted min-w-0 flex-1 basis-0 truncate text-xs">{lead}</p>
+        <p className="text-text-muted min-w-0 flex-1 basis-0 truncate text-sm">{lead}</p>
       )}
       {/*
         El hueco de acciones **puede encoger**, y hace falta que pueda.
@@ -201,9 +260,11 @@ export function WorkHeader({
 /**
  * Un apartado dentro de una pantalla.
  *
- * Título en versalitas de máquina de escribir —el mismo rótulo que ya usaban la
- * cuenta y los planes por su cuenta— y el mismo hueco por encima en todas. El
- * `id` es opcional y sirve para enlazar el apartado desde fuera, como hace el
+ * Su título es un `h2` que se lee como título —la letra de los titulares a la
+ * altura de un párrafo, `.titulo-apartado`— y no un rótulo de doce píxeles: con
+ * el rótulo, la cabecera de la pantalla y la de un apartado estaban a dos tallas
+ * de distancia y en dos letras distintas, y la pantalla no tenía escalones entre
+ * medias. El mismo hueco por encima en todas. El `id` es opcional y sirve para enlazar el apartado desde fuera, como hace el
  * desplegable del avatar con `/cuenta#contrasena`; cuando lo lleva, se reserva
  * sitio arriba para que el título no se quede pegado al borde al saltar.
  */
@@ -230,11 +291,11 @@ export function Section({
         regla de lado a lado, que es lo que aplanaba las pantallas— y se lee como
         lo que es: donde empieza un apartado.
       */}
-      <h2 className="rotulo flex items-center gap-3">
+      <h2 className="titulo-apartado flex items-center gap-4">
         <span className="shrink-0">{title}</span>
         <span aria-hidden="true" className="bg-border h-px grow" />
       </h2>
-      <div className="mt-3">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }

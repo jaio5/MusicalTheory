@@ -38,10 +38,7 @@ export function TeacherScreen() {
   // cuatro de relleno alrededor de un renglón deja ochenta píxeles de hueco que no
   // dicen nada. Abierta, el relleno lo pone lo de dentro.
   const tonalidad = (
-    <section
-      aria-label="Tonalidad"
-      className="superficie px-4 py-1 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1"
-    >
+    <section aria-label="Tonalidad" className="superficie px-4 py-1">
       <Disclosure
         summary={
           <>
@@ -71,36 +68,16 @@ export function TeacherScreen() {
     </section>
   );
 
-  return (
-    <Screen
-      title="Profesor"
-      lead="Pregunta lo que quieras de teoría: responde en la tonalidad que tengas puesta y con sus acordes, en tres frases."
-    >
-      {/*
-        **La pregunta primero, y la tonalidad a un lado o plegada.**
-
-        Mandaba la rueda: era lo primero de la pantalla, y a 390 px la pregunta —a
-        lo que se viene— caía bajo el pliegue. Ahora la pregunta va delante, y la
-        tonalidad es una línea («Explicando en: Do mayor») que se abre si hace
-        falta cambiarla; desde `lg` es una columna al lado del formulario, donde no
-        le quita altura a nadie.
-
-        Tampoco hace falta abrirla para empezar: sin tonalidad, el formulario
-        ofrece las cuatro más comunes ahí mismo (`features/learn/Teacher`), así que
-        la rueda es para quien quiere otra..
-      */}
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-          <Section title="La pregunta">
-            <Teacher />
-          </Section>
-        </div>
-        {tonalidad}
-      </div>
+  // Lo que acompaña a la pregunta: en qué tonalidad se contesta, qué da Pro y
+  // cuánto queda del cupo. Las tres cosas se consultan mientras se pregunta, y
+  // ninguna es la pregunta.
+  const alLado = (
+    <>
+      {tonalidad}
 
       {/* El cupo es de todos los planes, así que aquí no hay candado que enseñar
-            salvo el del profesor que sabe por dónde vas, que es lo que distingue a
-            Pro. */}
+          salvo el del profesor que sabe por dónde vas, que es lo que distingue a
+          Pro. */}
       {!can(account.plan, 'profesor-con-progreso') && (
         <Section title="Con el plan Pro">
           {/* Aquí no es compacto: es el contenido entero de un apartado, y su
@@ -114,7 +91,7 @@ export function TeacherScreen() {
         </Section>
       )}
 
-      <p className="text-text-muted text-xs">
+      <p className="text-text-muted max-w-prose text-xs">
         Tu plan {plan.name} incluye {monthlyAiRequests(plan.id, account.aiModel)} preguntas al
         profesor al mes —hasta {dailyAiRequests(plan.id, account.aiModel)} en un mismo día—
         {can(plan.id, 'versiones') && (
@@ -122,6 +99,36 @@ export function TeacherScreen() {
         )}
         . A la IA solo viajan símbolos: la tonalidad, la escala y lo que escribas. Nada de audio.
       </p>
+    </>
+  );
+
+  return (
+    <Screen
+      title="Profesor"
+      lead="Pregunta lo que quieras de teoría: responde en la tonalidad que tengas puesta y con sus acordes, en tres frases."
+      aside={alLado}
+    >
+      {/*
+        **La pregunta primero, y lo que la acompaña al lado.**
+
+        Mandaba la rueda: era lo primero de la pantalla, y a 390 px la pregunta —a
+        lo que se viene— caía bajo el pliegue. Ahora la pregunta va delante, y la
+        tonalidad es una línea («Explicando en: Do mayor») que se abre si hace
+        falta cambiarla.
+
+        **Desde `lg`, la conversación y lo que la acompaña van lado a lado** —la
+        tonalidad, el plan Pro y el cupo, en la columna de `aside`—. Antes la
+        tonalidad iba al lado y el plan y el cupo debajo, todo en una caja de 1024
+        px: a 1920 la pantalla usaba la mitad del ancho y el plan Pro quedaba bajo
+        el pliegue.
+
+        Tampoco hace falta abrirla para empezar: sin tonalidad, el formulario
+        ofrece las cuatro más comunes ahí mismo (`features/learn/Teacher`), así que
+        la rueda es para quien quiere otra.
+      */}
+      <Section title="La pregunta">
+        <Teacher />
+      </Section>
     </Screen>
   );
 }

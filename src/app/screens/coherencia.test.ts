@@ -150,15 +150,39 @@ describe('Todas las pantallas', () => {
    */
   it('no se escriben su propio contenedor de página', () => {
     const marco = readFileSync(join(process.cwd(), 'src/ui/Screen.tsx'), 'utf8');
-    // El relleno va en la caja de fuera, la que se centra igual para los tres
+    // El relleno va en la caja de fuera, la que se centra igual para los dos
     // anchos (`ui/Screen`): es lo que hace que todos los títulos empiecen en el
-    // mismo borde.
-    const relleno = /className="mx-auto w-full max-w-7xl ([^"]+)"/.exec(marco)?.[1]?.trim();
+    // mismo borde. Se leen las dos mitades de la caja —su techo (`max-w-…`) y su
+    // relleno— sin escribir ninguna aquí, por lo mismo de arriba: la caja pasó de
+    // `max-w-7xl` y cuatro escalones de relleno a `max-w-pantalla px-margen`, y
+    // con la cadena copiada este test se habría quedado ciego.
+    // El orden de las clases lo decide Prettier —pone delante las utilidades
+    // propias—, así que la caja se busca por lo que es y no por cómo se escribe:
+    // la que se centra (`mx-auto`) con su techo (`max-w-…`).
+    const caja = [...marco.matchAll(/className="([^"]+)"/g)]
+      .map((m) => m[1]!.split(/\s+/))
+      .find((clases) => clases.includes('mx-auto') && clases.some((c) => c.startsWith('max-w-')));
+    const techo = caja?.find((c) => c.startsWith('max-w-'));
+    const relleno = caja?.filter((c) => /^(?:[a-z]+:)?p[xytblr]?-/.test(c)) ?? [];
 
-    expect(relleno, 'no se ha podido leer el relleno de Screen.tsx').toBeTruthy();
+    expect(techo, 'no se ha podido leer el techo de Screen.tsx').toBeTruthy();
+    expect(relleno.length, 'no se ha podido leer el relleno de Screen.tsx').toBeGreaterThan(1);
 
     for (const { nombre, codigo } of pantallas()) {
-      expect(codigo, nombre).not.toContain(relleno!);
+      const clasesDeLaPantalla = [...codigo.matchAll(/className=(?:"([^"]+)"|\{`([^`]+)`)/g)].map(
+        (m) => (m[1] ?? m[2]!).split(/\s+/),
+      );
+      // El relleno entero en una misma caja: eso es escribirse el contenedor.
+      expect(
+        clasesDeLaPantalla.some((clases) => relleno.every((r) => clases.includes(r))),
+        `${nombre} se escribe el relleno del marco (${relleno.join(' ')})`,
+      ).toBe(false);
+      // El techo de la pantalla es del marco: una pantalla que lo escribe está
+      // montando otra caja centrada, que es como volvió a saltar el título.
+      expect(
+        clasesDeLaPantalla.some((clases) => clases.includes(techo!)),
+        `${nombre} se escribe el techo del marco (${techo})`,
+      ).toBe(false);
     }
   });
 });
@@ -514,6 +538,34 @@ describe('En toda la interfaz', () => {
     const pendientes = FICHEROS.filter(({ codigo }) => /\brounded\b(?!-)/.test(codigo)).map(
       ({ ruta }) => ruta,
     );
+
+    expect(pendientes).toEqual([]);
+  });
+
+  /**
+   * **Ningún color que no salga de la paleta**
+   * ([adr/0070](../../../docs/adr/0070-la-sala-encendida.md)).
+   *
+   * La paleta son dieciséis colores sacados de la sala de la portada, y la regla es
+   * que todo lo que sale en pantalla se pueda pintar con ellos. Lo que la rompe
+   * llega por dos puertas, y las dos son una clase de Tailwind: un tono de la
+   * paleta de Tailwind —`bg-black/55`, `text-white`, un `bg-red-500`— o un color
+   * escrito entre corchetes. Quedaban cinco, todos de la primera: el velo detrás
+   * de tres `popover` y el botón de parar la escena, que ahora piden `night` y
+   * `bulb`, los dos colores de la sala que no cambian con el tema.
+   *
+   * Un matiz se pide con la opacidad de un token —`bg-brass/20`— o con
+   * `color-mix` en `globals.css`, que es donde los mira `ui/tokens.test.ts`.
+   */
+  it('ningún color se sale de la paleta', () => {
+    const PALETA_DE_TAILWIND =
+      /\b(?:bg|text|border|fill|stroke|from|via|to|ring|outline|decoration|caret|accent|divide|shadow)-(?:black|white|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})\b/;
+    const A_MANO =
+      /\b(?:bg|text|border|fill|stroke|from|via|to|ring|outline|decoration|caret|accent|divide)-\[(?:#|rgba?\(|hsla?\(|oklch\()/;
+
+    const pendientes = FICHEROS.filter(
+      ({ codigo }) => PALETA_DE_TAILWIND.test(codigo) || A_MANO.test(codigo),
+    ).map(({ ruta }) => ruta);
 
     expect(pendientes).toEqual([]);
   });

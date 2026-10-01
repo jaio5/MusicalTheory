@@ -75,11 +75,13 @@ function cabeElGlobo(): boolean {
  * Flota (`fixed`) a la altura guardada —de fábrica, el 10 % de abajo— y es del
  * tamaño de un pulgar. Sin reserva, el final de la columna quedaba justo debajo de
  * él: en la unidad a 390 de ancho tapaba la esquina del aviso de fallo, y no había
- * forma de desplazarlo fuera. Se reserva el mismo diez por ciento más su alto.
+ * forma de desplazarlo fuera. Se reserva el mismo diez por ciento más su alto,
+ * que son los 64 px de `ui/Mascota` (`4rem`): si el muñeco cambia de tamaño, esto
+ * cambia con él, y también los dos huecos que `PathScreen` escribe a mano.
  * Va como clase entera para que Tailwind la vea escrita; quien la use en otro
  * punto de corte la escribe con su prefijo, como hace `PathScreen`.
  */
-export const HUECO_DEL_TUTOR = 'pb-[calc(10dvh+3.5rem)]';
+export const HUECO_DEL_TUTOR = 'pb-[calc(10dvh+4rem)]';
 
 export function Tutor({
   unitId,
@@ -261,7 +263,9 @@ export function Tutor({
         }}
         aria-expanded={abierto}
         aria-label={abierto ? 'Cerrar el profesor' : 'Preguntarle al profesor'}
-        className={`shrink-0 rounded-full transition-transform duration-150 hover:scale-105 active:scale-100 ${
+        // Al pasar por encima sube dos píxeles en vez de crecer: el muñeco es de
+        // píxel, y a 1,05 cada píxel cae entre dos de pantalla y se emborrona.
+        className={`shrink-0 rounded-full transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 ${
           quieto ? '' : 'animate-asomar'
         }`}
       >

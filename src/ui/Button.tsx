@@ -54,8 +54,10 @@ function Ruedecilla() {
  * - **Tiene un filo de luz arriba** (`inset` en la sombra). Es lo que hace que el
  *   latón parezca metal y no un rectángulo de color, y es la misma idea que el
  *   resto de la interfaz: un amplificador, no un formulario.
- * - **La transición es de 150 ms.** Por debajo no se percibe y por encima se nota
- *   lenta al encadenar acordes.
+ * - **La transición es de 150 ms**, con la curva de la casa (`ease-salida`), y el
+ *   hundido de 75: por debajo no se percibe y por encima se nota lenta al
+ *   encadenar acordes. El paso del ratón solo cambia lo que **se puede** pulsar
+ *   (`not-disabled:`, que vale también para un enlace con pinta de botón; `enabled:` no lo haría): un botón apagado que se enciende al pasar por encima miente.
  * - **`cursor-pointer`, siempre.** Un `<button>` no lo trae de serie, y sin él la
  *   mitad de la interfaz no se siente pulsable aunque lo sea.
  *
@@ -64,7 +66,7 @@ function Ruedecilla() {
  * texto**, y ese hueco escrito a mano quince veces acaba siendo quince huecos.
  */
 const BASE =
-  'inline-flex min-h-tap cursor-pointer items-center justify-center gap-2 rounded-md py-2.5 font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0';
+  'inline-flex min-h-tap cursor-pointer items-center justify-center gap-2 rounded-md py-2.5 font-semibold tracking-[0.005em] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-salida active:translate-y-px active:duration-75 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0';
 
 // La letra y el relleno de los lados van aparte de la base: con los dos en ella,
 // un `className` que quisiera otra medida dependía del orden en que Tailwind
@@ -75,9 +77,17 @@ const TAMANOS: Record<ButtonSize, string> = {
 };
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-brass text-background filo-luz hover:bg-brass-bright hover:filo-luz-alto',
+  primary:
+    'bg-brass text-background filo-luz not-disabled:hover:bg-brass-bright not-disabled:hover:filo-luz-alto',
+  /**
+   * Lo secundario: la otra salida, la que no es la de la pantalla.
+   *
+   * Con fondo propio y no solo borde: un contorno de 1,3:1 sobre la pared es una
+   * caja que no se sabe si es un botón o un recuadro. El fondo de superficie dice
+   * «esto es una pieza» y el borde se enciende al pasar.
+   */
   quiet:
-    'border border-border text-text hover:border-brass-dim hover:text-brass-bright hover:bg-surface-raised',
+    'border border-border bg-surface text-text filo-luz not-disabled:hover:border-brass-dim not-disabled:hover:text-brass-bright not-disabled:hover:bg-surface-raised',
   /**
    * Lo que borra, lo que descarta y lo que cierra una cuenta.
    *
@@ -86,7 +96,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
    * principal. Se enciende al pasar por encima, que es cuando ya hay intención.
    */
   danger:
-    'border border-border text-oxblood-bright hover:border-oxblood-bright hover:bg-oxblood/20',
+    'border border-border bg-surface text-oxblood-bright not-disabled:hover:border-oxblood-bright not-disabled:hover:bg-oxblood/20',
 };
 
 /**

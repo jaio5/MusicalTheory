@@ -99,6 +99,18 @@ export function entradaActiva(): AudioInput | null {
   return entradaSonando;
 }
 
+/**
+ * El motor de tono que está escuchando, o nulo si no hay ninguno.
+ *
+ * Lo pide la toma para apuntarse a **cada análisis** (`subscribeFrames`) mientras
+ * se toca: el historial de la sesión guarda las veinticuatro últimas notas, y una
+ * toma de punteo entera no cabe ahí. Es el mismo motor, no uno nuevo: el micro
+ * es uno y el análisis también.
+ */
+export function motorDeTonoActivo(): PitchEngine | null {
+  return motorSonando;
+}
+
 /** Suelta el aparato sin tocar el estado de la interfaz. */
 async function soltarLoAbierto(): Promise<void> {
   motorSonando?.stop();

@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   EMPTY_ARRANGEMENT,
+  MAX_PARTS,
+  partBeats,
+  partLength,
   pitchClassFromName,
+  type FotogramaDeTono,
   type Capture,
   type MelodyCapture,
 } from '@core/music';
@@ -206,5 +210,234 @@ describe('el papel de la toma', () => {
     expect(apuntarLoTocado({ ...EN_DO, papel: 'ritmica' }).aviso).toBe(
       'No he podido leer ni un acorde de lo que has tocado.',
     );
+  });
+});
+
+/**
+ * **Con la toma delante.** «Tocando» trae lo que oyó —cada análisis y su compás
+ * uno— y con eso se transcribe la toma entera, contra su rejilla, y repartida en
+ * las partes que hagan falta: una toma no tiene tope y una parte sí.
+ */
+describe('lo que trae la toma', () => {
+  const EN_DO = {
+    tonic: pitchClassFromName('C'),
+    mode: 'major' as const,
+    // A 60, un pulso es un segundo.
+    bpm: 60,
+    beatsPerBar: 4,
+  };
+  const partes = () => useArrangementStore.getState().arrangement.parts;
+
+  /** Notas de una negra cada una, alternando Do y Re, a partir del compás uno. */
+  function negras(cuantas: number): FotogramaDeTono[] {
+    const fotogramas: FotogramaDeTono[] = [];
+    for (let nota = 0; nota < cuantas; nota += 1) {
+      for (let k = 0; k < 4; k += 1) {
+        fotogramas.push({
+          at: 1000 + 40 + nota * 1000 + k * 200,
+          midi: nota % 2 === 0 ? 60 : 62,
+          clarity: 0.98,
+          rms: 0.1 - k * 0.02,
+        });
+      }
+    }
+    return fotogramas;
+  }
+
+  beforeEach(() => {
+    useSessionStore.getState().actions.reset();
+    useArrangementStore.getState().actions.replace(EMPTY_ARRANGEMENT);
+  });
+
+  it('el punteo sale de cada analisis, y no del historial', () => {
+    const { partId } = apuntarLoTocado({
+      ...EN_DO,
+      papel: 'punteo',
+      lectura: { fotogramas: negras(30), empiezaEn: 1000, acabaEn: 40_000 },
+    });
+
+    const parte = partes().find((una) => una.id === partId)!;
+    expect(parte.notes).toHaveLength(30);
+    expect(parte.notes.at(-1)!.start).toBe(29);
+  });
+
+  it('una toma larga entra en varias partes, cada una desde su compas', () => {
+    const { partId, aviso } = apuntarLoTocado({
+      ...EN_DO,
+      papel: 'punteo',
+      lectura: { fotogramas: negras(150), empiezaEn: 1000, acabaEn: 200_000 },
+    });
+
+    expect(partes().map((parte) => parte.notes.length)).toEqual([64, 64, 22]);
+    expect(partes().map((parte) => parte.name)).toEqual([
+      'Lo que has tocado (1)',
+      'Lo que has tocado (2)',
+      'Lo que has tocado (3)',
+    ]);
+    // La segunda empieza en la barra del compás diecisiete: su primera nota, en el uno.
+    expect(partes()[1]!.notes[0]!.start).toBe(0);
+    expect(partId).toBe(partes()[0]!.id);
+    expect(aviso).toContain('ha entrado en 3 partes seguidas');
+  });
+
+  /**
+   * **Las partes encajan una detrás de otra**, que es como se tocan: la siguiente
+   * empieza donde acaba la anterior. Reproducida, cada nota suena en el pulso en
+   * que se tocó.
+   */
+  function donde(): number[] {
+    let desde = 0;
+    const pulsos: number[] = [];
+    for (const parte of partes()) {
+      pulsos.push(...parte.notes.map((nota) => desde + nota.start));
+      desde += partLength(parte);
+    }
+    return pulsos;
+  }
+
+  it('setenta notas reproducidas caen cada una en su pulso, y se corta en barra', () => {
+    apuntarLoTocado({
+      ...EN_DO,
+      papel: 'punteo',
+      lectura: { fotogramas: negras(70), empiezaEn: 1000, acabaEn: 80_000 },
+    });
+
+    expect(donde()).toEqual(Array.from({ length: 70 }, (_, i) => i));
+    // La primera acaba justo en la barra del compás diecisiete.
+    expect(partes().map((parte) => parte.notes.length)).toEqual([64, 6]);
+    expect(partLength(partes()[0]!)).toBe(64);
+  });
+
+  it('sin barra donde acabe justo, se corta donde acaba la ultima, y suena igual', () => {
+    // Notas picadas: dos análisis y un silencio de tres cuartos detrás de cada una.
+    const picadas = negras(70).filter((_, i) => i % 4 < 2);
+    apuntarLoTocado({
+      ...EN_DO,
+      papel: 'punteo',
+      lectura: { fotogramas: picadas, empiezaEn: 1000, acabaEn: 80_000 },
+    });
+
+    expect(donde()).toEqual(Array.from({ length: 70 }, (_, i) => i));
+    expect(partes()[0]!.notes.at(-1)!.length).toBeLessThan(1);
+  });
+
+  it('una ritmica larga se corta en barra, aunque quepan mas bloques', () => {
+    const C = pitchClassFromName('C');
+    const G = pitchClassFromName('G');
+    // Uno de dos pulsos y luego de tres en tres: con 32 bloques la parte acabaría a
+    // mitad de compás, así que entran 31.
+    const inicios = [0, ...Array.from({ length: 39 }, (_, i) => 2 + i * 3)];
+    useSessionStore.setState({
+      captured: inicios.map((pulso, i) => ({
+        root: i % 2 === 0 ? C : G,
+        notes: i % 2 === 0 ? [0, 4, 7] : [7, 11, 2],
+        at: 1000 + 520 + pulso * 1000,
+      })),
+      captureStartedAt: 1000,
+      captureEndedAt: 1000 + 119_000,
+    });
+    apuntarLoTocado({
+      ...EN_DO,
+      papel: 'ritmica',
+      lectura: { fotogramas: [], empiezaEn: 1000, acabaEn: 1000 + 119_000 },
+    });
+    expect(partes().map((parte) => parte.blocks.length)).toEqual([31, 9]);
+    expect(partBeats(partes()[0]!) % 4).toBe(0);
+  });
+
+  it('lo que no cabe en la cancion se dice, y lo que cabe entra', () => {
+    for (let i = 0; i < MAX_PARTS - 1; i += 1) {
+      useArrangementStore.getState().actions.addRecorded([], `ya ${i}`);
+    }
+    const { aviso } = apuntarLoTocado({
+      ...EN_DO,
+      papel: 'punteo',
+      lectura: { fotogramas: negras(100), empiezaEn: 1000, acabaEn: 200_000 },
+    });
+    expect(partes()).toHaveLength(MAX_PARTS);
+    expect(aviso).toContain(`ya tiene ${MAX_PARTS} partes`);
+
+    const lleno = apuntarLoTocado({
+      ...EN_DO,
+      papel: 'punteo',
+      lectura: { fotogramas: negras(4), empiezaEn: 1000, acabaEn: 10_000 },
+    });
+    expect(lleno.partId).toBeNull();
+    expect(lleno.aviso).toMatch(/todas las partes que caben/);
+  });
+
+  it('un motor sin analisis deja el historial de siempre', () => {
+    useSessionStore.setState({
+      noteHistory: [{ pitchClass: pitchClassFromName('C'), midi: 60, at: 0, clarity: 0.99 }],
+      captureStartedAt: 0,
+      captureEndedAt: 2000,
+    });
+    const { partId } = apuntarLoTocado({
+      ...EN_DO,
+      papel: 'punteo',
+      lectura: { fotogramas: [], empiezaEn: 0, acabaEn: 2000 },
+    });
+    expect(partes().find((parte) => parte.id === partId)!.notes).toHaveLength(1);
+  });
+
+  it('la ritmica se cuadra en la rejilla, y el ultimo acaba cuando dejo de sonar', () => {
+    const C = pitchClassFromName('C');
+    const G = pitchClassFromName('G');
+    useSessionStore.setState({
+      captured: [
+        { root: C, notes: [0, 4, 7], at: 1000 + 520 },
+        { root: G, notes: [7, 11, 2], at: 3000 + 520 },
+      ],
+      captureStartedAt: 1000,
+      captureEndedAt: 9000,
+    });
+    // Suena hasta el pulso cuatro y luego nada: parar a los ocho no lo alarga.
+    const fotogramas = [
+      { at: 4900, midi: null, clarity: 0, rms: 0.05 },
+      { at: 5040, midi: null, clarity: 0, rms: 0.0005 },
+    ];
+    const { partId } = apuntarLoTocado({
+      ...EN_DO,
+      papel: 'ritmica',
+      lectura: { fotogramas, empiezaEn: 1000, acabaEn: 9000 },
+    });
+    expect(
+      partes()
+        .find((parte) => parte.id === partId)!
+        .blocks.map((b) => b.beats),
+    ).toEqual([2, 2]);
+
+    // Y sin nada que sonara, hasta que se paró.
+    useArrangementStore.getState().actions.replace(EMPTY_ARRANGEMENT);
+    const otra = apuntarLoTocado({
+      ...EN_DO,
+      papel: 'ritmica',
+      lectura: { fotogramas: [], empiezaEn: 1000, acabaEn: 9000 },
+    });
+    expect(
+      partes()
+        .find((parte) => parte.id === otra.partId)!
+        .blocks.map((b) => b.beats),
+    ).toEqual([2, 6]);
+  });
+
+  it('una ritmica larga tambien se reparte', () => {
+    const C = pitchClassFromName('C');
+    const G = pitchClassFromName('G');
+    useSessionStore.setState({
+      captured: Array.from({ length: 40 }, (_, i) => ({
+        root: i % 2 === 0 ? C : G,
+        notes: i % 2 === 0 ? [0, 4, 7] : [7, 11, 2],
+        at: 1000 + 520 + i * 2000,
+      })),
+      captureStartedAt: 1000,
+      captureEndedAt: 81_000,
+    });
+    apuntarLoTocado({
+      ...EN_DO,
+      papel: 'ritmica',
+      lectura: { fotogramas: [], empiezaEn: 1000, acabaEn: 81_000 },
+    });
+    expect(partes().map((parte) => parte.blocks.length)).toEqual([32, 8]);
   });
 });

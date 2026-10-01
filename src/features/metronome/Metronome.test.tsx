@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { Metronome as MetronomeEngine, MetronomeOptions } from '@audio/metronome';
 
+import { useClaqueta } from '@state/claqueta';
 import { useSessionStore } from '@state/session-store';
 
 import { Metronome } from './Metronome';
@@ -38,6 +39,7 @@ class FakeMetronome implements MetronomeEngine {
 // a 102 le deja el tempo puesto a la siguiente.
 beforeEach(() => {
   useSessionStore.getState().actions.setTempo(100, 4);
+  useClaqueta.setState({ enLaToma: false });
 });
 
 function renderMetronome() {
@@ -45,6 +47,48 @@ function renderMetronome() {
   const view = render(<Metronome createMetronome={() => engine} />);
   return { engine, view };
 }
+
+/**
+ * **Mientras hay toma, el de la barra se aparta.** Dos metrónomos a la vez son
+ * dos pulsos que no coinciden, y cambiar el tempo a mitad dejaría lo grabado en
+ * una rejilla y lo tocado en otra.
+ */
+describe('con una toma sonando', () => {
+  it('se calla, y no deja ponerlo ni cambiar el tempo', async () => {
+    const { engine } = renderMetronome();
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
+    await screen.findByRole('button', { name: /^clic del metrónomo/i });
+    expect(engine.running).toBe(true);
+
+    act(() => {
+      useClaqueta.getState().acciones.marcarToma(true);
+    });
+
+    expect(engine.running).toBe(false);
+    const clic = screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i });
+    expect(clic).toBeDisabled();
+    expect(clic).toHaveAttribute('aria-pressed', 'false');
+    expect(clic).toHaveAttribute('title', 'La toma lleva su propio clic');
+    expect(screen.getByRole('button', { hidden: true, name: /^Tempo:/ })).toBeDisabled();
+
+    // Y no vuelve solo al acabar la toma.
+    act(() => {
+      useClaqueta.getState().acciones.marcarToma(false);
+    });
+    expect(engine.running).toBe(false);
+    expect(clic).not.toBeDisabled();
+  });
+
+  it('sin haberlo puesto nunca, tampoco revienta', () => {
+    renderMetronome();
+    act(() => {
+      useClaqueta.getState().acciones.marcarToma(true);
+    });
+    expect(
+      screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }),
+    ).toBeDisabled();
+  });
+});
 
 describe('Metrónomo', () => {
   it('arranca y para con el mismo botón', async () => {

@@ -34,7 +34,8 @@ describe('la pastilla', () => {
     expect(boton).toHaveAttribute('aria-pressed', 'true');
     expect(boton).toHaveAttribute('aria-keyshortcuts', 'K');
     expect(boton).toHaveAttribute('title', 'Do mayor · K');
-    expect(boton).toHaveClass('border-brass-bright');
+    // Lo puesto lleva su piloto encendido, además del atributo.
+    expect(boton).toHaveClass('piloto');
   });
 
   it('un título sin atajo va tal cual; lo corregido no se apaga ni se tiñe de latón', () => {

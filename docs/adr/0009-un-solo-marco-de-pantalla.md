@@ -1,6 +1,6 @@
 # ADR 0009 — Un solo marco de pantalla, y dónde cae cada cosa dentro
 
-Fecha: 2026-08-01 · Estado: aceptada
+Fecha: 2026-08-01 · Estado: aceptada · Sustituido en parte por [ADR 0073](./0073-las-pantallas-llenan-el-ancho.md): de los anchos quedan `lectura` y `completo`, con `aside`
 
 ## Contexto
 

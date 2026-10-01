@@ -1,6 +1,7 @@
 # ADR 0025 — La mascota es una válvula, no un amplificador entero
 
-Fecha: 2026-09-08 · Estado: aceptada
+Fecha: 2026-09-08 · Estado: aceptada · El dibujo lo rehace en píxel
+[ADR 0068](./0068-la-mascota-es-de-pixel.md); el personaje sigue
 
 ## Contexto
 

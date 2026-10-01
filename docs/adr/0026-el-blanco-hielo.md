@@ -1,6 +1,6 @@
 # ADR 0026 — El blanco hielo, y una portada que respira
 
-Fecha: 2026-09-08 · Estado: aceptada
+Fecha: 2026-09-08 · Estado: aceptada · Sustituido en parte por [ADR 0071](./0071-la-sala-va-a-sangre-detras-del-titular.md), que lleva el encabezado a sangre en un escenario oscuro
 
 ## Contexto
 

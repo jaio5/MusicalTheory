@@ -7,6 +7,7 @@ import { Field } from '@ui/Field';
 
 import { WebAudioMetronome, type Metronome as MetronomeEngine } from '@audio/metronome';
 import { BEATS_PER_BAR, clampBpm, MAX_BPM, MIN_BPM } from '@core/music';
+import { useClaqueta } from '@state/claqueta';
 import { selectActions, useSessionStore } from '@state/session-store';
 
 export interface MetronomeProps {
@@ -52,6 +53,15 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
    * eso `change` lo devuelve a nulo —si no, pulsar «+» no movería el número.
    */
   const [escrito, setEscrito] = useState<string | null>(null);
+  /**
+   * Si hay una toma con su propio clic sonando.
+   *
+   * **Mientras la hay, este se aparta**: dos metrónomos a la vez son dos pulsos
+   * que no coinciden, y el de la toma es el que manda porque es contra el que se
+   * mide lo tocado. Y el tempo no se deja cambiar, que dejaría la rejilla de la
+   * toma en un tempo y lo que se toca en otro.
+   */
+  const enLaToma = useClaqueta((estado) => estado.enLaToma);
 
   const engineRef = useRef<MetronomeEngine | null>(null);
   const panel = useId();
@@ -68,6 +78,22 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
       engineRef.current = null;
     };
   }, []);
+
+  // Al empezar una toma, el de la barra se calla. No vuelve solo al acabar: lo
+  // que se quería oír era la toma, y volver a sonar sin pedirlo sorprende. Se
+  // escucha al almacén y no a `enLaToma` en un efecto: es un aviso de fuera, y
+  // pintar desde un efecto encadenaría renders.
+  useEffect(
+    () =>
+      useClaqueta.subscribe((estado, previo) => {
+        if (estado.enLaToma && !previo.enLaToma) {
+          engineRef.current?.stop();
+          setRunning(false);
+          setBeat(0);
+        }
+      }),
+    [],
+  );
 
   function engine(): MetronomeEngine {
     /* v8 ignore next -- sin fabrica se usa el metronomo de verdad, que es el de la aplicacion */
@@ -118,14 +144,21 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
       <button
         type="button"
         onClick={() => void toggle()}
+        disabled={enLaToma}
         aria-pressed={running}
         aria-label="Clic del metrónomo"
-        title={running ? 'Parar el metrónomo' : 'Poner el metrónomo'}
+        title={
+          enLaToma
+            ? 'La toma lleva su propio clic'
+            : running
+              ? 'Parar el metrónomo'
+              : 'Poner el metrónomo'
+        }
         // **Con su nombre a la vista, «Clic».** Era un triángulo suelto en un
         // círculo, y en Ensayar está al lado de «Ensayar», que es otro
         // triángulo: se pulsaba uno queriendo el otro. El nombre que se oye
         // empieza por lo que se ve, que es lo que pide WCAG 2.5.3.
-        className={`min-h-tap flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors ${
+        className={`min-h-tap flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           running
             ? 'border-brass-bright text-brass-bright'
             : 'border-border text-text-muted hover:border-brass-dim hover:text-text'
@@ -151,7 +184,9 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
       <button
         type="button"
         popoverTarget={panel}
-        className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap flex shrink-0 cursor-pointer items-center gap-2 rounded-md border px-3 text-[13px] font-medium"
+        disabled={enLaToma}
+        title={enLaToma ? 'El tempo no se cambia a mitad de una toma' : undefined}
+        className="border-border text-text-muted enabled:hover:border-brass-dim enabled:hover:text-text min-h-tap flex shrink-0 cursor-pointer items-center gap-2 rounded-md border px-3 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-60"
         aria-label={`Tempo: ${bpm} pulsos por minuto`}
       >
         <span className="font-mono tabular-nums">{bpm} bpm</span>
@@ -181,7 +216,7 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
         aria-label="Tempo y compás"
         // El navegador lo centra con `margin: auto`, y la hoja base de Tailwind
         // pone todos los márgenes a cero: sin `m-auto` sale pegado a la esquina.
-        className="superficie-alta text-text m-auto p-4 backdrop:bg-black/40"
+        className="superficie-alta text-text backdrop:bg-night/50 m-auto p-4"
       >
         <div className="flex flex-col gap-3">
           <p className="rotulo">Tempo</p>

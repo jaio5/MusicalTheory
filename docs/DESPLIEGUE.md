@@ -287,9 +287,10 @@ cobro de verdad. La pantalla de planes, mientras tanto, avisa de que aquí no se
 cobra: lo dice porque el cobrador declara que no cobra, no porque alguien se acordase
 de escribirlo.
 
-**El vídeo del encabezado son 471 kB**, y el póster 56. El vídeo se pide solo si
-quien mira acepta movimiento, no tiene puesto el ahorro de datos y la caja asoma
-en pantalla (`app/HeroVideo.tsx`).
+**La escena del encabezado son ocho kilobytes**: tres capas y una hoja de
+fotogramas en PNG con paleta (`app/EscenaPortada.tsx`,
+[adr/0069](./adr/0069-la-portada-es-una-escena-de-pixel.md)). La hoja de fotogramas
+solo se pide si quien mira acepta movimiento y no tiene puesto el ahorro de datos.
 
 **`next start` comprime con gzip, no con Brotli.** Lo que Next hace por su cuenta
 es gzip, y Brotli le saca a un paquete de JavaScript en torno a un quince o veinte
@@ -298,13 +299,14 @@ servidor propio lo tiene que poner **lo que haya delante** —el proxy inverso o
 CDN—, y entonces conviene apagar la de Next (`compress: false` en
 `next.config.ts`) para no comprimir dos veces.
 
-**Lo de `public/` sale con `Cache-Control: max-age=0`.** Es lo que pone Next a lo
-que no lleva huella en el nombre, porque no puede saber cuándo cambia: `hero.mp4` y
-`hero.jpg` se vuelven a validar en cada visita. Para darles caché larga
-—`max-age=31536000, immutable`— hace falta **un nombre versionado** (`hero.3f2a.mp4`,
-o cambiar el nombre cada vez que cambie el vídeo) y la cabecera puesta en el proxy o
-en `headers()` de `next.config.ts`. Sin el nombre nuevo, una caché larga dejaría a
-quien ya vino viendo el vídeo viejo un año.
+**No hay `public/`, y es a propósito.** Lo que Next sirve desde ahí no lleva huella
+en el nombre, así que sale con `Cache-Control: max-age=0` y se vuelve a validar en
+cada visita: le pasaba al vídeo de la portada. Las imágenes de la escena que lo
+sustituye se piden con `url()` desde su hoja de estilos, y por eso el empaquetador
+las copia a `.next/static/media/` con huella —`fondo.2xah….png`— y caché larga, sin
+tocar ni el proxy ni `next.config.ts`. **Lo que se añada a la página va por ahí**, y
+no a una carpeta pública: si vuelve a hacer falta una, hay que devolver su `COPY` al
+`Dockerfile`, que hoy no la copia porque no existe.
 
 ## Cobrar de verdad
 

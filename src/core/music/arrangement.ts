@@ -878,6 +878,11 @@ export function addNote(arrangement: Arrangement, partId: string, note: LeadNote
       offset: clampOffset(note.offset),
       start: clampStart(note.start),
       length: snapLength(note.length),
+      // La duda viaja con la nota. Sin esto, lo que el motor oyó sucio llegaba a
+      // la partitura limpio, y `isDoubtfulNote` no tenía nada que marcar.
+      ...(Number.isFinite(note.clarity)
+        ? { clarity: Math.min(1, Math.max(0, note.clarity!)) }
+        : {}),
     };
     return { ...part, notes: ordenar([...part.notes, nueva]) };
   });

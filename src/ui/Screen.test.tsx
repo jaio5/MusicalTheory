@@ -46,9 +46,11 @@ describe('El marco de pantalla', () => {
   /**
    * Cada ancho se centraba por su cuenta y el título saltaba de sitio al cambiar
    * de pantalla —a 1440, de x=112 en Planes a 368 en Cuenta—. Lo que se centra
-   * es una caja igual para las tres, y el ancho de cada una va dentro, sin centrar.
+   * es una caja igual para las dos, y el ancho de cada una va dentro, sin centrar.
+   * Y esa caja llega a 2560 con un margen que crece con la pantalla: centrada en
+   * 1280 dejaba a 1920 trescientos píxeles de negro a cada lado.
    */
-  it.each(['lectura', 'normal', 'ancha'] as const)(
+  it.each(['lectura', 'completo'] as const)(
     'con el ancho %s, el título empieza en el mismo borde que las demás',
     (ancho) => {
       render(
@@ -61,9 +63,51 @@ describe('El marco de pantalla', () => {
       const marco = columna.parentElement!;
       expect(columna.className).not.toContain('mx-auto');
       expect(marco.className).toContain('mx-auto');
-      expect(marco.className).toContain('max-w-7xl');
+      expect(marco.className).toContain('max-w-pantalla');
+      expect(marco.className).toContain('px-margen');
     },
   );
+
+  it('lo que acompaña va en su columna, y debajo de lo principal en el orden', () => {
+    render(
+      <Screen title="Profesor" aside={<p>la tonalidad</p>}>
+        <p>la pregunta</p>
+      </Screen>,
+    );
+
+    const lado = screen.getByRole('complementary');
+    expect(lado).toHaveTextContent('la tonalidad');
+    expect(lado.className).toContain('md:sticky');
+    // Lo principal va antes en el documento: en un teléfono se apila así.
+    const principal = screen.getByText('la pregunta');
+    expect(principal.compareDocumentPosition(lado) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(lado.parentElement!.className).toContain(
+      'lg:grid-cols-[minmax(0,1fr)_minmax(20rem,32%)]',
+    );
+  });
+
+  it('con lectura, el texto se queda en su medida y lo de al lado se lleva el resto', () => {
+    render(
+      <Screen title="Entrar" ancho="lectura" aside={<p>por qué</p>}>
+        <p>el formulario</p>
+      </Screen>,
+    );
+
+    expect(screen.getByText('el formulario').parentElement!.className).toContain('max-w-3xl');
+    expect(screen.getByRole('complementary').parentElement!.className).toContain(
+      'md:grid-cols-[fit-content(44rem)_minmax(0,1fr)]',
+    );
+  });
+
+  it('sin nada al lado no hay columna de al lado', () => {
+    render(
+      <Screen title="Planes">
+        <p>contenido</p>
+      </Screen>,
+    );
+
+    expect(screen.queryByRole('complementary')).toBeNull();
+  });
 });
 
 describe('Los apartados', () => {

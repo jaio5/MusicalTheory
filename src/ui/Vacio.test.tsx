@@ -50,8 +50,11 @@ describe('lo que se ve cuando no hay nada', () => {
       </Vacio>,
     );
 
-    expect(container.querySelector('[aria-hidden]')).toHaveClass('size-10');
-    expect(screen.getByText('Aún no hay nada.')).toHaveClass('text-xs');
+    // Más pequeño que el normal, pero no por debajo de lo que se lee a un metro:
+    // la explicación estaba en 12 px, y es justo lo que hay que leer.
+    expect(container.querySelector('[aria-hidden]')).toHaveClass('size-11');
+    expect(screen.getByText('Aún no hay nada.')).toHaveClass('text-sm');
+    expect(screen.getByText('Nada')).toHaveClass('text-base');
   });
 
   it('sin acción no pinta envoltorio', () => {

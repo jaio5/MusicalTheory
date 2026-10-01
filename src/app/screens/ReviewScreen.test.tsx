@@ -27,9 +27,10 @@ vi.mock('next/navigation', () => ({
  * camino se olvidaba, y era justo lo que no podía pasar con lo que uno ya ha
  * fallado una vez.
  *
- * Lo que se prueba con más cuidado es el candado: **lo que fallas se apunta
- * igual** aunque no haya plan. Decir lo contrario haría que quien pague empiece
- * con la cola vacía, y decir esto y no cumplirlo sería peor.
+ * Lo que se prueba con más cuidado es el candado, y **que diga la verdad**. Decía
+ * que lo fallado se apuntaba igual sin plan, y no se apunta: la unidad solo lo
+ * hace con plan (`UnitScreen`, y lo fijan sus pruebas). Prometerlo y no cumplirlo
+ * era lo peor de las dos cosas, así que ahora se dice lo que pasa.
  */
 
 const CON_PLAN: Account = {
@@ -55,11 +56,22 @@ beforeEach(() => {
 });
 
 describe('sin plan', () => {
-  it('se dice que va con plan, y que lo fallado se apunta igual', () => {
+  it('se dice que va con plan, y que sin el lo fallado no se apunta', () => {
     pintar();
 
     expect(screen.getByRole('heading', { name: /va con plan/ })).toBeInTheDocument();
-    expect(screen.getByText(/se apunta de todas formas/)).toBeInTheDocument();
+    expect(screen.getByText(/la pregunta no se apunta/)).toBeInTheDocument();
+    expect(screen.queryByText(/se apunta de todas formas/)).toBeNull();
+  });
+
+  // Al lado del candado, qué es el repaso: quien llega desde el camino veía que
+  // era de pago y no qué era.
+  it('y al lado se cuenta como funciona', () => {
+    pintar();
+
+    expect(screen.getByRole('complementary')).toContainElement(
+      screen.getByRole('region', { name: 'Cómo funciona el repaso' }),
+    );
   });
 
   /**
@@ -106,6 +118,19 @@ describe('con plan', () => {
     expect(screen.getAllByText(/sin tonalidad/).length).toBeGreaterThan(0);
   });
 
+  // Al lado de la pregunta, lo que se consulta mientras se contesta: la
+  // tonalidad, lo que vuelve hoy y cómo sale una pregunta de la cola.
+  it('al lado de la pregunta va la tonalidad y como funciona', () => {
+    pintar(CON_PLAN);
+
+    const lado = screen.getByRole('complementary', { name: 'Lo que acompaña al repaso' });
+    expect(within(lado).getByRole('region', { name: 'Tonalidad del repaso' })).toBeInTheDocument();
+    expect(within(lado).getByText(/Elige una y las preguntas/)).toBeInTheDocument();
+    expect(
+      within(lado).getByRole('region', { name: 'Cómo funciona el repaso' }),
+    ).toBeInTheDocument();
+  });
+
   it('sin tonalidad puesta se ofrece la rueda para elegir una', () => {
     pintar(CON_PLAN);
 
@@ -126,6 +151,8 @@ describe('la cola de lo que fallaste', () => {
 
     expect(screen.getByText('No hay nada que repasar.')).toBeInTheDocument();
     expect(screen.getByText(/vuelve el mismo día/)).toBeInTheDocument();
+    // Con tonalidad puesta, lo de al lado dice para qué sirve cambiarla.
+    expect(screen.getByText(/Cámbiala y las mismas preguntas/)).toBeInTheDocument();
   });
 
   it('con algo pendiente se pregunta, y al terminar se celebra', async () => {

@@ -33,6 +33,21 @@ import { MAX_SECTION_DEGREES } from './song';
 import { clampBpm, DEFAULT_BEATS_PER_BAR, msPerBeat } from './tempo';
 
 /**
+ * Lo que tarda el motor de acordes en decir un acorde que ya suena, en ms.
+ *
+ * Diez análisis por segundo, una media que tarda un par en olvidar el anterior y
+ * cuatro confirmaciones seguidas antes de decir nada: entre una cosa y otra, el
+ * acorde se anuncia medio segundo después de empezar: medido con la guitarra
+ * sintética rasgueando a 90 (`guitarra-sintetica.ts`), entre 430 y 570 ms según
+ * el acorde. Sin descontarlo, contado desde el compás uno, cada cambio caía casi
+ * un pulso tarde.
+ */
+export const RETARDO_DEL_ACORDE_MS = 520;
+
+/** Lo más largo que puede durar un bloque, en pulsos: cuatro compases de 4/4. */
+const PULSOS_POR_BLOQUE = 16;
+
+/**
  * Qué se está tocando en una toma: la rítmica o el punteo.
  *
  * **Lo dice quien toca, y por eso existe esto.** Una toma producía las dos cosas a
@@ -114,6 +129,28 @@ export interface CaptureOptions {
    * este filtro cada cambio metería un acorde fantasma en la progresión.
    */
   readonly minBeats?: number;
+  /**
+   * Dónde cae el compás uno, si la toma lo sabe.
+   *
+   * **Con él, los cambios se cuadran contra la rejilla de la toma** y no contra
+   * el primer acorde oído: cada frontera cae en su pulso, descontado lo que tarda
+   * el motor en decirlo, y los compases salen donde los marcó el clic. Sin él se
+   * mide como siempre, de acorde a acorde, que es lo que sigue usando quien no
+   * tiene cuenta atrás.
+   */
+  readonly startedAt?: number;
+  /** Lo que se descuenta a cada acorde con `startedAt`. Por defecto, `RETARDO_DEL_ACORDE_MS`. */
+  readonly retardoMs?: number;
+  /**
+   * Hasta cuándo sonó algo, si se sabe. Es lo que mide el último acorde.
+   *
+   * Sin esto el último duraba hasta que se pulsaba parar, y entre soltar la
+   * guitarra y llegar al botón pasa un segundo: el último acorde salía con un
+   * pulso o dos de más.
+   */
+  readonly sonoHasta?: number;
+  /** Cuántos pasos devolver como mucho. Por defecto, los que caben en una parte. */
+  readonly tope?: number;
 }
 
 /** Un grado con lo que dura, y con lo seguro que se estuvo de él. */
@@ -286,13 +323,36 @@ export function triadInside(root: PitchClass, notes: readonly PitchClass[]): Cho
   return triadaDentro(intervalosDesde(root, notes));
 }
 
-/** Si dos acordes oídos son el mismo. El croma no distingue inversiones. */
+/**
+ * La tríada de un acorde oído: la suya si tiene tres notas, y si tiene cuatro, la
+ * que lleva dentro.
+ *
+ * **Una séptima oída se escribe como su tríada.** Con una guitarra, el croma ve
+ * cuatro notas casi siempre: el quinto armónico de la quinta es la séptima mayor,
+ * y el tercero de la fundamental refuerza la quinta, así que un Do mayor
+ * rasgueado se lee C7, Cmaj7 o C6 según el golpe. Medido con cuerdas pulsadas
+ * sintéticas: los cuatro acordes de una progresión salían como cuatríadas, y
+ * como aquí solo se aceptaban tríadas, **no se apuntaba ni uno**. Es la física de
+ * la cuerda, no un fallo del motor, y no tiene arreglo mirando el croma; lo que
+ * se tocó, casi siempre, es la tríada.
+ */
+function triadaOida(chord: CapturedChord): ChordQuality | null {
+  return triadQuality(chord.root, chord.notes) ?? triadInside(chord.root, chord.notes);
+}
+
+/** Si dos acordes oídos son el mismo: la misma fundamental y la misma tríada. */
 function esElMismo(a: CapturedChord, b: CapturedChord): boolean {
-  if (a.root !== b.root || a.notes.length !== b.notes.length) {
+  if (a.root !== b.root) {
     return false;
   }
-  const suyas = new Set(b.notes);
-  return a.notes.every((note) => suyas.has(note));
+  const suya = triadaOida(a);
+  if (suya !== null) {
+    return suya === triadaOida(b);
+  }
+  // Sin tríada que comparar —una quinta, un sus— se comparan las notas, que el
+  // croma no distingue por inversión.
+  const notas = new Set(b.notes);
+  return a.notes.length === b.notes.length && a.notes.every((note) => notas.has(note));
 }
 
 /**
@@ -380,28 +440,37 @@ export function captureProgression(
     }
   }
 
+  const { tramos, skipped } =
+    options.startedAt === undefined
+      ? tramosDeAcordeAAcorde(unicos, options.endedAt, porPulso, minBeats)
+      : tramosEnLaRejilla(unicos, { ...options, startedAt: options.startedAt }, porPulso, minBeats);
+
   let dropped = 0;
-  let skipped = 0;
   const pasos: CapturedStep[] = [];
   const unread: UnreadChord[] = [];
   const desde = unicos[0]?.at ?? 0;
+  // **En la rejilla, lo que no se pudo leer no se lleva su tiempo.** Se lo queda
+  // el acorde de antes —o el de después, si era el primero—: un bloque menos es
+  // un hueco que se puede corregir, pero un pulso menos corre todo lo que viene
+  // detrás y los cambios dejan de caer donde se tocaron.
+  const enLaRejilla = options.startedAt !== undefined;
+  let sinDueno = 0;
 
-  for (const [index, chord] of unicos.entries()) {
-    const hasta = unicos[index + 1]?.at ?? options.endedAt;
-    const pulsos = (hasta - chord.at) / porPulso;
-
-    if (!Number.isFinite(pulsos) || pulsos < minBeats) {
-      skipped += 1;
-      continue;
-    }
-
-    const beats = Math.max(1, Math.round(pulsos));
-    const quality = triadQuality(chord.root, chord.notes);
+  for (const { chord, beats } of tramos) {
+    const quality = triadaOida(chord);
     const degree =
       quality === null ? null : degreeOfChord(options.tonic, options.mode, chord.root, quality);
 
     if (degree === null) {
       dropped += 1;
+      if (enLaRejilla) {
+        const previo = pasos.at(-1);
+        if (previo === undefined) {
+          sinDueno += beats;
+        } else {
+          pasos[pasos.length - 1] = { ...previo, beats: previo.beats + beats };
+        }
+      }
       // Se apunta dónde estaba y qué se oyó. Con un contador no se puede
       // preguntar «aquí sonó algo que no supe leer, ¿qué era?».
       unread.push({
@@ -419,13 +488,15 @@ export function captureProgression(
     const confidence = confianzaDe(chord);
     const alternatives = gradosDe(chord.alternatives, options.tonic, options.mode, degree);
     const anterior = pasos.at(-1);
+    const suyos = beats + sinDueno;
+    sinDueno = 0;
 
     // Segundo colapso: el mismo grado dos veces seguidas es un cambio de
     // postura, no un acorde nuevo. Se suman los pulsos en vez de repetirlo.
     if (anterior !== undefined && anterior.degree === degree) {
       pasos[pasos.length - 1] = {
         degree,
-        beats: anterior.beats + beats,
+        beats: anterior.beats + suyos,
         // El mínimo, no la media: si uno de los que se funden era dudoso, el
         // paso entero lo es. Promediar escondería la duda donde hay que
         // preguntar.
@@ -433,11 +504,21 @@ export function captureProgression(
         alternatives: [...new Set([...anterior.alternatives, ...alternatives])],
       };
     } else {
-      pasos.push({ degree, beats, confidence, alternatives });
+      pasos.push({ degree, beats: suyos, confidence, alternatives });
     }
   }
 
-  const steps = pasos.slice(0, MAX_SECTION_DEGREES);
+  // **Un bloque no dura más de cuatro compases**, que es lo que el lienzo deja
+  // estirar: un acorde sostenido toda la toma sale en varios bloques iguales
+  // seguidos en vez de recortado a dieciséis pulsos.
+  const partidos = pasos.flatMap((paso) =>
+    Array.from({ length: Math.ceil(paso.beats / PULSOS_POR_BLOQUE) }, (_, trozo) => ({
+      ...paso,
+      beats: Math.min(PULSOS_POR_BLOQUE, paso.beats - trozo * PULSOS_POR_BLOQUE),
+    })),
+  );
+
+  const steps = partidos.slice(0, options.tope ?? MAX_SECTION_DEGREES);
   const totalBeats = steps.reduce((total, step) => total + step.beats, 0);
 
   return {
@@ -447,6 +528,93 @@ export function captureProgression(
     skipped,
     bars: Math.ceil(totalBeats / Math.max(1, beatsPerBar)),
   };
+}
+
+interface TramoDeAcorde {
+  readonly chord: CapturedChord;
+  readonly beats: number;
+}
+
+/** Lo de siempre: cada acorde dura hasta el siguiente, medido desde él. */
+function tramosDeAcordeAAcorde(
+  unicos: readonly CapturedChord[],
+  endedAt: number,
+  porPulso: number,
+  minBeats: number,
+): { tramos: TramoDeAcorde[]; skipped: number } {
+  const tramos: TramoDeAcorde[] = [];
+  let skipped = 0;
+  for (const [index, chord] of unicos.entries()) {
+    const hasta = unicos[index + 1]?.at ?? endedAt;
+    const pulsos = (hasta - chord.at) / porPulso;
+    if (!Number.isFinite(pulsos) || pulsos < minBeats) {
+      skipped += 1;
+      continue;
+    }
+    tramos.push({ chord, beats: Math.max(1, Math.round(pulsos)) });
+  }
+  return { tramos, skipped };
+}
+
+/**
+ * Cada cambio, en su pulso de la rejilla de la toma.
+ *
+ * **Se cuadran las fronteras y no los largos**, y es la diferencia entre que la
+ * canción se mantenga en su sitio o se vaya corriendo: redondear cada largo por
+ * su cuenta acumula el error —tres acordes de 3,6 pulsos salen de 4 y el cuarto
+ * ya empieza un pulso tarde—; redondeando dónde cae cada cambio, el error de uno
+ * no pasa al siguiente.
+ *
+ * Lo que sonó antes del primer acorde se lo queda él hasta el principio de su
+ * compás: un bloque no puede empezar con silencio, y así los cambios siguen
+ * cayendo en sus pulsos. Los compases enteros vacíos de delante no se escriben.
+ */
+function tramosEnLaRejilla(
+  unicos: readonly CapturedChord[],
+  options: CaptureOptions & { readonly startedAt: number },
+  porPulso: number,
+  minBeats: number,
+): { tramos: TramoDeAcorde[]; skipped: number } {
+  const retardo = options.retardoMs ?? RETARDO_DEL_ACORDE_MS;
+  const beatsPerBar = Math.max(1, options.beatsPerBar ?? DEFAULT_BEATS_PER_BAR);
+  const pulsoDe = (at: number) => (at - options.startedAt) / porPulso;
+  const fin = pulsoDe(options.sonoHasta ?? options.endedAt);
+
+  // Primero fuera lo que duró menos de lo que cuenta: el acorde de paso que el
+  // croma ve un instante al cambiar de postura. Su tiempo es del de antes.
+  const quedan: { chord: CapturedChord; pulso: number }[] = [];
+  let skipped = 0;
+  for (const [index, chord] of unicos.entries()) {
+    const pulso = pulsoDe(chord.at - retardo);
+    const siguiente = unicos[index + 1];
+    const hasta = siguiente === undefined ? fin : pulsoDe(siguiente.at - retardo);
+    if (!Number.isFinite(hasta - pulso) || hasta - pulso < minBeats) {
+      skipped += 1;
+      continue;
+    }
+    quedan.push({ chord, pulso });
+  }
+
+  const fronteras = quedan.map(({ pulso }) => Math.max(0, Math.round(pulso)));
+  if (fronteras.length > 0) {
+    fronteras[0] = Math.floor(fronteras[0]! / beatsPerBar) * beatsPerBar;
+  }
+  // El final se redondea **hacia arriba**, con un cuarto de pulso de holgura: un
+  // rasgueo se apaga poco a poco y deja de oírse antes de acabar su pulso —medido,
+  // el último Do salía de tres pulsos en vez de cuatro—.
+  const ultimo = Math.max((fronteras.at(-1) ?? 0) + 1, Math.ceil(fin - 0.25));
+
+  const tramos: TramoDeAcorde[] = [];
+  for (const [index, { chord }] of quedan.entries()) {
+    const beats = (fronteras[index + 1] ?? ultimo) - fronteras[index]!;
+    if (beats <= 0) {
+      // Dos cambios en el mismo pulso: el segundo es el que se oyó asentarse.
+      skipped += 1;
+      continue;
+    }
+    tramos.push({ chord, beats });
+  }
+  return { tramos, skipped };
 }
 
 /** Los grados a secas, que es lo que guarda una canción. */

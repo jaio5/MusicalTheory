@@ -34,7 +34,7 @@ export interface PitchDetection {
 const PEAK_TOLERANCE = 0.9;
 
 /**
- * Los dos búferes de trabajo, **uno de cada para siempre**.
+ * Los búferes de trabajo, **uno de cada para siempre**.
  *
  * Se reservaban nuevos en cada análisis: veinte veces por segundo, dos
  * `Float64Array` de unos dos mil y cuatro mil huecos —más de cuarenta kilobytes—
@@ -49,6 +49,7 @@ const PEAK_TOLERANCE = 0.9;
  */
 let energiaReservada = new Float64Array(0);
 let correlacionReservada = new Float64Array(0);
+let centradaReservada = new Float64Array(0);
 
 /**
  * Devuelve la frecuencia fundamental del bloque, o null si no hay señal
@@ -79,6 +80,25 @@ export function detectPitch(
     return null;
   }
 
+  // **Sin la continua.** Un bloque montado sobre un escalón —la continua de una
+  // tarjeta barata, el golpe de la mano en la caja, el retumbar de la sala— tiene
+  // la correlación positiva en todos los desplazamientos: el lóbulo del cero no
+  // se acaba nunca, no aparece ningún pico y la nota se pierde. Medido con una
+  // cuerda sintética con un poco de media: a los 200 ms dejaba de reconocerse.
+  // Quitar la media no cambia el periodo de nada que suene.
+  let suma = 0;
+  for (let i = 0; i < length; i += 1) {
+    suma += samples[i]!;
+  }
+  const media = suma / length;
+  if (centradaReservada.length < length) {
+    centradaReservada = new Float64Array(length);
+  }
+  const centrada = centradaReservada.subarray(0, length);
+  for (let i = 0; i < length; i += 1) {
+    centrada[i] = samples[i]! - media;
+  }
+
   // Energía acumulada: permite sacar la energía de cualquier tramo en tiempo
   // constante, y con ella normalizar cada desplazamiento sin recorrer el bloque
   // otra vez.
@@ -90,7 +110,7 @@ export function detectPitch(
   // viene de fábrica.
   cumulativeEnergy[0] = 0;
   for (let i = 0; i < length; i += 1) {
-    const sample = samples[i]!;
+    const sample = centrada[i]!;
     cumulativeEnergy[i + 1] = cumulativeEnergy[i]! + sample * sample;
   }
 
@@ -117,7 +137,7 @@ export function detectPitch(
     const overlap = length - lag;
     let sum = 0;
     for (let i = 0; i < overlap; i += 1) {
-      sum += samples[i]! * samples[i + lag]!;
+      sum += centrada[i]! * centrada[i + lag]!;
     }
     const energyHead = cumulativeEnergy[overlap]!;
     const energyTail = cumulativeEnergy[length]! - cumulativeEnergy[lag]!;

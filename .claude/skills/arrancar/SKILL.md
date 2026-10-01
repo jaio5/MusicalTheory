@@ -87,6 +87,30 @@ Un WAV de acordes o de un punteo se genera con Python puro (`wave` y `struct`),
 sumando senos con dos armónicos y una envolvente suave para no meter un chasquido
 en cada cambio. Con senos pelados el croma se confunde más que con una guitarra.
 
+## Explorar a mano, sin escribir un script
+
+Para mirar una pantalla paso a paso —abrir, leer el árbol, pulsar `e15`— está
+`playwright-cli` (skill de usuario `playwright-cli`). Lo que mide y se repite sigue
+siendo un `.mjs` de aquí; la CLI es para explorar y para reproducir un fallo.
+
+```bash
+playwright-cli open http://localhost:3210/afinar \
+  --config=.claude/skills/arrancar/playwright-cli.json
+playwright-cli snapshot
+playwright-cli close
+```
+
+- **Sin `--config` busca Google Chrome**, que en WSL no está, y no arranca. La
+  configuración de aquí pide el Chromium de Playwright, un teléfono de 390 y el
+  micro falso con su permiso dado. El tono es el de 400 Hz: para un WAV, añade
+  `--use-file-for-fake-audio-capture` a `args` en una copia.
+- **El `playwright-cli` que encuentra el PATH sin filtrar es el de Windows**
+  (`/mnt/c/.../npm/playwright-cli`). Filtra el PATH antes, como con todo.
+- **Escribe sus instantáneas en `.playwright-cli/`** del directorio desde el que
+  se llama. Está en `.gitignore`.
+- `getUserMedia` solo existe en un contexto seguro: en `about:blank` no hay
+  micro, en `localhost` sí.
+
 ## Trampas que ya han mordido
 
 - **`fullPage: true` no sirve.** La aplicación vive en un `h-dvh` con scroll
@@ -234,20 +258,23 @@ una función nueva; «el afinador se descarga _Añadir otra parte_» es un fallo
 discusión. Por eso el guion lleva escritas unas cuantas cadenas que solo existen en
 una pantalla y avisa si aparecen en otra.
 
-Referencia, medida el 23 de septiembre de 2026 y con el vídeo de la portada dentro
-de su columna de media:
+Referencia, medida el 1 de octubre de 2026 con la escena de píxel en la portada
+([adr/0069](../../../docs/adr/0069-la-portada-es-una-escena-de-pixel.md)):
 
 | Ruta                 | JS     |
 | -------------------- | ------ |
-| `/planes`            | 163 KB |
-| `/registro`          | 166 KB |
-| `/afinar`            | 167 KB |
-| `/aprender`          | 177 KB |
-| `/` (portada)        | 192 KB |
-| `/profesor`          | 196 KB |
-| `/aprender/repaso`   | 221 KB |
-| `/aprender/[unidad]` | 225 KB |
-| `/componer`          | 260 KB |
+| `/planes`            | 157 KB |
+| `/registro`          | 159 KB |
+| `/afinar`            | 160 KB |
+| `/profesor`          | 163 KB |
+| `/` (portada)        | 167 KB |
+| `/aprender`          | 172 KB |
+| `/aprender/repaso`   | 189 KB |
+| `/aprender/[unidad]` | 192 KB |
+| `/componer`          | 220 KB |
+
+La portada es además la única con algo en la columna de media: 9 KB de la escena,
+y 205 KB en total. Con el vídeo eran 527 KB de media y 720 en total.
 
 Antes de arreglarlo eran **287 KB en todas**, la misma cifra clavada, que es la
 señal de que no hay división ninguna.

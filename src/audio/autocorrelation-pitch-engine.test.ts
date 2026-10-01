@@ -4,7 +4,7 @@ import { midiToFrequency } from '@core/music';
 
 import { AutocorrelationPitchEngine } from './autocorrelation-pitch-engine';
 import type { AudioInput, AudioInputState } from './audio-input';
-import type { PitchSample } from './pitch-engine';
+import type { PitchFrame, PitchSample } from './pitch-engine';
 
 const SAMPLE_RATE = 48_000;
 const FRAME = 2048;
@@ -238,6 +238,34 @@ describe('AutocorrelationPitchEngine', () => {
       // Silencio: nivel cero, pero informado.
       expect(niveles.every((n) => n === 0)).toBe(true);
     });
+  });
+
+  /**
+   * **Cada análisis, haya nota o no.** Es lo que lee la toma para transcribir un
+   * punteo entero: los análisis sin nota son donde acaban las notas.
+   */
+  it('entrega cada analisis, con nota y sin ella', async () => {
+    const fotogramas: PitchFrame[] = [];
+    const dejar = engine.subscribeFrames((fotograma) => fotogramas.push(fotograma));
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    input.frequency = null;
+    advance(100);
+    // Sin dato que leer no hay análisis: no se entrega nada.
+    input.available = false;
+    const antes = fotogramas.length;
+    advance(100);
+    expect(fotogramas).toHaveLength(antes);
+
+    expect(fotogramas[0]!.frequency).toBeCloseTo(midiToFrequency(45), 0);
+    expect(fotogramas[0]!.rms).toBeGreaterThan(0);
+    expect(fotogramas.at(-1)).toMatchObject({ frequency: null, clarity: 0, rms: 0 });
+
+    dejar();
+    input.available = true;
+    advance(100);
+    expect(fotogramas).toHaveLength(antes);
   });
 
   it('quien deja de escuchar el nivel deja de recibirlo', async () => {

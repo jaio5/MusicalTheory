@@ -19,20 +19,50 @@ import { durations } from '@ui/tokens';
 
 const SIZE = 260;
 const CENTER = SIZE / 2;
-/** Radio del anillo de fuera. Los dos se dibujan aquí y uno se encoge. */
-const RING_RADIUS = 104;
+
 /**
- * Y el de dentro, que además decide **cuánto encoge el anillo pequeño**.
+ * **La diana de cada tonalidad, en unidades del lienzo: treinta y seis**, la misma
+ * en los dos anillos. Y de ella salen los dos radios, no al revés.
  *
- * Subió de 66 a 72 por una razón de dedo y no de dibujo: la escala sale de
- * dividir estos dos, así que con 66 las tonalidades del anillo interior se
- * quedaban en veintinueve píxeles de lado en pantalla. Esta aplicación pide
- * cuarenta y cuatro en todo lo que se pulsa, y esas doce casillas eran de lo
- * poco que no pasaba por `ui/Button` ni por `ui/Chip`, así que nadie las medía.
- * Con 72 y la rueda un poco más ancha, salen por encima de cuarenta.
+ * Los radios eran 104 y 72, puestos a ojo, y las casillas salían de ellos: en el
+ * anillo pequeño, 31 unidades, que en un teléfono eran **34 píxeles** en la
+ * portada y 32 en el panel de componer —el proyecto pide 44 en todo lo que se
+ * pulsa—. Y peor que pequeñas, **pisadas**: el borde de dentro de cada mayor caía
+ * siete unidades encima de su relativa menor, así que pulsar la parte baja de la
+ * «C» elegía La menor. Lo midió `elementFromPoint`, no se veía.
+ *
+ * Al revés sale una cuenta cerrada. Doce dianas alrededor de un círculo solo
+ * caben sin tocarse si el círculo es bastante grande —la cuerda entre dos
+ * vecinas, `2·r·sen 15°`, tiene que ser la diana más la holgura—, y eso da el
+ * radio de dentro; el de fuera es ese más una diana y otra holgura, y la diana de
+ * fuera acaba justo en el borde del lienzo. **Treinta y seis es el máximo que
+ * cabe**: con dos anillos de doce que comparten ángulo, una diana de 44 píxeles
+ * pide una rueda de 318, y por eso un teléfono de 390 llega y uno de 320 no
+ * (`docs/ESTILO.md`, los 44 px dentro de un SVG).
  */
-const INNER_RADIUS = 72;
+export const DIANA = 36;
+/** Lo que queda entre dos dianas vecinas, de lado y de un anillo a otro. */
+export const HOLGURA = 2;
+/** El anillo de dentro: el más pequeño en el que doce dianas no se tocan. */
+export const INNER_RADIUS = Math.ceil((DIANA + HOLGURA) / (2 * Math.sin(Math.PI / 12)));
+/** Y el de fuera, una diana y una holgura más allá; su diana acaba en el borde. */
+export const RING_RADIUS = INNER_RADIUS + DIANA + HOLGURA;
 const INNER_SCALE = INNER_RADIUS / RING_RADIUS;
+
+/**
+ * **Lo que se ve es más pequeño que lo que se pulsa**, y en el anillo de dentro
+ * bastante más.
+ *
+ * Los dos anillos se dibujan al mismo radio y el de dentro se encoge, así que una
+ * casilla que encogiera con él se quedaría en dos tercios de la diana. Por eso se
+ * separan: la diana —el `<button>`— se agranda en el de dentro lo que el anillo le
+ * quita, y mide lo mismo en pantalla en los dos; el disco que se ve sí encoge, que
+ * es lo que dice qué anillo manda. Fuera, el disco deja un margen dentro de la
+ * diana para que el aro del foco no caiga encima de su borde, que con la casilla
+ * rellena de latón no se distinguiría.
+ */
+const DISCO_FUERA = 32;
+const DISCO_DENTRO = 40;
 
 /**
  * El cuerpo de letra de las casillas, según en qué anillo estén.
@@ -41,11 +71,12 @@ const INNER_SCALE = INNER_RADIUS / RING_RADIUS;
  * salía a diez en pantalla, por debajo de los doce que pide `docs/ESTILO.md`. Se
  * le da de más lo que el anillo le quita —14 entre 0,69 son 20; con 18 basta,
  * porque la rueda nunca se pinta a menos de su tamaño de lienzo— y así queda en
- * trece. Cambia con el modo porque los anillos se turnan el sitio, y el cambio
+ * trece. Con el anillo de dentro más pequeño que antes —dos tercios del de fuera
+ * y no siete décimas— 18 se quedaba en 11,9 y sube a 19. Cambia con el modo porque los anillos se turnan el sitio, y el cambio
  * va con la misma transición que la escala para que no dé un salto.
  */
 const LETRA_FUERA = 14;
-const LETRA_DENTRO = 18;
+const LETRA_DENTRO = 19;
 
 /**
  * El movimiento de la rueda, en CSS.
@@ -57,7 +88,8 @@ const LETRA_DENTRO = 18;
  * preguntar a mano porque escribía el transform él mismo. La curva es la
  * `power3.out` de GSAP, que es una cuártica de salida.
  */
-const TRANSICION = `transform ${durations.wheel}ms cubic-bezier(0.25, 1, 0.5, 1), font-size ${durations.wheel}ms cubic-bezier(0.25, 1, 0.5, 1)`;
+const CURVA = `${durations.wheel}ms cubic-bezier(0.25, 1, 0.5, 1)`;
+const TRANSICION = `transform ${CURVA}, font-size ${CURVA}`;
 
 /** El centro del lienzo como origen de un transform CSS, que en SVG va en unidades del lienzo. */
 const ORIGEN_CENTRO = `${CENTER}px ${CENTER}px`;
@@ -210,10 +242,22 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
   return (
     <svg
       viewBox={`0 0 ${SIZE} ${SIZE}`}
-      // Más ancha que antes —de 300 a 384— porque de aquí sale el tamaño real de
-      // las veinticuatro casillas que se pulsan. Donde no quepa, `w-full` manda:
-      // en la columna de componer se queda en los trescientos de siempre.
-      className="h-auto w-full max-w-[min(24rem,100%)]"
+      /*
+        **Crece con su caja, y a partir de 24 rem solo si la caja es ancha.**
+
+        Se quedaba en 384 px pasara lo que pasara, y en la portada de un monitor
+        de 2560 eso era un posavasos en medio de una columna de 1300. El tope
+        sale ahora de un porcentaje **de su caja** y no de la ventana: el 42 %,
+        entre 24 y 34 rem. Hasta una caja de 914 px el porcentaje da menos de 24
+        rem y manda el suelo, así que en todos los sitios estrechos donde vive
+        —la barra de la unidad, el profesor, el panel y la columna de componer,
+        que no pasa de 34 rem— sigue igual que antes; solo la portada la ve crecer.
+        Donde no quepa ni eso, `w-full` manda.
+
+        `overflow-visible` porque la diana de fuera acaba en el borde del lienzo,
+        y sin él el aro del foco se cortaba por la mitad en las de arriba.
+      */
+      className="h-auto w-full max-w-[clamp(24rem,42%,34rem)] overflow-visible"
       onKeyDown={sePulsa ? conFlechas : undefined}
       /*
        * **Imagen solo cuando de verdad lo es.**
@@ -254,14 +298,14 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
       <circle
         cx={CENTER}
         cy={CENTER}
-        r={RING_RADIUS + 24}
+        r={CENTER - 0.5}
         className="fill-surface stroke-border"
         strokeWidth={1}
       />
       <circle
         cx={CENTER}
         cy={CENTER}
-        r={INNER_RADIUS + 20}
+        r={INNER_RADIUS + (DIANA + HOLGURA) / 2}
         className="fill-background stroke-border"
         strokeWidth={1}
       />
@@ -279,7 +323,7 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
       <g className="stroke-border" strokeWidth={1} aria-hidden="true" opacity={0.7}>
         {CIRCLE_OF_FIFTHS.map((_, position) => {
           const desde = pointAt(position - 0.5, INNER_RADIUS - 22);
-          const hasta = pointAt(position - 0.5, RING_RADIUS + 24);
+          const hasta = pointAt(position - 0.5, CENTER - 0.5);
           return <line key={position} x1={desde.x} y1={desde.y} x2={hasta.x} y2={hasta.y} />;
         })}
       </g>
@@ -423,28 +467,18 @@ function KeyLabel({
   const letra = { fontSize: dentro ? LETRA_DENTRO : LETRA_FUERA, transition: TRANSICION };
 
   /**
-   * Cuarenta y seis unidades del lienzo, y salen de una cuenta.
-   *
-   * A lo ancho del anillo hay hueco de sobra —dos pi por ciento cuatro entre doce
-   * son cincuenta y cuatro—, así que cuarenta y seis no se solapan con la casilla
-   * de al lado. **Ni en el anillo pequeño**, aunque ahí los centros estén más
-   * juntos: se dibuja a escala menor, y las casillas encogen con él.
-   *
-   * Medido en el profesor, que es donde la rueda va a lo ancho: en un teléfono de
-   * 390 son **57 píxeles en el anillo grande y 40 en el pequeño**, con seis y
-   * nueve de separación entre casillas. En un escritorio, 68 y 47.
-   *
-   * Los cuarenta del anillo pequeño se quedan cuatro por debajo de los cuarenta
-   * y cuatro que pide el proyecto, y **se aceptan**: subirlos dejaría dos píxeles
-   * entre una casilla y la de al lado, que es peor problema que el que arregla.
-   * Dos anillos de doce con casillas de cuarenta y cuatro **bien separadas**
-   * pedirían una rueda de seiscientos píxeles que no cabe en ninguna de las tres
-   * pantallas donde vive.
-   *
-   * Metida en la columna de componer la rueda es más estrecha y el anillo pequeño
-   * baja a treinta y tres. Ahí se apunta con un ratón, no con el pulgar.
+   * El disco que se ve, en unidades de su anillo. Encoge con el anillo de dentro,
+   * y su tamaño acompaña a la escala con la misma transición.
    */
-  const box = 46;
+  const disco = dentro ? DISCO_DENTRO : DISCO_FUERA;
+  /**
+   * Y la diana, que no encoge: en el anillo de dentro se dibuja a escala menor,
+   * así que se le da de más lo que la escala le quita y en pantalla mide
+   * `DIANA` en los dos. Cambia de golpe al turnarse los anillos y no con la
+   * transición; es invisible, y durante esos 650 ms la que pasa a dentro es más
+   * grande de la cuenta, no más pequeña.
+   */
+  const box = dentro ? DIANA / INNER_SCALE : DIANA;
 
   if (onPick === undefined) {
     return (
@@ -452,7 +486,7 @@ function KeyLabel({
         <circle
           cx={point.x}
           cy={point.y}
-          r={16}
+          r={disco / 2}
           className={active ? 'fill-brass' : 'fill-transparent'}
         />
         <text
@@ -471,7 +505,22 @@ function KeyLabel({
 
   return (
     <g data-contragiro style={contragiro}>
-      <foreignObject x={point.x - box / 2} y={point.y - box / 2} width={box} height={box}>
+      {/*
+        La caja no recibe el puntero; solo el botón redondo que lleva dentro.
+
+        Un `foreignObject` es un cuadrado, y sus esquinas se comían los clics del
+        vecino: en la parte de abajo de la «C» contestaba la caja de La menor, que
+        no tiene nada pintado ahí. Con `pointer-events` apagado en la caja y
+        encendido en el botón, lo que se pulsa es el círculo y nada más, porque el
+        navegador respeta el `border-radius` al decidir qué hay bajo el dedo.
+      */}
+      <foreignObject
+        x={point.x - box / 2}
+        y={point.y - box / 2}
+        width={box}
+        height={box}
+        className="pointer-events-none overflow-visible"
+      >
         <button
           type="button"
           data-casilla
@@ -479,19 +528,35 @@ function KeyLabel({
           onClick={onPick}
           aria-pressed={active}
           title={name}
-          // La transición va escrita aquí y no en clases porque son dos ritmos: el
-          // color responde al puntero en seguida y la letra acompaña a la rueda.
-          style={{
-            fontSize: dentro ? LETRA_DENTRO : LETRA_FUERA,
-            transition: `background-color 150ms, border-color 150ms, color 150ms, ${TRANSICION}`,
-          }}
-          className={`flex h-full w-full cursor-pointer items-center justify-center rounded-full border font-mono ${
-            active
-              ? 'border-brass bg-brass text-background font-bold'
-              : 'text-text-muted hover:border-brass-dim hover:bg-surface-raised hover:text-brass-bright border-transparent'
-          }`}
+          // La letra va aquí y la hereda el disco: es lo que acompaña a la rueda.
+          style={{ fontSize: dentro ? LETRA_DENTRO : LETRA_FUERA, transition: TRANSICION }}
+          // El aro del foco va **pegado a la diana** (`outline-offset-0`): con los
+          // tres píxeles de siempre se metía en la diana de al lado, que está a dos.
+          className="group/casilla text-text-muted pointer-events-auto flex h-full w-full cursor-pointer items-center justify-center rounded-full font-mono outline-offset-0"
         >
-          <span aria-hidden="true">{label}</span>
+          {/* El disco, que es lo que se ve y lo que se enciende. La diana que lo
+              rodea es transparente, pero pasar por encima de ella también lo
+              enciende: el disco dice dónde se pulsa, la diana cuánto. El grupo
+              lleva nombre porque la rueda vive dentro de desplegables que son
+              `group` también: con el anónimo, pasar el ratón por la barra de la
+              tonalidad encendía las veinticuatro a la vez. */}
+          <span
+            aria-hidden="true"
+            style={{
+              width: disco,
+              height: disco,
+              // Dos ritmos: el color responde al puntero en seguida y el tamaño
+              // acompaña a la rueda.
+              transition: `background-color 150ms, border-color 150ms, color 150ms, width ${CURVA}, height ${CURVA}`,
+            }}
+            className={`flex shrink-0 items-center justify-center rounded-full border ${
+              active
+                ? 'border-brass bg-brass text-background font-bold'
+                : 'group-hover/casilla:border-brass-dim group-hover/casilla:bg-surface-raised group-hover/casilla:text-brass-bright border-transparent'
+            }`}
+          >
+            {label}
+          </span>
           <span className="sr-only">{name}</span>
         </button>
       </foreignObject>

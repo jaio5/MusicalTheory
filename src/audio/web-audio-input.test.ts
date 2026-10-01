@@ -33,7 +33,24 @@ class ContextoFalso extends EventTarget {
   }
 
   createMediaStreamSource() {
-    return { connect: vi.fn() } as unknown as MediaStreamAudioSourceNode;
+    return { connect: (destino: unknown) => destino } as unknown as MediaStreamAudioSourceNode;
+  }
+
+  /** Los filtros que se piden, para ver qué se le pone delante al análisis. */
+  readonly filtros: { type: string; frequency: { value: number }; conectado: unknown[] }[] = [];
+
+  createBiquadFilter() {
+    const filtro = {
+      type: '',
+      frequency: { value: 0 },
+      conectado: [] as unknown[],
+      connect(destino: unknown) {
+        filtro.conectado.push(destino);
+        return destino;
+      },
+    };
+    this.filtros.push(filtro);
+    return filtro as unknown as BiquadFilterNode;
   }
 
   sampleRate = 48_000;
@@ -74,6 +91,19 @@ async function escuchando(): Promise<WebAudioInput> {
 }
 
 describe('mientras se escucha', () => {
+  it('el análisis se oye por dos pasos bajos, para que el clic no entre', async () => {
+    // El clic del metrónomo suena durante la toma y vive por encima de 4,5 kHz:
+    // con los dos filtros delante, los dos analizadores no lo ven.
+    await escuchando();
+
+    expect(contexto.filtros.map((filtro) => [filtro.type, filtro.frequency.value])).toEqual([
+      ['lowpass', 3000],
+      ['lowpass', 3000],
+    ]);
+    // El segundo es el que alimenta a los dos analizadores.
+    expect(contexto.filtros[1]!.conectado).toHaveLength(2);
+  });
+
   it('arranca y lee', async () => {
     const input = await escuchando();
     const buffer = new Float32Array(input.frameSize);

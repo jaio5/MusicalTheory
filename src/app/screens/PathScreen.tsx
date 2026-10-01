@@ -48,7 +48,7 @@ export function PathScreen() {
           sin forma de desplazarlo a la vista. Son 10 % de la altura más lo que
           mide, no un `pb-24`: a 390 de ancho y 844 de alto no llegaba. En ancho el hueco lo lleva
           el camino, que es la columna sobre la que flota. */}
-      <div className="grid min-h-0 grow grid-cols-1 overflow-y-auto pb-[calc(10dvh+3.5rem)] lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden lg:pb-0 xl:grid-cols-[27rem_minmax(0,1fr)]">
+      <div className="grid min-h-0 grow grid-cols-1 overflow-y-auto pb-[calc(10dvh+4rem)] lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden lg:pb-0 xl:grid-cols-[27rem_minmax(0,1fr)] min-[112rem]:grid-cols-[32rem_minmax(0,1fr)]">
         {/* La columna de la izquierda, un punto más clara que el camino.
 
             Estaban las dos sobre el mismo negro, separadas por una línea de un
@@ -124,7 +124,7 @@ export function PathScreen() {
           que se mira de un vistazo, abajo las medallas, que son las que se
           desplazan— y el camino ocupa las dos a su derecha.
         */}
-        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:pb-[calc(10dvh+3.5rem)]">
+        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:pb-[calc(10dvh+4rem)]">
           <LearnPath
             progress={progress}
             plan={account.plan}

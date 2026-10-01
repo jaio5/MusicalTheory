@@ -85,8 +85,13 @@ export function BarraDeTonalidad({
         El ancho va acotado en los dos casos: flotando, el panel ocupa la línea
         entera, y sin tope salían dos desplegables de mil doscientos píxeles a los
         lados de una rueda de trescientos sesenta.
+
+        **Y en fila, desde `md`, la rueda no encoge.** Encogía para dejarle sitio
+        a lo de al lado y se quedaba en 312 px: las tonalidades del anillo de
+        dentro, en 43 de los 44 que se piden, en una tableta que se maneja con el
+        dedo. Con sus 384 lo de al lado se reparte en dos renglones, y cabe.
       */}
-      <div className="mx-auto flex max-w-sm flex-col items-center gap-2 px-3 pt-2 pb-3 sm:max-w-2xl sm:flex-row sm:items-center sm:gap-6">
+      <div className="mx-auto flex max-w-sm flex-col items-center gap-2 px-3 pt-2 pb-3 sm:max-w-2xl sm:flex-row sm:items-center sm:gap-6 md:[&>svg]:shrink-0">
         <KeyPanel compact />
         {children}
       </div>

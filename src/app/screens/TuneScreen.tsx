@@ -60,24 +60,49 @@ export function TuneScreen() {
         movía sola, y eso medía entre 0,19 y 0,31 de CLS. Anclado arriba, lo que
         crece solo empuja lo que tiene debajo.
       */}
-      <div className="mx-auto flex w-full max-w-3xl grow flex-col overflow-y-auto p-6">
-        <div className={`flex w-full flex-col gap-6 ${escuchando ? '' : 'my-auto'}`}>
-          {escuchando ? (
-            <Disclosure
-              summary={
-                <>
-                  Afinación: <span className="text-brass-bright">{TUNINGS[tuningId].name}</span>
-                </>
-              }
-            >
-              <div className="pt-3 pb-1">
-                <TuningPicker />
-              </div>
-            </Disclosure>
-          ) : (
-            <TuningPicker />
-          )}
-          <Tuner />
+      {/*
+        **El afinador es el instrumento, y la afinación va a su lado.**
+
+        Era una columna de 768 px en medio: a 1920 la pantalla usaba el 38 % del
+        ancho, con la nota —lo que se mira desde tres metros— del mismo tamaño que
+        en un portátil. Desde `md` la afinación pasa a una columna estrecha a la
+        izquierda y el afinador se queda con todo lo demás, a lo alto y a lo ancho;
+        en un teléfono se apilan como antes, con la afinación encima.
+
+        **Escuchando, la columna se pliega con ella** y el afinador se queda con el
+        ancho entero, con la afinación en una línea encima, igual que en el
+        teléfono. Plegada al lado dejaba una columna de 400 px con un solo renglón
+        y el resto vacío. El cambio de reparto cae justo al pulsar «Escuchar», que
+        es cuando se ha pedido (adr/0061); mientras se escucha ya no se mueve.
+      */}
+      <div className="px-margen flex grow flex-col overflow-y-auto py-6">
+        <div
+          className={`grid w-full gap-6 md:gap-x-[clamp(1.5rem,4vw,5rem)] ${
+            escuchando
+              ? ''
+              : 'my-auto md:grid-cols-[minmax(15rem,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]'
+          }`}
+        >
+          <div className="min-w-0 md:self-start">
+            {escuchando ? (
+              <Disclosure
+                summary={
+                  <>
+                    Afinación: <span className="text-brass-bright">{TUNINGS[tuningId].name}</span>
+                  </>
+                }
+              >
+                <div className="pt-3 pb-1">
+                  <TuningPicker />
+                </div>
+              </Disclosure>
+            ) : (
+              <TuningPicker />
+            )}
+          </div>
+          <div className="min-w-0">
+            <Tuner />
+          </div>
         </div>
       </div>
     </div>

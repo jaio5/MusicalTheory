@@ -47,7 +47,10 @@ diagramas grandes, y el significado de un color al lado del color.
 - **Toda pantalla entra por `ui/Screen`** —o por `WorkHeader` si es de taller— y
   ninguna se escribe su propio ancho, relleno ni `h1`. Lo vigilan dos tests que
   leen los ficheros (`app/screens/coherencia.test.ts`), porque la coherencia solo
-  se ve en conjunto.
+  se ve en conjunto. **El ancho se pide entre dos**: `lectura` para el texto seguido
+  y `completo` para el resto, con `aside` si algo acompaña a la derecha. La caja
+  es `max-w-pantalla` con `px-margen`, y llena el ancho
+  ([adr/0073](./adr/0073-las-pantallas-llenan-el-ancho.md)).
 - **Los 44 px valen también para lo redondo.** Los tres controles de formulario los
   cumplían desde que existen, pero los botones sin texto no pasan por ellos y nadie
   los miraba: el conmutador de tema y los dos de la cuenta medían 36 px y el de
@@ -61,11 +64,14 @@ diagramas grandes, y el significado de un color al lado del color.
   tenía enlaces de veinte píxeles y un «Abrir» de veintiséis; las veinticuatro
   casillas de la rueda de quintas son botones dentro de un `foreignObject`, así
   que ni el test que lee las clases ni nadie las medía, y las del anillo pequeño
-  estaban en veintinueve. Ahora, en un teléfono, salen a sesenta y cinco y a
-  cuarenta y cinco. **En un escritorio el anillo pequeño se queda en treinta y
-  seis, y se acepta**: ahí se apunta con un ratón, y dos anillos de doce con
-  casillas de cuarenta y cuatro pedirían una rueda de seiscientos píxeles que no
-  cabe en ninguna de las tres pantallas donde vive.
+  estaban en veintinueve. **Ahora la diana sale de una cuenta y no los radios**:
+  36 unidades del lienzo de 260 en los dos anillos —el de dentro se agranda lo
+  que su escala le quita—, que es lo máximo que cabe sin que se pisen, y lo que
+  se ve es un disco más pequeño dentro. En pantalla, la diana mide `36 × ancho de
+la rueda / 260`: llega a 44 con una rueda de 318 px, así que **desde un teléfono
+  de 390 pasa en todas partes** (44 a 50 px) **y en uno de 320 no puede** (35 a
+  41): dos anillos de doce que comparten ángulo no caben en 288 px con dianas de 44. Tampoco en la columna de componer de escritorio (41), que con su relleno
+  deja la rueda en 295.
 - **Un mando se tabula una vez y se recorre con las flechas.** La rueda de
   quintas pedía veinticuatro turnos del tabulador —doce mayores y doce menores—,
   así que entrar en componer con el teclado y llegar a la lista de acordes era un
@@ -96,8 +102,11 @@ diagramas grandes, y el significado de un color al lado del color.
   etiqueta**: un botón que solo lleva dibujo pide `aria-label`, y si además cabe
   el texto al lado, mejor el texto. Se dibuja lo que se reconoce por la forma
   —grabar, parar, cerrar, descargar, tirar— no lo que hay que descifrar.
-- **Los títulos de pantalla van en la serif** (`font-display`), la misma de la
-  portada.
+- **Los títulos van en la Archivo ancha** (`.titular`, que es `font-display` con
+  su peso y su apretado), la misma de la portada, y el resto en la Atkinson
+  Hyperlegible. Las tres letras se sirven desde el repositorio
+  (`app/fuentes.ts`): antes eran las del sistema, y en un equipo sin Georgia los
+  títulos salían en lo que hubiera ([adr/0070](adr/0070-la-sala-encendida.md)).
 - **La monoespaciada es para lo que se alinea en columna, no para la interfaz.**
   Notas, cifrados, cents, hercios, compases, XP, un correo: cosas que se comparan
   dígito a dígito o que crecen y encogen sin descolocar lo de al lado. Todo lo
@@ -167,9 +176,10 @@ diagramas grandes, y el significado de un color al lado del color.
 **El oscuro es el de casa.** El claro se elige y se guarda; volver al oscuro borra
 la preferencia. No cuelga de `prefers-color-scheme` a propósito.
 
-**Los dos son la misma paleta con la luz encendida y apagada**: grafito frío y
-ámbar de noche, blanco hielo y el mismo ámbar de día
-([adr/0027](adr/0027-grafito-y-ambar.md)). Y de ahí sale la regla que hay que
+**Los dos son la misma sala con la luz encendida y apagada**: la pared tinta, la
+bombilla y el latón de noche, el hielo teñido del mismo azul y el mismo latón de
+día ([adr/0070](adr/0070-la-sala-encendida.md), sobre
+[adr/0027](adr/0027-grafito-y-ambar.md)). Y de ahí sale la regla que hay que
 tener delante al colocar una caja: **subir es acercarse a la luz en los dos
 temas** —lo vigila `ui/tokens.test.ts`—. El tema claro iba al revés, con blanco
 puro abajo y grises cada vez más sucios encima, o sea que cuanto más importaba una
@@ -257,6 +267,52 @@ dibujado por su borde y no se eleva. Le pasó a la portada al alternar franjas: 
 que manda en el reparto no es el orden de las secciones, es **lo que llevan
 dentro**. No lo vigila ningún test; se ve mirando la página.
 
+## La paleta cerrada y las piezas del sistema
+
+**Dieciséis colores, los de la sala de la portada, y ninguno más**
+([adr/0070](adr/0070-la-sala-encendida.md)). Todo lo que sale en pantalla se puede
+pintar con ellos y la escena de píxel se pinta con ellos. Un tono de la paleta de
+Tailwind —`bg-black/55`, `text-white`, un `bg-red-500`— o un color entre corchetes
+lo caza `coherencia.test.ts`. Para un matiz, la opacidad de un token
+(`bg-brass/20`) o `color-mix` en `globals.css`.
+
+- **`night` y `bulb` son la sala, que no cambia con el tema**: el velo de detrás de
+  un `popover` (`backdrop:bg-night/50`) y lo que va encima de la escena. No son un
+  negro y un blanco para usar a gusto: en el tema claro, un `bg-night` en mitad de
+  una pantalla es un agujero.
+- **Lo que está puesto lleva su piloto** (`.piloto`): una luz de latón encendida
+  debajo. La pantalla en la que estás, la pastilla marcada, la opción elegida. El
+  latón **relleno** es solo para la acción; si algo puesto se rellena de latón, se
+  confunde con el botón de al lado. El piloto no sustituye a `aria-pressed` ni a
+  `aria-current`: quien pone la clase pone el atributo.
+- **Cuatro profundidades y no más**: el fondo, `.superficie` para lo que se
+  consulta, `.superficie-alta` para lo que se mira primero o flota, y `.hueco` para
+  lo hundido dentro de una tarjeta —un dial, un pentagrama, la caja donde cae lo que
+  tocas—. `.superficie-viva` es la alta encendida: lo de ahora, una por pantalla.
+- **`.ventana-pixel` es solo para lo que dice el profesor.** Es el cuadro de
+  diálogo de una consola de dieciséis bits, con las esquinas a escalones; puesto en
+  cualquier tarjeta deja de decir quién habla. Ocupa `2 × --px` más por cada lado.
+- **Una tarjeta entera que se pulsa lleva `.tarjeta-pulsable`**: sube dos píxeles y
+  enciende el borde. Una que no hace nada no se mueve al pasar por encima.
+- **Una pantalla tiene dos ritmos**: más aire entre la cabecera y lo primero que
+  entre dos apartados, y más entre dos apartados que dentro de uno. Lo pone
+  `ui/Screen`; dentro de un apartado, `gap-3` a `gap-4` entre piezas y `gap-6` a
+  `gap-8` entre grupos.
+- **La escala de letra tiene cinco escalones con nombre**: `text-fluid-title` para
+  el título de una pantalla, `text-fluid-subtitle` para su línea,
+  `.titulo-apartado` para un apartado, el cuerpo a 16 px y `.rotulo` a 12 px para
+  nombrar una caja —nunca un trozo de página, ni en mayúsculas—.
+- **Lo que se mueve al llegar es la cabecera de la pantalla, y nada más**
+  (`.entra-pantalla`, en `ui/Screen`). Una cascada de tarjetas entrando cada vez
+  que se cambia de pantalla es esperar. Lo que responde a algo usa la curva de la
+  casa, `ease-salida`, y las duraciones de `--duracion-*`.
+
+**Una clase de `@layer components` no admite variantes.** `hover:filo-luz-alto`
+estuvo meses en el botón principal sin generar nada, porque en Tailwind v4 solo lo
+que se declara con `@utility` acepta `hover:` o `md:`. Si una pieza de
+`globals.css` se va a pedir con variante, va en `@utility`; si no, en
+`@layer components`. No falla nada: simplemente no ocurre.
+
 ## Un ejemplo escrito en un comentario es una clase de verdad
 
 Tailwind v4 escanea **los comentarios** igual que el código: de `.ts`, de `.tsx` y
@@ -299,8 +355,25 @@ sin preguntar nada. La rueda de quintas giraba con GSAP, que escribe el transfor
 él mismo y se la saltaba, y había que acordarse de preguntar en `ui/motion.ts`;
 ahora es una transición y GSAP ya no está
 ([adr/0057](adr/0057-la-rueda-gira-sin-gsap.md)). `prefersReducedMotion` queda
-para lo que decide desde JavaScript si se mueve —el vídeo de la portada, la
+para lo que decide desde JavaScript si se mueve —la escena de la portada, la
 mascota—.
+
+**Lo que es de píxel se mueve a saltos y a múltiplos enteros.** La mascota y la
+escena de la portada son dibujos de píxel, y un píxel a medio camino entre dos
+posiciones no existe: el navegador lo pinta repartido entre las dos y sale
+borroso. Así que ahí no hay curvas ni escalas: `step-end` o `steps()` para cambiar
+de fotograma, desplazamientos de un número entero de píxeles del dibujo y el
+tamaño a un múltiplo entero, que en la portada elige una consulta de contenedor
+([adr/0068](adr/0068-la-mascota-es-de-pixel.md),
+[adr/0069](adr/0069-la-portada-es-una-escena-de-pixel.md)). Por eso la escena no
+lleva `entra`, como el resto del encabezado: su desplazamiento de 0,75 rem la
+movía por fracciones de píxel.
+
+**El encabezado de la portada es un escenario oscuro en los dos temas**
+([adr/0071](adr/0071-la-sala-va-a-sangre-detras-del-titular.md)): la sala va a
+sangre y el titular se escribe en su pared. Lo que va dentro lleva
+`.escenario-oscuro`, que vuelve a declarar las variables del oscuro, así que se
+escribe con las clases de siempre —`text-text`, `bg-brass`— y no con `bulb` a mano.
 
 Y una de las de media hora: **`color-scheme: dark` en `:root`** es lo que hace que
 el navegador pinte en oscuro lo que dibuja él y no nosotros —la lista de un

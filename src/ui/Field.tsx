@@ -62,7 +62,9 @@ export function Field({
     // Elemental»— y el desplegable se quedaba aplastado contra el borde: por eso
     // envuelve, y al envolver el desplegable ocupa la línea entera.
     <label className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className={compact ? 'sr-only' : 'text-text-muted shrink-0 text-xs'}>{label}</span>
+      <span className={compact ? 'sr-only' : 'text-text-muted shrink-0 text-sm font-medium'}>
+        {label}
+      </span>
       {/* La flecha es un elemento de verdad y no un `data:` de fondo: hereda
           `currentColor` en vez de llevar el gris transcrito a mano —que el test de
           tokens no puede ver dentro de una cadena codificada— y es exactamente el
@@ -71,7 +73,7 @@ export function Field({
         <select
           aria-label={compact ? label : undefined}
           style={{ appearance: 'none' }}
-          className={`border-border-strong bg-surface text-text hover:border-brass min-h-tap w-full cursor-pointer rounded-md border py-1.5 pr-9 pl-3 text-sm transition-colors ${className}`}
+          className={`border-border-strong bg-surface text-text hover:border-brass min-h-tap w-full cursor-pointer rounded-md border py-1.5 pr-9 pl-3 text-sm font-medium transition-colors duration-150 ${className}`}
           {...props}
         >
           {children}

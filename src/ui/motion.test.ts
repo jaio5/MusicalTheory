@@ -7,7 +7,7 @@ import { prefersReducedMotion } from './motion';
  * Menos movimiento, cuando el sistema lo pide.
  *
  * La hoja de estilos ya anula transiciones y animaciones CSS; lo que decide
- * desde JavaScript si se mueve —el vídeo de la portada, la mascota— pregunta
+ * desde JavaScript si se mueve —la escena de la portada, la mascota— pregunta
  * aquí, y aquí tiene que contestarse bien.
  */
 afterEach(() => {

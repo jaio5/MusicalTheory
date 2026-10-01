@@ -17,8 +17,8 @@ import type { ReactNode } from 'react';
  *   la manera más corta de dejar a alguien parado; es la misma lección que ya
  *   había costado un `defaultOpen` en `ui/Disclosure`.
  *
- * El icono va apagado a propósito: es decoración que orienta, y si pesa más que
- * el texto se convierte en lo que se mira.
+ * El icono va en un hueco y no en una pastilla: es decoración que orienta, y si
+ * pesa más que el texto se convierte en lo que se mira.
  */
 export function Vacio({
   icono,
@@ -56,16 +56,26 @@ export function Vacio({
       {icono !== undefined && (
         <span
           aria-hidden="true"
-          className={`border-border bg-surface text-brass flex items-center justify-center rounded-full border opacity-80 ${
-            discreto ? 'size-10 [&_svg]:size-5' : 'size-14 [&_svg]:size-6'
+          // Un hueco redondo con el dibujo dentro, como el zócalo de un piloto
+          // apagado: dice «aquí irá algo» sin pesar más que el título.
+          className={`hueco text-brass flex items-center justify-center rounded-full ${
+            discreto ? 'size-11 [&_svg]:size-5' : 'size-16 [&_svg]:size-7'
           }`}
         >
           {icono}
         </span>
       )}
-      <p className={`text-text font-medium ${discreto ? 'text-sm' : 'text-base'}`}>{titulo}</p>
+      {/* El título en la letra de los titulares: es lo que falta, dicho como se
+          dice el nombre de una pantalla, y no una línea más de texto. */}
+      <p
+        className={`titular text-text ${discreto ? 'text-base' : 'text-xl'} ${discreto ? '' : 'mt-1'}`}
+      >
+        {titulo}
+      </p>
       {children !== undefined && (
-        <p className={`text-text-muted max-w-sm text-balance ${discreto ? 'text-xs' : 'text-sm'}`}>
+        <p
+          className={`text-text-muted max-w-sm text-balance ${discreto ? 'text-sm' : 'text-base'}`}
+        >
           {children}
         </p>
       )}

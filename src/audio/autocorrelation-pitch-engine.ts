@@ -14,6 +14,7 @@ import {
   DEFAULT_PITCH_ENGINE_OPTIONS,
   type PitchEngine,
   type PitchEngineOptions,
+  type PitchFrame,
   type PitchSample,
 } from './pitch-engine';
 
@@ -35,6 +36,7 @@ export class AutocorrelationPitchEngine implements PitchEngine {
   readonly #now: () => number;
   readonly #notas = new Emisor<PitchSample | null>();
   readonly #niveles = new Emisor<number>();
+  readonly #fotogramas = new Emisor<PitchFrame>();
 
   #input: AudioInput | null = null;
   #buffer: Float32Array<ArrayBuffer> | null = null;
@@ -90,6 +92,10 @@ export class AutocorrelationPitchEngine implements PitchEngine {
     return this.#niveles.suscribir(listener);
   }
 
+  subscribeFrames(listener: (frame: PitchFrame) => void): () => void {
+    return this.#fotogramas.suscribir(listener);
+  }
+
   #analyse(): void {
     const input = this.#input;
     const buffer = this.#buffer;
@@ -107,7 +113,8 @@ export class AutocorrelationPitchEngine implements PitchEngine {
 
     // El nivel se informa siempre, aunque no haya nota: es el dato con el que
     // se ajustan los umbrales.
-    this.#niveles.emitir(signalRms(buffer));
+    const rms = signalRms(buffer);
+    this.#niveles.emitir(rms);
 
     const detection = detectPitch(buffer, {
       sampleRate: input.sampleRate,
@@ -119,6 +126,13 @@ export class AutocorrelationPitchEngine implements PitchEngine {
       clarityThreshold: this.#tracking
         ? this.options.releaseClarityThreshold
         : this.options.clarityThreshold,
+    });
+
+    this.#fotogramas.emitir({
+      at,
+      frequency: detection?.frequency ?? null,
+      clarity: detection?.clarity ?? 0,
+      rms,
     });
 
     if (detection === null) {

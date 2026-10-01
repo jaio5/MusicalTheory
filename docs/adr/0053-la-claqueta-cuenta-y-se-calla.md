@@ -1,6 +1,6 @@
 # ADR 0053 — La claqueta cuenta dos compases y se calla
 
-Fecha: 2026-09-26 · Estado: aceptada · Sostiene [ADR 0019](./0019-punteos-y-partitura.md) y [ADR 0049](./0049-la-rejilla-llega-a-la-semicorchea.md)
+Fecha: 2026-09-26 · Estado: aceptada, sustituida en parte por [ADR 0072](./0072-la-claqueta-suena-toda-la-toma.md) (la claqueta ya no se calla) · Sostiene [ADR 0019](./0019-punteos-y-partitura.md) y [ADR 0049](./0049-la-rejilla-llega-a-la-semicorchea.md)
 
 ## Contexto
 

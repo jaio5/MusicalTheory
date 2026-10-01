@@ -24,3 +24,9 @@ reference/landing/uploads/
 reference/landing/support.js
 reference/landing/.thumbnail
 banco-de-ia.txt
+
+# Instantáneas de playwright-cli (skill arrancar)
+.playwright-cli/
+
+# Caché de Python de los scripts de arte/
+__pycache__/

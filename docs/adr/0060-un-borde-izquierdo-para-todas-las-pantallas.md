@@ -1,6 +1,6 @@
 # ADR 0060 — Un borde izquierdo para todas las pantallas
 
-Fecha: 2026-09-30 · Estado: aceptada · Amplía lo que fija `ui/Screen`
+Fecha: 2026-09-30 · Estado: aceptada · Amplía lo que fija `ui/Screen` · Sustituido en parte por [ADR 0073](./0073-las-pantallas-llenan-el-ancho.md): de los anchos quedan `lectura` y `completo`, con `aside`
 
 ## Contexto
 

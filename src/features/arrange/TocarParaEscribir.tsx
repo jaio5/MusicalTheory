@@ -16,7 +16,13 @@ import {
 import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
 import { useArrangementStore } from '@state/arrangement-store';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
-import { useTocarYApuntar, type TocarDeps, type Toma } from '@state/use-tocar-y-apuntar';
+import { useClaqueta } from '@state/claqueta';
+import {
+  TOPE_DE_LA_TOMA_S,
+  useTocarYApuntar,
+  type TocarDeps,
+  type Toma,
+} from '@state/use-tocar-y-apuntar';
 import { Aviso } from '@ui/Aviso';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
@@ -42,7 +48,7 @@ import { Vacio } from '@ui/Vacio';
  * al micro o si la tonalidad puesta no es la que estás tocando.
  *
  * Lo que **no** se hace es escribir la partitura nota a nota mientras suena.
- * No se puede honestamente con este motor: fundir las notas repetidas, elegir la
+ * No se puede honestamente con este motor: separar los ataques, elegir la
  * figura y cuadrar los compases pide el tramo entero, y hacerlo al vuelo sería
  * enseñar una partitura que se corrige sola mientras la miras.
  */
@@ -61,7 +67,6 @@ export function TocarParaEscribir({
   readonly onEscrito?: () => void;
 } = {}) {
   const activeKey = useSessionStore(selectActiveKey);
-  const bpm = useSessionStore((state) => state.bpm);
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
   const arrangement = useArrangementStore((state) => state.arrangement);
   // **Lo que se enseña, y no el objeto entero.** La lectura es nueva veinte
@@ -71,7 +76,10 @@ export function TocarParaEscribir({
   const notaOida = useSessionStore((state) => state.reading?.name ?? null);
   const apuntados = useSessionStore((state) => state.captured.length);
 
-  const { fase, mensaje, segundos, cuenta, empezar, parar } = useTocarYApuntar(deps);
+  const { fase, mensaje, segundos, cuenta, pulso, empezar, parar } = useTocarYApuntar(deps);
+  const volumenDelClic = useClaqueta((estado) => estado.volumen);
+  const clicCallado = useClaqueta((estado) => estado.callada);
+  const claqueta = useClaqueta((estado) => estado.acciones);
   /**
    * Qué se va a tocar en esta toma.
    *
@@ -101,6 +109,22 @@ export function TocarParaEscribir({
       }
     };
   }, []);
+
+  // **A los diez minutos se para sola, y escribe lo tocado.** No es un tope
+  // musical: es la red para quien deja el micro abierto y se va
+  // (`TOPE_DE_LA_TOMA_S`). Por referencia, porque parar y escribir cambia en cada
+  // render y el efecto solo tiene que mirar el reloj.
+  // Sin valor de relleno: el primer efecto lo pone antes de que el segundo lo
+  // lea, en todos los renders, y una función que nadie llama sería código muerto.
+  const alTope = useRef<() => void>(null!);
+  useEffect(() => {
+    alTope.current = () => void pararYEscribir(true);
+  });
+  useEffect(() => {
+    if (fase === 'tocando' && segundos >= TOPE_DE_LA_TOMA_S) {
+      alTope.current();
+    }
+  }, [fase, segundos]);
 
   // **Solo grabar no pide tonalidad**, y es lo único que había que salvar del
   // grabador suelto: allí se podía capturar una idea sin haber elegido nada. Los
@@ -159,9 +183,9 @@ export function TocarParaEscribir({
     await parar();
   }
 
-  async function pararYEscribir(): Promise<void> {
+  async function pararYEscribir(porTope = false): Promise<void> {
     setEscrito(false);
-    const nueva = await parar();
+    const { toma: nueva, lectura } = await parar();
 
     if (urlRef.current !== null) {
       URL.revokeObjectURL(urlRef.current);
@@ -176,15 +200,21 @@ export function TocarParaEscribir({
     if (activeKey === null) {
       return;
     }
+    // **Con el tempo con el que se contó**, no con el de la pantalla al parar:
+    // es contra el que se tocó.
     const apuntado = apuntarLoTocado({
       tonic: activeKey.tonic,
       mode: activeKey.mode,
-      bpm,
-      beatsPerBar,
+      bpm: lectura.bpm,
+      beatsPerBar: lectura.beatsPerBar,
       papel,
+      lectura,
     });
     setEscrito(apuntado.partId !== null);
-    setAviso(apuntado.aviso);
+    const porQue = porTope
+      ? `La toma ha llegado a los ${TOPE_DE_LA_TOMA_S / 60} minutos y se ha parado sola.`
+      : null;
+    setAviso([porQue, apuntado.aviso].filter((texto) => texto !== null).join(' ') || null);
   }
 
   function descargar(): void {
@@ -199,26 +229,36 @@ export function TocarParaEscribir({
   const contando = fase === 'contando';
 
   /**
-   * Lo que la cuenta le dice al lector de pantalla: **dos frases, no ocho
-   * números.**
+   * Lo que se le dice al lector de pantalla: **pocas frases, y ninguna mientras
+   * se apunta.**
    *
    * La voz del lector sale por el mismo altavoz que la claqueta, y el micro ya
-   * está abierto: todo lo que diga lo oye
-   * ([adr/0053](../../../docs/adr/0053-la-claqueta-cuenta-y-se-calla.md)).
-   * Leyendo cada pulso, «siete, seis, cinco» se pisaba con los clics y el último
-   * número caía encima del compás uno, dentro de lo que se apunta. Por eso
-   * tampoco se dice «entra ahora»: sonaría justo donde empieza la toma. Lo que
-   * avisa de entrar es lo mismo que para quien ve, que la claqueta se calla.
+   * está abierto: todo lo que diga lo oye, y una voz tiene altura —el motor de
+   * tono la escribiría como notas—. Leyendo cada pulso, «siete, seis, cinco» se
+   * pisaba con los clics. Así que se dice en dos frases durante la cuenta, y la
+   * segunda ya anuncia que **después se graba**: es la manera de decir «grabando»
+   * sin decirlo encima del compás uno. Al parar, con el micro ya cerrado, se dice
+   * que se ha parado.
+   *
+   * Solo grabar no cuenta ni transcribe, así que ahí sí se dice «grabando» al
+   * empezar: lo que se oiga de la voz no va a escribirse en ninguna parte.
    *
    * La frase se repite igual en todos los pulsos de su compás, así que React no
    * toca el texto y el lector no vuelve a leerla.
    */
-  const anuncioDeCuenta =
-    !contando || cuenta === null || cuenta === 0
+  const anuncioDeCuenta = contando
+    ? cuenta === null || cuenta === 0
       ? ''
       : cuenta > beatsPerBar
-        ? 'Faltan dos compases. Entra cuando se calle la claqueta.'
-        : 'Último compás.';
+        ? 'Faltan dos compases. El clic sigue sonando mientras tocas.'
+        : 'Último compás. Después, grabando.'
+    : tocando
+      ? soloGrabar
+        ? 'Grabando.'
+        : 'Último compás. Después, grabando.'
+      : toma !== null || escrito
+        ? 'Toma parada.'
+        : '';
 
   /**
    * Lo que ya hay escrito, para no tocar a ciegas.
@@ -302,6 +342,40 @@ export function TocarParaEscribir({
           </div>
         )}
 
+        {/* El clic de la toma: quitarlo y bajarlo. **Antes y durante**, porque es
+            tocando cuando se descubre que con auriculares sobra. Quitarlo no para
+            el pulso: la rejilla sigue sabiendo dónde cae cada compás. Solo
+            grabar no lleva clic, así que ahí no se enseña. */}
+        {!soloGrabar && (
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Chip
+              tone="quiet"
+              tamano="compacto"
+              pressed={!clicCallado}
+              onClick={() => claqueta.callar(!clicCallado)}
+              ariaLabel="Clic durante la toma"
+            >
+              {clicCallado ? <IconoParar /> : <IconoSonar />}
+              {clicCallado ? 'Sin clic' : 'Con clic'}
+            </Chip>
+            <label className="text-text-muted flex items-center gap-2 text-sm">
+              Volumen del clic
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={Math.round((clicCallado ? 0 : volumenDelClic) * 100)}
+                onChange={(event) => claqueta.ponerVolumen(Number(event.target.value) / 100)}
+                aria-valuetext={
+                  clicCallado ? 'Sin clic' : `${Math.round(volumenDelClic * 100)} por ciento`
+                }
+                className="accent-brass min-h-tap w-32"
+              />
+            </label>
+          </div>
+        )}
+
         {/* **Contando también se para**, y con el mismo botón: pulsarlo durante la
             cuenta la corta y no graba nada. Deshabilitarlo ahí dejaba dos
             compases en los que el único botón de la pantalla no hacía nada y
@@ -339,7 +413,7 @@ export function TocarParaEscribir({
           <p className="text-center" aria-hidden="true">
             <span className="text-fluid-hero tabular-nums">{cuenta}</span>
             <span className="text-text-muted mt-1 block text-sm">
-              Entra cuando se calle: se calla para que el micro no la oiga.
+              Entra en el uno del tercer compás. El clic sigue mientras tocas.
             </span>
           </p>
         )}
@@ -355,10 +429,36 @@ export function TocarParaEscribir({
           // reconoce, cuántos lleva y cuánto tiempo. Un medidor de nivel aquí
           // sería una cuarta cosa mirando a la vez y ninguna se leería.
           <div className="flex flex-col items-center gap-2">
+            {/* «Grabando», a la vista y en el árbol: quien navega con el lector lo
+                encuentra aquí, aunque no se anuncie encima del compás uno. */}
+            <p className="text-oxblood-bright flex items-center gap-2 text-sm font-medium">
+              <span aria-hidden="true" className="bg-oxblood-bright block h-2 w-2 rounded-full" />
+              Grabando
+            </p>
+            {/* La luz del pulso, para quien ha quitado el clic o toca con el ampli
+                alto. Se ve y no se anuncia: un pulso hablado es ruido en el micro. */}
+            {pulso !== null && (
+              <span aria-hidden="true" className="flex gap-1.5">
+                {Array.from({ length: beatsPerBar }, (_, indice) => (
+                  <span
+                    key={indice}
+                    className={`block h-2.5 w-2.5 rounded-full ${
+                      indice === pulso
+                        ? indice === 0
+                          ? 'bg-brass-bright'
+                          : 'bg-text-muted'
+                        : 'bg-border'
+                    }`}
+                  />
+                ))}
+              </span>
+            )}
             {/* Lo que se enseña es **lo que va a entrar**, no todo lo que el micro
                 oye: con un punteo puesto, el acorde que el croma cree reconocer no
                 se va a escribir, y enseñarlo sería prometer algo que no pasa. */}
-            <p className="font-display text-brass-bright text-4xl leading-none" aria-live="polite">
+            {/* Sin `aria-live`: leído en voz alta, cada acorde saldría por el
+                altavoz y el micro lo apuntaría. */}
+            <p className="font-display text-brass-bright text-4xl leading-none">
               {papel === 'ritmica' ? (acordeOido ?? '—') : (notaOida ?? '—')}
             </p>
             <p className="text-text-muted font-mono text-xs">
@@ -403,9 +503,9 @@ export function TocarParaEscribir({
         <Aviso mensaje={aviso} tono="hecho" anuncio="ninguno" />
 
         {/* La toma se queda al lado de lo transcrito, y no es adorno: transcribir
-          pierde cosas a propósito —dos notas iguales seguidas se funden, el
-          croma olvida la octava— y el sonido de verdad es lo que permite
-          comprobar qué se perdió. */}
+          pierde cosas a propósito —no hay tresillos ni ligaduras, el croma
+          olvida la octava— y el sonido de verdad es lo que permite comprobar
+          qué se perdió. */}
         {toma !== null && !tocando && (
           <div className="border-border flex flex-wrap items-center justify-center gap-2 border-t pt-4">
             <span className="text-text-muted text-xs">Lo que sonó de verdad:</span>

@@ -27,6 +27,10 @@ vi.mock('next/headers', () => ({
 vi.mock('@server/entitlements', () => ({ currentAccount: () => currentAccount() }));
 vi.mock('@server/auth', () => ({ authAvailable: () => authAvailable() }));
 
+// Las letras las carga el compilador de Next, que aquí no está: lo que se prueba
+// de ellas vive en `fuentes.test.ts`, y aquí solo importa que lleguen al `<html>`.
+vi.mock('./fuentes', () => ({ CLASES_DE_FUENTES: 'las-tres-letras' }));
+
 vi.mock('next-auth/react', () => ({
   signIn: vi.fn(),
   signOut: vi.fn(),
@@ -87,6 +91,12 @@ describe('el marco', () => {
 
     expect(html).toContain('lang="es"');
     expect(html).toContain('El contenido');
+  });
+
+  it('las tres letras cuelgan del html, que es donde las lee la hoja', async () => {
+    const html = await pintar();
+
+    expect(html).toMatch(/<html[^>]*class="las-tres-letras"/);
   });
 });
 

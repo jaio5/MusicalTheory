@@ -1,20 +1,23 @@
 /**
  * Tokens de diseño: la única fuente de verdad de la paleta y la tipografía.
  *
- * **Dos temas, y el oscuro es el de casa.** Grafito frío y ámbar de noche; blanco
- * hielo, grises fríos y el mismo ámbar de día. Son la misma paleta con la luz
- * encendida y apagada, y por eso el acento vale igual en las dos
- * ([adr/0027](../../docs/adr/0027-grafito-y-ambar.md)).
+ * **La paleta sale de la sala de la portada**: un local de ensayo de noche, con
+ * paredes de espuma color tinta, una bombilla desnuda, herrajes de latón, una
+ * válvula verde encendida y una alfombra granate
+ * ([adr/0070](../../docs/adr/0070-la-sala-encendida.md)). Es la misma sala que
+ * pinta `arte/portada/build.py` y el mismo muñeco de `arte/mascota/build.py`, y
+ * por eso **todo lo que hay en pantalla se puede pintar con estos dieciséis
+ * colores**: si algo pide uno que no está aquí, el que está mal es ese algo.
  *
- * **Los nombres vienen de un amplificador que ya no está.** El proyecto nació con
- * la idea de uno visto de noche —chasis de latón, tapizado oxblood, resplandor
- * verde— y de ahí salieron `brass`, `oxblood` y `tube`. La estética se cambió por
- * una moderna y los nombres se quedaron, porque **lo que nombran no es un color
- * sino un papel**: `brass` es «el acento», `oxblood` «lo que va mal» y `tube` «lo
- * que va bien», valga lo que valga en cada tema. Renombrarlos serían trescientas
- * sustituciones para no ganar nada.
+ * **Dos temas, y el oscuro es el de casa.** De noche, la sala con la bombilla; de
+ * día, la misma sala con la luz de la ventana. Comparten el tono de la pared
+ * —un azul tinta, no un gris neutro— y el acento, así que se reconocen como el
+ * mismo sitio ([adr/0027](../../docs/adr/0027-grafito-y-ambar.md) puso las bases).
  *
- * Y es justo eso lo que hace que ningún componente sepa qué tema hay puesto: piden
+ * **Los nombres vienen de un amplificador**, y **lo que nombran no es un color
+ * sino un papel**: `brass` es «el acento», `oxblood` «lo que va mal» y además el
+ * granate de la alfombra, y `tube` «lo que va bien» o «está encendido», valga lo
+ * que valga en cada tema. Ningún componente sabe qué tema hay puesto: piden
  * `text-brass-bright` y les sale lo que toque.
  *
  * Están espejados como variables CSS en src/app/globals.css, que es lo que
@@ -22,9 +25,13 @@
  */
 
 export interface Paleta {
+  /** La pared de la sala: el fondo de cada pantalla. */
   readonly background: string;
+  /** Lo que se consulta: una tarjeta, un panel, la barra de arriba. */
   readonly surface: string;
+  /** Lo que está encima: lo que se mira primero, lo que flota. */
   readonly surfaceRaised: string;
+  /** La línea que separa dos cajas. Separa; no se ve de lejos, y no debe. */
   readonly border: string;
   /**
    * El borde de lo que se rellena: campos de texto y desplegables.
@@ -39,7 +46,9 @@ export interface Paleta {
   readonly borderStrong: string;
   readonly text: string;
   readonly textMuted: string;
+  /** El latón: la acción principal, rellena. También se lee. */
   readonly brass: string;
+  /** El latón con la luz encima: lo que está puesto, un enlace, el foco. */
   readonly brassBright: string;
   /**
    * El latón apagado, que es **adorno y no información**: bordes suaves, el
@@ -52,107 +61,120 @@ export interface Paleta {
    * `app/screens/coherencia.test.ts`.
    */
   readonly brassDim: string;
+  /**
+   * El granate: el relleno de grabar y de lo que va mal, y la alfombra de la sala
+   * cuando hace falta un campo grande de color. **Nunca un texto**: lo que se lee
+   * en rojo es `oxbloodBright`.
+   */
   readonly oxblood: string;
   readonly oxbloodBright: string;
+  /** La válvula: el relleno de lo hecho y de lo encendido. Nunca un texto. */
   readonly tube: string;
   readonly tubeBright: string;
+  /**
+   * La sala, que es oscura **en los dos temas**.
+   *
+   * La escena de la portada va en su marco oscuro también de día, y encima de
+   * ella —o detrás de un `popover`, como velo— hace falta un oscuro que no se
+   * vuelva hielo al cambiar de tema. Antes eso era `bg-black/55` y `text-white`
+   * escritos a mano: los dos únicos colores de la aplicación que no salían de aquí.
+   * Vale lo mismo en los dos temas a propósito, y es el fondo del tema oscuro.
+   */
+  readonly night: string;
+  /** La luz de la bombilla: lo que se escribe sobre `night`. Fija, como ella. */
+  readonly bulb: string;
 }
 
 /**
- * El tema claro: **blanco hielo**, y elegante por lo que **no** tiene.
+ * El tema claro: **la sala de día**, con la luz de la ventana.
  *
- * El fondo no es blanco puro sino un blanco frío —`#F1F4F8`—, y **las superficies
- * suben hacia el blanco** en vez de bajar hacia el gris: `surface` casi blanco y
- * `surfaceRaised` blanco del todo. Esto invierte lo que había, y es a propósito
- * ([adr/0026](../../docs/adr/0026-el-blanco-hielo.md)): con el blanco puro de
- * fondo, lo que se elevaba tenía que oscurecerse para verse, o sea que **cuanto
- * más importante era una caja, más sucia se veía**, justo al revés que en el tema
- * oscuro. Con el hielo debajo, elevarse es acercarse a la luz en los dos temas.
+ * El fondo no es blanco puro sino hielo teñido del mismo azul tinta que la pared
+ * de noche —`#EDF0F7`—, y **las superficies suben hacia el blanco**: elevarse es
+ * acercarse a la luz en los dos temas ([adr/0026](../../docs/adr/0026-el-blanco-hielo.md)).
+ * Los grises son de la familia de la pared, no neutros: un gris sin tono al lado
+ * de un fondo azulado se lee sucio.
  *
- * Los grises pasan a ser fríos, que es lo contrario de lo que decía este comentario
- * antes. La razón de entonces —un gris azulado sobre blanco puro deja aire de
- * hospital— era cierta **sobre blanco puro**: es el par blanco clínico + gris azul
- * lo que enfría, no el gris solo. Sobre un fondo que ya es hielo, un gris cálido es
- * el que desafina, y el que sostiene la paleta es el acento.
- *
- * Y el acento sigue siendo el mismo latón de la casa, sin tocar: `#9A5B08` es lo
- * que hace falta para que un texto de acento llegue a 4,5:1, y el dorado bonito de
- * las paletas —`#D4AF37`— no lo cumple ni de lejos. Un ámbar cálido sobre un fondo
- * frío es lo único que hay aquí de temperatura, y por eso se ve.
+ * El latón baja hasta `#97570D`, que es lo que hace falta para que un texto de
+ * acento llegue a 4,5:1 sobre el hielo. El dorado bonito de las paletas —`#D4AF37`—
+ * no lo cumple ni de lejos. Un ámbar cálido sobre un fondo frío es lo único con
+ * temperatura en la pantalla, y por eso se ve sin subirle la saturación.
  */
 export const paletaClara: Paleta = {
-  background: '#F1F4F8',
-  surface: '#F8FAFC',
+  background: '#EDF0F7',
+  surface: '#F5F7FC',
   surfaceRaised: '#FFFFFF',
-  border: '#DCE3EA',
-  borderStrong: '#7A8591',
+  border: '#D5D9E3',
+  borderStrong: '#737A8A',
 
-  text: '#141A20',
-  textMuted: '#5A646E',
+  text: '#101624',
+  textMuted: '#535B6C',
 
-  brass: '#9A5B08',
-  brassBright: '#7C4A0C',
-  brassDim: '#E0CDA2',
+  brass: '#97570D',
+  brassBright: '#7A420A',
+  brassDim: '#E7CDA5',
 
-  oxblood: '#B91C1C',
-  oxbloodBright: '#9F1239',
+  oxblood: '#B32130',
+  oxbloodBright: '#9D1137',
 
-  tube: '#15803D',
-  tubeBright: '#166534',
+  tube: '#227C45',
+  tubeBright: '#166238',
+
+  night: '#0A0E19',
+  bulb: '#F4F0E7',
 };
 
 /**
- * El tema oscuro: **grafito frío y un ámbar**, y el que sale por defecto.
+ * El tema oscuro: **la sala de noche**, y el que sale por defecto.
  *
- * Era un negro pardo —`#100D0B`, `#1A1613`, `#26201A`— con latón encima, y lo que
- * tenía de malo no era el color sino lo que el color arrastraba: un pardo cálido
- * a esa luminancia no se lee como negro, se lee como **marrón viejo**, y contra él
- * cualquier acento cálido queda a un paso de distancia y no destaca. El grafito
- * frío se lee negro de verdad y deja al ámbar solo en su temperatura, que es lo
- * que hace que se vea sin subirle la saturación
- * ([adr/0027](../../docs/adr/0027-grafito-y-ambar.md)).
+ * **La pared es tinta, no grafito neutro.** `#0A0E19` tiene el azul de la espuma
+ * de la escena a oscuras: lo bastante para que no se lea como el negro tintado de
+ * cualquier aplicación —`#0B0B0B`, `#111`— y lo bastante poco para que siga siendo
+ * negro. Contra él el latón se queda solo en su temperatura, que es lo que lo hace
+ * visible ([adr/0027](../../docs/adr/0027-grafito-y-ambar.md)).
+ *
+ * **Y el texto es la luz de la bombilla, no blanco de pantalla.** `#F4F0E7` es un
+ * blanco de papel bajo una bombilla de filamento: sobre la tinta da 16:1 y, al
+ * lado de un fondo frío, lleva la única temperatura que no es el acento. Es lo que
+ * hace que la sala parezca iluminada y no encendida.
+ *
+ * **Los escalones entre fondo, superficie y superficie alta se abren**: de una
+ * luminancia relativa a la siguiente hay el doble, para que se note qué está
+ * encima de qué sin depender del borde.
  *
  * **`oxblood` es el relleno y `oxbloodBright` es lo que se lee.** No son dos tonos
- * del mismo rojo para elegir a gusto: el primero solo vale de fondo —el del botón
- * de grabar— y el segundo es el que llevan los mensajes de error, que aquí son
- * veinticuatro. Estuvo en `#8C2B31`, que sobre el fondo de entonces daba 2,26:1:
- * menos de la mitad del 4,5:1 que pide un texto, y justo en lo más importante que
- * hay que poder leer. Lo mismo vale para `tube` y `tubeBright`.
- *
- * El verde sube a menta y el rojo a coral porque sobre grafito los apagados de
- * antes se hundían, pero **ninguno de los dos llega a ácido**: lo vigila
- * `tokens.test.ts`, y no por nostalgia del amplificador sino porque un verde con
- * el canal disparado, al lado de un acento cálido, es lo que separa una paleta de
- * un semáforo.
+ * del mismo rojo para elegir a gusto: el primero es el granate de la alfombra y
+ * del botón de grabar, y el segundo el de los mensajes de error. Lo mismo vale
+ * para `tube` y `tubeBright`. El verde no llega a ácido y el rojo no llega a
+ * alarma: lo vigila `tokens.test.ts`.
  */
 /**
  * **Y es la que se lee cuando hace falta un color en crudo**, porque es la que
  * sale por defecto. Quien lea de aquí y dibuje algo que también existe en claro
  * está haciendo trampa: lo correcto es una utilidad de color, que sigue al tema
  * puesto.
- *
- * Tenía un segundo nombre, `colors`, que era exactamente esto. Dos nombres
- * públicos para una cosa obligan a elegir sin criterio.
  */
 export const paletaOscura: Paleta = {
-  background: '#0B0D11',
-  surface: '#131720',
-  surfaceRaised: '#1C222D',
-  border: '#2A313D',
-  borderStrong: '#6B7686',
+  background: '#0A0E19',
+  surface: '#131824',
+  surfaceRaised: '#1E2432',
+  border: '#303747',
+  borderStrong: '#788093',
 
-  text: '#F0F3F8',
-  textMuted: '#98A3B3',
+  text: '#F4F0E7',
+  textMuted: '#A6AEC0',
 
-  brass: '#D99A45',
-  brassBright: '#F0BE6E',
-  brassDim: '#4A3A22',
+  brass: '#E3A04B',
+  brassBright: '#F4C87E',
+  brassDim: '#533A1E',
 
-  oxblood: '#4A1E24',
-  oxbloodBright: '#FF9494',
+  oxblood: '#5E1927',
+  oxbloodBright: '#FB9494',
 
-  tube: '#2F6B4E',
-  tubeBright: '#7FD4A3',
+  tube: '#3D7E5D',
+  tubeBright: '#85D5AB',
+
+  night: '#0A0E19',
+  bulb: '#F4F0E7',
 };
 
 /**
@@ -177,37 +199,46 @@ export const VARIABLES_CSS: Readonly<Record<keyof Paleta, string>> = {
   oxbloodBright: 'rojo-vivo',
   tube: 'verde',
   tubeBright: 'verde-vivo',
+  night: 'noche',
+  bulb: 'bombilla',
 };
 
+/**
+ * Las tres letras, cada una con su reserva.
+ *
+ * El primer nombre es la variable que deja `app/fuentes.ts` en el `<html>`, con
+ * la letra autoalojada; lo de detrás es lo que sale mientras llega o si no llega
+ * ([adr/0070](../../docs/adr/0070-la-sala-encendida.md)).
+ */
 export const fonts = {
-  /** Serif de sistema para titulares. Sin descargas: arranca instantáneo. */
-  display: "Georgia, 'Iowan Old Style', 'Times New Roman', serif",
-  /** Sans del sistema para el cuerpo del texto. */
-  sans: "system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif",
-  /** Monoespaciada para notas, cents, frecuencias y cifrados. */
-  mono: "'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace",
+  /** Archivo ancha: los títulos, la rotulación de un flight case. */
+  display: "var(--fuente-titulos), 'Arial Black', system-ui, sans-serif",
+  /** Atkinson Hyperlegible Next: todo lo que se lee. */
+  sans: 'var(--fuente-cuerpo), system-ui, -apple-system, sans-serif',
+  /** Atkinson Hyperlegible Mono: notas, cents, frecuencias y cifrados. */
+  mono: "var(--fuente-cifras), ui-monospace, 'SFMono-Regular', Consolas, monospace",
 } as const;
 
 /**
- * Tamaños que crecen con el ancho de la pantalla, para la portada.
+ * Tamaños que crecen con el ancho de la pantalla.
  *
  * Un titular con un tamaño fijo se queda pequeño en un monitor grande y se
  * desborda en uno pequeño. Con `clamp` el navegador lo resuelve solo: mínimo
  * legible, máximo sensato y en medio proporcional al ancho.
+ *
+ * **Bajaron todos al cambiar de letra.** La Archivo ancha ocupa bastante más que la
+ * Georgia por la misma frase, y los tamaños de antes estaban medidos para aquella.
+ * Lo que hace grande a un titular no es el tamaño, es el blanco que tiene
+ * alrededor.
  */
 export const fluidSizes = {
-  /**
-   * El titular de la portada.
-   *
-   * Bajó de 7rem a 5,25rem al pasar el encabezado a media columna: siete rem
-   * eran para un titular a todo lo ancho, y en media columna cada palabra
-   * ocupaba una línea. Lo que hace grande a un titular no es el tamaño, es el
-   * blanco que tiene alrededor.
-   */
-  hero: 'clamp(2.5rem, 5.4vw, 5.25rem)',
-  title: 'clamp(1.75rem, 3.2vw, 3.25rem)',
-  subtitle: 'clamp(1.15rem, 1.8vw, 1.6rem)',
-  body: 'clamp(1rem, 0.95vw, 1.15rem)',
+  /** El titular de la portada. */
+  hero: 'clamp(2.25rem, 1.4rem + 3.6vw, 4.5rem)',
+  /** El título de una pantalla (`ui/Screen`). */
+  title: 'clamp(1.875rem, 1.35rem + 1.9vw, 3rem)',
+  /** Lo que acompaña a un título: la línea de qué es esto, a tamaño de leerse. */
+  subtitle: 'clamp(1.0625rem, 0.95rem + 0.45vw, 1.3125rem)',
+  body: 'clamp(1rem, 0.95rem + 0.2vw, 1.125rem)',
 } as const;
 
 /**
@@ -239,7 +270,7 @@ export const radii = {
   /** Una tarjeta, un panel: lo que lleva `.superficie`. */
   lg: '14px',
   /**
-   * El de una pieza grande: el vídeo de la portada.
+   * El de una pieza grande: la escena de la portada.
    *
    * Doce píxeles en una caja de seiscientos no se ven; se leen como una esquina
    * recta con un defecto. La curva tiene que crecer con lo que envuelve, y por
@@ -250,13 +281,18 @@ export const radii = {
 } as const;
 
 /**
- * Duraciones de movimiento en milisegundos. Las lee la transición CSS de la
+ * Duraciones de movimiento en milisegundos, espejadas en `globals.css` como
+ * `--duracion-*` y vigiladas por `tokens.test.ts`. Las lee la transición CSS de la
  * rueda (`WheelOfFifths`), y cuando el sistema pide menos movimiento las apaga la
  * regla de `prefers-reduced-motion` de `globals.css`, no quien las usa.
  */
 export const durations = {
+  /** Lo que responde a un dedo: el hundido de un botón, el color al pasar. */
   instant: 90,
+  /** Lo que cambia de estado: un piloto que se enciende, un panel que se abre. */
   quick: 180,
+  /** La entrada de una pantalla: una vez, al llegar, y nada más. */
+  entrada: 320,
   /** Giro de la rueda de quintas hasta poner arriba la tonalidad detectada. */
   wheel: 650,
 } as const;

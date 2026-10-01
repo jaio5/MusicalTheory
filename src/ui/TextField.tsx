@@ -95,7 +95,7 @@ export function TextField({
     // su nombre. Fuera, se enlazan con `aria-describedby`, que es su sitio.
     <div className={`flex flex-col gap-1 ${ANCHOS_TEXTO[ancho]}`}>
       <label className="flex flex-col gap-1">
-        <span className={compact ? 'sr-only' : 'text-text-muted text-xs'}>
+        <span className={compact ? 'sr-only' : 'text-text-muted text-sm font-medium'}>
           {label}
           {!compact && extra}
         </span>
@@ -106,17 +106,17 @@ export function TextField({
           // `border-strong` y no `border`: un campo vacío es solo su borde, y el de
           // separar cajas se queda en 1,3:1 —no se ve dónde se escribe—. Con error,
           // el borde es el rojo que se lee, además del texto de debajo.
-          className={`${hayError ? 'border-oxblood-bright' : 'border-border-strong'} bg-field text-text placeholder:text-text-muted min-h-tap rounded-md border px-2 py-2 text-base ${className}`}
+          className={`${hayError ? 'border-oxblood-bright' : 'border-border-strong'} bg-field text-text placeholder:text-text-muted hover:border-brass min-h-tap rounded-md border px-3 py-2 text-base shadow-[var(--sombra-hueco)] transition-colors duration-150 ${className}`}
           {...props}
         />
       </label>
       {hint !== undefined && (
-        <span id={`${id}-pista`} className="text-text-muted text-xs">
+        <span id={`${id}-pista`} className="text-text-muted text-sm">
           {hint}
         </span>
       )}
       {hayError && (
-        <span id={`${id}-error`} className="text-oxblood-bright text-xs">
+        <span id={`${id}-error`} className="text-oxblood-bright text-sm font-medium">
           {error}
         </span>
       )}

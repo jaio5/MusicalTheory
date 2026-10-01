@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { pitchClassFromName } from '@core/music';
 
-import { WheelOfFifths } from './WheelOfFifths';
+import { DIANA, INNER_RADIUS, RING_RADIUS, WheelOfFifths } from './WheelOfFifths';
 
 /**
  * La rueda de quintas.
@@ -173,7 +173,7 @@ describe('el giro y la letra', () => {
     const etiqueta = container.querySelector<SVGGElement>('[data-contragiro]')!;
 
     expect(etiqueta.style.transform).toBe('rotate(30deg)');
-    expect(etiqueta.style.transformOrigin).toBe('130px 26px');
+    expect(etiqueta.style.transformOrigin).toBe('130px 18px');
   });
 
   /**
@@ -183,10 +183,10 @@ describe('el giro y la letra', () => {
   it('el anillo de dentro lleva letra mas grande, y cambia con el modo', () => {
     const { rerender } = render(<WheelOfFifths tonic={C} mode="major" onPick={vi.fn()} />);
     expect(screen.getByTitle('C mayor').style.fontSize).toBe('14px');
-    expect(screen.getByTitle('A menor').style.fontSize).toBe('18px');
+    expect(screen.getByTitle('A menor').style.fontSize).toBe('19px');
 
     rerender(<WheelOfFifths tonic={pitchClassFromName('A')} mode="minor" onPick={vi.fn()} />);
-    expect(screen.getByTitle('C mayor').style.fontSize).toBe('18px');
+    expect(screen.getByTitle('C mayor').style.fontSize).toBe('19px');
     expect(screen.getByTitle('A menor').style.fontSize).toBe('14px');
   });
 
@@ -194,7 +194,7 @@ describe('el giro y la letra', () => {
     render(<WheelOfFifths tonic={null} mode={null} />);
 
     expect(screen.getByText('C').style.fontSize).toBe('14px');
-    expect(screen.getByText('Am').style.fontSize).toBe('18px');
+    expect(screen.getByText('Am').style.fontSize).toBe('19px');
   });
 
   // La transición es la que obedece a `prefers-reduced-motion` desde
@@ -203,5 +203,26 @@ describe('el giro y la letra', () => {
     const { container } = render(<WheelOfFifths tonic={C} mode="major" />);
 
     expect(anillo(container).style.transition).toMatch(/transform 650ms/);
+  });
+
+  /**
+   * Lo que se pulsa no encoge con el anillo, y lo que se ve sí: la diana del de
+   * dentro se agranda lo que la escala le quita, así que en pantalla las
+   * veinticuatro miden lo mismo.
+   */
+  it('la diana de dentro se agranda lo que su anillo encoge, y se turna con el modo', () => {
+    const caja = (titulo: string) => screen.getByTitle(titulo).parentElement!;
+    const disco = (titulo: string) => screen.getByTitle(titulo).firstElementChild as HTMLElement;
+    const escala = INNER_RADIUS / RING_RADIUS;
+
+    const { rerender } = render(<WheelOfFifths tonic={C} mode="major" onPick={vi.fn()} />);
+    expect(Number(caja('C mayor').getAttribute('width'))).toBe(DIANA);
+    expect(Number(caja('A menor').getAttribute('width'))).toBeCloseTo(DIANA / escala, 5);
+    expect(disco('C mayor').style.width).toBe('32px');
+    expect(disco('A menor').style.width).toBe('40px');
+
+    rerender(<WheelOfFifths tonic={pitchClassFromName('A')} mode="minor" onPick={vi.fn()} />);
+    expect(Number(caja('A menor').getAttribute('width'))).toBe(DIANA);
+    expect(Number(caja('C mayor').getAttribute('width'))).toBeCloseTo(DIANA / escala, 5);
   });
 });

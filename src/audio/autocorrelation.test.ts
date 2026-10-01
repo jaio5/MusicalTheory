@@ -209,3 +209,28 @@ describe('lo que se reutiliza de un análisis a otro', () => {
     expect(detectPitch(new Float32Array(FRAME), OPTIONS)).toBeNull();
   });
 });
+
+/**
+ * **Montada sobre un escalón, la nota se sigue oyendo.** La continua de una
+ * tarjeta barata o el golpe de la mano en la caja dejaban la correlación positiva
+ * en todos los desplazamientos: no aparecía ningún pico y la nota se perdía.
+ */
+describe('con continua debajo', () => {
+  // Un escalón quieto, sin nada encima, es silencio: quitada la media no queda
+  // energía con la que comparar, y no hay nota.
+  it('la continua sola no es una nota, ni con el umbral de nivel en cero', () => {
+    expect(
+      detectPitch(new Float32Array(FRAME).fill(0.3), { ...OPTIONS, rmsThreshold: 0 }),
+    ).toBeNull();
+  });
+
+  it('encuentra la nota igual que sin ella', () => {
+    const limpia = tone(midiToFrequency(60), { amplitude: 0.05 });
+    const montada = limpia.map((valor) => valor + 0.08);
+
+    const sin = detectPitch(limpia, OPTIONS);
+    const con = detectPitch(montada, OPTIONS);
+    expect(con).not.toBeNull();
+    expect(Math.abs(centsBetween(sin!.frequency, con!.frequency))).toBeLessThan(1);
+  });
+});

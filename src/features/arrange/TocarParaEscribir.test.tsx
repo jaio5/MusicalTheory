@@ -9,11 +9,13 @@ import type { AudioInput, AudioInputState } from '@audio/audio-input';
 import type { StreamSource } from '@audio/stream-source';
 import type { ChordEngine } from '@audio/chord-engine';
 import type { Metronome, MetronomeOptions } from '@audio/metronome';
-import type { PitchEngine } from '@audio/pitch-engine';
+import type { PitchEngine, PitchFrame } from '@audio/pitch-engine';
 import { pitchClassFromName } from '@core/music';
 import type { MicInput, MicState } from '@media/mic-input';
 import type { Recording, RecorderState, SessionRecorder } from '@media/session-recorder';
 import { useArrangementStore } from '@state/arrangement-store';
+import { useClaqueta, VOLUMEN_DE_PARTIDA } from '@state/claqueta';
+import { useListening } from '@state/use-listening';
 import { useSessionStore } from '@state/session-store';
 
 import { TocarParaEscribir } from './TocarParaEscribir';
@@ -99,6 +101,28 @@ class MotorFalso implements PitchEngine {
   }
 }
 
+/**
+ * Un motor que además entrega cada análisis, como el de verdad: es lo que lee la
+ * toma para transcribir un punteo entero.
+ */
+class MotorConFotogramas extends MotorFalso {
+  static ultimo: MotorConFotogramas | null = null;
+  #oyentes = new Set<(frame: PitchFrame) => void>();
+  constructor() {
+    super();
+    MotorConFotogramas.ultimo = this;
+  }
+  subscribeFrames(oyente: (frame: PitchFrame) => void): () => void {
+    this.#oyentes.add(oyente);
+    return () => this.#oyentes.delete(oyente);
+  }
+  emitir(frame: PitchFrame): void {
+    for (const oyente of this.#oyentes) {
+      oyente(frame);
+    }
+  }
+}
+
 class CromaFalso implements ChordEngine {
   running = false;
   async start(): Promise<void> {}
@@ -161,7 +185,9 @@ class GrabadorFalso implements SessionRecorder {
 class MetronomoFalso implements Metronome {
   static ultimo: MetronomoFalso | null = null;
   running = false;
-  #onBeat: ((beat: number) => void) | undefined;
+  /** El volumen con el que arrancó y los que se le han ido poniendo. */
+  volumenes: number[] = [];
+  #onBeat: ((beat: number, instante?: number) => void) | undefined;
   #dados = 0;
 
   constructor() {
@@ -170,10 +196,15 @@ class MetronomoFalso implements Metronome {
 
   async start(options: MetronomeOptions): Promise<void> {
     this.#onBeat = options.onBeat;
+    this.volumenes.push(options.volume ?? 1);
     this.running = true;
   }
 
   setBpm(): void {}
+
+  setVolume(volumen: number): void {
+    this.volumenes.push(volumen);
+  }
 
   stop(): void {
     this.running = false;
@@ -224,6 +255,7 @@ let ahora = 0;
 
 beforeEach(() => {
   localStorage.clear();
+  useClaqueta.setState({ volumen: VOLUMEN_DE_PARTIDA, callada: false, enLaToma: false });
   useSessionStore.getState().actions.reset();
   useArrangementStore.setState({ arrangement: { parts: [] }, past: [] });
   ahora = 0;
@@ -269,6 +301,8 @@ describe('la claqueta antes de apuntar', () => {
     render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
 
     await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    // La toma empieza en la cuenta: la barra ya se ha apartado.
+    expect(useClaqueta.getState().enLaToma).toBe(true);
 
     // Contando: ni se apunta todavía, ni el botón dice «parar y escribirlo».
     expect(await screen.findByText('8')).toBeInTheDocument();
@@ -287,11 +321,12 @@ describe('la claqueta antes de apuntar', () => {
   });
 
   /**
-   * **Y al empezar a tocar se calla.** Es la razón de ser de todo esto: el clic
-   * sale por los altavoces y el micro lo oye, así que uno que siguiera sonando
-   * entraría en el análisis como señal.
+   * **Y sigue sonando mientras se toca**, que es lo que cambia: antes se callaba
+   * porque el micro lo oía. Ahora el golpe no tiene altura y vive por encima de
+   * lo que se analiza, así que el pulso acompaña la toma entera y se calla al
+   * parar.
    */
-  it('se calla en cuanto se empieza a apuntar', async () => {
+  it('sigue sonando durante la toma, y se calla al parar', async () => {
     render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
 
     await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
@@ -300,10 +335,91 @@ describe('la claqueta antes de apuntar', () => {
       expect(useSessionStore.getState().capturing).toBe(true);
     });
 
-    expect(MetronomoFalso.ultimo?.running, 'la claqueta sigue sonando').toBe(false);
+    expect(MetronomoFalso.ultimo?.running, 'la claqueta se ha callado').toBe(true);
+    // La barra sabe que hay toma, y se aparta.
+    expect(useClaqueta.getState().enLaToma).toBe(true);
+
+    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+    expect(MetronomoFalso.ultimo?.running).toBe(false);
+    expect(useClaqueta.getState().enLaToma).toBe(false);
   });
 
-  // La cuenta se ve además de oírse: dos compases sin nada en pantalla se leen
+  // La luz del pulso, para quien ha quitado el clic: se ve y no se anuncia.
+  it('mientras se toca se ve el pulso y que se esta grabando', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await golpes(8);
+    await waitFor(() => {
+      expect(screen.getByText('Grabando')).toBeInTheDocument();
+    });
+    await golpes(2);
+
+    const luces = screen
+      .getByText('Grabando')
+      .parentElement!.querySelectorAll('span[aria-hidden="true"] > span');
+    expect(luces).toHaveLength(4);
+    // Dos clics de la toma: el uno y el dos. Luce el segundo.
+    expect(luces[1]).toHaveClass('bg-text-muted');
+    expect(luces[0]).toHaveClass('bg-border');
+
+    await golpes(3);
+    expect(luces[0]).toHaveClass('bg-brass-bright');
+  });
+
+  /**
+   * **Se puede bajar y quitar**, antes y durante. Quitarlo no para el pulso: el
+   * metrónomo sigue contando en silencio, y la rejilla sigue sabiendo dónde cae
+   * cada compás.
+   */
+  it('el clic se baja y se quita, tambien mientras suena', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+    const volumen = screen.getByRole('slider', { name: 'Volumen del clic' });
+    expect(volumen).toHaveValue(String(VOLUMEN_DE_PARTIDA * 100));
+    expect(volumen).toHaveAttribute('aria-valuetext', '80 por ciento');
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await golpes(8);
+    // Arranca con el volumen puesto.
+    expect(MetronomoFalso.ultimo?.volumenes[0]).toBe(VOLUMEN_DE_PARTIDA);
+
+    const quitar = screen.getByRole('button', { name: 'Clic durante la toma' });
+    expect(quitar).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(quitar);
+    expect(quitar).toHaveAttribute('aria-pressed', 'false');
+    expect(MetronomoFalso.ultimo?.volumenes.at(-1)).toBe(0);
+    expect(screen.getByRole('slider', { name: 'Volumen del clic' })).toHaveAttribute(
+      'aria-valuetext',
+      'Sin clic',
+    );
+    // Y sigue llevando el pulso.
+    expect(MetronomoFalso.ultimo?.running).toBe(true);
+
+    // Mover el volumen es querer oírlo: vuelve.
+    act(() => {
+      useClaqueta.getState().acciones.ponerVolumen(0.3);
+    });
+    await waitFor(() => {
+      expect(MetronomoFalso.ultimo?.volumenes.at(-1)).toBe(0.3);
+    });
+    expect(screen.getByRole('button', { name: 'Clic durante la toma' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('el volumen se mueve con el deslizador', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+    const volumen = screen.getByRole('slider', { name: 'Volumen del clic' });
+
+    // `fireEvent` y no `userEvent`: jsdom no sabe arrastrar un deslizador.
+    const { fireEvent } = await import('@testing-library/react');
+    fireEvent.change(volumen, { target: { value: '40' } });
+
+    expect(useClaqueta.getState().volumen).toBe(0.4);
+  });
+
+  // La cuenta se ve además de oírse:  // La cuenta se ve además de oírse: dos compases sin nada en pantalla se leen
   // como que la aplicación se ha quedado colgada.
   it('la cuenta se ve bajar', async () => {
     render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
@@ -337,14 +453,19 @@ describe('la claqueta antes de apuntar', () => {
     expect(region).toHaveTextContent(/Faltan dos compases/);
 
     await golpes(1);
-    expect(region).toHaveTextContent('Último compás.');
+    expect(region).toHaveTextContent('Último compás. Después, grabando.');
 
     await golpes(4);
     await waitFor(() => {
       expect(useSessionStore.getState().capturing).toBe(true);
     });
-    // Ni «entra ahora» ni nada: sonaría justo encima del compás uno.
-    expect(region).toBeEmptyDOMElement();
+    // **El mismo texto**, así que no se vuelve a leer: nada suena encima del
+    // compás uno, y lo que se dijo en el último compás ya anunciaba la grabación.
+    expect(region).toHaveTextContent('Último compás. Después, grabando.');
+
+    // Al parar, con el micro ya cerrado, se dice.
+    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+    expect(region).toHaveTextContent('Toma parada.');
   });
 
   /**
@@ -362,8 +483,129 @@ describe('la claqueta antes de apuntar', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /^Tocar$/ })).toBeInTheDocument();
     });
+    expect(useClaqueta.getState().enLaToma).toBe(false);
     expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
     expect(screen.queryByText(/no he podido leer/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * **El punteo se transcribe de cada análisis, y la toma no tiene tope.**
+ *
+ * Se leía del historial de la sesión, que guarda las veinticuatro últimas
+ * entradas: una toma de veinte notas se quedaba en las cinco del final, medido en
+ * el navegador. Ahora se apunta cada análisis del motor mientras se toca.
+ */
+describe('el punteo de una toma entera', () => {
+  beforeEach(() => {
+    MetronomoFalso.ultimo = null;
+    MotorConFotogramas.ultimo = null;
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    // A 60, un pulso es un segundo.
+    useSessionStore.getState().actions.setTempo(60, 4);
+  });
+
+  it('cuarenta notas seguidas entran todas, con su sitio en la rejilla', async () => {
+    render(
+      <TocarParaEscribir
+        deps={{ ...DEPS_CON_CLAQUETA, createEngine: () => new MotorConFotogramas() }}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Punteo' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    // El reloj del test avanza 2000 en cada lectura: los clics de la cuenta caen
+    // donde caigan, y el compás uno es un pulso después del octavo.
+    await golpes(8);
+    await waitFor(() => {
+      expect(useSessionStore.getState().capturing).toBe(true);
+    });
+    const desde = useSessionStore.getState().captureStartedAt;
+    // Cambiar el tempo a mitad no cambia contra qué se mide: se tocó a 60.
+    useSessionStore.getState().actions.setTempo(120, 4);
+
+    // Cuarenta negras, Do y Re alternos, cada una con cuatro análisis.
+    act(() => {
+      for (let nota = 0; nota < 40; nota += 1) {
+        for (let k = 0; k < 4; k += 1) {
+          MotorConFotogramas.ultimo!.emitir({
+            at: desde + 40 + nota * 1000 + k * 200,
+            frequency: nota % 2 === 0 ? 261.63 : 293.66,
+            clarity: 0.98,
+            rms: 0.1 - k * 0.01,
+          });
+        }
+      }
+      // Y el silencio del final, que también se apunta: es donde acaba la última.
+      MotorConFotogramas.ultimo!.emitir({
+        at: desde + 40 + 40 * 1000,
+        frequency: null,
+        clarity: 0,
+        rms: 0.0004,
+      });
+    });
+    // Que el final quede detrás de la última nota.
+    ahora = desde + 50_000;
+    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+
+    const [parte] = useArrangementStore.getState().arrangement.parts;
+    expect(parte!.notes).toHaveLength(40);
+    expect(parte!.notes.map((nota) => nota.start)).toEqual(Array.from({ length: 40 }, (_, i) => i));
+    expect(screen.getByText(/He apuntado 40 notas de punteo/)).toBeInTheDocument();
+  });
+
+  /**
+   * Si el micro se cierra durante la cuenta —desde otro botón de escuchar—, la
+   * toma no tiene motor del que apuntarse: sigue, y al parar no escribe notas.
+   */
+  it('si el micro se cierra durante la cuenta, la toma no revienta', async () => {
+    function CerrarMicro() {
+      const { stop } = useListening();
+      return (
+        <button type="button" onClick={() => void stop()}>
+          Cerrar el micro
+        </button>
+      );
+    }
+    render(
+      <>
+        <TocarParaEscribir
+          deps={{ ...DEPS_CON_CLAQUETA, createEngine: () => new MotorConFotogramas() }}
+        />
+        <CerrarMicro />
+      </>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Punteo' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar el micro' }));
+    await golpes(8);
+    await waitFor(() => {
+      expect(useSessionStore.getState().capturing).toBe(true);
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
+  });
+
+  /**
+   * **Diez minutos y se para sola, escribiendo lo tocado.** No es un tope musical:
+   * es la red para quien deja el micro abierto y se va.
+   */
+  it('a los diez minutos se para y escribe, y lo dice', async () => {
+    let reloj = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => reloj);
+    render(<TocarParaEscribir deps={DEPS} />);
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    suenaUnAcorde();
+
+    reloj = 601_000;
+    await waitFor(
+      () => {
+        expect(screen.getByRole('button', { name: /^Tocar$/ })).toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
+    expect(screen.getByText(/ha llegado a los 10 minutos y se ha parado sola/)).toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 });
 
@@ -399,8 +641,10 @@ describe('solo grabar', () => {
    * cuadrar y contar sería esperar por esperar.
    */
   it('no cuenta compases antes de empezar', async () => {
-    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+    const { container } = render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
     await userEvent.click(screen.getByRole('button', { name: 'Solo grabar' }));
+    // Sin rejilla no hay clic, y no se ofrece.
+    expect(screen.queryByRole('slider', { name: 'Volumen del clic' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
 
@@ -408,6 +652,8 @@ describe('solo grabar', () => {
       expect(useSessionStore.getState().capturing).toBe(true);
     });
     expect(screen.queryByText('8'), 'ha contado').not.toBeInTheDocument();
+    // Aquí sí se dice «grabando»: lo que se oiga de la voz no se va a escribir.
+    expect(container.querySelector('p.sr-only[aria-live="polite"]')).toHaveTextContent('Grabando.');
   });
 
   /**

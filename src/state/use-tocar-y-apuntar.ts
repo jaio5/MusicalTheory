@@ -9,10 +9,17 @@ import { StreamRecorder } from '@media/stream-recorder';
 
 import { canShareStream } from '@audio/stream-source';
 import { WebAudioMetronome, type Metronome } from '@audio/metronome';
+import { frequencyToMidi, type FotogramaDeTono } from '@core/music';
 
+import { useClaqueta, volumenQueSuena } from './claqueta';
 import { contarAtras } from './cuenta-atras';
 
-import { entradaActiva, useListening, type ListeningDeps } from './use-listening';
+import {
+  entradaActiva,
+  motorDeTonoActivo,
+  useListening,
+  type ListeningDeps,
+} from './use-listening';
 import { useSessionStore } from './session-store';
 
 /**
@@ -41,7 +48,29 @@ import { useSessionStore } from './session-store';
  *
  * **Y el sonido no sale de aquí.** Se graba para poder oírlo y descargarlo, como
  * ya hacía la grabadora.
+ *
+ * **El clic suena toda la toma**, no solo en la cuenta: es el mismo metrónomo,
+ * que sigue después del compás uno con el tempo y el compás de la pantalla y el
+ * volumen de `claqueta.ts`. Y mientras suena se apunta **cada análisis** del
+ * motor de tono, no solo el historial de la sesión —que guarda veinticuatro
+ * notas—: es lo que deja transcribir un punteo de la longitud que sea
+ * (`transcribirPunteo`).
+ *
+ * **No tiene tope de compases**: se toca hasta que se para. El único tope es el de
+ * diez minutos de `TOPE_DE_LA_TOMA_S`, que no es musical.
  */
+
+/**
+ * Lo más que dura una toma, en segundos: diez minutos.
+ *
+ * No es un límite de lo que se puede tocar sino una red para quien deja el micro
+ * abierto y se va. Lo que crece con la toma son los análisis —veinte por
+ * segundo, unos 130 bytes cada uno medidos en V8: megabyte y medio en diez
+ * minutos— y el sonido grabado para oírlo, que en el Opus de Chromium sale a un
+ * mega por minuto (236 KB una toma de catorce segundos). Diez minutos son unos
+ * doce megas, que cualquier teléfono aguanta; una tarde entera, no.
+ */
+export const TOPE_DE_LA_TOMA_S = 600;
 
 export type FaseDeTocar = 'quieto' | 'preparando' | 'contando' | 'tocando';
 
@@ -49,6 +78,30 @@ export interface Toma {
   readonly recording: Recording;
   /** La dirección para oírla. La suelta quien la recibe. */
   readonly url: string;
+}
+
+/** Lo que se oyó durante la toma, para transcribirlo al parar. */
+export interface LecturaDeLaToma {
+  /** Cada análisis del motor de tono. Vacío si el motor no sabe darlos. */
+  readonly fotogramas: readonly FotogramaDeTono[];
+  /** Cuándo sonó cada clic desde el compás uno, en la escala de `performance.now`. */
+  readonly clics: readonly number[];
+  /** Dónde cayó el compás uno. */
+  readonly empiezaEn: number;
+  readonly acabaEn: number;
+  /**
+   * El tempo y el compás **con los que se contó**, que son contra los que se
+   * tocó. No los de la pantalla al parar: medir con otros pondría la rejilla de
+   * lo transcrito en un tempo y lo tocado en otro.
+   */
+  readonly bpm: number;
+  readonly beatsPerBar: number;
+}
+
+/** Lo que devuelve parar: el sonido, si se grabó, y lo que se oyó. */
+export interface Parada {
+  readonly toma: Toma | null;
+  readonly lectura: LecturaDeLaToma;
 }
 
 export interface TocarYApuntar {
@@ -65,15 +118,20 @@ export interface TocarYApuntar {
    */
   readonly cuenta: number | null;
   /**
-   * Empieza. Con `conCuenta` en falso no cuenta los dos compases.
+   * El pulso del compás que acaba de sonar, de 0 en adelante, o nulo si no hay
+   * clic: se enseña como una luz, para quien toca con el volumen quitado.
+   */
+  readonly pulso: number | null;
+  /**
+   * Empieza. Con `conCuenta` en falso no cuenta los dos compases ni pone clic.
    *
    * Lo pide «solo grabar»: ahí no se escribe nada, así que no hay rejilla que
    * cuadrar y la cuenta solo sería esperar por esperar
    * ([adr/0056](../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md)).
    */
   readonly empezar: (conCuenta?: boolean) => Promise<void>;
-  /** Para, y devuelve la toma de audio si la hubo. */
-  readonly parar: () => Promise<Toma | null>;
+  /** Para, y devuelve la toma de audio si la hubo y lo que se oyó. */
+  readonly parar: () => Promise<Parada>;
 }
 
 export interface TocarDeps extends ListeningDeps {
@@ -103,12 +161,19 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [segundos, setSegundos] = useState(0);
   const [cuenta, setCuenta] = useState<number | null>(null);
+  const [pulso, setPulso] = useState<number | null>(null);
 
   const micRef = useRef<MicInput | null>(null);
   const grabadorRef = useRef<SessionRecorder | null>(null);
   const metronomoRef = useRef<Metronome | null>(null);
   /** Cómo cortar la cuenta atrás si se para en mitad. Nulo si no está contando. */
   const cortarCuentaRef = useRef<(() => void) | null>(null);
+  /** Lo que se va oyendo: se llena durante la toma y se entrega al parar. */
+  const fotogramasRef = useRef<FotogramaDeTono[]>([]);
+  const clicsRef = useRef<number[]>([]);
+  const empiezaEnRef = useRef(0);
+  const tempoRef = useRef({ bpm: 0, beatsPerBar: 0 });
+  const dejarDeOirRef = useRef<(() => void) | null>(null);
 
   // Las fábricas en una referencia, y no en las dependencias: un componente que
   // pase funciones anónimas las cambia en cada render, y ahí dentro eso cerraría
@@ -117,6 +182,12 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
   useEffect(() => {
     fabricas.current = deps;
   });
+
+  // El volumen se puede mover mientras suena, y se oye en el siguiente clic.
+  const volumen = useClaqueta(volumenQueSuena);
+  useEffect(() => {
+    metronomoRef.current?.setVolume?.(volumen);
+  }, [volumen]);
 
   // El contador se pone a cero al empezar, no aquí: reiniciarlo dentro del
   // efecto es escribir estado durante una sincronización y encadena renders.
@@ -134,7 +205,8 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
   }, [tocando]);
 
   /**
-   * Cuenta los dos compases y dice dónde cae el compás uno.
+   * Cuenta los dos compases, dice dónde cae el compás uno **y deja el clic
+   * sonando**.
    *
    * El tempo sale del ajuste que ya hay y no se pregunta aquí: es el mismo con el
    * que después se miden los pulsos de cada acorde, así que dos sitios donde
@@ -145,21 +217,48 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
     readonly empiezaEn: number;
   }> => {
     const { bpm, beatsPerBar } = useSessionStore.getState();
+    tempoRef.current = { bpm, beatsPerBar };
     const metronomo = fabricas.current.createMetronome?.() ?? new WebAudioMetronome();
     metronomoRef.current = metronomo;
+    clicsRef.current = [];
+    // **La toma empieza en la cuenta, no en el compás uno.** Marcada ya, el
+    // metrónomo de la barra se calla y no deja cambiar el tempo durante los dos
+    // compases: sonarían dos pulsos, y el que se oye al contar es el que manda.
+    useClaqueta.getState().acciones.marcarToma(true);
     setFase('contando');
 
-    const cuentaAtras = contarAtras({ metronomo, bpm, beatsPerBar, alQuedar: setCuenta });
+    // La luz del pulso: cuántos clics han sonado, contando la cuenta. Como la
+    // cuenta son compases enteros, el primero de la toma vuelve a ser el uno.
+    let sonados = 0;
+    const cuentaAtras = contarAtras({
+      metronomo,
+      bpm,
+      beatsPerBar,
+      volumen: volumenQueSuena(useClaqueta.getState()),
+      alQuedar: (quedan) => {
+        setCuenta(quedan);
+      },
+      alClic: (instante) => {
+        clicsRef.current.push(instante);
+        setPulso(sonados % beatsPerBar);
+        sonados += 1;
+      },
+    });
     cortarCuentaRef.current = cuentaAtras.cortar;
 
     const empiezaEn = await cuentaAtras.terminada;
 
     cortarCuentaRef.current = null;
     setCuenta(null);
-    metronomoRef.current = null;
-    await metronomo.dispose();
 
-    return empiezaEn === null ? { fase: 'cortada', empiezaEn: 0 } : { fase: 'contada', empiezaEn };
+    if (empiezaEn === null) {
+      metronomoRef.current = null;
+      setPulso(null);
+      useClaqueta.getState().acciones.marcarToma(false);
+      await metronomo.dispose();
+      return { fase: 'cortada', empiezaEn: 0 };
+    }
+    return { fase: 'contada', empiezaEn };
   }, []);
 
   const empezar = useCallback(
@@ -181,9 +280,10 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       //
       // Antes del micro no puede ir, porque abrirlo pide permiso y puede tardar: la
       // cuenta se quedaría sonando mientras el navegador pregunta. Y antes de
-      // grabar porque así **la claqueta no entra en la toma**: el audio que se
-      // descarga —y el que algún día suba al modelo— empieza donde empiezas a
-      // tocar, no con dos compases de clic.
+      // grabar porque así lo descargado empieza en el compás uno y no con dos
+      // compases de cuenta. **La claqueta sí entra en la toma** si sale por los
+      // altavoces, porque sigue sonando mientras se toca: es un golpe de ruido
+      // agudo y corto, como en cualquier grabación hecha con claqueta.
       // Sin cuenta cuando no se va a escribir nada: no hay rejilla que cuadrar, así
       // que contar sería esperar por esperar.
       const cuentaAtras = conCuenta
@@ -242,19 +342,59 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       // los acordes del motor y las notas del historial, y mezclarlos deja los
       // instantes a mil millones de distancia: el punteo se quedaría entero fuera
       // del tramo y no aparecería ni una nota.
+      // **Cada análisis, desde el compás uno.** Se apunta aquí y no en el estado de
+      // la sesión porque son veinte por segundo y nadie los pinta: meterlos en el
+      // almacén repintaría a todos los suscritos a ese ritmo.
+      fotogramasRef.current = [];
+      empiezaEnRef.current = empiezaEn;
+      if (!conCuenta) {
+        // Sin cuenta no hay rejilla, pero la lectura lleva su tempo igual.
+        const { bpm, beatsPerBar } = useSessionStore.getState();
+        tempoRef.current = { bpm, beatsPerBar };
+      }
+      dejarDeOirRef.current =
+        motorDeTonoActivo()?.subscribeFrames?.((fotograma) => {
+          fotogramasRef.current.push({
+            at: fotograma.at,
+            midi: fotograma.frequency === null ? null : frequencyToMidi(fotograma.frequency),
+            clarity: fotograma.clarity,
+            rms: fotograma.rms,
+          });
+        }) ?? null;
+
       acciones.startCapture(empiezaEn);
       setFase('tocando');
     },
     [acciones, contarAntesDeApuntar, escucha],
   );
 
-  const parar = useCallback(async (): Promise<Toma | null> => {
+  const parar = useCallback(async (): Promise<Parada> => {
     // **Parar en mitad de la cuenta la corta y no empieza nada.** Sin esto, el
     // botón no hacía nada durante dos compases y luego arrancaba solo: pulsar
     // para no grabar y acabar grabando es lo contrario de lo que se pidió.
     cortarCuentaRef.current?.();
 
-    acciones.stopCapture(performance.now());
+    const acabaEn = performance.now();
+    acciones.stopCapture(acabaEn);
+
+    dejarDeOirRef.current?.();
+    dejarDeOirRef.current = null;
+    const lectura: LecturaDeLaToma = {
+      fotogramas: fotogramasRef.current,
+      clics: clicsRef.current,
+      empiezaEn: empiezaEnRef.current,
+      acabaEn,
+      ...tempoRef.current,
+    };
+    fotogramasRef.current = [];
+    clicsRef.current = [];
+
+    // El clic se calla con la toma, y la barra recupera su metrónomo.
+    const metronomo = metronomoRef.current;
+    metronomoRef.current = null;
+    setPulso(null);
+    useClaqueta.getState().acciones.marcarToma(false);
+    await metronomo?.dispose();
 
     const grabador = grabadorRef.current;
     grabadorRef.current = null;
@@ -270,7 +410,10 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
     await mic?.stop();
     setFase('quieto');
 
-    return recording === null ? null : { recording, url: URL.createObjectURL(recording.blob) };
+    return {
+      toma: recording === null ? null : { recording, url: URL.createObjectURL(recording.blob) },
+      lectura,
+    };
   }, [acciones, escucha]);
 
   // Irse de la pantalla en mitad de una toma no puede dejar el micrófono
@@ -284,11 +427,14 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       // encima de la pantalla siguiente.
       cortarCuentaRef.current?.();
       void metronomoRef.current?.dispose();
+      dejarDeOirRef.current?.();
+      dejarDeOirRef.current = null;
+      useClaqueta.getState().acciones.marcarToma(false);
       grabadorRef.current = null;
       micRef.current = null;
       metronomoRef.current = null;
     };
   }, []);
 
-  return { fase, mensaje, segundos, cuenta, empezar, parar };
+  return { fase, mensaje, segundos, cuenta, pulso, empezar, parar };
 }

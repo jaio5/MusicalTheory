@@ -19,13 +19,19 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   alguno**; rasgueando, falla; una inversión —C/E—, falla; una cuerda que roza, la
   escribía **como si estuviera seguro**; y un punteo de dos notas iguales seguidas
   **se apunta como acordes**. El análisis en diferido arrastra lo mismo.
-- **La claqueta: hecha.** Al grabar se cuentan dos compases y se calla, y lo
-  apuntado empieza donde cae el compás uno
-  ([adr/0053](./adr/0053-la-claqueta-cuenta-y-se-calla.md)). Antes se convertía lo
-  tocado con el `bpm` de los ajustes sin darte ningún pulso al que agarrarte. **Lo
-  que queda es medirla tocando**: la claqueta se calla, así que se puede seguir
-  yendo de tempo, y con tomas cortas eso debería ser pequeño —pero es una
-  suposición hasta que se pruebe con una guitarra delante—.
+- **La claqueta: hecha, y suena toda la toma.** Se cuentan dos compases, el clic
+  sigue durante la toma y lo apuntado empieza donde cae el compás uno
+  ([adr/0072](./adr/0072-la-claqueta-suena-toda-la-toma.md), que sustituye en parte
+  al [0053](./adr/0053-la-claqueta-cuenta-y-se-calla.md)). **Lo que queda es
+  tocar con una guitarra de verdad**: el La menor abierto se lee Esus4 o C6; los
+  retrasos de 40 y 520 ms están calibrados con una guitarra sintética; la latencia
+  de entrada del micro no se descuenta; y no hay tresillos ni ligaduras
+  (`LeadNote`, `Staff` y el reproductor no los tienen).
+- **«Traer punteo» del lienzo sigue leyendo el historial de 24 entradas**
+  (`state/session-store.ts`): un punteo largo se queda en sus últimas notas. La
+  toma ya no depende de él, pero esa vía sí.
+- **`VersionsPanel` mezcla instantes relativos a la grabación con un `endedAt` de
+  `performance.now`.**
 - **Preguntar lo dudoso sin tener que ir a buscarlo: hecho.** La corrección estaba
   puesta y solo aparecía para el bloque que tuvieras elegido, así que había que dar
   con los dudosos pulsándolos uno a uno. Ahora la pregunta sale sola, **una y con la
@@ -256,6 +262,19 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
   con un Postgres embebido y funcionó, pero no está montado como opción.
 - **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Se
   queda así a propósito: el diagrama se lee mejor.
+
+- **Las dianas de la rueda, fuera de la portada.** Valen 44 px o más en la
+  portada ([adr/0074](./adr/0074-la-diana-de-la-rueda-sale-de-una-cuenta.md)); en
+  el panel de componer del teléfono y en la columna de escritorio salen en 41 px, y
+  a 320 de ventana no se puede pasar de 38.
+- **Sin plan, el repaso no apunta lo fallado**, y el texto ya lo dice. Falta que
+  decida el usuario si debería apuntarse.
+- **`lectura` entre 768 y 1023** deja el `aside` en unos 200 px
+  ([adr/0073](./adr/0073-las-pantallas-llenan-el-ancho.md)), y `WorkHeader` sigue con
+  16 px de margen frente al `px-margen` del cuerpo.
+- **Regenerar la escena y la mascota con la paleta del
+  [adr/0070](./adr/0070-la-sala-encendida.md)**: `arte/portada/build.py` y
+  `arte/mascota/build.py`.
 
 ## Lo que se decidió no hacer
 

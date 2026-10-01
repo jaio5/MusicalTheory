@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { PAID_PLANS, planOf, priceLabel } from '@core/billing';
-import { Checkout } from '@features/account';
+import { Checkout, ElPlanEntreLosTres } from '@features/account';
 import { billing } from '@server/billing';
 import { Screen } from '@ui/Screen';
 
@@ -51,15 +51,24 @@ export default async function PlanConcreto({ params }: { params: Promise<{ plan:
       {/* El marco común y no uno propio: esta pantalla llevaba su `h1` en la sans,
           la columna centrada y la vuelta como un enlace de doce píxeles al final,
           y era la única de las nueve que no se parecía a las demás (adr/0060).
-          Es de `lectura`: un plan se lee y se confirma, no se compara. */}
+          Es de `lectura`: un plan se lee y se confirma. **Lo que se compara va al
+          lado** (`aside`), los tres planes con el que miras encendido: sin eso, a
+          1920 la pantalla usaba el 40 % del ancho, y para dudar entre dos había
+          que volver a la lista y perder el que se había elegido. */}
       <Screen
         title={`Plan ${plan.name}`}
         back={{ href: '/planes', label: 'Planes' }}
         ancho="lectura"
+        aside={<ElPlanEntreLosTres plan={plan} />}
       >
         {/* Si se cobra de verdad lo decide el cobrador que haya puesto, y se
             pregunta aquí porque `server/` solo lo abre `app/`. */}
-        <Checkout plan={plan} charges={billing().charges} />
+        {/* Media pantalla como mucho, desde `md`: con `lectura` lo principal mide lo
+            que mide su contenido, y el resumen mide 44 rem. A 769 px dejaba al
+            lado una columna de doscientos y los precios saliéndose por el borde. */}
+        <div className="md:max-w-[calc(50vw-3rem)]">
+          <Checkout plan={plan} charges={billing().charges} />
+        </div>
       </Screen>
     </AppShell>
   );

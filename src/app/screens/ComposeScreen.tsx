@@ -609,7 +609,7 @@ export function ComposeScreen() {
                   popover="auto"
                   role="region"
                   aria-label="Cambiar la tonalidad"
-                  className="superficie-alta text-text m-auto max-h-[calc(100dvh-2rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto p-3 backdrop:bg-black/40"
+                  className="superficie-alta text-text backdrop:bg-night/50 m-auto max-h-[calc(100dvh-2rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto p-3"
                 >
                   <div className="flex flex-col items-center gap-2">
                     <KeyPanel compact />
@@ -641,7 +641,7 @@ export function ComposeScreen() {
                 <div
                   id={idBandeja}
                   popover="auto"
-                  className="superficie-alta text-text m-auto w-[min(20rem,calc(100vw-2rem))] p-3 backdrop:bg-black/40"
+                  className="superficie-alta text-text backdrop:bg-night/50 m-auto w-[min(20rem,calc(100vw-2rem))] p-3"
                 >
                   {bandeja}
                 </div>

@@ -63,6 +63,10 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Se compone tocando: el micro escribe acordes y punteo, y la toma de audio se queda al lado.  |
 | Ensayar lo escrito cuenta compases, racha y cual se atraganta, sin castigar por fallar.      |
 | Se retiran las ideas, que ya no tenían ruta ni panel, y las salidas bajan de Pro a Medio.    |
+| La portada cambia el vídeo por un local de ensayo de píxel, con el profesor sobre el ampli.  |
+| La claqueta suena toda la toma, y el clic es un golpe de ruido que el micro no confunde.     |
+| Las pantallas llenan el ancho: margen que crece, dos anchos y un `aside` pegado a un lado.   |
+| La diana de la rueda sale de una cuenta, y pulsar abajo en «C» ya no elige La menor.         |
 
 ## Los fallos que enseñaron algo
 
@@ -206,3 +210,10 @@ ninguno se veía leyendo el código:
   veinticuatro contestaban mal —Do mayor y La menor entre ellas, que son con las
   que arranca la aplicación—. Nada de esto se ve leyendo el código: se ve
   generando las veinticuatro y leyéndolas.
+- **Lo que sale de un generador no se publica sin mirarlo con calma.** El vídeo de
+  la portada llevaba semanas en la primera página que ve cualquiera, y mirado
+  despacio tenía dos cosas que no podían estar: el chico del fotograma tenía cara
+  de un personaje de anime con dueño, y en la esquina de abajo seguía la estrella
+  del generador. Ningún test mira eso, y para algo que se va a cobrar era el problema
+  más caro de la página. Se cambió por una escena dibujada aquí, píxel a píxel
+  ([adr/0069](./adr/0069-la-portada-es-una-escena-de-pixel.md)).
