@@ -14,8 +14,6 @@ import {
   type DegreeSymbol,
 } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
-import { selectReparto, useBancoStore } from '@state/banco';
-import { usePedidoDeIdeas } from '@state/pedido-de-ideas';
 import { usePropuestaStore } from '@state/propuesta';
 import { useSessionStore } from '@state/session-store';
 
@@ -24,12 +22,17 @@ import { ArrangeCanvas } from './ArrangeCanvas';
 const C = pitchClassFromName('C');
 
 beforeEach(() => {
+  // jsdom no trae `scrollIntoView`, y poner un acorde lo pide un fotograma
+  // después para traer la canción a la vista: sin esto, cada test que pone uno
+  // deja un error suelto que tumba el fichero entero con los tests en verde.
+  Element.prototype.scrollIntoView = () => {};
+  // Y tampoco `elementFromPoint`, que es con lo que se mira antes si algo la tapa.
+  document.elementFromPoint = () => null;
   useArrangementStore.setState({ arrangement: EMPTY_ARRANGEMENT, past: [] });
   useSessionStore.getState().actions.reset();
   // Lo propuesto y sin aceptar también se queda de una prueba para otra, y una
   // propuesta colgando esconde media barra de herramientas.
   usePropuestaStore.setState({ propuesta: null });
-  usePedidoDeIdeas.setState({ pendiente: false });
 });
 
 /**
@@ -217,12 +220,41 @@ describe('el teclado, que es lo que un arrastre no da', () => {
 });
 
 describe('deshacer', () => {
-  it('empieza apagado y se enciende al hacer algo', async () => {
+  /**
+   * Sin canción no está, y aparece con lo primero que se hace.
+   *
+   * Estaba siempre, apagado, al lado de las siete figuras: ocho mandos que no
+   * servían para nada compitiendo con el estado vacío, que es lo único que tiene
+   * algo que decir a quien acaba de llegar.
+   */
+  it('sin cancion no esta, y aparece al hacer algo', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
 
-    expect(screen.getByRole('button', { name: 'Deshacer' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Deshacer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Duración de la nota' })).not.toBeInTheDocument();
     await userEvent.click(propuestas()[0]!);
+    expect(screen.getByRole('button', { name: 'Deshacer' })).toBeEnabled();
+  });
+
+  // Con una parte vacía está, apagado: ya hay canción y habrá algo que deshacer.
+  it('con una parte sin nada, esta pero apagado', () => {
+    conTonalidad();
+    useArrangementStore.getState().actions.addPart('Estrofa');
+    useArrangementStore.setState({ past: [] });
+    render(<ArrangeCanvas />);
+
+    expect(screen.getByRole('button', { name: 'Deshacer' })).toBeDisabled();
+  });
+
+  // Y quitar la última parte deja la canción vacía, que es justo cuando más falta
+  // hace volver atrás: ahí sigue.
+  it('borrada la ultima parte, sigue para poder volver', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(screen.getByRole('button', { name: 'Quitar Estrofa' }));
+
     expect(screen.getByRole('button', { name: 'Deshacer' })).toBeEnabled();
   });
 
@@ -429,7 +461,7 @@ describe('el punteo', () => {
   // detrás de un conmutador la convertía en un extra.
   it('la partitura es lo primero que se ve', async () => {
     await conAcordes();
-    expect(screen.getByRole('img', { name: /Partitura de Estrofa/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /Partitura de Estrofa/ })).toBeInTheDocument();
   });
 
   // En partitura los acordes se leen encima del pentagrama. Una tira de cajas
@@ -509,6 +541,7 @@ describe('las dos vistas del punteo enseñan lo mismo', () => {
 describe('las duraciones que se pueden elegir', () => {
   it('hay una por duracion, con nombre de figura y sin repetir', () => {
     conTonalidad();
+    useArrangementStore.getState().actions.addPart('Estrofa');
     render(<ArrangeCanvas />);
 
     const botones = within(screen.getByRole('group', { name: 'Duración de la nota' })).getAllByRole(
@@ -700,7 +733,7 @@ describe('lo que se oyó, y lo que no', () => {
 describe('apuntar lo que se toca', () => {
   /**
    * Apuntar acordes lo hace el motor de croma en el propio equipo: no cuesta IA
-   * ni gasta cupo. Estaba solo en el panel de Salidas, que va con plan Pro, y eso
+   * ni gasta cupo. Estaba solo en el panel de Salidas, que va con plan de pago, y eso
    * dejaba «Traer lo grabado» sin nada que traer para quien no paga.
    */
   it('se puede apuntar sin cuenta y sin plan', async () => {
@@ -873,7 +906,7 @@ describe('la longitud de la partitura', () => {
 
   it('una parte nueva ya trae compases donde escribir', async () => {
     await conUnaParte();
-    expect(screen.getByRole('img', { name: /Partitura de Parte 1/ })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: /Partitura de Parte 1/ })).toBeInTheDocument();
     expect(compases()).toHaveValue(4);
   });
 
@@ -1221,6 +1254,7 @@ describe('Los gestos sobre el lienzo', () => {
 describe('La figura con la que se escribe', () => {
   it('se elige, y se dice cual esta puesta', async () => {
     conTonalidad();
+    useArrangementStore.getState().actions.addPart('Estrofa');
     render(<ArrangeCanvas />);
 
     const blanca = screen.getByRole('button', { name: 'blanca' });
@@ -1639,31 +1673,6 @@ describe('Lo que mide el carril', () => {
 
     expect(desconectar).toHaveBeenCalled();
     vi.unstubAllGlobals();
-  });
-});
-
-describe('Pedirle una idea al copiloto', () => {
-  /**
-   * El botón no llama al modelo: deja el pedido en `state/` y abre el panel, que
-   * lo recoge al ponerse delante. Un feature no importa de otro.
-   */
-  it('deja el pedido puesto y abre el panel', async () => {
-    conTonalidad();
-    render(<ArrangeCanvas />);
-    await userEvent.click(propuestas()[0]!);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Pídeme una idea' }));
-
-    expect(usePedidoDeIdeas.getState().pendiente).toBe(true);
-    expect(selectReparto(useBancoStore.getState()).abajo).toBe('ideas');
-  });
-
-  // Con la canción en blanco no hay sobre qué proponer, así que no sale.
-  it('con la cancion en blanco, ni aparece', () => {
-    conTonalidad();
-    render(<ArrangeCanvas />);
-
-    expect(screen.queryByRole('button', { name: 'Pídeme una idea' })).not.toBeInTheDocument();
   });
 });
 
@@ -2087,5 +2096,308 @@ describe('descargar la cancion en MIDI', () => {
 
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+});
+
+/**
+ * Mover y estirar un acorde **sin arrastrar** (WCAG 2.5.7).
+ *
+ * Se podía arrastrando o con las flechas sobre el bloque enfocado. En un
+ * teléfono no hay teclado, y quien no puede arrastrar se quedaba sin mover nada:
+ * el panel de lo elegido hace ahora lo mismo que las flechas, y además se lleva
+ * el acorde a otra parte.
+ */
+describe('lo elegido, sin arrastrar', () => {
+  async function conTresAcordesYElPrimeroElegido() {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await enBloques();
+    await userEvent.click(propuestas()[0]!);
+    await userEvent.click(propuestas()[1]!);
+    await userEvent.click(propuestas()[2]!);
+    await userEvent.click(tiraDe('Estrofa')[0]!);
+    return within(screen.getByRole('region', { name: 'Lo elegido' }));
+  }
+
+  const bloques = () => useArrangementStore.getState().arrangement.parts[0]!.blocks;
+
+  it('antes y despues lo mueven, y en el borde no se ofrece seguir', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    const primero = bloques()[0]!.id;
+
+    expect(panel.getByRole('button', { name: /antes$/ })).toBeDisabled();
+    await userEvent.click(panel.getByRole('button', { name: /después$/ }));
+
+    expect(bloques()[1]!.id).toBe(primero);
+    await userEvent.click(panel.getByRole('button', { name: /antes$/ }));
+    expect(bloques()[0]!.id).toBe(primero);
+  });
+
+  /**
+   * En una fila que se envolvía salían tres y uno: «+ pulso» solo abajo, lejos
+   * de su pareja. Dos pares en rejilla, arriba mover y abajo estirar.
+   */
+  it('van en dos pares, mover arriba y estirar abajo', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    const grupo = panel.getByRole('group', { name: 'Mover y estirar' });
+    const nombres = within(grupo)
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+
+    expect(grupo.className).toContain('grid-cols-2');
+    expect(nombres).toEqual(['Antes', 'Después', '− pulso', '+ pulso']);
+  });
+
+  it('y al final de la parte, despues se apaga', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    await userEvent.click(panel.getByRole('button', { name: /después$/ }));
+    await userEvent.click(panel.getByRole('button', { name: /después$/ }));
+
+    expect(panel.getByRole('button', { name: /después$/ })).toBeDisabled();
+  });
+
+  it('mas y menos pulso lo estiran, entre sus topes', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    const antes = bloques()[0]!.beats;
+
+    await userEvent.click(panel.getByRole('button', { name: /Un pulso más/ }));
+    expect(bloques()[0]!.beats).toBe(antes + 1);
+
+    await userEvent.click(panel.getByRole('button', { name: /Un pulso menos/ }));
+    expect(bloques()[0]!.beats).toBe(antes);
+  });
+
+  it('en un pulso no se puede acortar, y en el tope no se puede alargar', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    const id = bloques()[0]!.id;
+
+    act(() => useArrangementStore.getState().actions.resizeBlock(id, 1));
+    expect(panel.getByRole('button', { name: /Un pulso menos/ })).toBeDisabled();
+
+    act(() => useArrangementStore.getState().actions.resizeBlock(id, 16));
+    expect(panel.getByRole('button', { name: /Un pulso más/ })).toBeDisabled();
+  });
+
+  // Con una sola parte no hay adónde llevarlo, y el selector no se ofrece.
+  it('con una sola parte no ofrece llevarlo a otra', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+
+    expect(panel.queryByRole('combobox', { name: 'Mover a la parte' })).not.toBeInTheDocument();
+  });
+
+  it('con otra parte, se lo lleva al final de ella', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    const id = bloques()[0]!.id;
+    let otra = '';
+    act(() => {
+      otra = useArrangementStore.getState().actions.addPart('Estribillo');
+    });
+
+    await userEvent.selectOptions(
+      panel.getByRole('combobox', { name: 'Mover a la parte' }),
+      'Estribillo',
+    );
+
+    const destino = useArrangementStore
+      .getState()
+      .arrangement.parts.find((part) => part.id === otra)!;
+    expect(destino.blocks.map((block) => block.id)).toEqual([id]);
+    expect(bloques()).toHaveLength(2);
+  });
+
+  // Y dice las teclas, que existían y no las decía nadie.
+  it('dice las teclas del bloque, y el bloque las anuncia', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+
+    expect(panel.getByText(/Con el teclado:/)).toBeInTheDocument();
+    expect(tiraDe('Estrofa')[0]).toHaveAttribute(
+      'aria-keyshortcuts',
+      expect.stringContaining('Shift+ArrowRight'),
+    );
+  });
+
+  // Con una nota elegida no hay que mover bloques: solo se ofrece quitarla.
+  it('con una nota elegida, solo quitar', async () => {
+    conTonalidad();
+    useArrangementStore.setState({
+      arrangement: {
+        parts: [
+          {
+            id: 'p',
+            name: 'Estrofa',
+            blocks: [],
+            notes: [{ id: 'n1', start: 0, length: 1, offset: 0 }],
+            bars: 1,
+          },
+        ],
+      },
+      past: [],
+    });
+    render(<ArrangeCanvas />);
+    await enBloques();
+    const nota = screen
+      .getAllByRole('button')
+      .find((b) => (b.getAttribute('aria-label') ?? '').includes('en el pulso 0'))!;
+    await userEvent.click(nota);
+
+    const panel = within(screen.getByRole('region', { name: 'Lo elegido' }));
+    expect(panel.queryByRole('button', { name: /después$/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('los gestos que se quedan a medias', () => {
+  function arrastrarHasta(x: number, y: number) {
+    act(() => {
+      window.dispatchEvent(
+        new PointerEvent('pointermove', { clientX: x, clientY: y, cancelable: true }),
+      );
+    });
+  }
+
+  async function conUnAcordeMedido() {
+    conTonalidad();
+    const vista = render(<ArrangeCanvas />);
+    await enBloques();
+    await userEvent.click(propuestas()[0]!);
+    const [bloque] = tiraDe('Estrofa');
+    bloque!.getBoundingClientRect = () =>
+      ({ left: 0, right: 100, top: 0, bottom: 50, width: 100, height: 50 }) as DOMRect;
+    return { vista, bloque: bloque! };
+  }
+
+  const pulsos = () => useArrangementStore.getState().arrangement.parts[0]!.blocks[0]!.beats;
+
+  /**
+   * Un estirón es un paso de deshacer, no uno por movimiento: sin abrir el gesto,
+   * volver atrás un estirón pedía pulsar «Deshacer» tantas veces como
+   * movimientos del puntero.
+   */
+  it('estirar es un solo paso de deshacer', async () => {
+    const { bloque } = await conUnAcordeMedido();
+    const antes = pulsos();
+
+    fireEvent.pointerDown(bloque, { button: 0, clientX: 98 });
+    arrastrarHasta(150, 10);
+    arrastrarHasta(250, 10);
+    arrastrarHasta(350, 10);
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointerup'));
+    });
+    expect(pulsos()).not.toBe(antes);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+
+    expect(pulsos()).toBe(antes);
+  });
+
+  // Desmontado a mitad del estirón, el ratón deja de estirar lo que ya no está.
+  it('desmontarse a mitad de estirar deja de escuchar', async () => {
+    const { vista, bloque } = await conUnAcordeMedido();
+    fireEvent.pointerDown(bloque, { button: 0, clientX: 98 });
+    arrastrarHasta(150, 10);
+    const aMedias = pulsos();
+
+    vista.unmount();
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: 600, clientY: 10 }));
+
+    expect(pulsos()).toBe(aMedias);
+  });
+
+  // Y a mitad de arrastrar una propuesta, soltar ya no escribe nada.
+  it('desmontarse a mitad de arrastrar una propuesta no pone nada', async () => {
+    const { vista } = await conUnAcordeMedido();
+    document.elementFromPoint = () => screen.getByRole('region', { name: 'Estrofa' });
+    fireEvent.pointerDown(propuestas()[1]!, { button: 0, clientX: 0, clientY: 0 });
+    arrastrarHasta(400, 10);
+
+    vista.unmount();
+    window.dispatchEvent(new PointerEvent('pointerup'));
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.blocks).toHaveLength(1);
+  });
+
+  /**
+   * El fantasma de la propuesta sigue al puntero sin repintar: se le escribe el
+   * `transform`, y el estado solo cambia cuando cambia la parte de debajo.
+   */
+  it('el fantasma de la propuesta sigue al puntero por transform', async () => {
+    await conUnAcordeMedido();
+    document.elementFromPoint = () => screen.getByRole('region', { name: 'Estrofa' });
+    fireEvent.pointerDown(propuestas()[1]!, { button: 0, clientX: 0, clientY: 0 });
+    arrastrarHasta(400, 10);
+    arrastrarHasta(410, 12);
+
+    const fantasma = document.querySelector<HTMLElement>('.fixed.z-50');
+    expect(fantasma?.style.transform).toBe('translate3d(410px, 12px, 0)');
+
+    // Fuera de la canción cambia el destino, y el fantasma se apaga.
+    document.elementFromPoint = () => document.body;
+    arrastrarHasta(420, 14);
+    expect(document.querySelector('.fixed.z-50 .opacity-70')).not.toBeNull();
+    act(() => {
+      window.dispatchEvent(new PointerEvent('pointerup'));
+    });
+  });
+});
+
+describe('la columna de al lado y la barra vacía', () => {
+  // Un `aside` dentro de la región del arreglo es un complementario anidado, que
+  // es lo que marcaba axe: es una región con nombre.
+  it('lo que poner ahora es una region, no un complementario', () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    expect(screen.getByRole('region', { name: 'Qué poner ahora' })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  });
+
+  // «sin nada todavía» es una frase, y va en la sans; los compases, en la mono.
+  it('la frase del vacio va en la sans, y los compases en la mono', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    expect(screen.getByText('sin nada todavía')).not.toHaveClass('font-mono');
+    await userEvent.click(propuestas()[0]!);
+    const barra = screen.getByRole('button', { name: 'Escuchar la canción' }).parentElement!;
+    expect(within(barra).getByText(/compás|compases/)).toHaveClass('font-mono');
+  });
+});
+
+/**
+ * La barra del lienzo eran tres filas de cajas con el mismo borde, y se leían
+ * como una sola lista de doce botones. La vista es un segmentado y entre los
+ * grupos hay una raya.
+ */
+describe('la barra del lienzo, por grupos', () => {
+  it('la vista se elige en un segmentado, y entre los grupos hay raya', async () => {
+    conTonalidad();
+    const { container } = render(<ArrangeCanvas />);
+    await enBloques();
+    await userEvent.click(screen.getAllByRole('button', { name: /^(I|C)\b/ })[0]!);
+
+    const vista = screen.getByRole('group', { name: 'Cómo llevar el punteo' });
+    expect(within(vista).getByRole('button', { name: 'Bloques' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // Una tras la vista, otra antes de las figuras y otra antes de «Deshacer».
+    expect(container.querySelectorAll('[data-separador]')).toHaveLength(3);
+  });
+});
+
+/**
+ * «Estrofa» al lado de «Una idea», sin nada en medio, se leía como una frase:
+ * una estrofa cuyo papel es una idea. El selector lleva su rótulo a la vista, y
+ * su nombre sigue diciendo de qué parte es.
+ */
+describe('el papel de una parte', () => {
+  it('lleva el rotulo «Papel» a la vista', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await enBloques();
+    await userEvent.click(screen.getAllByRole('button', { name: /^(I|C)\b/ })[0]!);
+
+    const selector = screen.getByRole('combobox', { name: /^Papel de / });
+    expect(selector.closest('label')!.parentElement!.textContent).toMatch(/^Papel/);
   });
 });

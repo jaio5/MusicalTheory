@@ -34,6 +34,23 @@ export interface PitchDetection {
 const PEAK_TOLERANCE = 0.9;
 
 /**
+ * Los dos búferes de trabajo, **uno de cada para siempre**.
+ *
+ * Se reservaban nuevos en cada análisis: veinte veces por segundo, dos
+ * `Float64Array` de unos dos mil y cuatro mil huecos —más de cuarenta kilobytes—
+ * puestos a cero y tirados enseguida. Eso es basura que el recolector tiene que
+ * barrer mientras suena la guitarra, y sus pausas caen en el hilo que pinta.
+ *
+ * Crecen si llega una ventana más grande y nunca encogen: el tamaño lo fija el
+ * motor y no cambia mientras escucha. Lo que se lee de ellos va siempre por una
+ * vista del tamaño exacto (`subarray`, que no copia), así que un resto de un
+ * análisis anterior no puede colarse en el siguiente: fuera de la vista no hay
+ * nada que leer, igual que con un búfer recién hecho.
+ */
+let energiaReservada = new Float64Array(0);
+let correlacionReservada = new Float64Array(0);
+
+/**
  * Devuelve la frecuencia fundamental del bloque, o null si no hay señal
  * suficiente, si el pico no es lo bastante claro o si la frecuencia se sale del
  * rango de la guitarra. Devolver null es una respuesta válida: es preferible no
@@ -65,7 +82,13 @@ export function detectPitch(
   // Energía acumulada: permite sacar la energía de cualquier tramo en tiempo
   // constante, y con ella normalizar cada desplazamiento sin recorrer el bloque
   // otra vez.
-  const cumulativeEnergy = new Float64Array(length + 1);
+  if (energiaReservada.length < length + 1) {
+    energiaReservada = new Float64Array(length + 1);
+  }
+  const cumulativeEnergy = energiaReservada.subarray(0, length + 1);
+  // El búfer se reutiliza, así que el cero de partida hay que ponerlo: ya no
+  // viene de fábrica.
+  cumulativeEnergy[0] = 0;
   for (let i = 0; i < length; i += 1) {
     const sample = samples[i]!;
     cumulativeEnergy[i + 1] = cumulativeEnergy[i]! + sample * sample;
@@ -84,7 +107,12 @@ export function detectPitch(
     return null;
   }
 
-  const correlation = new Float64Array(maxLag + 1);
+  if (correlacionReservada.length < maxLag + 1) {
+    correlacionReservada = new Float64Array(maxLag + 1);
+  }
+  // Se escriben todos los huecos de la vista antes de leer ninguno, así que no
+  // hace falta ponerlos a cero.
+  const correlation = correlacionReservada.subarray(0, maxLag + 1);
   for (let lag = 0; lag <= maxLag; lag += 1) {
     const overlap = length - lag;
     let sum = 0;

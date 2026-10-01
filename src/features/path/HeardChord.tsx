@@ -157,6 +157,19 @@ export function HeardChord({
       </div>
 
       {chord !== null && <VoicingList chord={chord} />}
+
+      {/* **Se anuncia el que se queda, no el que suena.** Mientras tocas, el
+          acorde cambia con cada rasgueo y a veces con cada fotograma que el
+          motor duda; leído en voz alta sería un parloteo, y además sale por el
+          altavoz que el micro está oyendo. Al soltar, el rótulo pasa a
+          «Último» y eso sí es una respuesta: lo que has tocado, una vez. Es el
+          criterio de la región del afinador, que tampoco lee cada cent.
+
+          Montada siempre, aunque vacía: una región que nace con el texto dentro
+          no se anuncia, y el primer acorde es justo el que más importa. */}
+      <p aria-live="polite" className="sr-only">
+        {!sounding && chord !== null ? `Último acorde: ${chord.symbol}.` : ''}
+      </p>
     </section>
   );
 }

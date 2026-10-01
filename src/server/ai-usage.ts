@@ -1,6 +1,11 @@
 /**
  * Los dos cupos de llamadas al modelo: el del mes y el del día.
  *
+ * **Se cuentan en preguntas al profesor, no en peticiones** (adr/0067): una
+ * pregunta gasta una y una tanda de salidas gasta las que cuesta —tres, hoy—.
+ * Las columnas siguen siendo las mismas enteras; lo que cambia es cuánto sube
+ * cada una por petición.
+ *
  * Esto es lo que de verdad hay que defender, y hasta hace poco no se defendía:
  * había un cupo diario escrito a mano que nadie había multiplicado por treinta
  * días ni por el precio del modelo. Cuarenta al día con Opus 5 son unos veintiséis
@@ -9,8 +14,8 @@
  * Ahora hay dos topes y cada uno hace un trabajo distinto:
  *
  * - **El del mes protege el dinero.** Sale de dividir el presupuesto del plan
- *   —lo que se puede gastar sin comerse el margen— entre el peor caso de una
- *   petición. Está calculado en `core/billing/cost.ts`.
+ *   —lo que se puede gastar sin comerse el margen— entre lo que cuesta una
+ *   pregunta. Está calculado en `core/billing/cost.ts`.
  * - **El del día protege la experiencia.** Evita que alguien se funda el mes en
  *   una tarde y se quede treinta días sin profesor, que es una forma rara de
  *   cumplir lo prometido.
@@ -42,9 +47,9 @@ export function serverMonth(now: Date = new Date()): string {
 }
 
 export interface Usage {
-  /** Peticiones que van este mes. */
+  /** Preguntas del cupo gastadas este mes. */
   readonly month: number;
-  /** Peticiones que van hoy. */
+  /** Preguntas del cupo gastadas hoy. */
   readonly today: number;
 }
 
@@ -60,7 +65,9 @@ export type SpendResult =
   | { readonly kind: 'sin-contador' };
 
 /**
- * Gasta una petición del cupo de una cuenta, si queda en los dos topes.
+ * Gasta `unidades` preguntas del cupo de una cuenta, si caben enteras en los dos
+ * topes. **Enteras o nada**: dejar pasar una salida con dos preguntas restantes
+ * sería pagar una petición que el presupuesto no cubre.
  *
  * Una sola sentencia: sube los dos contadores y comprueba los dos topes en el
  * `where` del `on conflict`. Si no devuelve fila, es que uno de los dos topes lo
@@ -74,12 +81,15 @@ export type SpendResult =
 export async function spendAiRequest(
   userId: string,
   limits: { readonly monthly: number; readonly daily: number },
+  unidades = 1,
   now: Date = new Date(),
 ): Promise<SpendResult> {
-  if (limits.monthly <= 0) {
+  // La fila nueva entra por el `insert` y no pasa por el `where` del conflicto,
+  // así que lo que no cabe ni en un cupo vacío se para aquí.
+  if (unidades > limits.monthly) {
     return { kind: 'sin-cupo-mensual' };
   }
-  if (limits.daily <= 0) {
+  if (unidades > limits.daily) {
     return { kind: 'sin-cupo-diario' };
   }
   const database = db();
@@ -93,16 +103,17 @@ export async function spendAiRequest(
   try {
     const rows = await database
       .insert(aiUsage)
-      .values({ userId, month, count: 1, day, dayCount: 1 })
+      .values({ userId, month, count: unidades, day, dayCount: unidades })
       .onConflictDoUpdate({
         target: [aiUsage.userId, aiUsage.month],
         set: {
-          count: sql`${aiUsage.count} + 1`,
+          count: sql`${aiUsage.count} + ${unidades}`,
           day: sql`${day}`,
-          dayCount: sql`case when ${aiUsage.day} = ${day} then ${aiUsage.dayCount} + 1 else 1 end`,
+          dayCount: sql`case when ${aiUsage.day} = ${day} then ${aiUsage.dayCount} + ${unidades} else ${unidades} end`,
         },
-        setWhere: sql`${aiUsage.count} < ${limits.monthly}
-          and (${aiUsage.day} <> ${day} or ${aiUsage.dayCount} < ${limits.daily})`,
+        // Sobre `day` ya cabe: el `if` de arriba garantiza `unidades <= daily`.
+        setWhere: sql`${aiUsage.count} + ${unidades} <= ${limits.monthly}
+          and (${aiUsage.day} <> ${day} or ${aiUsage.dayCount} + ${unidades} <= ${limits.daily})`,
       })
       .returning({ count: aiUsage.count, dayCount: aiUsage.dayCount });
 
@@ -115,7 +126,7 @@ export async function spendAiRequest(
     // es lo que permite decir «vuelve mañana» o «sube de plan» en vez de un
     // «límite alcanzado» que obliga a adivinar.
     const usage = await aiUsageOf(userId, now);
-    return usage.month >= limits.monthly
+    return usage.month + unidades > limits.monthly
       ? { kind: 'sin-cupo-mensual' }
       : { kind: 'sin-cupo-diario' };
   } catch {

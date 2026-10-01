@@ -13,6 +13,7 @@ import {
   type ScaleId,
 } from '@core/music';
 import { useMedida } from '@ui/use-medida';
+import { useMemo } from 'react';
 
 const NUT_X = 46;
 /** Lo que mide un traste cuando el mástil se dibuja a su tamaño natural. */
@@ -38,6 +39,12 @@ const HEIGHT = TOP + STRING_GAP * 5 + ABAJO;
  * bastante más ancho que su proporción natural y todavía se lee como un mástil.
  */
 const MAS_FINO = 5;
+
+/**
+ * Qué cuerda va en qué fila. Depende solo de la afinación, que es fija: se
+ * calcula una vez al cargar y no en cada pintada.
+ */
+const FILA_DE_LA_CUERDA = new Map(STANDARD_TUNING.map((string, index) => [string.number, index]));
 const ANCHO_NATURAL = NUT_X + TRASTE_NATURAL * DEFAULT_FRET_COUNT + 18;
 
 /**
@@ -113,11 +120,19 @@ export function Fretboard({
       : ANCHO_NATURAL;
   const traste = (ancho - NUT_X - 18) / DEFAULT_FRET_COUNT;
 
-  const notes = scaleNotes(tonic, scaleId);
-  const delAcorde = new Set(chordNotes ?? []);
+  /*
+    Las casillas de la escala, **solo cuando cambia la escala**.
+
+    Son noventa y seis posiciones filtradas contra la escala, y el mástil se
+    repinta cada vez que cambia la nota que suena o su caja: recalcularlas ahí
+    era rehacer lo mismo varias veces por segundo mientras se toca.
+  */
+  const positions = useMemo(() => {
+    const notes = scaleNotes(tonic, scaleId);
+    return fretboardPositions().filter((position) => notes.includes(position.pitchClass));
+  }, [tonic, scaleId]);
+  const delAcorde = useMemo(() => new Set(chordNotes ?? []), [chordNotes]);
   const hayAcorde = delAcorde.size > 0;
-  const positions = fretboardPositions().filter((position) => notes.includes(position.pitchClass));
-  const stringIndex = new Map(STANDARD_TUNING.map((string, index) => [string.number, index]));
 
   // El alto sale de la proporción del dibujo, así que no sobra ni falta sitio a
   // los lados; el tope es lo que impide que en un área ancha y baja el dibujo
@@ -214,7 +229,7 @@ export function Fretboard({
 
         {positions.map((position) => {
           /* v8 ignore next -- las posiciones salen de la misma afinacion con la que se hizo el mapa */
-          const index = stringIndex.get(position.string.number) ?? 0;
+          const index = FILA_DE_LA_CUERDA.get(position.string.number) ?? 0;
           const x = position.fret === 0 ? NUT_X - 18 : NUT_X + traste * (position.fret - 0.5);
           const y = TOP + STRING_GAP * index;
           const isTonic = position.pitchClass === tonic;

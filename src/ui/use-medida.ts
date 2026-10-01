@@ -42,10 +42,16 @@ export function useMedida<T extends HTMLElement>(): {
       return;
     }
     const observador = new ResizeObserver(([entrada]) => {
-      setMedida({
-        ancho: entrada?.contentRect.width ?? 0,
-        alto: entrada?.contentRect.height ?? 0,
-      });
+      const ancho = entrada?.contentRect.width ?? 0;
+      const alto = entrada?.contentRect.height ?? 0;
+      // **Lo mismo que había no es una medida nueva.** El observador avisa
+      // también cuando cambia algo que no es el tamaño —y arrastrando un divisor
+      // avisa en cada fotograma—, y un objeto nuevo con los mismos dos números
+      // repinta el lienzo entero para nada. Devolviendo el de antes, React ni
+      // entra.
+      setMedida((antes) =>
+        antes.ancho === ancho && antes.alto === alto ? antes : { ancho, alto },
+      );
     });
     observador.observe(caja);
     return () => observador.disconnect();

@@ -9,16 +9,15 @@ la lista de lo que falta para publicar y cobrar está en
 
 ## Lo que la aplicación necesita del sitio donde viva
 
-**Un servidor de Node.** No vale un alojamiento estático. Hay **tres** rutas que
-corren en el servidor y que existen precisamente para que la clave del modelo no
+**Un servidor de Node.** No vale un alojamiento estático. Hay **dos** rutas de IA
+que corren en el servidor y que existen precisamente para que la clave del modelo no
 llegue nunca al navegador:
 
-- `/api/ideas` — las ideas de progresión.
 - `/api/teacher` — el profesor.
 - `/api/versiones` — las salidas: por dónde puede seguir lo que llevas tocado. Es
-  la más cara de las tres.
+  la más cara de las dos.
 
-Las tres pasan por las mismas puertas —frecuencia, cuenta y cupo— y están en un
+Las dos pasan por las mismas puertas —frecuencia, cuenta y cupo— y están en un
 solo sitio, `server/ai-gate.ts`.
 
 Todo lo demás —afinador, rueda, mástil, acordes, metrónomo, grabación— corre en
@@ -45,7 +44,7 @@ equipo de quien toca y las cuentas no han cambiado eso.
 
 | Variable                                  | Hace falta        | Para qué                                                                                                                      |
 | ----------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Las tres rutas. Sin ella contesta el modelo de casa si lo hay, y si tampoco, el dominio; en producción se contesta 503.       |
+| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Las dos rutas. Sin ella contesta el modelo de casa si lo hay, y si tampoco, el dominio; en producción se contesta 503.        |
 | `OLLAMA_URL` / `OLLAMA_MODEL`             | No                | Un modelo en tu equipo para probar sin clave y sin factura. **La clave le gana**: con las dos puestas contesta la API.        |
 | `ANTHROPIC_MODEL`                         | No                | Cambiar de modelo sin tocar código. Por defecto, `claude-opus-5`. **Cambia los cupos de todos los planes**: ver abajo.        |
 | `DATABASE_URL`                            | Solo para cuentas | Postgres. Sin ella no hay cuentas ni planes, y todo lo demás funciona igual.                                                  |
@@ -102,9 +101,14 @@ contraseñas, que son puros.
 
 ## Las cabeceras de seguridad, que las pone la aplicación
 
-No hay que configurarlas en el sitio donde viva: las escribe `src/middleware.ts`
+No hay que configurarlas en el sitio donde viva: las escribe `src/proxy.ts`
 en cada respuesta, así que valen igual en Vercel, en un contenedor y en un
 servidor propio. Si el sitio añade las suyas, gana la suya; conviene mirarlo.
+
+Se llamaba `middleware.ts` hasta Next 16, que dejó ese nombre en desuso: hace lo
+mismo, y lo que cambia sin decirlo es que **`proxy` corre en Node** y no en el
+runtime de borde. Para estas cabeceras da igual; si algún día se le pide algo que
+solo exista en uno de los dos, conviene saberlo.
 
 - **`Content-Security-Policy`** con un número de un solo uso por petición. La
   aplicación no carga nada de fuera —ni un guion, ni una hoja, ni una fuente, ni
@@ -122,13 +126,13 @@ escriben estilos en el atributo `style` —el ancho de un bloque, el avance de u
 barra— y no hay número que valga para eso. Un estilo inyectado puede afear la
 página; no puede ejecutar nada.
 
-Lo vigila `src/middleware.test.ts`, que comprueba que el número cambia en cada
+Lo vigila `src/proxy.test.ts`, que comprueba que el número cambia en cada
 petición y que `'unsafe-inline'` no se cuela en los guiones.
 
 ## Camino 1: Vercel
 
 Es la casa de Next y no necesita configuración: detecta el proyecto, compila y
-sirve las tres rutas como funciones.
+sirve las rutas de IA como funciones.
 
 ```bash
 npx vercel            # la primera vez pide entrar; abre el navegador
@@ -230,8 +234,8 @@ mismo.
 ## Lo que no vale: alojamiento estático
 
 GitHub Pages y compañía sirven ficheros, no ejecutan Node. Se puede publicar así
-—`output: 'export'`— pero entonces desaparecen las tres rutas de la IA, y con
-ellas el profesor y las ideas. El resto de la aplicación seguiría funcionando.
+—`output: 'export'`— pero entonces desaparecen las rutas de la IA, y con ellas el
+profesor y las salidas. El resto de la aplicación seguiría funcionando.
 
 Si algún día interesa esa versión, lo honesto es que esas pantallas digan que
 esa parte no está disponible en esta copia, no que fallen con un error de red.
@@ -239,7 +243,7 @@ esa parte no está disponible en esta copia, no que fallen con un error de red.
 ## Lo que hay que saber una vez publicado
 
 **El límite por minuto es por instancia y está en memoria.** Defiende contra pulsar
-veinte veces el botón de ideas, que es para lo que se hizo. Si esto corre en varias
+veinte veces el botón de las salidas, que es para lo que se hizo. Si esto corre en varias
 instancias, cada una llevará su cuenta.
 
 **El cupo diario de las cuentas sí es compartido**, porque vive en Postgres, y sube y
@@ -248,23 +252,24 @@ dos la última que quedaba. El de quien no ha entrado sigue siendo en memoria y 
 dirección.
 
 **El modelo que pongas decide los cupos de todos los planes.** Los cupos se calculan
-dividiendo lo que se puede gastar de cada plan entre lo que cuesta una petición con el
-modelo configurado ([adr/0008](./adr/0008-los-cupos-salen-del-precio.md)), así que
-cambiar `ANTHROPIC_MODEL` los multiplica sin tocar código:
+dividiendo lo que se puede gastar de cada plan entre lo que cuesta una pregunta al
+profesor con el modelo configurado ([adr/0008](./adr/0008-los-cupos-salen-del-precio.md));
+una salida gasta tres ([adr/0067](./adr/0067-el-cupo-se-cuenta-en-preguntas.md)). Cambiar `ANTHROPIC_MODEL` los multiplica
+sin tocar código:
 
-| `ANTHROPIC_MODEL`             | Básico  | Medio   | Pro     |
-| ----------------------------- | ------- | ------- | ------- |
-| `claude-opus-5` (por defecto) | 73/mes  | 90/mes  | 135/mes |
-| `claude-sonnet-5`             | 184/mes | 227/mes | 338/mes |
-| `claude-haiku-4-5`            | 369/mes | 454/mes | 677/mes |
+| `ANTHROPIC_MODEL`             | Básico  | Medio   | Pro      |
+| ----------------------------- | ------- | ------- | -------- |
+| `claude-opus-5` (por defecto) | 73/mes  | 148/mes | 296/mes  |
+| `claude-sonnet-5`             | 184/mes | 370/mes | 740/mes  |
+| `claude-haiku-4-5`            | 369/mes | 740/mes | 1480/mes |
 
 Es potente y es un cañón: bajar de modelo sube los cupos y baja la calidad de las
 respuestas, y de lo segundo no avisa nada. Un modelo que no esté en la tabla de precios
 se cobra como el más caro, así que los cupos salen pequeños en vez de regalarse.
 
 **La IA pide cuenta.** Sin `DATABASE_URL` y `AUTH_SECRET` no hay cuentas, y sin cuentas
-las tres rutas de IA contestan `401`: la aplicación funciona entera menos el profesor y
-las ideas. Es a propósito —sin cuenta no hay a quién contarle el gasto— y está razonado
+las rutas de IA contestan `401`: la aplicación funciona entera menos el profesor y
+las salidas. Es a propósito —sin cuenta no hay a quién contarle el gasto— y está razonado
 en [adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
 
 **La IA cuesta dinero, y ahora hay a quién cobrárselo… pero no se le cobra.** Los
@@ -282,9 +287,24 @@ cobro de verdad. La pantalla de planes, mientras tanto, avisa de que aquí no se
 cobra: lo dice porque el cobrador declara que no cobra, no porque alguien se acordase
 de escribirlo.
 
-**El vídeo del encabezado son 2,3 MB.** Se descarga solo si quien mira no ha
-pedido menos movimiento. Si el ancho de banda importa, ahí está el primer
-recorte.
+**El vídeo del encabezado son 471 kB**, y el póster 56. El vídeo se pide solo si
+quien mira acepta movimiento, no tiene puesto el ahorro de datos y la caja asoma
+en pantalla (`app/HeroVideo.tsx`).
+
+**`next start` comprime con gzip, no con Brotli.** Lo que Next hace por su cuenta
+es gzip, y Brotli le saca a un paquete de JavaScript en torno a un quince o veinte
+por ciento más. En Vercel lo pone la propia plataforma; en un contenedor o un
+servidor propio lo tiene que poner **lo que haya delante** —el proxy inverso o la
+CDN—, y entonces conviene apagar la de Next (`compress: false` en
+`next.config.ts`) para no comprimir dos veces.
+
+**Lo de `public/` sale con `Cache-Control: max-age=0`.** Es lo que pone Next a lo
+que no lleva huella en el nombre, porque no puede saber cuándo cambia: `hero.mp4` y
+`hero.jpg` se vuelven a validar en cada visita. Para darles caché larga
+—`max-age=31536000, immutable`— hace falta **un nombre versionado** (`hero.3f2a.mp4`,
+o cambiar el nombre cada vez que cambie el vídeo) y la cabecera puesta en el proxy o
+en `headers()` de `next.config.ts`. Sin el nombre nuevo, una caché larga dejaría a
+quien ya vino viendo el vídeo viejo un año.
 
 ## Cobrar de verdad
 

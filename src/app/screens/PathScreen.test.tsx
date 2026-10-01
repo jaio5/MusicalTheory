@@ -6,8 +6,9 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
-import { EMPTY_PROGRESS, findUnit, UNIT_ORDER } from '@core/music';
+import { EMPTY_PROGRESS, findUnit, pitchClassFromName, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
+import { useSessionStore } from '@state/session-store';
 
 import { PathScreen } from './PathScreen';
 
@@ -25,8 +26,11 @@ vi.mock('next/navigation', () => ({
  */
 describe('El profesor dentro del camino', () => {
   it('al pulsarlo se queda y abre el formulario', async () => {
+    // El formulario solo existe con cuenta y con tonalidad: sin ellas el globo
+    // ofrece entrar o elegir, y no es lo que se vigila aquí.
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
     render(
-      <AccountProvider account={ANONYMOUS} accounts={false}>
+      <AccountProvider account={PRO} accounts>
         <PathScreen />
       </AccountProvider>,
     );
@@ -203,5 +207,31 @@ describe('el rótulo del botón de seguir', () => {
 
     const seguir = screen.getAllByRole('link').find((a) => a.textContent?.includes('seguir'));
     expect(seguir?.textContent).toContain('Profesional');
+  });
+});
+
+describe('lo que se lee y se alcanza con el teclado', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  // Con `opacity-80` la línea de encima del título quedaba en 3,74:1 sobre el
+  // latón del tema claro.
+  it('la linea del boton de seguir no se apaga con opacidad', () => {
+    pintar();
+
+    const linea = screen.getByText(/· seguir/);
+
+    expect(linea.className).not.toMatch(/opacity/);
+  });
+
+  // La columna de las medallas se desplaza sola en ancho y no tiene nada
+  // enfocable dentro: sin parada propia, el teclado no bajaba por ella.
+  it('la columna de las medallas se puede enfocar, y tiene nombre', () => {
+    pintar();
+
+    const medallas = screen.getByRole('region', { name: 'Medallas' });
+
+    expect(medallas).toHaveAttribute('tabindex', '0');
   });
 });

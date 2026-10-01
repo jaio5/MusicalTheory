@@ -31,8 +31,8 @@ import {
  * Registra una petición y dice si pasa.
  *
  * Devuelve nulo cuando no hay base de datos o la consulta falla, y quien llama
- * decide qué hacer con eso. **No se falla cerrado**: dejar sin pedir ideas a todo
- * el mundo porque el contador no contesta es peor que el abuso del que defiende,
+ * decide qué hacer con eso. **No se falla cerrado**: dejar sin preguntar al
+ * profesor a todo el mundo porque el contador no contesta es peor que el abuso del que defiende,
  * y el cupo del plan —que sí vive en Postgres y sí es la puerta del dinero— sigue
  * en pie de todos modos.
  */

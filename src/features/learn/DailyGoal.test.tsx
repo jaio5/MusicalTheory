@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -41,7 +41,11 @@ describe('La meta del día', () => {
     expect(
       screen.getByRole('img', { name: `0 de ${DAILY_GOAL_XP} XP de la meta de hoy` }),
     ).toBeInTheDocument();
-    expect(screen.getByText(`${DAILY_GOAL_XP} XP`)).toBeInTheDocument();
+    const falta = screen.getByText((_, nodo) => nodo?.textContent === `${DAILY_GOAL_XP} XP`);
+    expect(falta).toBeInTheDocument();
+    // La mono solo para la cifra; la palabra va en la sans (adr/0024).
+    expect(within(falta).getByText(`${DAILY_GOAL_XP}`)).toHaveClass('font-mono');
+    expect(falta).not.toHaveClass('font-mono');
   });
 
   it('descuenta lo hecho hoy', () => {
@@ -81,12 +85,14 @@ describe('La racha', () => {
     pintar();
 
     expect(screen.getByText('sin racha')).toBeInTheDocument();
+    // Es una palabra, no una cifra: va en la sans (adr/0024).
+    expect(screen.getByText('sin racha').closest('.font-mono')).toBeNull();
   });
 
   it('en singular el primer día', () => {
     pintar(tras(1));
 
-    expect(screen.getByText(/1 día de racha/)).toBeInTheDocument();
+    expect(screen.getByTitle(/1 día seguidos/)).toHaveTextContent('1 día de racha');
   });
 
   it('no enseña una racha que ya está rota', () => {
@@ -143,7 +149,7 @@ describe('los plurales del avance', () => {
 
     pintar(hoy);
 
-    expect(screen.getByText(/2 días de racha/)).toBeInTheDocument();
+    expect(screen.getByTitle(/2 días seguidos/)).toHaveTextContent('2 días de racha');
   });
 
   it('y varias preguntas para repasar, tambien', () => {

@@ -108,11 +108,14 @@ export const aiUsage = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     /** `AAAA-MM`: el mes de facturación, en UTC como el resto del cupo. */
     month: text('month').notNull(),
-    /** Peticiones de todo el mes. Es el contador que protege el dinero. */
+    /**
+     * Preguntas del cupo de todo el mes —una salida cuenta varias, adr/0067—. Es
+     * el contador que protege el dinero.
+     */
     count: integer('count').notNull().default(0),
     /** `AAAA-MM-DD` del último día con actividad. */
     day: date('day').notNull(),
-    /** Peticiones de ese día. Evita fundirse el mes en una tarde. */
+    /** Preguntas del cupo de ese día. Evita fundirse el mes en una tarde. */
     dayCount: integer('day_count').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.userId, table.month] })],
@@ -165,7 +168,7 @@ export const passwordResets = pgTable(
  * de peticiones seguidas. Para lo que defiende —pulsar veinte veces el mismo
  * botón— es un precio que se paga solo.
  *
- * `key` lleva dentro para qué es el contador («ideas:1.2.3.4»), porque cada ruta
+ * `key` lleva dentro para qué es el contador («registro:1.2.3.4»), porque cada ruta
  * tiene el suyo y compartir una fila entre dos límites distintos haría que gastar
  * los intentos de uno gastara los del otro.
  */

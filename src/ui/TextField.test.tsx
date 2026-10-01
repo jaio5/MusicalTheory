@@ -45,3 +45,29 @@ describe('un campo sin etiqueta a la vista', () => {
     expect(screen.queryByText('· opcional')).not.toBeInTheDocument();
   });
 });
+
+describe('un campo con error', () => {
+  /**
+   * El rojo de debajo lo ve quien mira; el lector de pantalla necesita que el
+   * campo diga que no vale y lo que le pasa, al llegar a él.
+   */
+  it('se marca como no válido y apunta a lo que le pasa', () => {
+    render(
+      <TextField label="Otra vez la nueva" hint="Igual que la de arriba." error="No coincide." />,
+    );
+
+    const campo = screen.getByLabelText('Otra vez la nueva');
+    expect(campo).toHaveAttribute('aria-invalid', 'true');
+    expect(campo).toHaveAccessibleDescription('Igual que la de arriba. No coincide.');
+    expect(campo).toHaveClass('border-oxblood-bright');
+  });
+
+  it('sin error no dice nada y lleva el borde de los controles', () => {
+    render(<TextField label="Correo" error={false} />);
+
+    const campo = screen.getByLabelText('Correo');
+    expect(campo).not.toHaveAttribute('aria-invalid');
+    expect(campo).not.toHaveAttribute('aria-describedby');
+    expect(campo).toHaveClass('border-border-strong');
+  });
+});

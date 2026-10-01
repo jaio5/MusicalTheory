@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { can, cheapestPlanWith, nextAllowedUnit, unitAccess } from '@core/billing';
 import { findUnit } from '@core/music';
@@ -16,8 +17,12 @@ import {
 import { BarraDeTonalidad } from '@features/wheel';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { estiloBoton } from '@ui/Button';
+import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
+import { IconoCamino, IconoCandado } from '@ui/icons';
 import { PlanLock } from '@ui/PlanLock';
 import { Screen, WorkHeader } from '@ui/Screen';
+import { Vacio } from '@ui/Vacio';
 
 /**
  * Una unidad, a pantalla completa y con su propia dirección.
@@ -35,6 +40,17 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   const { account, signedIn } = useAccount();
   const { progress, day, celebration, dismissCelebration, complete, miss } = useProgress();
   const activeKey = useSessionStore(selectActiveKey);
+  /**
+   * Si la rueda está abierta tapando la unidad.
+   *
+   * La barra flota sobre la pregunta, así que abierta la tapa entera: verla no
+   * se ve, pero seguía recibiendo el foco, y el tabulador caía en botones que
+   * no se veían (WCAG 2.4.11). Mientras dura, lo de abajo va `inert`. Es el
+   * mismo trato que en componer, y sale igual: el valor de partida se calcula
+   * como lo calcula la barra, porque un `<details>` que nace abierto no dispara
+   * `toggle`, y a partir de ahí manda ella.
+   */
+  const [tapadoPorLaRueda, setTapadoPorLaRueda] = useState(activeKey === null);
 
   const found = findUnit(unitId);
   const acceso = unitAccess(progress, account.plan, unitId);
@@ -43,10 +59,19 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   if (found === null) {
     return (
       <Marco titulo="Esta unidad no existe">
-        <p className="text-text-muted max-w-prose text-sm">
-          Puede que se haya renombrado o retirado del temario. Vuelve al camino y sigue por donde
-          ibas.
-        </p>
+        {/* Con la salida escrita como botón: decir «vuelve al camino» y dejar la
+            vuelta en el enlace pequeño de arriba era pedir sin ofrecer. */}
+        <Vacio
+          icono={<IconoCamino />}
+          titulo="No está en el temario"
+          accion={
+            <Link href="/aprender" className={estiloBoton('primary')}>
+              Volver al camino
+            </Link>
+          }
+        >
+          Puede que se haya renombrado o retirado. Vuelve al camino y sigue por donde ibas.
+        </Vacio>
       </Marco>
     );
   }
@@ -71,12 +96,31 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   }
 
   if (acceso === 'por-temario') {
+    // La que toca es la primera abierta y sin hacer desde tu punto de partida:
+    // la misma que ofrece el botón de seguir del camino.
+    const laQueToca = nextAllowedUnit(progress, account.plan);
     return (
       <Marco titulo={found.unit.title}>
-        <p className="text-text-muted max-w-prose text-sm">
-          Todavía no está abierta: se abre al terminar la anterior. Si quieres empezar por aquí,
-          cambia tu punto de partida en el camino y esta unidad se abre sola.
-        </p>
+        <Vacio
+          icono={<IconoCandado />}
+          titulo="Todavía no está abierta"
+          accion={
+            <div className="flex flex-wrap justify-center gap-2">
+              {/* v8 ignore next 5 -- si esta está cerrada es que falta alguna antes: la que toca existe */}
+              {laQueToca !== null && (
+                <Link href={`/aprender/${laQueToca}`} className={estiloBoton('primary')}>
+                  Ir a la que toca
+                </Link>
+              )}
+              <Link href="/aprender" className={estiloBoton('quiet')}>
+                Cambiar el punto de partida
+              </Link>
+            </div>
+          }
+        >
+          Se abre al terminar la anterior. Si quieres empezar por aquí, cambia tu punto de partida
+          en el camino y esta unidad se abre sola.
+        </Vacio>
       </Marco>
     );
   }
@@ -115,21 +159,31 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
           qué tonalidad estás, que es lo único que hay que saber mientras contestas. */}
       {/* `shrink-0`: lo que se abre flota sobre la pregunta en vez de quitarle
           altura, así que la barra mide su rótulo y no negocia nada. */}
-      <BarraDeTonalidad className="border-border bg-surface shrink-0 border-b px-4">
-        {/* **Esta frase es lo único que se lee mientras no hay tonalidad**, y por
-            eso cambia. La barra se abre sola cuando falta, y lo que la unidad
-            pone debajo —«elige una tonalidad»— queda tapado por la rueda que se
-            abrió encima: medido a 1280×800, el rótulo y la frase de `LearnPanel`
-            salen los dos fuera de alcance. Decir aquí «cámbiala» daba la
-            tonalidad por puesta justo cuando no lo está. */}
-        <p className="text-text-muted max-w-prose text-center text-xs">
-          {activeKey === null
-            ? 'Elige una tonalidad y la unidad se escribe con sus acordes. Puedes cambiarla luego: las mismas preguntas hablan de otros acordes.'
-            : 'Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas preguntas hablan de otros acordes.'}
-        </p>
+      <BarraDeTonalidad
+        className="border-border bg-surface shrink-0 border-b px-4"
+        onAbrirse={setTapadoPorLaRueda}
+      >
+        {/* **Lo que va aquí es lo único que se lee mientras no hay tonalidad**, y
+            por eso cambia. La barra se abre sola cuando falta y tapa la unidad,
+            así que sin tonalidad la acción va **junto a la rueda** —los cuatro
+            atajos— y no debajo, donde no se ve. Con ella puesta basta con decir
+            para qué sirve. */}
+        {activeKey === null ? (
+          <CuatroTonalidades>
+            Elige una tonalidad y la unidad se escribe con sus acordes:
+          </CuatroTonalidades>
+        ) : (
+          <p className="text-text-muted max-w-prose text-center text-xs">
+            Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
+            preguntas hablan de otros acordes.
+          </p>
+        )}
       </BarraDeTonalidad>
 
-      <div className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto">
+      <div
+        className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto"
+        inert={tapadoPorLaRueda}
+      >
         {found.unit.kind === 'theory' ? (
           <TheoryUnit
             unit={found.unit}

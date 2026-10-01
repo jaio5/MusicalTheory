@@ -54,4 +54,28 @@ describe('mientras el micro está abierto', () => {
 
     expect(screen.queryByRole('group')).not.toBeInTheDocument();
   });
+
+  /**
+   * **Escuchando se queda arriba**, y parada se centra
+   * ([adr/0061](../../../docs/adr/0061-el-afinador-no-se-mueve-mientras-escucha.md)).
+   * Centrado, cada cosa que crecía dentro movía la nota entera: es lo que medía
+   * entre 0,19 y 0,31 de CLS.
+   */
+  it('escuchando no se centra, para que la nota no se mueva sola', () => {
+    useSessionStore.getState().actions.setListening('listening');
+    const { container, unmount } = render(<TuneScreen />);
+    expect(container.querySelector('.my-auto')).toBeNull();
+
+    unmount();
+    useSessionStore.getState().actions.reset();
+    const parada = render(<TuneScreen />);
+    expect(parada.container.querySelector('.my-auto')).not.toBeNull();
+    parada.unmount();
+
+    // Y se recoloca al pedir el micro, no al tenerlo: lo que se mueve pasado el
+    // medio segundo del clic cuenta como salto aunque lo haya pedido quien pulsa.
+    useSessionStore.getState().actions.setListening('requesting');
+    const pidiendo = render(<TuneScreen />);
+    expect(pidiendo.container.querySelector('.my-auto')).toBeNull();
+  });
 });

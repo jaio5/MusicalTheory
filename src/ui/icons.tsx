@@ -87,6 +87,24 @@ export function IconoAfinar() {
 }
 
 /**
+ * Tonalidad: el disco de la rueda de quintas, con su marca arriba.
+ *
+ * Para «falta la tonalidad» y no el del afinador: la aguja de un cuentarrevoluciones
+ * dice «mide algo», y lo que falta es elegir una de las doce de la rueda.
+ */
+export function IconoTonalidad() {
+  return (
+    <Trazo>
+      <g>
+        <circle cx="12" cy="12" r="8.5" />
+        <circle cx="12" cy="12" r="3.5" />
+        <path d="M12 3.5V6M12 18v2.5M3.5 12H6M18 12h2.5" />
+      </g>
+    </Trazo>
+  );
+}
+
+/**
  * Las dos clases de unidad: una se lee y la otra se toca.
  *
  * Eran 📖 y 🎸, y estaban en dos sitios con el mismo significado. Aquí se
@@ -182,18 +200,6 @@ export function IconoMastil() {
       <g>
         <path d="M3 5h18M3 12h18M3 19h18" />
         <path d="M8 4v16M16 4v16" opacity="0.5" />
-      </g>
-    </Trazo>
-  );
-}
-
-/** Ideas: la bombilla de siempre, que aquí es lo que propone la IA. */
-export function IconoIdeas() {
-  return (
-    <Trazo>
-      <g>
-        <path d="M9 17.5a5.5 5.5 0 1 1 6 0v1.5a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 19z" />
-        <path d="M10 17.5h4" opacity="0.55" />
       </g>
     </Trazo>
   );

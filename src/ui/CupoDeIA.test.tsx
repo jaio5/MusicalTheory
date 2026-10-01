@@ -42,7 +42,7 @@ describe('el cupo de IA en la barra', () => {
     pintar(CON_PLAN);
 
     const enlace = screen.getByRole('link');
-    expect(enlace).toHaveAccessibleName(/Te quedan 8 peticiones a la IA hoy y 45 este mes/);
+    expect(enlace).toHaveAccessibleName(/Te quedan 8 preguntas a la IA hoy y 45 este mes/);
     expect(enlace).toHaveAttribute('href', '/cuenta#suscripcion');
   });
 
@@ -72,6 +72,6 @@ describe('cuando solo se sabe lo de hoy', () => {
   it('se dice lo de hoy y nada mas', () => {
     pintar({ ...CON_PLAN, aiLeftMonth: null });
 
-    expect(screen.getByRole('link')).toHaveAccessibleName('Te quedan 8 peticiones a la IA hoy');
+    expect(screen.getByRole('link')).toHaveAccessibleName('Te quedan 8 preguntas a la IA hoy');
   });
 });

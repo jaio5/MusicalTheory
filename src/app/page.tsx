@@ -88,7 +88,7 @@ const QUESTIONS: ReadonlyArray<{ q: string; a: string }> = [
   },
   {
     q: '¿Cuánto cuesta?',
-    a: 'El afinador, la rueda, el mástil, el metrónomo, los acordes y grabar lo que tocas son gratis y lo van a seguir siendo: pasan enteros en tu navegador, así que servirlos no cuesta nada. Lo que se paga es la IA —el profesor y las ideas son llamadas a un modelo— y el temario del Grado Profesional, en tres planes desde 4,99 € al mes. Sin pagar nada tienes el Grado Elemental completo y unas preguntas al profesor al día.',
+    a: 'El afinador, la rueda, el mástil, el metrónomo, los acordes y grabar lo que tocas son gratis y lo van a seguir siendo: pasan enteros en tu navegador, así que servirlos no cuesta nada. Lo que se paga es la IA —el profesor y las salidas de lo que compones son llamadas a un modelo— y el temario del Grado Profesional, en tres planes desde 4,99 € al mes. Sin pagar nada tienes el Grado Elemental completo y unas preguntas al profesor al día.',
   },
 ];
 
@@ -217,16 +217,18 @@ export default function Portada() {
                 que tu audio salga de aquí.
               </p>
 
+              {/* A todo el ancho por debajo de `sm`: apilados con su ancho de texto,
+                  uno de 179 y otro de 192 píxeles se leían como dos tamaños. */}
               <div className="entra mt-9 flex flex-wrap gap-3 [animation-delay:240ms]">
                 <Link
                   href="/componer"
-                  className="bg-brass text-background hover:bg-brass-bright min-h-tap inline-flex items-center rounded-md px-6 text-base font-medium transition-colors active:translate-y-px"
+                  className="bg-brass text-background hover:bg-brass-bright min-h-tap inline-flex w-full items-center justify-center rounded-md px-6 text-base font-medium transition-colors active:translate-y-px sm:w-auto"
                 >
                   Empezar a tocar
                 </Link>
                 <a
                   href="#probar"
-                  className="border-border text-text hover:border-brass hover:text-brass-bright min-h-tap inline-flex items-center rounded-md border px-6 text-base transition-colors active:translate-y-px"
+                  className="border-border text-text hover:border-brass hover:text-brass-bright min-h-tap inline-flex w-full items-center justify-center rounded-md border px-6 text-base transition-colors active:translate-y-px sm:w-auto"
                 >
                   Probar el afinador
                 </a>

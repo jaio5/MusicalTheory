@@ -64,8 +64,19 @@ export function RotulosDelMastil() {
 export function FretboardPanel() {
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
-  const reading = useSessionStore((state) => state.reading);
-  const hasSignal = useSessionStore((state) => state.hasSignal);
+  /**
+   * La nota que suena, como número y no como lectura.
+   *
+   * La lectura es nueva cada cincuenta milisegundos, y el mástil entero —más de
+   * cien nodos de SVG— se repintaba a ese ritmo aunque la nota fuera la misma.
+   * El número solo cambia cuando cambia la nota, que es lo único que dibuja.
+   */
+  const soundingMidi = useSessionStore(
+    (state) =>
+      /* v8 ignore start -- con señal siempre hay lectura: las dos las pone el mismo `setPitch` */
+      state.hasSignal ? (state.reading?.midi ?? null) : null,
+    /* v8 ignore stop */
+  );
   /**
    * El acorde que marcar en el mástil: **el bloque que tienes elegido**.
    *
@@ -144,8 +155,7 @@ export function FretboardPanel() {
               tonic={activeKey.tonic}
               accidental={accidentalForScale(activeKey.tonic, scaleId)}
               scaleId={scaleId}
-              /* v8 ignore next -- con señal siempre hay lectura: las dos las pone el mismo `setPitch` */
-              soundingMidi={hasSignal ? (reading?.midi ?? null) : null}
+              soundingMidi={soundingMidi}
               chordNotes={elegido?.notes}
             />
           </div>

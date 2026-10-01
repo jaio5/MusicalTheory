@@ -5,10 +5,10 @@
 Grabar **el sonido** de lo que estás tocando, dejarte oírlo ahí mismo y, si vale,
 descargarlo a tu equipo.
 
-Es opcional y vive donde se compone: una herramienta más de la fila de abajo de
-`/componer`, junto al mástil, las ideas, las salidas, las canciones y las
-sesiones. Se abre, se graba, se oye y se cierra. La aplicación funciona entera
-sin tocarla nunca.
+Es opcional y vive donde se compone: es «Solo grabar», el tercer papel de la toma
+de `/componer`, que graba sin escribir en la canción
+([adr/0056](./adr/0056-grabar-es-un-papel-de-la-toma.md)). Se graba, se oye y se
+descarga. La aplicación funciona entera sin tocarla nunca.
 
 **Ya no graba vídeo.** Lo hizo, con la cámara puesta detrás de la interfaz y los
 datos detectados quemados encima de la imagen; el porqué de quitarlo está en

@@ -10,7 +10,8 @@ import { useAccount } from '@state/account';
  * **Se ve antes de gastarlo**, que es lo que pide
  * [adr/0033](../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md): quien
  * paga tiene derecho a saber cuánto le queda sin entrar en su cuenta, y a quien
- * le quedan dos peticiones le cambia lo que pide. Estaba solo **dentro** de los
+ * le quedan dos preguntas le cambia lo que pide —una salida gasta varias
+ * (adr/0067)—. Estaba solo **dentro** de los
  * paneles que lo gastan, así que para saberlo había que abrir el que ibas a
  * usar.
  *
@@ -39,8 +40,8 @@ export function CupoDeIA({ className = '' }: { readonly className?: string }) {
       // deletrea, que «IA: 8 · 45» a secas no dice qué es cada número.
       title={
         agotado
-          ? 'Se te han acabado las peticiones a la IA de hoy'
-          : `Te quedan ${account.aiLeftToday} peticiones a la IA hoy${
+          ? 'Se te han acabado las preguntas a la IA de hoy'
+          : `Te quedan ${account.aiLeftToday} preguntas a la IA hoy${
               account.aiLeftMonth === null ? '' : ` y ${account.aiLeftMonth} este mes`
             }`
       }
@@ -58,8 +59,8 @@ export function CupoDeIA({ className = '' }: { readonly className?: string }) {
         es un cupo. El rótulo corto se queda para los ojos. */}
       <span className="sr-only">
         {agotado
-          ? 'Se te han acabado las peticiones a la IA de hoy'
-          : `Te quedan ${account.aiLeftToday} peticiones a la IA hoy${
+          ? 'Se te han acabado las preguntas a la IA de hoy'
+          : `Te quedan ${account.aiLeftToday} preguntas a la IA hoy${
               account.aiLeftMonth === null ? '' : ` y ${account.aiLeftMonth} este mes`
             }`}
       </span>

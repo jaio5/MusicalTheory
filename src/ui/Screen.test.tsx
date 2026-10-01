@@ -42,6 +42,28 @@ describe('El marco de pantalla', () => {
 
     expect(container.querySelectorAll('.overflow-y-auto')).toHaveLength(1);
   });
+
+  /**
+   * Cada ancho se centraba por su cuenta y el título saltaba de sitio al cambiar
+   * de pantalla —a 1440, de x=112 en Planes a 368 en Cuenta—. Lo que se centra
+   * es una caja igual para las tres, y el ancho de cada una va dentro, sin centrar.
+   */
+  it.each(['lectura', 'normal', 'ancha'] as const)(
+    'con el ancho %s, el título empieza en el mismo borde que las demás',
+    (ancho) => {
+      render(
+        <Screen title="Planes" ancho={ancho}>
+          <p>contenido</p>
+        </Screen>,
+      );
+
+      const columna = screen.getByRole('heading', { level: 1 }).closest('header')!.parentElement!;
+      const marco = columna.parentElement!;
+      expect(columna.className).not.toContain('mx-auto');
+      expect(marco.className).toContain('mx-auto');
+      expect(marco.className).toContain('max-w-7xl');
+    },
+  );
 });
 
 describe('Los apartados', () => {
@@ -96,6 +118,24 @@ describe('una pantalla con su accion principal', () => {
 
     expect(screen.getByRole('heading', { name: 'Canciones' })).toBeInTheDocument();
     expect(screen.getByText('Guardar')).toBeInTheDocument();
+  });
+});
+
+describe('las acciones de una cabecera de trabajo', () => {
+  /**
+   * Por defecto miden lo que mide su contenido y se van a la derecha. Para una
+   * fila que se desplaza de lado eso la bajaba a un renglón propio: con
+   * `accionesCrecen` se quedan con lo que deja el título, y la fila nunca empuja.
+   */
+  it('se van a la derecha a su ancho, o se quedan con lo que deja el título', () => {
+    const { rerender } = render(<WorkHeader title="Componer" actions={<span>Mandos</span>} />);
+    expect(screen.getByText('Mandos').parentElement?.className).toContain('ml-auto');
+
+    rerender(<WorkHeader title="Componer" accionesCrecen actions={<span>Mandos</span>} />);
+    const caja = screen.getByText('Mandos').parentElement?.className ?? '';
+    expect(caja).toContain('flex-1');
+    expect(caja).toContain('basis-0');
+    expect(caja).not.toContain('ml-auto');
   });
 });
 

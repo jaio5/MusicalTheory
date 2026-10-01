@@ -1,5 +1,7 @@
 # ADR 0033 — El copiloto propone y nunca escribe
 
+> **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** las ideas y «Pídeme una idea» se retiraron. Los bloques fantasma y la regla de que nada entra sin aceptarlo siguen en pie, pero hoy nada los llena.
+
 Fecha: 2026-09-17 · Estado: aceptada · Amplía: [ADR 0016](./0016-salidas-en-vez-de-versiones.md)
 
 ## Contexto

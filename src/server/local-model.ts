@@ -14,9 +14,9 @@
  * es la regla que evita que la clave acabe en el bundle del navegador.
  *
  * Lo que **no** es: un proveedor de producción. La calidad de un modelo de ocho
- * mil millones de parámetros no es la de la API, y las tres rutas lo notan de
- * forma desigual —el profesor bien, las ideas regular, las versiones mal, porque
- * son las que se verifican contra el dominio movimiento a movimiento—. Está en
+ * mil millones de parámetros no es la de la API, y las rutas lo notan de forma
+ * desigual —el profesor bien, las versiones mal, porque son las que se verifican
+ * contra el dominio movimiento a movimiento—. Está en
  * `docs/AI.md` y en `docs/adr/0014`.
  */
 

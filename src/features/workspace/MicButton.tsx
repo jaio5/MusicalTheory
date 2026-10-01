@@ -23,7 +23,22 @@ export type MicButtonProps = ListeningDeps;
 export function MicButton(deps: MicButtonProps = {}) {
   const listening = useSessionStore((state) => state.listening);
   const message = useSessionStore((state) => state.message);
-  const reading = useSessionStore((state) => state.reading);
+  /*
+    Lo que la pastilla escribe, ya escrito, y no la lectura entera.
+
+    La lectura es un objeto nuevo cada cincuenta milisegundos, y el botón vive en
+    la barra de todas las pantallas: suscrito a ella se repintaba veinte veces
+    por segundo para escribir casi siempre lo mismo. Con el texto, React solo se
+    entera cuando cambia la nota o el cent redondeado.
+  */
+  const nota = useSessionStore((state) =>
+    state.reading === null ? null : `${state.reading.name}${state.reading.octave}`,
+  );
+  const cents = useSessionStore((state) =>
+    state.reading === null
+      ? null
+      : `${state.reading.cents > 0 ? '+' : ''}${state.reading.cents.toFixed(0)}¢`,
+  );
   const hasSignal = useSessionStore((state) => state.hasSignal);
   /*
     El acorde que se oye, para no decir «esperando» mientras se está oyendo algo.
@@ -37,7 +52,9 @@ export function MicButton(deps: MicButtonProps = {}) {
     Solo lo hay donde se escuchan acordes —componer—; en el resto sigue null y la
     pastilla se comporta igual que siempre.
   */
-  const heardChord = useSessionStore((state) => state.heardChord);
+  // Solo el símbolo, por lo mismo que la nota: el acorde llega nuevo en cada
+  // análisis aunque sea el mismo.
+  const heardChord = useSessionStore((state) => state.heardChord?.symbol ?? null);
   const { start, stop } = useListening(deps);
 
   const isListening = listening === 'listening';
@@ -52,7 +69,7 @@ export function MicButton(deps: MicButtonProps = {}) {
     vuelve a mandar ella sola.
   */
   const acorde = heardChord;
-  const hayNota = acorde === null && reading !== null && hasSignal;
+  const hayNota = acorde === null && nota !== null && hasSignal;
 
   return (
     <div className="flex min-w-0 items-center gap-2">
@@ -94,11 +111,11 @@ export function MicButton(deps: MicButtonProps = {}) {
                 hayNota || acorde !== null ? 'text-brass-bright' : 'text-text-muted'
               }`}
             >
-              {hayNota ? `${reading.name}${reading.octave}` : (acorde?.symbol ?? '—')}
+              {hayNota ? nota : (acorde ?? '—')}
             </span>
             <span className="text-text-muted font-mono text-xs whitespace-nowrap tabular-nums">
               {hayNota
-                ? `${reading.cents > 0 ? '+' : ''}${reading.cents.toFixed(0)}¢`
+                ? cents
                 : acorde !== null
                   ? 'acorde'
                   : busy

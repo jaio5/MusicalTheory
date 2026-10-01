@@ -109,6 +109,13 @@ describe('entrar', () => {
 
     expect(signOut).toHaveBeenCalledWith({ redirect: false });
   });
+
+  // Borrar la cuenta sí se va: no queda nada de la pantalla de antes que guardar.
+  it('con destino, se va allí', async () => {
+    await signOutHere('/');
+
+    expect(signOut).toHaveBeenCalledWith({ callbackUrl: '/' });
+  });
 });
 
 describe('registrarse', () => {

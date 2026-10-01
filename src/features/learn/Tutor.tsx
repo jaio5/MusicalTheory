@@ -68,6 +68,19 @@ function cabeElGlobo(): boolean {
   return typeof window !== 'undefined' && window.innerWidth >= 640;
 }
 
+/**
+ * El hueco que hay que dejar al final de la columna que se desplaza, para que
+ * el muñeco no tape lo último.
+ *
+ * Flota (`fixed`) a la altura guardada —de fábrica, el 10 % de abajo— y es del
+ * tamaño de un pulgar. Sin reserva, el final de la columna quedaba justo debajo de
+ * él: en la unidad a 390 de ancho tapaba la esquina del aviso de fallo, y no había
+ * forma de desplazarlo fuera. Se reserva el mismo diez por ciento más su alto.
+ * Va como clase entera para que Tailwind la vea escrita; quien la use en otro
+ * punto de corte la escribe con su prefijo, como hace `PathScreen`.
+ */
+export const HUECO_DEL_TUTOR = 'pb-[calc(10dvh+3.5rem)]';
+
 export function Tutor({
   unitId,
   aviso = null,
@@ -279,11 +292,30 @@ export function Tutor({
             <Teacher unitId={unitId} compact />
           </div>
 
-          <div className="mt-2 text-right">
+          {/*
+            **Cambiarlo de lado sin arrastrar** (WCAG 2.5.7). Moverlo solo se
+            podía agarrándolo, y eso no lo hace quien usa el teclado, un
+            conmutador o una mano que tiembla. Un botón con una pulsación llega
+            al mismo sitio: el otro lado, a la misma altura, que es lo que deja
+            el arrastre al soltar.
+
+            Los dos con el alto de pulsar: son la salida del globo, y a doce
+            píxeles de alto no se acertaban con el pulgar.
+          */}
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                moverTutor({ lado: derecha ? 'izquierda' : 'derecha', alto: sitio.alto })
+              }
+              className="text-text-muted hover:text-text min-h-tap px-2 text-xs"
+            >
+              {derecha ? 'Pasar a la izquierda' : 'Pasar a la derecha'}
+            </button>
             <button
               type="button"
               onClick={cerrar}
-              className="text-text-muted hover:text-text text-xs"
+              className="text-text-muted hover:text-text min-h-tap px-2 text-xs"
             >
               Cerrar
             </button>

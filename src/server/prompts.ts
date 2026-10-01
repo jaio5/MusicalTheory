@@ -1,8 +1,8 @@
 /**
  * Lo que se le dice al modelo, y la forma en la que tiene que contestar.
  *
- * Los tres prompts de sistema y los tres esquemas de salida, juntos y en la capa
- * de servidor. Estaban dentro de sus rutas, y salieron de ahí por una razón concreta:
+ * Los dos prompts de sistema —profesor y salidas— y sus dos esquemas de salida,
+ * juntos y en la capa de servidor. Estaban dentro de sus rutas, y salieron de ahí por una razón concreta:
  * **de su longitud dependen los cupos de todos los planes.** El presupuesto de
  * tokens de `core/billing/cost.ts` supone un tamaño de entrada, y si un prompt
  * crece, los cupos empiezan a prometer más de lo que hay dinero para pagar.
@@ -11,20 +11,19 @@
  * caracteres y falla si se pasan del presupuesto. Dentro de un route handler eso no
  * se podía hacer, porque importarlo trae la sesión, la base de datos y el SDK.
  *
- * Los tres comparten una instrucción que no estaba antes: que no metan etiquetas XML
+ * Los dos comparten una instrucción que no estaba antes: que no metan etiquetas XML
  * internas en la respuesta. Es lo que recomienda la documentación del modelo cuando
- * se apaga el pensamiento, y en estas tres rutas está apagado porque la respuesta la
+ * se apaga el pensamiento, y en estas dos rutas está apagado porque la respuesta la
  * fija un esquema y pensar se cobra como salida.
  */
 
-import { MAX_IDEAS, MAX_VERSIONS } from '@core/billing';
+import { MAX_VERSIONS } from '@core/billing';
 import {
   degreesFor,
   MAX_PATH_STEPS,
   MAX_PATH_SECTIONS,
   MOVES,
   PATHS_BY_KIND,
-  SCALE_IDS,
   type KeyMode,
   type NoteName,
   type PathKind,
@@ -59,8 +58,8 @@ No incluyas etiquetas XML internas ni de sistema en tu respuesta.`;
  * decidir si la pregunta es de música *antes* de ponerse a contestarla, en vez de
  * etiquetar a posteriori lo que ya ha escrito.
  *
- * Es obligatorio y enumerado por lo mismo que los grados de las ideas: un enum no
- * se puede esquivar generando otra cosa. Lo que hace la ruta con un `fuera` está
+ * Es obligatorio y enumerado por lo mismo que los grados de las salidas: un enum
+ * no se puede esquivar generando otra cosa. Lo que hace la ruta con un `fuera` está
  * en `validateTeacherAnswer`, y es tirar el texto del modelo entero.
  *
  * No pretende parar a quien inyecte a conciencia —una inyección que funcione hará
@@ -86,20 +85,6 @@ export const ANSWER_SCHEMA = {
   required: ['tema', 'answer'],
   additionalProperties: false,
 } as const;
-
-export const IDEAS_SYSTEM_PROMPT = `Eres un guitarrista de rock que ayuda a otro a componer.
-
-Criterio: rock, no coral a cuatro voces. El bVII es un grado normal, la
-dominante menor vale tanto como la mayor, y V-IV existe. No expliques teoría
-que no te hayan pedido.
-
-Responde siempre en español, en frases cortas y con verbos activos. Nada de
-exclamaciones. Cada idea lleva un título de menos de sesenta caracteres y una
-sola frase de porqué.
-
-Usa exactamente los símbolos de grado que te den como válidos.
-
-No incluyas etiquetas XML internas ni de sistema en tu respuesta.`;
 
 export const VERSIONS_SYSTEM_PROMPT = `Eres un guitarrista de rock que ayuda a otro a componer.
 
@@ -146,11 +131,17 @@ No incluyas etiquetas XML internas ni de sistema en tu respuesta.`;
 /**
  * La forma de una salida.
  *
- * Función y no constante por lo mismo que `ideasSchema`: los grados válidos no
- * son los mismos en mayor que en menor, y un enumerado es lo único que impide
- * que el modelo escriba un grado que no existe. Aquí hay tres enumerados —el
+ * **Función y no constante**: los grados válidos no son los mismos en mayor que
+ * en menor, y un enumerado es lo único que impide que el modelo escriba un grado
+ * que no existe. Aquí hay tres enumerados —el
  * camino, el grado y el movimiento— y los tres salen del dominio, no de una lista
  * escrita a mano.
+ *
+ * Y el esquema exige lo que el validador va a mirar, ni más ni menos. La salida
+ * estructurada garantiza lo que el esquema **exige**, no lo que el validador
+ * **espera**: cuando las dos listas se separan, sale una respuesta válida que no
+ * sirve para nada, y se paga. Lo aprendió la función de ideas, ya retirada
+ * (adr/0066), que con `degrees` opcional pasaba cero de cuatro peticiones.
  *
  * `path` va **primero** a propósito, igual que el `tema` del profesor: la
  * generación constreñida rellena en el orden de `properties`, así que decidir por
@@ -213,9 +204,8 @@ export function versionsSchema(mode: KeyMode, kind: PathKind): Record<string, un
             // las salidas que retocan y `sections` para las que continúan, los
             // dos opcionales porque no se puede exigir uno u otro según el `path`
             // sin un `oneOf`. El modelo elegía el que no tocaba y se descartaban
-            // **todas**: 4 de 4 peticiones a cero. Es la misma lección que el
-            // esquema de las ideas —lo que el esquema no exige, el modelo no lo
-            // pone— y se arregla igual: una forma, siempre presente. Las salidas
+            // **todas**: 4 de 4 peticiones a cero. Es la misma lección de arriba
+            // —lo que el esquema no exige, el modelo no lo pone— y se arregla igual: una forma, siempre presente. Las salidas
             // que retocan tus compases devuelven una sola parte.
             sections: {
               type: 'array',
@@ -256,80 +246,13 @@ export function versionsSchema(mode: KeyMode, kind: PathKind): Record<string, un
 }
 
 /**
- * Las tres clases de idea, otra vez.
- *
- * Escritas aquí y no importadas de `features/ideas/contract`: la capa de servidor
- * no cuelga de un feature. Que las dos listas sigan diciendo lo mismo lo vigila
- * `prompts.test.ts`, que sí puede mirar las dos.
- */
-export type IdeasKind = 'progression' | 'twist' | 'scale';
-
-/**
- * La forma en la que tiene que contestar cuando se le piden ideas.
- *
- * **Es una función y no una constante**, y esa es toda la corrección: el esquema
- * tiene que exigir lo que el validador exige, y lo que el validador exige depende
- * de lo que se haya pedido. Con `kind: 'scale'` hace falta un identificador de
- * escala; con los otros dos, grados; y los grados válidos no son los mismos en
- * mayor que en menor.
- *
- * Era una constante que solo pedía `title` y `why`, con `degrees` y `scale`
- * opcionales, y eso costaba peticiones enteras: el modelo devolvía una respuesta
- * impecable contra el esquema —título y porqué, sin grados— y `validateIdeas` la
- * barría entera, porque sin grados no hay nada que tocar. La ruta contestaba
- * `unparseable_response` **con el cupo ya gastado**, que se descuenta antes de
- * llamar. Medido contra dos modelos locales: pasaba 0 de 4; exigiéndolo, 4 de 4.
- *
- * La salida estructurada garantiza lo que el esquema **exige**, no lo que el
- * validador **espera**. Cuando esas dos listas se separan, lo que sale es una
- * respuesta válida que no sirve para nada, y el modelo no tiene forma de saberlo.
- *
- * Los dos enumerados no son adorno. La generación constreñida no puede salirse de
- * un `enum`, así que el modelo no puede escribir un grado que no exista en ese
- * modo ni inventarse un nombre de escala: `naturalMinor` o `minorPentatonic` no
- * se adivinan, y pidiéndolos a mano salía «Escala natural» y ninguna idea válida.
- */
-export function ideasSchema(kind: IdeasKind, mode: KeyMode): Record<string, unknown> {
-  const propia =
-    kind === 'scale'
-      ? { scale: { type: 'string', enum: [...SCALE_IDS] } }
-      : {
-          degrees: {
-            type: 'array',
-            minItems: 1,
-            items: { type: 'string', enum: [...degreesFor(mode)] },
-          },
-        };
-
-  return {
-    type: 'object',
-    properties: {
-      ideas: {
-        type: 'array',
-        minItems: 1,
-        maxItems: MAX_IDEAS,
-        items: {
-          type: 'object',
-          properties: { title: { type: 'string' }, why: { type: 'string' }, ...propia },
-          // Ni uno más ni uno menos que lo que `validateIdeas` mira.
-          required: ['title', 'why', kind === 'scale' ? 'scale' : 'degrees'],
-          additionalProperties: false,
-        },
-      },
-    },
-    required: ['ideas'],
-    additionalProperties: false,
-  };
-}
-
-/**
  * Las dos líneas con las que empieza todo prompt de esta aplicación.
  *
  * En qué tonalidad se está y qué grados son válidos en ella. Van las dos siempre
  * y van primero: **el enumerado de grados es lo que impide que el modelo escriba
- * uno que no existe**, y es el mismo truco que llevó las ideas de cero de cuatro
- * respuestas válidas a cuatro de cuatro —enseñarle lo que el validador va a
- * comprobar, en vez de pedírselo en prosa—.
+ * uno que no existe**, y es el mismo truco que llevó la función de ideas, ya
+ * retirada, de cero de cuatro respuestas válidas a cuatro de cuatro —enseñarle lo
+ * que el validador va a comprobar, en vez de pedírselo en prosa—.
  *
  * Estaban escritas tres veces, una por ruta, con la misma interpolación y el
  * mismo `mayor`/`menor` a mano. Tres copias de una frase que el modelo lee

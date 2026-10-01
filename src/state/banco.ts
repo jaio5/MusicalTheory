@@ -38,15 +38,14 @@ import {
  * daría un HTML distinto en servidor y en cliente.
  */
 
-/** Los editores que caben abajo. El orden es el de la fila de pestañas. */
-const EDITORES_DE_ABAJO = [
-  'mastil',
-  'grabar',
-  'ideas',
-  'salidas',
-  'canciones',
-  'sesiones',
-] as const;
+/**
+ * Los editores que caben abajo. El orden es el de la fila de pestañas.
+ *
+ * Un reparto guardado puede traer uno que ya no está —«grabar», que pasó a ser
+ * un papel de la toma (adr/0056), o «ideas», retirada (adr/0066)—, y por eso se
+ * lee con `conEditorValido`: lo que no está aquí se abre cerrado.
+ */
+const EDITORES_DE_ABAJO = ['mastil', 'salidas', 'canciones', 'sesiones'] as const;
 
 export type EditorDeAbajo = (typeof EDITORES_DE_ABAJO)[number];
 
@@ -68,6 +67,13 @@ export interface BancoState {
     cargar(): void;
     espacio(espacio: EspacioDeTrabajo): void;
     mover(area: 'izquierda' | 'derecha' | 'alto', rem: number): void;
+    /**
+     * Lo mismo que `mover`, **sin guardarlo**: es lo que va pasando mientras se
+     * arrastra un divisor. Guardar son una lectura y una escritura enteras de las
+     * preferencias en `localStorage`, y un arrastre manda sesenta movimientos por
+     * segundo; se guarda una vez, al soltar, con `mover`.
+     */
+    arrastrar(area: 'izquierda' | 'derecha' | 'alto', rem: number): void;
     /** Devuelve un área a la medida de fábrica. Es el doble clic del divisor. */
     devolver(area: 'izquierda' | 'derecha' | 'alto'): void;
     abrirAbajo(editor: EditorDeAbajo | null): void;
@@ -102,14 +108,16 @@ function guardar(banco: BancoLayout): void {
 
 export const useBancoStore = create<BancoState>()((set, get) => {
   /** Cambia el reparto del espacio en el que se está, y lo deja guardado. */
-  const cambiar = (patch: Partial<RepartoDeAreas>): void => {
+  const cambiar = (patch: Partial<RepartoDeAreas>, guardarlo = true): void => {
     const { espacio, repartos } = get();
     const siguiente = {
       espacio,
       repartos: { ...repartos, [espacio]: { ...selectReparto(get()), ...patch } },
     };
     set(siguiente);
-    guardar(siguiente);
+    if (guardarlo) {
+      guardar(siguiente);
+    }
   };
 
   return {
@@ -138,6 +146,10 @@ export const useBancoStore = create<BancoState>()((set, get) => {
 
       mover(area, rem) {
         cambiar({ [area]: acotar(rem, TOPES_DEL_BANCO[area]) } as Partial<RepartoDeAreas>);
+      },
+
+      arrastrar(area, rem) {
+        cambiar({ [area]: acotar(rem, TOPES_DEL_BANCO[area]) } as Partial<RepartoDeAreas>, false);
       },
 
       devolver(area) {

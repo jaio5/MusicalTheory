@@ -2,7 +2,16 @@
 
 import Link from 'next/link';
 
-import { avatarInitial, displayName, monthlyAiRequests, planOf, priceLabel } from '@core/billing';
+import {
+  avatarInitial,
+  can,
+  cupoEnPalabras,
+  displayName,
+  gastoDeUnaSalida,
+  monthlyAiRequests,
+  planOf,
+  priceLabel,
+} from '@core/billing';
 import { BADGES, currentStreak } from '@core/music';
 import { estiloBoton } from '@ui/Button';
 import {
@@ -46,17 +55,7 @@ export function AccountScreen() {
         lead="La cuenta sirve para dos cosas: llevarte el avance a otro aparato y tener un plan. Sin ella la aplicación funciona igual y el avance se queda en este navegador."
         ancho="lectura"
       >
-        <AccessForm />
-
-        {accounts && (
-          <p className="text-text-muted text-sm">
-            ¿Todavía no tienes?{' '}
-            <Link href="/registro" className="enlace">
-              Crear tu cuenta
-            </Link>
-            .
-          </p>
-        )}
+        <AccessForm marco={accounts} />
       </Screen>
     );
   }
@@ -130,8 +129,10 @@ export function AccountScreen() {
               decía dos cosas opuestas con la misma cifra. Aquí se dice el verbo. */}
           <p className="text-text-muted ml-auto font-mono text-xs">
             {account.aiLeftMonth === null
-              ? `${monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA al mes`
-              : `Te quedan ${account.aiLeftMonth} de ${monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA este mes`}
+              ? cupoEnPalabras(plan.id, account.aiModel)
+              : `Te quedan ${account.aiLeftMonth} de ${monthlyAiRequests(plan.id, account.aiModel)} preguntas al profesor este mes${
+                  can(plan.id, 'versiones') ? `; ${gastoDeUnaSalida(account.aiModel)}` : ''
+                }`}
           </p>
         </div>
 

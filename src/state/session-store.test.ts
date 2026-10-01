@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { A4_FREQUENCY } from '@core/music';
 
-import { useSessionStore } from './session-store';
+import { selectActiveKey, useSessionStore } from './session-store';
 
 describe('store de sesión', () => {
   beforeEach(() => {
@@ -122,5 +122,53 @@ describe('lo que se olvida', () => {
     const [apuntado] = useSessionStore.getState().captured;
     expect(apuntado?.margin).toBe(0.05);
     expect(apuntado?.alternatives).toEqual([{ root: 9, notes: [9, 0, 4] }]);
+  });
+});
+
+describe('la tonalidad que manda', () => {
+  beforeEach(() => {
+    useSessionStore.getState().actions.reset();
+  });
+
+  /**
+   * `detectKey` devuelve candidatas nuevas cada medio segundo. Si el selector
+   * las devolviera tal cual, cada recálculo repintaría a todos los suscritos
+   * aunque siguieras en la misma tonalidad.
+   */
+  it('recalcular la misma tonalidad devuelve el mismo objeto', () => {
+    const { actions } = useSessionStore.getState();
+    // Un La sostenido: la tonalidad no se mueve, pero se recalcula dos veces.
+    actions.setPitch(440, 0.9, 1000);
+    const antes = useSessionStore.getState();
+    const primera = selectActiveKey(antes);
+    actions.setPitch(440, 0.9, 1600);
+    const despues = useSessionStore.getState();
+
+    expect(despues.keyCandidates).not.toBe(antes.keyCandidates);
+    expect(despues.keyCandidates[0]).not.toBe(antes.keyCandidates[0]);
+    expect(primera).not.toBeNull();
+    expect(selectActiveKey(despues)).toBe(primera);
+  });
+
+  it('solo trae tonica y modo, aunque la candidata traiga mas', () => {
+    useSessionStore.getState().actions.setPitch(440, 0.9, 1000);
+    const clave = selectActiveKey(useSessionStore.getState());
+
+    expect(Object.keys(clave ?? {}).sort()).toEqual(['mode', 'tonic']);
+    expect(Object.isFrozen(clave)).toBe(true);
+  });
+
+  it('la fijada a mano manda, y es la misma que la detectada si coinciden', () => {
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: 9, mode: 'minor' });
+    const fijada = selectActiveKey(useSessionStore.getState());
+
+    expect(fijada).toEqual({ tonic: 9, mode: 'minor' });
+    actions.pinKey({ tonic: 9, mode: 'minor' });
+    expect(selectActiveKey(useSessionStore.getState())).toBe(fijada);
+  });
+
+  it('sin fijada ni detectada no hay tonalidad', () => {
+    expect(selectActiveKey(useSessionStore.getState())).toBeNull();
   });
 });

@@ -1,6 +1,5 @@
 'use client';
 
-import { signIn, signOut } from 'next-auth/react';
 import { createContext, createElement, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -32,6 +31,20 @@ import { apiErrorFrom, apiErrorOf } from './api-error';
  * `refresh` vuelve a pedirla cuando algo la ha podido cambiar: cambiar de plan, o
  * gastar una pregunta del cupo.
  */
+
+/**
+ * La librería de sesión, **cuando se va a usar y no antes**.
+ *
+ * Importada arriba, `next-auth/react` viajaba en el paquete de las nueve rutas
+ * —7,4 KB comprimidos— porque el proveedor de la cuenta está en el layout, y lo
+ * único que se usaba de ella eran `signIn` y `signOut`, que solo corren al pulsar
+ * «Entrar» o «Salir». Nadie la necesita para pintar: la cuenta llega resuelta del
+ * servidor. Así se descarga al pulsar, que es un instante que ya lleva su
+ * «Un momento…», y el resto de visitas no la bajan nunca.
+ */
+function sesion() {
+  return import('next-auth/react');
+}
 
 export interface AccountState {
   readonly account: Account;
@@ -157,6 +170,7 @@ export type SignInResult = { readonly ok: true } | { readonly ok: false; readonl
  */
 export async function signInWithPassword(email: string, password: string): Promise<SignInResult> {
   try {
+    const { signIn } = await sesion();
     const result = await signIn('credentials', { email, password, redirect: false });
     if (result?.error !== undefined && result.error !== null) {
       // **Pasarse de intentos no es tener la contraseña mal**, y decir que lo es
@@ -229,8 +243,16 @@ export async function registerAccount(
   }
 }
 
-export async function signOutHere(): Promise<void> {
-  await signOut({ redirect: false });
+/**
+ * Cerrar la sesión.
+ *
+ * Sin destino se queda en la pantalla —`redirect: false`— y quien llama repinta.
+ * Con destino, la librería lleva allí con una navegación completa: es lo que pide
+ * borrar la cuenta, donde no queda nada de la pantalla de antes que conservar.
+ */
+export async function signOutHere(destino?: string): Promise<void> {
+  const { signOut } = await sesion();
+  await (destino === undefined ? signOut({ redirect: false }) : signOut({ callbackUrl: destino }));
 }
 
 export type ProfileResult =

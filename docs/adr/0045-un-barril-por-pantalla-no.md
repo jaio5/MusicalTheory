@@ -114,7 +114,9 @@ páginas, nueve importaciones, una cada una.
 **`next/dynamic` para las pantallas pesadas.** Habría bajado más, y se descarta por
 lo que cuesta: una pantalla cargada en diferido necesita su estado de espera, y el
 lienzo de componer tardando en aparecer con un hueco en medio es peor que 80 KB.
-Esto se reconsidera si `/componer` crece mucho más.
+Esto se reconsidera si `/componer` crece mucho más. Se reconsideró en
+[ADR 0058](./0058-componer-se-descarga-por-partes.md): componer ya no entra por
+el lienzo, y lo que se difiere es lo que no se ve al entrar.
 
 **`optimizePackageImports` de Next** para los barriles. Se descarta porque está
 pensado para dependencias de `node_modules` con cientos de exportaciones, no para

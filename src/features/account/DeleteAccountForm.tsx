@@ -1,11 +1,10 @@
 'use client';
 
-import { signOut } from 'next-auth/react';
 import { useState } from 'react';
 
 import { useEnvio } from './use-envio';
 
-import { deleteAccount } from '@state/account';
+import { deleteAccount, signOutHere } from '@state/account';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
 import { Aviso } from '@ui/Aviso';
@@ -45,8 +44,9 @@ export function DeleteAccountForm() {
       }
       // La cookie sigue viva y firmada, así que hay que cerrarla a mano. Sin
       // esto, quien acaba de borrarse se queda con una sesión que apunta a una
-      // fila que ya no existe.
-      await signOut({ callbackUrl: '/' });
+      // fila que ya no existe. Por `state/account`, que es el único sitio que
+      // conoce la librería de sesión y la descarga solo al usarla.
+      await signOutHere('/');
     });
   }
 

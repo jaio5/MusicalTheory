@@ -28,6 +28,11 @@ export interface FieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
  * hay CSS que lo cambie. Sale oscura porque el documento declara
  * `color-scheme: dark` en `globals.css`, que es la otra mitad de este arreglo.
  *
+ * El borde es `border-strong`, el de los controles: el de separar cajas da
+ * 1,3:1 y un desplegable cerrado se quedaba en un texto suelto sin contorno
+ * (WCAG 1.4.11 pide 3:1). Por eso el paso del cursor sube a `brass` y no a
+ * `brass-dim`, que es más apagado que el borde de reposo y lo borraba.
+ *
  * Alto de 44 px como todo lo que se pulsa, y hueco a la derecha para que el
  * nombre largo de una afinación no se meta debajo de la flecha.
  *
@@ -66,7 +71,7 @@ export function Field({
         <select
           aria-label={compact ? label : undefined}
           style={{ appearance: 'none' }}
-          className={`border-border bg-surface text-text hover:border-brass-dim min-h-tap w-full cursor-pointer rounded-md border py-1.5 pr-9 pl-3 text-sm transition-colors ${className}`}
+          className={`border-border-strong bg-surface text-text hover:border-brass min-h-tap w-full cursor-pointer rounded-md border py-1.5 pr-9 pl-3 text-sm transition-colors ${className}`}
           {...props}
         >
           {children}

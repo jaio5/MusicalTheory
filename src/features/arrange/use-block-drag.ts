@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { colocar } from './arrastrar';
 
 /**
  * Arrastrar bloques con el puntero, sin librería.
@@ -32,11 +34,16 @@ export interface DropTarget {
   readonly index: number;
 }
 
+/**
+ * Lo que React tiene que saber de un arrastre: qué bloque y dónde caería.
+ *
+ * **La posición del puntero no está aquí, y es a propósito.** Estaba, y cada
+ * movimiento repintaba el lienzo entero para mover un fantasma dos píxeles. El
+ * fantasma lo mueve ahora el propio enganche a través de `fantasma`, y el estado
+ * solo cambia cuando cambia el hueco, que es lo único que cambia lo que se pinta.
+ */
 export interface DragState {
   readonly blockId: string;
-  /** Dónde está el puntero, para dibujar el bloque pegado a él. */
-  readonly x: number;
-  readonly y: number;
   readonly target: DropTarget | null;
 }
 
@@ -54,6 +61,15 @@ export interface BlockDrag {
   readonly drag: DragState | null;
   /** Se engancha al `onPointerDown` del cuerpo de cada bloque. */
   start(event: React.PointerEvent, blockId: string): void;
+  /**
+   * Se engancha al `ref` del fantasma que sigue al puntero. El enganche le
+   * escribe el `transform` en cada movimiento sin pasar por el estado.
+   */
+  readonly fantasma: (nodo: HTMLElement | null) => void;
+}
+
+function mismoHueco(a: DropTarget | null, b: DropTarget | null): boolean {
+  return a?.partId === b?.partId && a?.index === b?.index;
 }
 
 /**
@@ -102,6 +118,23 @@ export function useBlockDrag(
 ): BlockDrag {
   const [drag, setDrag] = useState<DragState | null>(null);
   const medidasRef = useRef<readonly Medida[]>([]);
+  /** Dónde está el puntero, para colocar el fantasma en cuanto se monte. */
+  const punteroRef = useRef({ x: 0, y: 0 });
+  const fantasmaRef = useRef<HTMLElement | null>(null);
+  /** Cómo dejar de escuchar el gesto en curso, si lo hay. */
+  const cancelarRef = useRef<(() => void) | null>(null);
+
+  // Desmontarse a mitad del gesto deja los oyentes en el `window`, y el próximo
+  // movimiento del ratón arrastraría un bloque que ya no está en pantalla.
+  useEffect(() => () => cancelarRef.current?.(), []);
+
+  // El fantasma nace un render después de arrancar el gesto: se coloca al
+  // montarse con la última posición conocida, o aparecería un instante en la
+  // esquina.
+  const fantasma = useCallback((nodo: HTMLElement | null) => {
+    fantasmaRef.current = nodo;
+    colocar(nodo, punteroRef.current.x, punteroRef.current.y);
+  }, []);
 
   const start = useCallback(
     (event: React.PointerEvent, blockId: string) => {
@@ -114,30 +147,40 @@ export function useBlockDrag(
       const inicioX = event.clientX;
       const inicioY = event.clientY;
       let arrancado = false;
+      let hueco: DropTarget | null = null;
 
       const mover = (e: PointerEvent) => {
-        if (!arrancado) {
-          if (Math.hypot(e.clientX - inicioX, e.clientY - inicioY) < UMBRAL_PX) {
-            return;
-          }
-          arrancado = true;
-          medidasRef.current = medir();
+        if (!arrancado && Math.hypot(e.clientX - inicioX, e.clientY - inicioY) < UMBRAL_PX) {
+          return;
         }
         // Mientras se arrastra no se selecciona texto ni se desplaza la página.
         e.preventDefault();
-        setDrag({
-          blockId,
-          x: e.clientX,
-          y: e.clientY,
-          target: huecoEn(medidasRef.current, e.clientX, e.clientY),
-        });
+        punteroRef.current = { x: e.clientX, y: e.clientY };
+        colocar(fantasmaRef.current, e.clientX, e.clientY);
+
+        if (!arrancado) {
+          arrancado = true;
+          medidasRef.current = medir();
+          hueco = huecoEn(medidasRef.current, e.clientX, e.clientY);
+          setDrag({ blockId, target: hueco });
+          return;
+        }
+        const ahora = huecoEn(medidasRef.current, e.clientX, e.clientY);
+        if (!mismoHueco(hueco, ahora)) {
+          hueco = ahora;
+          setDrag({ blockId, target: ahora });
+        }
       };
 
-      const soltar = (e: PointerEvent) => {
+      const quitar = () => {
         window.removeEventListener('pointermove', mover);
         window.removeEventListener('pointerup', soltar);
         window.removeEventListener('pointercancel', soltar);
+        cancelarRef.current = null;
+      };
 
+      const soltar = (e: PointerEvent) => {
+        quitar();
         if (arrancado) {
           const destino = huecoEn(medidasRef.current, e.clientX, e.clientY);
           if (destino !== null) {
@@ -153,11 +196,12 @@ export function useBlockDrag(
       // decide que es un desplazamiento, o entra una llamada—. Sin escucharlo, el
       // bloque se queda pegado al puntero y no hay manera de soltarlo.
       window.addEventListener('pointercancel', soltar);
+      cancelarRef.current = quitar;
     },
     [medir, onDrop],
   );
 
-  return { drag, start };
+  return { drag, start, fantasma };
 }
 
 export type { Medida };

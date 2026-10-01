@@ -38,4 +38,16 @@ describe('Elegir afinación', () => {
 
     expect(screen.getByText(/folk y celta/i)).toBeInTheDocument();
   });
+
+  // Seis cajas con relieve y borde pasaban por botones y no hacían nada: son una
+  // lectura, y se pintan como tal.
+  it('las cuerdas son etiquetas, no cajas con pinta de botón', () => {
+    render(<TuningPicker />);
+
+    const cuerdas = screen.getByRole('list', { name: /cuerdas de la afinación/i });
+    for (const cuerda of within(cuerdas).getAllByRole('listitem')) {
+      expect(cuerda.className).not.toMatch(/superficie|border/);
+    }
+    expect(within(cuerdas).queryByRole('button')).not.toBeInTheDocument();
+  });
 });

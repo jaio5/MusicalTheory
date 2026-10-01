@@ -8,6 +8,7 @@ import {
   MAX_QUESTION_LENGTH,
   monthlyAiRequests,
   TOKEN_BUDGETS,
+  unidadesDe,
 } from '@core/billing';
 import { BADGES } from '@core/music';
 
@@ -66,6 +67,17 @@ const EN_LETRA: Readonly<Record<number, string>> = {
   54: 'cincuenta y cuatro',
   55: 'cincuenta y cinco',
   56: 'cincuenta y seis',
+  57: 'cincuenta y siete',
+  58: 'cincuenta y ocho',
+  59: 'cincuenta y nueve',
+  60: 'sesenta',
+  61: 'sesenta y uno',
+  62: 'sesenta y dos',
+  63: 'sesenta y tres',
+  64: 'sesenta y cuatro',
+  65: 'sesenta y cinco',
+  66: 'sesenta y seis',
+  67: 'sesenta y siete',
 };
 
 describe('lo que la documentación cuenta', () => {
@@ -115,7 +127,14 @@ describe('lo que la documentación cuenta', () => {
     );
     expect(texto).toMatch(
       new RegExp(
-        `Peticiones a la IA al mes\\s*\\|\\s*15\\s*\\|\\s*${basico}\\s*\\|\\s*${medio}\\s*\\|\\s*${pro}`,
+        `Preguntas al profesor al mes\\s*\\|\\s*15\\s*\\|\\s*${basico}\\s*\\|\\s*${medio}\\s*\\|\\s*${pro}`,
+      ),
+    );
+    // Y lo que gasta una salida, que es la otra mitad del número (adr/0067).
+    const k = unidadesDe('versiones', 'claude-opus-5');
+    expect(texto).toMatch(
+      new RegExp(
+        `Preguntas que gasta una salida\\s*\\|\\s*—\\s*\\|\\s*—\\s*\\|\\s*${k}\\s*\\|\\s*${k}`,
       ),
     );
   });

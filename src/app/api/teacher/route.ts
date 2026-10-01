@@ -16,12 +16,12 @@ import { ANSWER_SCHEMA, cabeceraDePrompt, TEACHER_SYSTEM_PROMPT } from '@server/
 import { SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
- * El profesor. Como el de ideas, es un route handler: el SDK de Anthropic y la
+ * El profesor. Como el de salidas, es un route handler: el SDK de Anthropic y la
  * clave viven solo aquí, porque importarlos desde un componente los llevaría al
  * navegador.
  *
  * El cuerpo —las puertas, el reintento y qué contestar en cada final— lo pone
- * `server/ai-route.ts`, que es el mismo para las tres rutas. Aquí solo queda lo
+ * `server/ai-route.ts`, que es el mismo para las dos rutas. Aquí solo queda lo
  * que distingue al profesor: cómo se lee su petición, cómo se escribe su prompt
  * y qué esquema se le exige a la respuesta.
  *

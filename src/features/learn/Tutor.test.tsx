@@ -6,7 +6,9 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS } from '@core/billing';
+import { pitchClassFromName } from '@core/music';
 import { AccountProvider } from '@state/account';
+import { useSessionStore } from '@state/session-store';
 import { moverTutor, SITIO_POR_DEFECTO } from '@state/tutor-spot';
 
 import { Tutor } from './Tutor';
@@ -52,12 +54,28 @@ describe('El muñeco del profesor', () => {
    * del profesor va dentro del globo, no detrás de un enlace a otra pantalla.
    */
   it('al pulsarlo se abre con el formulario de preguntar dentro', async () => {
-    pintar(<Tutor unitId="e1-grados" />);
+    // Con cuenta y con tonalidad, que es cuando el formulario existe.
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(
+      <AccountProvider account={{ ...ANONYMOUS, email: 'a@b.es' }} accounts>
+        <Tutor unitId="e1-grados" />
+      </AccountProvider>,
+    );
 
     await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
 
     expect(screen.getByRole('button', { name: /preguntar/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/pregunta lo que quieras/i)).toBeInTheDocument();
+  });
+
+  // Sin cuenta, el globo ofrece entrar y no un campo que acabaría en un 401.
+  it('sin cuenta, dentro del globo hay un enlace para entrar y no el campo', async () => {
+    pintar(<Tutor unitId="e1-grados" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
+
+    expect(screen.getByRole('link', { name: 'Entrar para preguntar' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('se abre solo cuando hay algo que avisar, y con la frase entera para quien no ve', () => {
@@ -159,6 +177,25 @@ describe('El muñeco del profesor', () => {
     const marco = container.firstElementChild as HTMLElement;
     expect(marco.className).toContain('right-3');
     expect(marco.className).toContain('flex-row-reverse');
+  });
+
+  /**
+   * Moverlo solo arrastrando deja fuera a quien no puede arrastrar (WCAG
+   * 2.5.7): un botón lo cambia de lado y conserva la altura.
+   */
+  it('se cambia de lado con un boton, sin arrastrar', async () => {
+    moverTutor({ lado: 'derecha', alto: 70 });
+    const { container } = pintar(<Tutor />);
+    await userEvent.click(screen.getByRole('button', { name: 'Preguntarle al profesor' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Pasar a la izquierda' }));
+
+    const marco = container.firstElementChild as HTMLElement;
+    expect(marco.className).toContain('left-3');
+    expect(marco.style.bottom).toBe('30%');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Pasar a la derecha' }));
+    expect(marco.className).toContain('right-3');
   });
 
   it('movido a la izquierda, se abre hacia el otro lado', () => {

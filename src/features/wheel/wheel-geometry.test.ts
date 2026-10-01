@@ -52,13 +52,13 @@ describe('coordenadas de la rueda', () => {
  */
 describe('la escala de los anillos', () => {
   it('el anillo de fuera no se toca', () => {
-    expect(escalaDesdeElCentro(1)).toBe('translate(0 0) scale(1)');
+    expect(escalaDesdeElCentro(1)).toBe('translate(0px, 0px) scale(1)');
   });
 
   // Encogido a la mitad, el centro se queda donde estaba: si la traslación no
   // compensara, el anillo de dentro se iría a la esquina de arriba.
   it('el de dentro encoge sin moverse del centro', () => {
-    expect(escalaDesdeElCentro(0.5)).toBe('translate(65 65) scale(0.5)');
+    expect(escalaDesdeElCentro(0.5)).toBe('translate(65px, 65px) scale(0.5)');
   });
 
   it('no arrastra decimales que dependan de la implementacion', () => {

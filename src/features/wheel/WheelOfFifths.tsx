@@ -1,7 +1,6 @@
 'use client';
 
-import { gsap } from 'gsap';
-import { useRef } from 'react';
+import { useState } from 'react';
 
 import {
   accidentalForKey,
@@ -16,8 +15,6 @@ import {
   type KeyMode,
   type PitchClass,
 } from '@core/music';
-import { motionSeconds } from '@ui/motion';
-import { useIsomorphicLayoutEffect } from '@ui/use-isomorphic-layout-effect';
 import { durations } from '@ui/tokens';
 
 const SIZE = 260;
@@ -36,6 +33,34 @@ const RING_RADIUS = 104;
  */
 const INNER_RADIUS = 72;
 const INNER_SCALE = INNER_RADIUS / RING_RADIUS;
+
+/**
+ * El cuerpo de letra de las casillas, según en qué anillo estén.
+ *
+ * **El anillo pequeño es el grande encogido**, y la letra encoge con él: a 14 px
+ * salía a diez en pantalla, por debajo de los doce que pide `docs/ESTILO.md`. Se
+ * le da de más lo que el anillo le quita —14 entre 0,69 son 20; con 18 basta,
+ * porque la rueda nunca se pinta a menos de su tamaño de lienzo— y así queda en
+ * trece. Cambia con el modo porque los anillos se turnan el sitio, y el cambio
+ * va con la misma transición que la escala para que no dé un salto.
+ */
+const LETRA_FUERA = 14;
+const LETRA_DENTRO = 18;
+
+/**
+ * El movimiento de la rueda, en CSS.
+ *
+ * Lo hacía GSAP: 29,6 KB comprimidos en la portada, en componer y en el profesor
+ * para cuatro interpolaciones de un transform ([adr/0057](../../../docs/adr/0057-la-rueda-gira-sin-gsap.md)).
+ * Una transición hace lo mismo y además **obedece sola a `prefers-reduced-motion`**:
+ * la regla global de `globals.css` la deja en 0,01 ms, cosa que con GSAP había que
+ * preguntar a mano porque escribía el transform él mismo. La curva es la
+ * `power3.out` de GSAP, que es una cuártica de salida.
+ */
+const TRANSICION = `transform ${durations.wheel}ms cubic-bezier(0.25, 1, 0.5, 1), font-size ${durations.wheel}ms cubic-bezier(0.25, 1, 0.5, 1)`;
+
+/** El centro del lienzo como origen de un transform CSS, que en SVG va en unidades del lienzo. */
+const ORIGEN_CENTRO = `${CENTER}px ${CENTER}px`;
 
 export interface WheelOfFifthsProps {
   readonly tonic: PitchClass | null;
@@ -60,13 +85,14 @@ export interface WheelOfFifthsProps {
  * hacía **solo** el efecto de layout. En el servidor no hay efecto: el HTML que
  * llega salía con los veinticuatro nombres pisados unos encima de otros, y así
  * se veía hasta que bajaba el JavaScript. Poniéndola aquí, el primer fotograma
- * ya es el bueno y GSAP solo tiene que animar a partir de él.
+ * ya es el bueno, y la transición anima a partir de él.
  *
- * Se escribe a mano y no con `gsap.set` porque esto tiene que salir del render,
- * que es lo único que corre en el servidor.
+ * Es un transform **CSS** y no el atributo de SVG, que no se puede transicionar:
+ * por eso lleva `px`, que dentro de un SVG son unidades del lienzo.
  */
 export function escalaDesdeElCentro(escala: number): string {
-  return `translate(${round(CENTER * (1 - escala))} ${round(CENTER * (1 - escala))}) scale(${round(escala)})`;
+  const desplazamiento = round(CENTER * (1 - escala));
+  return `translate(${desplazamiento}px, ${desplazamiento}px) scale(${round(escala)})`;
 }
 
 export function pointAt(position: number, radius: number): { x: number; y: number } {
@@ -100,80 +126,27 @@ function round(value: number): number {
  * se mueve es la letra.
  */
 export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
-  const ringRef = useRef<SVGGElement>(null);
-  const majorsRef = useRef<SVGGElement>(null);
-  const minorsRef = useRef<SVGGElement>(null);
-  const rotationRef = useRef(0);
-  const placedRef = useRef(false);
-
-  // Antes del pintado, no después: los dos anillos se dibujan al mismo radio y
-  // uno se encoge, así que si esto corriera tras pintar se verían solapados
-  // durante un fotograma.
-  useIsomorphicLayoutEffect(() => {
-    const ring = ringRef.current;
-    const majors = majorsRef.current;
-    const minors = minorsRef.current;
-    /* v8 ignore next 3 -- los tres grupos son parte del mismo dibujo: si hay uno, estan los tres */
-    if (ring === null || majors === null || minors === null) {
-      return;
+  const destino = tonic !== null && mode !== null ? rotationForKey(tonic, mode) : null;
+  // El giro se acumula: girar por el camino corto depende de dónde se quedó la
+  // rueda, no solo de a dónde va —de Fa a Do son treinta grados hacia atrás, no
+  // trescientos treinta hacia delante—. Se ajusta durante el render, que es como
+  // React pide derivar un estado de las props sin un efecto que pinte dos veces.
+  const [giro, setGiro] = useState(destino === null ? 0 : shortestRotation(0, destino));
+  const [destinoVisto, setDestinoVisto] = useState(destino);
+  if (destino !== destinoVisto) {
+    setDestinoVisto(destino);
+    // Sin tonalidad la rueda se queda donde estaba: volver a Do sería un giro
+    // que no dice nada.
+    if (destino !== null) {
+      setGiro(shortestRotation(giro, destino));
     }
+  }
 
-    const origin = `${CENTER} ${CENTER}`;
-    // La primera vez se coloca de golpe: animar desde un estado que nadie ha
-    // visto no es una animación, es un salto.
-    const duration = placedRef.current ? motionSeconds(durations.wheel) : 0;
-    placedRef.current = true;
-
-    // El anillo del modo que manda pasa a fuera. Los dos son círculos de
-    // quintas completos, así que ponerlos al revés sigue siendo correcto: lo
-    // que no cambia son las posiciones, porque una menor y su relativa mayor
-    // comparten armadura y por eso comparten sitio.
-    const minorOutside = mode === 'minor';
-    gsap.to(majors, {
-      scale: minorOutside ? INNER_SCALE : 1,
-      svgOrigin: origin,
-      duration,
-      ease: 'power3.out',
-    });
-    gsap.to(minors, {
-      scale: minorOutside ? 1 : INNER_SCALE,
-      svgOrigin: origin,
-      duration,
-      ease: 'power3.out',
-    });
-
-    if (tonic === null || mode === null) {
-      return;
-    }
-
-    // Girar por el camino corto: de Fa a Do son treinta grados hacia atrás, no
-    // trescientos treinta hacia delante.
-    const target = shortestRotation(rotationRef.current, rotationForKey(tonic, mode));
-    rotationRef.current = target;
-
-    gsap.to(ring, {
-      rotation: target,
-      svgOrigin: origin,
-      // GSAP escribe el transform a mano, así que la regla CSS de
-      // prefers-reduced-motion no le afecta: hay que preguntarlo aquí.
-      duration,
-      ease: 'power3.out',
-    });
-
-    // Y el contragiro, a la vez y con la misma curva: si las dos rotaciones no
-    // van acompasadas, las letras se ven bailar mientras la rueda pasa.
-    //
-    // El origen se pide por elemento —`transformOrigin` sobre la caja de cada
-    // uno— y no con `svgOrigin`, que es una coordenada única del lienzo: las
-    // doce etiquetas están en doce sitios distintos y girarían todas alrededor
-    // del centro de la rueda, que es exactamente lo que se quiere deshacer.
-    gsap.to(ring.querySelectorAll('[data-contragiro]'), {
-      rotation: -target,
-      transformOrigin: '50% 50%',
-      duration,
-      ease: 'power3.out',
-    });
-  }, [tonic, mode]);
+  // El anillo del modo que manda pasa a fuera. Los dos son círculos de quintas
+  // completos, así que ponerlos al revés sigue siendo correcto: lo que no cambia
+  // son las posiciones, porque una menor y su relativa mayor comparten armadura
+  // y por eso comparten sitio.
+  const minorOutside = mode === 'minor';
 
   const activePosition = tonic !== null && mode !== null ? keyPosition(tonic, mode) : null;
   const sePulsa = onPick !== undefined;
@@ -313,18 +286,32 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
 
       {/* La marca fija de las doce en punto: es la que señala la tonalidad.
 
-          Lleva su halo porque es lo único que no gira, y sobre el aro tenía el
-          mismo peso visual que un radio cualquiera. */}
-      <g aria-hidden="true">
-        <circle cx={CENTER} cy={14} r={13} className="fill-brass-bright" opacity={0.14} />
-        <path d={`M ${CENTER} 7 l 7 12 l -14 0 Z`} className="fill-brass-bright" />
-      </g>
+          **Vive en el pozo del centro y apunta hacia arriba**, como la aguja de
+          un reloj. Estaba encima del aro, con su halo, y ahí caía sobre la
+          casilla de arriba: sin tonalidad tapaba media «C», que es justo la
+          parada del tabulador. En el pozo no hay nada que tapar, y no gira. */}
+      <path
+        aria-hidden="true"
+        d={`M ${CENTER} ${CENTER - INNER_RADIUS + 26} l 9 13 l -18 0 Z`}
+        className="fill-brass-bright"
+      />
 
-      <g ref={ringRef}>
+      <g
+        style={{
+          transform: `rotate(${giro}deg)`,
+          transformOrigin: ORIGEN_CENTRO,
+          transition: TRANSICION,
+        }}
+      >
         {/* Los dos anillos se dibujan al mismo radio; el de dentro se encoge.
             Así intercambiarlos es animar una escala, y el texto encoge con
             ellos, que es justo el énfasis que se busca. */}
-        <g ref={majorsRef} transform={escalaDesdeElCentro(mode === 'minor' ? INNER_SCALE : 1)}>
+        <g
+          style={{
+            transform: escalaDesdeElCentro(minorOutside ? INNER_SCALE : 1),
+            transition: TRANSICION,
+          }}
+        >
           {CIRCLE_OF_FIFTHS.map((major, position) => (
             <KeyLabel
               key={major}
@@ -332,6 +319,8 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
               label={noteName(major, accidentalForKey(major, 'major'))}
               name={keyName(major, 'major')}
               active={position === activePosition && mode === 'major'}
+              giro={giro}
+              dentro={minorOutside}
               // La parada del tabulador es una: la tonalidad puesta, y si no hay
               // ninguna, el Do de arriba. Las demás se alcanzan con las flechas.
               alcanzable={
@@ -344,7 +333,12 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
           ))}
         </g>
 
-        <g ref={minorsRef} transform={escalaDesdeElCentro(mode === 'minor' ? 1 : INNER_SCALE)}>
+        <g
+          style={{
+            transform: escalaDesdeElCentro(minorOutside ? 1 : INNER_SCALE),
+            transition: TRANSICION,
+          }}
+        >
           {CIRCLE_OF_FIFTHS.map((major, position) => {
             const minor = relativeMinor(major);
             return (
@@ -354,6 +348,8 @@ export function WheelOfFifths({ tonic, mode, onPick }: WheelOfFifthsProps) {
                 label={`${noteName(minor, accidentalForKey(minor, 'minor'))}m`}
                 name={keyName(minor, 'minor')}
                 active={position === activePosition && mode === 'minor'}
+                giro={giro}
+                dentro={!minorOutside}
                 alcanzable={position === activePosition && mode === 'minor'}
                 onPick={onPick === undefined ? undefined : () => onPick(minor, 'minor')}
               />
@@ -371,6 +367,10 @@ interface KeyLabelProps {
   /** Nombre completo, para quien no ve la rueda. */
   readonly name: string;
   readonly active: boolean;
+  /** El giro de la rueda, que la etiqueta deshace para quedarse de pie. */
+  readonly giro: number;
+  /** Si su anillo es el de dentro, que encoge y le pide más cuerpo de letra. */
+  readonly dentro: boolean;
   /**
    * Si es **la** parada del tabulador de toda la rueda.
    *
@@ -399,10 +399,29 @@ interface KeyLabelProps {
  * casilla redonda, que se enciende al pasar por encima y se rellena de latón
  * cuando es la que manda.
  *
- * El grupo `data-contragiro` es lo que mantiene la letra de pie mientras la
- * rueda gira; lo mueve el efecto de arriba.
+ * El contragiro es lo que mantiene la letra de pie mientras la rueda gira: el
+ * mismo ángulo del revés, con la misma transición —si las dos rotaciones no van
+ * acompasadas, las letras se ven bailar—. Su origen es **el centro de la
+ * etiqueta** y no el de la rueda: girar alrededor del centro de la rueda es
+ * justo lo que se quiere deshacer.
  */
-function KeyLabel({ point, label, name, active, alcanzable = false, onPick }: KeyLabelProps) {
+function KeyLabel({
+  point,
+  label,
+  name,
+  active,
+  giro,
+  dentro,
+  alcanzable = false,
+  onPick,
+}: KeyLabelProps) {
+  const contragiro = {
+    transform: `rotate(${-giro}deg)`,
+    transformOrigin: `${point.x}px ${point.y}px`,
+    transition: TRANSICION,
+  };
+  const letra = { fontSize: dentro ? LETRA_DENTRO : LETRA_FUERA, transition: TRANSICION };
+
   /**
    * Cuarenta y seis unidades del lienzo, y salen de una cuenta.
    *
@@ -429,7 +448,7 @@ function KeyLabel({ point, label, name, active, alcanzable = false, onPick }: Ke
 
   if (onPick === undefined) {
     return (
-      <g data-contragiro>
+      <g data-contragiro style={contragiro}>
         <circle
           cx={point.x}
           cy={point.y}
@@ -442,7 +461,7 @@ function KeyLabel({ point, label, name, active, alcanzable = false, onPick }: Ke
           textAnchor="middle"
           dominantBaseline="central"
           className={`font-mono ${active ? 'fill-background font-bold' : 'fill-text-muted'}`}
-          style={{ fontSize: 14 }}
+          style={letra}
         >
           {label}
         </text>
@@ -451,7 +470,7 @@ function KeyLabel({ point, label, name, active, alcanzable = false, onPick }: Ke
   }
 
   return (
-    <g data-contragiro>
+    <g data-contragiro style={contragiro}>
       <foreignObject x={point.x - box / 2} y={point.y - box / 2} width={box} height={box}>
         <button
           type="button"
@@ -460,7 +479,13 @@ function KeyLabel({ point, label, name, active, alcanzable = false, onPick }: Ke
           onClick={onPick}
           aria-pressed={active}
           title={name}
-          className={`flex h-full w-full cursor-pointer items-center justify-center rounded-full border font-mono text-sm transition-[background-color,border-color,color] duration-150 ${
+          // La transición va escrita aquí y no en clases porque son dos ritmos: el
+          // color responde al puntero en seguida y la letra acompaña a la rueda.
+          style={{
+            fontSize: dentro ? LETRA_DENTRO : LETRA_FUERA,
+            transition: `background-color 150ms, border-color 150ms, color 150ms, ${TRANSICION}`,
+          }}
+          className={`flex h-full w-full cursor-pointer items-center justify-center rounded-full border font-mono ${
             active
               ? 'border-brass bg-brass text-background font-bold'
               : 'text-text-muted hover:border-brass-dim hover:bg-surface-raised hover:text-brass-bright border-transparent'

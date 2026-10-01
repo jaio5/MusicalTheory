@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useCallback, useRef } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 
 import {
   figuraDe,
@@ -17,7 +17,7 @@ import {
   type PitchClass,
 } from '@core/music';
 
-import { arrastrar } from './arrastrar';
+import { useArrastre } from './arrastrar';
 import { BOLITA, CLAVE_DE_SOL, ESPACIO_CLAVE } from './clef';
 import { useMedida } from '@ui/use-medida';
 
@@ -75,6 +75,16 @@ import { useMedida } from '@ui/use-medida';
  */
 const PULSO_MINIMO = 28;
 const PULSO_MAXIMO = 46;
+
+/**
+ * Lo que la hoja se come de su caja: el `px-2` de cada lado y el borde de
+ * `.superficie`.
+ *
+ * Se repartía el ancho de la caja de fuera como si fuera todo papel, y la hoja
+ * le sumaba luego su relleno y su borde: dieciocho píxeles de más, de los que
+ * catorce salían por la derecha —727 de hoja en 713 de hueco, medido a 1440—.
+ */
+const PAPEL = 18;
 
 /** Medio espacio del pentagrama: lo que sube una nota al pasar de línea a espacio. */
 const PASO = 6;
@@ -188,6 +198,41 @@ const PLICA_LARGO = 3.5 * 2 * PASO;
 const ANCHO_COMPAS = 24;
 
 /**
+ * Lo alta que es una cifra respecto de su cuerpo de letra, en la sans de casa.
+ *
+ * Un `fontSize` no es la altura de lo que se ve: es la caja entera, con el
+ * hueco de los rasgos que bajan y el de los acentos. Una cifra ocupa algo menos
+ * de tres cuartos, y es esa altura la que tiene que llenar dos espacios.
+ */
+const PROPORCION_CIFRA = 0.72;
+
+/**
+ * Dónde se asienta y cuánto mide cada cifra de la indicación de compás.
+ *
+ * **Cada una llena su mitad del pentagrama**: la de arriba de la quinta línea a
+ * la tercera, la de abajo de la tercera a la primera. Es lo que hace cualquier
+ * partitura impresa, y por eso se escribe aquí como cuenta y no como número.
+ *
+ * Estaban a ojo —la base ocho píxeles por debajo de la tercera línea y de la
+ * primera, a 22 de cuerpo—, y salían una mitad corridas hacia abajo: el número
+ * de arriba caía en la mitad de abajo y el de abajo colgaba por debajo de la
+ * última línea, que es la manera más rápida de que una partitura parezca hecha
+ * por quien no ha visto ninguna.
+ */
+export const CIFRAS_DEL_COMPAS = {
+  /** La base de la de arriba va sobre la tercera línea; la de abajo, sobre la primera. */
+  baseArriba: BASE - 4 * PASO,
+  baseAbajo: BASE,
+  /** Dos espacios de alto: media pauta. */
+  alto: 4 * PASO,
+  cuerpo: (4 * PASO) / PROPORCION_CIFRA,
+  /** Las cinco líneas, para que quien lo compruebe no copie los números. */
+  lineaDeArriba: BASE - 8 * PASO,
+  lineaDelMedio: BASE - 4 * PASO,
+  lineaDeAbajo: BASE,
+} as const;
+
+/**
  * En qué escalón va cada alteración de la armadura, y **son dos tablas**.
  *
  * Los sostenidos y los bemoles no se escriben en las mismas alturas: es una
@@ -226,6 +271,81 @@ const ALTURA_BEMOLES: Readonly<Record<string, number>> = {
 /** La caja de un pentagrama que no está montado. No pasa; TypeScript no lo sabe. */
 const SIN_PENTAGRAMA = { left: 0, top: 0 } as DOMRect;
 
+/**
+ * Lo que ocupa a lo ancho la pista del pentagrama vacío, en su línea más larga.
+ *
+ * Es una estimación —un SVG no parte el texto ni dice cuánto mide sin montarlo—:
+ * veintiocho letras de doce píxeles en la sans. Sirve para que la pista,
+ * centrada bajo el primer sistema, no se salga por ningún lado cuando la hoja
+ * es más estrecha que ella, que es lo que pasa en un teléfono con un compás.
+ */
+const ANCHO_PISTA = 176;
+
+/**
+ * El cuerpo de la pista: los doce de la casa, que es el mínimo de todo lo que se
+ * lee (`docs/ESTILO.md`). Iba a once, pegada a la clave.
+ */
+const CUERPO_PISTA = 12;
+
+/** Lo que hay entre la línea de abajo del pentagrama y la primera de la pista. */
+const BAJO_LA_PAUTA = 26;
+
+/**
+ * Cuántos compases van en cada sistema, cuántos sistemas salen y a cuánto toca
+ * el pulso.
+ *
+ * **Una partitura que no cabe en una línea se parte en varias**, como cualquier
+ * partitura de verdad, y no se desplaza de lado
+ * ([adr/0064](../../../docs/adr/0064-la-partitura-se-parte-en-sistemas.md)). En
+ * un teléfono, cuatro compases a su ancho mínimo medían 552 píxeles en una caja
+ * de 364: se veían tres y el cuarto quedaba detrás de un desplazamiento que nada
+ * anunciaba.
+ *
+ * - Caben los compases que quepan **a su pulso mínimo**, y al menos uno.
+ * - Los compases se reparten a partes iguales entre los sistemas que hagan
+ *   falta: cinco que caben de cuatro en cuatro salen tres y dos, no cuatro y uno
+ *   colgando.
+ * - **Todos los sistemas llevan el mismo pulso**, así que el mismo pulso de cada
+ *   compás cae en la misma columna en todos: las barras quedan alineadas, como
+ *   en una hoja guía, y un sistema corto es más corto en vez de más estirado.
+ *
+ * Sin medida —el primer pintado, o jsdom— no se parte: no hay ancho con el que
+ * decidirlo, y partir en uno por compás sería lo peor de los dos mundos.
+ */
+export function repartoEnSistemas(
+  disponible: number,
+  margen: number,
+  compases: number,
+  beatsPerBar: number,
+): { sistemas: number; porSistema: number; porPulso: number } {
+  const util = disponible - PAPEL - margen - 12;
+  const caben = Math.max(1, Math.floor(util / (beatsPerBar * PULSO_MINIMO)));
+  const sistemas = disponible === 0 ? 1 : Math.ceil(compases / caben);
+  const porSistema = Math.ceil(compases / sistemas);
+  const porPulso = Math.min(
+    PULSO_MAXIMO,
+    Math.max(PULSO_MINIMO, util / (porSistema * beatsPerBar)),
+  );
+  return { sistemas, porSistema, porPulso };
+}
+
+/**
+ * Si una tecla activa lo que tiene el foco, como lo haría en un botón.
+ *
+ * Los acordes y las notas son `<g>` y no `<button>` —dentro de un SVG no hay
+ * otra cosa—, así que `Intro` y `Espacio` no disparan el `click` por su cuenta.
+ * Sin esto, con el teclado se llegaba a un acorde y no había forma de elegirlo.
+ */
+function activa(event: ReactKeyboardEvent): boolean {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return false;
+  }
+  // `Espacio` desplazaría la página además de elegir.
+  event.preventDefault();
+  event.stopPropagation();
+  return true;
+}
+
 function yDeStep(step: number): number {
   return BASE - (step - STEP_BASE) * PASO;
 }
@@ -263,7 +383,7 @@ export interface StaffProps {
   readonly onGestureEnd: () => void;
 }
 
-export function Staff({
+export const Staff = memo(function Staff({
   notes,
   blocks,
   bars,
@@ -295,6 +415,7 @@ export function Staff({
    * arrastre y el pentagrama deja pasar ese `click`.
    */
   const arrastradaRef = useRef(false);
+  const empezarArrastre = useArrastre();
   const armadura = keySignature(tonic, mode);
 
   /**
@@ -343,7 +464,6 @@ export function Staff({
   const respiro = Math.max(0, 26 - (yDeStep(escalonMasAlto) - CABEZA_RY - 2));
 
   const compases = Math.max(1, bars);
-  const pulsos = compases * beatsPerBar;
 
   /**
    * El ancho de la caja, medido.
@@ -353,13 +473,46 @@ export function Staff({
    * las notas y la clave hasta deformarlas.
    */
   const { ref: cajaRef, medida } = useMedida<HTMLDivElement>();
-  const disponible = medida.ancho;
-
-  const porPulso = Math.min(
-    PULSO_MAXIMO,
-    Math.max(PULSO_MINIMO, (disponible - margen - 12) / Math.max(1, pulsos)),
+  const { sistemas, porSistema, porPulso } = repartoEnSistemas(
+    medida.ancho,
+    margen,
+    compases,
+    beatsPerBar,
   );
-  const ancho = margen + pulsos * porPulso + 8;
+  /** Los pulsos de un sistema entero; el último puede llevar menos. */
+  const pulsosPorSistema = porSistema * beatsPerBar;
+  const ancho = margen + pulsosPorSistema * porPulso + 8;
+  /** Lo que mide de alto cada sistema, con su aire para los cifrados y las agudas. */
+  const altoSistema = ALTO + respiro;
+
+  /**
+   * En qué sistema y a qué altura de él cae un pulso.
+   *
+   * `fin` es para lo que **acaba** en ese pulso: un acorde que termina justo en
+   * la barra del final de un sistema acaba en ese sistema, no al principio del
+   * siguiente.
+   */
+  function lugar(pulso: number, fin = false): { s: number; x: number } {
+    const cuenta = fin
+      ? Math.ceil(pulso / pulsosPorSistema) - 1
+      : Math.floor(pulso / pulsosPorSistema);
+    const s = Math.min(sistemas - 1, Math.max(0, cuenta));
+    return { s, x: margen + (pulso - s * pulsosPorSistema) * porPulso };
+  }
+  /** Dónde acaba la música de un sistema: el último suele ir más corto. */
+  const finDe = (s: number) =>
+    margen + Math.min(porSistema, compases - s * porSistema) * beatsPerBar * porPulso;
+  /** Lo que baja un sistema desde el primero. */
+  const bajada = (s: number) => (s === 0 ? undefined : `translate(0 ${s * altoSistema})`);
+  /**
+   * Donde va la pista del pentagrama vacío: **centrada bajo la música del primer
+   * sistema**, y apartada de los bordes si la hoja es más estrecha que ella. Iba
+   * pegada a la clave.
+   */
+  const xPista = Math.min(
+    Math.max((margen + finDe(0)) / 2, ANCHO_PISTA / 2 + 4),
+    Math.max(ANCHO_PISTA / 2 + 4, ancho - 4 - ANCHO_PISTA / 2),
+  );
 
   /** Qué escalón y qué pulso hay bajo un punto de la pantalla. */
   const sitioEn = useCallback(
@@ -370,19 +523,21 @@ export function Staff({
       // píxel del dibujo. Si algún día se escala, aquí hay que dividir por la
       // razón entre `caja.width` y `ancho`.
       const x = clientX - caja.left;
+      // Primero qué sistema, por la altura: cada uno mide lo mismo.
+      const s = Math.min(sistemas - 1, Math.max(0, Math.floor((clientY - caja.top) / altoSistema)));
       // El `viewBox` empieza en `-respiro`, así que el cero de pantalla no es el
       // cero del dibujo. Sin esta resta, escribir sobre una partitura con notas
       // agudas pone la nota tantos escalones más abajo como aire se haya abierto.
-      const y = clientY - caja.top - respiro;
+      const y = clientY - caja.top - respiro - s * altoSistema;
       return {
         step: Math.round((BASE - y) / PASO) + STEP_BASE,
-        start: Math.max(0, Math.round((x - margen) / porPulso / 0.5) * 0.5),
+        start: s * pulsosPorSistema + Math.max(0, Math.round((x - margen) / porPulso / 0.5) * 0.5),
       };
     },
     // El margen entra aquí desde que depende de la tonalidad: en Fa sostenido
     // hay seis sostenidos delante, y con el número de Do mayor cada nota que se
     // escribe caería medio compás a la izquierda de donde se pulsó.
-    [porPulso, margen, respiro],
+    [porPulso, margen, respiro, sistemas, altoSistema, pulsosPorSistema],
   );
 
   /**
@@ -401,7 +556,7 @@ export function Staff({
       event.stopPropagation();
       onGestureStart();
 
-      arrastrar({
+      empezarArrastre({
         mover: (x, y) => {
           arrastradaRef.current = true;
           const sitio = sitioEn(x, y);
@@ -420,7 +575,7 @@ export function Staff({
         soltar: onGestureEnd,
       });
     },
-    [blocks, onGestureEnd, onGestureStart, onMoveBlock, sitioEn],
+    [blocks, empezarArrastre, onGestureEnd, onGestureStart, onMoveBlock, sitioEn],
   );
 
   /**
@@ -439,7 +594,7 @@ export function Staff({
       event.stopPropagation();
       const inicioX = event.clientX;
       onGestureStart();
-      arrastrar({
+      empezarArrastre({
         mover: (x) => {
           arrastradaRef.current = true;
           onResizeBlock(blockId, beats + (x - inicioX) / porPulso);
@@ -447,7 +602,7 @@ export function Staff({
         soltar: onGestureEnd,
       });
     },
-    [onGestureEnd, onGestureStart, onResizeBlock, porPulso],
+    [empezarArrastre, onGestureEnd, onGestureStart, onResizeBlock, porPulso],
   );
 
   /**
@@ -475,7 +630,7 @@ export function Staff({
       const dStep = escrita.step - agarre.step;
       const dStart = note.start - agarre.start;
 
-      arrastrar({
+      empezarArrastre({
         mover: (x, y) => {
           arrastradaRef.current = true;
           const sitio = sitioEn(x, y);
@@ -484,7 +639,7 @@ export function Staff({
         soltar: onGestureEnd,
       });
     },
-    [mode, onGestureEnd, onGestureStart, onMove, onSelect, sitioEn, tonic],
+    [empezarArrastre, mode, onGestureEnd, onGestureStart, onMove, onSelect, sitioEn, tonic],
   );
 
   return (
@@ -508,14 +663,21 @@ export function Staff({
       encogería, y así hasta el pulso mínimo. Se vio: la partitura se quedó a la
       mitad de ancho.
     */
+    // El desplazamiento de lado se queda solo para lo que no se puede partir: un
+    // compás de seis a su pulso mínimo no cabe en un teléfono de 320, y un
+    // compás no se parte en dos renglones.
     <div ref={cajaRef} className="mt-1">
       <div className="superficie w-fit max-w-full overflow-x-auto px-2 py-1">
         <svg
           ref={svgRef}
           width={ancho}
-          height={ALTO + respiro}
-          viewBox={`0 ${-respiro} ${ancho} ${ALTO + respiro}`}
-          role="img"
+          height={sistemas * altoSistema}
+          viewBox={`0 ${-respiro} ${ancho} ${sistemas * altoSistema}`}
+          // Un grupo y no una imagen: los hijos de una imagen son decoración por
+          // definición, y aquí dentro están los acordes y las notas, que se
+          // eligen. Con `img` el lector no los anunciaba y axe lo marca como
+          // interactivos anidados (`docs/ESTILO.md`, lo mismo que la rueda).
+          role="group"
           aria-label={`Partitura de ${partName}: ${notes.length} notas`}
           className="text-text block"
           onClick={(event) => {
@@ -527,149 +689,165 @@ export function Staff({
             onAdd(offsetOfStep(sitio.step, tonic, mode), sitio.start);
           }}
         >
-          {/* Las cinco líneas. */}
-          {[0, 1, 2, 3, 4].map((linea) => (
-            <line
-              key={linea}
-              x1={4}
-              x2={ancho - 4}
-              y1={BASE - linea * 2 * PASO}
-              y2={BASE - linea * 2 * PASO}
-              stroke="currentColor"
-              // Las cinco líneas son la referencia contra la que se lee todo lo
-              // demás: apagadas al 45 % se veían como una sugerencia de
-              // pentagrama. Se probó a ponerle fondo claro al dibujo, como hace
-              // Soundslice con su papel, y en una aplicación oscura con identidad
-              // propia el rectángulo blanco canta más de lo que ayuda: lo que le
-              // faltaba a la partitura era contraste, no papel.
-              strokeOpacity={0.7}
-              strokeWidth={1}
-            />
-          ))}
-
           {/*
-          La clave de sol.
+            Un sistema por línea, y **cada uno empieza con su clave y su
+            armadura**, que es como se lee una partitura de varias líneas: quien
+            salta al segundo renglón no tiene que volver al primero para saber en
+            qué tonalidad está. La indicación de compás va solo en el primero,
+            como en cualquier partitura impresa.
+          */}
+          {Array.from({ length: sistemas }, (_, s) => {
+            const fin = finDe(s);
+            const ultimo = s === sistemas - 1;
+            const compasesAqui = Math.min(porSistema, compases - s * porSistema);
+            return (
+              <g key={s} transform={bajada(s)} data-sistema={s}>
+                {/* Las cinco líneas, hasta la barra que cierra el sistema. */}
+                {[0, 1, 2, 3, 4].map((linea) => (
+                  <line
+                    key={linea}
+                    x1={4}
+                    x2={fin}
+                    y1={BASE - linea * 2 * PASO}
+                    y2={BASE - linea * 2 * PASO}
+                    stroke="currentColor"
+                    // Las cinco líneas son la referencia contra la que se lee todo lo
+                    // demás: apagadas al 45 % se veían como una sugerencia de
+                    // pentagrama. Se probó a ponerle fondo claro al dibujo, como hace
+                    // Soundslice con su papel, y en una aplicación oscura con identidad
+                    // propia el rectángulo blanco canta más de lo que ayuda: lo que le
+                    // faltaba a la partitura era contraste, no papel.
+                    strokeOpacity={0.7}
+                    strokeWidth={1}
+                  />
+                ))}
 
-          El dibujo vive en `clef.ts`, y allí está el porqué: se genera a partir
-          de la línea que recorre la pluma en vez de escribirse curva a curva,
-          que es como salió la primera —una espiral con un palo, sin los dos
-          cruces que hacen la clave—.
+                {/*
+                  La clave de sol.
 
-          Aquí solo se coloca, y colocarla es **una traslación y nada más**: las
-          coordenadas de la clave tienen el centro de la espiral en el origen, y
-          ese centro va sobre la línea del Sol, que es lo único que la clave
-          significa. Antes había que restarle a la línea el 101 de la caja de
-          dibujo multiplicado por la escala, y ese 101 no lo sabía nadie.
-        */}
-          <g
-            aria-hidden
-            transform={`translate(${MARGEN_CLAVE} ${BASE - 2 * PASO}) scale(${ESCALA_CLAVE})`}
-            fill="currentColor"
-            fillOpacity={0.85}
-          >
-            <path d={CLAVE_DE_SOL} />
-            <circle cx={BOLITA.x} cy={BOLITA.y} r={BOLITA.r} />
-          </g>
+                  El dibujo vive en `clef.ts`, y allí está el porqué: se genera a partir
+                  de la línea que recorre la pluma en vez de escribirse curva a curva,
+                  que es como salió la primera —una espiral con un palo, sin los dos
+                  cruces que hacen la clave—.
 
-          {/* La armadura, en el orden en que se escribe. */}
-          {armadura.letters.map((letra, indice) => (
-            <text
-              key={letra}
-              x={CLAVE_HASTA + indice * PASO_ARMADURA}
-              y={
-                // Toda letra de una armadura tiene altura: las dos tablas llevan
-                // las siete. El seis es para que TypeScript se quede tranquilo.
-                yDeStep(
-                  /* v8 ignore next -- las dos tablas llevan las siete letras */
-                  (armadura.accidental === 'sharp' ? ALTURA_SOSTENIDOS : ALTURA_BEMOLES)[letra] ??
-                    6,
-                ) + 4
-              }
-              fontSize={14}
-              fill="currentColor"
-              fillOpacity={0.75}
-              aria-hidden
-            >
-              {armadura.accidental === 'sharp' ? '♯' : '♭'}
-            </text>
-          ))}
+                  Aquí solo se coloca, y colocarla es **una traslación y nada más**: las
+                  coordenadas de la clave tienen el centro de la espiral en el origen, y
+                  ese centro va sobre la línea del Sol, que es lo único que la clave
+                  significa. Antes había que restarle a la línea el 101 de la caja de
+                  dibujo multiplicado por la escala, y ese 101 no lo sabía nadie.
+                */}
+                <g
+                  aria-hidden
+                  transform={`translate(${MARGEN_CLAVE} ${BASE - 2 * PASO}) scale(${ESCALA_CLAVE})`}
+                  fill="currentColor"
+                  fillOpacity={0.85}
+                >
+                  <path d={CLAVE_DE_SOL} />
+                  <circle cx={BOLITA.x} cy={BOLITA.y} r={BOLITA.r} />
+                </g>
 
-          {/*
-          La indicación de compás.
+                {/* La armadura, en el orden en que se escribe. */}
+                {armadura.letters.map((letra, indice) => (
+                  <text
+                    key={letra}
+                    x={CLAVE_HASTA + indice * PASO_ARMADURA}
+                    y={
+                      // Toda letra de una armadura tiene altura: las dos tablas llevan
+                      // las siete. El seis es para que TypeScript se quede tranquilo.
+                      yDeStep(
+                        /* v8 ignore next -- las dos tablas llevan las siete letras */
+                        (armadura.accidental === 'sharp' ? ALTURA_SOSTENIDOS : ALTURA_BEMOLES)[
+                          letra
+                        ] ?? 6,
+                      ) + 4
+                    }
+                    fontSize={14}
+                    fill="currentColor"
+                    fillOpacity={0.75}
+                    aria-hidden
+                  >
+                    {armadura.accidental === 'sharp' ? '♯' : '♭'}
+                  </text>
+                ))}
 
-          Faltaba, y sin ella el pentagrama no dice en cuánto se cuenta: los
-          pulsos por compás se eligen arriba en la barra y la partitura era el
-          único sitio donde ese número no aparecía.
+                {/*
+                  La indicación de compás, solo en el primer sistema.
 
-          El de abajo es siempre un cuatro porque el modelo cuenta en negras: un
-          pulso es una negra en `melody.ts`, y mientras eso sea así escribir otra
-          cosa sería mentir. Las dos cifras van centradas en su mitad del
-          pentagrama, que es donde van en cualquier partitura.
-        */}
-          <g aria-hidden fill="currentColor" fillOpacity={0.9}>
-            <text
-              x={margen - ANCHO_COMPAS / 2 - 6}
-              y={BASE - 3 * PASO + 8}
-              fontSize={22}
-              textAnchor="middle"
-            >
-              {beatsPerBar}
-            </text>
-            <text
-              x={margen - ANCHO_COMPAS / 2 - 6}
-              y={BASE - 0 * PASO + 8}
-              fontSize={22}
-              textAnchor="middle"
-            >
-              4
-            </text>
-          </g>
+                  Faltaba, y sin ella el pentagrama no dice en cuánto se cuenta: los
+                  pulsos por compás se eligen arriba en la barra y la partitura era el
+                  único sitio donde ese número no aparecía.
 
-          {/*
-          Las barras de compás.
+                  El de abajo es siempre un cuatro porque el modelo cuenta en negras: un
+                  pulso es una negra en `melody.ts`, y mientras eso sea así escribir otra
+                  cosa sería mentir. Cada cifra llena su mitad del pentagrama
+                  (`CIFRAS_DEL_COMPAS`).
+                */}
+                {s === 0 && (
+                  <g
+                    aria-hidden
+                    fill="currentColor"
+                    fillOpacity={0.9}
+                    fontSize={CIFRAS_DEL_COMPAS.cuerpo}
+                    fontWeight={700}
+                    textAnchor="middle"
+                  >
+                    <text x={margen - ANCHO_COMPAS / 2 - 6} y={CIFRAS_DEL_COMPAS.baseArriba}>
+                      {beatsPerBar}
+                    </text>
+                    <text x={margen - ANCHO_COMPAS / 2 - 6} y={CIFRAS_DEL_COMPAS.baseAbajo}>
+                      4
+                    </text>
+                  </g>
+                )}
 
-          Estaban al 0,5 de opacidad, más apagadas que las propias líneas del
-          pentagrama, que van al 0,7. Una divisoria más tenue que aquello que
-          divide no se lee como divisoria: se lee como una raya que sobra.
+                {/*
+                  Las barras de compás.
 
-          Y solo van **entre** compases. Había una pegada al principio, antes de
-          la primera nota, que ninguna partitura impresa lleva: un sistema empieza
-          con la clave y ya está. Con la indicación de compás delante, aquella
-          raya dejaba la música dentro de una caja.
-        */}
-          {Array.from({ length: compases - 1 }, (_, i) => (
-            <line
-              key={i}
-              x1={margen + (i + 1) * beatsPerBar * porPulso}
-              x2={margen + (i + 1) * beatsPerBar * porPulso}
-              y1={BASE - 8 * PASO}
-              y2={BASE}
-              stroke="currentColor"
-              strokeOpacity={0.7}
-            />
-          ))}
+                  Estaban al 0,5 de opacidad, más apagadas que las propias líneas del
+                  pentagrama, que van al 0,7. Una divisoria más tenue que aquello que
+                  divide no se lee como divisoria: se lee como una raya que sobra.
 
-          {/*
-          La barra final: fina y luego gruesa, que es como acaba una partitura.
+                  Y solo van **entre** compases. Había una pegada al principio, antes de
+                  la primera nota, que ninguna partitura impresa lleva: un sistema empieza
+                  con la clave y ya está. Con la indicación de compás delante, aquella
+                  raya dejaba la música dentro de una caja.
 
-          Antes el final era una divisoria más, así que la última parte parecía
-          cortada en vez de terminada.
-        */}
-          <g aria-hidden stroke="currentColor" strokeOpacity={0.85}>
-            <line
-              x1={margen + compases * beatsPerBar * porPulso - 5}
-              x2={margen + compases * beatsPerBar * porPulso - 5}
-              y1={BASE - 8 * PASO}
-              y2={BASE}
-            />
-            <line
-              x1={margen + compases * beatsPerBar * porPulso - 1.5}
-              x2={margen + compases * beatsPerBar * porPulso - 1.5}
-              y1={BASE - 8 * PASO}
-              y2={BASE}
-              strokeWidth={3}
-            />
-          </g>
+                  Un sistema que no es el último acaba en una divisoria sencilla: la
+                  música sigue en el renglón de abajo.
+                */}
+                {Array.from({ length: ultimo ? compasesAqui - 1 : compasesAqui }, (_, i) => (
+                  <line
+                    key={i}
+                    x1={margen + (i + 1) * beatsPerBar * porPulso}
+                    x2={margen + (i + 1) * beatsPerBar * porPulso}
+                    y1={BASE - 8 * PASO}
+                    y2={BASE}
+                    stroke="currentColor"
+                    strokeOpacity={0.7}
+                  />
+                ))}
+
+                {/*
+                  La barra final: fina y luego gruesa, que es como acaba una partitura.
+
+                  Antes el final era una divisoria más, así que la última parte parecía
+                  cortada en vez de terminada.
+                */}
+                {ultimo && (
+                  <g aria-hidden stroke="currentColor" strokeOpacity={0.85}>
+                    <line x1={fin - 5} x2={fin - 5} y1={BASE - 8 * PASO} y2={BASE} />
+                    <line
+                      x1={fin - 1.5}
+                      x2={fin - 1.5}
+                      y1={BASE - 8 * PASO}
+                      y2={BASE}
+                      strokeWidth={3}
+                    />
+                  </g>
+                )}
+              </g>
+            );
+          })}
 
           {/*
           Los cifrados, que aquí **son** los acordes y no su etiqueta.
@@ -685,8 +863,26 @@ export function Staff({
                 (acumulado, block) => {
                   const indice = acumulado.i;
                   const chord = blockChord(tonic, mode, block);
-                  const x = margen + acumulado.x * porPulso;
+                  const inicio = lugar(acumulado.x);
+                  const final = lugar(acumulado.x + block.beats, true);
+                  const x = inicio.x;
                   const elegido = selectedBlockId === block.id;
+                  /*
+                    La línea de lo que dura, **un tramo por sistema que pisa**.
+                    Un acorde que cruza el final de un renglón sigue en el de
+                    abajo, como una ligadura que salta de línea: tirada entera en
+                    el primero se saldría de la hoja por la derecha.
+                  */
+                  const tramos = Array.from({ length: final.s - inicio.s + 1 }, (_, i) => {
+                    const s = inicio.s + i;
+                    return {
+                      s,
+                      desde: s === inicio.s ? inicio.x : margen,
+                      hasta: s === final.s ? final.x - 4 : finDe(s),
+                    };
+                  });
+                  /* v8 ignore next -- siempre hay al menos un tramo: el del sistema donde empieza */
+                  const primero = tramos[0] ?? { s: 0, desde: x, hasta: x };
 
                   acumulado.nodos.push(
                     <g
@@ -712,6 +908,8 @@ export function Staff({
                         if (event.key === 'Delete' || event.key === 'Backspace') {
                           event.preventDefault();
                           onRemoveBlock(block.id);
+                        } else if (activa(event)) {
+                          onSelectBlock(block.id);
                         }
                       }}
                     >
@@ -721,6 +919,7 @@ export function Staff({
                       <text
                         x={x}
                         y={17}
+                        transform={bajada(inicio.s)}
                         fontSize={15}
                         fontWeight={600}
                         fontFamily="ui-monospace, monospace"
@@ -729,15 +928,19 @@ export function Staff({
                       >
                         {chord.symbol}
                       </text>
-                      <line
-                        x1={x}
-                        x2={x + block.beats * porPulso - 4}
-                        y1={22}
-                        y2={22}
-                        stroke="currentColor"
-                        strokeOpacity={elegido ? 0.9 : 0.3}
-                        strokeWidth={elegido ? 2 : 1}
-                      />
+                      {tramos.map((tramo) => (
+                        <line
+                          key={tramo.s}
+                          x1={tramo.desde}
+                          x2={tramo.hasta}
+                          y1={22}
+                          y2={22}
+                          transform={bajada(tramo.s)}
+                          stroke="currentColor"
+                          strokeOpacity={elegido ? 0.9 : 0.3}
+                          strokeWidth={elegido ? 2 : 1}
+                        />
+                      ))}
                       {/* La zona de agarre del cifrado.
                         **Baja hasta dos unidades antes de la primera línea.**
                         Medía 22 de alto —23 píxeles en pantalla— y es lo que se
@@ -757,14 +960,17 @@ export function Staff({
                       <rect
                         x={x - 2}
                         y={4}
-                        width={Math.max(24, block.beats * porPulso - 14)}
+                        transform={bajada(inicio.s)}
+                        width={Math.max(24, primero.hasta - primero.desde - 10)}
                         height={ALTO_DEL_AGARRE}
                         fill="transparent"
                       />
-                      {/* La punta de la línea: de aquí se tira para estirar. */}
+                      {/* La punta de la línea: de aquí se tira para estirar. Va
+                          donde acaba, que puede ser otro sistema. */}
                       <rect
-                        x={x + block.beats * porPulso - 16}
+                        x={final.x - 16}
                         y={4}
+                        transform={bajada(final.s)}
                         width={16}
                         height={ALTO_DEL_AGARRE}
                         fill="transparent"
@@ -786,25 +992,22 @@ export function Staff({
 
           {/* La marca de dónde caería el acorde que se arrastra. Va donde empieza
             el compás ante el que se soltaría, que es donde va a aparecer. */}
-          {dropAt !== null && (
-            <line
-              aria-hidden
-              x1={
-                margen +
-                blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * porPulso -
-                3
-              }
-              x2={
-                margen +
-                blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0) * porPulso -
-                3
-              }
-              y1={2}
-              y2={BASE + 4}
-              className="stroke-brass-bright"
-              strokeWidth={2}
-            />
-          )}
+          {dropAt !== null &&
+            (() => {
+              const caeria = lugar(blocks.slice(0, dropAt).reduce((suma, b) => suma + b.beats, 0));
+              return (
+                <line
+                  aria-hidden
+                  x1={caeria.x - 3}
+                  x2={caeria.x - 3}
+                  transform={bajada(caeria.s)}
+                  y1={2}
+                  y2={BASE + 4}
+                  className="stroke-brass-bright"
+                  strokeWidth={2}
+                />
+              );
+            })()}
 
           {/* **Un pentagrama vacío no dice qué espera.** Con la canción escrita
               solo con acordes —que es el caso normal al empezar— aquí salen los
@@ -817,19 +1020,35 @@ export function Staff({
               `pointer-events-none` porque pulsar el pentagrama **es** como se
               escribe una nota: un rótulo que se comiera el clic convertiría la
               ayuda en un estorbo. */}
+          {/* **En dos líneas, a doce y centrada bajo la música.** En una sola
+              medía unos doscientos ochenta píxeles, y en un teléfono con un
+              compás o dos la hoja mide menos: la frase se cortaba contra el
+              borde. Un SVG no parte el texto solo, así que se parte a mano.
+              Iba a once píxeles y arrancando pegada a la clave, donde se leía
+              como un pie de la clave y no como algo del hueco donde se escribe;
+              centrada debajo del primer sistema dice «aquí», y si la hoja es
+              más estrecha que la frase se aparta de los dos bordes. */}
           {notes.length === 0 && (
             <text
-              x={margen + 8}
-              y={BASE + 26}
-              className="fill-text-muted pointer-events-none text-[11px]"
+              x={xPista}
+              y={BASE + BAJO_LA_PAUTA}
+              textAnchor="middle"
+              fontSize={CUERPO_PISTA}
+              className="fill-text-muted pointer-events-none"
             >
-              Pulsa en el pentagrama y aquí se escribe el punteo.
+              <tspan>Pulsa en el pentagrama</tspan>
+              <tspan x={xPista} dy={CUERPO_PISTA + 3}>
+                y aquí se escribe el punteo.
+              </tspan>
             </text>
           )}
 
           {notes.map((note) => {
             const escrita = writeNote(note, tonic, mode);
-            const x = margen + note.start * porPulso + 6;
+            // Cada nota en el sistema donde empieza; una que cruza el final del
+            // renglón se dibuja ahí y lo cruza, igual que cruza una barra.
+            const sitio = lugar(note.start);
+            const x = sitio.x + 6;
             const y = yDeStep(escrita.step);
             const { hueca, plica, corchetes, punto } = figuraDe(note.length);
             const arriba = escrita.step < 6;
@@ -872,6 +1091,7 @@ export function Staff({
             return (
               <g
                 key={note.id}
+                transform={bajada(sitio.s)}
                 role="button"
                 tabIndex={0}
                 aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}${dudosa ? ', dudosa' : ''}`}
@@ -881,6 +1101,11 @@ export function Staff({
                 onClick={(event) => {
                   event.stopPropagation();
                   onSelect(note.id);
+                }}
+                onKeyDown={(event) => {
+                  if (activa(event)) {
+                    onSelect(note.id);
+                  }
                 }}
               >
                 {/* Las líneas adicionales, para lo que se sale del pentagrama. */}
@@ -1026,4 +1251,4 @@ export function Staff({
       </div>
     </div>
   );
-}
+});

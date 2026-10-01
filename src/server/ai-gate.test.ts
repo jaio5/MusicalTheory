@@ -43,7 +43,12 @@ const error = (code: AiErrorCode, message?: string) => aiError(code, MENSAJES, m
 const CUENTA = { plan: 'gratis', aiModel: 'claude-opus-5' } as never;
 
 function puerta() {
-  return { feature: 'ideas', error, loQueEs: 'Las ideas de la IA', plural: true } as const;
+  return {
+    feature: 'versiones',
+    error,
+    loQueEs: 'Las salidas de lo que tocas',
+    plural: true,
+  } as const;
 }
 
 /** El código y el cuerpo de lo que devuelve la puerta. */
@@ -98,8 +103,8 @@ describe('la puerta del cupo', () => {
 
     expect(message).toContain('no tiene ningún modelo configurado');
     expect(message).not.toMatch(/contactar|vuelve a intentarlo/i);
-    // Y en los términos de lo que se pedía, con su número: «Las ideas... no están».
-    expect(message).toContain('las ideas de la IA');
+    // Y en los términos de lo que se pedía, con su número: «Las salidas... no están».
+    expect(message).toContain('las salidas de lo que tocas');
     expect(message).toContain('no están disponibles');
   });
 
@@ -136,7 +141,7 @@ describe('la puerta del cupo', () => {
 
     expect(status).toBe(402);
     expect(code).toBe('plan_required');
-    expect(message).toContain('Las ideas de la IA');
+    expect(message).toContain('Las salidas de lo que tocas');
     expect(message).toContain('Medio');
   });
 
@@ -182,7 +187,7 @@ describe('la puerta del cupo', () => {
 
 describe('la puerta de la frecuencia', () => {
   const peticion = () =>
-    new Request('http://x/api/ideas', {
+    new Request('http://x/api/versiones', {
       method: 'POST',
       headers: { 'x-forwarded-for': '10.0.0.1' },
     });
@@ -226,7 +231,7 @@ describe('la puerta de la frecuencia', () => {
 
   it('cada dirección lleva su cuenta', async () => {
     const limiter = new SlidingWindowRateLimiter();
-    const otra = new Request('http://x/api/ideas', {
+    const otra = new Request('http://x/api/versiones', {
       method: 'POST',
       headers: { 'x-forwarded-for': '10.0.0.2' },
     });

@@ -23,6 +23,7 @@ import {
   dailyAiRequests,
   monthlyAiRequests,
   remaining,
+  unidadesDe,
   type Account,
   type AiFeature,
   type Capability,
@@ -62,7 +63,12 @@ export async function currentSession(): Promise<{ userId: string; account: Accou
     return null;
   }
   const userId = cookie.id;
-  const user = await findUserById(userId);
+  // **La cuenta y su gasto a la vez**, no una detrás de otra. Van en todas las
+  // peticiones —el layout pinta con esto—, y en serie eran dos viajes a Postgres
+  // uno tras otro. El de gasto sobra solo si la fila no está o la cookie es
+  // vieja, que es lo raro; y ninguno de los dos lanza —los dos contestan su
+  // «nada» si la base falla—, así que juntarlos no cambia qué se responde.
+  const [user, usage] = await Promise.all([findUserById(userId), aiUsageOf(userId)]);
   if (user === null) {
     return null;
   }
@@ -75,7 +81,6 @@ export async function currentSession(): Promise<{ userId: string; account: Accou
     return null;
   }
 
-  const usage = await aiUsageOf(userId);
   const limits = limitsFor(user.plan);
 
   return {
@@ -123,7 +128,9 @@ export async function spendAi(capability: Capability & AiFeature): Promise<AiVer
     return { kind: 'plan', account, needed: cheapestPlanWith(capability) };
   }
 
-  const spent = await spendAiRequest(userId, limitsFor(account.plan));
+  // Lo que cuesta más que una pregunta gasta más de una (adr/0067).
+  const unidades = unidadesDe(capability, configuredModel());
+  const spent = await spendAiRequest(userId, limitsFor(account.plan), unidades);
   switch (spent.kind) {
     case 'ok':
       return {

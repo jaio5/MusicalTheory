@@ -145,8 +145,17 @@ export async function askModel({
   if (proveedor === 'local') {
     // La URL está, porque es justo lo que mira `modelProvider` para decir
     // «local». El `?? ''` es para el compilador, no para nadie más.
+    // Modelo local no cuesta dinero: le damos más tokens para evitar truncamiento.
+    const maxTokensLocal = maxTokens * 3;
     return askLocalModel(
-      { prompt, system, schema, maxTokens, model: configuredModel(), intento: intento ?? 0 },
+      {
+        prompt,
+        system,
+        schema,
+        maxTokens: maxTokensLocal,
+        model: configuredModel(),
+        intento: intento ?? 0,
+      },
       /* v8 ignore next -- la URL esta, porque es lo que hace que el proveedor sea «local» */
       localModelUrl() ?? '',
     );

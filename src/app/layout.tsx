@@ -65,11 +65,11 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const account = await currentAccount();
   /*
-    El número de un solo uso que ha puesto `middleware.ts`.
+    El número de un solo uso que ha puesto `proxy.ts`.
 
     Sin él, este guion —el que aplica el tema antes de pintar— lo bloquea la
-    política de seguridad, y quien tenga el tema oscuro se come un fogonazo
-    blanco en cada carga. Los guiones de Next se lo ponen ellos: les basta con
+    política de seguridad, y quien tenga el tema claro se come un fogonazo
+    oscuro en cada carga. Los guiones de Next se lo ponen ellos: les basta con
     encontrar un número en la cabecera.
   */
   const numero = (await headers()).get('x-nonce') ?? undefined;
@@ -80,8 +80,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/*
           El tema elegido, aplicado **antes de pintar**. Sin esto el navegador
           pinta el HTML con el tema por defecto y React lo cambia al arrancar: en
-          una aplicación clara, quien había elegido oscuro se come un fogonazo
-          blanco en cada carga.
+          una aplicación que parte del oscuro, quien había elegido el claro se come
+          un fogonazo oscuro en cada carga.
 
           `suppressHydrationWarning` en el `<html>` porque este guion le toca el
           atributo antes de que React compare lo que hay con lo que esperaba.

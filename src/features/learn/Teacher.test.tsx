@@ -82,13 +82,69 @@ async function preguntar(texto = '¿Por qué el V tira al i?') {
 }
 
 describe('sin tonalidad', () => {
-  it('no se puede preguntar, y se dice por qué', () => {
+  /**
+   * No hay campo ni error en rojo: lo que falta se resuelve con un toque, y el
+   * toque se ofrece ahí mismo, en línea.
+   */
+  it('en vez del campo, las cuatro tonalidades de salida', () => {
     useSessionStore.getState().actions.reset();
 
     pintar();
 
-    expect(screen.getByText(/Elige una tonalidad primero/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Preguntar' })).toBeDisabled();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Tonalidades para empezar' })).toBeInTheDocument();
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it('elegir una trae el campo para preguntar', async () => {
+    useSessionStore.getState().actions.reset();
+    pintar();
+
+    await userEvent.click(screen.getByRole('button', { name: /^C mayor/ }));
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+  });
+});
+
+describe('sin cuenta', () => {
+  /**
+   * Campo y botón activos acababan en un 401. En su lugar, la entrada.
+   */
+  it('en vez del campo, un botón para entrar que lleva a la cuenta', () => {
+    pintar(ANONYMOUS);
+
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Preguntar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Entrar para preguntar' })).toHaveAttribute(
+      'href',
+      '/cuenta',
+    );
+  });
+
+  it('las preguntas de ejemplo se ven pero no se pulsan', () => {
+    pintar(ANONYMOUS);
+
+    expect(screen.getByText(/el V tira tanto hacia el I/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /el V tira tanto/ })).not.toBeInTheDocument();
+  });
+
+  it('dentro del globo no salen ni de vista previa', () => {
+    pintar(ANONYMOUS, { compact: true });
+
+    expect(screen.queryByText(/el V tira tanto/)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Entrar para preguntar' })).toBeInTheDocument();
+  });
+
+  it('sin cuenta y sin tonalidad, primero lo de entrar', () => {
+    useSessionStore.getState().actions.reset();
+
+    pintar(ANONYMOUS);
+
+    expect(screen.getByRole('link', { name: 'Entrar para preguntar' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'Tonalidades para empezar' }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -163,9 +219,13 @@ describe('preguntar', () => {
     pintar();
 
     await userEvent.type(screen.getByPlaceholderText(/Pregunta lo que quieras/), '   ');
+    await userEvent.click(screen.getByRole('button', { name: 'Preguntar' }));
 
-    expect(screen.getByRole('button', { name: 'Preguntar' })).toBeDisabled();
     expect(fetchFalso).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox')).toHaveFocus();
+    expect(screen.getByRole('textbox')).toHaveAccessibleDescription(
+      'Escribe lo que quieres preguntar.',
+    );
   });
 });
 
@@ -225,46 +285,22 @@ describe('el cupo', () => {
   it('agotado se dice, y en otro color', () => {
     pintar({ ...CON_CUENTA, aiLeftToday: 0 });
 
-    expect(screen.getByText(/Sin peticiones a la IA hoy/)).toBeInTheDocument();
-  });
-
-  it('sin cuenta no se promete ningun numero, y se dice por que', () => {
-    // Sin cuenta el servidor cuenta por dirección, así que no hay número que
-    // prometer.
-    pintar(ANONYMOUS);
-
-    expect(screen.queryByText(/Quedan/)).not.toBeInTheDocument();
-    expect(screen.getByText(/El profesor pide cuenta/)).toBeInTheDocument();
+    expect(screen.getByText(/Sin preguntas a la IA hoy/)).toBeInTheDocument();
   });
 
   /**
-   * Y al preguntar sin cuenta **no se dice dos veces**.
-   *
-   * La ruta contesta lo mismo con otras palabras —«Entra con tu cuenta… La IA
-   * se cuenta por cuenta, no por navegador»— y quedaban dos líneas seguidas,
-   * una gris y otra roja, diciendo lo mismo. Se queda la roja, que es la que
-   * contesta a lo que se acaba de pulsar, y se lleva el enlace.
+   * Y si la sesión caduca con la pantalla abierta, la ruta contesta 401 aunque
+   * se tuviera cuenta: ahí sí hay un error que enseñar, con su salida.
    */
-  it('y al preguntar sin cuenta no se dice dos veces', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => ({
-        ok: false,
-        status: 401,
-        json: async () => ({
-          error: { code: 'account_required', message: 'Entra con tu cuenta.' },
-        }),
-      })),
+  it('una sesión caducada enseña el error con su enlace para entrar', async () => {
+    fetchFalso.mockResolvedValue(
+      respuesta(401, { error: { code: 'account_required', message: 'Entra con tu cuenta.' } }),
     );
-    conTonalidad();
-    pintar(ANONYMOUS);
+    pintar();
 
-    await userEvent.type(screen.getByRole('textbox'), '¿Por qué el V pide volver?');
-    await userEvent.click(screen.getByRole('button', { name: 'Preguntar' }));
+    await preguntar();
 
-    await waitFor(() =>
-      expect(screen.queryByText(/El profesor pide cuenta/)).not.toBeInTheDocument(),
-    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('Entra con tu cuenta.');
     expect(screen.getByRole('link', { name: /Entrar con tu cuenta/ })).toHaveAttribute(
       'href',
       '/cuenta',

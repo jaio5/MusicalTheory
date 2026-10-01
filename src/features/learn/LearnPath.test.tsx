@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PlanId } from '@core/billing';
@@ -56,12 +56,15 @@ describe('El camino del temario', () => {
   it('la primera unidad se puede pulsar y las demás no', () => {
     pintar();
 
-    expect(screen.getByRole('button', { name: /^qué es un grado$/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^qué es un grado$/i })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
 
     const bloqueadas = screen.getAllByRole('button', { name: /bloqueada$/i });
     expect(bloqueadas).toHaveLength(UNIT_ORDER.length - 1);
     for (const boton of bloqueadas) {
-      expect(boton).toBeDisabled();
+      expect(boton).toHaveAttribute('aria-disabled', 'true');
     }
   });
 
@@ -76,7 +79,10 @@ describe('El camino del temario', () => {
   it('una unidad superada se marca y sigue pulsable, para repasarla', () => {
     pintar(tras([UNIT_ORDER[0]!]));
 
-    expect(screen.getByRole('button', { name: /superada$/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /superada$/i })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
   });
 
   /**
@@ -126,13 +132,19 @@ describe('Los dos candados', () => {
   it('en gratis, el Profesional se bloquea por plan y no por temario', () => {
     pintar(tras(ELEMENTAL), 'gratis');
 
-    expect(screen.getByRole('button', { name: /reposo, salida y tensión.*plan/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /reposo, salida y tensión.*plan/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it('con plan, esa misma unidad está abierta', () => {
     pintar(tras(ELEMENTAL), 'basico');
 
-    expect(screen.getByRole('button', { name: /^reposo, salida y tensión$/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^reposo, salida y tensión$/i })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
   });
 
   it('lo hecho con plan sigue viéndose hecho al volver a gratis, pero cerrado', () => {
@@ -140,7 +152,7 @@ describe('Los dos candados', () => {
     pintar(pagando, 'gratis');
 
     const nodo = screen.getByRole('button', { name: /reposo, salida y tensión.*plan/i });
-    expect(nodo).toBeDisabled();
+    expect(nodo).toHaveAttribute('aria-disabled', 'true');
   });
 });
 
@@ -168,14 +180,23 @@ describe('El punto de partida', () => {
   it('abre el curso elegido y deja abierto lo anterior', () => {
     pintar(startAt(EMPTY_PROGRESS, 'profesional-1', CUANDO), 'basico');
 
-    expect(screen.getByRole('button', { name: /^reposo, salida y tensión$/i })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /^qué es un grado$/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^reposo, salida y tensión$/i })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
+    expect(screen.getByRole('button', { name: /^qué es un grado$/i })).toHaveAttribute(
+      'aria-disabled',
+      'false',
+    );
   });
 
   it('lo que va después del punto de partida sigue cerrado', () => {
     pintar(startAt(EMPTY_PROGRESS, 'profesional-1', CUANDO), 'basico');
 
-    expect(screen.getByRole('button', { name: /la mayor, otra vez.*bloqueada$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /la mayor, otra vez.*bloqueada$/i })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
   });
 
   it('sin elegir nada, solo está abierta la primera', () => {
@@ -184,5 +205,105 @@ describe('El punto de partida', () => {
     expect(screen.getAllByRole('button', { name: /bloqueada$/i })).toHaveLength(
       UNIT_ORDER.length - 1,
     );
+  });
+});
+
+/**
+ * Un nodo cerrado no es un botón muerto: al tocarlo dice qué lo abre. En táctil
+ * no hay `title`, así que lo único que había era un círculo que no respondía.
+ */
+describe('Tocar una unidad cerrada', () => {
+  it('por temario, dice que se termine la anterior y no navega', () => {
+    const onPick = pintar();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /bloqueada$/i })[0]!);
+
+    expect(screen.getByText('Termina la anterior para abrirla.')).toBeInTheDocument();
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
+  it('por plan, nombra el plan de verdad y enlaza a los planes', () => {
+    pintar(tras(ELEMENTAL), 'gratis');
+
+    fireEvent.click(screen.getByRole('button', { name: /reposo, salida y tensión.*plan/i }));
+
+    expect(screen.getByText(/Se abre con el plan Básico/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ver planes' })).toHaveAttribute('href', '/planes');
+    // El nombre viejo, que ya no existe, no sale en ninguna parte.
+    expect(document.body.innerHTML).not.toContain('Estudiante');
+  });
+
+  it('el aviso queda ligado al nodo, y solo hay uno a la vez', () => {
+    pintar();
+    const [primera, segunda] = screen.getAllByRole('button', { name: /bloqueada$/i });
+
+    fireEvent.click(primera!);
+    expect(primera).toHaveAccessibleDescription('Termina la anterior para abrirla.');
+
+    fireEvent.click(segunda!);
+    expect(screen.getAllByText('Termina la anterior para abrirla.')).toHaveLength(1);
+    expect(primera).not.toHaveAttribute('aria-describedby');
+  });
+});
+
+describe('La leyenda y el sendero', () => {
+  it('la leyenda explica los dos candados con palabras', () => {
+    pintar();
+
+    expect(screen.getByText('Se abre terminando la anterior')).toBeInTheDocument();
+    expect(screen.getByText('Se abre con un plan')).toBeInTheDocument();
+  });
+
+  /**
+   * Los tramos unen de nodo a nodo: cada fila menos la primera de su curso trae
+   * uno, y su diagonal cambia de sentido con el zigzag.
+   */
+  it('hay un tramo entre cada par de nodos de un curso, en los dos sentidos', () => {
+    const { container } = render(
+      <LearnPath
+        progress={EMPTY_PROGRESS}
+        plan="basico"
+        day={HOY}
+        active={null}
+        onPick={vi.fn()}
+      />,
+    );
+
+    const unidades = COURSES.reduce((total, course) => total + course.units.length, 0);
+    const lineas = container.querySelectorAll('line');
+    expect(lineas).toHaveLength(unidades - COURSES.length);
+
+    const sentidos = new Set(Array.from(lineas, (linea) => linea.getAttribute('x1')));
+    expect(sentidos).toEqual(new Set(['0', '1']));
+  });
+
+  it('se enciende por donde has pasado, y queda a puntos por donde no', () => {
+    const { container } = render(
+      <LearnPath
+        progress={tras([UNIT_ORDER[0]!])}
+        plan="basico"
+        day={HOY}
+        active={null}
+        onPick={vi.fn()}
+      />,
+    );
+
+    const lineas = Array.from(container.querySelectorAll('line'));
+    expect(lineas.some((linea) => linea.getAttribute('class') === 'stroke-brass')).toBe(true);
+    expect(lineas.some((linea) => linea.hasAttribute('stroke-dasharray'))).toBe(true);
+  });
+
+  it('un tramo con una unidad hecha se pinta macizo', () => {
+    const { container } = render(
+      <LearnPath
+        progress={tras([UNIT_ORDER[0]!, UNIT_ORDER[1]!])}
+        plan="basico"
+        day={HOY}
+        active={null}
+        onPick={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector('line.stroke-tube')).not.toBeNull();
   });
 });

@@ -59,7 +59,16 @@ function politica(numero: string): string {
   ].join('; ');
 }
 
-export function middleware(request: NextRequest) {
+/**
+ * Se llama `proxy` y no `middleware` desde Next 16, que dejó el nombre viejo en
+ * desuso: hace lo mismo y lo único que cambian son el fichero y la función
+ * (`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md`).
+ * Lo que sí cambia sin decirlo es dónde corre: `proxy` va en Node por defecto,
+ * donde el viejo iba en el runtime de borde. Aquí no importa —lo único que usa es
+ * `crypto.randomUUID`, que está en los dos—, y no se puede fijar: `runtime` en
+ * este fichero es un error.
+ */
+export function proxy(request: NextRequest) {
   const numero = crypto.randomUUID().replaceAll('-', '');
 
   const entrada = new Headers(request.headers);

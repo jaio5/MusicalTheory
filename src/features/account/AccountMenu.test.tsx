@@ -74,8 +74,15 @@ describe('El avatar con cuenta', () => {
       'aria-expanded',
       'true',
     );
-    const menu = screen.getByRole('menu');
+    const menu = screen.getByRole('navigation', { name: 'Tu cuenta' });
     expect(menu).toHaveTextContent('javier@example.com');
+    // El botón dice qué abre, y no promete un menú que no se maneja como tal.
+    expect(screen.getByRole('button', { name: /javier/i })).toHaveAttribute(
+      'aria-controls',
+      menu.id,
+    );
+    expect(screen.getByRole('button', { name: /javier/i })).not.toHaveAttribute('aria-haspopup');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
 
     for (const [nombre, destino] of [
       [/tu perfil/i, '/cuenta#perfil'],
@@ -83,7 +90,7 @@ describe('El avatar con cuenta', () => {
       [/contraseña/i, '/cuenta#contrasena'],
       [/privacidad/i, '/cuenta#privacidad'],
     ] as const) {
-      expect(screen.getByRole('menuitem', { name: nombre })).toHaveAttribute('href', destino);
+      expect(screen.getByRole('link', { name: nombre })).toHaveAttribute('href', destino);
     }
 
     expect(screen.getByRole('button', { name: /salir de la cuenta/i })).toBeInTheDocument();
@@ -98,7 +105,7 @@ describe('El avatar con cuenta', () => {
     await userEvent.click(boton);
     await userEvent.keyboard('{Escape}');
 
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Tu cuenta' })).not.toBeInTheDocument();
     expect(boton).toHaveFocus();
   });
 
@@ -113,7 +120,7 @@ describe('El avatar con cuenta', () => {
     await userEvent.click(screen.getByRole('button', { name: /javier/i }));
     await userEvent.click(screen.getByRole('button', { name: /otra cosa/i }));
 
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Tu cuenta' })).not.toBeInTheDocument();
   });
 });
 
@@ -126,7 +133,7 @@ describe('al cambiar de pantalla', () => {
     donde = '/aprender';
     const { rerender } = pintar(DENTRO);
     await userEvent.click(screen.getByRole('button', { name: /javier/i }));
-    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Tu cuenta' })).toBeInTheDocument();
 
     donde = '/componer';
     rerender(
@@ -135,7 +142,7 @@ describe('al cambiar de pantalla', () => {
       </AccountProvider>,
     );
 
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Tu cuenta' })).not.toBeInTheDocument();
     donde = '/aprender';
   });
 });
@@ -146,9 +153,9 @@ describe('mientras el desplegable está abierto', () => {
     pintar(DENTRO);
     await userEvent.click(screen.getByRole('button', { name: /javier/i }));
 
-    await userEvent.click(screen.getByRole('menu'));
+    await userEvent.click(screen.getByRole('navigation', { name: 'Tu cuenta' }));
 
-    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Tu cuenta' })).toBeInTheDocument();
   });
 
   // Y cualquier otra tecla tampoco: solo Escape cierra.
@@ -158,6 +165,6 @@ describe('mientras el desplegable está abierto', () => {
 
     await userEvent.keyboard('a');
 
-    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Tu cuenta' })).toBeInTheDocument();
   });
 });

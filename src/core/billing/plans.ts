@@ -9,7 +9,7 @@
  * la interfaz diga que sí y la ruta diga que no.
  *
  * Lo que se cobra es lo que **cuesta dinero al servir**: cada pregunta al
- * profesor y cada idea de progresión son una llamada al modelo. Todo lo que
+ * profesor y cada tanda de salidas son una llamada al modelo. Todo lo que
  * ocurre en el navegador —afinador, rueda, mástil, metrónomo, acordes,
  * grabación— es gratis en todos los planes y lo seguirá siendo, porque servirlo
  * no cuesta nada.
@@ -28,8 +28,6 @@ export type PlanId = 'gratis' | 'basico' | 'medio' | 'pro';
 export type Capability =
   /** Preguntarle al profesor. Cada pregunta es una llamada al modelo. */
   | 'profesor'
-  /** Pedir ideas de progresión. Cada idea es una llamada al modelo. */
-  | 'ideas'
   /** Los seis cursos del Grado Profesional. */
   | 'grado-profesional'
   /** El avance viaja entre aparatos en vez de quedarse en este navegador. */
@@ -38,7 +36,11 @@ export type Capability =
   | 'repaso'
   /** Guardar tus canciones en la cuenta en vez de en este navegador. */
   | 'canciones'
-  /** Pedirle a la IA versiones de tu canción. Cada tanda es una llamada al modelo. */
+  /**
+   * Pedirle a la IA salidas de tu canción —por dónde puede seguir—. Se llama
+   * `versiones` por el nombre que tuvo (adr/0016). Cada tanda es una llamada al
+   * modelo.
+   */
   | 'versiones'
   /** El profesor sabe qué unidades llevas hechas antes de contestar. */
   | 'profesor-con-progreso';
@@ -74,12 +76,14 @@ export interface Plan {
  *
  * Cuatro entradas y **tres planes de pago**. El primero no se vende: es lo que
  * tiene quien no ha pagado, y está en la lista porque la pregunta «¿puede este
- * pedir una idea?» hay que poder hacerla también de él. La pantalla de planes
+ * preguntarle al profesor?» hay que poder hacerla también de él. La pantalla de planes
  * enseña los tres de pago y cuenta aparte lo que hay sin pagar.
  *
  * Cada plan de pago tiene **una cosa que el anterior no**, y eso es a propósito:
  * un escalón que solo suba el cupo no se entiende, y quien lo mira tiene que
- * poder decir en una frase por qué pagaría el siguiente.
+ * poder decir en una frase por qué pagaría el siguiente. Por eso, al retirarse las
+ * ideas, las salidas bajaron de Pro a Medio: sin ellas, Medio era Básico más
+ * caro (adr/0066).
  */
 export const PLANS: readonly Plan[] = [
   {
@@ -99,18 +103,24 @@ export const PLANS: readonly Plan[] = [
   {
     id: 'medio',
     name: 'Medio',
-    claim: 'Lo de Básico y las ideas de progresión de la IA mientras compones.',
+    claim: 'Lo de Básico y las salidas de la IA: por dónde puede seguir lo que compones.',
     monthlyCents: 999,
-    capabilities: ['profesor', 'ideas', 'grado-profesional', 'sincronizar', 'repaso', 'canciones'],
+    capabilities: [
+      'profesor',
+      'grado-profesional',
+      'sincronizar',
+      'repaso',
+      'canciones',
+      'versiones',
+    ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    claim: 'Lo de Medio, más versiones de tus canciones y un profesor que sabe por dónde vas.',
+    claim: 'Lo de Medio y un profesor que sabe por dónde vas en el temario.',
     monthlyCents: 1999,
     capabilities: [
       'profesor',
-      'ideas',
       'grado-profesional',
       'sincronizar',
       'repaso',

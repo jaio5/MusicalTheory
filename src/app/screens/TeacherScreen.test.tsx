@@ -49,7 +49,7 @@ describe('El profesor', () => {
     pintar();
 
     expect(screen.getByText(/ninguna tonalidad todavía/)).toBeInTheDocument();
-    expect(screen.getByText(/Elígela en la rueda/)).toBeInTheDocument();
+    expect(screen.getByText(/Elige una en la rueda/)).toBeInTheDocument();
     // Y **notas sueltas**, no «unos compases»: la tonalidad se deduce del
     // histograma de alturas, y ese lo llena el motor de tono, que es monofónico.
     // Rasgueando acordes no entra ni una nota y no se detecta nada.
@@ -65,6 +65,34 @@ describe('El profesor', () => {
     expect(screen.getAllByText(/menor/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/ninguna tonalidad todavía/)).not.toBeInTheDocument();
     expect(screen.getByText(/Cámbiala y la misma pregunta/)).toBeInTheDocument();
+  });
+
+  // Mandaba la rueda y la pregunta caía bajo el pliegue a 390 px: con tonalidad
+  // puesta, la pregunta va primero y la tonalidad detrás.
+  it('con tonalidad, la pregunta va antes que la tonalidad', () => {
+    useSessionStore.getState().actions.reset();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+
+    pintar();
+
+    const pregunta = screen.getByRole('region', { name: 'La pregunta' });
+    const tonalidad = screen.getByRole('region', { name: 'Tonalidad' });
+    expect(
+      pregunta.compareDocumentPosition(tonalidad) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  // Sin tonalidad el formulario ya ofrece cuatro ahí mismo: la rueda no pasa delante.
+  it('sin tonalidad, la pregunta también va primero', () => {
+    useSessionStore.getState().actions.reset();
+
+    pintar();
+
+    const pregunta = screen.getByRole('region', { name: 'La pregunta' });
+    const tonalidad = screen.getByRole('region', { name: 'Tonalidad' });
+    expect(
+      pregunta.compareDocumentPosition(tonalidad) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('dice el cupo del plan y que a la IA solo viajan simbolos', () => {

@@ -189,6 +189,7 @@ describe('la contraseña olvidada', () => {
     pintar(await Olvidada({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByRole('heading', { name: 'Contraseña olvidada' })).toBeInTheDocument();
+    expect(screen.getByText(/Te mandamos un enlace al correo/)).toBeInTheDocument();
   });
 
   it('con vale pide la contraseña nueva: quien vuelve del buzon esta terminando', async () => {
@@ -208,6 +209,8 @@ describe('la contraseña olvidada', () => {
     pintar(await Olvidada({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByText(/no manda correo/)).toBeInTheDocument();
+    // La entradilla de arriba prometía un enlace al correo que no va a llegar.
+    expect(screen.queryByText(/Te mandamos un enlace/)).not.toBeInTheDocument();
   });
 
   it('y sin cuentas configuradas, tampoco', async () => {

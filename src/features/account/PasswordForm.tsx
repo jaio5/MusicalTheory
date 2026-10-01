@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useEnvio } from './use-envio';
 
@@ -23,18 +23,56 @@ import { Formulario } from '@ui/Formulario';
  * Los `autoComplete` son los que el navegador espera para ofrecer la guardada y
  * para proponer una nueva; puestos mal, el gestor de contraseñas no se entera de
  * que ha cambiado nada.
+ *
+ * **El botón no se apaga por lo que falta.** Estaba desactivado hasta que los tres
+ * campos cuadraban, y un botón gris no dice por qué: quien no veía la pantalla
+ * oía «Cambiar la contraseña, no disponible» y nada más. Ahora se pulsa siempre, y
+ * lo que falta se dice en el campo que falla —`aria-invalid` y su frase debajo— y
+ * el foco va a él, que es como se entera un lector de pantalla. Solo se apaga
+ * mientras está en marcha.
  */
 export function PasswordForm() {
   const { account: cuenta, refresh } = useAccount();
   const [actual, setActual] = useState('');
   const [nueva, setNueva] = useState('');
   const [repetida, setRepetida] = useState('');
+  const [intentado, setIntentado] = useState(false);
   const { error, setError, hecho, setHecho, working, enviar } = useEnvio();
+  const campoActual = useRef<HTMLInputElement>(null);
+  const campoNueva = useRef<HTMLInputElement>(null);
+  const campoRepetida = useRef<HTMLInputElement>(null);
 
   const coinciden = nueva === repetida;
-  const puede = actual !== '' && nueva.length >= MIN_PASSWORD_LENGTH && coinciden && !working;
+  // Lo que falta solo se dice después de intentarlo: un campo en rojo antes de
+  // escribir nada es una regañina. Menos que no coincidan, que se dice en cuanto
+  // se escribe la segunda —el servidor no puede saberlo, y descubrirlo al volver
+  // obligaría a escribirla otra vez—.
+  const faltaActual = intentado && actual === '' ? 'Falta la de ahora.' : undefined;
+  const faltaNueva =
+    intentado && nueva.length < MIN_PASSWORD_LENGTH
+      ? `Tiene que tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+      : undefined;
+  const faltaRepetida =
+    (intentado || repetida !== '') && !coinciden ? 'Las dos nuevas no son la misma.' : undefined;
 
   async function submit(): Promise<void> {
+    setIntentado(true);
+    // El foco al primero que falla, en el orden en que se leen. Se mira el valor
+    // y no los mensajes de arriba, que son de este render y todavía no saben que
+    // ya se ha intentado.
+    const primero =
+      actual === ''
+        ? campoActual
+        : nueva.length < MIN_PASSWORD_LENGTH
+          ? campoNueva
+          : !coinciden
+            ? campoRepetida
+            : null;
+    if (primero) {
+      primero.current?.focus();
+      return;
+    }
+
     await enviar(async () => {
       const result = await updateAccount({ passwordActual: actual, passwordNueva: nueva });
       if (!result.ok) {
@@ -55,6 +93,7 @@ export function PasswordForm() {
       setActual('');
       setNueva('');
       setRepetida('');
+      setIntentado(false);
       setHecho(true);
       if (dentro.ok) {
         await refresh();
@@ -70,7 +109,9 @@ export function PasswordForm() {
   return (
     <Formulario onEnviar={submit}>
       <TextField
+        ref={campoActual}
         label="La de ahora"
+        error={faltaActual}
         type="password"
         required
         autoComplete="current-password"
@@ -79,7 +120,9 @@ export function PasswordForm() {
       />
 
       <TextField
+        ref={campoNueva}
         label="La nueva"
+        error={faltaNueva}
         extra={<span> · mínimo {MIN_PASSWORD_LENGTH} caracteres</span>}
         type="password"
         required
@@ -90,19 +133,15 @@ export function PasswordForm() {
       />
 
       <TextField
+        ref={campoRepetida}
         label="Otra vez la nueva"
+        error={faltaRepetida}
         type="password"
         required
         autoComplete="new-password"
         value={repetida}
         onChange={(event) => setRepetida(event.target.value)}
       />
-
-      {/* Que no coincidan se dice antes de enviar y no después: el servidor no
-          puede saberlo, y descubrirlo al volver obligaría a escribirla otra vez. */}
-      {repetida !== '' && !coinciden && (
-        <Aviso mensaje="Las dos nuevas no son la misma." anuncio="ninguno" />
-      )}
 
       <Aviso mensaje={error} />
       <Aviso
@@ -113,7 +152,7 @@ export function PasswordForm() {
       />
 
       <div>
-        <Button type="submit" disabled={!puede} cargando={working}>
+        <Button type="submit" disabled={working} cargando={working}>
           {working ? 'Un momento…' : 'Cambiar la contraseña'}
         </Button>
       </div>

@@ -5,7 +5,14 @@ import { useRouter } from 'next/navigation';
 
 import { useEnvio } from './use-envio';
 
-import { can, monthlyAiRequests, planOf, priceLabel, type Plan } from '@core/billing';
+import {
+  can,
+  cupoEnPalabras,
+  monthlyAiRequests,
+  planOf,
+  priceLabel,
+  type Plan,
+} from '@core/billing';
 import { changePlan, useAccount } from '@state/account';
 import { Button, estiloBoton } from '@ui/Button';
 
@@ -100,7 +107,7 @@ export function Checkout({
       <section aria-label="Qué vas a contratar">
         <h2 className="rotulo">Lo que vas a contratar</h2>
 
-        <div className="border-border mt-3 border">
+        <div className="superficie mt-3 overflow-hidden">
           <div className="border-border flex items-baseline justify-between gap-4 border-b px-4 py-3">
             <div>
               <p className="text-text text-lg">Plan {plan.name}</p>
@@ -133,7 +140,7 @@ export function Checkout({
                 ✓
               </span>
               <span>
-                {monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA al mes
+                {cupoEnPalabras(plan.id, account.aiModel)}
                 {esSubida && (
                   <span className="text-text-muted">
                     {' '}
@@ -173,7 +180,7 @@ export function Checkout({
 
           {/* Lo que sigue es la frase más importante de la pantalla y va antes del
               botón, no debajo en letra pequeña. */}
-          <div className="border-brass-dim bg-surface-raised mt-3 border p-3">
+          <div className="superficie-viva mt-3 p-3">
             <p className="text-text text-sm">
               {charges ? (
                 <>
@@ -201,12 +208,6 @@ export function Checkout({
           <Aviso mensaje={error} className="mt-3" />
         </section>
       )}
-
-      <p className="text-text-muted text-xs">
-        <Link href="/planes" className="hover:text-text underline">
-          Volver a los tres planes
-        </Link>
-      </p>
     </div>
   );
 }

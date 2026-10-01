@@ -24,12 +24,27 @@ describe('El enlace a los planes', () => {
   });
 });
 
+describe('La salida de un candado', () => {
+  it('es el botón principal y no el apagado: es la única acción de la caja', () => {
+    render(<PlansLink />);
+    expect(screen.getByRole('link')).toHaveClass('bg-brass', 'text-sm');
+  });
+
+  it('en una caja con relleno de 16 a 20 px, y la compacta sigue apretada', () => {
+    const { rerender } = render(<PlanLock needed={planOf('medio')} what="Las salidas" signedIn />);
+    expect(screen.getByRole('note')).toHaveClass('p-4', 'md:p-5');
+
+    rerender(<PlanLock needed={planOf('medio')} what="Las salidas" signedIn compact />);
+    expect(screen.getByRole('note')).toHaveClass('px-2', 'py-1.5');
+  });
+});
+
 describe('El candado', () => {
   it('dice qué plan hace falta y lleva a verlo', () => {
-    render(<PlanLock needed={planOf('medio')} what="Las ideas de la IA" signedIn />);
+    render(<PlanLock needed={planOf('medio')} what="Las salidas de lo que tocas" signedIn />);
 
     expect(screen.getByRole('note')).toHaveTextContent(
-      /las ideas de la ia entra en el plan medio/i,
+      /las salidas de lo que tocas entra en el plan medio/i,
     );
     expect(screen.getByRole('link', { name: /ver los tres planes/i })).toHaveAttribute(
       'href',

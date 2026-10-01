@@ -7,15 +7,39 @@ import { describe, expect, it } from 'vitest';
 import { Aviso } from './Aviso';
 
 describe('Aviso', () => {
-  it('no pinta nada sin mensaje', () => {
+  /**
+   * La región va montada antes que el mensaje: un lector anuncia lo que entra en
+   * una región que ya estaba, y una que nace con el texto dentro no se lee en
+   * todos. Vacía, eso sí, no ocupa sitio.
+   */
+  it('sin mensaje deja la región puesta, vacía y fuera del flujo', () => {
     const { container } = render(<Aviso mensaje={null} />);
-    expect(container).toBeEmptyDOMElement();
+
+    const region = container.querySelector('[aria-live="polite"]');
+    expect(region).toBeEmptyDOMElement();
+    expect(region).toHaveClass('empty:sr-only');
   });
 
-  // El `&&` de quien lo usa deja `false`, no nulo: si eso pintara una caja
-  // vacía, todas las formas llevarían un hueco de más debajo del botón.
-  it('tampoco con un false, que es lo que deja un `&&`', () => {
-    const { container } = render(<Aviso mensaje={false} />);
+  // El `&&` de quien lo usa deja `false`, no nulo: si eso se pintara como texto,
+  // todas las formas llevarían un «false» debajo del botón.
+  it('con un false, que es lo que deja un `&&`, igual de vacía', () => {
+    const { container } = render(<Aviso mensaje={false} anuncio="urgente" />);
+    expect(screen.getByRole('alert')).toBeEmptyDOMElement();
+    expect(container.childElementCount).toBe(1);
+  });
+
+  it('el mensaje entra en la región que ya estaba, no en otra nueva', () => {
+    const { rerender } = render(<Aviso mensaje={null} />);
+    const antes = document.querySelector('[aria-live="polite"]');
+
+    rerender(<Aviso mensaje="No hemos podido guardar." />);
+
+    expect(screen.getByText('No hemos podido guardar.')).toBe(antes);
+  });
+
+  // Sin anuncio no hay región que preparar, y una caja vacía sería ruido.
+  it('sin anuncio y sin mensaje no pinta nada', () => {
+    const { container } = render(<Aviso mensaje={null} anuncio="ninguno" />);
     expect(container).toBeEmptyDOMElement();
   });
 

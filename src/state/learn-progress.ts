@@ -55,16 +55,5 @@ export function clearProgress(): void {
   }
 }
 
-/**
- * El día de hoy en `AAAA-MM-DD`, en hora local.
- *
- * Vive aquí y no en el dominio porque leer el reloj es efecto, no teoría. En
- * local y no en UTC: la racha la cuenta quien toca, y para quien toca a las once
- * de la noche en Madrid el día es el suyo, no el de Greenwich.
- */
-export function today(now: Date = new Date()): string {
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, '0');
-  const day = `${now.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+/** El día de hoy. Vive en `hoy.ts` para que pedir la fecha no traiga el temario. */
+export { today } from './hoy';

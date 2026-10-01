@@ -1,15 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { noteName } from '@core/music';
 import { useAccount } from '@state/account';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
-import { Button } from '@ui/Button';
+import { Button, estiloBoton } from '@ui/Button';
 import { Chip } from '@ui/Chip';
+import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
 import { PlansLink, seArreglaConPlan } from '@ui/PlansLink';
 import { Aviso } from '@ui/Aviso';
+import { TextField } from '@ui/TextField';
 
 import {
   MAX_QUESTION_LENGTH,
@@ -63,9 +65,33 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
     text: string;
   } | null>(null);
   const [asking, setAsking] = useState(false);
+  // Lo que falta solo se marca después de intentarlo: un campo en rojo antes de
+  // escribir nada es una regañina. Es el trato de los formularios de la cuenta.
+  const [intentado, setIntentado] = useState(false);
+  const campo = useRef<HTMLInputElement>(null);
+
+  // Lo único que se marca en el campo es el blanco: sin cuenta o sin tonalidad el
+  // campo ni se pinta, y se dice lo que toca en su lugar.
+  const falta = question.trim() === '' ? 'Escribe lo que quieres preguntar.' : null;
+
+  /**
+   * **«Preguntar» no se apaga por estar el campo en blanco.** Un botón gris no
+   * dice por qué: quien no veía la pantalla oía «Preguntar, no disponible» y nada
+   * más. Se pulsa siempre, el motivo se dice en el campo —`aria-invalid` y su
+   * frase— y el foco va a él, que es como se entera un lector de pantalla. Solo
+   * se apaga mientras piensa.
+   */
+  function enviar(): void {
+    setIntentado(true);
+    if (falta !== null) {
+      campo.current?.focus();
+      return;
+    }
+    void ask(question);
+  }
 
   async function ask(text: string): Promise<void> {
-    /* v8 ignore next 3 -- sin tonalidad el formulario no se pinta, y el boton va desactivado en blanco */
+    /* v8 ignore next 3 -- el formulario solo se pinta con cuenta y tonalidad, y `enviar` ya ha parado el campo en blanco */
     if (activeKey === null || text.trim() === '') {
       return;
     }
@@ -110,73 +136,93 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
     }
   }
 
+  // **Tres estados y no un formulario con avisos.** Sin cuenta el campo y su
+  // botón estaban activos y acababan en un 401: se invitaba a escribir lo que
+  // luego no salía. Sin tonalidad era un error en rojo por no haber hecho algo que
+  // se resuelve con un toque. Ahora cada falta cambia lo que hay que hacer: entrar,
+  // elegir tono o preguntar; el campo solo existe cuando la pregunta puede salir.
+  if (!signedIn) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-text-muted text-xs">
+          El profesor pide cuenta: es lo que permite contar el gasto por persona y no por navegador.
+        </p>
+        <div>
+          <Link href="/cuenta" className={estiloBoton('primary', 'px-4 text-sm')}>
+            Entrar para preguntar
+          </Link>
+        </div>
+
+        {/* Lo que se podrá preguntar, como vista previa y no como botones: son
+            lo único que dice qué clase de cosas se le pueden preguntar, pero
+            pulsarlas sin cuenta acabaría en lo mismo que escribir. */}
+        {!compact && (
+          <ul aria-label="Ejemplos de preguntas" className="grid gap-2 sm:grid-cols-2">
+            {OPENERS.map((opener) => (
+              <li
+                key={opener}
+                className="border-border text-text-muted rounded-md border px-3 py-2 text-[13px]"
+              >
+                {opener}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  if (activeKey === null) {
+    return (
+      <CuatroTonalidades>
+        Elige una tonalidad y el profesor te contesta con sus acordes:
+      </CuatroTonalidades>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <form
+        // Sin la validación del navegador, como `ui/Formulario`: lo que falta se
+        // dice aquí, en español y junto al campo. Va escrito a mano porque este
+        // formulario es una fila —el campo y su botón— y aquel, una columna.
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
-          void ask(question);
+          enviar();
         }}
-        className="flex flex-wrap gap-2"
+        className="flex flex-wrap items-start gap-2"
       >
-        <label className="min-w-48 grow">
-          <span className="sr-only">Pregúntale al profesor</span>
-          <input
-            type="text"
-            value={question}
-            maxLength={MAX_QUESTION_LENGTH}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Pregunta lo que quieras de teoría"
-            className="border-border bg-surface text-text placeholder:text-text-muted focus:border-brass-dim min-h-tap w-full rounded-md border px-3 text-sm transition-colors"
-          />
-        </label>
-        <Button
-          type="submit"
-          cargando={asking}
-          disabled={asking || activeKey === null || question.trim() === ''}
-        >
+        <TextField
+          ref={campo}
+          compact
+          ancho="crece"
+          label="Pregúntale al profesor"
+          value={question}
+          maxLength={MAX_QUESTION_LENGTH}
+          onChange={(event) => setQuestion(event.target.value)}
+          placeholder="Pregunta lo que quieras de teoría"
+          {...(intentado && falta !== null ? { error: falta } : {})}
+        />
+        <Button type="submit" cargando={asking} disabled={asking}>
           {asking ? 'Pensando…' : 'Preguntar'}
         </Button>
       </form>
 
-      {activeKey === null && (
-        <p className="text-text-muted text-xs">
-          Elige una tonalidad primero: el profesor responde con los acordes que tienes delante.
-        </p>
-      )}
-
       {/* El cupo, como un contador y no como una frase: es un número que se mira
-          de reojo antes de preguntar otra vez. Solo con cuenta, porque sin ella el
-          servidor cuenta por dirección y no puede prometer un número. */}
-      {signedIn && account.aiLeftToday !== null && (
+          de reojo antes de preguntar otra vez. */}
+      {account.aiLeftToday !== null && (
         <p
           className={`font-mono text-xs ${
             account.aiLeftToday === 0 ? 'text-oxblood-bright' : 'text-text-muted'
           }`}
         >
           {account.aiLeftToday === 0
-            ? 'Sin peticiones a la IA hoy'
+            ? 'Sin preguntas a la IA hoy'
             : `Quedan ${account.aiLeftToday} hoy`}
           {account.aiLeftMonth !== null && (
             <span className="text-text-muted"> · {account.aiLeftMonth} este mes</span>
           )}
-        </p>
-      )}
-
-      {/* La IA pide cuenta, y hay que decirlo donde se intenta usar.
-
-          Pero **no dos veces**: al preguntar sin cuenta, la ruta contesta lo
-          mismo con otras palabras —«Entra con tu cuenta… La IA se cuenta por
-          cuenta, no por navegador»— y quedaban dos líneas seguidas, una gris y
-          otra roja, diciendo lo mismo. Se queda la roja, que es la que contesta
-          a lo que se acaba de pulsar, y se lleva el enlace. */}
-      {!signedIn && message?.code !== 'account_required' && (
-        <p className="text-text-muted text-xs">
-          El profesor pide cuenta: es lo que permite contar el gasto por persona y no por navegador.{' '}
-          <Link href="/cuenta" className="enlace">
-            Entrar
-          </Link>
-          .
         </p>
       )}
 
@@ -188,23 +234,13 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
         <ul className="grid gap-2 sm:grid-cols-2">
           {OPENERS.map((opener) => (
             <li key={opener} className="flex">
-              {/*
-                Sin tonalidad rellenan el campo en vez de estar muertos.
-
-                Deshabilitados y en gris parecían rotos, y encima eran lo único
-                que decía qué clase de cosas se le pueden preguntar. Ahora el
-                ejemplo entra escrito y se pregunta en cuanto haya tonalidad:
-                sirve de algo antes de poder usarse.
-              */}
               <Chip
                 tone="quiet"
-                className="w-full justify-start px-3 text-left text-xs"
+                tamano="compacto"
+                className="w-full justify-start text-left"
                 onClick={() => {
                   setQuestion(opener);
-                  /* v8 ignore next 3 -- las preguntas de ejemplo solo se pintan con tonalidad puesta */
-                  if (activeKey !== null) {
-                    void ask(opener);
-                  }
+                  void ask(opener);
                 }}
               >
                 {opener}

@@ -3,11 +3,10 @@
  *
  * Vive aquí y no dentro de `app/` porque lo usan los dos lados —el servidor para
  * validar y el cliente para pedir y entender— y es TypeScript puro, así que se
- * prueba sin levantar nada. Es la misma forma que tiene `ideas/contract.ts`.
+ * prueba sin levantar nada. Es la misma forma que tiene `learn/teacher-contract.ts`.
  *
- * **La diferencia con las ideas está en lo que se valida.** Allí se comprueba que
- * los grados existan y se recalculan los cifrados. Aquí se hace eso y además se
- * comprueba **el razonamiento**: cada versión declara qué movimiento ha aplicado
+ * **Lo que se valida va más allá de los grados.** Se comprueba que existan y se
+ * recalculan los cifrados, y además se comprueba **el razonamiento**: cada versión declara qué movimiento ha aplicado
  * a cada compás, y `isMove` vuelve a aplicarlo para ver si es verdad. Una versión
  * que dice «sustitución tritonal» y no lo es se cae entera, porque el porqué es
  * la mitad de lo que se está vendiendo: sin él son cuatro acordes distintos.
@@ -111,7 +110,8 @@ export interface VersionsRequest {
    * antes que de interfaz: continuar exige al menos dos partes y retocar
    * exactamente una, y un esquema JSON no puede condicionar eso a un campo que el
    * propio modelo rellena. Eligiéndolo antes, el esquema exige lo que el
-   * validador comprueba —que es la regla que ya costó una vez, con las ideas—.
+   * validador comprueba —que es la regla que ya costó una vez, con la función de
+   * ideas, ya retirada—.
    */
   readonly kind: PathKind;
   /**
@@ -225,7 +225,7 @@ function asBeats(value: unknown): number {
  * Valida el cuerpo de la petición.
  *
  * Nada se reenvía tal cual: la petición se reconstruye desde los campos que
- * pasan y todo lo demás se ignora, igual que en las ideas.
+ * pasan y todo lo demás se ignora, igual que en el profesor.
  */
 /**
  * Tus directrices, acotadas: sin la marca, sin espacios de sobra y con su tope.

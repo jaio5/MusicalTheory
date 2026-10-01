@@ -1,13 +1,19 @@
 'use client';
 
+import { memo } from 'react';
+
 import { blockChord, degreesFor, guionDeEnsayo, largoDelEnsayo, writtenBlock } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useArrangementStore } from '@state/arrangement-store';
+import { useBancoStore } from '@state/banco';
 import { useEnsayo, type EnsayoDeps } from '@state/use-ensayo';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
-import { IconoParar, IconoSonar, IconoTocar } from '@ui/icons';
+import { IconoComponer, IconoMicro, IconoParar, IconoSonar, IconoTocar } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
+
+/** Una sola, y no un `{}` nuevo en cada pintado que `useEnsayo` recibiría distinto. */
+const SIN_DEPS: EnsayoDeps = {};
 
 /**
  * Ensayar lo que has escrito, contra el metrónomo.
@@ -26,7 +32,11 @@ import { Vacio } from '@ui/Vacio';
  * compases salieron, la racha más larga y **cuál se atragantó**. Ese último es
  * el que dice qué practicar, y es el que no se puede saber tocando sin mirar.
  */
-export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
+/**
+ * Con `memo`: la pantalla de componer se repinta con cada cambio del banco, y
+ * esto se entera de lo suyo por los almacenes.
+ */
+export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?: EnsayoDeps }) {
   const activeKey = useSessionStore(selectActiveKey);
   const arrangement = useArrangementStore((state) => state.arrangement);
   // El mismo con el que se arma el guion al ensayar: la vista previa y lo que
@@ -64,7 +74,28 @@ export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
       // abajo en cuanto la ventana es baja.
       <div className="flex h-full min-h-0 flex-col overflow-y-auto">
         <div className="my-auto">
-          <Vacio icono={<IconoTocar />} titulo="Todavía no hay nada que ensayar">
+          {/* **Con la salida puesta, no solo dicha.** Decía «escribe unos
+              acordes» sin decir dónde, y los dos sitios donde se escriben son
+              dos espacios de esta misma pantalla: la acción es ir a ellos. */}
+          <Vacio
+            icono={<IconoTocar />}
+            titulo="Todavía no hay nada que ensayar"
+            accion={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button onClick={() => useBancoStore.getState().actions.espacio('escribir')}>
+                  <IconoComponer />
+                  Escribirla
+                </Button>
+                <Button
+                  variant="quiet"
+                  onClick={() => useBancoStore.getState().actions.espacio('tocando')}
+                >
+                  <IconoMicro />
+                  Tocarla
+                </Button>
+              </div>
+            }
+          >
             Escribe unos acordes —tocándolos, por bloques o en la partitura— y vuelve aquí a
             tocarlos contra el metrónomo.
           </Vacio>
@@ -189,7 +220,7 @@ export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
               </Button>
               <Chip
                 tone="quiet"
-                className="px-3 text-xs"
+                tamano="compacto"
                 onClick={() => {
                   useSessionStore
                     .getState()
@@ -270,4 +301,4 @@ export function Ensayo({ deps = {} }: { readonly deps?: EnsayoDeps } = {}) {
       </div>
     </div>
   );
-}
+});

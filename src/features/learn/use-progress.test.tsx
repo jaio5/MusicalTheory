@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
-import { COMPOSE_XP, EMPTY_PROGRESS, MAX_COMPOSE_XP, UNIT_ORDER } from '@core/music';
+import { EMPTY_PROGRESS, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
-import { apuntarHecho } from '@state/hechos-de-componer';
 import { loadProgress } from '@state/learn-progress';
 
 import { useProgress } from './use-progress';
@@ -44,13 +44,16 @@ const CON_SINCRONIA: Account = {
 
 const fetchFalso = vi.fn();
 
-function montar(account: Account = ANONYMOUS, escuchaComponer = false) {
-  return renderHook(() => useProgress({ escuchaComponer }), {
-    wrapper: ({ children }) => (
-      <AccountProvider account={account} accounts>
-        {children}
-      </AccountProvider>
-    ),
+function montar(account: Account = ANONYMOUS, { estricto = false } = {}) {
+  return renderHook(() => useProgress(), {
+    wrapper: ({ children }) => {
+      const dentro = (
+        <AccountProvider account={account} accounts>
+          {children}
+        </AccountProvider>
+      );
+      return estricto ? <StrictMode>{dentro}</StrictMode> : dentro;
+    },
   });
 }
 
@@ -67,6 +70,9 @@ beforeEach(() => {
   fetchFalso.mockReset();
   fetchFalso.mockResolvedValue(fusion(EMPTY_PROGRESS));
   vi.stubGlobal('fetch', fetchFalso);
+  // La marca de la fusión de entrada es del módulo y sobrevive entre pruebas.
+  // Se limpia por donde se limpia de verdad: pasando por una sesión sin cuenta.
+  montar(ANONYMOUS).unmount();
 });
 
 afterEach(() => {
@@ -264,86 +270,71 @@ describe('con cuenta que sincroniza', () => {
   });
 });
 
-describe('componer cuenta como practicar', () => {
-  it('un hecho apuntado suma y queda guardado en el equipo', () => {
-    const { result } = montar(ANONYMOUS, true);
+describe('los actualizadores son puros', () => {
+  // En `StrictMode` React ejecuta dos veces cada actualizador de estado. Con la
+  // subida dentro eran dos `PUT` por unidad terminada.
+  async function trasLaEntrada() {
+    const montado = montar(CON_SINCRONIA, { estricto: true });
+    await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(1));
+    fetchFalso.mockClear();
+    return montado;
+  }
 
-    act(() => {
-      apuntarHecho('cancion');
-    });
+  it('terminar una unidad sube una sola vez', async () => {
+    const { result } = await trasLaEntrada();
 
-    expect(result.current.progress.xpToday).toBe(COMPOSE_XP.cancion);
-    expect(result.current.progress.streak).toBe(1);
-    expect(loadProgress().composeToday).toBe(COMPOSE_XP.cancion);
+    act(() => result.current.complete(PRIMERA, true));
+
+    await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(1));
   });
 
-  it('y lo cuenta en pantalla, con la medalla que acabe de salir', () => {
-    const { result } = montar(ANONYMOUS, true);
+  it('cerrar un repaso y mover el punto de partida, tambien una', async () => {
+    const { result } = await trasLaEntrada();
 
-    act(() => {
-      apuntarHecho('cancion');
-    });
+    act(() => result.current.finishReview(true));
+    act(() => result.current.chooseStart('elemental-2'));
 
-    expect(result.current.composeGain).toMatchObject({
-      deed: 'cancion',
-      xp: COMPOSE_XP.cancion,
-      newBadges: ['primera-cancion'],
-    });
+    await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(2));
   });
 
-  it('el aviso se puede quitar sin deshacer lo ganado', () => {
-    const { result } = montar(ANONYMOUS, true);
-
-    act(() => {
-      apuntarHecho('oido');
-    });
-    act(() => {
-      result.current.dismissComposeGain();
-    });
-
-    expect(result.current.composeGain).toBeNull();
-    expect(result.current.progress.xpToday).toBe(COMPOSE_XP.oido);
-  });
-
-  it('quien no escucha no suma, aunque se apunte un hecho', () => {
-    // Es la razón de que `escuchaComponer` exista: hay varias pantallas
-    // llamando a este gancho a la vez, y con dos apuntados el mismo hecho
-    // sumaría dos veces y las dos copias se pisarían al guardar.
+  it('dos llamadas seguidas en el mismo tick encadenan', () => {
+    // El siguiente se calcula desde la referencia, que cambia a la vez que el
+    // estado: si se leyera del render, el segundo fallo pisaría al primero.
     const { result } = montar();
 
     act(() => {
-      apuntarHecho('cancion');
+      result.current.miss(PRIMERA, 0);
+      result.current.miss(PRIMERA, 1);
     });
 
-    expect(result.current.progress).toEqual(EMPTY_PROGRESS);
+    expect(result.current.progress.review).toHaveLength(2);
+    expect(loadProgress().review).toHaveLength(2);
+  });
+});
+
+describe('la fusion de entrada es una por cuenta, no por pantalla', () => {
+  it('dos pantallas montadas con la misma cuenta suben una vez', async () => {
+    montar(CON_SINCRONIA);
+    await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(1));
+
+    montar(CON_SINCRONIA);
+
+    expect(fetchFalso).toHaveBeenCalledTimes(1);
   });
 
-  it('con el tope lleno deja de sumar y no enseña un aviso de cero', () => {
-    const { result } = montar(ANONYMOUS, true);
+  it('salir de la cuenta la olvida, y volver a entrar sube otra vez', async () => {
+    montar(CON_SINCRONIA).unmount();
+    await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(1));
 
-    act(() => {
-      for (let i = 0; i < 10; i += 1) {
-        apuntarHecho('cancion');
-      }
-    });
-    act(() => {
-      result.current.dismissComposeGain();
-    });
-    act(() => {
-      apuntarHecho('cancion');
-    });
+    montar(ANONYMOUS).unmount();
+    montar(CON_SINCRONIA);
 
-    expect(result.current.progress.composeToday).toBe(MAX_COMPOSE_XP);
-    expect(result.current.composeGain).toBeNull();
+    await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(2));
   });
 
-  it('y al desmontar la pantalla se da de baja', () => {
-    const { result, unmount } = montar(ANONYMOUS, true);
-    const antes = result.current.progress.xpToday;
+  it('con cuenta pero sin sincronia no se sube nada', () => {
+    montar({ ...CON_SINCRONIA, plan: 'gratis' });
 
-    unmount();
-    apuntarHecho('cancion');
-
-    expect(loadProgress().xpToday).toBe(antes);
+    expect(fetchFalso).not.toHaveBeenCalled();
   });
 });

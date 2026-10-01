@@ -5,10 +5,9 @@ import { useMemo, useState } from 'react';
 import { lessonNotes, type TheoryUnit as TheoryUnitDef } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 
-import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
-
 import { Question } from './Question';
-import { Tutor } from './Tutor';
+import { SinTonalidad } from './SinTonalidad';
+import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
 
 /**
  * Una unidad de teoría: lo que hay que saber y luego las preguntas, **de una en
@@ -47,21 +46,7 @@ export function TheoryUnit({
 
   if (activeKey === null || notes === null) {
     return (
-      // La barra de la tonalidad **flota sobre esta caja** y se abre sola cuando no
-      // hay ninguna puesta, así que aquí abajo el sitio que queda puede ser una
-      // tira de noventa píxeles. Un estado vacío entero salía partido por el
-      // borde del panel, y encima decía «está en la rueda de aquí arriba» debajo
-      // de la rueda que lo tapaba. Cuatro botones caben, y resuelven el paso.
-      // Abajo con margen automático y no con `justify-end`: alinear la caja que
-      // recorta saca por el lado contrario lo que no cabe, y el desplazamiento
-      // no llega hasta ello. Aquí hoy sobra sitio —la rueda flota y no ocupa—,
-      // pero en el repaso, donde sí ocupa, dejó los cuatro botones fuera de
-      // alcance en una ventana de 600 px de alto.
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="mt-auto">
-          <CuatroTonalidades>Elige una tonalidad para empezar:</CuatroTonalidades>
-        </div>
-      </div>
+      <SinTonalidad para="Las preguntas se escriben con sus acordes: elige una para empezar." />
     );
   }
 
@@ -69,7 +54,7 @@ export function TheoryUnit({
   const last = at >= notes.exercises.length - 1;
 
   return (
-    <div className="min-h-0 grow overflow-y-auto p-4">
+    <div className={`min-h-0 grow overflow-y-auto p-4 ${HUECO_DEL_TUTOR}`}>
       <ul className="flex max-w-prose flex-col gap-2">
         {notes.points.map((point) => (
           <li key={point} className="text-text text-base leading-relaxed">

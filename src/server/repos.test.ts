@@ -220,9 +220,9 @@ describe('los dos cupos de la IA', () => {
     const hoy = new Date('2026-08-26T10:00:00Z');
     const manana = new Date('2026-08-27T10:00:00Z');
 
-    await uso.spendAiRequest(userId, limites, hoy);
-    await uso.spendAiRequest(userId, limites, hoy);
-    const otroDia = await uso.spendAiRequest(userId, limites, manana);
+    await uso.spendAiRequest(userId, limites, 1, hoy);
+    await uso.spendAiRequest(userId, limites, 1, hoy);
+    const otroDia = await uso.spendAiRequest(userId, limites, 1, manana);
 
     expect(otroDia.kind).toBe('ok');
     expect(otroDia.kind === 'ok' && otroDia.usage).toEqual({ month: 3, today: 1 });
@@ -234,10 +234,40 @@ describe('los dos cupos de la IA', () => {
 
     const resultados = [];
     for (const dia of dias) {
-      resultados.push((await uso.spendAiRequest(userId, limites, dia)).kind);
+      resultados.push((await uso.spendAiRequest(userId, limites, 1, dia)).kind);
     }
 
     expect(resultados).toEqual(['ok', 'ok', 'ok', 'sin-cupo-mensual']);
+  });
+
+  /**
+   * Una salida gasta varias preguntas del cupo, y **enteras o nada** (adr/0067):
+   * con dos restantes, una que gasta tres no pasa, y no se apunta nada.
+   */
+  it('una petición que gasta varias las descuenta todas, y si no caben no pasa', async () => {
+    const userId = await cuenta();
+    const holgados = { monthly: 5, daily: 5 };
+
+    const salida = await uso.spendAiRequest(userId, holgados, 3);
+    expect(salida.kind === 'ok' && salida.usage).toEqual({ month: 3, today: 3 });
+
+    expect((await uso.spendAiRequest(userId, holgados, 3)).kind).toBe('sin-cupo-mensual');
+    expect(await uso.aiUsageOf(userId)).toEqual({ month: 3, today: 3 });
+
+    // Y lo que queda sigue sirviendo para lo que sí cabe.
+    expect((await uso.spendAiRequest(userId, holgados, 2)).kind).toBe('ok');
+  });
+
+  it('el tope del día también se mira en unidades', async () => {
+    const userId = await cuenta();
+    const limites3 = { monthly: 30, daily: 4 };
+    await uso.spendAiRequest(userId, limites3, 3);
+
+    expect((await uso.spendAiRequest(userId, limites3, 3)).kind).toBe('sin-cupo-diario');
+    // Lo que no cabe ni en un día vacío se para antes de tocar la base.
+    expect((await uso.spendAiRequest(await cuenta('x@y.z'), limites3, 5)).kind).toBe(
+      'sin-cupo-diario',
+    );
   });
 
   it('un plan sin cupo no gasta ni una', async () => {

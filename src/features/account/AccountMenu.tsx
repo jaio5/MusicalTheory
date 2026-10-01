@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { avatarInitial, displayName } from '@core/billing';
 import { useAccount } from '@state/account';
@@ -32,6 +32,7 @@ export function AccountMenu() {
   const contenedor = useRef<HTMLDivElement>(null);
   const boton = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
+  const idLista = useId();
 
   // Cambiar de pantalla cierra el menú: sin esto se queda abierto encima de la
   // pantalla nueva, porque navegar aquí no vuelve a montar la cabecera. Se
@@ -105,17 +106,26 @@ export function AccountMenu() {
         ref={boton}
         type="button"
         onClick={() => setOpen((estaba) => !estaba)}
-        aria-haspopup="menu"
         aria-expanded={open}
+        aria-controls={open ? idLista : undefined}
         aria-label={`Tu cuenta: ${nombre}, plan ${planName}`}
         className="border-brass-dim text-brass-bright hover:border-brass-bright bg-surface-raised size-tap flex items-center justify-center rounded-full border font-mono text-sm"
       >
         <span aria-hidden="true">{avatarInitial(account)}</span>
       </button>
 
+      {/* **Un desplegable de navegación, no un menú.** Llevaba `role="menu"` y
+          `menuitem`, que prometen lo que hace un menú de escritorio: moverse con
+          las flechas, `Tab` que sale de él entero, nada que no sea una opción
+          dentro. No hacía nada de eso —dentro hay un correo, un plan, cuatro
+          enlaces y un botón—, y un lector de pantalla que oye «menú» cambia de
+          modo y deja de leer los párrafos. Lo honrado es lo que es: un botón que
+          abre y cierra una lista de enlaces, con `Tab` de siempre. Escape y la
+          vuelta del foco se quedan, que no son de menú sino de todo lo que se
+          despliega. */}
       {open && (
-        <div
-          role="menu"
+        <nav
+          id={idLista}
           aria-label="Tu cuenta"
           className="superficie-alta absolute top-full right-0 z-20 mt-1 w-60 overflow-hidden"
         >
@@ -130,7 +140,6 @@ export function AccountMenu() {
               <li key={destino.href}>
                 <Link
                   href={destino.href}
-                  role="menuitem"
                   className="text-text hover:bg-surface-raised hover:text-brass-bright block px-3 py-2 text-sm"
                 >
                   {destino.label}
@@ -143,7 +152,7 @@ export function AccountMenu() {
           <div className="border-border border-t px-3 py-2">
             <SignOutButton />
           </div>
-        </div>
+        </nav>
       )}
     </div>
   );

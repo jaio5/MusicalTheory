@@ -29,3 +29,18 @@ export function pareceUnCorreo(correo: string): boolean {
 
 /** Lo que se dice cuando no lo parece. */
 export const CORREO_MAL = 'Ese correo no tiene buena pinta: repásalo y vuelve a probar.';
+
+/**
+ * El campo vacío no es un correo mal escrito: es un correo que falta. «No tiene
+ * buena pinta» delante de un campo en blanco suena a reproche por algo que nadie
+ * ha escrito todavía.
+ */
+export const CORREO_FALTA = 'Falta el correo.';
+
+/** Qué decir de lo que hay en el campo, o `undefined` si vale. */
+export function problemaDelCorreo(correo: string): string | undefined {
+  if (correo.trim() === '') {
+    return CORREO_FALTA;
+  }
+  return pareceUnCorreo(correo) ? undefined : CORREO_MAL;
+}

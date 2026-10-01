@@ -5,9 +5,9 @@
  * Esto es lo que hace que las versiones de una canción no sean lo que se le
  * ocurra a un modelo: el modelo propone un grado y **dice qué movimiento ha
  * aplicado**, y aquí se aplica ese mismo movimiento al grado de partida y se
- * comparan. Si no coincide, esa versión se cae. Es la misma regla que ya sigue
- * `/api/ideas` con los cifrados —no se creen, se recalculan—, llevada del cifrado
- * al razonamiento.
+ * comparan. Si no coincide, esa versión se cae. Es la misma regla que se sigue
+ * con los cifrados —no se creen, se recalculan desde los grados—, llevada del
+ * cifrado al razonamiento.
  *
  * **No hay una tabla de sustituciones escrita a mano.** Cada movimiento es una
  * función que se apoya en el catálogo de grados que ya existe: se pregunta a

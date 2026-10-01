@@ -294,8 +294,13 @@ contenido: un trozo con 240 ms de retardo se queda transparente ese cuarto de
 segundo, y una animación atada al scroll no la mueve una duración de 0,01 ms, así
 que se queda en el primer fotograma para siempre.
 
-Y GSAP no ve esa regla, porque escribe el transform él mismo: quien anime con GSAP
-pregunta en `ui/motion.ts`.
+Por eso **lo que se mueve, se mueve con CSS**: una transición la frena esa regla
+sin preguntar nada. La rueda de quintas giraba con GSAP, que escribe el transform
+él mismo y se la saltaba, y había que acordarse de preguntar en `ui/motion.ts`;
+ahora es una transición y GSAP ya no está
+([adr/0057](adr/0057-la-rueda-gira-sin-gsap.md)). `prefersReducedMotion` queda
+para lo que decide desde JavaScript si se mueve —el vídeo de la portada, la
+mascota—.
 
 Y una de las de media hora: **`color-scheme: dark` en `:root`** es lo que hace que
 el navegador pinte en oscuro lo que dibuja él y no nosotros —la lista de un
@@ -313,7 +318,7 @@ que no se arreglan con ninguna clase de Tailwind.
   permisos, fusión de avances, cola de repaso, cifrado. El camino con base de datos
   se ha ejecutado a mano dos veces y las dos salieron fallos que ningún test veía.
 - **Los tests que leen ficheros son a propósito.** `coherencia.test.ts` y
-  `esquema-ideas.test.ts` comprueban cosas que solo se ven en conjunto —que ninguna
+  `prompts.test.ts` comprueban cosas que solo se ven en conjunto —que ninguna
   pantalla se escriba su propio ancho, que ninguna ruta gaste cupo por su cuenta—.
   Son feos y han cazado lo que ningún test unitario podía.
 - **La cobertura está en el cien por cien y el tope lo exige** (`vitest.config.ts`,

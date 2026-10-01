@@ -185,3 +185,27 @@ describe('los bloques que no dan para nada', () => {
     expect(detectPitch(tone(110), alReves)).toBeNull();
   });
 });
+
+/**
+ * Los búferes de trabajo se reutilizan entre análisis, y eso solo es seguro si
+ * lo de una ventana no se cuela en la siguiente. Se prueba lo peor: una ventana
+ * grande, una corta y otra vez la grande, cada una con otra nota.
+ */
+describe('lo que se reutiliza de un análisis a otro', () => {
+  it('da lo mismo que un análisis recién arrancado, cambie o no el tamaño', () => {
+    const grave = tone(midiToFrequency(40), { length: 4096 });
+    const aguda = tone(midiToFrequency(69), { length: 1024 });
+
+    const primera = detectPitch(grave, OPTIONS);
+    const corta = detectPitch(aguda, OPTIONS);
+    const otraVez = detectPitch(grave, OPTIONS);
+
+    expect(corta?.frequency).toBeCloseTo(midiToFrequency(69), 1);
+    expect(otraVez).toEqual(primera);
+  });
+
+  it('el silencio después de una nota sigue siendo silencio', () => {
+    detectPitch(tone(220), OPTIONS);
+    expect(detectPitch(new Float32Array(FRAME), OPTIONS)).toBeNull();
+  });
+});

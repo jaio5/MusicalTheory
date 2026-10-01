@@ -41,7 +41,7 @@ describe('sin tonalidad', () => {
   it('no se puede preguntar, y se ofrecen tonalidades con las que empezar', () => {
     render(<EarUnit unit={GRADOS} onDone={() => {}} />);
 
-    expect(screen.getByText(/Elige una tonalidad para empezar/)).toBeInTheDocument();
+    expect(screen.getByText('Falta la tonalidad')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'C mayor' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Escuchar/ })).not.toBeInTheDocument();
   });

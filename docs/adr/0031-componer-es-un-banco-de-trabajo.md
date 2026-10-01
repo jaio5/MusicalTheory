@@ -40,7 +40,10 @@ con selector de tipo (mástil, ideas, sesiones, cerrada).
 Tres cosas que hacen que esto no sea la cuadrícula de antes con otro nombre:
 
 - **El reparto lo decide quien mira.** Divisores de 6 px de agarre y 1 px
-  pintado, con tope mínimo por área y doble clic para volver al preset. Lo que
+  pintado, con tope mínimo por área y doble clic para volver al preset. (Hoy el
+  agarre es de 24 px, que es lo que pide WCAG 2.5.8 para acertar con el dedo, y
+  cada área trae «Estrechar» y «Ensanchar» en su cabecera para quien no arrastra;
+  lo pintado sigue siendo 1 px. Lo cuenta `ui/Divisor.tsx`.) Lo que
   antes era un número escrito en un `grid-cols` pasa a ser una preferencia.
 - **Los controles de una cosa viven en esa cosa.** Cada área lleva su cabecera con
   su nombre y sus dos o tres mandos, en vez de un ajustes común donde hay que
@@ -56,7 +59,7 @@ Tres cosas que hacen que esto no sea la cuadrícula de antes con otro nombre:
   escribiendo, la canción, a dónde seguir y el acorde; ensayando, solo la
   canción. Lo que sobra queda en una tira con su icono, a un clic de volver, y
   lo que se mueva se recuerda **por espacio**. Quien no quiera montarse nada no
-  tiene que tocar un divisor en su vida; quien quiera, tiene «Reordenar» para
+  tiene que tocar un divisor en su vida; quien quiera, tiene «Restablecer paneles» —se llamó «Reordenar»— para
   volver a como venía.
 
 **Lo que 0018 decidió sigue en pie.** El lienzo de bloques, las duraciones, las

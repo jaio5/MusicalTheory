@@ -8,7 +8,6 @@ import { AccessForm } from '@features/account';
 import { useAccount } from '@state/account';
 import { estiloBoton } from '@ui/Button';
 import { IconoCamino, IconoProfesor, IconoTocar } from '@ui/icons';
-import { Mascota } from '@ui/Mascota';
 import { Screen } from '@ui/Screen';
 
 /**
@@ -103,17 +102,16 @@ export function RegisterScreen() {
           accounts ? 'lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]' : 'max-w-md'
         }`}
       >
-        {/* El formulario, en su tarjeta y con el muñeco asomando por arriba: es lo
-            único que hay que hacer en esta pantalla y tiene que verse como tal. */}
-        <section aria-label="Crear la cuenta" className="superficie-viva relative p-5 pt-10">
-          <div className="absolute -top-6 left-5">
-            <Mascota className="size-16" />
-          </div>
-          <AccessForm
-            inicial="crear"
-            onDone={(comoEntro) => setReciencreada(comoEntro === 'crear')}
-          />
-        </section>
+        {/* El formulario, en su tarjeta y con el muñeco asomando por arriba (`marco`,
+            el mismo de /cuenta): es lo único que hay que hacer en esta pantalla y
+            tiene que verse como tal. Sin cuentas no hay formulario, solo el aviso
+            de `AccessForm`, y va suelto: una tarjeta encendida prometía algo que
+            rellenar. */}
+        <AccessForm
+          inicial="crear"
+          marco={accounts}
+          onDone={(comoEntro) => setReciencreada(comoEntro === 'crear')}
+        />
 
         {accounts && (
           <section aria-label="Qué te da la cuenta" className="flex flex-col gap-4">

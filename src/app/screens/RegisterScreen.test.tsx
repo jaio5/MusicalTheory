@@ -79,6 +79,15 @@ describe('Crear la cuenta', () => {
     expect(screen.queryByText(/Tu avance, en tu cuenta/)).not.toBeInTheDocument();
   });
 
+  it('sin cuentas el aviso va suelto, como en la cuenta, y no en la tarjeta de bienvenida', () => {
+    // La tarjeta encendida con el muñeco dice «aquí se rellena algo», y sin
+    // cuentas no hay nada que rellenar.
+    pintar(ANONYMOUS, false);
+
+    expect(screen.queryByRole('region', { name: 'Crear la cuenta' })).not.toBeInTheDocument();
+    expect(screen.getByText(/no hay cuentas configuradas/i)).toBeInTheDocument();
+  });
+
   it('a quien ya está dentro no le pinta el formulario', () => {
     pintar(DENTRO);
 

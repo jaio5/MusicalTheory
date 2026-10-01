@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { motionSeconds, prefersReducedMotion } from './motion';
+import { prefersReducedMotion } from './motion';
 
 /**
  * Menos movimiento, cuando el sistema lo pide.
  *
- * La hoja de estilos ya anula transiciones y animaciones CSS, pero GSAP escribe
- * el `transform` directamente y se salta esa regla: quien anime con GSAP tiene
- * que preguntar aquí, y aquí tiene que contestarse bien.
+ * La hoja de estilos ya anula transiciones y animaciones CSS; lo que decide
+ * desde JavaScript si se mueve —el vídeo de la portada, la mascota— pregunta
+ * aquí, y aquí tiene que contestarse bien.
  */
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -26,18 +26,16 @@ function pidiendoMenos(menos: boolean): void {
 }
 
 describe('el ajuste de movimiento', () => {
-  it('con menos movimiento pedido, las animaciones duran cero', () => {
+  it('dice que si cuando el sistema lo pide', () => {
     pidiendoMenos(true);
 
     expect(prefersReducedMotion()).toBe(true);
-    expect(motionSeconds(400)).toBe(0);
   });
 
-  it('sin pedirlo, la duracion es la que se pide, en segundos', () => {
+  it('y que no cuando no lo pide', () => {
     pidiendoMenos(false);
 
     expect(prefersReducedMotion()).toBe(false);
-    expect(motionSeconds(400)).toBe(0.4);
   });
 
   /**
@@ -48,6 +46,5 @@ describe('el ajuste de movimiento', () => {
     vi.stubGlobal('matchMedia', undefined);
 
     expect(prefersReducedMotion()).toBe(false);
-    expect(motionSeconds(1000)).toBe(1);
   });
 });

@@ -4,6 +4,8 @@ import { describePitch, midiToFrequency } from '@core/music';
 
 import {
   IN_TUNE_CENTS,
+  isSignalClean,
+  isSignalDirty,
   meterOffset,
   readingAnnouncement,
   tuningAdvice,
@@ -56,5 +58,20 @@ describe('aviso para el lector de pantalla', () => {
     const second = describePitch(midiToFrequency(45) * 1.002);
 
     expect(readingAnnouncement(first)).toBe(readingAnnouncement(second));
+  });
+});
+
+describe('cuándo se da la señal por sucia o por limpia', () => {
+  // Dos umbrales distintos: entre los dos no es ni una cosa ni la otra, y es la
+  // franja que evita que el aviso se abra y se cierre a cada lectura.
+  it('hay una franja intermedia que no es ni limpia ni sucia', () => {
+    expect(isSignalClean(0.99)).toBe(true);
+    expect(isSignalDirty(0.99)).toBe(false);
+
+    expect(isSignalClean(0.94)).toBe(false);
+    expect(isSignalDirty(0.94)).toBe(false);
+
+    expect(isSignalClean(0.9)).toBe(false);
+    expect(isSignalDirty(0.9)).toBe(true);
   });
 });

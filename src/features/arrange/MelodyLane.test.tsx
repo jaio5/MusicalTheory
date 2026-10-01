@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { pitchClassFromName, type LeadNote } from '@core/music';
 
-import { MelodyLane } from './MelodyLane';
+import { ALTO_FILA, MelodyLane } from './MelodyLane';
 
 /**
  * La rejilla del punteo: escribir notas pulsando, moverlas y estirarlas.
@@ -19,7 +19,6 @@ import { MelodyLane } from './MelodyLane';
  * una octava, así que hay **dos filas de Do**: por eso se coge la primera y no
  * `getByRole`, que encuentra dos y se queja.
  */
-const ALTO_FILA = 22;
 const POR_PULSO = 40;
 
 function cajaDeLaRejilla(rejilla: HTMLElement, filas: number) {
@@ -99,6 +98,7 @@ describe('Escribir en la rejilla del punteo', () => {
     cajaDeLaRejilla(rejilla, 8);
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Escribir C en Estrofa' })[0]!, {
+      detail: 1,
       clientX: POR_PULSO * 2 + 5,
       clientY: 5,
     });
@@ -114,12 +114,73 @@ describe('Escribir en la rejilla del punteo', () => {
     cajaDeLaRejilla(rejilla, 8);
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Escribir C en Estrofa' })[0]!, {
+      detail: 1,
       clientX: POR_PULSO * 3 + 13,
       clientY: 5,
     });
 
     const [, start] = onAdd.mock.calls[0]!;
     expect(Number.isInteger(start * 4)).toBe(true);
+  });
+});
+
+/**
+ * Con el teclado el `click` llega sin puntero: `detail` a cero y las
+ * coordenadas a cero. Leerlas escribía siempre la fila de arriba en el pulso
+ * cero, pulsara uno la fila que pulsara.
+ */
+describe('Escribir con el teclado', () => {
+  // `fireEvent.click` trae `detail` a cero, igual que el `click` de un Intro. Se
+  // coge la primera fila con ese nombre, que es la aguda: hay notas repetidas.
+  function teclear(nombre: string) {
+    fireEvent.click(screen.getAllByRole('button', { name: `Escribir ${nombre} en Estrofa` })[0]!, {
+      detail: 0,
+    });
+  }
+
+  it('la fila que se activa es la nota que se escribe', () => {
+    const { onAdd } = pintar();
+
+    teclear('G');
+
+    // Sol sobre Do son siete semitonos, y no la fila de arriba.
+    expect(onAdd).toHaveBeenCalledWith(7, 0);
+  });
+
+  it('y va justo detras de la ultima nota', () => {
+    const { onAdd } = pintar({
+      notes: [
+        { id: 'a', start: 0, length: 1, offset: 0 },
+        { id: 'b', start: 2, length: 1.5, offset: 2 },
+      ],
+    });
+
+    teclear('F');
+
+    expect(onAdd).toHaveBeenCalledWith(5, 3.5);
+  });
+
+  // Fuera de la rejilla no se vería, y parecería que la tecla no ha hecho nada.
+  it('sin salirse de la rejilla', () => {
+    const { onAdd } = pintar({ notes: [{ id: 'a', start: 6, length: 4, offset: 0 }] });
+
+    teclear('F');
+
+    expect(onAdd).toHaveBeenCalledWith(5, 7.75);
+  });
+
+  it('con el puntero sigue mandando donde se pulso', () => {
+    const { onAdd, rejilla } = pintar();
+    cajaDeLaRejilla(rejilla, 8);
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Escribir G en Estrofa' })[0]!, {
+      detail: 1,
+      clientX: POR_PULSO * 3 + 5,
+      clientY: 5,
+    });
+
+    const [, start] = onAdd.mock.calls[0]!;
+    expect(start).toBe(3);
   });
 });
 
@@ -208,11 +269,43 @@ describe('Las notas ya escritas', () => {
     arrastrarHasta(200, 40);
     soltarPuntero();
     fireEvent.click(screen.getAllByRole('button', { name: 'Escribir C en Estrofa' })[0]!, {
+      detail: 1,
       clientX: 200,
       clientY: 40,
     });
 
     expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Lo que se coge mide al menos 24 por 24, que es lo que pide la norma, aunque
+   * lo pintado sea más fino: una semicorchea pintada mide ocho de ancho.
+   */
+  it('la zona de agarre no baja de 24 aunque la nota sea corta', () => {
+    pintar({ notes: [{ id: 'c', start: 0, length: 0.25, offset: 0 }] });
+    const nota = screen.getByRole('button', { name: /^C, 0.25 pulsos/ });
+
+    expect(nota.style.height).toBe(`${ALTO_FILA}px`);
+    expect(nota.style.width).toBe('24px');
+    expect(ALTO_FILA).toBeGreaterThanOrEqual(24);
+  });
+
+  // Estirar se mide desde lo pintado: en una nota corta, el aire de la zona de
+  // agarre que sobresale no estira.
+  it('en una nota corta, el aire de la derecha no la estira', () => {
+    const { onResize, onMove, rejilla } = pintar({
+      notes: [{ id: 'c', start: 0, length: 0.25, offset: 0 }],
+    });
+    cajaDeLaRejilla(rejilla, 8);
+    const nota = screen.getByRole('button', { name: /^C, 0.25 pulsos/ });
+    nota.getBoundingClientRect = () => ({ left: 0, right: 24, top: 0, bottom: 24 }) as DOMRect;
+
+    fireEvent.pointerDown(nota, { button: 0, clientX: 20, clientY: 5 });
+    arrastrarHasta(100, 5);
+    soltarPuntero();
+
+    expect(onResize).toHaveBeenCalled();
+    expect(onMove).not.toHaveBeenCalled();
   });
 
   // Una nota de la que el motor dudó va translúcida y lo dice.

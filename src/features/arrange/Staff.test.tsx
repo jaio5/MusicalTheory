@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { pitchClassFromName, writtenBlock, type LeadNote } from '@core/music';
 
-import { Staff } from './Staff';
+import { CIFRAS_DEL_COMPAS, repartoEnSistemas, Staff } from './Staff';
 
 /**
  * La partitura: los gestos que se hacen encima de ella.
@@ -59,9 +59,9 @@ function pintar(props: Partial<React.ComponentProps<typeof Staff>> = {}) {
 /**
  * El acorde o la nota, por su etiqueta.
  *
- * El SVG lleva `role="img"` y los hijos de una imagen son decoración por
- * definición, así que `getByRole` no los ve. Se buscan por `aria-label`, que es
- * lo que de verdad los identifica.
+ * Se buscan por el principio del `aria-label`, que es lo que los identifica: el
+ * nombre entero lleva el grado y los pulsos, y repetirlo en cada test sería
+ * atarlos a una redacción.
  */
 function porEtiqueta(container: HTMLElement, empiezaPor: string): Element {
   const encontrado = [...container.querySelectorAll('[aria-label]')].find((n) =>
@@ -158,10 +158,25 @@ describe('El ancho disponible', () => {
 });
 
 describe('La partitura', () => {
+  /**
+   * **Un grupo y no una imagen.** Los hijos de una imagen son decoración por
+   * definición, así que con `img` los acordes y las notas no existían para un
+   * lector de pantalla, y axe lo marca como interactivos anidados.
+   */
+  it('lo que se elige dentro se anuncia como boton', () => {
+    pintar({ notes: [{ id: 'n1', start: 0, length: 1, offset: 0 }] });
+
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^C, grado I/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /en el pulso 0/ })).toBeInTheDocument();
+  });
+
   it('se dice con su parte y cuantas notas lleva', () => {
     pintar({ notes: [{ id: 'n1', start: 0, length: 1, offset: 0 }] });
 
-    expect(screen.getByRole('img', { name: 'Partitura de Estrofa: 1 notas' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: 'Partitura de Estrofa: 1 notas' }),
+    ).toBeInTheDocument();
   });
 
   // La armadura se dibuja, y crece con las alteraciones que tenga la tonalidad.
@@ -190,6 +205,49 @@ describe('La partitura', () => {
     pintar({ notes: [] });
 
     expect(screen.getByText(/aquí se escribe el punteo/i)).toBeInTheDocument();
+  });
+
+  /**
+   * En una sola línea medía unos doscientos ochenta píxeles y en un teléfono se
+   * cortaba contra el borde de la hoja. Va en dos, y si ni así cabe donde empieza
+   * la música se corre hacia la clave.
+   */
+  it('la pista va en dos lineas', () => {
+    const { container } = pintar({ notes: [] });
+
+    expect(container.querySelectorAll('text tspan')).toHaveLength(2);
+  });
+
+  /**
+   * Iba a once píxeles y arrancando pegada a la clave. A doce, que es el mínimo
+   * de la casa, y centrada bajo la música, que es donde se escribe.
+   */
+  it('la pista va a doce y centrada', () => {
+    const { container } = pintar({ notes: [] });
+    const pista = [...container.querySelectorAll('text')].find((n) =>
+      /Pulsa en el pentagrama/.test(n.textContent ?? ''),
+    )!;
+
+    expect(Number(pista.getAttribute('font-size'))).toBeGreaterThanOrEqual(12);
+    expect(pista.getAttribute('text-anchor')).toBe('middle');
+  });
+
+  it('y en una hoja estrecha se corre hacia la izquierda sin salirse', () => {
+    const estrecha = pintar({ notes: [], bars: 1, beatsPerBar: 2 }).container;
+    const ancha = pintar({ notes: [], bars: 4 }).container;
+    const xDe = (c: HTMLElement) =>
+      Number(
+        [...c.querySelectorAll('text')]
+          .find((n) => /Pulsa en el pentagrama/.test(n.textContent ?? ''))!
+          .getAttribute('x'),
+      );
+    const anchoDe = (c: HTMLElement) => Number(c.querySelector('svg')!.getAttribute('width'));
+
+    // `x` es el centro de la frase, así que la mitad de lo que mide tiene que
+    // caber a cada lado.
+    expect(xDe(estrecha)).toBeLessThan(xDe(ancha));
+    expect(xDe(estrecha) - 88).toBeGreaterThanOrEqual(4);
+    expect(xDe(ancha) + 88).toBeLessThanOrEqual(anchoDe(ancha));
   });
 
   it('y en cuanto hay una nota se calla', () => {
@@ -279,6 +337,23 @@ describe('Las notas de la partitura', () => {
     expect(onGestureEnd).toHaveBeenCalled();
   });
 
+  // Con el teclado: un `<g>` no convierte `Intro` en `click` como un botón.
+  it('Intro sobre una nota la elige', () => {
+    const { onSelect, container } = pintar({ notes: [NOTA] });
+
+    fireEvent.keyDown(laNota(container), { key: 'Enter' });
+
+    expect(onSelect).toHaveBeenCalledWith('n1');
+  });
+
+  it('y otra tecla no', () => {
+    const { onSelect, container } = pintar({ notes: [NOTA] });
+
+    fireEvent.keyDown(laNota(container), { key: 'a' });
+
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it('el boton derecho no la coge', () => {
     const { onGestureStart, container } = pintar({ notes: [NOTA] });
     const nota = laNota(container);
@@ -328,12 +403,34 @@ describe('Los acordes sobre la partitura', () => {
     expect(onRemoveBlock).toHaveBeenCalledWith('b');
   });
 
+  /**
+   * Con el teclado se llegaba al acorde y no había forma de elegirlo: un `<g>`
+   * no convierte `Intro` ni `Espacio` en `click`, como sí hace un botón.
+   */
+  it('Intro elige el acorde', () => {
+    const { onSelectBlock, container } = pintar();
+
+    fireEvent.keyDown(porEtiqueta(container, 'C, grado I'), { key: 'Enter' });
+
+    expect(onSelectBlock).toHaveBeenCalledWith('a');
+  });
+
+  it('y Espacio tambien, sin desplazar la pagina', () => {
+    const { onSelectBlock, container } = pintar();
+
+    const siguio = fireEvent.keyDown(porEtiqueta(container, 'F, grado IV'), { key: ' ' });
+
+    expect(onSelectBlock).toHaveBeenCalledWith('b');
+    expect(siguio).toBe(false);
+  });
+
   it('otra tecla no quita nada', () => {
-    const { onRemoveBlock, container } = pintar();
+    const { onRemoveBlock, onSelectBlock, container } = pintar();
 
     fireEvent.keyDown(porEtiqueta(container, 'C, grado I'), { key: 'a' });
 
     expect(onRemoveBlock).not.toHaveBeenCalled();
+    expect(onSelectBlock).not.toHaveBeenCalled();
   });
 
   it('arrastrar el cifrado lo lleva a otro sitio', () => {
@@ -548,5 +645,182 @@ describe('Mover un acorde al principio', () => {
     soltarPuntero();
 
     expect(onMoveBlock).toHaveBeenCalledWith('b', 0);
+  });
+});
+
+/**
+ * La indicación de compás, medida como se mide la clave en `clef.test.ts`: por
+ * lo que tiene que cumplir y no por cómo se ve.
+ *
+ * Estaba a ojo y salía media pauta corrida hacia abajo: el número de arriba en
+ * la mitad de abajo, el de abajo colgando por debajo de la primera línea.
+ */
+describe('La indicación de compás', () => {
+  const C = CIFRAS_DEL_COMPAS;
+
+  it('la de arriba llena de la quinta linea a la tercera', () => {
+    expect(C.baseArriba).toBe(C.lineaDelMedio);
+    expect(C.baseArriba - C.alto).toBe(C.lineaDeArriba);
+  });
+
+  it('y la de abajo, de la tercera a la primera, sin colgar', () => {
+    expect(C.baseAbajo).toBe(C.lineaDeAbajo);
+    expect(C.baseAbajo - C.alto).toBe(C.lineaDelMedio);
+  });
+
+  // Lo que se ve de una cifra es algo menos de tres cuartos de su cuerpo: es esa
+  // altura, y no el `fontSize`, la que tiene que medir dos espacios.
+  it('el cuerpo de letra es el que da esa altura a una cifra', () => {
+    expect(C.cuerpo * 0.72).toBeCloseTo(C.alto, 5);
+  });
+
+  it('las lineas que dice son las que se dibujan', () => {
+    const { container } = pintar();
+    const alturas = new Set(
+      [...container.querySelectorAll('[data-sistema="0"] > line')].map((l) =>
+        Number(l.getAttribute('y1')),
+      ),
+    );
+
+    expect(alturas).toContain(C.lineaDeArriba);
+    expect(alturas).toContain(C.lineaDelMedio);
+    expect(alturas).toContain(C.lineaDeAbajo);
+  });
+
+  it('y las cifras se asientan donde dice', () => {
+    const { container } = pintar({ beatsPerBar: 3 });
+    const cifras = [...container.querySelectorAll('text')].filter((t) =>
+      /^[34]$/.test(t.textContent ?? ''),
+    );
+
+    expect(cifras.map((t) => Number(t.getAttribute('y')))).toEqual([C.baseArriba, C.baseAbajo]);
+    expect(Number(cifras[0]!.parentElement!.getAttribute('font-size'))).toBe(C.cuerpo);
+  });
+});
+
+/**
+ * **Lo que no cabe en una línea se parte en sistemas**, como una partitura de
+ * verdad (adr/0064). A 390 de pantalla, cuatro compases medían 552 en una caja
+ * de 364 y el cuarto quedaba detrás de un desplazamiento sin pista.
+ */
+describe('Los sistemas', () => {
+  // Do mayor no lleva armadura: este es su margen, el de `Staff.tsx`.
+  const MARGEN_DO = 44 + 24 + 12;
+  const anchoDeHoja = (r: ReturnType<typeof repartoEnSistemas>, margen: number) =>
+    margen + r.porSistema * 4 * r.porPulso + 8 + 18;
+
+  it('en un telefono van dos compases por linea, y caben', () => {
+    const reparto = repartoEnSistemas(364, MARGEN_DO, 4, 4);
+
+    expect(reparto).toMatchObject({ sistemas: 2, porSistema: 2 });
+    expect(anchoDeHoja(reparto, MARGEN_DO)).toBeLessThanOrEqual(364);
+  });
+
+  // A 1440 desbordaba catorce píxeles: el relleno y el borde de la hoja no se
+  // descontaban del ancho que se repartía.
+  it('en un escritorio van en una, y la hoja no se sale de su caja', () => {
+    const reparto = repartoEnSistemas(713, MARGEN_DO, 4, 4);
+
+    expect(reparto.sistemas).toBe(1);
+    expect(anchoDeHoja(reparto, MARGEN_DO)).toBeLessThanOrEqual(713);
+  });
+
+  it('los compases se reparten a partes iguales, no cuatro y uno colgando', () => {
+    // Caben cuatro por línea a pulso mínimo, y son cinco.
+    const reparto = repartoEnSistemas(560, MARGEN_DO, 5, 4);
+
+    expect(reparto).toMatchObject({ sistemas: 2, porSistema: 3 });
+  });
+
+  it('sin medida no se parte', () => {
+    expect(repartoEnSistemas(0, MARGEN_DO, 8, 4).sistemas).toBe(1);
+  });
+
+  describe('dibujados', () => {
+    function enUnTelefono(props: Partial<React.ComponentProps<typeof Staff>> = {}) {
+      const observadores: Array<(e: unknown) => void> = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(cb: (e: unknown) => void) {
+            observadores.push(cb);
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      const r = pintar({ bars: 4, ...props });
+      act(() => observadores[0]?.([{ contentRect: { width: 364 } }]));
+      vi.unstubAllGlobals();
+      return r;
+    }
+
+    it('cada sistema lleva su clave y su armadura, y el compas solo el primero', () => {
+      const { container } = enUnTelefono({ tonic: pitchClassFromName('G'), mode: 'major' });
+      const sistemas = container.querySelectorAll('[data-sistema]');
+
+      expect(sistemas).toHaveLength(2);
+      for (const sistema of sistemas) {
+        expect(sistema.querySelector('path')).toBeInTheDocument();
+        expect([...sistema.querySelectorAll('text')].map((t) => t.textContent)).toContain('♯');
+      }
+      const cuatros = [...container.querySelectorAll('text')].filter((t) => t.textContent === '4');
+      expect(cuatros).toHaveLength(2);
+      expect(sistemas[1]!.textContent).not.toContain('4');
+    });
+
+    // La barra final solo en el último: el primero acaba en una divisoria.
+    it('solo el ultimo acaba en barra final', () => {
+      const { container } = enUnTelefono();
+      const gruesas = (s: string) =>
+        container.querySelectorAll(`[data-sistema="${s}"] line[stroke-width="3"]`).length;
+
+      expect(gruesas('0')).toBe(0);
+      expect(gruesas('1')).toBe(1);
+    });
+
+    // Un acorde que cruza el final de un renglón sigue en el de abajo.
+    it('un acorde que cruza de linea lleva un tramo en cada una', () => {
+      const { container } = enUnTelefono({
+        blocks: [writtenBlock('a', 'I', 4), writtenBlock('b', 'IV', 8)],
+      });
+      const acorde = porEtiqueta(container, 'F, grado IV');
+
+      expect(acorde.querySelectorAll('line')).toHaveLength(2);
+    });
+
+    it('y uno que acaba justo en la barra se queda en su linea', () => {
+      const { container } = enUnTelefono();
+
+      expect(porEtiqueta(container, 'F, grado IV').querySelectorAll('line')).toHaveLength(1);
+    });
+
+    // La nota del segundo renglón baja con él.
+    it('una nota del segundo sistema baja con el', () => {
+      const { container } = enUnTelefono({ notes: [{ id: 'n', start: 9, length: 1, offset: 0 }] });
+
+      expect(laNota(container).getAttribute('transform')).toMatch(/^translate\(0 \d+/);
+    });
+
+    // Y pulsar en el segundo escribe en sus compases, no en los del primero.
+    it('pulsar en el segundo sistema escribe en sus compases', () => {
+      const { svg, onAdd } = enUnTelefono();
+      const alto = Number(svg.getAttribute('height')) / 2;
+
+      fireEvent.click(svg, { clientX: 100, clientY: alto + 60 });
+
+      expect(onAdd.mock.calls[0]![1]).toBeGreaterThanOrEqual(8);
+    });
+
+    it('la marca de donde caeria va en su sistema', () => {
+      const { container } = enUnTelefono({
+        blocks: [writtenBlock('a', 'I', 8), writtenBlock('b', 'IV', 8)],
+        dropAt: 1,
+      });
+
+      expect(
+        container.querySelector('line.stroke-brass-bright')!.getAttribute('transform'),
+      ).toMatch(/^translate/);
+    });
   });
 });

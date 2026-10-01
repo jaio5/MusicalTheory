@@ -207,22 +207,16 @@ describe('El divisor, con el puntero', () => {
   });
 
   /**
-   * Y sin `document` —el servidor— se da por hecho que un rem son dieciséis.
-   *
-   * Este componente se pinta también en el servidor, donde no hay hoja de
-   * estilos que consultar. Nunca se arrastra allí, pero la función se evalúa, y
-   * un `getComputedStyle` sin `document` revienta la página entera.
+   * El rem se lee una vez, al agarrar, y no en cada movimiento: es un
+   * `getComputedStyle`, que obliga a tener los estilos al día sesenta veces por
+   * segundo. Cambiar el tamaño de letra a mitad del gesto no cambia la cuenta.
    */
-  it('en el servidor no pregunta por el tamaño de letra', () => {
+  it('el tamaño de letra se lee al agarrar, no en cada movimiento', () => {
     const { barra, onCambio } = pintar();
     fireEvent.pointerDown(barra, { clientX: 100, pointerId: 1 });
 
-    vi.stubGlobal('document', undefined);
-    try {
-      fireEvent.pointerMove(barra, { clientX: 132, pointerId: 1 });
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    document.documentElement.style.fontSize = '32px';
+    fireEvent.pointerMove(barra, { clientX: 132, pointerId: 1 });
 
     expect(onCambio).toHaveBeenLastCalledWith(22);
   });
@@ -233,5 +227,50 @@ describe('El divisor, con el puntero', () => {
     fireEvent.doubleClick(barra);
 
     expect(onDevolver).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Mover en memoria y guardar al soltar.
+ *
+ * El banco guardaba el reparto en `localStorage` en cada movimiento del puntero.
+ * Con `onArrastrar`, lo que se mueve va ahí y `onCambio` llega una sola vez.
+ */
+describe('Arrastrar y dar por bueno', () => {
+  it('lo que se mueve va a onArrastrar, y lo ultimo a onCambio al soltar', () => {
+    const onArrastrar = vi.fn();
+    const { barra, onCambio } = pintar({ onArrastrar });
+
+    fireEvent.pointerDown(barra, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(barra, { clientX: 116, pointerId: 1 });
+    fireEvent.pointerMove(barra, { clientX: 132, pointerId: 1 });
+    expect(onArrastrar).toHaveBeenLastCalledWith(22);
+    expect(onCambio).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(barra, { clientX: 132, pointerId: 1 });
+
+    expect(onCambio).toHaveBeenCalledTimes(1);
+    expect(onCambio).toHaveBeenCalledWith(22);
+  });
+
+  // Agarrar y soltar sin moverse no es un cambio: no se guarda nada.
+  it('agarrar y soltar sin moverse no cambia nada', () => {
+    const onArrastrar = vi.fn();
+    const { barra, onCambio } = pintar({ onArrastrar });
+
+    fireEvent.pointerDown(barra, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerUp(barra, { clientX: 100, pointerId: 1 });
+
+    expect(onCambio).not.toHaveBeenCalled();
+  });
+
+  // Soltar sin haber agarrado —llega un `pointerup` suelto— tampoco.
+  it('soltar sin haber agarrado tampoco', () => {
+    const onArrastrar = vi.fn();
+    const { barra, onCambio } = pintar({ onArrastrar });
+
+    fireEvent.pointerUp(barra, { clientX: 100, pointerId: 1 });
+
+    expect(onCambio).not.toHaveBeenCalled();
   });
 });

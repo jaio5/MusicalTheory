@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HeroVideo } from './HeroVideo';
@@ -88,5 +89,78 @@ describe('el video de la portada', () => {
     expect(video).toHaveAttribute('aria-hidden', 'true');
     expect(video.muted).toBe(true);
     expect(video).toHaveAttribute('preload', 'none');
+  });
+
+  /**
+   * Un bucle de diez segundos que arranca solo tiene que poder pararse (WCAG
+   * 2.2.2). El botón dice lo que pasa de verdad: lo lee de los eventos del
+   * reproductor, no de lo que se le pidió.
+   */
+  it('se puede parar y volver a poner, y el botón dice cuál toca', async () => {
+    preferencia(false);
+    const pausa = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    const { container } = render(<HeroVideo />);
+    const video = container.querySelector('video')!;
+
+    fireEvent.play(video);
+    await userEvent.click(screen.getByRole('button', { name: 'Parar el vídeo' }));
+    expect(pausa).toHaveBeenCalled();
+
+    fireEvent.pause(video);
+    vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+    await userEvent.click(screen.getByRole('button', { name: 'Seguir con el vídeo' }));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Seguir con el vídeo' }).className).toContain(
+      'size-tap',
+    );
+  });
+
+  // Con el póster no hay nada que parar.
+  it('sin vídeo no hay botón', () => {
+    preferencia(true);
+    render(<HeroVideo />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('con el ahorro de datos puesto, no se baja: queda el póster', () => {
+    preferencia(false);
+    vi.stubGlobal('navigator', { ...navigator, connection: { saveData: true } });
+
+    const { container } = render(<HeroVideo />);
+
+    expect(container.querySelector('video')).not.toHaveAttribute('src');
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  });
+
+  /**
+   * En el móvil la caja cae debajo del pliegue: el vídeo no se pide hasta que
+   * asoma, y al asomar se deja de mirar.
+   */
+  it('no se pide hasta que la caja asoma', () => {
+    preferencia(false);
+    let avisar: (entradas: Array<{ isIntersecting: boolean }>) => void = () => {};
+    const desconectar = vi.fn();
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(llamada: typeof avisar) {
+          avisar = llamada;
+        }
+        observe() {}
+        disconnect = desconectar;
+      },
+    );
+
+    const { container, unmount } = render(<HeroVideo />);
+    const video = container.querySelector('video')!;
+    expect(video).not.toHaveAttribute('src');
+
+    act(() => avisar([{ isIntersecting: false }]));
+    expect(video).not.toHaveAttribute('src');
+
+    act(() => avisar([{ isIntersecting: true }]));
+    expect(video).toHaveAttribute('src', '/hero.mp4');
+    expect(desconectar).toHaveBeenCalled();
+    unmount();
   });
 });

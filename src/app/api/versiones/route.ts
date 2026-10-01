@@ -11,7 +11,7 @@ import { cabeceraDePrompt, versionsSchema, VERSIONS_SYSTEM_PROMPT } from '@serve
 import { SlidingWindowRateLimiter } from '@server/rate-limit';
 
 /**
- * Route handler de versiones. Como el de ideas: el SDK y la clave solo se
+ * Route handler de versiones. Como el del profesor: el SDK y la clave solo se
  * importan aquí, porque desde un componente el bundler se los llevaría al
  * navegador.
  *
@@ -20,18 +20,18 @@ import { SlidingWindowRateLimiter } from '@server/rate-limit';
  * que grabar es apuntar símbolos. Es lo que mantiene en pie la regla 4 de la
  * arquitectura y lo que hace que esto cueste céntimos en vez de euros.
  *
- * Es la petición más cara de las tres, y entra en el plan Pro. El contrato
+ * Es la petición más cara de las dos, y entra en el plan Medio (adr/0066). El contrato
  * completo está en docs/AI.md.
  */
 
 export const runtime = 'nodejs';
 
-/** En memoria y por instancia, con la misma limitación que las otras dos rutas. */
+/** En memoria y por instancia, con la misma limitación que la otra ruta. */
 const limiter = new SlidingWindowRateLimiter();
 
 /**
  * El tope de salida sale del dominio: es el mismo número con el que
- * `core/billing/cost.ts` calcula el cupo del plan Pro.
+ * `core/billing/cost.ts` calcula el cupo de los planes Medio y Pro.
  */
 const MAX_TOKENS = TOKEN_BUDGETS.versiones.output;
 

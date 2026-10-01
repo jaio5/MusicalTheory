@@ -4,8 +4,8 @@
  * **Todas las rutas de esta aplicación contestan el mismo sobre** cuando algo va
  * mal: `{ error: { code, message } }`, con la frase ya escrita en español y
  * diciendo qué hacer. Eso es un contrato compartido, y estaba leído a mano en
- * cuatro sitios —ideas, versiones, canciones y la contraseña olvidada— con
- * cuatro variantes de la misma comprobación.
+ * cuatro sitios —ideas, ya retiradas, versiones, canciones y la contraseña
+ * olvidada— con cuatro variantes de la misma comprobación.
  *
  * Vive en `state/` porque es donde este proyecto habla con el servidor
  * (`account.ts` ya hace sus `fetch` aquí), y no en `ui/`, que es lo que se pinta.

@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 
 import { act, render, screen } from '@testing-library/react';
+import { Profiler } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { A4_FREQUENCY, midiToFrequency, pitchClassFromName } from '@core/music';
@@ -160,5 +161,35 @@ describe('qué acorde marca el mástil', () => {
   it('los rotulos callan mientras no haya tonalidad', () => {
     const { container } = render(<RotulosDelMastil />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+/**
+ * **La lectura nueva no repinta el mástil si la nota es la misma.** Llega veinte
+ * veces por segundo, y el panel se suscribía al objeto entero: más de cien nodos
+ * de SVG repintados a ese ritmo para dibujar lo mismo.
+ */
+describe('lo que repinta el mástil', () => {
+  it('sostener la misma nota no lo repinta; cambiarla, sí', () => {
+    useSessionStore.getState().actions.reset();
+    useArrangementStore.setState({ arrangement: { parts: [] } });
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+    let pintadas = 0;
+    render(
+      <Profiler id="mastil" onRender={() => (pintadas += 1)}>
+        <FretboardPanel />
+      </Profiler>,
+    );
+    const { actions } = useSessionStore.getState();
+    act(() => actions.setPitch(A4_FREQUENCY, 0.95, 0));
+    const conLaNota = pintadas;
+
+    for (let at = 50; at <= 1000; at += 50) {
+      act(() => actions.setPitch(A4_FREQUENCY * 1.001, 0.95, at));
+    }
+    expect(pintadas).toBe(conLaNota);
+
+    act(() => actions.setPitch(midiToFrequency(64), 0.95, 1050));
+    expect(pintadas).toBe(conLaNota + 1);
   });
 });

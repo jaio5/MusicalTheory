@@ -451,9 +451,36 @@ export const useSessionStore = create<SessionState>()((set) => ({
 export const selectActions = (state: SessionState): SessionActions => state.actions;
 
 /**
- * La tonalidad que manda: la fijada a mano si la hay, y si no la mejor
- * candidata. Devuelve referencias que ya existen en el estado, así que se
- * puede usar como selector sin provocar renders de más.
+ * Las veinticuatro tonalidades, cada una **un solo objeto** para siempre.
+ *
+ * `detectKey` fabrica candidatas nuevas cada medio segundo aunque la tonalidad
+ * sea la misma, y un selector que devuelve una referencia nueva repinta a
+ * todos los suscritos: veintisiete componentes, componer entero entre ellos,
+ * dos veces por segundo mientras suena algo. Con la tabla, la misma tónica y
+ * el mismo modo son siempre el mismo objeto, y Zustand no avisa a nadie.
+ *
+ * Hay una clave por cada combinación que admite el tipo, así que buscar no
+ * puede fallar y no queda una rama de «no está» que cubrir.
  */
-export const selectActiveKey = (state: SessionState): SessionKey | null =>
-  state.pinnedKey ?? state.keyCandidates[0] ?? null;
+type KeyId = `${PitchClass}-${KeyMode}`;
+
+const CANONICAL_KEYS = Object.fromEntries(
+  ([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const).flatMap((tonic) =>
+    (['major', 'minor'] as const).map((mode) => [
+      `${tonic}-${mode}`,
+      Object.freeze({ tonic, mode }),
+    ]),
+  ),
+) as Readonly<Record<KeyId, SessionKey>>;
+
+/**
+ * La tonalidad que manda: la fijada a mano si la hay, y si no la mejor
+ * candidata. Devuelve el objeto canónico de esa tonalidad y no la candidata:
+ * la candidata es nueva cada medio segundo y trae su nombre y su puntuación,
+ * que se mueven sin que la tonalidad cambie. Por eso se puede usar como
+ * selector sin repintar a nadie mientras se sigue tocando en la misma.
+ */
+export const selectActiveKey = (state: SessionState): SessionKey | null => {
+  const key = state.pinnedKey ?? state.keyCandidates[0] ?? null;
+  return key === null ? null : CANONICAL_KEYS[`${key.tonic}-${key.mode}`];
+};

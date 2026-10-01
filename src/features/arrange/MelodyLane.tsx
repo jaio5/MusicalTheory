@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useMemo, useRef } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 
 import {
   GRID,
@@ -16,7 +16,7 @@ import {
   type ScaleId,
 } from '@core/music';
 
-import { arrastrar } from './arrastrar';
+import { useArrastre } from './arrastrar';
 import { PX_POR_PULSO } from './BlockButton';
 
 /**
@@ -33,8 +33,27 @@ import { PX_POR_PULSO } from './BlockButton';
  * blues. Es la misma idea que la partitura, con otra piel.
  */
 
-/** Alto de cada fila. Doce filas de esto caben en un portátil sin desplazar. */
-export const ALTO_FILA = 22;
+/**
+ * Alto de cada fila, y **es el mínimo de la norma para lo que se pulsa**.
+ *
+ * Estaba en 22: las filas se tocan unas con otras, así que no hay hueco que
+ * cuente como margen y cada una tenía que medir 24 por sí sola. Las notas miden
+ * lo mismo, porque su zona de agarre es la fila entera aunque se pinten más
+ * finas ([adr/0062](../../../docs/adr/0062-la-rejilla-del-punteo-llega-a-veinticuatro.md)).
+ * Con la escala puesta siguen cabiendo en un portátil sin desplazar.
+ */
+export const ALTO_FILA = 24;
+
+/** Lo que se come el pintado de una nota por arriba y por abajo de su fila. */
+const AIRE_NOTA = 3;
+
+/** Lo mínimo que mide de ancho la zona de agarre de una nota: lo que pide la norma. */
+const AGARRE_MINIMO = 24;
+
+/** Lo que mide pintada una nota: su duración, menos un respiro con la siguiente. */
+function anchoPintado(note: LeadNote, porPulso: number): number {
+  return Math.max(8, note.length * porPulso - 2);
+}
 
 /** La caja de una rejilla que no está montada. No pasa; TypeScript no lo sabe. */
 const SIN_REJILLA = { top: 0, left: 0 } as DOMRect;
@@ -67,7 +86,7 @@ export interface MelodyLaneProps {
   readonly onGestureEnd: () => void;
 }
 
-export function MelodyLane({
+export const MelodyLane = memo(function MelodyLane({
   notes,
   beats,
   beatsPerBar,
@@ -93,6 +112,7 @@ export function MelodyLane({
    * acababa de mover.
    */
   const arrastradaRef = useRef(false);
+  const empezarArrastre = useArrastre();
   /**
    * La escala manda sobre la tonalidad al escribir estos nombres.
    *
@@ -172,13 +192,15 @@ export function MelodyLane({
         return;
       }
       const caja = event.currentTarget.getBoundingClientRect();
-      const estirando = event.clientX > caja.right - 8;
+      // El borde que cuenta es el de lo pintado, no el de la zona de agarre: en
+      // una nota corta la zona sobresale, y estirar desde el aire no se entiende.
+      const estirando = event.clientX > caja.left + anchoPintado(note, porPulso) - 8;
       onSelect(note.id);
       onGestureStart();
 
       if (estirando) {
         const inicioX = event.clientX;
-        arrastrar({
+        empezarArrastre({
           mover: (x) => {
             arrastradaRef.current = true;
             onResize(note.id, note.length + (x - inicioX) / porPulso);
@@ -193,7 +215,7 @@ export function MelodyLane({
       const agarre = casillaEn(event.clientX, event.clientY);
       const dStart = note.start - agarre.start;
 
-      arrastrar({
+      empezarArrastre({
         mover: (x, y) => {
           arrastradaRef.current = true;
           const casilla = casillaEn(x, y);
@@ -202,7 +224,48 @@ export function MelodyLane({
         soltar: onGestureEnd,
       });
     },
-    [casillaEn, onGestureEnd, onGestureStart, onMove, onResize, onSelect, porPulso],
+    [
+      casillaEn,
+      empezarArrastre,
+      onGestureEnd,
+      onGestureStart,
+      onMove,
+      onResize,
+      onSelect,
+      porPulso,
+    ],
+  );
+
+  /**
+   * Dónde escribe una fila que se activa con el teclado.
+   *
+   * Con `Intro` o `Espacio` el `click` llega sin puntero —`detail` a cero y las
+   * coordenadas a cero—, y leerlas escribía **siempre la fila de arriba en el
+   * pulso cero**, pulsara uno la fila que pulsara. La altura la sabe la propia
+   * fila; el pulso es **justo después de la última nota**, que es donde sigue
+   * quien escribe un punteo de corrido. Sin pasarse del final de la rejilla: una
+   * nota fuera de ella no se vería, y parecería que la tecla no ha hecho nada.
+   */
+  const pulsoLibre = useCallback((): number => {
+    const fin = notes.reduce((hasta, note) => Math.max(hasta, note.start + note.length), 0);
+    const ultimo = Math.max(beats, beatsPerBar) - GRID;
+    return Math.min(Math.ceil(fin / GRID) * GRID, ultimo);
+  }, [beats, beatsPerBar, notes]);
+
+  const escribirEnFila = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>, offset: number) => {
+      if (arrastradaRef.current) {
+        arrastradaRef.current = false;
+        return;
+      }
+      if (event.detail === 0) {
+        onAdd(offset, pulsoLibre());
+        return;
+      }
+      const casilla = casillaEn(event.clientX, event.clientY);
+      onAdd(casilla.offset, casilla.start);
+    },
+    [casillaEn, onAdd, pulsoLibre],
   );
 
   return (
@@ -237,14 +300,7 @@ export function MelodyLane({
                 // Pulsar una casilla vacía escribe la nota ahí. Es lo más corto
                 // que hay entre querer una nota y tenerla, y con la escala puesta
                 // no hay ninguna casilla que suene mal.
-                onClick={(event) => {
-                  if (arrastradaRef.current) {
-                    arrastradaRef.current = false;
-                    return;
-                  }
-                  const casilla = casillaEn(event.clientX, event.clientY);
-                  onAdd(casilla.offset, casilla.start);
-                }}
+                onClick={(event) => escribirEnFila(event, offset)}
                 aria-label={`Escribir ${nombre} en ${partName}`}
                 className={`absolute inset-x-0 block ${
                   offset === 0
@@ -287,6 +343,7 @@ export function MelodyLane({
               return null;
             }
             const nombre = noteName(normalizePitchClass(tonic + note.offset), accidental);
+            const pintado = anchoPintado(note, porPulso);
             return (
               <button
                 key={note.id}
@@ -297,19 +354,29 @@ export function MelodyLane({
                   isDoubtfulNote(note) ? ', dudosa' : ''
                 }`}
                 aria-pressed={selectedNoteId === note.id}
-                // La dudosa va translúcida: en una rejilla de cajitas no cabe un
-                // interrogante, y lo que hay que ver es cuál mirar.
-                className={`bg-brass absolute rounded-sm ${
-                  isDoubtfulNote(note) ? 'opacity-50' : ''
-                } ${selectedNoteId === note.id ? 'ring-brass-bright ring-2' : ''}`}
+                // El botón es la zona de agarre y no el dibujo: la fila entera de
+                // alto y al menos 24 de ancho, invisible. Pintada, la nota mide
+                // dieciocho —con tres de aire arriba y abajo para que dos filas
+                // seguidas no se lean como una barra— y una semicorchea, ocho de
+                // ancho: cogerla así era apuntar a un palillo.
+                className="absolute rounded-sm"
                 style={{
                   left: note.start * porPulso,
-                  top: fila * ALTO_FILA + 3,
-                  width: Math.max(8, note.length * porPulso - 2),
-                  height: ALTO_FILA - 6,
+                  top: fila * ALTO_FILA,
+                  width: Math.max(AGARRE_MINIMO, pintado),
+                  height: ALTO_FILA,
                   touchAction: 'none',
                 }}
               >
+                {/* La dudosa va translúcida: en una rejilla de cajitas no cabe un
+                    interrogante, y lo que hay que ver es cuál mirar. */}
+                <span
+                  aria-hidden
+                  className={`bg-brass absolute left-0 rounded-sm ${
+                    isDoubtfulNote(note) ? 'opacity-50' : ''
+                  } ${selectedNoteId === note.id ? 'ring-brass-bright ring-2' : ''}`}
+                  style={{ top: AIRE_NOTA, width: pintado, height: ALTO_FILA - 2 * AIRE_NOTA }}
+                />
                 {/* La franja de estirar, que aquí faltaba: los bloques de acorde
                     la tienen desde el principio y las notas no, así que estirar
                     una nota era un gesto que no se anunciaba. Solo cambia el
@@ -317,7 +384,11 @@ export function MelodyLane({
                     y no se dibuja en las notas que no dan de sí: en una corchea a
                     la escala mínima, seis píxeles serían la nota entera. */}
                 {note.length * porPulso >= 20 && (
-                  <span aria-hidden className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize" />
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-0 w-1.5 cursor-ew-resize"
+                    style={{ left: pintado - 6 }}
+                  />
                 )}
               </button>
             );
@@ -326,4 +397,4 @@ export function MelodyLane({
       </div>
     </div>
   );
-}
+});

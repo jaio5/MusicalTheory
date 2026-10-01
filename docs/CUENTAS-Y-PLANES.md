@@ -9,7 +9,7 @@ mástil, el metrónomo, los acordes, las formas, el camino de progresiones y la
 grabación **pasan enteros en el navegador de quien toca**: el servidor manda unos
 ficheros y se desentiende. Eso es gratis y lo va a seguir siendo.
 
-Lo que cuesta dinero es la IA. Cada pregunta al profesor y cada tanda de ideas es
+Lo que cuesta dinero es la IA. Cada pregunta al profesor y cada tanda de salidas es
 una llamada al modelo que se paga por tokens, y hasta ahora la única defensa eran
 diez peticiones por minuto y dirección: suficiente para que nadie machaque el
 botón, inútil para que nadie se pase la tarde gastando. Con la clave puesta en un
@@ -32,10 +32,10 @@ coinciden, manda el código y este documento está mal.
 | Avance guardado en la cuenta   | —        | sí     | sí     | sí      |
 | Repaso de lo que fallaste      | —        | sí     | sí     | sí      |
 | Tus canciones guardadas        | —        | sí     | sí     | sí      |
-| Ideas de progresión            | —        | —      | sí     | sí      |
-| Versiones de tus canciones     | —        | —      | —      | sí      |
+| Salidas de lo que tocas        | —        | —      | sí     | sí      |
 | El profesor sabe por dónde vas | —        | —      | —      | sí      |
-| Peticiones a la IA al mes      | 15       | 73     | 90     | 135     |
+| Preguntas al profesor al mes   | 15       | 73     | 148    | 296     |
+| Preguntas que gasta una salida | —        | —      | 3      | 3       |
 
 **Los cupos de esa última fila no están escritos en ninguna parte: se calculan.**
 Son los que salen con `claude-opus-5`, que es el modelo por defecto; con otro salen
@@ -44,7 +44,7 @@ qué, más abajo en «Lo que cuesta la IA y de dónde salen los cupos».
 
 **Son tres planes, no cuatro.** La primera columna no se vende: es lo que tiene
 quien no ha pagado. Está en el catálogo del código porque la pregunta «¿puede este
-pedir una idea?» hay que poder hacérsela también a él, pero la pantalla de planes
+preguntarle al profesor?» hay que poder hacérsela también a él, pero la pantalla de planes
 enseña tres tarjetas y cuenta lo demás en prosa.
 
 Cuatro decisiones que conviene entender antes de discutirlas:
@@ -60,18 +60,24 @@ Todo lo demás —afinador, rueda, mástil, metrónomo, acordes, grabación, el 
 Elemental entero— sigue funcionando sin entrar.
 
 **Cada escalón de pago trae una cosa que el anterior no.** Básico abre el temario
-entero, el repaso y guardar tus canciones; Medio añade las ideas de la IA; Pro, las
-versiones de tus canciones y un profesor que sabe qué llevas hecho. Un escalón que solo suba el cupo no se entiende: quien lo mira tiene
-que poder decir en una frase por qué pagaría el siguiente.
+entero, el repaso y guardar tus canciones; Medio añade las salidas de la IA; Pro, un
+profesor que sabe qué llevas hecho. Un escalón que solo suba el cupo no se entiende:
+quien lo mira tiene que poder decir en una frase por qué pagaría el siguiente.
 
-**Las ideas empiezan en Medio.** Cada pulsación son entre dos y cuatro progresiones
-razonadas, y es de las que se pueden pedir en cadena sin leer lo anterior.
+**Las salidas empiezan en Medio, y son lo más caro que hay.** Estuvieron en Pro
+mientras Medio tenía las ideas; al retirarse las ideas, Medio se quedaba igual que
+Básico y las salidas bajaron un escalón
+([adr/0066](./adr/0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)). Cada
+tanda manda la progresión entera y devuelve tres progresiones enteras con su porqué,
+así que cuesta más del doble que una pregunta al profesor. Es también lo que más
+trabajo de dominio lleva detrás: lo que devuelve el modelo se comprueba movimiento a
+movimiento antes de enseñarse.
 
-**Las versiones empiezan en Pro, y son lo más caro que hay.** Cada tanda manda la
-progresión entera y devuelve tres progresiones enteras con su porqué, así que cuesta
-un tercio más que una tanda de ideas. Es también lo que más trabajo de dominio lleva
-detrás: lo que devuelve el modelo se comprueba movimiento a movimiento antes de
-enseñarse.
+**El cupo se cuenta en preguntas al profesor, y una salida gasta tres.** Es un solo
+cupo, compartido: quien tiene Medio puede hacer 148 preguntas, o 49 salidas, o
+cualquier mezcla. Dividir entre la petición más cara, como se hacía, dejó a Medio con
+menos que Básico en cuanto las salidas bajaron a Medio
+([adr/0067](./adr/0067-el-cupo-se-cuenta-en-preguntas.md)).
 
 **El Grado Profesional va con plan.** Es la parte del temario que explica la teoría
 que la pantalla de componer usa sin explicar, y es la que costó escribir. El
@@ -220,14 +226,17 @@ están en [adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
 Ahora los cupos son una división, en [`core/billing/cost.ts`](../src/core/billing/cost.ts):
 
 ```
-cupo mensual = (precio del plan × 40 %) / coste del peor caso de una petición
+cupo mensual = (precio del plan × 40 %) / coste de una pregunta al profesor
+lo que gasta una petición = su coste / coste de una pregunta, hacia arriba
 ```
 
 - **El 40 %** es lo único que es una decisión de negocio y no una medida: la parte del
   precio que puede irse en llamadas al modelo. Deja un **60 % de margen** para
   servidor, base de datos, comisión de la pasarela cuando la haya, IVA y beneficio.
 - **El peor caso, no el típico.** Quien quiera gastar gastará el máximo, así que el
-  cupo cuadra con el máximo. Calcularlo sobre el gasto medio funciona hasta que
+  cupo cuadra con el máximo: gastado entero en lo más caro, no pasa del presupuesto.
+  Lo garantiza redondear hacia arriba lo que gasta cada petición —una salida cuesta
+  2,19 preguntas y gasta 3—. Calcularlo sobre el gasto medio funciona hasta que
   aparece el primer usuario que aprieta.
 - **El tope de salida no es una estimación**: es el `max_tokens` que imponen las
   rutas, leído del mismo sitio que el cálculo. Escritos por separado se separarían.
@@ -239,18 +248,17 @@ Con eso, y los precios de la API a 30 de julio de 2026:
 |                          | Opus 5 (5/25 $)  | Sonnet 5 (2/10 $) | Haiku 4.5 (1/5 $) |
 | ------------------------ | ---------------- | ----------------- | ----------------- |
 | Una pregunta al profesor | 2,70 cts         | 1,08 cts          | 0,54 cts          |
-| Una tanda de ideas       | 4,40 cts         | 1,76 cts          | 0,88 cts          |
 | Una tanda de versiones   | 5,90 cts         | 2,36 cts          | 1,18 cts          |
+| Una salida gasta         | 3 preguntas      | 3                 | 3                 |
 | Básico                   | 73/mes · 12/día  | 184 · 30          | 369 · 60          |
-| Medio                    | 90/mes · 15/día  | 227 · 37          | 454 · 74          |
-| Pro                      | 135/mes · 22/día | 338 · 55          | 677 · 110         |
+| Medio                    | 148/mes · 24/día | 370 · 60          | 740 · 120         |
+| Pro                      | 296/mes · 48/día | 740 · 120         | 1480 · 239        |
 
-**El cupo de Pro es el más caro de sus tres peticiones, y eso está bien.** El
-cupo de un plan es su presupuesto dividido entre **su petición más cara**, y desde
-que Pro incluye versiones, su petición más cara ya no son las ideas. Dividir entre
-las ideas sería prometer un número que el dinero no paga: es exactamente el fallo
-que este fichero vino a arreglar, y por eso `worstFeature` no tiene ninguna
-excepción.
+**Los números de la tabla son preguntas, no peticiones.** Si el cupo se dividiera
+entre la pregunta y cada salida gastara una sola, el plan prometería un número que el
+dinero no paga: es exactamente el fallo que este fichero vino a arreglar. Por eso lo
+caro gasta más de una, y un test comprueba que gastar el cupo entero en salidas no
+pasa del presupuesto con ningún modelo ([adr/0067](./adr/0067-el-cupo-se-cuenta-en-preguntas.md)).
 
 **Cambiar `ANTHROPIC_MODEL` multiplica los cupos sin tocar una línea de código**, y
 la pantalla enseña los del modelo que haya puesto. Es potente y es un cañón: bajar de
@@ -274,7 +282,7 @@ mañana y el otro se arregla subiendo de plan o esperando al día uno.
 
 ### Sin pensar, y a propósito
 
-Las tres rutas piden al modelo que **no piense** y trabajan con esfuerzo bajo. La
+Las dos rutas piden al modelo que **no piense** y trabajan con esfuerzo bajo. La
 respuesta la fija un esquema JSON: no hay nada que razonar. En Opus 5 el pensamiento
 viene encendido por defecto y se cobra como salida, así que dejarlo puesto
 multiplicaba el coste de cada pregunta y podía gastarse el `max_tokens` pensando y

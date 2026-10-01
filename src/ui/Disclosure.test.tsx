@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Disclosure } from './Disclosure';
 
@@ -83,5 +83,108 @@ describe('el desplegable', () => {
     );
 
     expect(container.querySelector('details')).toHaveAttribute('open');
+  });
+});
+
+/**
+ * Lo que flota tapa lo de debajo, y de eso se sale con Escape, como de un
+ * diálogo. El foco vuelve al rótulo: quedarse en una casilla de la rueda sería
+ * quedarse en algo que ya no se ve.
+ */
+describe('salir de lo que flota', () => {
+  function flotando() {
+    const { container } = render(
+      <Disclosure summary="Tonalidad" abierto flotante>
+        <button type="button">Do mayor</button>
+      </Disclosure>,
+    );
+    return container.querySelector('details')!;
+  }
+
+  it('Escape lo cierra y devuelve el foco al rotulo', () => {
+    const detalles = flotando();
+    screen.getByRole('button', { name: 'Do mayor' }).focus();
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Do mayor' }), { key: 'Escape' });
+
+    expect(detalles.open).toBe(false);
+    expect(detalles.querySelector('summary')).toHaveFocus();
+  });
+
+  it('otra tecla no lo cierra', () => {
+    const detalles = flotando();
+
+    fireEvent.keyDown(detalles, { key: 'Enter' });
+
+    expect(detalles.open).toBe(true);
+  });
+
+  it('cerrado, Escape no hace nada ni se queda con la tecla', () => {
+    const detalles = flotando();
+    detalles.open = false;
+    const fuera = vi.fn();
+    document.addEventListener('keydown', fuera);
+
+    fireEvent.keyDown(detalles, { key: 'Escape' });
+
+    document.removeEventListener('keydown', fuera);
+    expect(fuera).toHaveBeenCalled();
+  });
+
+  // Sin flotar no lleva manejador: lo usan componentes de servidor.
+  it('sin flotar, Escape no lo toca', () => {
+    const { container } = render(
+      <Disclosure summary="Pregunta" abierto>
+        <p>Respuesta</p>
+      </Disclosure>,
+    );
+    const detalles = container.querySelector('details')!;
+
+    fireEvent.keyDown(detalles, { key: 'Escape' });
+
+    expect(detalles.open).toBe(true);
+  });
+
+  it('al abrirse entra con una animación breve, solo para quien acepta movimiento', () => {
+    const { container, rerender } = render(
+      <Disclosure summary="Tonalidad" abierto flotante>
+        <p>La rueda</p>
+      </Disclosure>,
+    );
+    expect(container.querySelector('details > div')).toHaveClass('motion-safe:animate-desplegar');
+    expect(container.querySelector('details')).not.toHaveClass('desplegable');
+
+    // El que empuja anima por `::details-content`, que engancha por esta clase.
+    rerender(
+      <Disclosure summary="Tonalidad" abierto>
+        <p>La rueda</p>
+      </Disclosure>,
+    );
+    expect(container.querySelector('details')).toHaveClass('desplegable');
+  });
+
+  it('avisa de si está abierto: al montar con el de salida y al cambiar', () => {
+    const avisar = vi.fn();
+    const { container } = render(
+      <Disclosure summary="Tonalidad" abierto onAbrirse={avisar}>
+        <p>La rueda</p>
+      </Disclosure>,
+    );
+    expect(avisar).toHaveBeenLastCalledWith(true);
+
+    const detalles = container.querySelector('details')!;
+    detalles.open = false;
+    fireEvent(detalles, new Event('toggle'));
+    expect(avisar).toHaveBeenLastCalledWith(false);
+  });
+
+  it('el tono grande es el de las preguntas de la portada', () => {
+    const { container } = render(
+      <Disclosure summary="¿Hace falta cuenta?" tone="grande">
+        <p>No.</p>
+      </Disclosure>,
+    );
+    expect(container.querySelector('summary')).toHaveClass('text-fluid-subtitle');
+    expect(container.querySelector('svg')).toHaveClass('size-4');
   });
 });

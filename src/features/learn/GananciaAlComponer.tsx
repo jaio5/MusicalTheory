@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react';
 
-import { badgesOf, type ComposeDeed } from '@core/music';
+import type { ComposeDeed } from '@core/music';
 
-import type { ComposeGain } from './use-progress';
+import type { ComposeGain } from './use-ganancia-al-componer';
 
 /**
  * El aviso de que lo que acabas de hacer componiendo ha contado.
@@ -79,10 +79,7 @@ export function GananciaAlComponer({
 
           {gain.newBadges.length > 0 && (
             <p className="text-text-muted mt-1 text-xs">
-              Medalla nueva:{' '}
-              {badgesOf(gain.newBadges)
-                .map((medalla) => medalla.name)
-                .join(', ')}
+              Medalla nueva: {gain.newBadges.map((medalla) => medalla.name).join(', ')}
             </p>
           )}
 

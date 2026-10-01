@@ -4,7 +4,7 @@ import { MARCA_DIRECTRICES } from '@features/versions/contract';
 import type * as AskModel from '@server/ask-model';
 
 /**
- * La ruta de las salidas: la petición más cara de las tres y la única que
+ * La ruta de las salidas: la petición más cara de las dos y la única que
  * verifica el razonamiento del modelo, no solo el resultado.
  *
  * Lo que se prueba aquí es lo suyo: que el esquema y el catálogo dependan de lo
@@ -26,6 +26,7 @@ vi.mock('@server/ask-model', async (original) => ({
 }));
 
 const { POST } = await import('./route');
+const { RespuestaTruncada } = await import('@server/ask-model');
 const { roleInfo } = await import('@core/music');
 
 let direccion = 0;
@@ -322,6 +323,47 @@ describe('lo que no llega al modelo', () => {
 
     expect(status).toBe(502);
     expect(askModel).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * **Una respuesta cortada tampoco se reintenta**, y por un motivo distinto:
+   * no es que el modelo haya fallado, es que la segunda llamada se cortaría por
+   * donde se cortó la primera. El prompt es el mismo y el tope también.
+   *
+   * Lo cubría la ruta de ideas, ya retirada (adr/0066); el cuerpo es común
+   * —`server/ai-route.ts`—, así que basta con probarlo desde una de las dos.
+   */
+  it('una respuesta cortada por el tope no se reintenta', async () => {
+    askModel.mockRejectedValue(new RespuestaTruncada());
+
+    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
+
+    expect(status).toBe(502);
+    // Y lo dice como lo que es: contestó, y lo que dijo no vale.
+    expect(body['error']).toMatchObject({ code: 'unparseable_response' });
+    expect(askModel).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('pulsar el boton veinte veces seguidas', () => {
+  it('se frena, y se dice cuanto hay que esperar', async () => {
+    // El límite es por dirección, así que todas desde la misma. Defiende del
+    // botón repetido, no de un abuso de verdad.
+    askModel.mockResolvedValue({ versions: [] });
+    const desdeLaMisma = () =>
+      new Request('http://x/api/versiones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.3.8.1' },
+        body: JSON.stringify({ ...TOCADO, kind: 'continuar' }),
+      });
+
+    let ultima = await POST(desdeLaMisma());
+    for (let i = 0; i < 30 && ultima.status !== 429; i += 1) {
+      ultima = await POST(desdeLaMisma());
+    }
+
+    expect(ultima.status).toBe(429);
+    expect(ultima.headers.get('Retry-After')).not.toBeNull();
   });
 });
 

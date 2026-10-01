@@ -101,6 +101,10 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
 - **`rearmonizar` es la salida que peor se le da a todos los modelos**: devuelven
   la canción tal cual. Era el 100 % de la función antes de
   [adr/0016](./adr/0016-salidas-en-vez-de-versiones.md) y ahora es un quinto.
+- **Los bloques fantasma no tienen quien los llene.** `state/propuesta.ts` y su
+  tira siguen funcionando, pero quien proponía era el panel de ideas, retirado. Si
+  el copiloto en línea vuelve, tiene que volver con otra fuente: una salida
+  aceptada a fantasma, o una propuesta del dominio sin modelo.
 - **Cambiar de tonalidad sería el sexto camino.** `circle-of-fifths.ts` ya sabría
   comprobar que la vecina es vecina y que el pivote existe en las dos. Descartado
   por ahora, no para siempre.
@@ -247,7 +251,7 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
   capacidad del plan siguen con el nombre viejo, que ya no es el que se ve en
   pantalla. Cuarenta ficheros, mecánico
   —[adr/0016](./adr/0016-salidas-en-vez-de-versiones.md)—.
-- **El camino con base de datos pide Docker.** Las tres rutas de IA exigen cuenta,
+- **El camino con base de datos pide Docker.** Las rutas de IA exigen cuenta,
   así que probar la IA de punta a punta pide levantar Postgres. Se hizo una vez
   con un Postgres embebido y funcionó, pero no está montado como opción.
 - **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Se

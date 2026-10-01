@@ -118,10 +118,12 @@ describe('la suscripción', () => {
    * cifra. El número solo no basta; hay que poder leerlo en una dirección.
    */
   it('el cupo se cuenta desde lo que queda, y se dice cual es', () => {
-    // Lo que hace falta saber antes de pedir otra idea es cuántas quedan.
+    // Lo que hace falta saber antes de pedir otra pregunta es cuántas quedan.
     pintar(DENTRO);
 
-    expect(screen.getByText(/Te quedan 90 de \d+ peticiones a la IA este mes/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Te quedan 90 de \d+ preguntas al profesor este mes/),
+    ).toBeInTheDocument();
   });
 
   it('sin contador todavía leído se dice lo que da el plan', () => {
@@ -129,6 +131,13 @@ describe('la suscripción', () => {
     // hueco ahí parecería que el plan no incluye nada.
     pintar({ ...DENTRO, aiLeftMonth: null });
 
-    expect(screen.getByText(/^\d+ peticiones a la IA al mes$/)).toBeInTheDocument();
+    expect(screen.getByText(/^\d+ preguntas al profesor al mes/)).toBeInTheDocument();
+  });
+
+  // Medio tiene salidas, y el cupo dice cuántas preguntas gasta una (adr/0067).
+  it('con salidas en el plan, dice cuántas preguntas gasta una', () => {
+    pintar(DENTRO);
+
+    expect(screen.getByText(/este mes; una salida gasta 3$/)).toBeInTheDocument();
   });
 });

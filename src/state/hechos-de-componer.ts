@@ -21,9 +21,9 @@ import type { ComposeDeed } from '@core/music';
  * dos canciones seguidas son dos hechos, y un estado que compara antes de avisar
  * se comería el segundo por ser igual que el primero.
  *
- * Quien escucha es `useProgress`, y solo cuando se lo piden: hay varias
- * pantallas que lo llaman a la vez y dos apuntados contarían cada hecho dos
- * veces.
+ * Quien escucha es `useGananciaAlComponer`, y se monta una sola vez, en
+ * componer: `useProgress` lo llaman varias pantallas a la vez, y dos apuntados
+ * contarían cada hecho dos veces.
  */
 export const hechosDeComponer = new Emisor<ComposeDeed>();
 

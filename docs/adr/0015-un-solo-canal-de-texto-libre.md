@@ -1,5 +1,7 @@
 # ADR 0015 — Un solo canal de texto libre, y el modelo declara si le preguntan de música
 
+> **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** `/api/ideas` ya no existe; quedan el profesor y las salidas.
+
 Fecha: 2026-08-26 · Estado: aceptada · Amplía: [ADR 0011](./0011-versiones-verificadas-contra-el-dominio.md)
 
 ## Contexto

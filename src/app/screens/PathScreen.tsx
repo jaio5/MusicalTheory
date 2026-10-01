@@ -43,7 +43,12 @@ export function PathScreen() {
 
           En estrecho se apila en el orden de siempre: primero la meta, porque lo
           primero que se mira al abrir es si hoy ya has hecho algo. */}
-      <div className="grid min-h-0 grow grid-cols-1 overflow-y-auto lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden xl:grid-cols-[27rem_minmax(0,1fr)]">
+      {/* El hueco del final es el del muñeco (`HUECO_DEL_TUTOR`): flota abajo a la
+          derecha, y sin él lo último de la columna quedaba siempre debajo de él,
+          sin forma de desplazarlo a la vista. Son 10 % de la altura más lo que
+          mide, no un `pb-24`: a 390 de ancho y 844 de alto no llegaba. En ancho el hueco lo lleva
+          el camino, que es la columna sobre la que flota. */}
+      <div className="grid min-h-0 grow grid-cols-1 overflow-y-auto pb-[calc(10dvh+3.5rem)] lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden lg:pb-0 xl:grid-cols-[27rem_minmax(0,1fr)]">
         {/* La columna de la izquierda, un punto más clara que el camino.
 
             Estaban las dos sobre el mismo negro, separadas por una línea de un
@@ -71,7 +76,10 @@ export function PathScreen() {
                   {found.unit.kind === 'play' ? <IconoTocar /> : <IconoTeoria />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-xs opacity-80">
+                  {/* Sin `opacity-80`: sobre el latón del tema claro dejaba la línea
+                      en 3,74:1. El mismo color que el título, y la jerarquía la
+                      pone el tamaño. */}
+                  <span className="block text-xs">
                     {found.course.year}º de{' '}
                     {found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'} · seguir
                   </span>
@@ -116,7 +124,7 @@ export function PathScreen() {
           que se mira de un vistazo, abajo las medallas, que son las que se
           desplazan— y el camino ocupa las dos a su derecha.
         */}
-        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto">
+        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:pb-[calc(10dvh+3.5rem)]">
           <LearnPath
             progress={progress}
             plan={account.plan}
@@ -130,7 +138,16 @@ export function PathScreen() {
             vacía en cuanto la ventana pasaba de los novecientos de alto. Y sobre
             todo: existían y no se veían en ninguna parte más que como un
             contador. */}
-        <div className="border-border lg:bg-surface lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:border-r">
+        {/* Con parada de tabulador y nombre: en ancho esta columna se desplaza
+            sola, y sin nada enfocable dentro —las medallas no se pulsan— quien
+            usa el teclado no tenía cómo bajar por ella (axe:
+            `scrollable-region-focusable`). */}
+        <div
+          role="region"
+          aria-label="Medallas"
+          tabIndex={0}
+          className="border-border lg:bg-surface lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:border-r"
+        >
           <Badges progress={progress} />
         </div>
       </div>

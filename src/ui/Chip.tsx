@@ -41,6 +41,14 @@ const TONOS = {
 } as const;
 
 export type ChipTone = keyof typeof TONOS;
+export type ChipSize = 'normal' | 'compacto';
+
+// 14 y 13 px, y el relleno de los lados que cuadra con cada uno. El alto no
+// entra: es `min-h-tap` en los dos.
+const TAMANOS: Record<ChipSize, string> = {
+  normal: 'px-3.5 text-sm',
+  compacto: 'px-3 text-[13px]',
+};
 
 export function Chip({
   children,
@@ -52,6 +60,7 @@ export function Chip({
   atajo,
   className = '',
   ariaLabel,
+  tamano = 'normal',
 }: {
   readonly children: ReactNode;
   readonly onClick: () => void;
@@ -73,6 +82,11 @@ export function Chip({
   /** Para colocarlo en su fila —`ml-auto`— o cambiarle la letra. */
   readonly className?: string;
   readonly ariaLabel?: string;
+  /**
+   * `compacto` para una fila apretada: una letra menos, el mismo alto de dedo.
+   * Es lo que hace que nadie tenga que pasar `text-xs` en `className`.
+   */
+  readonly tamano?: ChipSize;
 }) {
   // Cuando la respuesta ya está corregida manda el color de la corrección, no el
   // de estar marcada: una opción elegida y fallada es roja, no de latón. La marca
@@ -95,11 +109,11 @@ export function Chip({
       // entonces, y quedaban por debajo del contraste mínimo. Se apaga lo que ya
       // no dice nada —las opciones que ni eran ni se eligieron— y se queda a todo
       // color lo que corrige.
-      className={`min-h-tap min-w-tap inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border px-3.5 text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 enabled:active:translate-y-px disabled:cursor-default ${
+      className={`min-h-tap min-w-tap inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 enabled:active:translate-y-px disabled:cursor-default ${
         corregido ? '' : 'disabled:opacity-40'
       } ${
         marcado ? 'border-brass-bright text-brass-bright bg-surface-raised filo-latón' : TONOS[tone]
-      } ${className}`}
+      } ${TAMANOS[tamano]} ${className}`}
     >
       {children}
     </button>

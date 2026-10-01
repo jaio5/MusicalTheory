@@ -11,7 +11,7 @@ const currentAccount = vi.fn(async () => ANONYMOUS);
 const authAvailable = vi.fn(() => true);
 
 /*
-  El número de un solo uso que en la aplicación pone `middleware.ts`.
+  El número de un solo uso que en la aplicación pone `proxy.ts`.
 
   `headers()` solo existe dentro de una petición, y aquí el layout se pinta
   suelto: sin este doble, pintarlo revienta con «headers was called outside a
@@ -77,7 +77,7 @@ describe('el marco', () => {
     const head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));
 
     // Con su número puesto: sin él, la política de seguridad lo bloquea y
-    // vuelve el fogonazo blanco que este guion existe para evitar.
+    // vuelve el fogonazo que este guion existe para evitar.
     expect(head).toContain('<script nonce="numerodeprueba">');
     expect(html).toContain(GUION_TEMA);
   });
@@ -110,9 +110,9 @@ describe('la cuenta', () => {
 
 describe('sin numero en la cabecera', () => {
   /**
-   * El número lo pone el middleware. Si no llegara —una ruta que se sirve sin
+   * El número lo pone el proxy. Si no llegara —una ruta que se sirve sin
    * pasar por él— el guion va sin número: lo peor que puede pasar es que la
-   * política lo bloquee y se vea un fogonazo blanco, no que reviente el render.
+   * política lo bloquee y se vea un fogonazo, no que reviente el render.
    */
   it('el guion del tema va sin numero, y la pagina se pinta igual', async () => {
     numeroEnLaCabecera = null;

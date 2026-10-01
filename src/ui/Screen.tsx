@@ -20,7 +20,8 @@ import type { ReactNode } from 'react';
  * - La vuelta atrás, encima del título, porque leer «← Camino» después del
  *   título obliga a subir la vista dos veces.
  *
- * El ancho sale de tres opciones con nombre y no de un número por pantalla:
+ * El ancho sale de tres opciones con nombre y no de un número por pantalla, y
+ * las tres empiezan en el mismo borde izquierdo:
  * `lectura` para lo que se lee seguido, `normal` para lo que se maneja y `ancha`
  * para lo que se compara en rejilla. Tres, porque cuatro ya nadie las distingue.
  */
@@ -62,34 +63,46 @@ export function Screen({
     // Un solo sitio que hace scroll. Había pantallas con tres cajas con scroll
     // dentro, y entonces la rueda del ratón mueve lo que no esperas.
     <div className="h-full min-h-0 overflow-y-auto">
-      <div className={`mx-auto flex flex-col gap-8 p-4 md:p-8 ${ANCHOS[ancho]}`}>
-        <header>
-          {back !== undefined && (
-            <Link
-              href={back.href}
-              className="text-text-muted hover:text-text min-h-tap -mx-2 mb-2 inline-flex items-center gap-1 px-2 text-sm"
-            >
-              ← {back.label}
-            </Link>
-          )}
+      {/*
+        **Un solo borde izquierdo para todas**, y el ancho de cada una dentro.
 
-          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-            <div className="min-w-0">
-              {/* En la serif de la portada y no en la de sistema: es la letra
-                  con la que esta aplicación se presenta, y usarla solo fuera
-                  hacía que dentro pareciera otra aplicación. */}
-              <h1 className="text-text font-display text-3xl leading-tight tracking-tight md:text-4xl">
-                {title}
-              </h1>
-              {lead !== undefined && (
-                <p className="text-text-muted mt-2 max-w-prose text-sm">{lead}</p>
-              )}
+        Cada ancho se centraba por su cuenta, y eso ponía el título en un sitio
+        distinto según la pantalla: medido a 1440, Planes empezaba en x=112,
+        Profesor y Registro en 240 y Cuenta en 368. Al cambiar de una a otra el
+        título saltaba, que es justo lo que este marco venía a quitar. Ahora se
+        centra la caja del más ancho y las estrechas se quedan a su izquierda: lo
+        que sobra en una pantalla de lectura queda a la derecha, donde no se lee.
+      */}
+      <div className="mx-auto w-full max-w-7xl p-4 md:p-8">
+        <div className={`flex flex-col gap-8 ${ANCHOS[ancho]}`}>
+          <header>
+            {back !== undefined && (
+              <Link
+                href={back.href}
+                className="text-text-muted hover:text-text min-h-tap -mx-2 mb-2 inline-flex items-center gap-1 px-2 text-sm"
+              >
+                ← {back.label}
+              </Link>
+            )}
+
+            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+              <div className="min-w-0">
+                {/* En la serif de la portada y no en la de sistema: es la letra
+                    con la que esta aplicación se presenta, y usarla solo fuera
+                    hacía que dentro pareciera otra aplicación. */}
+                <h1 className="text-text font-display text-3xl leading-tight tracking-tight md:text-4xl">
+                  {title}
+                </h1>
+                {lead !== undefined && (
+                  <p className="text-text-muted mt-2 max-w-prose text-sm">{lead}</p>
+                )}
+              </div>
+              {actions !== undefined && <div className="shrink-0">{actions}</div>}
             </div>
-            {actions !== undefined && <div className="shrink-0">{actions}</div>}
-          </div>
-        </header>
+          </header>
 
-        {children}
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -112,6 +125,7 @@ export function WorkHeader({
   lead,
   back,
   actions,
+  accionesCrecen = false,
 }: {
   readonly title: string;
   readonly lead?: string;
@@ -123,6 +137,18 @@ export function WorkHeader({
    */
   readonly back?: { readonly href: string; readonly label: string };
   readonly actions?: ReactNode;
+  /**
+   * Que las acciones se queden **todo lo que deje el título**, en vez de medir lo
+   * que mida su contenido.
+   *
+   * Es para una fila que se desplaza de lado —la barra de componer en un
+   * teléfono—. Midiendo su contenido, una fila de seiscientos píxeles en un hueco
+   * de doscientos sesenta no se encoge: el `flex-wrap` la baja a un renglón
+   * propio. Se le daba un ancho fijo, «la pantalla menos el título», y el título
+   * en la serif de reserva de un equipo medía 0,34 px más de lo contado: dos
+   * renglones. Con base cero no hay nada que contar.
+   */
+  readonly accionesCrecen?: boolean;
 }) {
   return (
     <div className="border-border flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5">
@@ -163,7 +189,11 @@ export function WorkHeader({
         envolvía nada porque nadie le estaba apretando. Con `min-w-0` y sin
         `shrink-0`, la caja se estrecha, el de dentro se entera y parte la fila.
       */}
-      {actions !== undefined && <div className="ml-auto min-w-0">{actions}</div>}
+      {actions !== undefined && (
+        <div className={accionesCrecen ? 'min-w-0 flex-1 basis-0' : 'ml-auto min-w-0'}>
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

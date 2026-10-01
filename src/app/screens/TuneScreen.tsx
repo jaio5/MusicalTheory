@@ -13,7 +13,13 @@ import { TUNINGS } from '@core/instrument';
  * a eso, y cada cosa de más es una cosa que estorba.
  */
 export function TuneScreen() {
-  const escuchando = useSessionStore((state) => state.listening) === 'listening';
+  // Desde que se pide el micro, y no desde que llega. El permiso tarda más de
+  // medio segundo, y lo que se recoloca pasado ese plazo ya no cuenta como
+  // respuesta al clic: plegar la afinación y dejar de centrar al llegar el micro
+  // medía hasta 0,24 de CLS en un teléfono. Recolocándolo al pulsar, el salto es
+  // el que se ha pedido (adr/0061).
+  const estado = useSessionStore((state) => state.listening);
+  const escuchando = estado === 'listening' || estado === 'requesting';
   const tuningId = useSessionStore((state) => state.tuningId);
 
   return (
@@ -46,9 +52,16 @@ export function TuneScreen() {
         micro abierto, el medidor de señal y los dos avisos quedaban debajo del
         borde y **no había forma de bajar hasta ellos**. Con el margen automático,
         se centra cuando sobra sitio y se desplaza cuando falta.
+
+        **Escuchando, se queda arriba** ([adr/0061](../../../docs/adr/0061-el-afinador-no-se-mueve-mientras-escucha.md)).
+        Centrado, cualquier cosa que creciera dentro —la primera nota, un aviso,
+        el selector de entrada— empujaba el bloque entero la mitad hacia arriba
+        y la otra mitad hacia abajo: la nota que se mira desde tres metros se
+        movía sola, y eso medía entre 0,19 y 0,31 de CLS. Anclado arriba, lo que
+        crece solo empuja lo que tiene debajo.
       */}
       <div className="mx-auto flex w-full max-w-3xl grow flex-col overflow-y-auto p-6">
-        <div className="my-auto flex w-full flex-col gap-6">
+        <div className={`flex w-full flex-col gap-6 ${escuchando ? '' : 'my-auto'}`}>
           {escuchando ? (
             <Disclosure
               summary={

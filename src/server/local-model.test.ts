@@ -16,7 +16,7 @@ import { RespuestaTruncada } from './respuesta-truncada';
 const PETICION = {
   prompt: 'La tonalidad es A menor.',
   system: 'Contesta en español.',
-  schema: { type: 'object', properties: { ideas: { type: 'array' } } },
+  schema: { type: 'object', properties: { versions: { type: 'array' } } },
   maxTokens: 700,
   model: 'qwen3:8b',
   intento: 0,
@@ -69,15 +69,15 @@ describe('lo que se le manda a Ollama', () => {
   it('no pide la respuesta a trozos', () => {
     // Con `stream: true` la respuesta llega en líneas sueltas de JSON y
     // `leerRespuestaOllama` no encontraría nada. Es un fallo silencioso: no da
-    // error, simplemente no hay ideas nunca.
+    // error, simplemente no llega nunca nada.
     expect(cuerpoOllama(PETICION).stream).toBe(false);
   });
 });
 
 describe('lo que se le entiende a Ollama', () => {
   it('devuelve el JSON que venga dentro del mensaje', () => {
-    const datos = { message: { role: 'assistant', content: '{"ideas":[{"title":"Bajar"}]}' } };
-    expect(leerRespuestaOllama(datos)).toEqual({ ideas: [{ title: 'Bajar' }] });
+    const datos = { message: { role: 'assistant', content: '{"versions":[{"title":"Bajar"}]}' } };
+    expect(leerRespuestaOllama(datos)).toEqual({ versions: [{ title: 'Bajar' }] });
   });
 
   it('es nulo cuando el contenido no es JSON', () => {
@@ -109,14 +109,14 @@ describe('la llamada al contenedor', () => {
 
   it('va a /api/chat con el cuerpo de arriba', () => {
     fetchFalso.mockResolvedValue(
-      new Response(JSON.stringify({ message: { content: '{"ideas":[]}' } }), { status: 200 }),
+      new Response(JSON.stringify({ message: { content: '{"versions":[]}' } }), { status: 200 }),
     );
 
     return askLocalModel(PETICION, 'http://ollama:11434').then((leido) => {
       const [url, init] = fetchFalso.mock.calls[0] as [string, RequestInit];
       expect(url).toBe('http://ollama:11434/api/chat');
       expect(JSON.parse(init.body as string)).toEqual(cuerpoOllama(PETICION));
-      expect(leido).toEqual({ ideas: [] });
+      expect(leido).toEqual({ versions: [] });
     });
   });
 
@@ -167,7 +167,10 @@ describe('la llamada al contenedor', () => {
   it('una respuesta cortada se distingue igual que en la API', async () => {
     fetchFalso.mockResolvedValue(
       new Response(
-        JSON.stringify({ done_reason: 'length', message: { content: '{"ideas":[{"symbol":"C' } }),
+        JSON.stringify({
+          done_reason: 'length',
+          message: { content: '{"versions":[{"title":"Baj' },
+        }),
         { status: 200 },
       ),
     );

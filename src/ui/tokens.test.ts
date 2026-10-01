@@ -30,8 +30,8 @@ function cssValue(name: string): string | null {
 
 describe('los tokens de diseño no se separan del CSS', () => {
   /**
-   * Ahora son dos paletas, así que se comprueban las dos: la del bloque de
-   * siempre —claro— y la del bloque `[data-tema='oscuro']`. El CSS las escribe en
+   * Ahora son dos paletas, así que se comprueban las dos: la del bloque
+   * `[data-tema='claro']` y la de `:root`, que es el oscuro de casa. El CSS las escribe en
    * español y los tokens en inglés; la correspondencia vive en `VARIABLES_CSS`.
    */
   it.each([
@@ -249,6 +249,25 @@ describe('lo que se escribe se puede leer', () => {
     for (const token of ['brass', 'brassBright', 'oxbloodBright', 'tube', 'tubeBright'] as const) {
       const ratio = contraste(paleta[token], paleta.background);
       expect(Number(ratio.toFixed(2)), `${token} sobre el fondo`).toBeGreaterThanOrEqual(3);
+    }
+  });
+});
+
+/**
+ * Un campo vacío es solo su borde: si el borde no se ve, no se ve dónde se
+ * escribe. WCAG 1.4.11 pide 3:1 a lo que hace falta ver para usar un control, y
+ * `border` —que es para separar cajas— se queda en 1,3–1,5:1. Por eso los campos
+ * llevan `borderStrong`, y aquí se mira contra los tres fondos: un formulario cae
+ * sobre la página, sobre una tarjeta y dentro de un diálogo.
+ */
+describe('el borde de un campo se ve', () => {
+  it.each([
+    ['claro', paletaClara],
+    ['oscuro', paletaOscura],
+  ])('en el tema %s, borderStrong llega a 3:1 sobre los tres fondos', (_nombre, paleta) => {
+    for (const fondo of FONDOS) {
+      const ratio = contraste(paleta.borderStrong, paleta[fondo]);
+      expect(Number(ratio.toFixed(2)), `borderStrong sobre ${fondo}`).toBeGreaterThanOrEqual(3);
     }
   });
 });

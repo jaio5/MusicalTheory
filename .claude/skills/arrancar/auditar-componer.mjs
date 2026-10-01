@@ -5,7 +5,8 @@
  *   node .claude/skills/arrancar/auditar-componer.mjs [destino.json]
  *
  * Necesita `pnpm dev` levantado —`DATABASE_URL= pnpm dev`— y el Playwright
- * global de nvm, que es el que hay en este equipo.
+ * global de nvm, que es el que hay en este equipo. Contra `pnpm start` en otro
+ * puerto, `RAIZ=http://localhost:3210`.
  *
  * **Los tamaños no son los extremos, son los dos lados de cada corte**: 640 y
  * 768 son donde esta aplicación cambia de navegación, y lo que se rompe se
@@ -19,7 +20,7 @@ import { chromium } from '/home/javie/.nvm/versions/node/v24.15.0/lib/node_modul
 import { MEDIDAS } from './sonda-de-componer.mjs';
 import { SONDA } from './sonda-de-medidas.mjs';
 
-const RAIZ = 'http://localhost:3000';
+const RAIZ = process.env['RAIZ'] ?? 'http://localhost:3000';
 const DESTINO = process.argv[2] ?? 'componer-medido.json';
 
 const TAMANOS = [
@@ -62,7 +63,62 @@ const pulsar = async (page, nombre, log) => {
 
 const ponerTonalidad = (page, log) => pulsar(page, 'C mayor', log);
 
+/**
+ * Abre un área **como se abre en ese ancho**.
+ *
+ * En ancho cada área tiene su «Desplegar …»; en estrecho no hay nada que
+ * desplegar, porque las áreas son pestañas —se ve una cada vez— y la tonalidad no
+ * es un área sino la barra flotante. Pidiendo el botón de escritorio en todos los
+ * tamaños, el teléfono y la tableta salían con dos pasos rotos que no lo estaban:
+ * el gesto no existe ahí. Se anota como que no aplica, no como que no se pudo.
+ */
+const abrirArea = async (page, titulo, log) => {
+  const desplegar = page.getByRole('button', { name: `Desplegar ${titulo}`, exact: true });
+  if ((await desplegar.count()) > 0) {
+    return pulsar(page, `Desplegar ${titulo}`, log);
+  }
+  const pestana = page.getByRole('button', { name: titulo, exact: true });
+  if ((await pestana.count()) > 0) {
+    return pulsar(page, titulo, log);
+  }
+  log.push({ paso: `Abrir ${titulo}`, pudo: true, noAplica: 'en este ancho no es un area' });
+  return true;
+};
+
+/**
+ * Pulsa un panel de la bandeja de abajo **donde esté en ese ancho**.
+ *
+ * En ancho es una pastilla suelta de la fila de abajo; en un teléfono la bandeja
+ * se pliega a «Más» (adr/0065) y el panel vive dentro de ese `popover`. Buscando
+ * siempre la pastilla suelta, el teléfono y la tableta salían con tres casos rotos
+ * que no lo estaban.
+ */
+const abrirDeLaBandeja = async (page, nombre, log) => {
+  const suelto = page.getByRole('button', { name: nombre, exact: true });
+  if ((await suelto.count()) > 0 && (await suelto.first().isVisible())) {
+    return pulsar(page, nombre, log);
+  }
+  const mas = page.getByRole('button', { name: 'Más', exact: true });
+  if ((await mas.count()) > 0) {
+    await mas
+      .first()
+      .click({ timeout: 1200 })
+      .catch(() => {});
+    await page.waitForTimeout(150);
+  }
+  return pulsar(page, nombre, log);
+};
+
 const ponerAcordes = async (page, log) => {
+  // **El lienzo llega después que la pantalla** (adr/0058): se descarga aparte, y
+  // buscando sus acordes en cuanto se abre no había ninguno y los cuatro se
+  // anotaban como no puestos, quince casos rotos que no lo estaban. Se espera a
+  // la paleta; si no llega, lo dirá el primer acorde.
+  await page
+    .getByRole('button', { name: /^C, I\b/ })
+    .first()
+    .waitFor({ timeout: 8000 })
+    .catch(() => {});
   for (const grado of ['C, I', 'F, IV', 'G, V', 'Am, vi']) {
     const loc = page.getByRole('button', {
       name: new RegExp(`^${grado.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`),
@@ -119,9 +175,9 @@ const ESCENARIOS = [
       await ponerTonalidad(page, log);
       await pulsar(page, 'Escribir', log);
       await ponerAcordes(page, log);
-      await pulsar(page, 'Desplegar Tonalidad', log);
-      await pulsar(page, 'Desplegar A dónde ir', log);
-      await pulsar(page, 'Mástil', log);
+      await abrirArea(page, 'Tonalidad', log);
+      await abrirArea(page, 'A dónde ir', log);
+      await abrirDeLaBandeja(page, 'Mástil', log);
     },
   },
   {

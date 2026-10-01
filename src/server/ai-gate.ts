@@ -1,8 +1,8 @@
 /**
  * Las puertas por las que pasa toda petición a la IA, en un solo sitio.
  *
- * Las tres rutas —ideas, profesor y salidas— tenían escritas las mismas cuarenta
- * líneas: el límite por minuto, la comprobación de que hay quien conteste, el
+ * Las rutas de IA —eran tres: ideas, ya retiradas, profesor y salidas— tenían
+ * escritas las mismas cuarenta líneas: el límite por minuto, la comprobación de que hay quien conteste, el
  * cupo, y las cuatro ramas de lo que puede salir mal. Solo cambiaban en dos
  * cosas: qué constructor de errores usar y cómo se llama en castellano lo que se
  * está pidiendo.
@@ -43,9 +43,9 @@ export type ConstructorDeError = (code: AiErrorCode, message?: string) => AiErro
  * antes de leer el cuerpo porque es la puerta más barata que hay: no toca ni la
  * base de datos ni la sesión.
  *
- * **Las tres rutas de IA comparten cubo**, y por eso comparten prefijo: veinte
+ * **Las rutas de IA comparten cubo**, y por eso comparten prefijo: veinte
  * pulsaciones seguidas son veinte pulsaciones seguidas aunque se repartan entre
- * pedir ideas y preguntarle al profesor. La cuenta tiene los suyos —`registro` y
+ * pedir salidas y preguntarle al profesor. La cuenta tiene los suyos —`registro` y
  * `cuenta`— porque son otra cosa.
  */
 export async function frenarPorFrecuencia(
@@ -75,7 +75,8 @@ export interface PuertaDeIa {
   readonly feature: AiFeature;
   readonly error: ConstructorDeError;
   /**
-   * Cómo se llama lo que se pide, para la frase del plan: «Las ideas de la IA».
+   * Cómo se llama lo que se pide, para la frase del plan: «Las salidas de lo que
+   * tocas».
    * Se escribe entero y no se compone, porque lleva artículo y género.
    */
   readonly loQueEs: string;
@@ -135,7 +136,12 @@ export async function abrirPuertaDeIa(puerta: PuertaDeIa): Promise<NextResponse 
       return NextResponse.json(
         puerta.error(
           'quota_exhausted',
-          quotaMessage(planOf(permiso.account.plan), permiso.account.aiModel, permiso.scope),
+          quotaMessage(
+            planOf(permiso.account.plan),
+            permiso.account.aiModel,
+            permiso.scope,
+            puerta.feature,
+          ),
         ),
         { status: 429 },
       );

@@ -1,4 +1,4 @@
-import type { ReactNode, ToggleEvent } from 'react';
+import type { KeyboardEvent, ReactNode, ToggleEvent } from 'react';
 
 import { Chevron } from './Chevron';
 
@@ -23,6 +23,34 @@ import { Chevron } from './Chevron';
  * una pantalla, y `grande` para las preguntas de la portada, donde el enunciado
  * es lo que se lee de lejos.
  */
+/**
+ * Que se vea que el panel sigue hacia abajo, **solo cuando sigue**.
+ *
+ * El tope de arriba es un máximo, y en un teléfono lo que hay dentro puede no
+ * caber: en componer, a 390 px, la rueda y los cuatro atajos median 550 para 491
+ * visibles, y el último botón salía **cortado en recto** contra el borde. Una
+ * recta no se lee como «hay más», se lee como que algo se ha roto.
+ *
+ * Es el truco de `.hay-mas-al-lado` de `globals.css` puesto de pie, y por la
+ * misma razón sin medir nada ni JavaScript —este componente también lo pintan
+ * componentes de servidor—: dos tapas del color del panel viajan **con el
+ * contenido** (`local`) y tapan dos sombras pegadas **al marco** (`scroll`).
+ * Arriba del todo la tapa de arriba cubre su sombra; abajo del todo, la de
+ * abajo. En medio se ven las dos. Si todo cabe, las tapas cubren siempre.
+ *
+ * Va aquí y no en la hoja porque el color de la tapa es el del panel, que solo
+ * sabe este componente, y la clase de la hoja está pensada para tiras de lado.
+ */
+const PISTA_DE_QUE_SIGUE = {
+  background: [
+    'linear-gradient(var(--color-surface-raised) 55%, transparent) 0 0 / 100% 34px no-repeat local',
+    'linear-gradient(transparent, var(--color-surface-raised) 45%) 0 100% / 100% 34px no-repeat local',
+    'linear-gradient(color-mix(in srgb, var(--color-text) 18%, transparent), transparent) 0 0 / 100% 18px no-repeat scroll',
+    'linear-gradient(transparent, color-mix(in srgb, var(--color-text) 18%, transparent)) 0 100% / 100% 18px no-repeat scroll',
+    'var(--color-surface-raised)',
+  ].join(', '),
+} as const;
+
 export function Disclosure({
   summary,
   tone = 'normal',
@@ -89,7 +117,7 @@ export function Disclosure({
     <details
       // `relative` solo cuando flota: es lo que hace que lo de dentro se ancle
       // aquí y no en la primera caja posicionada que pille por encima.
-      className={`group ${flotante ? 'relative' : ''} ${className}`}
+      className={`group ${flotante ? 'relative' : 'desplegable'} ${className}`}
       open={abierto}
       /*
         El `ref` y el manejador **solo si alguien escucha**, y no siempre.
@@ -118,6 +146,20 @@ export function Disclosure({
             onToggle: (evento: ToggleEvent<HTMLDetailsElement>) =>
               onAbrirse(evento.currentTarget.open),
           })}
+      /*
+        **Escape cierra lo que flota, y el foco vuelve al rótulo.**
+
+        Un panel que tapa lo de debajo es un diálogo a efectos del teclado, y de
+        un diálogo se sale con Escape: sin eso, quien entra con el tabulador en
+        la rueda solo puede salir recorriéndola entera o volviendo al rótulo a
+        ciegas. El foco va al `summary` porque es lo que se acaba de cerrar, y
+        si se quedara en una casilla de la rueda estaría en algo que ya no se ve.
+
+        Solo cuando flota, y por lo mismo que el `ref`: sin flotar lo usan
+        componentes de servidor, que no pueden pasar un manejador. Todos los
+        flotantes de hoy viven en componentes de cliente.
+      */
+      {...(flotante ? { onKeyDown: cerrarConEscape } : {})}
     >
       <summary
         className={`min-h-tap flex cursor-pointer list-none items-center gap-2 transition-colors marker:content-none [&::-webkit-details-marker]:hidden ${
@@ -182,7 +224,8 @@ export function Disclosure({
           // Sin `top` y con `bottom` no se arregla, aunque lo parezca: el
           // navegador resuelve entonces el alto por el contenido y sube el panel
           // hasta taparse el propio rótulo. Probado en la página.
-          className="bg-surface-raised border-border absolute inset-x-0 top-full z-30 max-h-[calc(100dvh-22rem)] overflow-y-auto border-b shadow-[var(--sombra-alta)] md:max-h-[calc(100dvh-12rem)]"
+          className="border-border motion-safe:animate-desplegar absolute inset-x-0 top-full z-30 max-h-[calc(100dvh-22rem)] overflow-y-auto border-b shadow-[var(--sombra-alta)] md:max-h-[calc(100dvh-12rem)]"
+          style={PISTA_DE_QUE_SIGUE}
         >
           {children}
         </div>
@@ -191,4 +234,16 @@ export function Disclosure({
       )}
     </details>
   );
+}
+
+function cerrarConEscape(evento: KeyboardEvent<HTMLDetailsElement>): void {
+  const detalles = evento.currentTarget;
+  if (evento.key !== 'Escape' || !detalles.open) {
+    return;
+  }
+  // Que no suba: si esto vive dentro de algo que también se cierra con Escape,
+  // una pulsación cierra una cosa y no dos.
+  evento.stopPropagation();
+  detalles.open = false;
+  detalles.querySelector('summary')?.focus();
 }

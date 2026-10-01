@@ -132,3 +132,76 @@ describe('elegir una tonalidad', () => {
     expect(onPick).toHaveBeenNthCalledWith(2, pitchClassFromName('A'), 'minor');
   });
 });
+
+/**
+ * El movimiento, que ya no hace GSAP sino una transición CSS
+ * ([adr/0057](../../../docs/adr/0057-la-rueda-gira-sin-gsap.md)). Lo que se defiende
+ * es lo que se ve quieto: dónde acaba la rueda y de qué tamaño queda la letra.
+ */
+describe('el giro y la letra', () => {
+  /** El grupo que gira: el primero que lleva un `rotate` sin contragiro. */
+  function anillo(contenedor: HTMLElement): SVGGElement {
+    return contenedor.querySelector<SVGGElement>('g[style*="rotate"]:not([data-contragiro])')!;
+  }
+
+  it('gira por el camino corto, y acumula en vez de volver a cero', () => {
+    const F = pitchClassFromName('F');
+    const { container, rerender } = render(<WheelOfFifths tonic={F} mode="major" />);
+    // Fa está una posición a la izquierda de Do: la rueda gira treinta grados.
+    expect(anillo(container).style.transform).toBe('rotate(30deg)');
+
+    rerender(<WheelOfFifths tonic={C} mode="major" />);
+    expect(anillo(container).style.transform).toBe('rotate(0deg)');
+
+    // De Do a Fa otra vez, treinta y no trescientos treinta.
+    rerender(<WheelOfFifths tonic={F} mode="major" />);
+    expect(anillo(container).style.transform).toBe('rotate(30deg)');
+  });
+
+  it('sin tonalidad se queda donde estaba', () => {
+    const G = pitchClassFromName('G');
+    const { container, rerender } = render(<WheelOfFifths tonic={G} mode="major" />);
+    const antes = anillo(container).style.transform;
+
+    rerender(<WheelOfFifths tonic={null} mode={null} />);
+
+    expect(anillo(container).style.transform).toBe(antes);
+  });
+
+  it('las letras deshacen el giro, cada una sobre su centro', () => {
+    const { container } = render(<WheelOfFifths tonic={pitchClassFromName('G')} mode="major" />);
+    const etiqueta = container.querySelector<SVGGElement>('[data-contragiro]')!;
+
+    expect(etiqueta.style.transform).toBe('rotate(30deg)');
+    expect(etiqueta.style.transformOrigin).toBe('130px 26px');
+  });
+
+  /**
+   * El anillo pequeño es el grande encogido: con la misma letra salía a diez
+   * píxeles. Se le da más cuerpo, y se turna con el modo.
+   */
+  it('el anillo de dentro lleva letra mas grande, y cambia con el modo', () => {
+    const { rerender } = render(<WheelOfFifths tonic={C} mode="major" onPick={vi.fn()} />);
+    expect(screen.getByTitle('C mayor').style.fontSize).toBe('14px');
+    expect(screen.getByTitle('A menor').style.fontSize).toBe('18px');
+
+    rerender(<WheelOfFifths tonic={pitchClassFromName('A')} mode="minor" onPick={vi.fn()} />);
+    expect(screen.getByTitle('C mayor').style.fontSize).toBe('18px');
+    expect(screen.getByTitle('A menor').style.fontSize).toBe('14px');
+  });
+
+  it('en la portada tambien', () => {
+    render(<WheelOfFifths tonic={null} mode={null} />);
+
+    expect(screen.getByText('C').style.fontSize).toBe('14px');
+    expect(screen.getByText('Am').style.fontSize).toBe('18px');
+  });
+
+  // La transición es la que obedece a `prefers-reduced-motion` desde
+  // `globals.css`; sin ella la rueda saltaría siempre.
+  it('se mueve con una transicion, no a saltos', () => {
+    const { container } = render(<WheelOfFifths tonic={C} mode="major" />);
+
+    expect(anillo(container).style.transition).toMatch(/transform 650ms/);
+  });
+});

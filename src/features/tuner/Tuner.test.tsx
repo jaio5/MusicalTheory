@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -182,6 +182,31 @@ describe('Afinador', () => {
     expect(await screen.findByText(/no llega limpia/i)).toBeInTheDocument();
   });
 
+  /**
+   * **El hueco del aviso no se monta ni se desmonta.** Lo hacía cada vez que la
+   * señal se ensuciaba o se iba, y todo lo de debajo saltaba: era la mitad del
+   * CLS de afinar. Tiene que ser el mismo nodo, con texto o sin él.
+   */
+  it('el aviso vive siempre en el mismo sitio, haya aviso o no', async () => {
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    act(() => engine.emitLevel(0.2));
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
+    await screen.findByText('A');
+    const hueco = container.querySelector('p.min-h-10.md\\:min-h-5');
+    await waitFor(() => expect(hueco).toBeEmptyDOMElement());
+
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.91, rms: 0.2, at: 0 }));
+    await waitFor(() => expect(hueco).toHaveTextContent(/no llega limpia/i));
+
+    act(() => engine.emit(null));
+    await waitFor(() => expect(hueco).toHaveTextContent(/sin señal/i));
+    expect(hueco?.isConnected).toBe(true);
+  });
+
   it('mantiene la nota en pantalla cuando deja de sonar, apagada', async () => {
     renderTuner();
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
@@ -233,8 +258,11 @@ describe('medidor de nivel', () => {
 
     const meter = await screen.findByRole('meter', { name: /nivel de la señal/i });
     expect(meter).toBeInTheDocument();
-    expect(Number(meter.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
-    expect(screen.getByText(/señal de sobra/i)).toBeInTheDocument();
+    // El número va por detrás de la barra, a cuatro refrescos por segundo.
+    await waitFor(() => expect(Number(meter.getAttribute('aria-valuenow'))).toBeGreaterThan(0));
+    // Y ya no escribe su propia frase: el único aviso de nivel es el de la espera.
+    expect(screen.queryByText(/señal de sobra/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/te oigo/i)).toBeInTheDocument();
   });
 
   it('avisa cuando llega poca señal, que es lo que no se podía saber antes', async () => {
@@ -244,7 +272,73 @@ describe('medidor de nivel', () => {
 
     engine.emitLevel(0.0005);
 
-    expect(await screen.findByText(/llega poca señal/i)).toBeInTheDocument();
+    expect(await screen.findByText(/sube el volumen/i)).toBeInTheDocument();
+    expect(screen.queryByText(/llega poca señal/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * **Un solo aviso a la vez, por prioridad.** Con una nota limpia delante salían
+   * «llega poca señal» y «no llega limpia» juntos, y cada uno cambiaba por su
+   * cuenta: sin señal manda sobre suciedad, y suciedad sobre poca señal.
+   */
+  it('con nota en pantalla dice una sola cosa, la que más importa', async () => {
+    const engine = new FakeEngine();
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    const hueco = () => container.querySelector('p.min-h-10.md\\:min-h-5');
+
+    // Poca señal, con la nota limpia.
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
+    await waitFor(() => expect(hueco()).toHaveTextContent(/llega poca señal/i));
+
+    // Suciedad y poca señal a la vez: manda la suciedad.
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.9, rms: 0.2, at: 0 }));
+    await waitFor(() => expect(hueco()).toHaveTextContent(/no llega limpia/i));
+    expect(hueco()).not.toHaveTextContent(/poca señal/i);
+
+    // Y sin señal manda sobre las dos.
+    act(() => engine.emit(null));
+    await waitFor(() => expect(hueco()).toHaveTextContent(/sin señal/i));
+    expect(hueco()).not.toHaveTextContent(/no llega limpia/i);
+  });
+
+  // Entre los dos umbrales no cambia nada: 0,94 ni ensucia ni limpia.
+  it('una claridad entre los dos umbrales no ensucia una señal limpia', async () => {
+    const engine = new FakeEngine();
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    act(() => engine.emitLevel(0.2));
+
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.94, rms: 0.2, at: 0 }));
+    await screen.findByText('A');
+    await waitFor(() =>
+      expect(container.querySelector('p.min-h-10.md\\:min-h-5')).toBeEmptyDOMElement(),
+    );
+    expect(screen.queryByText(/no llega limpia/i)).not.toBeInTheDocument();
+  });
+
+  // La zona de la nota está reservada desde el «esperando», invisible y fuera del
+  // árbol de accesibilidad: la tarjeta no crece al enganchar la primera nota.
+  it('reserva la zona de la nota desde el esperando, sin enseñarla ni leerla', async () => {
+    const engine = new FakeEngine();
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    const reserva = container.querySelector('.invisible');
+    expect(reserva).toHaveAttribute('aria-hidden', 'true');
+    expect(reserva).toHaveAttribute('inert');
+    // Y hay un solo medidor para quien lo lee.
+    expect(screen.getAllByRole('meter')).toHaveLength(1);
+
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
+    await screen.findByText('A');
+    expect(container.querySelector('.invisible')).toBeNull();
   });
 
   /**
@@ -347,8 +441,10 @@ describe('selector de entrada', () => {
     render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
-    const selector = await screen.findByLabelText(/entrada/i);
+    const selector = await screen.findByLabelText(/micrófono/i);
     expect(selector).toBeInTheDocument();
+    // Con el rótulo a la vista: «La del sistema» solo no dice de qué es la lista.
+    expect(screen.getByText('Micrófono')).not.toHaveClass('sr-only');
     expect(screen.getByRole('option', { name: 'Focusrite Scarlett' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Cámara' })).not.toBeInTheDocument();
   });
@@ -386,9 +482,9 @@ describe('selector de entrada', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-    await userEvent.selectOptions(await screen.findByLabelText(/entrada/i), 'scarlett');
+    await userEvent.selectOptions(await screen.findByLabelText(/micrófono/i), 'scarlett');
     await userEvent.selectOptions(
-      await screen.findByLabelText(/entrada/i),
+      await screen.findByLabelText(/micrófono/i),
       screen.getByRole('option', { name: 'La del sistema' }),
     );
 
@@ -408,7 +504,7 @@ describe('selector de entrada', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-    await userEvent.selectOptions(await screen.findByLabelText(/entrada/i), 'scarlett');
+    await userEvent.selectOptions(await screen.findByLabelText(/micrófono/i), 'scarlett');
 
     expect(opened).toEqual([undefined, 'scarlett']);
   });

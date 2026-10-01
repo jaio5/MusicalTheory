@@ -115,7 +115,7 @@ directamente a `core/`.
 ### `features/`
 
 Un directorio por bloque: `tuner`, `wheel`, `fretboard`, `path`, `suggest`,
-`learn`, `compose`, `ideas`, `recorder`, `sessions`, `account` —entrar, tarjetas de
+`learn`, `compose`, `recorder`, `sessions`, `account` —entrar, tarjetas de
 plan, ventana de pago— y `workspace` —el botón del micro y los ajustes—. Cada uno tiene sus componentes y su lógica de
 presentación, y ninguno conoce a los demás.
 

@@ -3,7 +3,8 @@
 /*
  * La paleta, en dos temas.
  *
- * **Claro de base y oscuro como opción**, y por eso los colores no viven aquí
+ * **Oscuro de base y claro como opción** —sin preferencia guardada no hay
+ * `data-tema` y vale el bloque de `:root`, el oscuro—, y por eso los colores no viven aquí
  * dentro: `@theme inline` solo dice qué utilidad usa qué variable, y las
  * variables se declaran abajo, una vez por tema. Con los valores metidos en
  * `@theme` no habría forma de cambiarlos en caliente, que es justo lo que pide un
@@ -21,6 +22,10 @@
   --color-surface: var(--superficie);
   --color-surface-raised: var(--superficie-alta);
   --color-border: var(--borde);
+  /* El borde de un campo, que tiene que verse (3:1) y no solo separar. */
+  --color-border-strong: var(--borde-fuerte);
+  /* Donde se escribe. No es un color más: en cada tema es uno de los de arriba. */
+  --color-field: var(--campo);
 
   --color-text: var(--texto);
   --color-text-muted: var(--texto-suave);
@@ -79,7 +84,11 @@
   --fondo: #f1f4f8;
   --superficie: #f8fafc;
   --superficie-alta: #ffffff;
+  /* El campo de escribir, blanco: el fondo de página es hielo, y un campo de ese
+     gris sobre una tarjeta blanca se leía como desactivado. */
+  --campo: var(--superficie-alta);
   --borde: #dce3ea;
+  --borde-fuerte: #7a8591;
 
   --texto: #141a20;
   --texto-suave: #5a646e;
@@ -137,7 +146,10 @@
   --fondo: #0b0d11;
   --superficie: #131720;
   --superficie-alta: #1c222d;
+  /* En oscuro, más hondo que la tarjeta: un hueco donde escribir. */
+  --campo: var(--fondo);
   --borde: #2a313d;
+  --borde-fuerte: #6b7686;
 
   --texto: #f0f3f8;
   --texto-suave: #98a3b3;
@@ -364,23 +376,6 @@
     }
   }
 
-  /*
-   * La variante para una tira que **no cabe nunca**.
-   *
-   * La de abajo de componer mide 657 y ninguna pantalla de móvil llega, medido de
-   * 320 a 640. Ahí el degradado del fondo de arriba no sirve: sus pastillas son
-   * opacas y lo tapan, así que se difumina **el contenido**, que sí se ve.
-   *
-   * Y por eso es una clase aparte y no la de arriba: esta miente si la tira
-   * llegara a caber —seguiría difuminando el último—, y se puede poner solo donde
-   * está comprobado que no cabe.
-   */
-  @media (width < 40rem) {
-    .no-cabe-nunca {
-      mask-image: linear-gradient(to right, black calc(100% - 30px), transparent);
-    }
-  }
-
   /* Y el de la unidad que toca ahora, que además brilla un poco. */
   .halo-aquí {
     box-shadow:
@@ -515,6 +510,51 @@
     }
     50% {
       transform: scaleY(1);
+    }
+  }
+
+  /*
+   * La entrada de lo que se despliega: aparece y baja cuatro píxeles, en 160 ms.
+   * Lo justo para que se vea de dónde viene; por encima de 180 ms se nota lento
+   * al abrir y cerrar a menudo. Se pide con `motion-safe:` y además la regla de
+   * `prefers-reduced-motion` de abajo la deja en 0,01 ms: dos cerrojos.
+   */
+  @keyframes desplegar {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-desplegar {
+    animation: desplegar 160ms ease-out both;
+  }
+
+  /*
+   * Lo mismo para un `<details>` que empuja (`ui/Disclosure` sin `flotante`).
+   * Un `<details>` cierra por `display`, que no se anima; `::details-content` sí
+   * deja hacerlo con `content-visibility` discreto. Solo donde el navegador
+   * conoce el pseudoelemento y solo si se acepta movimiento: en el resto se abre
+   * de golpe, que es como estaba. Los flotantes no entran, que ya animan su panel.
+   */
+  @supports selector(::details-content) {
+    @media (prefers-reduced-motion: no-preference) {
+      details.desplegable::details-content {
+        opacity: 0;
+        transform: translateY(-4px);
+        transition:
+          opacity 160ms ease-out,
+          transform 160ms ease-out,
+          content-visibility 160ms allow-discrete;
+      }
+      details.desplegable[open]::details-content {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   }
 

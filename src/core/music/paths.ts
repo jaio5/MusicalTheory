@@ -116,7 +116,7 @@ export function pathById(id: unknown): Path | null {
  *
  * El mismo tope que tiene lo que se manda, y no es casualidad: así el peor caso
  * de la respuesta no crece respecto a lo que ya presupuestaba `core/billing`, y
- * los cupos del plan Pro siguen valiendo. Una salida que doblara el largo
+ * los cupos de Medio y Pro siguen valiendo. Una salida que doblara el largo
  * doblaría la factura.
  */
 export const MAX_PATH_STEPS = 32;
@@ -337,7 +337,7 @@ export interface ProposedSection {
  *
  * Cuatro. El dominio permite doce en una canción guardada (`song.ts`), pero esto
  * es otra cosa: son partes que hay que leer de un vistazo con la guitarra puesta,
- * y son tokens de salida —de los que salen los cupos del plan Pro—. Con cuatro
+ * y son tokens de salida —de los que salen los cupos de Medio y Pro—. Con cuatro
  * caben entrada, tu parte, un contraste y un cierre, que es una canción entera.
  */
 export const MAX_PATH_SECTIONS = 4;
@@ -368,8 +368,7 @@ const WITH_SECTIONS: readonly PathId[] = ['seguir', 'contraste'];
  * camino libre, cero salidas válidas de cuatro peticiones; eligiendo antes y
  * exigiendo las dos partes, tres de tres.
  *
- * Es además lo mismo que ya hacen las ideas con sus tres pestañas, y cuesta lo
- * mismo: una llamada.
+ * Y cuesta lo mismo que sin elegir: una llamada.
  */
 export type PathKind = 'continuar' | 'retocar';
 
@@ -508,7 +507,8 @@ const PREPARA_MEJOR: readonly HarmonicRole[] = ['dominant', 'subdominant', 'appr
  * Vive aquí, en el dominio, porque la necesitan dos sitios: el prompt, para
  * **enumerárselas al modelo** en vez de pedirle un cierre en prosa, y
  * `server/fake-model.ts`, para construir el suyo. Enumerar lo que el validador va
- * a comprobar es el truco que llevó las ideas de 0 de 4 a 4 de 4.
+ * a comprobar es el truco que llevó la función de ideas, ya retirada, de 0 de 4
+ * a 4 de 4.
  */
 export function cadenciasParaCerrar(mode: KeyMode, desde: DegreeSymbol): readonly DegreeSymbol[][] {
   const tonica = tonicOf(mode);
@@ -560,8 +560,9 @@ export function cadenciasText(mode: KeyMode, desde: DegreeSymbol): string {
  * Se genera desde `nextDegrees` y no se escribe a mano, por lo mismo que el
  * catálogo de movimientos: si el prompt ofreciera un salto que el validador no
  * conoce, todas las salidas que lo usaran caerían sin que nadie entendiera por
- * qué. Enseñárselo es además lo que hace la diferencia —con las ideas, pasar de
- * pedir los grados en prosa a dárselos enumerados fue de 0 de 4 a 4 de 4—.
+ * qué. Enseñárselo es además lo que hace la diferencia —con la función de ideas,
+ * ya retirada, pasar de pedir los grados en prosa a dárselos enumerados fue de 0
+ * de 4 a 4 de 4—.
  */
 export function graphText(mode: KeyMode, grados: readonly DegreeSymbol[]): string {
   return grados

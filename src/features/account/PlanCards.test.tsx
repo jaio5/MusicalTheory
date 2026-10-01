@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { monthlyAiRequests, PAID_PLANS, PLANS, priceLabel, type Account } from '@core/billing';
 import { AccountProvider } from '@state/account';
 
-import { PlanCards } from './PlanCards';
+import { ETIQUETAS, PlanCards } from './PlanCards';
 
 function pintar(account: Account) {
   render(
@@ -61,21 +61,29 @@ describe('Las tarjetas de los planes', () => {
     pintar(ANONIMO);
 
     for (const plan of PAID_PLANS) {
-      const card = within(tarjeta(plan.name));
-      expect(card.getAllByText(priceLabel(plan.id)).length).toBeGreaterThan(0);
-      expect(
-        card.getByText(`${monthlyAiRequests(plan.id, ANONIMO.aiModel)} peticiones a la IA al mes`),
-      ).toBeInTheDocument();
+      const texto = tarjeta(plan.name).textContent ?? '';
+      expect(texto).toContain(priceLabel(plan.id));
+      expect(texto).toContain(
+        `${monthlyAiRequests(plan.id, ANONIMO.aiModel)} preguntas al profesor al mes`,
+      );
     }
+  });
+
+  // El cupo se cuenta en preguntas y una salida gasta varias: lo dice donde hay
+  // salidas, y solo ahí (adr/0067).
+  it('donde hay salidas dice cuántas preguntas gasta una', () => {
+    pintar(ANONIMO);
+
+    expect(tarjeta('Básico').textContent).not.toContain('una salida gasta');
+    expect(tarjeta('Medio').textContent).toContain('una salida gasta 3');
+    expect(tarjeta('Pro').textContent).toContain('una salida gasta 3');
   });
 
   it('un modelo más barato enseña un cupo más grande', () => {
     pintar({ ...ANONIMO, aiModel: 'claude-haiku-4-5' });
 
     const conHaiku = monthlyAiRequests('basico', 'claude-haiku-4-5');
-    expect(
-      within(tarjeta('Básico')).getByText(`${conHaiku} peticiones a la IA al mes`),
-    ).toBeInTheDocument();
+    expect(tarjeta('Básico').textContent).toContain(`${conHaiku} preguntas al profesor al mes`);
     expect(conHaiku).toBeGreaterThan(monthlyAiRequests('basico', 'claude-opus-5'));
   });
 
@@ -84,14 +92,65 @@ describe('Las tarjetas de los planes', () => {
    * escrita a mano: una tabla de precios que miente es peor que no tenerla, y la
    * forma de que mienta es escribirla dos veces.
    */
-  it('tacha lo que un plan no incluye', () => {
+  /**
+   * La misma lista, en el mismo orden, en las tres: cada plan ponía lo suyo
+   * delante y la misma prestación caía en filas distintas, así que no se podían
+   * comparar.
+   */
+  it('las tres tarjetas llevan las mismas filas en el mismo orden', () => {
     pintar(ANONIMO);
 
-    const enBasico = within(tarjeta('Básico')).getByText('Ideas de progresión de la IA');
-    const enMedio = within(tarjeta('Medio')).getByText('Ideas de progresión de la IA');
+    const filas = (nombre: string) =>
+      within(tarjeta(nombre))
+        .getAllByRole('listitem')
+        .slice(0, ETIQUETAS.length)
+        .map((fila) => fila.textContent?.replace(/^[✓—]|nuevo$|Incluye: |No incluye: /g, ''));
 
-    expect(enBasico.closest('li')).toHaveClass('line-through');
-    expect(enMedio.closest('li')).not.toHaveClass('line-through');
+    expect(filas('Básico')).toEqual(ETIQUETAS.map(({ label }) => label));
+    expect(filas('Medio')).toEqual(filas('Básico'));
+    expect(filas('Pro')).toEqual(filas('Básico'));
+  });
+
+  // El lector de pantalla no oye una raya ni un tachado: lo que no entra se dice.
+  it('lo que no entra se dice con palabras, y lo que sí también', () => {
+    pintar(ANONIMO);
+
+    const basico = within(tarjeta('Básico'));
+    expect(basico.getByText('Salidas de lo que tocas').closest('li')).toHaveTextContent(
+      /^—No incluye: Salidas/,
+    );
+    expect(basico.getByText('Preguntar al profesor').closest('li')).toHaveTextContent(
+      /^✓Incluye: Preguntar/,
+    );
+  });
+
+  // «nuevo» es lo que añade respecto al plan de debajo, no lo que tiene.
+  it('marca como nuevo lo que cada plan añade al de debajo, y solo si lo tiene', () => {
+    pintar(ANONIMO);
+
+    const nuevos = (nombre: string) =>
+      within(tarjeta(nombre))
+        .queryAllByText('nuevo')
+        .map((marca) => marca.closest('li')?.textContent ?? '');
+
+    expect(nuevos('Básico').length).toBeGreaterThan(0);
+    // Medio añade las salidas y Pro el profesor que sabe por dónde vas (adr/0066).
+    expect(nuevos('Medio')).toEqual(['✓Incluye: Salidas de lo que tocasnuevo']);
+    expect(nuevos('Pro')).toEqual(['✓Incluye: Un profesor que sabe por dónde vasnuevo']);
+    for (const nombre of ['Básico', 'Medio', 'Pro']) {
+      for (const fila of nuevos(nombre)) {
+        expect(fila).toMatch(/^✓/);
+      }
+    }
+  });
+
+  // La mono es para la cifra, no para la frase (adr/0024).
+  it('la monoespaciada es solo para las cifras', () => {
+    pintar(ANONIMO);
+
+    for (const cifra of tarjeta('Medio').querySelectorAll('.font-mono')) {
+      expect(cifra.textContent).toMatch(/^[\d,]+( €)?$/);
+    }
   });
 
   it('cada tarjeta lleva a su ventana de pago, y no cobra desde aquí', () => {
@@ -134,28 +193,6 @@ describe('Las tarjetas de los planes', () => {
   });
 
   /**
-   * **Lo primero que se lee es lo que las diferencia.**
-   *
-   * Las tres columnas empezaban con las mismas tres líneas —preguntar al
-   * profesor, los seis cursos, el avance guardado— y lo que las distingue caía
-   * por debajo del pliegue: medido a 1314 por 606, había que desplazarse para
-   * poder elegir.
-   */
-  it('las tres columnas se diferencian desde la primera linea', () => {
-    render(<PlanCards />);
-
-    const primeras = screen
-      .getAllByRole('article')
-      .map((tarjeta) => within(tarjeta).getAllByRole('listitem')[0]?.textContent ?? '');
-
-    // La misma capacidad en las tres, y tachada donde no entra: eso es lo que
-    // permite compararlas sin moverse.
-    expect(primeras).toHaveLength(3);
-    for (const fila of primeras) expect(fila).toContain('Ideas de progresión de la IA');
-    expect(new Set(primeras).size).toBeGreaterThan(1);
-  });
-
-  /**
    * Se recomienda uno, y **por lo que hace**: no se ha vendido ni uno, así que
    * «el más elegido» sería un dato inventado.
    */
@@ -168,6 +205,28 @@ describe('Las tarjetas de los planes', () => {
     const tarjeta = marcas[0]!.closest('article');
     expect(within(tarjeta!).getByRole('heading')).toHaveTextContent('Medio');
     expect(tarjeta!.textContent).toContain('IA que propone mientras compones');
+  });
+
+  /**
+   * Tres botones de latón iguales decían que las tres pesan lo mismo. El
+   * recomendado va encendido y lleno; los otros dos, en contorno.
+   */
+  it('el recomendado se ve: tarjeta encendida y el único botón lleno', () => {
+    pintar(ANONIMO);
+
+    expect(tarjeta('Medio')).toHaveClass('superficie-viva');
+    expect(tarjeta('Básico')).toHaveClass('superficie');
+    expect(screen.getByRole('link', { name: 'Elegir Medio' })).toHaveClass('bg-brass');
+    expect(screen.getByRole('link', { name: 'Elegir Pro' })).not.toHaveClass('bg-brass');
+    expect(screen.getByRole('link', { name: 'Elegir Pro' })).toHaveClass('border');
+  });
+
+  // Quien ya paga ya eligió: encendida va la suya, y solo la suya.
+  it('con un plan de pago, la encendida es la tuya y no la recomendada', () => {
+    pintar({ ...EN_MEDIO, plan: 'pro' });
+
+    expect(tarjeta('Pro')).toHaveClass('superficie-viva');
+    expect(tarjeta('Medio')).not.toHaveClass('superficie-viva');
   });
 
   /** Y la lista enseña lo que prometen los reclamos, que faltaban dos. */

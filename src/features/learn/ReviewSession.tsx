@@ -20,7 +20,7 @@ import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
 import { createExercise, type ExerciseStep } from './exercise';
 import { PlayNote } from './PlayNote';
 import { Question } from './Question';
-import { Tutor } from './Tutor';
+import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
 
 /**
  * El repaso: lo que fallaste, otra vez.
@@ -148,7 +148,7 @@ export function ReviewSession({
   }
 
   return (
-    <div className="min-h-0 grow overflow-y-auto p-4">
+    <div className={`min-h-0 grow overflow-y-auto p-4 ${HUECO_DEL_TUTOR}`}>
       <div className="flex items-baseline justify-between gap-4">
         <div>
           <h2 className="text-text text-lg">Repaso</h2>

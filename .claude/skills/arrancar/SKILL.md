@@ -46,7 +46,7 @@ IPs del host, comprobado una por una. Por eso el `.env` de aquí lleva
 Desktop cerrado `pnpm docker:up` se niega antes de intentarlo. El remedio es
 encender Docker Desktop, no tocar el script.
 
-**Sin cuenta no hay**: profesor, ideas, salidas, guardar canciones ni registro.
+**Sin cuenta no hay**: profesor, salidas, guardar canciones ni registro.
 Todo eso contesta 401 y lo explica en pantalla, que es el comportamiento correcto.
 
 ## Conducir

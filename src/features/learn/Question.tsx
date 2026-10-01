@@ -101,7 +101,19 @@ export function Question({
 
       <legend className="text-text mt-3 text-lg leading-snug font-medium">{exercise.prompt}</legend>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      {/* **Rejilla de ancho igual, y el hueco de la marca reservado.**
+
+          Eran pastillas en fila que envolvían, y al corregir entraba un icono
+          dentro de dos de ellas: cada una cambiaba de ancho (una «G» pasaba de 53
+          a 79 px), la fila se recolocaba y lo que se iba a pulsar saltaba de sitio
+          justo cuando se acababa de pulsar. En un teléfono eran además cuatro
+          botones de 50 a 66 px, uno por respuesta y todos distintos.
+
+          Dos por fila en estrecho y las que haya en una a partir de `sm`, con un
+          ancho mínimo cómodo para el dedo. La marca ocupa su sitio desde el
+          principio, invisible hasta que hay algo que corregir: el texto no se
+          mueve ni un píxel al contestar. */}
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(7rem,1fr))]">
         {exercise.choices.map((choice) => {
           const picked = chosen === choice.text;
           return (
@@ -111,13 +123,18 @@ export function Question({
               pressed={picked}
               disabled={answered}
               tone={answered && choice.correct ? 'acierto' : picked ? 'fallo' : 'quiet'}
-              className="px-5 text-base"
+              className="w-full px-3 text-base"
             >
               {/* La marca solo en las dos que dicen algo: la acertada y la que
-                  se eligió. En las demás sería adorno, y encima movería el texto
-                  de sitio al contestar. */}
-              {answered && choice.correct && <IconoAcierto />}
-              {answered && picked && !choice.correct && <IconoFallo />}
+                  se eligió. En las demás el hueco queda vacío, que es lo que
+                  evita que el texto se mueva al contestar. */}
+              <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center">
+                {answered && choice.correct ? (
+                  <IconoAcierto />
+                ) : answered && picked ? (
+                  <IconoFallo />
+                ) : null}
+              </span>
               {choice.text}
             </Chip>
           );

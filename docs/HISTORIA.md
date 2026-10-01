@@ -62,6 +62,7 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Componer pasa a ser un banco de areas que se pliegan, con su reparto por espacio de trabajo. |
 | Se compone tocando: el micro escribe acordes y punteo, y la toma de audio se queda al lado.  |
 | Ensayar lo escrito cuenta compases, racha y cual se atraganta, sin castigar por fallar.      |
+| Se retiran las ideas, que ya no tenían ruta ni panel, y las salidas bajan de Pro a Medio.    |
 
 ## Los fallos que enseñaron algo
 

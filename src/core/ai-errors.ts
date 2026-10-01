@@ -1,18 +1,19 @@
 /**
- * Cómo dicen que no las tres rutas de IA.
+ * Cómo dicen que no las rutas de IA.
  *
- * Los siete códigos estaban declarados **tres veces, idénticos**, en los
- * contratos de ideas, profesor y versiones. Escribí el tercero copiando el
- * primero, que es exactamente cómo se separan: el día que haga falta un código
- * nuevo hay que acordarse de añadirlo en los tres, y el que se olvide se
- * descubre cuando una ruta contesta algo que su pantalla no sabe leer.
+ * Los siete códigos estuvieron declarados **tres veces, idénticos**, en los
+ * contratos de ideas —función ya retirada (adr/0066)—, profesor y versiones. El
+ * tercero se escribió copiando el primero, que es exactamente cómo se separan: el
+ * día que haga falta un código nuevo hay que acordarse de añadirlo en todos, y el
+ * que se olvide se descubre cuando una ruta contesta algo que su pantalla no sabe
+ * leer.
  *
  * **Las frases no se comparten, y no es un olvido.** Cada ruta explica lo suyo:
- * «se te han acabado las ideas de hoy» y «se te han acabado las preguntas de
+ * «se te han acabado las salidas de hoy» y «se te han acabado las preguntas de
  * hoy» son la misma situación y no la misma frase. Lo que se comparte es el
  * vocabulario; lo que se dice con él, no.
  *
- * Está en `core/` porque lo necesitan tres features y un feature no importa de
+ * Está en `core/` porque lo necesitan dos features y un feature no importa de
  * otro. Es TypeScript puro: aquí no hay HTTP ni estados.
  */
 

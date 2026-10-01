@@ -94,7 +94,10 @@ export function ResumeLast({ createStorage }: ResumeLastProps = {}) {
         onClick={() => setDescartada(true)}
         aria-label="Empezar de cero"
         title="Empezar de cero"
-        className="text-text-muted hover:text-oxblood-bright px-2 text-sm"
+        // Del alto de lo que se pulsa, como el botón de al lado: con `px-2` y la
+        // letra pequeña medía veinte píxeles de alto, y es la «×» que se da con
+        // el pulgar para quitarse esto de encima.
+        className="text-text-muted hover:text-oxblood-bright size-tap inline-flex shrink-0 cursor-pointer items-center justify-center text-lg"
       >
         ×
       </button>

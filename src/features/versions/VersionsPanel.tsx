@@ -342,8 +342,8 @@ export function VersionsPanel({
       // cambiado —un proxy que contesta otra cosa, una ruta y un cliente que se
       // han desincronizado al desplegar— dejaba la pantalla **en blanco**: el
       // panel entero se caía al leer `versions.length` de un `undefined`. Con la
-      // comprobación sale el mismo aviso que ya tiene el panel de ideas para
-      // esto, que es lo que se puede hacer al respecto.
+      // comprobación sale un aviso de respuesta ilegible, que es lo que se puede
+      // hacer al respecto.
       const llegadas = (payload as { versions?: unknown }).versions;
       if (!Array.isArray(llegadas)) {
         setError({

@@ -1,9 +1,10 @@
 /**
  * Leer lo que llega de fuera, sin creerse nada.
  *
- * Está aquí arriba y no dentro de un contrato porque lo necesitan tres —ideas,
- * profesor y versiones— y un feature no importa de otro. Estaba escrito tres
- * veces, letra por letra: la tercera copia fue la que lo hizo evidente.
+ * Está aquí arriba y no dentro de un contrato porque lo necesitan los dos
+ * —profesor y versiones— y un feature no importa de otro. Llegó a estar escrito
+ * tres veces, letra por letra, cuando aún existían las ideas: la tercera copia fue
+ * la que lo hizo evidente.
  *
  * TypeScript puro, como todo `core/`: aquí no hay `Request`, ni `fetch`, ni
  * conocimiento de HTTP. Solo la pregunta de si eso que ha llegado tiene la forma

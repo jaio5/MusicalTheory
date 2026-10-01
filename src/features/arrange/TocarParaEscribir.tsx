@@ -20,6 +20,7 @@ import { useTocarYApuntar, type TocarDeps, type Toma } from '@state/use-tocar-y-
 import { Aviso } from '@ui/Aviso';
 import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
+import { Segmentado } from '@ui/Segmentado';
 import { reloj } from '@core/reloj';
 import { IconoDescargar, IconoMicro, IconoPapelera, IconoParar, IconoSonar } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
@@ -63,8 +64,11 @@ export function TocarParaEscribir({
   const bpm = useSessionStore((state) => state.bpm);
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
   const arrangement = useArrangementStore((state) => state.arrangement);
-  const heardChord = useSessionStore((state) => state.heardChord);
-  const reading = useSessionStore((state) => state.reading);
+  // **Lo que se enseña, y no el objeto entero.** La lectura es nueva veinte
+  // veces por segundo aunque la nota no cambie, y suscribirse a ella repintaba
+  // la pantalla a ese ritmo para acabar escribiendo la misma letra.
+  const acordeOido = useSessionStore((state) => state.heardChord?.symbol ?? null);
+  const notaOida = useSessionStore((state) => state.reading?.name ?? null);
   const apuntados = useSessionStore((state) => state.captured.length);
 
   const { fase, mensaje, segundos, cuenta, empezar, parar } = useTocarYApuntar(deps);
@@ -195,6 +199,28 @@ export function TocarParaEscribir({
   const contando = fase === 'contando';
 
   /**
+   * Lo que la cuenta le dice al lector de pantalla: **dos frases, no ocho
+   * números.**
+   *
+   * La voz del lector sale por el mismo altavoz que la claqueta, y el micro ya
+   * está abierto: todo lo que diga lo oye
+   * ([adr/0053](../../../docs/adr/0053-la-claqueta-cuenta-y-se-calla.md)).
+   * Leyendo cada pulso, «siete, seis, cinco» se pisaba con los clics y el último
+   * número caía encima del compás uno, dentro de lo que se apunta. Por eso
+   * tampoco se dice «entra ahora»: sonaría justo donde empieza la toma. Lo que
+   * avisa de entrar es lo mismo que para quien ve, que la claqueta se calla.
+   *
+   * La frase se repite igual en todos los pulsos de su compás, así que React no
+   * toca el texto y el lector no vuelve a leerla.
+   */
+  const anuncioDeCuenta =
+    !contando || cuenta === null || cuenta === 0
+      ? ''
+      : cuenta > beatsPerBar
+        ? 'Faltan dos compases. Entra cuando se calle la claqueta.'
+        : 'Último compás.';
+
+  /**
    * Lo que ya hay escrito, para no tocar a ciegas.
    *
    * Aquí había un botón sobre una pantalla en negro: medido, el 97 % del área
@@ -251,24 +277,29 @@ export function TocarParaEscribir({
         {tocando ? (
           <p className="rotulo">{PAPELES_DE_TOMA[papel].name}</p>
         ) : (
-          <fieldset className="flex flex-col items-center gap-2">
-            <legend className="rotulo mb-2 text-center">Qué vas a tocar</legend>
-            <div className="flex gap-2">
-              {(Object.keys(PAPELES_DE_TOMA) as PapelDeLaToma[]).map((cual) => (
-                <Button
-                  key={cual}
-                  onClick={() => setPapel(cual)}
-                  variant={cual === papel ? 'primary' : 'quiet'}
-                  aria-pressed={cual === papel}
-                >
-                  {PAPELES_DE_TOMA[cual].name}
-                </Button>
-              ))}
-            </div>
+          <div className="flex flex-col items-center gap-2">
+            {/* El rótulo se ve y el grupo lo lleva de nombre: el lector lo oye una
+                vez, al entrar en el grupo. */}
+            <p className="rotulo mb-1 text-center" aria-hidden="true">
+              Qué vas a tocar
+            </p>
+            {/* **Un segmentado y no tres botones.** La elegida iba en latón
+                macizo, el mismo que «Tocar» justo debajo, y no se sabía cuál de
+                los dos se pulsaba para empezar: elegir un papel dice «está
+                puesto», y el latón macizo se queda para la acción. */}
+            <Segmentado
+              etiqueta="Qué vas a tocar"
+              opciones={(Object.keys(PAPELES_DE_TOMA) as PapelDeLaToma[]).map((cual) => ({
+                valor: cual,
+                texto: PAPELES_DE_TOMA[cual].name,
+              }))}
+              valor={papel}
+              onCambiar={setPapel}
+            />
             <p className="text-text-muted max-w-prose text-center text-sm">
               {PAPELES_DE_TOMA[papel].what}
             </p>
-          </fieldset>
+          </div>
         )}
 
         {/* **Contando también se para**, y con el mismo botón: pulsarlo durante la
@@ -303,14 +334,21 @@ export function TocarParaEscribir({
             alinea en columna y esto es una cifra sola
             ([adr/0024](../../../docs/adr/0024-la-interfaz-se-lee-primero.md)).
             Con cifras de ancho fijo ya no salta al bajar de 10 a 9. */}
+        {/* El número no se anuncia: lo hace la región de abajo, con menos. */}
         {contando && cuenta !== null && (
-          <p className="text-center" aria-live="polite">
+          <p className="text-center" aria-hidden="true">
             <span className="text-fluid-hero tabular-nums">{cuenta}</span>
             <span className="text-text-muted mt-1 block text-sm">
               Entra cuando se calle: se calla para que el micro no la oiga.
             </span>
           </p>
         )}
+        {/* **Montada siempre, aunque esté vacía.** Un `aria-live` que nace ya con
+            el texto dentro no se anuncia en casi ningún lector: se perdía justo
+            el primer aviso, que es el que dice cuánto falta. */}
+        <p className="sr-only" aria-live="polite">
+          {anuncioDeCuenta}
+        </p>
 
         {tocando ? (
           // Las tres señales de que te está oyendo, y ninguna más: el acorde que
@@ -321,7 +359,7 @@ export function TocarParaEscribir({
                 oye: con un punteo puesto, el acorde que el croma cree reconocer no
                 se va a escribir, y enseñarlo sería prometer algo que no pasa. */}
             <p className="font-display text-brass-bright text-4xl leading-none" aria-live="polite">
-              {papel === 'ritmica' ? (heardChord?.symbol ?? '—') : (reading?.name ?? '—')}
+              {papel === 'ritmica' ? (acordeOido ?? '—') : (notaOida ?? '—')}
             </p>
             <p className="text-text-muted font-mono text-xs">
               {papel === 'ritmica'
@@ -355,7 +393,7 @@ export function TocarParaEscribir({
           <div className="flex flex-col items-center gap-2" role="status">
             <p className="text-tube-bright text-sm">Ya está en la canción.</p>
             {onEscrito !== undefined && (
-              <Chip tone="quiet" className="px-3 text-xs" onClick={onEscrito}>
+              <Chip tone="quiet" tamano="compacto" onClick={onEscrito}>
                 Verlo en la partitura
               </Chip>
             )}
@@ -386,13 +424,13 @@ export function TocarParaEscribir({
             <span className="text-text-muted font-mono text-xs tabular-nums">
               {reloj(toma.recording.durationMs / 1000)}
             </span>
-            <Chip tone="quiet" className="px-3 text-xs" onClick={descargar}>
+            <Chip tone="quiet" tamano="compacto" onClick={descargar}>
               <IconoDescargar />
               Descargar
             </Chip>
             <Chip
               tone="quiet"
-              className="px-3 text-xs"
+              tamano="compacto"
               onClick={() => tirarLaToma(toma.url)}
               ariaLabel="Descartar la toma"
             >

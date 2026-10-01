@@ -26,6 +26,17 @@ export function isSignalClean(clarity: number): boolean {
   return clarity >= CLEAN_SIGNAL_CLARITY;
 }
 
+/**
+ * Confianza **por debajo** de la cual la señal se da por sucia, y es más baja que
+ * la que la da por limpia. Con un solo umbral, una nota que ronda el 0,95 abre y
+ * cierra el aviso a cada lectura; con dos, entre 0,93 y 0,95 se queda como esté.
+ */
+const DIRTY_SIGNAL_CLARITY = 0.93;
+
+export function isSignalDirty(clarity: number): boolean {
+  return clarity < DIRTY_SIGNAL_CLARITY;
+}
+
 export type TuningStatus = 'afinada' | 'alta' | 'baja';
 
 export function tuningStatus(cents: number, tolerance = IN_TUNE_CENTS): TuningStatus {

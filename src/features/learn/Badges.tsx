@@ -21,7 +21,10 @@ export function Badges({ progress }: { readonly progress: Progress }) {
   const ganadas = new Set(progress.badges);
 
   return (
-    <section aria-label="Medallas" className="px-3 py-3">
+    // Sin región propia: la pone la columna que la envuelve en el camino, que es
+    // la que se desplaza y necesita la parada del tabulador. Dos regiones
+    // anidadas con el mismo nombre se anunciaban dos veces.
+    <div className="px-3 py-3">
       <h2 className="rotulo">
         Medallas · {ganadas.size} de {BADGES.length}
       </h2>
@@ -41,11 +44,16 @@ export function Badges({ progress }: { readonly progress: Progress }) {
             // que es precisamente lo que hay que leer para ir a por la medalla.
             <li key={badge.id} className="flex items-baseline gap-3">
               {/* Un punto y no un icono: son diez y cada una con su dibujo sería
-                  una pared de adornos. Lleno cuando está, hueco cuando falta. */}
+                  una pared de adornos. Lleno cuando está, hueco cuando falta.
+
+                  El hueco era de ocho píxeles con el color de los bordes, que
+                  es el que está hecho para no verse: de lejos, las que faltan
+                  no tenían punto. Ahora doce y con el gris de leer, que es el
+                  que sí se ve en los dos temas. */}
               <span
                 aria-hidden
-                className={`mt-1 size-2 shrink-0 rounded-full ${
-                  tenida ? 'bg-brass-bright' : 'border-border border'
+                className={`mt-0.5 size-3 shrink-0 rounded-full ${
+                  tenida ? 'bg-brass-bright' : 'border-text-muted border-2'
                 }`}
               />
               <span className="min-w-0">
@@ -62,6 +70,6 @@ export function Badges({ progress }: { readonly progress: Progress }) {
           );
         })}
       </ul>
-    </section>
+    </div>
   );
 }

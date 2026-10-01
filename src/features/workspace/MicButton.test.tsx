@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -233,5 +234,39 @@ describe('mientras se pide el micro', () => {
     await userEvent.click(screen.getByRole('button'));
 
     expect(await screen.findByText('pidiendo permiso')).toBeInTheDocument();
+  });
+});
+
+/**
+ * **Solo repinta cuando cambia lo que escribe.** El botón está en la barra de
+ * todas las pantallas y la lectura llega nueva veinte veces por segundo: suscrito
+ * al objeto entero, se repintaba a ese ritmo para escribir la misma nota.
+ */
+describe('lo que repinta el boton', () => {
+  beforeEach(() => {
+    useSessionStore.getState().actions.reset();
+  });
+
+  it('la misma nota con el mismo cent no lo repinta', () => {
+    useSessionStore.getState().actions.setListening('listening');
+    let pintadas = 0;
+    render(
+      <Profiler id="boton" onRender={() => (pintadas += 1)}>
+        <MicButton />
+      </Profiler>,
+    );
+    const { actions } = useSessionStore.getState();
+    act(() => actions.setPitch(440.05, 0.95, 0));
+    const conLaNota = pintadas;
+    expect(screen.getByText('A4')).toBeInTheDocument();
+
+    // Dentro del mismo cent: 440,05 Hz y 440,1 Hz se escriben los dos «+0¢».
+    for (let at = 50; at <= 500; at += 50) {
+      act(() => actions.setPitch(440.1, 0.95, at));
+    }
+    expect(pintadas).toBe(conLaNota);
+
+    act(() => actions.setPitch(445, 0.95, 550));
+    expect(pintadas).toBe(conLaNota + 1);
   });
 });

@@ -52,8 +52,8 @@ describe('can', () => {
   // Cada plan de pago trae una cosa que el anterior no: un escalón que solo suba
   // el cupo no se entiende, y quien lo mira no sabría por qué pagarlo.
   it('cada escalón trae algo nuevo y no solo más cupo', () => {
-    expect(can('basico', 'ideas')).toBe(false);
-    expect(can('medio', 'ideas')).toBe(true);
+    expect(can('basico', 'versiones')).toBe(false);
+    expect(can('medio', 'versiones')).toBe(true);
 
     expect(can('medio', 'profesor-con-progreso')).toBe(false);
     expect(can('pro', 'profesor-con-progreso')).toBe(true);
@@ -75,7 +75,7 @@ describe('can', () => {
 
 describe('cheapestPlanWith', () => {
   it('propone el más barato que sirve, para que el candado diga cómo se abre', () => {
-    expect(cheapestPlanWith('ideas')?.id).toBe('medio');
+    expect(cheapestPlanWith('versiones')?.id).toBe('medio');
     expect(cheapestPlanWith('grado-profesional')?.id).toBe('basico');
     expect(cheapestPlanWith('profesor-con-progreso')?.id).toBe('pro');
     expect(cheapestPlanWith('profesor')?.id).toBe('gratis');

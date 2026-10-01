@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { PAID_PLANS, planOf, priceLabel } from '@core/billing';
 import { Checkout } from '@features/account';
 import { billing } from '@server/billing';
+import { Screen } from '@ui/Screen';
 
 import { AppShell } from '../../AppShell';
 
@@ -47,14 +48,19 @@ export default async function PlanConcreto({ params }: { params: Promise<{ plan:
 
   return (
     <AppShell>
-      <div className="h-full min-h-0 overflow-y-auto">
-        <div className="mx-auto max-w-2xl p-4 md:p-8">
-          <h1 className="text-text mb-6 text-3xl">Plan {plan.name}</h1>
-          {/* Si se cobra de verdad lo decide el cobrador que haya puesto, y se
-              pregunta aquí porque `server/` solo lo abre `app/`. */}
-          <Checkout plan={plan} charges={billing().charges} />
-        </div>
-      </div>
+      {/* El marco común y no uno propio: esta pantalla llevaba su `h1` en la sans,
+          la columna centrada y la vuelta como un enlace de doce píxeles al final,
+          y era la única de las nueve que no se parecía a las demás (adr/0060).
+          Es de `lectura`: un plan se lee y se confirma, no se compara. */}
+      <Screen
+        title={`Plan ${plan.name}`}
+        back={{ href: '/planes', label: 'Planes' }}
+        ancho="lectura"
+      >
+        {/* Si se cobra de verdad lo decide el cobrador que haya puesto, y se
+            pregunta aquí porque `server/` solo lo abre `app/`. */}
+        <Checkout plan={plan} charges={billing().charges} />
+      </Screen>
     </AppShell>
   );
 }

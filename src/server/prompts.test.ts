@@ -4,10 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import {
-  MAX_IDEAS,
   MAX_QUESTION_LENGTH,
-  MAX_RECENT_CHORDS,
-  MAX_RECENT_NOTES,
   MAX_VERSION_DEGREES,
   MAX_VERSIONS,
   TOKEN_BUDGETS,
@@ -16,9 +13,6 @@ import { MOVES } from '@core/music';
 
 import {
   ANSWER_SCHEMA,
-  ideasSchema,
-  IDEAS_SYSTEM_PROMPT,
-  type IdeasKind,
   TEACHER_SYSTEM_PROMPT,
   versionsSchema,
   VERSIONS_SYSTEM_PROMPT,
@@ -63,22 +57,10 @@ function schemaText(schema: unknown): string {
 }
 
 /**
- * El esquema de ideas más largo de los que se pueden mandar.
- *
- * Desde que depende de lo que se pida hay seis —tres clases por dos modos—, y el
- * presupuesto lo tiene que aguantar el peor, no el que salga primero. Se calcula
- * en vez de escribirse: si mañana entra una escala más en el enumerado, este
- * número sube solo y el test avisa antes que la factura.
- */
-const CLASES_DE_IDEA: readonly IdeasKind[] = ['progression', 'twist', 'scale'];
-
-const IDEAS_SCHEMA_MAS_LARGO = CLASES_DE_IDEA.flatMap((kind) =>
-  (['major', 'minor'] as const).map((mode) => schemaText(ideasSchema(kind, mode))),
-).reduce((largo, texto) => (texto.length > largo.length ? texto : largo));
-
-/**
- * El esquema de salidas más largo, por lo mismo: hay cuatro —dos modos por dos
- * clases de salida— y el presupuesto lo tiene que aguantar el peor.
+ * El esquema de salidas más largo de los que se pueden mandar: hay cuatro —dos modos por dos
+ * clases de salida— y el presupuesto lo tiene que aguantar el peor, no el que
+ * salga primero. Se calcula en vez de escribirse: si mañana entra un grado más en
+ * el enumerado, este número sube solo y el test avisa antes que la factura.
  */
 const VERSIONS_SCHEMA_MAS_LARGO = (['major', 'minor'] as const)
   .flatMap((mode) =>
@@ -105,30 +87,6 @@ describe('el presupuesto de tokens del profesor', () => {
   });
 });
 
-describe('el presupuesto de tokens de las ideas', () => {
-  it('el prompt de sistema, el esquema y el contexto más largo caben', () => {
-    // Lo peor: notas y acordes recientes hasta su tope, más los grados válidos.
-    const notas = 'Ab '.repeat(MAX_RECENT_NOTES);
-    const acordes = 'Cmaj7 '.repeat(MAX_RECENT_CHORDS);
-    const grados = 'bVII, '.repeat(20);
-    const estimado = estimatedTokens(
-      IDEAS_SYSTEM_PROMPT,
-      IDEAS_SCHEMA_MAS_LARGO,
-      notas,
-      acordes,
-      grados,
-    );
-
-    expect(estimado).toBeLessThanOrEqual(TOKEN_BUDGETS.ideas.input);
-  });
-
-  it('queda holgura', () => {
-    const estimado = estimatedTokens(IDEAS_SYSTEM_PROMPT, IDEAS_SCHEMA_MAS_LARGO);
-
-    expect(estimado).toBeLessThan(TOKEN_BUDGETS.ideas.input * 0.7);
-  });
-});
-
 describe('los topes de salida', () => {
   /**
    * El tope de salida no es una estimación: es el `max_tokens` que la ruta impone,
@@ -139,17 +97,6 @@ describe('los topes de salida', () => {
     // Tres frases largas en español son unas 90 palabras; con el JSON y el ejemplo
     // en grados, unos 200 tokens. El tope deja margen para el doble.
     expect(TOKEN_BUDGETS.profesor.output).toBeGreaterThanOrEqual(400);
-  });
-
-  it('las ideas tienen sitio para las cuatro que como mucho se piden', () => {
-    // Cada idea son un título corto, una frase y unos grados: unos 60 tokens.
-    expect(TOKEN_BUDGETS.ideas.output).toBeGreaterThanOrEqual(MAX_IDEAS * 60);
-  });
-
-  // Una idea cuesta más que una pregunta, y el reparto de topes tiene que
-  // reflejarlo o el cupo del plan con ideas saldría mal.
-  it('una tanda de ideas puede ser más larga que una respuesta del profesor', () => {
-    expect(TOKEN_BUDGETS.ideas.output).toBeGreaterThan(TOKEN_BUDGETS.profesor.output);
   });
 });
 
@@ -184,13 +131,12 @@ describe('el presupuesto de tokens de las versiones', () => {
   });
 
   it('una tanda de versiones es lo más caro que se puede pedir', () => {
-    // Si dejara de serlo, `worstFeature` estaría calculando el cupo del plan Pro
-    // con la petición equivocada y el margen saldría mal.
-    for (const feature of ['profesor', 'ideas'] as const) {
-      const versiones = TOKEN_BUDGETS.versiones;
-      const otra = TOKEN_BUDGETS[feature];
-      expect(versiones.input + versiones.output).toBeGreaterThan(otra.input + otra.output);
-    }
+    // Si dejara de serlo, `worstFeature` estaría calculando el cupo de Medio y
+    // Pro con la petición equivocada y el margen saldría
+    // mal.
+    const versiones = TOKEN_BUDGETS.versiones;
+    const profesor = TOKEN_BUDGETS.profesor;
+    expect(versiones.input + versiones.output).toBeGreaterThan(profesor.input + profesor.output);
   });
 });
 
@@ -201,18 +147,18 @@ describe('la puerta del modelo', () => {
    * el modelo, así que sin proveedor configurado alguien se quedaba sin
    * peticiones del mes por una variable de entorno que faltaba.
    *
-   * Esto lo vigilaba leyendo las tres rutas y comparando en qué línea aparecía
+   * Esto lo vigilaba leyendo las rutas y comparando en qué línea aparecía
    * cada llamada. Funcionaba, pero era un test de texto sobre tres ficheros, y
    * bastaba mover una línea al refactorizar para perderlo. **Ahora la garantía es
    * estructural**: las rutas no gastan cupo por su cuenta, y quien lo gasta
    * comprueba el proveedor primero porque es la misma función.
    *
-   * Y desde que el cuerpo de las tres rutas vive también en un solo sitio
+   * Y desde que el cuerpo de las rutas vive también en un solo sitio
    * —`ai-route.ts`—, lo que hay que comprobar es aún menos: que ninguna ruta se
    * escriba su propio cuerpo, y que el que hay pasa por la puerta.
    */
   it('ninguna ruta gasta cupo por su cuenta ni habla con el modelo a solas', () => {
-    for (const ruta of ['ideas', 'teacher', 'versiones']) {
+    for (const ruta of ['teacher', 'versiones']) {
       const codigo = readFileSync(
         fileURLToPath(new URL(`../app/api/${ruta}/route.ts`, import.meta.url)),
         'utf8',

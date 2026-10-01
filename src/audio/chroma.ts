@@ -8,7 +8,15 @@
  * sexta al aire suena con su quinta y su tercera mayor encima por física pura, y
  * un croma ingenuo ve un acorde de E mayor donde solo hay una cuerda pulsada.
  * Por eso lo que se suma no es el espectro entero, sino los picos, y cada pico
- * se descuenta si hay otro más fuerte del que podría ser armónico.
+ * se descuenta —no se borra— si otro más grave y más fuerte lo explica como
+ * armónico suyo.
+ *
+ * El descuento **no es plano**: usa un modelo de armónicos de cuerda pulsada
+ * para predecir cuánto debería medir cada armónico, y solo resta la porción
+ * "explicada". Lo que quede (el residuo) puede ser una nota real sonando.
+ * Esto evita que una nota sola se lea como su acorde mayor, porque en un acorde
+ * de verdad la tercera y la quinta son más fuertes de lo que predice el modelo
+ * de una sola cuerda.
  */
 
 const SEMITONES = 12;
@@ -34,12 +42,35 @@ const DEFAULTS = {
   rangeDb: 40,
 } as const;
 
-/** Lo que queda de un pico cuando otro más grave lo explica como armónico. */
-const HARMONIC_KEEP = 0.2;
 /** Hasta qué armónico se busca el padre de un pico. */
 const MAX_HARMONIC = 6;
 /** Margen para dar por bueno un armónico, en semitonos. */
 const HARMONIC_TOLERANCE = 0.35;
+
+/**
+ * Ratios de amplitud de armónicos para una cuerda de guitarra pulsada.
+ *
+ * Índice = número de armónico (1 = fundamental). Valores típicos medidos:
+ * - 1ª (fundamental): 1.0
+ * - 2ª (octava): 0.35  (-9 dB)
+ * - 3ª (octava+5ª): 0.20  (-14 dB)
+ * - 4ª (dos octavas): 0.12  (-18 dB)
+ * - 5ª (dos octavas+3ªM): 0.08  (-22 dB)
+ * - 6ª (dos octavas+5ª): 0.05  (-26 dB)
+ *
+ * Fuente: física de cuerda ideal + mediciones reales. Una cuerda real tiene
+ * armónicos más fuertes que una senoidal pura, pero más débiles que una sierra.
+ * Estos valores son un compromiso calibrado contra grabaciones.
+ */
+const GUITAR_HARMONIC_RATIOS: readonly number[] = [
+  0, // 0 no se usa
+  1.0, // 1: fundamental
+  0.35, // 2: octava
+  0.2, // 3: octava + quinta
+  0.12, // 4: dos octavas
+  0.08, // 5: dos octavas + tercera mayor
+  0.05, // 6: dos octavas + quinta
+];
 
 interface Peak {
   readonly frequency: number;
@@ -111,28 +142,45 @@ function findPeaks(
 }
 
 /**
- * Descuenta los picos que otro más grave y más fuerte ya explica.
+ * Descuenta los picos que otro más grave y más fuerte ya explica como armónico.
  *
- * No se borran del todo: una nota puede coincidir con el armónico de otra y
- * estar sonando de verdad —pasa en cualquier acorde—, así que se le quita peso,
- * no la palabra.
+ * Usa un modelo de armónicos de cuerda pulsada (GUITAR_HARMONIC_RATIOS) para
+ * predecir cuánto debería medir cada armónico de una fundamental dada.
+ * Solo resta la porción "explicada" por el modelo; el residuo (lo observado
+ * menos lo predicho) se conserva porque puede ser una nota real.
+ *
+ * Esto evita que una nota sola se lea como su acorde mayor: en un acorde de
+ * verdad, la tercera y la quinta son más fuertes de lo que predice el modelo
+ * de una sola cuerda, así que dejan residuo positivo. En una nota sola, el
+ * residuo es ~0 y el pico desaparece del croma.
  */
 function discountHarmonics(peaks: readonly Peak[]): Peak[] {
-  return peaks.map((peak, index) => {
-    for (let other = 0; other < index; other += 1) {
-      const parent = peaks[other]!;
-      if (parent.frequency >= peak.frequency) {
-        continue;
-      }
-      const ratio = peak.frequency / parent.frequency;
-      for (let harmonic = 2; harmonic <= MAX_HARMONIC; harmonic += 1) {
-        if (Math.abs(semitonesBetween(harmonic, ratio)) <= HARMONIC_TOLERANCE) {
-          return { ...peak, weight: peak.weight * HARMONIC_KEEP };
+  return peaks
+    .map((peak, index) => {
+      let explained = 0;
+
+      for (let other = 0; other < index; other += 1) {
+        const parent = peaks[other]!;
+        if (parent.frequency >= peak.frequency) {
+          continue;
+        }
+        const ratio = peak.frequency / parent.frequency;
+        for (let harmonic = 2; harmonic <= MAX_HARMONIC; harmonic += 1) {
+          if (Math.abs(semitonesBetween(harmonic, ratio)) <= HARMONIC_TOLERANCE) {
+            // Cuánto predice el modelo que debería medir este armónico
+            const predictedRatio = GUITAR_HARMONIC_RATIOS[harmonic]!;
+            const predictedWeight = parent.weight * predictedRatio;
+            // Lo que este padre explica de este pico (máximo lo observado)
+            explained = Math.max(explained, Math.min(predictedWeight, peak.weight));
+          }
         }
       }
-    }
-    return peak;
-  });
+
+      const residual = peak.weight - explained;
+      // Si el residuo es positivo, puede ser una nota real; si no, el pico se borra
+      return residual > 0 ? { ...peak, weight: residual } : { ...peak, weight: 0 };
+    })
+    .filter((peak) => peak.weight > 0);
 }
 
 /**

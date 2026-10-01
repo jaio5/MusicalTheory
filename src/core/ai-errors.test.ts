@@ -28,23 +28,19 @@ describe('los errores de la IA', () => {
   });
 });
 
-describe('las tres rutas hablan el mismo idioma', () => {
+describe('las rutas de IA hablan el mismo idioma', () => {
   /**
-   * Los siete códigos estuvieron declarados tres veces idénticos, y el tercero
-   * se escribió copiando el primero. Ahora son un alias del compartido, así que
-   * esto no puede separarse; lo que sí puede es que a una le falte una frase.
+   * Los siete códigos estuvieron declarados tres veces idénticos —cuando aún
+   * existían las ideas—, y el tercero se escribió copiando el primero. Ahora son
+   * un alias del compartido, así que esto no puede separarse; lo que sí puede
+   * es que a una le falte una frase.
    */
-  it('las tres traen una frase por código', async () => {
+  it('las dos traen una frase por código', async () => {
     const contratos = await Promise.all([
-      import('../features/ideas/contract'),
       import('../features/versions/contract'),
       import('../features/learn/teacher-contract'),
     ]);
-    const mensajes = [
-      contratos[0].ERROR_MESSAGES,
-      contratos[1].ERROR_MESSAGES,
-      contratos[2].TEACHER_ERROR_MESSAGES,
-    ];
+    const mensajes = [contratos[0].ERROR_MESSAGES, contratos[1].TEACHER_ERROR_MESSAGES];
 
     for (const tabla of mensajes) {
       expect(Object.keys(tabla).sort()).toEqual([...AI_ERROR_CODES].sort());
@@ -54,22 +50,20 @@ describe('las tres rutas hablan el mismo idioma', () => {
     }
   });
 
-  it('cada una explica lo suyo, y no las tres la misma frase', async () => {
-    // El vocabulario se comparte; lo que se dice con él, no. Si las tres tablas
+  it('cada una explica lo suyo, y no las dos la misma frase', async () => {
+    // El vocabulario se comparte; lo que se dice con él, no. Si las tablas
     // acabaran siendo la misma, compartirlas sería lo correcto y este fichero
     // estaría a medias.
     const contratos = await Promise.all([
-      import('../features/ideas/contract'),
       import('../features/versions/contract'),
       import('../features/learn/teacher-contract'),
     ]);
 
     const suyas = [
       contratos[0].ERROR_MESSAGES.plan_required,
-      contratos[1].ERROR_MESSAGES.plan_required,
-      contratos[2].TEACHER_ERROR_MESSAGES.plan_required,
+      contratos[1].TEACHER_ERROR_MESSAGES.plan_required,
     ];
 
-    expect(new Set(suyas).size).toBe(3);
+    expect(new Set(suyas).size).toBe(2);
   });
 });

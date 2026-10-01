@@ -19,6 +19,7 @@ import {
   MAX_MODEL_ATTEMPTS,
   requestCostMicros,
   TOKEN_BUDGETS,
+  unidadesDe,
   worstMonthlyCostMicros,
   worstMonthlyMarginMicros,
 } from './cost';
@@ -62,9 +63,9 @@ describe('el precio del modelo', () => {
 });
 
 describe('el coste de una petición', () => {
-  it('una idea cuesta más que una pregunta al profesor', () => {
+  it('una tanda de salidas cuesta más que una pregunta al profesor', () => {
     for (const model of MODELOS) {
-      expect(requestCostMicros('ideas', model)).toBeGreaterThan(
+      expect(requestCostMicros('versiones', model)).toBeGreaterThan(
         requestCostMicros('profesor', model),
       );
     }
@@ -79,8 +80,8 @@ describe('el coste de una petición', () => {
   });
 
   it('el mismo trabajo con Haiku cuesta bastante menos', () => {
-    const opus = requestCostMicros('ideas', 'claude-opus-5');
-    const haiku = requestCostMicros('ideas', 'claude-haiku-4-5');
+    const opus = requestCostMicros('versiones', 'claude-opus-5');
+    const haiku = requestCostMicros('versiones', 'claude-haiku-4-5');
     expect(haiku * 4).toBeLessThan(opus);
   });
 });
@@ -194,26 +195,55 @@ describe('los cupos', () => {
   });
 
   /**
-   * El cupo es uno y compartido, así que quien tiene ideas puede gastárselo entero
-   * en ideas: su cupo tiene que calcularse con la petición más cara que puede
-   * hacer, no con la más barata.
+   * El cupo se cuenta en preguntas al profesor, en todos los planes (adr/0067).
+   * Dividir entre la petición más cara dejó a Medio con menos que Básico en
+   * cuanto las salidas bajaron a Medio; lo caro se paga gastando más de una.
    */
-  it('un plan con ideas se calcula contra el coste de una idea', () => {
-    const medio = planOf('medio');
-    const esperado = Math.floor(
-      monthlyBudgetMicros(medio.id) / requestCostMicros('ideas', 'claude-opus-5'),
-    );
+  it.each(['basico', 'medio', 'pro'] as const)(
+    'el plan %s se calcula contra el coste de una pregunta',
+    (id) => {
+      const esperado = Math.floor(
+        monthlyBudgetMicros(id) / requestCostMicros('profesor', 'claude-opus-5'),
+      );
 
-    expect(monthlyAiRequests('medio', 'claude-opus-5')).toBe(esperado);
+      expect(monthlyAiRequests(id, 'claude-opus-5')).toBe(esperado);
+    },
+  );
+});
+
+describe('lo caro gasta más de una pregunta', () => {
+  it('una pregunta gasta una', () => {
+    for (const model of MODELOS) {
+      expect(unidadesDe('profesor', model)).toBe(1);
+    }
   });
 
-  it('un plan sin ideas se calcula contra el coste de una pregunta', () => {
-    const basico = planOf('basico');
-    const esperado = Math.floor(
-      monthlyBudgetMicros(basico.id) / requestCostMicros('profesor', 'claude-opus-5'),
-    );
+  it('una tanda de salidas gasta lo que cuesta, redondeado hacia arriba', () => {
+    for (const model of MODELOS) {
+      const k = unidadesDe('versiones', model);
+      const proporcion =
+        requestCostMicros('versiones', model) / requestCostMicros('profesor', model);
 
-    expect(monthlyAiRequests('basico', 'claude-opus-5')).toBe(esperado);
+      expect(k, model).toBe(Math.ceil(proporcion));
+      expect(k, model).toBeGreaterThanOrEqual(proporcion);
+    }
+    // Con los precios de hoy, tres con cualquier modelo de la tabla.
+    expect(unidadesDe('versiones', 'claude-opus-5')).toBe(3);
+  });
+
+  /**
+   * Lo que el redondeo hacia arriba tiene que garantizar: quien se gaste el cupo
+   * entero en salidas no pasa del presupuesto del plan.
+   */
+  it('con el cupo entero gastado en salidas, el gasto no pasa del presupuesto', () => {
+    for (const model of [...MODELOS, 'claude-vete-a-saber']) {
+      for (const id of ['medio', 'pro'] as const) {
+        const tandas = Math.floor(monthlyAiRequests(id, model) / unidadesDe('versiones', model));
+        const gasto = tandas * requestCostMicros('versiones', model);
+
+        expect(gasto, `${id} con ${model}`).toBeLessThanOrEqual(monthlyBudgetMicros(id));
+      }
+    }
   });
 });
 
@@ -242,7 +272,7 @@ describe('lo que cuesta el plan gratis, multiplicado', () => {
 
 describe('el reintento también se paga', () => {
   /**
-   * Las tres rutas reintentan una vez cuando lo que vuelve no pasa la
+   * Las dos rutas reintentan una vez cuando lo que vuelve no pasa la
    * validación, y el cupo se gasta una sola vez. Estuvo sin contar: el 60 % de
    * margen que promete `MODEL_SPEND_SHARE` se quedaba en la mitad en el peor
    * caso, que es el mismo fallo de no multiplicar que este fichero vino a
@@ -260,8 +290,8 @@ describe('el reintento también se paga', () => {
    * Si se reintentara más veces que esto, el cupo estaría calculado con un peor
    * caso que no es el peor caso.
    *
-   * Esto miraba las tres rutas, una a una, porque el bucle estaba copiado tres
-   * veces. Ahora hay uno solo —`server/ai-route.ts`— y las rutas no pueden
+   * Esto miraba las rutas una a una, porque el bucle estaba copiado en cada
+   * una. Ahora hay uno solo —`server/ai-route.ts`— y las rutas no pueden
    * separarse de él ni aunque quieran: la garantía dejó de ser que tres ficheros
    * digan lo mismo y pasó a ser que solo haya un sitio donde decirlo.
    */
@@ -272,7 +302,7 @@ describe('el reintento también se paga', () => {
     );
     expect(comun, 'el cuerpo común no usa la constante').toContain('intento < MAX_MODEL_ATTEMPTS');
 
-    for (const ruta of ['ideas', 'teacher', 'versiones']) {
+    for (const ruta of ['teacher', 'versiones']) {
       const codigo = readFileSync(
         fileURLToPath(new URL(`../../app/api/${ruta}/route.ts`, import.meta.url)),
         'utf8',

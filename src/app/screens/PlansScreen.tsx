@@ -33,7 +33,7 @@ export function PlansScreen() {
           tu navegador, así que servirlos no nos cuesta nada.
         </p>
         <p className="text-text-muted mt-2 max-w-prose">
-          Lo que cuesta dinero es la IA —cada pregunta al profesor y cada tanda de ideas es una
+          Lo que cuesta dinero es la IA —cada pregunta al profesor y cada tanda de salidas es una
           llamada a un modelo que se paga— y el temario del Grado Profesional. De eso van estos tres
           planes.
         </p>
@@ -88,11 +88,13 @@ export function PlansScreen() {
             llegan símbolos: los grados de tus acordes y los nombres de las notas.
           </dd>
 
-          <dt className="text-text">¿Y si me quedo sin peticiones?</dt>
+          <dt className="text-text">¿Y si me quedo sin preguntas?</dt>
           <dd className="text-text-muted mt-1 mb-4">
-            Hay dos topes y el mensaje dice cuál se ha agotado. El del día se pasa mañana; el del
-            mes, subiendo de plan o esperando al día uno. Lo demás —el afinador, el mástil, el
-            lienzo, grabar— sigue funcionando igual, porque no cuesta nada servirlo.
+            El cupo se cuenta en preguntas al profesor, y una salida gasta varias porque cuesta más
+            servirla: cada tarjeta dice cuántas. Hay dos topes y el mensaje dice cuál se ha agotado.
+            El del día se pasa mañana; el del mes, subiendo de plan o esperando al día uno. Lo demás
+            —el afinador, el mástil, el lienzo, grabar— sigue funcionando igual, porque no cuesta
+            nada servirlo.
           </dd>
 
           <dt className="text-text">¿Hace falta pagar para probarlo?</dt>

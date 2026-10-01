@@ -26,6 +26,17 @@ export interface Paleta {
   readonly surface: string;
   readonly surfaceRaised: string;
   readonly border: string;
+  /**
+   * El borde de lo que se rellena: campos de texto y desplegables.
+   *
+   * `border` es una línea de separación y da 1,3–1,5:1 contra los fondos, que para
+   * separar dos cajas basta y para ver **dónde se escribe** no: WCAG 1.4.11 pide
+   * 3:1 a lo que hace falta ver para usar un control, y un campo vacío sobre su
+   * fondo es solo su borde. Subir `border` entero habría rayado todas las tarjetas
+   * de la aplicación; por eso es otro token, y solo lo llevan los controles. Lo
+   * vigila `tokens.test.ts`.
+   */
+  readonly borderStrong: string;
   readonly text: string;
   readonly textMuted: string;
   readonly brass: string;
@@ -74,6 +85,7 @@ export const paletaClara: Paleta = {
   surface: '#F8FAFC',
   surfaceRaised: '#FFFFFF',
   border: '#DCE3EA',
+  borderStrong: '#7A8591',
 
   text: '#141A20',
   textMuted: '#5A646E',
@@ -127,6 +139,7 @@ export const paletaOscura: Paleta = {
   surface: '#131720',
   surfaceRaised: '#1C222D',
   border: '#2A313D',
+  borderStrong: '#6B7686',
 
   text: '#F0F3F8',
   textMuted: '#98A3B3',
@@ -154,6 +167,7 @@ export const VARIABLES_CSS: Readonly<Record<keyof Paleta, string>> = {
   surface: 'superficie',
   surfaceRaised: 'superficie-alta',
   border: 'borde',
+  borderStrong: 'borde-fuerte',
   text: 'texto',
   textMuted: 'texto-suave',
   brass: 'laton',
@@ -236,8 +250,9 @@ export const radii = {
 } as const;
 
 /**
- * Duraciones de movimiento en milisegundos. GSAP las lee de aquí, y cuando el
- * sistema pide menos movimiento se sustituyen todas por 0.
+ * Duraciones de movimiento en milisegundos. Las lee la transición CSS de la
+ * rueda (`WheelOfFifths`), y cuando el sistema pide menos movimiento las apaga la
+ * regla de `prefers-reduced-motion` de `globals.css`, no quien las usa.
  */
 export const durations = {
   instant: 90,

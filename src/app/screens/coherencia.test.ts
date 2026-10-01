@@ -90,13 +90,38 @@ function clasesDeControles(codigo: string): ReadonlyArray<string> {
   return salida;
 }
 
+/** Lo mismo, solo para los `<button>` escritos a mano: un `<Link>` puede ir en una frase. */
+function clasesDeBotones(codigo: string): ReadonlyArray<string> {
+  return clasesDeControles(codigo.replace(/<Link\b/g, '<enlace-de-next'));
+}
+
+/**
+ * Las pantallas, y también las páginas que pintan la suya sin pasar por `screens/`.
+ *
+ * `/planes/[plan]` y `/olvidada` se escribían dentro de su `page.tsx`, y por eso
+ * ningún guardián las veía: la ventana de pago llevaba el `h1` en otra letra, la
+ * columna centrada y las esquinas cuadradas, y las nueve verdes. Una página cuenta
+ * como pantalla cuando monta `AppShell` y **no** delega en una de `screens/`.
+ */
 function pantallas(): ReadonlyArray<{ nombre: string; codigo: string }> {
   return FICHEROS.filter(
-    ({ ruta }) => ruta.includes('/screens/') && ruta.endsWith('Screen.tsx'),
-  ).map(({ ruta, codigo }) => ({ nombre: ruta.split('/').pop()!, codigo }));
+    ({ ruta, codigo }) =>
+      (ruta.includes('/screens/') && ruta.endsWith('Screen.tsx')) ||
+      (ruta.endsWith('/page.tsx') && codigo.includes('<AppShell') && !/\/screens\//.test(codigo)),
+  ).map(({ ruta, codigo }) => ({
+    nombre: ruta.endsWith('/page.tsx') ? ruta.replace('src/app/', '') : ruta.split('/').pop()!,
+    codigo,
+  }));
 }
 
 describe('Todas las pantallas', () => {
+  it('hay pantallas sueltas en páginas, y el guardián las ve', () => {
+    const nombres = pantallas().map(({ nombre }) => nombre);
+
+    expect(nombres).toContain('planes/[plan]/page.tsx');
+    expect(nombres).toContain('olvidada/page.tsx');
+  });
+
   it('usan el marco común, y ninguna se inventa el suyo', () => {
     for (const { nombre, codigo } of pantallas()) {
       expect(codigo, nombre).toMatch(/from '@ui\/Screen'/);
@@ -125,7 +150,10 @@ describe('Todas las pantallas', () => {
    */
   it('no se escriben su propio contenedor de página', () => {
     const marco = readFileSync(join(process.cwd(), 'src/ui/Screen.tsx'), 'utf8');
-    const relleno = /className=\{`mx-auto flex flex-col gap-8 ([^`$]+)/.exec(marco)?.[1]?.trim();
+    // El relleno va en la caja de fuera, la que se centra igual para los tres
+    // anchos (`ui/Screen`): es lo que hace que todos los títulos empiecen en el
+    // mismo borde.
+    const relleno = /className="mx-auto w-full max-w-7xl ([^"]+)"/.exec(marco)?.[1]?.trim();
 
     expect(relleno, 'no se ha podido leer el relleno de Screen.tsx').toBeTruthy();
 
@@ -156,6 +184,26 @@ describe('Los desplegables', () => {
       .map(({ ruta }) => ruta);
 
     expect(sueltos).toEqual([]);
+  });
+
+  /**
+   * Y la única excepción, con su sitio cerrado: lo que se abre **desde una fila
+   * que se desplaza** es un `popover` del navegador, porque el panel de un
+   * `Disclosure` se ancla dentro de la fila y ella misma lo recorta
+   * ([adr/0065](../../../docs/adr/0065-lo-que-se-abre-desde-una-fila-que-se-desplaza-es-un-popover.md)).
+   * Hoy esa fila es la barra compacta de componer. Un `popover` en otro sitio es
+   * un `Disclosure` que se ha saltado la regla.
+   */
+  it('el popover solo vive en la fila que se desplaza', () => {
+    const DONDE_VALE = new Set([
+      'src/app/screens/ComposeScreen.tsx',
+      'src/features/metronome/Metronome.tsx',
+    ]);
+    const fuera = FICHEROS.filter(({ codigo }) => /\bpopover=/.test(codigo))
+      .map(({ ruta }) => ruta)
+      .filter((ruta) => !DONDE_VALE.has(ruta));
+
+    expect(fuera).toEqual([]);
   });
 
   /**
@@ -341,6 +389,76 @@ describe('En toda la interfaz', () => {
           if (Number(medida) < MINIMO) {
             pendientes.push(`${ruta}: ${clases.trim().slice(0, 60)}`);
           }
+        }
+      }
+    }
+
+    expect(pendientes).toEqual([]);
+  });
+
+  /**
+   * **Y el que no dice ningún alto también cuenta.**
+   *
+   * El de arriba solo ve lo que se declara pequeño —un `h-8`, un `size-6`—, y un
+   * `<button>` a mano sin ningún alto se le escapaba entero: la «×» de
+   * `sessions/ResumeLast` llevaba `px-2 text-sm` y medía veinte píxeles de alto
+   * con este test en verde. Aquí se pide que cada `<button>` escrito a mano diga
+   * su alto —`min-h-tap`, `size-tap`, `h-full` si lo pone el padre—.
+   *
+   * Se libran tres casos que no son descuido: los que componen su clase desde
+   * una constante —`ui/Button`, que ya la mide—, los `.enlace` —una palabra
+   * dentro de una frase, que WCAG 2.5.8 exime— y los `absolute`, que cubren la
+   * caja de su padre y miden lo que mide ella.
+   *
+   * `YA_ESTABAN` son los que había al escribir esto, en zonas que no eran de
+   * quien lo escribió: **la lista solo puede encoger**. Uno nuevo falla aquí.
+   */
+  it('todo botón a mano dice su alto', () => {
+    const YA_ESTABAN = new Set([
+      'src/app/screens/ComposeScreen.tsx',
+      'src/features/learn/Tutor.tsx',
+      'src/features/path/ChordSearch.tsx',
+      'src/ui/Area.tsx',
+    ]);
+    const pendientes: string[] = [];
+
+    for (const { ruta, codigo } of FICHEROS) {
+      if (YA_ESTABAN.has(ruta)) {
+        continue;
+      }
+      for (const clases of clasesDeBotones(codigo)) {
+        if (clases.startsWith('${') || /\b(?:enlace|absolute)\b/.test(clases)) {
+          continue;
+        }
+        if (!/\b(?:min-h|h|size)-/.test(clases)) {
+          pendientes.push(`${ruta}: ${clases.trim().slice(0, 60)}`);
+        }
+      }
+    }
+
+    expect(pendientes).toEqual([]);
+  });
+
+  /**
+   * La letra de un botón la pone el botón, con `tamano`, y no quien lo usa.
+   *
+   * En una sola pantalla de componer convivían botones de 12, 14 y 16 px con el
+   * mismo alto: quince pasaban `text-xs` en `className` porque en su fila no
+   * cabían, y vista de lejos la barra parecía hecha en tres sitios distintos.
+   * `ui/Button` y `ui/Chip` tienen ahora `tamano="compacto"`, y 12 px no es
+   * ninguno de los dos: un mando que se pulsa con la guitarra puesta no se lee a
+   * esa letra.
+   *
+   * Se mira desde cada `<Button` o `<Chip` hasta la siguiente etiqueta, que es
+   * donde caben sus atributos aunque ocupen varias líneas.
+   */
+  it('ningún botón ni pastilla baja la letra con text-xs', () => {
+    const pendientes: string[] = [];
+
+    for (const { ruta, codigo } of FICHEROS) {
+      for (const etiqueta of codigo.matchAll(/<(?:Button|Chip)\b[^<]*/g)) {
+        if (/className=[^]*?\btext-xs\b/.test(etiqueta[0])) {
+          pendientes.push(`${ruta}: ${etiqueta[0].trim().slice(0, 60)}`);
         }
       }
     }

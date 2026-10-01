@@ -316,6 +316,38 @@ describe('la claqueta antes de apuntar', () => {
   });
 
   /**
+   * **Al lector, dos frases y no ocho números.** Su voz sale por el altavoz y el
+   * micro está abierto, así que cada número leído se pisaba con la claqueta y el
+   * último caía dentro de la toma. Y la región existe antes de contar: una que
+   * nace con el texto dentro no se anuncia, y se perdía el primer aviso.
+   */
+  it('la cuenta se anuncia poco, y en una region que ya estaba', async () => {
+    const { container } = render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+    const region = container.querySelector('p.sr-only[aria-live="polite"]');
+    expect(region).not.toBeNull();
+    expect(region).toBeEmptyDOMElement();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await screen.findByText('8');
+    // El número grande no habla: si lo hiciera, leería los ocho pulsos.
+    expect(screen.getByText('8').closest('[aria-hidden="true"]')).not.toBeNull();
+    expect(region).toHaveTextContent(/Faltan dos compases/);
+
+    await golpes(3);
+    expect(region).toHaveTextContent(/Faltan dos compases/);
+
+    await golpes(1);
+    expect(region).toHaveTextContent('Último compás.');
+
+    await golpes(4);
+    await waitFor(() => {
+      expect(useSessionStore.getState().capturing).toBe(true);
+    });
+    // Ni «entra ahora» ni nada: sonaría justo encima del compás uno.
+    expect(region).toBeEmptyDOMElement();
+  });
+
+  /**
    * Cortar la cuenta no es fallar al tocar. Sin un camino propio, parar aquí
    * pasaba por apuntar lo tocado —que es nada— y contestaba «no he podido leer
    * nada», que es culpar a quien solo ha cambiado de idea.
@@ -490,6 +522,28 @@ describe('Tocar para escribir', () => {
     await waitFor(() => expect(screen.getByText('Punteo')).toBeInTheDocument());
     expect(screen.queryByText('C')).not.toBeInTheDocument();
     expect(screen.getByText(/escuchando el punteo/)).toBeInTheDocument();
+  });
+
+  /**
+   * El papel elegido iba en latón macizo, el mismo que «Tocar» justo debajo, y
+   * no se sabía cuál de los dos empezaba. Es un segmentado: la elegida dice que
+   * está puesta, y el latón macizo queda solo para la acción.
+   */
+  it('el papel elegido no se viste como la accion de tocar', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    const papeles = within(screen.getByRole('group', { name: 'Qué vas a tocar' }));
+    await userEvent.click(papeles.getByRole('button', { name: 'Punteo' }));
+
+    const elegido = papeles.getByRole('button', { name: 'Punteo' });
+    expect(elegido).toHaveAttribute('aria-pressed', 'true');
+    expect(papeles.getByRole('button', { name: 'Rítmica' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    expect(elegido.className).not.toContain('bg-brass ');
+    expect(screen.getByRole('button', { name: /^Tocar$/ }).className).toContain('bg-brass');
   });
 
   it('y con la ritmica, que es lo de siempre, si', async () => {

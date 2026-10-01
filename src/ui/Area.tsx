@@ -1,11 +1,45 @@
-import type { ReactNode } from 'react';
+'use client';
+
+import { useState, type ReactNode } from 'react';
 
 import { Chevron } from './Chevron';
 
 /**
+ * Dos flechas que se juntan o se separan: estrechar y ensanchar sin que se lean
+ * como un zoom, que es lo que decían el «−» y el «+». Para el eje `alto` se
+ * giran un cuarto de vuelta, y así «bajar» y «subir» son las mismas flechas.
+ */
+function GlifoDeMedida({
+  hacia,
+  eje,
+}: {
+  readonly hacia: 'dentro' | 'fuera';
+  readonly eje: 'ancho' | 'alto';
+}) {
+  // Dentro: `→ ←` apuntando al centro; fuera: `← →` apuntando a los lados.
+  const d =
+    hacia === 'dentro'
+      ? 'M2 8h5M5 5.5 7.5 8 5 10.5M14 8H9M11 5.5 8.5 8 11 10.5'
+      : 'M7 8H2M4 5.5 1.5 8 4 10.5M9 8h5M12 5.5 14.5 8 12 10.5';
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`size-4 ${eje === 'alto' ? 'rotate-90' : ''}`}
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+
+/**
  * Un área del banco de trabajo: su cabecera fina y lo que hay dentro.
  *
- * La cabecera es **de veintiocho píxeles y lleva sus propios mandos**, que es la
+ * La cabecera es **de cuarenta y cuatro píxeles y lleva sus propios mandos**, que es la
  * idea entera: los controles de una cosa viven en esa cosa, y no en un ajustes
  * común donde hay que averiguar de qué es cada interruptor. Lo que antes era un
  * rótulo suelto encima de un bloque —un cartel para explicar algo que no se
@@ -40,6 +74,7 @@ export function Area({
   atajo,
   pliegue = 'vertical',
   sinCabecera = false,
+  medida,
 }: {
   readonly titulo: string;
   /** El dibujo del área, si lo tiene. Es decoración que orienta. */
@@ -81,7 +116,36 @@ export function Area({
    * más en la pantalla donde menos sitio hay.
    */
   readonly sinCabecera?: boolean;
+  /**
+   * Estrecharla y ensancharla **sin arrastrar**, desde su cabecera.
+   *
+   * El reparto se movía solo con el divisor: arrastrando o, con el foco puesto
+   * en una línea de un píxel, con las flechas. Quien no arrastra —un dedo que
+   * tiembla, un puntero de cabeza, un lector de pantalla— no tenía un sitio
+   * donde pulsar (WCAG 2.5.7). Dos botones al lado del nombre, que es donde ya
+   * viven los mandos de un área.
+   */
+  readonly medida?: {
+    /** De qué es la medida: `ancho` para una columna, `alto` para una fila. */
+    readonly eje: 'ancho' | 'alto';
+    readonly menos: () => void;
+    readonly mas: () => void;
+    readonly puedeMenos: boolean;
+    readonly puedeMas: boolean;
+  };
 }) {
+  // Animar la entrada solo al **desplegar**: al cargar la pantalla, cinco áreas
+  // asomando a la vez son ruido, y aquí se quiere que se note lo que el usuario
+  // acaba de pedir. Se compara con el valor de la pasada anterior en el propio
+  // render —el patrón de React para derivar estado— y no con un efecto, que
+  // pintaría un fotograma sin animar.
+  const [anterior, setAnterior] = useState(plegada);
+  const [recienDesplegada, setRecienDesplegada] = useState(false);
+  if (anterior !== plegada) {
+    setAnterior(plegada);
+    setRecienDesplegada(anterior && !plegada);
+  }
+
   if (plegada && onPlegar !== undefined) {
     const depie = pliegue === 'vertical';
     return (
@@ -117,8 +181,14 @@ export function Area({
       aria-label={titulo}
       className={`bg-surface flex min-h-0 min-w-0 flex-col ${className}`}
     >
-      {sinCabecera ? null : (
-        <header className="border-border text-text-muted flex h-7 shrink-0 items-center gap-2 border-b px-2">
+      {/* Sin cabecera, el nombre sigue siendo un título para quien navega por
+          títulos: sin él, lo que hay dentro saltaba del `h1` de la pantalla a un
+          `h3` y el orden de los títulos quedaba roto en el móvil, que es justo
+          donde las áreas van sin cabecera. */}
+      {sinCabecera ? (
+        <h2 className="sr-only">{titulo}</h2>
+      ) : (
+        <header className="border-border text-text-muted min-h-tap flex shrink-0 items-center gap-2 border-b px-2">
           {icono !== undefined && (
             <span aria-hidden="true" className="shrink-0 opacity-70 [&_svg]:size-3.5">
               {icono}
@@ -132,6 +202,32 @@ export function Area({
             mide un icono. Medido: el botón seguía en 44 por 12. */}
           <div className="ml-auto flex shrink-0 items-stretch gap-2 self-stretch">
             {mandos}
+            {medida !== undefined && (
+              <span className="flex items-stretch" role="group" aria-label={`Medida de ${titulo}`}>
+                {(
+                  [
+                    ['menos', medida.eje === 'ancho' ? 'Estrechar' : 'Bajar', 'dentro'],
+                    ['mas', medida.eje === 'ancho' ? 'Ensanchar' : 'Subir', 'fuera'],
+                  ] as const
+                ).map(([cual, accion, hacia]) => (
+                  <button
+                    key={cual}
+                    type="button"
+                    onClick={medida[cual]}
+                    disabled={!(cual === 'menos' ? medida.puedeMenos : medida.puedeMas)}
+                    aria-label={`${accion} ${titulo}`}
+                    title={`${accion} ${titulo}`}
+                    // Del ancho del de plegar y la cabecera entera de alto, por
+                    // lo mismo que él: es lo que se pulsa en esta fila.
+                    className="hover:text-brass-bright inline-flex min-w-11 cursor-pointer items-center justify-center self-stretch disabled:cursor-default disabled:opacity-40"
+                  >
+                    <span aria-hidden="true">
+                      <GlifoDeMedida hacia={hacia} eje={medida.eje} />
+                    </span>
+                  </button>
+                ))}
+              </span>
+            )}
             {onPlegar !== undefined && (
               <button
                 type="button"
@@ -146,7 +242,7 @@ export function Area({
                 // devuelve un área plegada**, que este proyecto ya tenía escrito
                 // que hay que poder hacer—.
                 //
-                // De alto, **toda la fila**: la cabecera mide veintiocho por
+                // De alto, **toda la fila**: la cabecera mide cuarenta y cuatro por
                 // decisión ([adr/0031](../../docs/adr/0031-componer-es-un-banco-de-trabajo.md)),
                 // y un botón más alto que su fila se comería los clics de lo que
                 // hay debajo sin que se vea por qué. `self-stretch` y no un
@@ -166,7 +262,9 @@ export function Area({
           `grow`— y dentro de un bloque `grow` no significa nada, así que se
           quedaba con su alto natural y se salía por abajo. */}
       <div
-        className={`flex min-h-0 grow flex-col ${scroll ? 'overflow-y-auto' : 'overflow-hidden'}`}
+        className={`flex min-h-0 grow flex-col ${scroll ? 'overflow-y-auto' : 'overflow-hidden'} ${
+          recienDesplegada ? 'motion-safe:animate-desplegar' : ''
+        }`}
       >
         {children}
       </div>

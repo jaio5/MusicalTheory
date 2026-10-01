@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NextRequest } from 'next/server';
 
-import { middleware } from './middleware';
+import { proxy } from './proxy';
 
 /**
  * Las cabeceras de seguridad, comprobadas donde se escriben.
@@ -16,7 +16,7 @@ import { middleware } from './middleware';
  * página, y que el micrófono está declarado y el resto de permisos cerrados.
  */
 function respuestaDe(ruta = '/'): Headers {
-  return middleware(new NextRequest(`https://ejemplo.test${ruta}`)).headers;
+  return proxy(new NextRequest(`https://ejemplo.test${ruta}`)).headers;
 }
 
 describe('Las cabeceras de seguridad', () => {
@@ -70,7 +70,7 @@ describe('Las cabeceras de seguridad', () => {
   /** Y el número llega a quien lo necesita: el guion del tema, en `layout.tsx`. */
   it('el numero viaja en una cabecera de la peticion, para el layout', () => {
     const peticion = new NextRequest('https://ejemplo.test/');
-    const csp = middleware(peticion).headers.get('Content-Security-Policy') ?? '';
+    const csp = proxy(peticion).headers.get('Content-Security-Policy') ?? '';
     const numero = /'nonce-([a-f0-9]{32})'/.exec(csp)?.[1];
 
     expect(numero).toBeDefined();

@@ -1,5 +1,7 @@
 # ADR 0008 — Los cupos de IA se calculan desde el precio, y la IA pide cuenta
 
+> **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** ya no hay ideas. Y [ADR 0067](./0067-el-cupo-se-cuenta-en-preguntas.md) corrige el cálculo: el cupo se cuenta en preguntas al profesor y una salida gasta varias. Las cifras de la tabla de abajo son las de entonces.
+
 Fecha: 2026-07-30 · Estado: aceptada · Corrige: los cupos de [ADR 0006](./0006-planes-y-puerto-de-facturacion.md)
 
 ## Contexto

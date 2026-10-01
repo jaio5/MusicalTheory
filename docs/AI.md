@@ -1,16 +1,22 @@
-# Ideas de IA: contrato del route handler
+# La IA: contrato de las rutas
 
 ## Qué hace y qué no
 
-El modo componer puede pedir ideas: progresiones a partir de lo que estás
-tocando, un giro para romper el bucle, qué escala meter encima. Eso lo responde
-un modelo de Anthropic, y siempre a través de un route handler del servidor.
+Dos cosas de la aplicación le preguntan a un modelo: **el profesor**
+(`/api/teacher`), que contesta dudas de teoría, y **las salidas**
+(`/api/versiones`), que proponen por dónde puede seguir lo que llevas compuesto.
+Las dos las responde un modelo de Anthropic, y siempre a través de un route
+handler del servidor.
+
+Hubo una tercera, **las ideas** (`/api/ideas`): progresiones, giros y escalas
+pedidas mientras compones. Se retiró, y con ella las salidas bajaron de Pro a
+Medio ([adr/0066](./adr/0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)).
 
 **A la IA solo viajan símbolos.** Nunca audio, nunca una grabación,
-nunca un identificador de usuario. Lo que sale del navegador es: la tonalidad
-detectada, la escala elegida, los nombres de las notas tocadas últimamente y el
-grado actual. Nada de eso permite reconstruir la interpretación, y ninguna de
-esas cosas es un dato personal.
+nunca un identificador de usuario. Lo que sale del navegador es la tonalidad, la
+escala, grados con sus pulsos, el identificador de una unidad y, cuando lo hay,
+el texto que escribes —la pregunta al profesor o las directrices de una salida—.
+Nada de eso permite reconstruir la interpretación.
 
 ## Por qué la clave vive solo en el servidor
 
@@ -23,7 +29,7 @@ DevTools y en cualquier proxy. Da igual que se ofusque.
 `server/ask-model.ts`: si apareciese importado desde un componente, el propio
 bundler lo arrastraría al cliente.
 
-Fueron tres —una copia por ruta— y solo se diferenciaban en el prompt de
+Llegaron a ser tres —una copia por ruta— y solo se diferenciaban en el prompt de
 sistema, el esquema y el tope de tokens. El porqué de apagar el pensamiento
 estaba explicado tres veces con tres redacciones distintas, y no había forma de
 saber si seguían diciendo lo mismo.
@@ -31,12 +37,12 @@ saber si seguían diciendo lo mismo.
 Esto además da un sitio donde poner límites de frecuencia, tiempo máximo y
 control de coste, que en el cliente serían imposibles de hacer cumplir.
 
-## Las tres rutas son una sola, y once diferencias
+## Las rutas son una sola, y once diferencias
 
 `ideas`, `teacher` y `versiones` hacían exactamente lo mismo en el mismo orden
 —frenar por frecuencia, abrir las puertas del gasto, montar el prompt, llamar al
 modelo, validar, reintentar una vez, contestar— y lo hacían con tres copias del
-mismo cuerpo. Cuando había que cambiar algo del orden, se cambiaba tres veces; y
+mismo cuerpo. Hoy quedan las dos últimas. Cuando había que cambiar algo del orden, se cambiaba tres veces; y
 una vez se cambió solo en dos.
 
 Ahora el cuerpo está una vez, en `server/ai-route.ts`, y cada ruta se declara:
@@ -49,65 +55,9 @@ Dos tests lo sujetan: uno comprueba que ninguna ruta contiene `spendAi` ni
 a mano— y otro que en el cuerpo común la puerta del gasto va **antes** de la
 llamada al modelo, que es lo único que hace que se cobre el intento.
 
-## Endpoint
+## Errores
 
-```
-POST /api/ideas
-Content-Type: application/json
-```
-
-### Entrada
-
-```jsonc
-{
-  "kind": "progression" | "twist" | "scale",
-  "key": { "tonic": "A", "mode": "minor" },
-  "scale": "minorPentatonic",          // opcional: la escala activa
-  "currentDegree": "i",                // opcional: el grado que suena ahora
-  "recentNotes": ["A", "C", "E", "G"], // opcional, máximo 32
-  "recentChords": ["Am", "G", "F"]     // opcional, máximo 16
-}
-```
-
-Reglas de validación, todas comprobadas en el servidor antes de llamar al
-modelo:
-
-- `kind` es obligatorio y solo admite esos tres valores.
-- `key.tonic` es uno de los doce nombres de nota; `key.mode` es `major` o
-  `minor`.
-- `scale` es uno de los identificadores de `core/music/scales`.
-- Las listas se recortan a su máximo; los nombres que no sean notas o cifrados
-  válidos se descartan en silencio.
-- Cualquier campo que no esté en el esquema se ignora. El cuerpo no se
-  reenvía tal cual al modelo: se reconstruye a partir de los campos validados.
-
-### Salida
-
-```jsonc
-{
-  "ideas": [
-    {
-      "title": "Bajar por tonos y volver",
-      "degrees": ["i", "VII", "VI", "VII"],
-      "chords": ["Am", "G", "F", "G"],
-      "why": "Mantiene el centro en A menor y evita la sensible.",
-    },
-  ],
-}
-```
-
-Entre una y cuatro ideas. `degrees` usa los mismos símbolos que
-`core/music/progressions` (`i`, `VII`, `bVII`, `V`...), de modo que la interfaz
-puede resolverlos a acordes concretos con `resolveProgression` y comprobar que
-existen. `why` es una frase corta, en español, en el mismo tono que el resto de
-la aplicación.
-
-Para `kind: "scale"` la forma cambia: en vez de `degrees` y `chords`, cada idea
-trae `scale` (un identificador de escala) y `tonic`.
-
-### Errores
-
-Siempre con esta forma, nunca con el error crudo del proveedor:
+Las dos rutas contestan los errores igual. Siempre con esta forma, nunca con el error crudo del proveedor:
 
 ```jsonc
 {
@@ -133,9 +83,9 @@ El mensaje va en español, dice qué ha pasado y qué hacer. Nunca se filtran ni
 la clave, ni la URL del proveedor, ni la traza.
 
 **`plan_required` y `quota_exhausted` llegan con el mensaje ya escrito por la ruta**,
-con el plan y el número concretos: «Las ideas de la IA entran en el plan Medio:
-9,99 € al mes», «Se te han acabado las 90 peticiones a la IA de este mes: se renuevan
-el día uno, y con el plan Pro son 135 al mes». La frase la construye
+con el plan y el número concretos: «Las salidas de lo que tocas entran en el plan
+Medio: 9,99 € al mes», «No te quedan preguntas suficientes de las 148 de este mes
+(una salida gasta 3): se renuevan el día uno, y con el plan Pro son 296 al mes». La frase la construye
 `core/billing/messages.ts`, que es la misma que usa la pantalla para pintar el
 candado, y por eso el cliente **prefiere el mensaje del servidor** al genérico de su
 contrato cuando viene uno.
@@ -148,7 +98,7 @@ del aviso aparece el enlace a `/planes`. Sale con `plan_required` siempre, y con
 `quota_exhausted` solo si queda plan por encima —a quien ya está en Pro no hay nada
 que ofrecerle—. Con el modelo caído no sale: mandar a la lista de precios a quien
 tiene un problema que no se arregla pagando es hacerle perder el viaje. La regla está
-escrita una vez, en `ui/PlansLink.tsx`, porque la usan el profesor y las ideas y un
+escrita una vez, en `ui/PlansLink.tsx`, porque la usan el profesor y las salidas y un
 feature no importa de otro.
 
 ## Qué pasa cuando el modelo devuelve algo que no parsea
@@ -162,24 +112,21 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
    Y tiene una condición que no es obvia: **el esquema garantiza lo que exige, no
    lo que el validador espera.** Si las dos listas se separan, lo que sale es una
    respuesta impecable contra el esquema que el validador barre entera, y el
-   modelo no tiene forma de saberlo. Pasó con las ideas: el esquema pedía `title`
-   y `why` y dejaba `degrees` opcional, y `validateIdeas` tira toda idea sin
-   grados. Contra dos modelos locales pasaban 0 de 4 peticiones —cupo gastado,
-   502— y exigiéndolo, 36 de 36.
+   modelo no tiene forma de saberlo. Lo aprendió la función de ideas, ya retirada:
+   el esquema pedía `title` y `why` y dejaba `degrees` opcional, y el validador
+   tiraba toda idea sin grados. Contra dos modelos locales pasaban 0 de 4
+   peticiones —cupo gastado, 502— y exigiéndolo, 36 de 36.
 
-   Por eso `ideasSchema(kind, mode)` **es una función**: lo que hace falta depende
-   de lo que se pida, y los grados válidos no son los mismos en mayor que en
-   menor. Los enumerados van con ello: la generación constreñida no puede salirse
-   de un `enum`, y `naturalMinor` o `minorPentatonic` no se adivinan —pidiéndolos
-   en prosa salía «Escala natural», que no es ningún identificador—. Lo vigila
-   `app/api/esquema-ideas.test.ts`, que vive en `app/` porque es la única capa que
-   ve el esquema de `server/` y el validador de `features/` a la vez.
+   Por eso `versionsSchema(mode, kind)` **es una función**: lo que hace falta
+   depende de lo que se pida, y los grados válidos no son los mismos en mayor que
+   en menor. Los enumerados van con ello: la generación constreñida no puede
+   salirse de un `enum`.
 
-2. **Validación en el servidor.** La respuesta se valida contra el mismo
-   esquema antes de devolverla: que los grados existan en el modo indicado, que
-   los cifrados sean acordes reales, que haya entre una y cuatro ideas. Una
-   idea concreta que no valide se descarta; si no queda ninguna, se responde
-   `unparseable_response`.
+2. **Validación en el servidor.** La respuesta se valida contra el dominio antes
+   de devolverla: que los grados existan en el modo indicado, que los cifrados se
+   recalculen desde ellos y, en las salidas, que el camino declarado sea el que se
+   tomó. Una salida concreta que no valide se descarta; si no queda ninguna, se
+   responde `unparseable_response`.
 3. **Un reintento y basta.** Si la respuesta no valida, se reintenta una vez. Si
    la segunda tampoco, se devuelve el error. No se encadenan reintentos: cuestan
    dinero y tiempo, y el usuario prefiere un «no ha salido, prueba otra vez»
@@ -249,8 +196,8 @@ const response = await client.messages.create({
   `TOKEN_BUDGETS` de `core/billing/cost.ts`, que es el mismo con el que se
   calculan los cupos. Así el tope que impone el servidor **es** el peor caso que
   supone la aritmética del plan, y no dos números que se separan. Hoy son 400
-  para el profesor, 700 para ideas y 900 para salidas —la más cara de las tres,
-  porque la salida son tres progresiones completas—.
+  para el profesor y 900 para salidas —la más cara de las dos, porque la salida
+  son tres progresiones completas—.
 - **Pensar está apagado, y es una decisión de coste.** La respuesta la fija un
   esquema JSON: no hay nada que razonar. En `claude-opus-5` el pensamiento viene
   encendido y se cobra como salida, así que dejarlo puesto multiplica el coste y
@@ -263,7 +210,7 @@ const response = await client.messages.create({
 
 ## Quién contesta: tres proveedores y un orden
 
-`server/ai-model.ts` decide, y las tres rutas no se enteran: le entra la misma
+`server/ai-model.ts` decide, y las rutas no se enteran: le entra la misma
 pregunta a `askModel` y les vuelve la misma forma. El orden es este, y no es
 casual:
 
@@ -276,7 +223,7 @@ casual:
 **La clave gana al modelo local**, y a propósito: `OLLAMA_URL` es una variable que
 se pone para probar y se olvida puesta. Si ganara ella, un despliegue con las dos
 configuradas serviría en silencio respuestas de un modelo pequeño a quien ha
-pagado el plan Pro. Para probar en local se quita la clave, que es lo explícito.
+pagado un plan. Para probar en local se quita la clave, que es lo explícito.
 
 En producción, sin ninguno de los tres, las rutas contestan 503 y no gastan cupo.
 
@@ -339,7 +286,7 @@ descartó, está en [adr/0014](./adr/0014-un-modelo-de-casa-para-probar.md).
 
 ## Sin ningún proveedor: contesta el dominio
 
-Fuera de producción, sin `ANTHROPIC_API_KEY` y sin `OLLAMA_URL`, las tres rutas
+Fuera de producción, sin `ANTHROPIC_API_KEY` y sin `OLLAMA_URL`, las dos rutas
 contestan con `server/fake-model.ts` en vez de fallar. Es el tercer puerto con la misma forma
 que el cobrador que no cobra y el correo que no manda, y por la misma razón: sin
 él, media aplicación no se puede probar sin dar de alta un servicio y empezar a
@@ -367,14 +314,14 @@ marca así: es un modelo generando de verdad, aunque acierte menos.
 
 ## Antes de las puertas: ¿hay quien conteste?
 
-Las tres rutas comprueban `modelAvailable()` **antes de tocar el cupo**, y
+Las dos rutas comprueban `modelAvailable()` **antes de tocar el cupo**, y
 contestan 503 si no hay proveedor ninguno. No es una comprobación de cortesía: `spendAi` cuenta la
 petición antes de hablar con el modelo, así que sin clave configurada la llamada
 fallaba igual unas líneas más abajo pero la petición ya estaba gastada. Alguien se
 quedaba sin peticiones del mes por una variable de entorno que faltaba.
 
 `hasModelKey` estaba escrita desde la fase 5 y no la llamaba nadie. Hay un test que
-lee las tres rutas y comprueba que el proveedor se sigue mirando antes que el cupo:
+lee las rutas y comprueba que el proveedor se sigue mirando antes que el cupo:
 el orden de dos líneas es justo lo que se pierde al refactorizar.
 
 ## Las tres puertas: frecuencia, cuenta y cupo
@@ -397,8 +344,9 @@ los que acotan el gasto. Van al final porque son una escritura en la base de dat
 comprobar memoria es gratis.
 
 Los cupos **no están escritos en ninguna parte: se calculan** desde el precio del plan,
-el precio del modelo y el peor caso de tokens de la petición
-(`core/billing/cost.ts`). El `max_tokens` de estas rutas sale de ese mismo sitio, así
+el precio del modelo y el peor caso de tokens de una pregunta al profesor
+(`core/billing/cost.ts`). **Se cuentan en preguntas**: una salida gasta las que cuesta,
+tres hoy, y si no caben enteras no se sirve ([adr/0067](./adr/0067-el-cupo-se-cuenta-en-preguntas.md)). El `max_tokens` de estas rutas sale de ese mismo sitio, así
 que el peor caso que supone la aritmética es el tope que impone el servidor. La tabla
 de números y el porqué están en [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md) y en
 [adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
@@ -415,7 +363,7 @@ Cuatro detalles del cupo que conviene no olvidar aquí:
 - **El mensaje dice cuál de los dos se agotó**, porque no se arreglan igual: uno se
   espera a mañana y el otro se arregla subiendo de plan.
 
-## Pensar está apagado en las tres rutas
+## Pensar está apagado en las dos rutas
 
 Y es una decisión de coste, no un descuido. La respuesta la fija un esquema JSON: no
 hay nada que razonar. En `claude-opus-5` **el pensamiento viene encendido por
@@ -424,11 +372,11 @@ coste de cada pregunta y podía gastarse el `max_tokens` pensando para devolver 
 respuesta truncada —se paga y no se sirve—.
 
 `server/ask-model.ts` manda `thinking: { type: 'disabled' }` con `effort: 'low'` para
-las tres, y los tres prompts de sistema piden explícitamente que no se cuelen
+las dos, y los dos prompts de sistema piden explícitamente que no se cuelen
 etiquetas XML internas en la respuesta: es lo que recomienda la documentación del
 modelo para ese caso.
 
-Los tres prompts y los tres esquemas viven juntos en `server/prompts.ts`, y no dentro de
+Los dos prompts y los dos esquemas viven juntos en `server/prompts.ts`, y no dentro de
 sus rutas, porque **de su longitud dependen los cupos de todos los planes**. Allí se
 pueden medir: `server/prompts.test.ts` cuenta sus caracteres y falla si crecen hasta
 comerse la holgura del presupuesto de tokens.
@@ -448,19 +396,12 @@ función**, porque a qué quieres que suene tu canción no cabe en un menú
 mismo, y a propósito: dos maneras de acotar lo mismo serían dos superficies que
 revisar.
 
-`/api/ideas` no acepta ni un carácter libre —tónica, modo, escala, grados y
-cifrados van contra enumerados, y lo que no encaja se descarta en silencio—.
-
-**Esto era mentira hasta el 23 de septiembre de 2026, y lo decía este documento.**
-Los cifrados recientes no iban contra ningún enumerado: bastaba con ser una cadena
-de ocho caracteres. Y van al prompt unidos por espacios, dentro de la instrucción
-y sin marcas, así que dieciséis por ocho daban **ciento veintiocho caracteres
-libres** metidos en mitad de lo que se le dice al modelo: la mitad de la
-superficie que este apartado decía que no existía. Ahora cada uno pasa por
-`parseChordSymbol` —que comparte catálogo con el motor de croma, así que acepta
-exactamente lo que el micro produce— y lo que viaja es el cifrado **normalizado
-por el dominio**, no el texto que llegó. Lo sujetan cuatro pruebas en
-`features/ideas/contract.test.ts`.
+**Este apartado llegó a mentir.** Hasta el 23 de septiembre de 2026 decía que la
+ruta de ideas —ya retirada— no aceptaba ni un carácter libre, y sus cifrados
+recientes no iban contra ningún enumerado: bastaba con ser una cadena de ocho
+caracteres, y dieciséis por ocho daban **ciento veintiocho caracteres libres** en
+mitad del prompt. Se arregló pasándolos por `parseChordSymbol`, y desde que las
+ideas no existen esa entrada tampoco.
 
 La
 unidad que se lee viaja por su identificador. El nombre de la canción **ya no se
@@ -517,8 +458,8 @@ usen los dos lados, y las dos puertas —frecuencia y cupo— compartidas en
 `src/server/`.
 
 El profesor **sí entra en el plan gratis**, con tres preguntas al día: un plan
-gratis que no deja probar lo que se paga no vende nada. Las ideas no, porque son la
-parte más cara y la única que se puede pedir en cadena sin leer lo anterior.
+gratis que no deja probar lo que se paga no vende nada. Las salidas no, porque son
+la petición más cara que hay.
 
 Lo que viaja es la tonalidad, la escala, **el identificador** de la unidad que se
 está leyendo y la pregunta escrita, recortada a 240 caracteres. El identificador y
@@ -528,13 +469,14 @@ salir del equipo: esta petición no los toca.
 
 De vuelta viene una respuesta corta y, si viene a cuento, un ejemplo tocable en
 grados. Los cifrados del ejemplo no se creen: se recalculan desde los grados
-contra la tonalidad real, igual que en ideas, que es la única forma de que no
+contra la tonalidad real, igual que en las salidas, que es la única forma de que no
 aparezca en pantalla un acorde que no existe ahí.
 
 ## Las salidas: por dónde puede tirar lo que tocas
 
-Un tercer route handler, `POST /api/versiones`, con el mismo reparto que los otros
-dos. Es **la petición más cara de las tres** y entra solo en el plan Pro.
+El otro route handler, `POST /api/versiones`, con el mismo reparto que el del
+profesor. Es **la petición más cara de las dos** y entra en los planes Medio y Pro
+([adr/0066](./adr/0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)).
 
 Entra una progresión en grados con sus pulsos, una tonalidad y **qué se pide**.
 Salen hasta tres **salidas**: canciones distintas que arrancan de lo que llevas
@@ -592,7 +534,7 @@ ahí, nunca escrito a mano en el prompt.
 
 ### Se verifica el razonamiento, no solo el resultado
 
-Es la diferencia con las ideas, y lo que sostiene la función entera. Antes cada
+Es lo que la separa del profesor, y lo que sostiene la función entera. Antes cada
 compás declaraba su movimiento; ahora **la declaración sube al camino**: cada salida
 dice cuál ha tomado y el dominio vuelve a comprobarlo. Un `contraste` que cierra en
 la tónica se descarta —eso es un `seguir`—, y un `estirar` que toca un acorde
@@ -602,7 +544,7 @@ Debajo hay una segunda comprobación: **cada salto que no estaba en tu canción 
 que existir en `nextDegrees`**, el grafo armónico del dominio. Son unas tres salidas
 por grado, así que una parte nueva de cuatro compases tiene del orden de ochenta
 caminos posibles. **El mapa entero va en el prompt**, generado desde el dominio: es
-lo mismo que hacen los grados enumerados de las ideas, y por la misma razón.
+lo mismo que hacían los grados enumerados de las ideas, y por la misma razón.
 
 Una salida se descarta entera cuando declara un camino y toma otro, cuando el
 camino no es de la clase que se pidió, cuando usa un grado que no existe en ese

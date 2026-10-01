@@ -71,8 +71,8 @@ export function priceOf(modelId: string | undefined): ModelPrice {
   return (modelId === undefined ? undefined : MODEL_PRICES[modelId]) ?? FALLBACK_PRICE;
 }
 
-/** Las tres cosas que llaman al modelo. Cada una cuesta distinto. */
-export type AiFeature = 'profesor' | 'ideas' | 'versiones';
+/** Las dos cosas que llaman al modelo. Cada una cuesta distinto. */
+export type AiFeature = 'profesor' | 'versiones';
 
 /**
  * El peor caso de tokens de cada petición.
@@ -95,8 +95,7 @@ export interface TokenBudget {
 
 export const TOKEN_BUDGETS: Readonly<Record<AiFeature, TokenBudget>> = {
   profesor: { input: 700, output: 400 },
-  ideas: { input: 900, output: 700 },
-  // La más cara de las tres, y con motivo: la entrada lleva la progresión entera
+  // La más cara de las dos, y con motivo: la entrada lleva la progresión entera
   // —hasta treinta y dos grados— más el catálogo de movimientos, y la salida son
   // tres progresiones completas en vez de cuatro frases.
   versiones: { input: 1400, output: 900 },
@@ -115,9 +114,6 @@ export const TOKEN_BUDGETS: Readonly<Record<AiFeature, TokenBudget>> = {
  * tiene que saber nada de esto.
  */
 
-/** Cuántas ideas se piden como mucho en una tanda. Unos 60 tokens cada una. */
-export const MAX_IDEAS = 4;
-
 /** Lo más larga que puede ser una pregunta al profesor, en caracteres. */
 export const MAX_QUESTION_LENGTH = 240;
 
@@ -130,17 +126,11 @@ export const MAX_QUESTION_LENGTH = 240;
  */
 export const MAX_DIRECTRICES_LENGTH = 240;
 
-/** Cuántas notas recientes se le mandan como contexto. */
-export const MAX_RECENT_NOTES = 32;
-
-/** Cuántos acordes recientes se le mandan como contexto. */
-export const MAX_RECENT_CHORDS = 16;
-
 /**
  * Cuántas versiones de una canción se piden de una vez.
  *
  * Tres y no cinco: cada una es una progresión entera, así que subirlo encarece
- * la petición mucho más deprisa que subir `MAX_IDEAS`. Y tres es lo que se puede
+ * la petición mucho más deprisa que cualquier otro tope de aquí. Y tres es lo que se puede
  * comparar de un vistazo con la guitarra en las manos; con cinco hay que
  * desplazarse, y desplazarse es soltar las cuerdas.
  */
@@ -152,7 +142,7 @@ export const MAX_VERSION_DEGREES = 32;
 /**
  * Cuántas veces se le puede preguntar al modelo por **una** petición del cupo.
  *
- * Las tres rutas reintentan una vez cuando lo que vuelve no pasa la validación
+ * Las dos rutas reintentan una vez cuando lo que vuelve no pasa la validación
  * contra el dominio, y el cupo se gasta una sola vez —`spendAi` se llama antes
  * del bucle—. Así que una petición contada puede costar dos llamadas pagadas.
  *
@@ -236,33 +226,45 @@ export function monthlyBudgetMicros(planId: PlanId): number {
 export const FREE_MONTHLY_ALLOWANCE = 15;
 
 /**
- * La cosa más cara que ese plan puede pedirle al modelo.
+ * La unidad del cupo: **una pregunta al profesor**.
  *
- * El cupo es uno y compartido, así que el peor caso de un plan es el de su
- * petición más cara: quien tiene ideas puede gastarse el cupo entero en ideas.
- * Calcularlo con el profesor —que es más barato— dejaría un agujero del tamaño de
- * la diferencia.
+ * El cupo de cada plan se cuenta en preguntas, y lo que cuesta más gasta más de
+ * una (adr/0067). Antes se dividía el presupuesto entre la petición más cara que
+ * el plan podía hacer, y en cuanto las salidas bajaron a Medio (adr/0066) Medio
+ * prometía menos peticiones que Básico costando el doble: el número era honrado
+ * con el dinero y engañoso para quien lo leía. Contando en preguntas, el número
+ * sube con el precio y el dinero sigue acotado, porque cada petición paga lo suyo.
  */
-function worstFeature(plan: Plan): AiFeature {
-  if (plan.capabilities.includes('versiones')) {
-    return 'versiones';
-  }
-  return plan.capabilities.includes('ideas') ? 'ideas' : 'profesor';
+export const UNIDAD_DEL_CUPO: AiFeature = 'profesor';
+
+/**
+ * Cuántas preguntas del cupo gasta una petición de esa clase con ese modelo.
+ *
+ * **Hacia arriba, siempre.** Con el redondeo hacia abajo, gastarse el cupo entero
+ * en salidas pagaría más que el presupuesto; hacia arriba, nunca llega. Una
+ * salida con cualquier modelo de la tabla cuesta 2,19 preguntas, así que gasta
+ * tres: el redondeo regala algo de margen, y es margen nuestro, no del cliente.
+ */
+export function unidadesDe(feature: AiFeature, modelId: string | undefined): number {
+  return Math.ceil(
+    requestCostMicros(feature, modelId) / requestCostMicros(UNIDAD_DEL_CUPO, modelId),
+  );
 }
 
 /**
- * Cuántas peticiones al mes da un plan con el modelo que haya puesto.
+ * Cuántas preguntas al mes da un plan con el modelo que haya puesto.
  *
- * Es una división: presupuesto entre coste del peor caso. Nada más, y eso es lo
- * bueno: no hay forma de que el número prometido y el dinero disponible se
- * separen, porque el número **es** el dinero disponible.
+ * Es una división: presupuesto entre lo que cuesta una pregunta. Nada más, y eso
+ * es lo bueno: no hay forma de que el número prometido y el dinero disponible se
+ * separen, porque lo que cuesta más que una pregunta gasta más de una
+ * (`unidadesDe`).
  */
 export function monthlyAiRequests(planId: PlanId, modelId: string | undefined): number {
   const plan = planOf(planId);
   if (plan.monthlyCents === 0) {
     return FREE_MONTHLY_ALLOWANCE;
   }
-  const cost = requestCostMicros(worstFeature(plan), modelId);
+  const cost = requestCostMicros(UNIDAD_DEL_CUPO, modelId);
   /* v8 ignore next -- ningun precio de la tabla es cero, y lo que no esta en ella cae en el mas caro */
   return cost <= 0 ? 0 : Math.floor(monthlyBudgetMicros(plan.id) / cost);
 }
@@ -292,10 +294,30 @@ export function dailyAiRequests(planId: PlanId, modelId: string | undefined): nu
   return Math.max(1, Math.ceil((monthly * BURST_DAYS) / DAYS_PER_MONTH));
 }
 
-/** Lo que costaría, como máximo, un mes de ese plan. Lo usa el test del margen. */
+/** Las clases de petición que un plan puede hacer: las que su plan abre. */
+function featuresOf(plan: Plan): readonly AiFeature[] {
+  return (['profesor', 'versiones'] as const).filter((feature) =>
+    plan.capabilities.includes(feature),
+  );
+}
+
+/**
+ * Lo que costaría, como máximo, un mes de ese plan. Lo usa el test del margen.
+ *
+ * El peor mes es el que se gasta el cupo entero en la petición que peor sale por
+ * pregunta gastada. Con el redondeo hacia arriba de `unidadesDe` eso es siempre
+ * el profesor, pero se calcula para todas en vez de suponerlo: si mañana entra
+ * una petición cuya proporción redondea mal, este número lo dice.
+ */
 export function worstMonthlyCostMicros(planId: PlanId, modelId: string | undefined): number {
   const plan = planOf(planId);
-  return monthlyAiRequests(planId, modelId) * requestCostMicros(worstFeature(plan), modelId);
+  const cupo = monthlyAiRequests(planId, modelId);
+  return Math.max(
+    ...featuresOf(plan).map(
+      (feature) =>
+        Math.floor(cupo / unidadesDe(feature, modelId)) * requestCostMicros(feature, modelId),
+    ),
+  );
 }
 
 /**

@@ -69,7 +69,15 @@ export function Vacio({
           {children}
         </p>
       )}
-      {accion !== undefined && <div className={discreto ? '' : 'mt-1'}>{accion}</div>}
+      {/* **Con todo el ancho y la acción centrada dentro.** Sin `w-full`, este div
+          en una columna `items-center` encogía a lo que midiera su contenido, y una
+          acción que se reparte el ancho —los cuatro botones de
+          `ui/EmpezarPorTonalidad`, con su `@container`— se quedaba en 42 px cada
+          uno y salían montados. Medido en `/aprender/e1-grados`. Con un botón suelto
+          no cambia nada: `justify-center` lo deja donde estaba. */}
+      {accion !== undefined && (
+        <div className={`flex w-full justify-center ${discreto ? '' : 'mt-1'}`}>{accion}</div>
+      )}
     </div>
   );
 }

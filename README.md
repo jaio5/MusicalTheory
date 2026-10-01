@@ -43,7 +43,7 @@ La portada cuenta qué es y trae el afinador de verdad para probarlo sin entrar.
 metrónomo, los acordes y la grabación pasan enteros en tu navegador, así que servirlos
 no cuesta nada y van a seguir siendo gratis.
 
-Lo que cuesta es la IA: cada pregunta al profesor y cada tanda de ideas es una llamada
+Lo que cuesta es la IA: cada pregunta al profesor y cada tanda de salidas es una llamada
 a un modelo que se paga, y el temario del Grado Profesional. De eso van los tres
 planes de pago —**Básico**, **Medio** y **Pro**, desde 4,99 € al mes—, que se leen y
 se contratan en `/planes`. La tabla completa está en
@@ -54,15 +54,17 @@ Dos cosas que conviene saber antes de nada:
 - **Las cuentas son opcionales para casi todo, obligatorias para la IA.** Sin base de
   datos configurada la aplicación funciona entera —afinador, rueda, mástil, metrónomo,
   acordes, grabación y el Grado Elemental— con el avance en `localStorage`; lo único
-  que pide cuenta es el profesor y las ideas, porque sin cliente no hay a quién
+  que pide cuenta es el profesor y las salidas, porque sin cliente no hay a quién
   contarle el gasto del modelo. Se crea en `/registro`, a donde lleva el avatar de
   arriba a la derecha, y una vez dentro ese mismo avatar abre tu perfil, tu
   suscripción, tu contraseña y qué se guarda de ti.
 - **Los cupos de IA se calculan, no se escriben.** Salen de dividir lo que se puede
   gastar de cada plan entre lo que cuesta una petición con el modelo configurado, así
-  que `ANTHROPIC_MODEL` los cambia sin tocar código. Con el de por defecto son 147
-  peticiones al mes en Básico, 181 en Medio y 363 en Pro; con Haiku 4.5, cinco veces
-  más. Un test comprueba que ningún plan pierde dinero.
+  que `ANTHROPIC_MODEL` los cambia sin tocar código. Se cuentan en
+  preguntas al profesor, y una salida gasta tres porque cuesta más servirla
+  ([adr/0067](./docs/adr/0067-el-cupo-se-cuenta-en-preguntas.md)). Con el modelo por
+  defecto son 73 preguntas al mes en Básico, 148 en Medio y 296 en Pro; con Haiku 4.5,
+  cinco veces más. Un test comprueba que ningún plan pierde dinero.
 - **Hoy no se cobra de verdad.** Detrás del cambio de plan hay un cobrador de mentira
   que cambia el plan y no pasa por caja. Es una decisión con su
   [ADR](./docs/adr/0006-planes-y-puerto-de-facturacion.md), no un olvido, y significa
@@ -200,7 +202,7 @@ y fechas— y tu contraseña cifrada; nunca una muestra de sonido. Ver
   limitaciones tiene.
 - [RECORDING.md](./docs/RECORDING.md) — permisos, composición en canvas,
   formatos y descarga local.
-- [AI.md](./docs/AI.md) — contrato de los route handlers de ideas y profesor, y las
+- [AI.md](./docs/AI.md) — contrato de los route handlers del profesor y las salidas, y las
   dos puertas que acotan el gasto.
 - [CUENTAS-Y-PLANES.md](./docs/CUENTAS-Y-PLANES.md) — qué da cada plan, quién
   comprueba qué y qué se guarda de ti.

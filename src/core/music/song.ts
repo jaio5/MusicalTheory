@@ -2,9 +2,9 @@
  * Una canción guardada: la tonalidad, el tempo y las secciones con sus acordes.
  *
  * **Lo que se guarda son grados, no cifrados**, y esa es la única decisión
- * importante de este fichero. Es la misma lección que ya aprendieron
- * `/api/ideas` —los cifrados que devuelve el modelo se recalculan desde los
- * grados— y el repaso —lo fallado se apunta por su posición, no por su texto—:
+ * importante de este fichero. Es la misma lección que ya aprendieron las rutas
+ * de IA —los cifrados que devuelve el modelo se recalculan desde los grados— y el
+ * repaso —lo fallado se apunta por su posición, no por su texto—:
  * un `Sol` guardado tal cual solo significa algo en la tonalidad en la que se
  * escribió, mientras que un `V` significa lo mismo en las doce. Guardando grados,
  * cambiar de tonalidad una canción entera es cambiar un número, y la fase de las

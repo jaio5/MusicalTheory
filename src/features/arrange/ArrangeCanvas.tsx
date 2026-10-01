@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
   GRID,
+  MAX_BLOCK_BEATS,
   arrangementBeats,
   barsLabel,
   degreesFor,
@@ -36,18 +37,24 @@ import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
 import { useAtajosDeLaPropuesta } from '@state/atajos-de-la-propuesta';
-import { useBancoStore } from '@state/banco';
-import { usePedidoDeIdeas } from '@state/pedido-de-ideas';
 import { usePropuestaStore } from '@state/propuesta';
 import { Button } from '@ui/Button';
 import { useMedida } from '@ui/use-medida';
 import { Chip } from '@ui/Chip';
+import { Segmentado } from '@ui/Segmentado';
 import { EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
+import { Field } from '@ui/Field';
+import { useIsomorphicLayoutEffect } from '@ui/use-isomorphic-layout-effect';
 import { IconoCanciones } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
 
-import { arrastrar } from './arrastrar';
-import { ZONA_ESTIRAR_PX, anchoDeBloque, pulsoQueCabe } from './BlockButton';
+import { arrastrar, colocar } from './arrastrar';
+import {
+  TECLAS_DEL_BLOQUE_DICHAS,
+  ZONA_ESTIRAR_PX,
+  anchoDeBloque,
+  pulsoQueCabe,
+} from './BlockButton';
 import { Marca } from '@ui/Marca';
 
 import { ChordEntry } from './ChordEntry';
@@ -107,15 +114,75 @@ const PUNTEOS: ReadonlyArray<{ id: Punteo; name: string }> = [
   { id: 'oculto', name: 'Solo acordes' },
 ];
 
-export function ArrangeCanvas() {
+/**
+ * La raya entre dos grupos de la barra del lienzo.
+ *
+ * La barra son tres filas de cajas con el mismo borde —la vista, las figuras,
+ * «Deshacer»— y, sin nada entre ellas, se leía como una sola lista de doce
+ * botones. Una raya fina basta para que se lean como tres cosas, y no pide la
+ * atención que pediría un rótulo por grupo.
+ */
+function Separador() {
+  return <span aria-hidden="true" data-separador className="bg-border mx-1 w-px self-stretch" />;
+}
+
+/**
+ * Una función que no cambia de identidad y siempre llama a la última versión.
+ *
+ * Existe por las filas: van con `memo`, y lo que se les pasa tiene que ser la
+ * misma función de un pintado a otro. Los gestos del lienzo leen el montaje, el
+ * pulso y el reproductor, que cambian a cada rato; con `useCallback` y sus
+ * dependencias cambiarían también, y con ellos todas las filas se repintarían.
+ * Se llaman solo desde un evento, así que leer la última versión es leer lo que
+ * hay en pantalla.
+ */
+function useEstable<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
+  const ref = useRef(fn);
+  useIsomorphicLayoutEffect(() => {
+    ref.current = fn;
+  });
+  return useCallback((...args: A) => ref.current(...args), []);
+}
+
+/** El destino de una propuesta arrastrada: en qué parte y delante de qué compás. */
+type Destino = { readonly partId: string; readonly at: number | null } | null;
+
+function mismoDestino(a: Destino, b: Destino): boolean {
+  return a?.partId === b?.partId && a?.at === b?.at;
+}
+
+/**
+ * Con `memo` y sin props: la pantalla de componer se repinta con cada cambio del
+ * banco —cada movimiento de un divisor, cada área que se pliega— y el lienzo se
+ * entera de lo suyo por los almacenes, no por quien lo monta.
+ */
+export const ArrangeCanvas = memo(function ArrangeCanvas() {
   const activeKey = useSessionStore(selectActiveKey);
   const bpm = useSessionStore((state) => state.bpm);
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
-  const captured = useSessionStore((state) => state.captured);
-  const noteHistory = useSessionStore((state) => state.noteHistory);
-  const captureStartedAt = useSessionStore((state) => state.captureStartedAt);
   const scaleId = useSessionStore((state) => state.scaleId);
-  const captureEndedAt = useSessionStore((state) => state.captureEndedAt);
+  /**
+   * Si hay algo que traer: acordes **o** punteo.
+   *
+   * Miraba solo los acordes, y eso dejaba fuera el caso de puntear sin rasguear
+   * —que es la mitad de lo que se hace con una guitarra—: se apuntaban las notas
+   * y el botón no aparecía, así que no había manera de sacarlas.
+   *
+   * **Y se pide el sí o el no, no las listas.** El lienzo se suscribía a lo
+   * capturado y al historial de notas enteros para sacar este booleano, y el
+   * historial crece con cada nota que oye el motor: con el micro abierto, el
+   * lienzo entero se repintaba veinte veces por segundo sin que cambiara nada de
+   * lo que enseña.
+   */
+  const hayGrabado = useSessionStore(
+    (state) =>
+      !state.capturing &&
+      state.captureEndedAt > 0 &&
+      (state.captured.length > 0 ||
+        state.noteHistory.some(
+          (nota) => nota.at >= state.captureStartedAt && nota.at <= state.captureEndedAt,
+        )),
+  );
   const capturing = useSessionStore((state) => state.capturing);
   const listening = useSessionStore((state) => state.listening);
 
@@ -191,14 +258,35 @@ export function ArrangeCanvas() {
           arrangement.parts.find((part) => part.id === propuesta.partId)?.name ?? 'la canción'
           /* v8 ignore stop */
         }. Tab los acepta, Mayúsculas y Tab acepta uno, Escape los descarta.`;
-  /** Qué propuesta se está arrastrando y sobre qué parte va, mientras dura. */
+  /**
+   * Qué propuesta se está arrastrando y sobre qué parte va, mientras dura.
+   *
+   * **Sin la posición del puntero**, por lo mismo que el arrastre de bloques: el
+   * fantasma se mueve escribiéndole el `transform` (`colocar`), y el estado solo
+   * cambia cuando cambia dónde caería.
+   */
   const [soltando, setSoltando] = useState<{
     degree: DegreeSymbol;
     symbol: string;
-    destino: { partId: string; at: number | null } | null;
-    x: number;
-    y: number;
+    destino: Destino;
   } | null>(null);
+  const punteroRef = useRef({ x: 0, y: 0 });
+  const fantasmaDePropuestaRef = useRef<HTMLElement | null>(null);
+  const fantasmaDePropuesta = useCallback((nodo: HTMLElement | null) => {
+    fantasmaDePropuestaRef.current = nodo;
+    colocar(nodo, punteroRef.current.x, punteroRef.current.y);
+  }, []);
+  /**
+   * Cómo dejar de escuchar el gesto que esté en curso —estirar un bloque o
+   * arrastrar una propuesta—.
+   *
+   * Los dos se enganchan al `window`, y si el lienzo se desmonta a mitad —se
+   * cambia de espacio con el teclado, que es un atajo sin modificador— los
+   * oyentes se quedaban colgados: el siguiente movimiento del ratón estiraba un
+   * bloque de un lienzo que ya no estaba.
+   */
+  const cancelarGestoRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => cancelarGestoRef.current?.(), []);
   // Encendida se dibujan solo las notas de la escala, y no hay manera de escribir
   // una que desafine. Es el mismo eje que separa los bloques de la partitura.
   const [onlyScale, setOnlyScale] = useState(true);
@@ -227,8 +315,10 @@ export function ArrangeCanvas() {
   // justa y aparece una barra de desplazamiento que no hacía falta.
   const porPulso = pulsoQueCabe(disponible - 32, pulsosDeLaMasLarga);
   /** Sobre qué parte se está soltando, y si el gesto llegó a ser un arrastre. */
-  const destinoRef = useRef<{ partId: string; at: number | null } | null>(null);
+  const destinoRef = useRef<Destino>(null);
   const arrastradaRef = useRef(false);
+  /** Si el fantasma de la propuesta ya está puesto: el primer destino se pinta siempre. */
+  const soltandoRef = useRef(false);
 
   const tonic = activeKey?.tonic ?? null;
   const mode = activeKey?.mode ?? 'major';
@@ -355,7 +445,7 @@ export function ArrangeCanvas() {
     [acciones],
   );
 
-  const { drag, start } = useBlockDrag(medir, soltar);
+  const { drag, start, fantasma } = useBlockDrag(medir, soltar);
 
   /**
    * Empieza a mover o a estirar, según por dónde se coja el bloque.
@@ -365,38 +455,34 @@ export function ArrangeCanvas() {
    * catorce píxeles en una interfaz donde nada de lo que se pulsa baja de
    * cuarenta y cuatro.
    */
-  const cogerBloque = useCallback(
-    (event: ReactPointerEvent<HTMLButtonElement>, blockId: string) => {
-      const caja = event.currentTarget.getBoundingClientRect();
-      const estirando = event.clientX > caja.right - ZONA_ESTIRAR_PX;
+  const cogerBloque = useEstable((event: ReactPointerEvent<HTMLButtonElement>, blockId: string) => {
+    const caja = event.currentTarget.getBoundingClientRect();
+    const estirando = event.clientX > caja.right - ZONA_ESTIRAR_PX;
 
-      if (!estirando) {
-        start(event, blockId);
-        return;
-      }
-      if (event.button !== 0) {
-        return;
-      }
+    if (!estirando) {
+      start(event, blockId);
+      return;
+    }
+    if (event.button !== 0) {
+      return;
+    }
 
-      const inicioX = event.clientX;
-      /* v8 ignore next -- el bloque que se coge esta pintado, y lo esta porque esta en el montaje */
-      const pulsosIniciales = findBlock(arrangement, blockId)?.block.beats ?? 4;
+    const inicioX = event.clientX;
+    /* v8 ignore next -- el bloque que se coge esta pintado, y lo esta porque esta en el montaje */
+    const pulsosIniciales = findBlock(arrangement, blockId)?.block.beats ?? 4;
+    // **Un estirón es un solo paso de deshacer.** Sin abrir el gesto, cada
+    // movimiento del puntero apilaba su deshacer, y volver atrás un estirón
+    // pedía pulsar «Deshacer» tantas veces como píxeles se había movido.
+    acciones.beginGesture();
 
-      const mover = (e: PointerEvent) => {
-        e.preventDefault();
-        acciones.resizeBlock(blockId, pulsosIniciales + (e.clientX - inicioX) / porPulso);
-      };
-      const fin = () => {
-        window.removeEventListener('pointermove', mover);
-        window.removeEventListener('pointerup', fin);
-        window.removeEventListener('pointercancel', fin);
-      };
-      window.addEventListener('pointermove', mover, { passive: false });
-      window.addEventListener('pointerup', fin);
-      window.addEventListener('pointercancel', fin);
-    },
-    [acciones, arrangement, porPulso, start],
-  );
+    cancelarGestoRef.current = arrastrar({
+      mover: (x) => acciones.resizeBlock(blockId, pulsosIniciales + (x - inicioX) / porPulso),
+      soltar: () => {
+        cancelarGestoRef.current = null;
+        acciones.endGesture();
+      },
+    });
+  });
 
   /**
    * El lienzo con el teclado, que es lo que un arrastre nunca da.
@@ -404,7 +490,7 @@ export function ArrangeCanvas() {
    * Las flechas mueven el bloque de sitio, con `Shift` lo estiran y `Supr` lo
    * quita. Sin esto, montar una canción exigiría ratón.
    */
-  const teclaEnBloque = useCallback(
+  const teclaEnBloque = useEstable(
     (event: React.KeyboardEvent<HTMLButtonElement>, blockId: string) => {
       const sitio = findBlock(arrangement, blockId);
       /* v8 ignore next 3 -- el boton y el montaje salen del mismo pintado: el bloque que manda la tecla esta en el */
@@ -431,7 +517,6 @@ export function ArrangeCanvas() {
         acciones.moveBlock(blockId, sitio.part.id, sitio.index + paso);
       }
     },
-    [acciones, arrangement, setSelectedBlockId],
   );
 
   /**
@@ -488,6 +573,7 @@ export function ArrangeCanvas() {
       const inicioY = event.clientY;
       destinoRef.current = null;
       arrastradaRef.current = false;
+      soltandoRef.current = false;
 
       /**
        * Dónde caería el acorde: en qué parte y **entre qué dos compases**.
@@ -498,7 +584,7 @@ export function ArrangeCanvas() {
        * **ahí**, y aparecer cuatro compases más allá se lee como que el gesto no
        * ha funcionado.
        */
-      const huecoBajo = (x: number, y: number): { partId: string; at: number | null } | null => {
+      const huecoBajo = (x: number, y: number): Destino => {
         const elemento = document.elementFromPoint(x, y);
         const parte = elemento?.closest<HTMLElement>('[data-parte-destino]');
         if (parte === null || parte === undefined) {
@@ -520,18 +606,28 @@ export function ArrangeCanvas() {
         return { partId, at: Number(indice) + (x > (caja.left + caja.right) / 2 ? 1 : 0) };
       };
 
-      arrastrar({
+      cancelarGestoRef.current = arrastrar({
         mover: (x, y) => {
+          punteroRef.current = { x, y };
+          colocar(fantasmaDePropuestaRef.current, x, y);
           if (!arrastradaRef.current) {
             if (Math.hypot(x - inicioX, y - inicioY) < UMBRAL_ARRASTRE) {
               return;
             }
             arrastradaRef.current = true;
           }
-          destinoRef.current = huecoBajo(x, y);
-          setSoltando({ degree, symbol, destino: destinoRef.current, x, y });
+          const destino = huecoBajo(x, y);
+          if (soltandoRef.current && mismoDestino(destinoRef.current, destino)) {
+            // El mismo sitio que en el movimiento de antes: el fantasma ya se
+            // ha movido y no hay nada más que pintar.
+            return;
+          }
+          soltandoRef.current = true;
+          destinoRef.current = destino;
+          setSoltando({ degree, symbol, destino });
         },
         soltar: () => {
+          cancelarGestoRef.current = null;
           const destino = destinoRef.current;
           setSoltando(null);
           if (arrastradaRef.current && destino !== null) {
@@ -616,6 +712,10 @@ export function ArrangeCanvas() {
           id: selectedBlockId,
           nombre: chord.symbol,
           detalle: `${sitio.block.degree} · ${barsLabel(sitio.block.beats, beatsPerBar)}`,
+          partId: sitio.part.id,
+          index: sitio.index,
+          ultimo: sitio.part.blocks.length - 1,
+          beats: sitio.block.beats,
         };
       }
     }
@@ -647,6 +747,52 @@ export function ArrangeCanvas() {
       setSelectedNoteId(null);
     }
   }, [acciones, elegido, setSelectedBlockId, setSelectedNoteId]);
+
+  /**
+   * Mover y estirar lo elegido **sin arrastrar** (WCAG 2.5.7).
+   *
+   * Se podía de dos maneras: arrastrando, o con las flechas sobre el bloque
+   * enfocado. Quien no puede arrastrar —un dedo que tiembla, un puntero de
+   * cabeza— y además no tiene teclado, que es un teléfono, se quedaba sin mover
+   * nada. Son las mismas cuatro cosas que hacen las flechas, en botones, y la
+   * quinta que las flechas no hacen: llevárselo a otra parte.
+   */
+  const moverElegido = useCallback(
+    (paso: -1 | 1) => {
+      /* v8 ignore next 3 -- los botones de mover viven dentro de `elegido.que === 'acorde'` */
+      if (elegido?.que !== 'acorde') {
+        return;
+      }
+      acciones.moveBlock(elegido.id, elegido.partId, elegido.index + paso);
+    },
+    [acciones, elegido],
+  );
+
+  const estirarElegido = useCallback(
+    (paso: -1 | 1) => {
+      /* v8 ignore next 3 -- los botones de estirar viven dentro de `elegido.que === 'acorde'` */
+      if (elegido?.que !== 'acorde') {
+        return;
+      }
+      acciones.resizeBlock(elegido.id, elegido.beats + paso);
+    },
+    [acciones, elegido],
+  );
+
+  const llevarElegido = useCallback(
+    (partId: string) => {
+      /* v8 ignore next 3 -- el selector de parte vive dentro de `elegido.que === 'acorde'` */
+      if (elegido?.que !== 'acorde') {
+        return;
+      }
+      // Al final de la otra parte: es donde sigue una canción cuando no se
+      // apunta a ningún compás, la misma regla que al soltar una propuesta. El
+      // dominio acota el sitio a lo que mida la parte de destino.
+      acciones.moveBlock(elegido.id, partId, Number.POSITIVE_INFINITY);
+      setActivePartId(partId);
+    },
+    [acciones, elegido],
+  );
 
   /**
    * Devuelve la canción a la pantalla después de poner un acorde.
@@ -822,18 +968,6 @@ export function ArrangeCanvas() {
       TIPO_MIDI,
     );
   }
-  /**
-   * Si hay algo que traer: acordes **o** punteo.
-   *
-   * Miraba solo los acordes, y eso dejaba fuera el caso de puntear sin rasguear
-   * —que es la mitad de lo que se hace con una guitarra—: se apuntaban las notas
-   * y el botón no aparecía, así que no había manera de sacarlas.
-   */
-  const hayGrabado =
-    !capturing &&
-    captureEndedAt > 0 &&
-    (captured.length > 0 ||
-      noteHistory.some((nota) => nota.at >= captureStartedAt && nota.at <= captureEndedAt));
   const arrastrado = drag === null ? null : findBlock(arrangement, drag.blockId);
 
   /**
@@ -851,6 +985,70 @@ export function ArrangeCanvas() {
     setActivePartId(acciones.addPart());
     setSelectedBlockId(null);
   }
+
+  /*
+    Lo que reciben las filas, **las mismas funciones en cada pintado**.
+
+    Las filas van con `memo`, y antes les llegaban flechas escritas aquí mismo
+    —`() => player.toggle(part.id)`—, nuevas cada vez: cualquier cambio en una
+    parte, o cada movimiento de un arrastre, repintaba todas las filas con sus
+    pentagramas. Ahora cada una recibe la parte como argumento y la fila la ata
+    a la suya.
+  */
+  const tocarParte = useEstable((partId: string) => player.toggle(partId));
+  const renombrarParte = useCallback(
+    (partId: string, name: string) => acciones.renamePart(partId, name),
+    [acciones],
+  );
+  const ponerPapel = useCallback(
+    (partId: string, role: Parameters<typeof acciones.setPartRole>[1]) =>
+      acciones.setPartRole(partId, role),
+    [acciones],
+  );
+  const quitarParte = useCallback((partId: string) => acciones.removePart(partId), [acciones]);
+  const ponerCompases = useCallback(
+    (partId: string, bars: number) => acciones.setBars(partId, bars, beatsPerBar),
+    [acciones, beatsPerBar],
+  );
+  const elegirBloqueDeLaParte = useCallback(
+    (partId: string, blockId: string) => {
+      setSelectedBlockId(blockId);
+      setActivePartId(partId);
+    },
+    [setSelectedBlockId],
+  );
+  const quitarBloque = useCallback(
+    (blockId: string) => {
+      acciones.removeBlock(blockId);
+      setSelectedBlockId(null);
+    },
+    [acciones, setSelectedBlockId],
+  );
+  // La acción del estado recibe `(bloque, parte, sitio)` y la fila manda
+  // `(parte, bloque, sitio)`. Los tres son del mismo tipo, así que cambiarlos de
+  // orden compila y no mueve nada.
+  const moverBloqueDeLaParte = useCallback(
+    (partId: string, blockId: string, to: number) => acciones.moveBlock(blockId, partId, to),
+    [acciones],
+  );
+
+  /*
+    Lo elegido, lo que suena y lo que se arrastra, **solo a la fila donde está**.
+
+    Pasar el mismo identificador a todas las filas hacía que elegir un acorde, o
+    cada paso de la reproducción, las repintara todas: cambiaba una prop en
+    cada una aunque en la mayoría no dijera nada. Para una fila que no lo tiene,
+    «nada elegido» es exactamente lo mismo.
+  */
+  const parteDelBloque = (blockId: string | null): string | null =>
+    blockId === null ? null : (findBlock(arrangement, blockId)?.part.id ?? null);
+  const parteElegida = parteDelBloque(selectedBlockId);
+  const parteQueSuena = parteDelBloque(player.currentBlockId);
+  const parteDeLaNota =
+    selectedNoteId === null ? null : (findNote(arrangement, selectedNoteId)?.part.id ?? null);
+
+  /** Si la canción tiene algo, para no ofrecer mandos que no tienen sobre qué. */
+  const hayAlgo = arrangement.parts.length > 0;
 
   if (tonic === null) {
     return (
@@ -921,27 +1119,36 @@ export function ArrangeCanvas() {
           MIDI
         </Button>
 
-        <span className="text-text-muted font-mono text-xs">
+        {/* La monoespaciada solo cuando es un dato que se compara —«4 compases»—;
+            «sin nada todavía» es una frase, y va en la sans (adr/0024). */}
+        <span className={`text-text-muted text-xs ${pulsos === 0 ? '' : 'font-mono'}`}>
           {pulsos === 0 ? 'sin nada todavía' : barsLabel(pulsos, beatsPerBar)}
         </span>
 
         {/* Sin envolver en estrecho, por lo mismo que la barra que lo contiene:
               envolviéndose aquí dentro, el grupo crecía hacia abajo y se llevaba
-              por delante lo que la barra acababa de arreglar. */}
-        <span className="ml-auto flex gap-1 sm:flex-wrap">
-          <span className="flex gap-1" role="group" aria-label="Cómo llevar el punteo">
-            {PUNTEOS.map((candidato) => (
-              <Chip
-                key={candidato.id}
-                onClick={() => setPunteo(candidato.id)}
-                pressed={punteo === candidato.id}
-                tone="quiet"
-                className="px-3 text-xs"
-              >
-                {candidato.name}
-              </Chip>
-            ))}
-          </span>
+              por delante lo que la barra acababa de arreglar.
+
+              **A la izquierda, no con `ml-auto`.** Empujado a la derecha, en
+              cuanto la barra se partía en dos filas esta segunda salía pegada al
+              otro borde, y su primer botón saltaba de x=269 a x=135 según hubiera
+              canción o no: la misma barra en dos sitios. */}
+        <span className="flex gap-1 sm:flex-wrap">
+          {/* Cómo se lleva el punteo se elige también antes de escribir, porque
+              decide dónde se escribe. Las figuras y «Deshacer», en cambio, no
+              se enseñan hasta que hay canción: sin partes no hay nota que medir
+              ni nada que deshacer, y eran ocho mandos más compitiendo con el
+              estado vacío de debajo, que es lo único que tiene algo que decir. */}
+          {/* Un segmentado y no tres pastillas sueltas: son tres maneras de ver
+              lo mismo y se excluyen, y sueltas tenían la misma pinta que las
+              acciones de al lado —«+ Parte», «Deshacer»—. */}
+          <Segmentado
+            etiqueta="Cómo llevar el punteo"
+            opciones={PUNTEOS.map((candidato) => ({ valor: candidato.id, texto: candidato.name }))}
+            valor={punteo}
+            onCambiar={setPunteo}
+          />
+          <Separador />
 
           {/* Apuntar solo tiene sentido con el micro abierto: sin él no llega
               un acorde y el botón sería una promesa que no se cumple. */}
@@ -950,7 +1157,7 @@ export function ArrangeCanvas() {
               onClick={apuntar}
               pressed={capturing}
               tone="quiet"
-              className="px-3 text-xs"
+              tamano="compacto"
               title="Apunta los acordes que vayas tocando"
             >
               {capturing ? 'Parar de apuntar' : 'Apuntar lo que toco'}
@@ -962,39 +1169,15 @@ export function ArrangeCanvas() {
                 key={papel}
                 onClick={() => traerGrabado(papel)}
                 tone="quiet"
-                className="px-3 text-xs"
+                tamano="compacto"
                 title={PAPELES_DE_TOMA[papel].what}
               >
                 Traer {PAPELES_DE_TOMA[papel].name.toLowerCase()}
               </Chip>
             ))}
-          <Chip onClick={anadirParte} tone="quiet" className="px-3 text-xs">
+          <Chip onClick={anadirParte} tone="quiet" tamano="compacto">
             + Parte
           </Chip>
-
-          {/* Pedirle una idea sin ir a buscarla, que es la mitad de lo que el
-            copiloto tenía que arreglar
-            ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)):
-            estaba detrás de un botón gris del área de abajo, entre «Salidas» y
-            «Sesiones», y había que abrirlo para llegar.
-
-            No llama al modelo desde aquí —quien sabe pedirlo es `features/ideas`,
-            y un feature no importa de otro—: deja el pedido en `state/` y abre el
-            panel, que lo recoge al ponerse delante. Y sale **con la canción
-            empezada**, que es cuando hay algo sobre lo que proponer. */}
-          {propuesta === null && arrangement.parts.some((part) => part.blocks.length > 0) && (
-            <Chip
-              onClick={() => {
-                usePedidoDeIdeas.getState().acciones.pedirProgresion();
-                useBancoStore.getState().actions.abrirAbajo('ideas');
-              }}
-              tone="quiet"
-              className="px-3 text-xs"
-              title="Que el copiloto proponga por dónde seguir"
-            >
-              Pídeme una idea
-            </Chip>
-          )}
 
           {/* Lo propuesto se acepta o se descarta **desde aquí también**, y no
             solo con las teclas: un atajo que es la única manera de hacer algo no
@@ -1005,14 +1188,14 @@ export function ArrangeCanvas() {
             <span
               role="group"
               aria-label="Lo que propone el copiloto"
-              className="border-brass-dim ml-auto flex items-center gap-2 rounded-md border border-dashed px-2 py-1"
+              className="border-brass-dim flex items-center gap-2 rounded-md border border-dashed px-2 py-1"
             >
               <span className="text-text-muted text-xs">{propuesta.titulo}</span>
               <Chip
                 onClick={accionesDeLaPropuesta.aceptarTodo}
                 tone="quiet"
                 atajo="Tab"
-                className="px-3 text-xs"
+                tamano="compacto"
               >
                 Aceptar {propuesta.degrees.length}
               </Chip>
@@ -1020,7 +1203,7 @@ export function ArrangeCanvas() {
                 onClick={accionesDeLaPropuesta.descartar}
                 tone="quiet"
                 atajo="Esc"
-                className="px-3 text-xs"
+                tamano="compacto"
               >
                 Descartar
               </Chip>
@@ -1031,7 +1214,7 @@ export function ArrangeCanvas() {
               onClick={() => setOnlyScale(!onlyScale)}
               pressed={onlyScale}
               tone="quiet"
-              className="px-3 text-xs"
+              tamano="compacto"
               title="Solo las notas de la escala que tienes puesta"
             >
               Solo la escala
@@ -1040,7 +1223,8 @@ export function ArrangeCanvas() {
 
           {/* Las figuras que el modelo sabe escribir, que son siete. Se ven en las dos
               pieles del punteo porque en las dos se escriben notas. */}
-          {punteo !== 'oculto' && (
+          {punteo !== 'oculto' && hayAlgo && <Separador />}
+          {punteo !== 'oculto' && hayAlgo && (
             <span
               role="group"
               aria-label="Duración de la nota"
@@ -1071,14 +1255,20 @@ export function ArrangeCanvas() {
             </span>
           )}
 
-          <Chip
-            onClick={() => acciones.undo()}
-            tone="quiet"
-            disabled={!puedeDeshacer}
-            className="px-3 text-xs"
-          >
-            Deshacer
-          </Chip>
+          {/* Con canción, o con algo que deshacer aunque ya no quede nada: borrar
+              la última parte deja la canción vacía, y es justo cuando más falta
+              hace volver atrás. */}
+          {(hayAlgo || puedeDeshacer) && <Separador />}
+          {(hayAlgo || puedeDeshacer) && (
+            <Chip
+              onClick={() => acciones.undo()}
+              tone="quiet"
+              disabled={!puedeDeshacer}
+              tamano="compacto"
+            >
+              Deshacer
+            </Chip>
+          )}
         </span>
       </div>
 
@@ -1094,7 +1284,12 @@ export function ArrangeCanvas() {
         {aviso !== null && (
           <p className="border-border text-text-muted flex items-start gap-3 border-b px-3 py-2 text-xs">
             <span className="min-w-0 grow">{aviso}</span>
-            <Chip onClick={() => setAviso(null)} tone="quiet" className="shrink-0 px-3 text-xs">
+            <Chip
+              onClick={() => setAviso(null)}
+              tone="quiet"
+              tamano="compacto"
+              className="shrink-0"
+            >
               Vale
             </Chip>
           </p>
@@ -1138,37 +1333,27 @@ export function ArrangeCanvas() {
                 beatsPerBar={beatsPerBar}
                 porPulso={porPulso}
                 playing={player.playing && player.playingPartId === part.id}
-                playingBlockId={player.currentBlockId}
-                selectedBlockId={selectedBlockId}
-                draggingBlockId={drag?.blockId ?? null}
+                playingBlockId={parteQueSuena === part.id ? player.currentBlockId : null}
+                selectedBlockId={parteElegida === part.id ? selectedBlockId : null}
+                draggingBlockId={arrastrado?.part.id === part.id ? arrastrado.block.id : null}
                 dropIndex={drag?.target?.partId === part.id ? drag.target.index : null}
                 punteo={punteo}
                 dropPart={soltando?.destino?.partId === part.id}
                 dropAt={soltando?.destino?.partId === part.id ? soltando.destino.at : null}
                 scaleId={scaleId}
                 onlyScale={onlyScale}
-                selectedNoteId={selectedNoteId}
-                onPlay={() => player.toggle(part.id)}
-                onRename={(name) => acciones.renamePart(part.id, name)}
-                onSetRole={(role) => acciones.setPartRole(part.id, role)}
-                onRemove={() => acciones.removePart(part.id)}
-                onSetBars={(bars) => acciones.setBars(part.id, bars, beatsPerBar)}
+                selectedNoteId={parteDeLaNota === part.id ? selectedNoteId : null}
+                onPlay={tocarParte}
+                onRename={renombrarParte}
+                onSetRole={ponerPapel}
+                onRemove={quitarParte}
+                onSetBars={ponerCompases}
                 onBlockPointerDown={cogerBloque}
-                onBlockClick={(blockId) => {
-                  setSelectedBlockId(blockId);
-                  setActivePartId(part.id);
-                }}
+                onBlockClick={elegirBloqueDeLaParte}
                 onBlockKeyDown={teclaEnBloque}
-                onRemoveBlock={(blockId) => {
-                  acciones.removeBlock(blockId);
-                  setSelectedBlockId(null);
-                }}
+                onRemoveBlock={quitarBloque}
                 onResizeBlock={acciones.resizeBlock}
-                // Con lambda y no pasando `acciones.moveBlock` a pelo: la
-                // acción del estado recibe `(bloque, parte, sitio)` y aquí llega
-                // `(parte, bloque, sitio)`. Los tres son del mismo tipo, así que
-                // cambiarlos de orden compila y no mueve nada.
-                onMoveBlock={(partId, blockId, to) => acciones.moveBlock(blockId, partId, to)}
+                onMoveBlock={moverBloqueDeLaParte}
                 onAddNote={escribirNota}
                 onSelectNote={setSelectedNoteId}
                 onMoveNote={acciones.moveNote}
@@ -1212,7 +1397,10 @@ export function ArrangeCanvas() {
         {/* Lo que puede venir después. En pantalla ancha es una columna a la
             derecha, como en la otra cara de componer; apilado, va debajo y no
             arriba, porque lo que se mira todo el rato es la canción. */}
-        <aside
+        {/* Una región y no un `aside`: un `aside` es un punto de referencia de
+            primer nivel, y éste vive dentro del área del arreglo, que ya es una
+            región con nombre. axe lo marcaba como complementario anidado. */}
+        <section
           aria-label="Qué poner ahora"
           className="border-border shrink-0 border-t p-3 lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l"
         >
@@ -1227,22 +1415,101 @@ export function ArrangeCanvas() {
           {elegido !== null && (
             <section
               aria-label="Lo elegido"
-              className="border-border mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border p-3"
+              className="border-border mb-4 flex flex-col gap-2 rounded-md border p-3"
             >
-              <span className="min-w-0">
-                <span className="text-brass-bright block font-mono text-base">
-                  {elegido.nombre}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="min-w-0">
+                  <span className="text-brass-bright block font-mono text-base">
+                    {elegido.nombre}
+                  </span>
+                  <span className="text-text-muted block font-mono text-xs">{elegido.detalle}</span>
                 </span>
-                <span className="text-text-muted block font-mono text-xs">{elegido.detalle}</span>
-              </span>
-              <Chip
-                onClick={quitarElegido}
-                tone="quiet"
-                className="ml-auto px-3 text-xs"
-                ariaLabel={`Quitar ${elegido.nombre}`}
-              >
-                Quitar
-              </Chip>
+                <Chip
+                  onClick={quitarElegido}
+                  tone="quiet"
+                  tamano="compacto"
+                  className="ml-auto"
+                  ariaLabel={`Quitar ${elegido.nombre}`}
+                >
+                  Quitar
+                </Chip>
+              </div>
+
+              {elegido.que === 'acorde' && (
+                <>
+                  {/* **Dos pares, en rejilla de dos por dos.** En una fila que se
+                      envuelve salían tres y uno —«Antes», «Después», «− pulso» y
+                      «+ pulso» solo en la de abajo—, que parte el par que va
+                      junto y junta lo que no. Arriba se mueve, abajo se estira. */}
+                  <div className="grid grid-cols-2 gap-1" role="group" aria-label="Mover y estirar">
+                    <Chip
+                      onClick={() => moverElegido(-1)}
+                      tone="quiet"
+                      disabled={elegido.index === 0}
+                      ariaLabel={`Mover ${elegido.nombre} antes`}
+                      tamano="compacto"
+                      className="w-full"
+                    >
+                      Antes
+                    </Chip>
+                    <Chip
+                      onClick={() => moverElegido(1)}
+                      tone="quiet"
+                      disabled={elegido.index === elegido.ultimo}
+                      ariaLabel={`Mover ${elegido.nombre} después`}
+                      tamano="compacto"
+                      className="w-full"
+                    >
+                      Después
+                    </Chip>
+                    <Chip
+                      onClick={() => estirarElegido(-1)}
+                      tone="quiet"
+                      disabled={elegido.beats <= 1}
+                      ariaLabel={`Un pulso menos a ${elegido.nombre}`}
+                      tamano="compacto"
+                      className="w-full"
+                    >
+                      − pulso
+                    </Chip>
+                    <Chip
+                      onClick={() => estirarElegido(1)}
+                      tone="quiet"
+                      disabled={elegido.beats >= MAX_BLOCK_BEATS}
+                      ariaLabel={`Un pulso más a ${elegido.nombre}`}
+                      tamano="compacto"
+                      className="w-full"
+                    >
+                      + pulso
+                    </Chip>
+                  </div>
+                  {/* A otra parte, solo si hay otra: con una sola no hay adónde. */}
+                  {arrangement.parts.length > 1 && (
+                    <Field
+                      label="Mover a la parte"
+                      compact
+                      ancho="completo"
+                      value=""
+                      onChange={(event) => llevarElegido(event.target.value)}
+                      className="text-xs"
+                    >
+                      <option value="" disabled>
+                        Mover a la parte…
+                      </option>
+                      {arrangement.parts
+                        .filter((part) => part.id !== elegido.partId)
+                        .map((part) => (
+                          <option key={part.id} value={part.id}>
+                            {part.name}
+                          </option>
+                        ))}
+                    </Field>
+                  )}
+                  <p className="text-text-muted text-xs">
+                    Con el teclado: {TECLAS_DEL_BLOQUE_DICHAS}.
+                  </p>
+                </>
+              )}
             </section>
           )}
 
@@ -1361,19 +1628,24 @@ export function ArrangeCanvas() {
               )}
             </section>
           )}
-        </aside>
+        </section>
       </div>
 
       {/* El bloque que se arrastra, pegado al puntero. Va fuera de las filas y en
           `fixed` porque tiene que poder salir de la fila de la que se sacó: es
           justo el gesto de llevárselo al estribillo. */}
+      {/* Los dos fantasmas se colocan con `transform` desde el gesto, sin
+          estado (`colocar`): aquí solo se dice qué llevan y cuánto miden. La
+          caja de fuera va en la esquina y se traslada al puntero; el margen
+          negativo de la de dentro la centra en él. */}
       {soltando !== null && (
         <div
           aria-hidden
-          className="pointer-events-none fixed z-50"
-          style={{ left: soltando.x - 30, top: soltando.y - 22 }}
+          ref={fantasmaDePropuesta}
+          className="pointer-events-none fixed top-0 left-0 z-50 will-change-transform"
         >
           <div
+            style={{ marginLeft: -30, marginTop: -22 }}
             className={`superficie-viva min-h-tap flex items-center justify-center rounded-md px-4 font-mono ${
               soltando.destino === null ? 'text-text-muted opacity-70' : 'text-brass-bright'
             }`}
@@ -1386,23 +1658,24 @@ export function ArrangeCanvas() {
       {arrastrado !== null && (
         <div
           aria-hidden
-          className="pointer-events-none fixed z-50 opacity-90"
-          // Centrado en el puntero, y con el ancho de verdad del bloque: si el
-          // fantasma midiera siempre lo mismo, arrastrar uno de dos compases
-          // mentiría sobre el hueco que va a ocupar.
-          style={{
-            /* v8 ignore start -- hay bloque arrastrado porque hay gesto: el cero nunca se usa */
-            left: (drag?.x ?? 0) - anchoDeBloque(arrastrado.block.beats, porPulso) / 2,
-            top: (drag?.y ?? 0) - 22,
-            /* v8 ignore stop */
-            width: anchoDeBloque(arrastrado.block.beats, porPulso),
-          }}
+          ref={fantasma}
+          className="pointer-events-none fixed top-0 left-0 z-50 opacity-90 will-change-transform"
         >
-          <div className="superficie-viva border-brass-bright text-text min-h-tap flex items-center justify-center rounded-md font-mono">
+          {/* Centrado en el puntero, y con el ancho de verdad del bloque: si el
+              fantasma midiera siempre lo mismo, arrastrar uno de dos compases
+              mentiría sobre el hueco que va a ocupar. */}
+          <div
+            style={{
+              width: anchoDeBloque(arrastrado.block.beats, porPulso),
+              marginLeft: -anchoDeBloque(arrastrado.block.beats, porPulso) / 2,
+              marginTop: -22,
+            }}
+            className="superficie-viva border-brass-bright text-text min-h-tap flex items-center justify-center rounded-md font-mono"
+          >
             {resolveDegree(tonic, mode, arrastrado.block.degree).symbol}
           </div>
         </div>
       )}
     </div>
   );
-}
+});

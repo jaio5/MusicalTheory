@@ -1,5 +1,7 @@
 # ADR 0016 — Salidas en vez de versiones: la declaración sube del compás al camino
 
+> **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** las ideas ya no existen, y las salidas entran en Medio, no en Pro.
+
 Fecha: 2026-08-26 · Estado: aceptada · Enmienda: [ADR 0011](./0011-versiones-verificadas-contra-el-dominio.md)
 
 ## Contexto

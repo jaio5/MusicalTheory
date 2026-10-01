@@ -49,6 +49,28 @@ describe('mover un area', () => {
   });
 });
 
+/**
+ * Arrastrando un divisor se mueve en memoria y no se guarda: guardar es leer y
+ * escribir las preferencias enteras, y un arrastre son sesenta movimientos por
+ * segundo. Lo que se guarda es lo del final, con `mover`.
+ */
+describe('arrastrar un area', () => {
+  it('cambia el reparto sin guardarlo', () => {
+    const guardado = loadPreferences().banco.repartos.tocando.izquierda;
+
+    acciones().arrastrar('izquierda', 26);
+
+    expect(selectReparto(useBancoStore.getState()).izquierda).toBe(26);
+    expect(loadPreferences().banco.repartos.tocando.izquierda).toBe(guardado);
+  });
+
+  it('y tampoco se sale de los topes', () => {
+    acciones().arrastrar('izquierda', 9000);
+
+    expect(selectReparto(useBancoStore.getState()).izquierda).toBe(TOPES_DEL_BANCO.izquierda.max);
+  });
+});
+
 describe('el area de abajo', () => {
   it('pulsar la que ya esta abierta la cierra', () => {
     acciones().abrirAbajo('mastil');
@@ -67,6 +89,25 @@ describe('el area de abajo', () => {
         repartos: {
           ...REPARTOS_DE_FABRICA,
           tocando: { ...REPARTOS_DE_FABRICA.tocando, abajo: 'una-pestana-que-ya-no-esta' },
+        },
+      },
+    });
+
+    acciones().cargar();
+
+    expect(reparto().abajo).toBeNull();
+  });
+
+  // Los dos que de verdad se fueron: grabar es un papel de la toma (adr/0056) y
+  // las ideas se retiraron (adr/0066). Quien los dejo abiertos los tiene guardados.
+  it.each(['grabar', 'ideas'])('«%s», guardado de antes, abre el area cerrada', (viejo) => {
+    savePreferences({
+      ...loadPreferences(),
+      banco: {
+        ...DEFAULT_BANCO,
+        repartos: {
+          ...REPARTOS_DE_FABRICA,
+          tocando: { ...REPARTOS_DE_FABRICA.tocando, abajo: viejo },
         },
       },
     });

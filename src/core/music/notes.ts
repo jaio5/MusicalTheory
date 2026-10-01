@@ -168,8 +168,8 @@ export function describePitch(frequency: number): PitchReading {
  * Ese valor como nombre de nota, o nulo si no lo es.
  *
  * Vive aquí, al lado de `SHARP_NAMES`, y no dentro de un contrato: lo necesitan
- * los de ideas y los de versiones, y un feature no importa de otro. Estaba
- * escrito dos veces, letra por letra.
+ * los contratos de `features/` y un feature no importa de otro. Estuvo escrito
+ * dos veces, letra por letra, en el de ideas —ya retirado— y en el de versiones.
  */
 export function asNoteName(value: unknown): NoteName | null {
   return typeof value === 'string' && (SHARP_NAMES as readonly string[]).includes(value)

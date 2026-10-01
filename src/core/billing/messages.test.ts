@@ -3,7 +3,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { needsPlanMessage, planAfter, quotaMessage } from './messages';
+import { monthlyAiRequests } from './cost';
+import { cupoEnPalabras, needsPlanMessage, planAfter, quotaMessage } from './messages';
 import { PLANS, planOf, type PlanId } from './plans';
 
 const MEDIO = planOf('medio');
@@ -20,18 +21,19 @@ describe('qué plan hace falta', () => {
   });
 
   /**
-   * Se leyó en pantalla «Las ideas de la IA **entra** en el plan Medio». El verbo
-   * estaba fijo en singular mientras la mitad de los sujetos son plurales.
+   * Se leyó en pantalla «Las ideas de la IA **entra** en el plan Medio», con una
+   * función que ya no existe. El verbo estaba fijo en singular mientras la mitad
+   * de los sujetos son plurales.
    */
   it('concuerda el verbo con un sujeto plural', () => {
-    expect(needsPlanMessage(MEDIO, 'Las ideas de la IA', true)).toBe(
-      'Las ideas de la IA entran en el plan Medio: 9,99 € al mes.',
+    expect(needsPlanMessage(MEDIO, 'Las salidas de lo que tocas', true)).toBe(
+      'Las salidas de lo que tocas entran en el plan Medio: 9,99 € al mes.',
     );
   });
 
   it('sin plan que lo incluya, lo dice y también concuerda', () => {
     expect(needsPlanMessage(null, 'Esto')).toBe('Esto no está disponible.');
-    expect(needsPlanMessage(null, 'Las ideas', true)).toBe('Las ideas no están disponibles.');
+    expect(needsPlanMessage(null, 'Las salidas', true)).toBe('Las salidas no están disponibles.');
   });
 });
 
@@ -53,6 +55,26 @@ describe('cupo gastado', () => {
     expect(hoy).toMatch(/mañana/);
     expect(mes).toMatch(/de este mes/);
     expect(mes).toMatch(/día uno/);
+  });
+
+  /**
+   * Con dos preguntas restantes no cabe una salida que gasta tres: «se te han
+   * acabado» se leería como mentira, así que dice por qué no cabe (adr/0067).
+   */
+  it('si lo pedido gasta varias, lo dice; si es una pregunta, no', () => {
+    expect(quotaMessage(MEDIO, 'claude-opus-5', 'dia', 'versiones')).toContain(
+      'una salida gasta 3',
+    );
+    expect(quotaMessage(MEDIO, 'claude-opus-5', 'mes', 'profesor')).not.toContain('salida');
+  });
+
+  it('el cupo en palabras dice lo que gasta una salida solo donde las hay', () => {
+    expect(cupoEnPalabras('medio', 'claude-opus-5')).toBe(
+      `${monthlyAiRequests('medio', 'claude-opus-5')} preguntas al profesor al mes; una salida gasta 3`,
+    );
+    expect(cupoEnPalabras('basico', 'claude-opus-5')).toBe(
+      `${monthlyAiRequests('basico', 'claude-opus-5')} preguntas al profesor al mes`,
+    );
   });
 
   it('al que ya está en el último plan no le ofrece otro', () => {

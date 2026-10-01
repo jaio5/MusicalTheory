@@ -6,7 +6,7 @@
  * copiado tres veces fue todo lo demás, y es más de la mitad de cada ruta: leer
  * el cuerpo, validarlo, pedirle al modelo con su reintento, comprobar lo que
  * conteste y decidir qué código HTTP sale de cada final. Cuarenta líneas
- * idénticas en ideas, profesor y salidas.
+ * idénticas en ideas —ya retiradas—, profesor y salidas.
  *
  * No es solo escribir menos. Lo que se repetía eran **decisiones**, y repetidas
  * se separan: cuántos reintentos, qué estado devuelve un modelo que no contesta
@@ -64,7 +64,7 @@ export interface RutaDeIa<Peticion, Respuesta> {
    * cuerpo de la respuesta, o nulo si no vale y hay que reintentar.
    *
    * Devuelve el cuerpo entero y no los datos sueltos porque cada ruta lo envuelve
-   * distinto —`{ ideas }`, `{ versions }`, la respuesta a pelo— y eso es cosa
+   * distinto —`{ versions }`, la respuesta del profesor a pelo— y eso es cosa
    * suya, no de aquí.
    */
   readonly validar: (payload: unknown, peticion: Peticion) => Respuesta | null;

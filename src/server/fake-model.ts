@@ -22,10 +22,7 @@
 import {
   applyMove,
   cadenciasParaCerrar,
-  degreesFor,
   MOVES,
-  pitchClassFromName,
-  resolveProgression,
   type DegreeSymbol,
   type KeyMode,
   type NoteName,
@@ -117,37 +114,6 @@ export function versionesSinIA(peticion: Peticion): unknown {
   }
 
   return { versions: versions.slice(0, 3) };
-}
-
-/** Ideas construidas con los grados que existen en esa tonalidad. */
-export function ideasSinIA(tonic: NoteName, mode: KeyMode): unknown {
-  const grados = degreesFor(mode);
-  const raiz = pitchClassFromName(tonic);
-
-  const progresiones: readonly DegreeSymbol[][] =
-    mode === 'major'
-      ? [
-          ['I', 'V', 'vi', 'IV'],
-          ['I', 'bVII', 'IV', 'I'],
-          ['vi', 'IV', 'I', 'V'],
-        ]
-      : [
-          ['i', 'VI', 'III', 'VII'],
-          ['i', 'iv', 'v', 'i'],
-          ['i', 'VII', 'VI', 'V'],
-        ];
-
-  return {
-    ideas: progresiones
-      .filter((degrees) => degrees.every((degree) => grados.includes(degree)))
-      .map((degrees) => ({
-        title: `${SIN_IA} · ${resolveProgression(raiz, mode, degrees)
-          .map((chord) => chord.symbol)
-          .join(' ')}`,
-        why: 'Del catálogo del dominio. Con una clave puesta, esto lo escribiría el modelo.',
-        degrees,
-      })),
-  };
 }
 
 /** Una respuesta del profesor que dice lo que es. */

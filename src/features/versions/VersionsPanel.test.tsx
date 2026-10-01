@@ -31,7 +31,8 @@ const CON_PLAN: Account = {
   aiLeftMonth: 30,
 };
 
-const SIN_PLAN: Account = { ...CON_PLAN, plan: 'medio' };
+// Básico: desde adr/0066 las salidas entran en Medio.
+const SIN_PLAN: Account = { ...CON_PLAN, plan: 'basico' };
 
 function conCuenta(node: React.ReactNode, account: Account = CON_PLAN) {
   return (
@@ -86,7 +87,7 @@ describe('sin el plan que las incluye', () => {
   it('enseña el candado con el plan que hace falta', () => {
     render(conCuenta(<VersionsPanel fetchVersions={vi.fn()} />, SIN_PLAN));
 
-    expect(screen.getByRole('note')).toHaveTextContent(/plan Pro/);
+    expect(screen.getByRole('note')).toHaveTextContent(/plan Medio/);
   });
 });
 
@@ -620,8 +621,7 @@ describe('de donde salen las salidas', () => {
  *
  * Pasaba: el panel leía `versions.length` de un `undefined` y se caía entero.
  * Un proxy que contesta otra cosa, o una ruta y un cliente desincronizados al
- * desplegar, bastan. Se comprueba lo que llega y se dice, que es lo que ya hace
- * el panel de ideas con esto mismo.
+ * desplegar, bastan. Se comprueba lo que llega y se dice.
  */
 describe('lo que llega mal', () => {
   it('un 200 sin salidas se dice, y no tumba el panel', async () => {

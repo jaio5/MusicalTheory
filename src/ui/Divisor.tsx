@@ -5,10 +5,18 @@ import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
 /**
  * El divisor entre dos áreas del banco de trabajo.
  *
- * **Seis píxeles de agarre y uno pintado.** Es la medida que hace que se pueda
- * coger sin apuntar y que no se vea una barra gorda entre dos cosas: lo que se
- * ve es el mismo borde de 1 px que separa todo lo demás en esta aplicación, y lo
- * que se toca es una franja invisible alrededor.
+ * **Veinticuatro píxeles de agarre y uno pintado.** Lo que se ve es el mismo
+ * borde de 1 px que separa todo lo demás en esta aplicación, y lo que se toca es
+ * una franja invisible alrededor. Eran siete, y siete es un blanco que con el
+ * dedo no se acierta: la norma pide veinticuatro (WCAG 2.5.8), y aquí es lo
+ * mínimo porque el banco también se usa en una tableta. La franja se come doce
+ * píxeles del borde de cada área vecina, que es su relleno; donde el área tiene
+ * barra de desplazamiento clásica, esa barra queda a medias bajo la franja, y se
+ * acepta: el divisor se pone por encima porque sin él no hay reparto.
+ *
+ * **Y arrastrar no es la única manera** (WCAG 2.5.7): con el teclado se mueve de
+ * rem en rem, y cada área del banco trae en su cabecera «Estrechar» y
+ * «Ensanchar», que hacen lo mismo con un toque.
  *
  * **Se arrastra con Pointer Events y no con eventos de ratón.** Un `mousemove`
  * deja fuera el dedo y el lápiz, y perder el puntero al salirse del elemento
@@ -32,6 +40,7 @@ export function Divisor({
   sentido = 1,
   etiqueta,
   onCambio,
+  onArrastrar,
   onDevolver,
   className = '',
 }: {
@@ -48,19 +57,41 @@ export function Divisor({
    */
   readonly sentido?: 1 | -1;
   readonly etiqueta: string;
+  /** Un cambio que se queda: una tecla, o el final de un arrastre. */
   readonly onCambio: (rem: number) => void;
+  /**
+   * Lo que va midiendo **mientras** se arrastra, si quien lo usa distingue.
+   *
+   * Existe por lo que costaba no distinguir: el banco guardaba el reparto en
+   * `localStorage` —leer las preferencias enteras, mezclar y escribirlas— en cada
+   * movimiento del puntero, que son sesenta por segundo. Con esto se mueve en
+   * memoria y se guarda una vez, al soltar, con `onCambio`. Sin él, cada
+   * movimiento va a `onCambio`, como antes.
+   */
+  readonly onArrastrar?: (rem: number) => void;
   readonly onDevolver: () => void;
   /** Para esconderlo donde no hay banco: en estrecho las áreas se apilan. */
   readonly className?: string;
 }) {
-  const arrastre = useRef<{ desde: number; valor: number } | null>(null);
+  /**
+   * El gesto en curso: desde dónde, con qué valor, cuánto mide un rem y lo último
+   * que se ha movido.
+   *
+   * El rem se lee **una vez, al empezar**: es un `getComputedStyle`, que obliga
+   * al navegador a tener los estilos al día, y se hacía en cada movimiento. El
+   * tamaño de letra no cambia a mitad de un arrastre.
+   */
+  const arrastre = useRef<{
+    desde: number;
+    valor: number;
+    rem: number;
+    ultimo: number | null;
+  } | null>(null);
 
   // El rem de verdad y no 16 a secas: quien haya subido el tamaño de letra del
-  // navegador arrastraría a otra velocidad que la que ve moverse.
+  // navegador arrastraría a otra velocidad que la que ve moverse. Solo se llama
+  // desde un `pointerdown`, así que siempre hay `document`.
   function remEnPx(): number {
-    if (typeof document === 'undefined') {
-      return 16;
-    }
     const raiz = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
     return Number.isFinite(raiz) && raiz > 0 ? raiz : 16;
   }
@@ -70,22 +101,32 @@ export function Divisor({
     arrastre.current = {
       desde: orientacion === 'vertical' ? evento.clientX : evento.clientY,
       valor,
+      rem: remEnPx(),
+      ultimo: null,
     };
   }
 
   function mover(evento: ReactPointerEvent<HTMLDivElement>): void {
-    const desde = arrastre.current;
-    if (desde === null) {
+    const gesto = arrastre.current;
+    if (gesto === null) {
       return;
     }
     const ahora = orientacion === 'vertical' ? evento.clientX : evento.clientY;
-    const enRem = ((ahora - desde.desde) / remEnPx()) * sentido;
-    onCambio(Math.min(max, Math.max(min, desde.valor + enRem)));
+    const enRem = ((ahora - gesto.desde) / gesto.rem) * sentido;
+    const siguiente = Math.min(max, Math.max(min, gesto.valor + enRem));
+    gesto.ultimo = siguiente;
+    (onArrastrar ?? onCambio)(siguiente);
   }
 
   function soltar(evento: ReactPointerEvent<HTMLDivElement>): void {
+    const gesto = arrastre.current;
     arrastre.current = null;
     evento.currentTarget.releasePointerCapture(evento.pointerId);
+    // Lo arrastrado se da por bueno al soltar, y solo si hubo arrastre y quien lo
+    // usa lo va midiendo aparte: sin `onArrastrar`, `onCambio` ya se enteró.
+    if (onArrastrar !== undefined && gesto?.ultimo !== null && gesto?.ultimo !== undefined) {
+      onCambio(gesto.ultimo);
+    }
   }
 
   const vertical = orientacion === 'vertical';
@@ -125,13 +166,22 @@ export function Divisor({
         vertical ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize'
       } focus-visible:bg-brass-bright focus-visible:outline-none ${className}`}
     >
-      {/* La franja que se agarra: invisible, centrada sobre la línea y más
-          ancha que ella. Al pasar por encima, la línea se enciende: es lo que
-          dice que esto se puede coger, sin dibujar un asa. */}
+      {/* La franja que se agarra: invisible, centrada sobre la línea y de
+          veinticuatro píxeles. Encima de lo de al lado (`z-10`), porque se come
+          el borde de las dos áreas vecinas y tiene que ganarles el puntero. */}
       <span
         aria-hidden="true"
-        className={`group-hover:bg-brass-dim absolute ${
-          vertical ? 'inset-y-0 -left-[3px] w-[7px]' : 'inset-x-0 -top-[3px] h-[7px]'
+        className={`absolute z-10 ${
+          vertical ? 'inset-y-0 -left-[11.5px] w-6' : 'inset-x-0 -top-[11.5px] h-6'
+        }`}
+      />
+      {/* Lo que se enciende al pasar por encima, y es lo que dice que esto se
+          puede coger sin dibujar un asa. Tres píxeles y no la franja entera: se
+          agarra ancho, pero no se pinta una barra gorda entre dos áreas. */}
+      <span
+        aria-hidden="true"
+        className={`group-hover:bg-brass-dim pointer-events-none absolute ${
+          vertical ? 'inset-y-0 -left-px w-[3px]' : 'inset-x-0 -top-px h-[3px]'
         }`}
       />
     </div>

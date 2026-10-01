@@ -3,10 +3,10 @@ import { render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { COMPOSE_XP } from '@core/music';
+import { badgesOf, COMPOSE_XP } from '@core/music';
 
 import { GananciaAlComponer } from './GananciaAlComponer';
-import type { ComposeGain } from './use-progress';
+import type { ComposeGain } from './use-ganancia-al-componer';
 
 /**
  * El aviso de lo que ha contado al componer.
@@ -37,7 +37,7 @@ describe('el aviso de componer', () => {
   it('nombra la medalla nueva, no su identificador', () => {
     render(
       <GananciaAlComponer
-        gain={ganancia({ newBadges: ['primera-cancion'] })}
+        gain={ganancia({ newBadges: badgesOf(['primera-cancion']) })}
         onDismiss={() => {}}
       />,
     );

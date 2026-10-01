@@ -10,8 +10,8 @@ import { DeleteAccountForm } from './DeleteAccountForm';
 const borrar = vi.hoisted(() => vi.fn());
 const cerrarSesion = vi.hoisted(() => vi.fn());
 
-vi.mock('@state/account', () => ({ deleteAccount: borrar }));
-vi.mock('next-auth/react', () => ({ signOut: cerrarSesion }));
+// Cerrar la sesión pasa por `state/account`, que es quien conoce la librería.
+vi.mock('@state/account', () => ({ deleteAccount: borrar, signOutHere: cerrarSesion }));
 
 /** Abre el formulario y rellena lo que haga falta. */
 async function abrir() {
@@ -66,7 +66,7 @@ describe('borrar la cuenta', () => {
     expect(borrar).toHaveBeenCalledWith('la mia');
     // La cookie sigue firmada y viva: sin cerrarla, quien acaba de borrarse se
     // queda con una sesión que apunta a una fila que ya no existe.
-    expect(cerrarSesion).toHaveBeenCalled();
+    expect(cerrarSesion).toHaveBeenCalledWith('/');
   });
 
   it('si el servidor dice que no, se enseña su frase y no se cierra la sesión', async () => {

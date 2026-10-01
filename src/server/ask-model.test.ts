@@ -107,7 +107,8 @@ describe('a quien se le pregunta', () => {
     // La barra final se quita antes de llegar aqui: con ella, Ollama contesta un
     // 404 que no se parece en nada a «te has dejado una barra en el .env».
     expect(url).toBe('http://localhost:11434');
-    expect(peticion['maxTokens']).toBe(400);
+    // Modelo local no cuesta dinero: le damos 3x tokens para evitar truncamiento.
+    expect(peticion['maxTokens']).toBe(1200);
     expect(peticion['model']).toBeTruthy();
   });
 
@@ -249,7 +250,7 @@ describe('una respuesta cortada por el tope', () => {
   it('se distingue de cualquier otro fallo', async () => {
     process.env['ANTHROPIC_API_KEY'] = 'sk-de-mentira';
     // JSON a medias, que es justo lo que devuelve una respuesta cortada.
-    crear.mockResolvedValue(contesta('{"ideas":[{"symbol":"C', 'max_tokens'));
+    crear.mockResolvedValue(contesta('{"versions":[{"title":"Baj', 'max_tokens'));
 
     await expect(askModel(pregunta)).rejects.toBeInstanceOf(RespuestaTruncada);
   });

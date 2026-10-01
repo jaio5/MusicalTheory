@@ -86,26 +86,60 @@ describe('Cambiar la contraseña', () => {
    * El servidor no puede saber que las dos nuevas no son la misma —solo recibe
    * una—, así que si esto no se comprueba aquí no lo comprueba nadie.
    */
-  it('no deja enviar si las dos nuevas no coinciden', async () => {
+  it('no deja enviar si las dos nuevas no coinciden, y dice por qué en el campo', async () => {
     const fetchMock = responder({});
     vi.stubGlobal('fetch', fetchMock);
     pintar();
 
     await escribir('la-de-siempre', 'una-nueva-larga', 'otra-distinta');
 
-    expect(screen.getByText(/las dos nuevas no son la misma/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /cambiar la contraseña/i })).toBeDisabled();
+    // Se dice en cuanto se escribe la segunda, y en el campo que falla.
+    const repetida = screen.getByLabelText(/otra vez/i);
+    expect(repetida).toHaveAttribute('aria-invalid', 'true');
+    expect(repetida).toHaveAccessibleDescription(/las dos nuevas no son la misma/i);
+
+    // Y el botón se pulsa: apagado no decía por qué.
+    const boton = screen.getByRole('button', { name: /cambiar la contraseña/i });
+    expect(boton).toBeEnabled();
+    await userEvent.click(boton);
+
+    expect(repetida).toHaveFocus();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   // Ocho es el mínimo del dominio, y el formulario no puede dejar enviar lo que
   // el servidor va a rechazar: el viaje de ida y vuelta para eso sobra.
-  it('no deja enviar una contraseña más corta que el mínimo', async () => {
+  it('no deja enviar una contraseña más corta que el mínimo, y lleva a ella', async () => {
+    const fetchMock = responder({});
+    vi.stubGlobal('fetch', fetchMock);
     pintar();
 
     await escribir('la-de-siempre', 'corta', 'corta');
+    // Antes de intentarlo no se regaña a nadie.
+    expect(screen.getByLabelText(/mínimo/i)).not.toHaveAttribute('aria-invalid');
 
-    expect(screen.getByRole('button', { name: /cambiar la contraseña/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /cambiar la contraseña/i }));
+
+    const nueva = screen.getByLabelText(/mínimo/i);
+    expect(nueva).toHaveFocus();
+    expect(nueva).toHaveAccessibleDescription(/al menos 8 caracteres/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // Sin nada escrito, lo primero que falta es lo primero que se lee.
+  it('sin nada escrito, lleva a la de ahora y marca las tres', async () => {
+    const fetchMock = responder({});
+    vi.stubGlobal('fetch', fetchMock);
+    pintar();
+
+    await userEvent.click(screen.getByRole('button', { name: /cambiar la contraseña/i }));
+
+    expect(screen.getByLabelText(/la de ahora/i)).toHaveFocus();
+    expect(screen.getByLabelText(/la de ahora/i)).toHaveAccessibleDescription('Falta la de ahora.');
+    expect(screen.getByLabelText(/mínimo/i)).toHaveAttribute('aria-invalid', 'true');
+    // Vacías las dos, coinciden: lo que falla de la tercera es la de arriba.
+    expect(screen.getByLabelText(/otra vez/i)).not.toHaveAttribute('aria-invalid');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('enseña el motivo que da el servidor', async () => {

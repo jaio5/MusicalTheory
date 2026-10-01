@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
@@ -67,16 +67,25 @@ export interface PartRowProps {
   readonly scaleId: ScaleId;
   readonly onlyScale: boolean;
   readonly selectedNoteId: string | null;
-  readonly onPlay: () => void;
-  readonly onRename: (name: string) => void;
-  readonly onSetRole: (role: SectionRole) => void;
-  readonly onRemove: () => void;
-  readonly onSetBars: (bars: number) => void;
+  /*
+    **Todas las acciones reciben la parte, y ninguna la trae puesta.**
+
+    Venían como flechas escritas en el lienzo —`() => player.toggle(part.id)`—,
+    nuevas en cada pintado, y con ellas `memo` no servía de nada: cualquier
+    cambio en una parte, o cada movimiento de un arrastre, repintaba todas las
+    filas con sus pentagramas. Así el lienzo pasa las mismas funciones a todas
+    las filas y cada fila las ata a su parte con `useCallback`.
+  */
+  readonly onPlay: (partId: string) => void;
+  readonly onRename: (partId: string, name: string) => void;
+  readonly onSetRole: (partId: string, role: SectionRole) => void;
+  readonly onRemove: (partId: string) => void;
+  readonly onSetBars: (partId: string, bars: number) => void;
   readonly onBlockPointerDown: (
     event: ReactPointerEvent<HTMLButtonElement>,
     blockId: string,
   ) => void;
-  readonly onBlockClick: (blockId: string) => void;
+  readonly onBlockClick: (partId: string, blockId: string) => void;
   readonly onBlockKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>, blockId: string) => void;
   readonly onAddNote: (partId: string, offset: number, start: number) => void;
   readonly onSelectNote: (noteId: string) => void;
@@ -93,7 +102,12 @@ export interface PartRowProps {
   readonly onAceptarPropuesta: (cuantos: number) => void;
 }
 
-export function PartRow({
+/**
+ * Con `memo`: lo que llega es la parte —que el almacén conserva por referencia
+ * mientras no cambia nada de dentro— y funciones que no cambian, así que al
+ * tocar una parte solo se repinta ésa.
+ */
+export const PartRow = memo(function PartRow({
   part,
   tonic,
   mode,
@@ -144,6 +158,23 @@ export function PartRow({
   // compases con acordes borra trabajo sin decirlo.
   const minimoBars = Math.max(1, Math.ceil(partLength(part) / Math.max(1, beatsPerBar)));
 
+  // Las tres que bajan al pentagrama y al carril del punteo, atadas a esta parte
+  // y estables: esos dos van con `memo`, y una flecha nueva en cada pintado lo
+  // anulaba.
+  const partId = part.id;
+  const anadirNota = useCallback(
+    (offset: number, start: number) => onAddNote(partId, offset, start),
+    [onAddNote, partId],
+  );
+  const elegirBloque = useCallback(
+    (blockId: string) => onBlockClick(partId, blockId),
+    [onBlockClick, partId],
+  );
+  const moverBloque = useCallback(
+    (blockId: string, to: number) => onMoveBlock(partId, blockId, to),
+    [onMoveBlock, partId],
+  );
+
   return (
     <section
       aria-label={part.name}
@@ -170,7 +201,7 @@ export function PartRow({
             defaultValue={part.name}
             autoFocus
             onBlur={(event) => {
-              onRename(event.target.value);
+              onRename(part.id, event.target.value);
               setEditando(false);
             }}
             onKeyDown={(event) => {
@@ -180,7 +211,7 @@ export function PartRow({
             }}
           />
         ) : (
-          <Chip onClick={() => setEditando(true)} tone="quiet" className="text-xs">
+          <Chip onClick={() => setEditando(true)} tone="quiet" tamano="compacto">
             {part.name}
           </Chip>
         )}
@@ -196,28 +227,39 @@ export function PartRow({
           Va aquí, pegado al nombre, porque es la misma pregunta: lo que acabas
           de tocar, qué es. Y se queda en «Una idea» mientras no lo decidas, que
           es la respuesta honesta la mayoría de las veces.
+
+          **Con su rótulo a la vista.** Sin él, «Estrofa» al lado de «Una idea»
+          se leía como una sola frase —una estrofa cuyo papel es una idea— y no
+          como un nombre y un selector. El rótulo visible es «Papel» a secas y el
+          nombre del selector sigue diciendo de qué parte, que es lo que oye un
+          lector al llegar sin ver la fila; por eso el visible va oculto para él.
         */}
-        <Field
-          label={`Papel de ${part.name}`}
-          compact
-          ancho="auto"
-          value={roleOf(part)}
-          onChange={(event) => onSetRole(event.target.value as SectionRole)}
-          // Solo el tamaño de letra. **Sin `min-h-0`**, que es lo que había: la
-          // clase decía una cosa y el navegador hacía otra —el `min-h-tap` de
-          // `ui/Field` ganaba por el orden del CSS, no por diseño—, y si algún
-          // día ganara la mía, este selector bajaría de los 44 px que pide la
-          // regla de esta interfaz. Que salga bien por casualidad no es que
-          // salga bien.
-          className="text-xs"
-          title={roleInfo(roleOf(part)).what}
-        >
-          {ROLES.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.name}
-            </option>
-          ))}
-        </Field>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="text-text-muted text-xs">
+            Papel
+          </span>
+          <Field
+            label={`Papel de ${part.name}`}
+            compact
+            ancho="auto"
+            value={roleOf(part)}
+            onChange={(event) => onSetRole(part.id, event.target.value as SectionRole)}
+            // Solo el tamaño de letra. **Sin `min-h-0`**, que es lo que había: la
+            // clase decía una cosa y el navegador hacía otra —el `min-h-tap` de
+            // `ui/Field` ganaba por el orden del CSS, no por diseño—, y si algún
+            // día ganara la mía, este selector bajaría de los 44 px que pide la
+            // regla de esta interfaz. Que salga bien por casualidad no es que
+            // salga bien.
+            className="text-xs"
+            title={roleInfo(roleOf(part)).what}
+          >
+            {ROLES.map((role) => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
+          </Field>
+        </span>
 
         {/*
           Los compases, con el número **entre** los dos botones.
@@ -229,7 +271,7 @@ export function PartRow({
         */}
         <span className="flex items-center gap-1">
           <Chip
-            onClick={() => onSetBars(compases - 1)}
+            onClick={() => onSetBars(part.id, compases - 1)}
             tone="quiet"
             disabled={compases <= minimoBars}
             ariaLabel={`Acortar ${part.name}`}
@@ -268,7 +310,7 @@ export function PartRow({
             onChange={(event) => setEscribiendo(event.target.value)}
             onFocus={(event) => event.currentTarget.select()}
             onBlur={(event) => {
-              onSetBars(Number(event.target.value));
+              onSetBars(part.id, Number(event.target.value));
               setEscribiendo(null);
             }}
             onKeyDown={(event) => {
@@ -280,7 +322,7 @@ export function PartRow({
           />
 
           <Chip
-            onClick={() => onSetBars(compases + 1)}
+            onClick={() => onSetBars(part.id, compases + 1)}
             tone="quiet"
             disabled={compases >= MAX_BARS}
             ariaLabel={`Alargar ${part.name}`}
@@ -293,20 +335,20 @@ export function PartRow({
 
         <span className="ml-auto flex gap-1">
           <Chip
-            onClick={onPlay}
+            onClick={() => onPlay(part.id)}
             pressed={playing}
             tone="quiet"
             disabled={part.blocks.length === 0}
             ariaLabel={playing ? `Parar ${part.name}` : `Escuchar ${part.name}`}
-            className="px-3 text-xs"
+            tamano="compacto"
           >
             {playing ? 'Parar' : 'Escuchar'}
           </Chip>
           <Chip
-            onClick={onRemove}
+            onClick={() => onRemove(part.id)}
             tone="quiet"
             ariaLabel={`Quitar ${part.name}`}
-            className="px-3 text-xs"
+            tamano="compacto"
           >
             Quitar
           </Chip>
@@ -359,7 +401,7 @@ export function PartRow({
                   selected={selectedBlockId === block.id}
                   dragging={draggingBlockId === block.id}
                   onPointerDown={(event) => onBlockPointerDown(event, block.id)}
-                  onClick={() => onBlockClick(block.id)}
+                  onClick={() => elegirBloque(block.id)}
                   onKeyDown={(event) => onBlockKeyDown(event, block.id)}
                 />
               </li>
@@ -385,7 +427,7 @@ export function PartRow({
           onlyScale={onlyScale}
           selectedNoteId={selectedNoteId}
           partName={part.name}
-          onAdd={(offset, start) => onAddNote(part.id, offset, start)}
+          onAdd={anadirNota}
           onSelect={onSelectNote}
           onMove={onMoveNote}
           onResize={onResizeNote}
@@ -406,11 +448,11 @@ export function PartRow({
           partName={part.name}
           partId={part.id}
           dropAt={dropAt}
-          onSelectBlock={onBlockClick}
+          onSelectBlock={elegirBloque}
           onRemoveBlock={onRemoveBlock}
           onResizeBlock={onResizeBlock}
-          onMoveBlock={(blockId, to) => onMoveBlock(part.id, blockId, to)}
-          onAdd={(offset, start) => onAddNote(part.id, offset, start)}
+          onMoveBlock={moverBloque}
+          onAdd={anadirNota}
           onSelect={onSelectNote}
           onMove={onMoveNote}
           onGestureStart={onGestureStart}
@@ -454,4 +496,4 @@ export function PartRow({
       )}
     </section>
   );
-}
+});

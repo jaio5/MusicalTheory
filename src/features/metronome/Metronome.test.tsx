@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { Metronome as MetronomeEngine, MetronomeOptions } from '@audio/metronome';
 
@@ -50,23 +50,25 @@ describe('Metrónomo', () => {
   it('arranca y para con el mismo botón', async () => {
     const { engine } = renderMetronome();
 
-    fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
-    expect(await screen.findByRole('button', { name: /parar el metrónomo/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
+    expect(await screen.findByRole('button', { name: /^clic del metrónomo/i })).toBeInTheDocument();
     expect(engine.running).toBe(true);
 
-    fireEvent.click(screen.getByRole('button', { name: /parar el metrónomo/i }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
     expect(engine.running).toBe(false);
   });
 
   it('arranca con el tempo y el compás que se ven en pantalla', async () => {
     const { engine } = renderMetronome();
 
-    fireEvent.change(screen.getByRole('spinbutton', { name: /pulsos por minuto/i }), {
+    fireEvent.change(screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i }), {
       target: { value: '132' },
     });
-    fireEvent.change(screen.getByRole('combobox', { name: /compás/i }), { target: { value: '3' } });
-    fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
-    await screen.findByRole('button', { name: /parar el metrónomo/i });
+    fireEvent.change(screen.getByRole('combobox', { hidden: true, name: /compás/i }), {
+      target: { value: '3' },
+    });
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
+    await screen.findByRole('button', { name: /^clic del metrónomo/i });
 
     expect(engine.options?.bpm).toBe(132);
     expect(engine.options?.beatsPerBar).toBe(3);
@@ -75,9 +77,9 @@ describe('Metrónomo', () => {
   it('cambia la velocidad sin cortar el pulso', async () => {
     const { engine } = renderMetronome();
 
-    fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
-    await screen.findByRole('button', { name: /parar el metrónomo/i });
-    fireEvent.click(screen.getByRole('button', { name: /dos pulsos más/i }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
+    await screen.findByRole('button', { name: /^clic del metrónomo/i });
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /dos pulsos más/i }));
 
     expect(engine.bpmChanges.at(-1)).toBe(102);
     expect(engine.running).toBe(true);
@@ -90,7 +92,7 @@ describe('Metrónomo', () => {
    */
   it('no deja pasar de lo que se puede seguir', () => {
     renderMetronome();
-    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+    const campo = screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i });
 
     fireEvent.change(campo, { target: { value: '9000' } });
     fireEvent.blur(campo);
@@ -108,7 +110,7 @@ describe('Metrónomo', () => {
    */
   it('se puede escribir un tempo digito a digito', () => {
     renderMetronome();
-    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+    const campo = screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i });
 
     fireEvent.change(campo, { target: { value: '' } });
     expect(campo).toHaveValue(null);
@@ -130,7 +132,7 @@ describe('Metrónomo', () => {
   // puede dejar el metrónomo en un tempo que no existe.
   it('lo que queda a medias se acota al salir del campo', () => {
     renderMetronome();
-    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+    const campo = screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i });
 
     fireEvent.change(campo, { target: { value: '1' } });
     fireEvent.blur(campo);
@@ -142,7 +144,7 @@ describe('Metrónomo', () => {
   // vacío no es un tempo de cero.
   it('borrarlo y salir devuelve el tempo que habia', () => {
     renderMetronome();
-    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+    const campo = screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i });
 
     fireEvent.change(campo, { target: { value: '' } });
     fireEvent.blur(campo);
@@ -154,10 +156,10 @@ describe('Metrónomo', () => {
   // no movería el número que se ve.
   it('los botones ganan a lo que quedara escrito', () => {
     renderMetronome();
-    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+    const campo = screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i });
 
     fireEvent.change(campo, { target: { value: '1' } });
-    fireEvent.click(screen.getByRole('button', { name: /dos pulsos más/i }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /dos pulsos más/i }));
 
     expect(campo).toHaveValue(102);
   });
@@ -165,48 +167,10 @@ describe('Metrónomo', () => {
   it('se calla al salir de la pantalla', () => {
     const { engine, view } = renderMetronome();
 
-    fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
     view.unmount();
 
     expect(engine.disposed).toBe(true);
-  });
-});
-
-describe('Marcar el tempo con el dedo', () => {
-  /**
-   * Es como se saca de verdad el tempo de una canción que suena en la cabeza:
-   * nadie sabe decir «ciento treinta y dos», pero cualquiera lo marca con el
-   * dedo. Se prueba moviendo el reloj a mano, porque `performance.now()` es lo
-   * que lee.
-   */
-  it('cuatro golpes al mismo ritmo ponen ese tempo', () => {
-    const reloj = vi.spyOn(performance, 'now');
-    // Un golpe cada medio segundo son 120 pulsos por minuto.
-    let t = 0;
-    reloj.mockImplementation(() => (t += 500));
-    renderMetronome();
-
-    for (let i = 0; i < 4; i += 1) {
-      fireEvent.click(screen.getByRole('button', { name: 'Marcar' }));
-    }
-
-    expect(screen.getByRole('spinbutton', { name: /pulsos por minuto/i })).toHaveValue(120);
-    reloj.mockRestore();
-  });
-
-  it('un golpe suelto no cambia nada', () => {
-    // Con uno no hay intervalo que medir, y cambiar el tempo por un clic
-    // accidental sería peor que no hacer nada.
-    renderMetronome();
-    const antes = (
-      screen.getByRole('spinbutton', { name: /pulsos por minuto/i }) as HTMLInputElement
-    ).value;
-
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar' }));
-
-    expect(screen.getByRole('spinbutton', { name: /pulsos por minuto/i })).toHaveValue(
-      Number(antes),
-    );
   });
 });
 
@@ -214,13 +178,13 @@ describe('Los ajustes de dos en dos', () => {
   it('suben y bajan sin tener que escribir', () => {
     // Con la guitarra en las manos, escribir un número es soltar la púa.
     renderMetronome();
-    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+    const campo = screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i });
     fireEvent.change(campo, { target: { value: '100' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dos pulsos más' }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: 'Dos pulsos más' }));
     expect(campo).toHaveValue(102);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Dos pulsos menos' }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: 'Dos pulsos menos' }));
     expect(campo).toHaveValue(100);
   });
 });
@@ -228,10 +192,12 @@ describe('Los ajustes de dos en dos', () => {
 describe('Cambiar de compás mientras suena', () => {
   it('vuelve a arrancar con el compás nuevo, sin tener que pararlo', async () => {
     const { engine } = renderMetronome();
-    fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
-    await screen.findByRole('button', { name: /parar el metrónomo/i });
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
+    await screen.findByRole('button', { name: /^clic del metrónomo/i });
 
-    fireEvent.change(screen.getByRole('combobox', { name: /compás/i }), { target: { value: '3' } });
+    fireEvent.change(screen.getByRole('combobox', { hidden: true, name: /compás/i }), {
+      target: { value: '3' },
+    });
 
     expect(engine.options?.beatsPerBar).toBe(3);
     expect(engine.running).toBe(true);
@@ -240,10 +206,12 @@ describe('Cambiar de compás mientras suena', () => {
   it('parado, solo se guarda para la próxima vez', () => {
     const { engine } = renderMetronome();
 
-    fireEvent.change(screen.getByRole('combobox', { name: /compás/i }), { target: { value: '3' } });
+    fireEvent.change(screen.getByRole('combobox', { hidden: true, name: /compás/i }), {
+      target: { value: '3' },
+    });
 
     expect(engine.running).toBe(false);
-    expect(screen.getByRole('combobox', { name: /compás/i })).toHaveValue('3');
+    expect(screen.getByRole('combobox', { hidden: true, name: /compás/i })).toHaveValue('3');
   });
 });
 
@@ -255,7 +223,7 @@ describe('La luz del pulso', () => {
 
     expect(screen.getByText('Metrónomo parado')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
 
     expect(await screen.findByText(/Metrónomo a \d+ pulsos por minuto/)).toBeInTheDocument();
   });
@@ -269,7 +237,9 @@ describe('los puntos del compás', () => {
    */
   it('el uno se distingue del resto, y parado no se enciende ninguno', async () => {
     const { engine, view } = renderMetronome();
-    await fireEvent.click(screen.getByRole('button', { name: /poner el metrónomo/i }));
+    await fireEvent.click(
+      screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }),
+    );
 
     act(() => engine.options?.onBeat?.(0));
     expect(view.container.querySelectorAll('.bg-brass-bright')).toHaveLength(1);
@@ -282,11 +252,33 @@ describe('los puntos del compás', () => {
   // Y con Intro se cierra lo escrito sin salir del campo.
   it('Intro cierra el tempo escrito', () => {
     renderMetronome();
-    const campo = screen.getByRole('spinbutton', { name: /pulsos por minuto/i });
+    const campo = screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i });
 
     fireEvent.change(campo, { target: { value: '132' } });
     fireEvent.keyDown(campo, { key: 'Enter' });
 
     expect(useSessionStore.getState().bpm).toBe(132);
+  });
+});
+
+/**
+ * En la barra van dos pastillas: «Clic» y el tempo, que abre el resto. Entero,
+ * en un teléfono partía la barra de componer en dos filas.
+ */
+describe('En la barra', () => {
+  it('el clic dice su nombre a la vista, y no es solo un triangulo', () => {
+    renderMetronome();
+
+    expect(screen.getByRole('button', { name: 'Clic del metrónomo' })).toHaveTextContent('Clic');
+  });
+
+  it('el tempo abre el panel donde se cambia, y el compas va dentro', () => {
+    const { view } = renderMetronome();
+    const tempo = screen.getByRole('button', { name: 'Tempo: 100 pulsos por minuto' });
+    const panel = view.container.querySelector('[popover]')!;
+
+    expect(tempo).toHaveTextContent('100 bpm');
+    expect(tempo.getAttribute('popovertarget')).toBe(panel.id);
+    expect(panel).toContainElement(screen.getByRole('combobox', { hidden: true, name: /compás/i }));
   });
 });

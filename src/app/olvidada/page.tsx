@@ -35,10 +35,14 @@ export default async function Olvidada({
     <AppShell>
       <Screen
         title={vale === undefined ? 'Contraseña olvidada' : 'Contraseña nueva'}
+        // La entradilla promete un correo, y sin correo no hay nada que prometer:
+        // el aviso de debajo dice lo que sí pasa.
         lead={
-          vale === undefined
-            ? 'Te mandamos un enlace al correo. Caduca en una hora y solo vale una vez.'
-            : 'Escríbela dos veces. Al cambiarla se cierran las sesiones que hubiera abiertas en otros aparatos.'
+          !puede
+            ? undefined
+            : vale === undefined
+              ? 'Te mandamos un enlace al correo. Caduca en una hora y solo vale una vez.'
+              : 'Escríbela dos veces. Al cambiarla se cierran las sesiones que hubiera abiertas en otros aparatos.'
         }
         back={{ href: '/cuenta', label: 'Entrar' }}
         ancho="lectura"

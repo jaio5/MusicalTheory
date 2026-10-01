@@ -14,4 +14,5 @@ export * from './UnitDone';
 export * from './exercise';
 export * from './teacher-contract';
 export * from './use-progress';
+export * from './use-ganancia-al-componer';
 export { PlayNote } from './PlayNote';

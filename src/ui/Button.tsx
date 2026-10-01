@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react';
 
 export type ButtonVariant = 'primary' | 'quiet' | 'danger';
+export type ButtonSize = 'normal' | 'compacto';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variant?: ButtonVariant;
@@ -14,6 +15,15 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
    * si se ha pulsado o si aquello se ha quedado colgado.
    */
   readonly cargando?: boolean;
+  /**
+   * `compacto` para el botón que va dentro de una caja o al lado de un texto
+   * pequeño: 14 px en vez de 16. **Solo cambia la letra y el relleno de los
+   * lados**: el alto sigue siendo el de pulsar.
+   *
+   * Existe porque quien lo quería pequeño lo pedía con `text-xs` en `className`,
+   * y los botones salían de 12, 14 y 16 px con el mismo alto.
+   */
+  readonly tamano?: ButtonSize;
 }
 
 /**
@@ -54,7 +64,15 @@ function Ruedecilla() {
  * texto**, y ese hueco escrito a mano quince veces acaba siendo quince huecos.
  */
 const BASE =
-  'inline-flex min-h-tap cursor-pointer items-center justify-center gap-2 rounded-md px-5 py-2.5 text-base font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0';
+  'inline-flex min-h-tap cursor-pointer items-center justify-center gap-2 rounded-md py-2.5 font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0';
+
+// La letra y el relleno de los lados van aparte de la base: con los dos en ella,
+// un `className` que quisiera otra medida dependía del orden en que Tailwind
+// ordena sus clases, y no de lo que pedía quien lo escribía.
+const TAMANOS: Record<ButtonSize, string> = {
+  normal: 'px-5 text-base',
+  compacto: 'px-4 text-sm',
+};
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-brass text-background filo-luz hover:bg-brass-bright hover:filo-luz-alto',
@@ -79,8 +97,12 @@ const VARIANTS: Record<ButtonVariant, string> = {
  * movían al pulsarlos. Se exporta el estilo en vez de un componente envoltorio
  * porque quien lo usa es `next/link`, y `ui/` no debe conocerlo.
  */
-export function estiloBoton(variant: ButtonVariant = 'primary', className = ''): string {
-  return `${BASE} ${VARIANTS[variant]} ${className}`;
+export function estiloBoton(
+  variant: ButtonVariant = 'primary',
+  className = '',
+  tamano: ButtonSize = 'normal',
+): string {
+  return `${BASE} ${TAMANOS[tamano]} ${VARIANTS[variant]} ${className}`;
 }
 
 export function Button({
@@ -88,6 +110,7 @@ export function Button({
   className = '',
   type,
   cargando = false,
+  tamano = 'normal',
   children,
   ...props
 }: ButtonProps) {
@@ -96,7 +119,7 @@ export function Button({
       // Sin esto, un botón dentro de un formulario lo enviaría sin querer.
       type={type ?? 'button'}
       aria-busy={cargando || undefined}
-      className={`${BASE} ${VARIANTS[variant]} ${className}`}
+      className={estiloBoton(variant, className, tamano)}
       {...props}
     >
       {cargando && <Ruedecilla />}

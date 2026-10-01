@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -89,8 +89,31 @@ describe('cuando no se puede entrar', () => {
 
     pintar(segunda, PRO);
 
-    expect(screen.getByText(/se abre al terminar la anterior/)).toBeInTheDocument();
+    expect(screen.getByText(/Se abre al terminar la anterior/)).toBeInTheDocument();
     expect(screen.queryAllByText(/Grado Profesional/)).toHaveLength(0);
+  });
+
+  // Y no se queda en explicarlo: ofrece la que toca, que es la primera.
+  it('la cerrada ofrece ir a la que toca y cambiar el punto de partida', () => {
+    pintar(UNIT_ORDER[1]!, PRO);
+
+    expect(screen.getByRole('link', { name: 'Ir a la que toca' })).toHaveAttribute(
+      'href',
+      `/aprender/${PRIMERA}`,
+    );
+    expect(screen.getByRole('link', { name: 'Cambiar el punto de partida' })).toHaveAttribute(
+      'href',
+      '/aprender',
+    );
+  });
+
+  it('la que no existe ofrece volver al camino con un boton, no solo con el enlace de arriba', () => {
+    pintar('una-que-no-existe');
+
+    expect(screen.getByRole('link', { name: 'Volver al camino' })).toHaveAttribute(
+      'href',
+      '/aprender',
+    );
   });
 });
 
@@ -123,8 +146,10 @@ describe('la unidad abierta', () => {
   it('sin tonalidad ofrece cuatro con las que empezar, y elegir una abre la unidad', async () => {
     pintar(PRIMERA);
 
-    const empezar = screen.getByRole('group', { name: 'Tonalidades para empezar' });
-    await userEvent.click(within(empezar).getByRole('button', { name: 'C mayor' }));
+    // Los de la barra, que es lo que se ve: los del estado vacío de debajo
+    // están tapados e inertes mientras la rueda sigue abierta.
+    const [empezar] = screen.getAllByRole('group', { name: 'Tonalidades para empezar' });
+    await userEvent.click(within(empezar!).getByRole('button', { name: 'C mayor' }));
 
     // Elegida, la unidad arranca: ni el ofrecimiento ni «sin elegir» siguen ahí.
     expect(
@@ -391,5 +416,38 @@ describe('lo que dice la barra de tonalidad', () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('G'), mode: 'major' });
     render(<UnitScreen unitId="e1-grados" />);
     expect(screen.getByText(/Las preguntas se escriben con los acordes/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * La rueda abierta tapa la unidad entera, y lo tapado no puede recibir el foco:
+ * el tabulador caía en botones que no se veían (WCAG 2.4.11).
+ */
+describe('lo que tapa la rueda', () => {
+  function contenido(): HTMLElement {
+    return document.querySelector<HTMLElement>('.max-w-2xl.grow')!;
+  }
+
+  it('sin tonalidad la rueda se abre sola y la unidad queda inerte', () => {
+    pintar(PRIMERA);
+
+    expect(contenido()).toHaveAttribute('inert');
+  });
+
+  it('al cerrarla, la unidad vuelve a responder', () => {
+    pintar(PRIMERA);
+    const detalles = document.querySelector('details')!;
+
+    detalles.open = false;
+    detalles.dispatchEvent(new Event('toggle'));
+
+    return waitFor(() => expect(contenido()).not.toHaveAttribute('inert'));
+  });
+
+  it('con tonalidad puesta empieza cerrada y no tapa nada', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('G'), mode: 'major' });
+    pintar(PRIMERA);
+
+    expect(contenido()).not.toHaveAttribute('inert');
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { pareceUnCorreo } from './correo';
+import { CORREO_FALTA, CORREO_MAL, pareceUnCorreo, problemaDelCorreo } from './correo';
 
 /**
  * La regla mínima del correo.
@@ -32,5 +32,17 @@ describe('si un correo lo parece', () => {
     expect(pareceUnCorreo('con espacio@ejemplo.com')).toBe(false);
     expect(pareceUnCorreo('punto@ejemplo.')).toBe(false);
     expect(pareceUnCorreo('')).toBe(false);
+  });
+});
+
+describe('problemaDelCorreo', () => {
+  it('vacío o en blanco, falta', () => {
+    expect(problemaDelCorreo('')).toBe(CORREO_FALTA);
+    expect(problemaDelCorreo('   ')).toBe(CORREO_FALTA);
+  });
+
+  it('mal escrito, no tiene buena pinta; bien escrito, nada', () => {
+    expect(problemaDelCorreo('nada')).toBe(CORREO_MAL);
+    expect(problemaDelCorreo('a@b.co')).toBeUndefined();
   });
 });

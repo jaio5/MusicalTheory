@@ -1,5 +1,7 @@
 # ADR 0006 — Tres planes en el dominio y la facturación como puerto
 
+> **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** el permiso `ideas` ya no existe, y las salidas (`versiones`) entran en Medio.
+
 Fecha: 2026-07-30 · Estado: aceptada
 
 ## Contexto

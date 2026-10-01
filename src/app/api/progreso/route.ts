@@ -90,7 +90,14 @@ export async function PUT(request: Request): Promise<NextResponse> {
     return session;
   }
 
-  const record = await readJsonBody(request);
+  // El cuerpo y lo guardado **a la vez**: son independientes —uno lee la
+  // petición, el otro Postgres— y ninguno lanza, así que esperar uno para pedir
+  // el otro solo sumaba sus tiempos. La cuenta y el plan sí van antes, fuera de
+  // esto: sin ellos no se lee ni una cosa ni la otra.
+  const [record, guardado] = await Promise.all([
+    readJsonBody(request),
+    loadAccountProgress(session.userId),
+  ]);
 
   // Lo que llega del navegador se interpreta con la misma función que interpreta
   // lo que se lee de la base de datos. Cualquiera puede abrir la consola y
@@ -98,7 +105,6 @@ export async function PUT(request: Request): Promise<NextResponse> {
   // unidad que no existe, un XP que no cuadre con lo hecho o una racha sin fecha.
   const entrante = parseProgress(record['progress']);
 
-  const guardado = await loadAccountProgress(session.userId);
   if (guardado.kind === 'error') {
     // Sin poder leer lo que había, no se escribe: escribir sería sustituir el
     // avance de la cuenta por el de este navegador, y eso es perder lo que se

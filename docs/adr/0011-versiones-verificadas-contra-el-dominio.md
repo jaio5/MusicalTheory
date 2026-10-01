@@ -1,5 +1,7 @@
 # ADR 0011 — Las versiones de una canción se verifican contra el dominio, y no sube audio
 
+> **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** las salidas entran en Medio, no en Pro, y las ideas ya no existen.
+
 Fecha: 2026-08-25 · Estado: aceptada · Se apoya en: [ADR 0004](./0004-reconocimiento-de-acordes-por-croma.md), [ADR 0008](./0008-los-cupos-salen-del-precio.md)
 
 > **Enmendada por [ADR 0016](./0016-salidas-en-vez-de-versiones.md).** La regla de

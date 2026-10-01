@@ -11,7 +11,6 @@ import { AccountProvider } from '@state/account';
 import { useSessionStore } from '@state/session-store';
 
 import { ForgottenForm } from './account/ForgottenForm';
-import { IdeasPanel } from './ideas/IdeasPanel';
 import { SongsPanel } from './songs/SongsPanel';
 import { VersionsPanel } from './versions/VersionsPanel';
 
@@ -87,20 +86,6 @@ afterEach(() => {
 });
 
 describe('las direcciones que se usan de verdad', () => {
-  it('las ideas van a /api/ideas, en POST y con JSON', async () => {
-    componiendo();
-    fetchFalso.mockResolvedValue(contesta({ ideas: [] }));
-    conCuenta(<IdeasPanel />);
-
-    await userEvent.click(screen.getByRole('button', { name: /progresiones/i }));
-
-    await waitFor(() => expect(fetchFalso).toHaveBeenCalled());
-    const [url, init] = ultima();
-    expect(url).toBe('/api/ideas');
-    expect(init.method).toBe('POST');
-    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
-  });
-
   it('las salidas van a /api/versiones', async () => {
     componiendo();
     fetchFalso.mockResolvedValue(contesta({ versions: [] }));

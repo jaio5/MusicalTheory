@@ -57,6 +57,9 @@ const NO_DEBERIA_VIAJAR = {
   '/afinar': ['Añadir otra parte', 'Pídeme una idea'],
   '/planes': ['Añadir otra parte'],
   '/registro': ['Añadir otra parte'],
+  // Componer suma al avance, pero no enseña el temario: los títulos de las
+  // unidades llegan con el `import()` del primer hecho, no con la pantalla.
+  '/componer': ['Reconocer el I, el IV y el V'],
 };
 
 const kb = (bytes) => (bytes / 1024).toFixed(0).padStart(5);
@@ -108,6 +111,9 @@ for (const ruta of RUTAS) {
   for (const frase of NO_DEBERIA_VIAJAR[ruta] ?? []) {
     if (todo.includes(frase)) {
       console.log(`   ⚠ se descarga «${frase}», que no es de esta pantalla`);
+      // Falla, y no solo avisa: saliendo con cero, un aviso entre veinte líneas
+      // de cifras pasó por bueno la primera vez que volvió el temario a componer.
+      process.exitCode = 1;
     }
   }
 

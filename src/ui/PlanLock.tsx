@@ -15,8 +15,8 @@ import { PlansLink } from './PlansLink';
  * y no a `/cuenta`: quien se topa con un candado no viene a mirar quién es,
  * viene a ver qué tiene que pagar para abrirlo.
  *
- * Está en `ui/` y no dentro de un feature porque lo necesitan tres —aprender,
- * ideas y la cuenta—, y un feature no importa de otro. Es tonto a propósito: no
+ * Está en `ui/` y no dentro de un feature porque lo necesitan varios —aprender,
+ * las salidas y las canciones—, y un feature no importa de otro. Es tonto a propósito: no
  * sabe quién eres, se lo dicen. La frase la escribe `core/billing`, que es la
  * misma que usan las rutas al rechazar una petición, y por eso la pantalla no
  * puede prometer lo que el servidor niega.
@@ -30,7 +30,7 @@ export function PlanLock({
 }: {
   /** El plan más barato que lo incluye, o nulo si no lo incluye ninguno. */
   readonly needed: Plan | null;
-  /** El sujeto de la frase, escrito entero: «Las ideas de la IA». */
+  /** El sujeto de la frase, escrito entero: «Las salidas de lo que tocas». */
   readonly what: string;
   readonly signedIn: boolean;
   /** Si ese sujeto es plural, para que el verbo concuerde. */
@@ -38,7 +38,7 @@ export function PlanLock({
   readonly compact?: boolean;
 }) {
   return (
-    <div className={`superficie-viva ${compact ? 'px-2 py-1.5' : 'p-3'}`} role="note">
+    <div className={`superficie-viva ${compact ? 'px-2 py-1.5' : 'p-4 md:p-5'}`} role="note">
       <p className={`text-text ${compact ? 'text-xs' : 'text-sm'}`}>
         {needsPlanMessage(needed, what, plural)}
       </p>

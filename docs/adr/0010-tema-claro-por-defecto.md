@@ -2,6 +2,11 @@
 
 Fecha: 2026-08-01 · Estado: aceptada
 
+> El nombre del fichero dice «claro por defecto» porque es lo que decidía la
+> primera redacción, corregida el mismo día (ver abajo). Se conserva para no romper
+> los enlaces; **lo que vale es el título y el código**: `state/theme.ts` arranca en
+> oscuro sin preferencia guardada y no mira `prefers-color-scheme`.
+
 ## Contexto
 
 La aplicación nació oscura y con una idea detrás: **un amplificador de válvulas
@@ -72,7 +77,8 @@ lea la petición. Tres líneas en el `<head>` cuestan menos y no atan el renderi
 
 **Un ciclo de tres botones** —claro, oscuro, sistema—. Obliga a pasar por el que no
 quieres para volver al que sí, y nadie entiende qué hace el tercer clic. El
-conmutador alterna entre dos y «sistema» es de donde se parte.
+conmutador alterna entre dos, y de donde se parte es el oscuro: sin nada guardado
+no hay `data-tema` y vale el bloque de `:root` en `globals.css`.
 
 ## Consecuencias
 

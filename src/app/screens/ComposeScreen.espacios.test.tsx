@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type * as Arrange from '@features/arrange';
+import type * as Tocar from '@features/arrange/TocarParaEscribir';
 import { pitchClassFromName } from '@core/music';
 import { useBancoStore } from '@state/banco';
 import { useSessionStore } from '@state/session-store';
@@ -20,8 +20,10 @@ import { DEFAULT_BANCO } from '@state/workspace';
  * nunca. Lo que se prueba aquí no es el micro —eso ya tiene sus pruebas en
  * `features/arrange`—, sino que la pantalla se entera y cambia de espacio.
  */
-vi.mock('@features/arrange', async (original) => ({
-  ...(await original<typeof Arrange>()),
+// El módulo y no el índice: la pantalla lo importa de ahí para no traerse el
+// lienzo en el paquete de entrada (adr/0058).
+vi.mock('@features/arrange/TocarParaEscribir', async (original) => ({
+  ...(await original<typeof Tocar>()),
   TocarParaEscribir: ({ onEscrito }: { readonly onEscrito?: () => void }) => (
     <button type="button" onClick={onEscrito}>
       Verlo en la partitura

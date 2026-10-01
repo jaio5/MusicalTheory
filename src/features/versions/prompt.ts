@@ -94,8 +94,9 @@ export function promptDeSalidas(
     `Salidas que puedes declarar:\n${pathsText(request.kind)}`,
     `Movimientos, solo para rearmonizar:\n${movesText()}`,
     // El mapa de saltos es lo que convierte «inventa algo» en «elige por dónde».
-    // Es el mismo truco que llevó las ideas de 0 de 4 a 4 de 4: enseñarle lo que
-    // el validador va a comprobar, en vez de pedírselo en prosa.
+    // Es el mismo truco que llevó la función de ideas, ya retirada, de 0 de 4 a
+    // 4 de 4: enseñarle lo que el validador va a comprobar, en vez de pedírselo en
+    // prosa.
     `Mapa de saltos (de cada grado, a dónde puedes ir):\n${graphText(mode, degreesFor(mode))}`,
     `Lo que lleva tocado (grado y pulsos): ${progresion}`,
     queEs(request.role),

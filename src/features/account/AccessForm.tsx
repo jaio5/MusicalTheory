@@ -5,17 +5,18 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useEnvio } from './use-envio';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { registerAccount, signInWithPassword, useAccount } from '@state/account';
-import { Button } from '@ui/Button';
+import { Button, estiloBoton } from '@ui/Button';
 import { IconoLlave } from '@ui/icons';
 import { TextField } from '@ui/TextField';
-import { Vacio } from '@ui/Vacio';
+import { Mascota } from '@ui/Mascota';
+import { Segmentado } from '@ui/Segmentado';
 import { Aviso } from '@ui/Aviso';
 
-import { CORREO_MAL, pareceUnCorreo } from './correo';
+import { problemaDelCorreo } from './correo';
 import { Formulario } from '@ui/Formulario';
 
 /**
@@ -32,10 +33,15 @@ import { Formulario } from '@ui/Formulario';
  * `autoComplete` que están puestos son los que el navegador espera para ofrecer
  * la contraseña guardada, y ponerlos mal es la razón por la que algunos
  * formularios no la ofrecen nunca.
+ *
+ * El botón se pulsa siempre que no esté en marcha: apagado hasta tener los dos
+ * campos no decía qué faltaba. Lo que falta se dice en su campo y el foco va a él,
+ * como en `PasswordForm`.
  */
 export function AccessForm({
   onDone,
   inicial = 'entrar',
+  marco = false,
 }: {
   /**
    * Se ha entrado, y **por qué puerta**.
@@ -47,6 +53,13 @@ export function AccessForm({
   readonly onDone?: (comoEntro: 'entrar' | 'crear') => void;
   /** Qué pestaña viene puesta. El interruptor sigue estando para cambiarla. */
   readonly inicial?: 'entrar' | 'crear';
+  /**
+   * Con la tarjeta encendida y el muñeco asomando, que es el marco de las dos
+   * pantallas donde esto es lo único que hay que hacer. Entrar iba suelto y crear
+   * en tarjeta, y al pasar de una a otra con el conmutador la pantalla cambiaba de
+   * cara. La ventana de pago no lo pide: ahí es un paso dentro de otra cosa.
+   */
+  readonly marco?: boolean;
 }) {
   const { accounts, refresh } = useAccount();
   const router = useRouter();
@@ -54,7 +67,11 @@ export function AccessForm({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [intentado, setIntentado] = useState(false);
+  const [veContrasena, setVeContrasena] = useState(false);
   const { error, setError, working, enviar } = useEnvio();
+  const campoCorreo = useRef<HTMLInputElement>(null);
+  const campoContrasena = useRef<HTMLInputElement>(null);
 
   if (!accounts) {
     // Es un estado normal y no un fallo —sin base de datos todo el mundo es
@@ -62,21 +79,51 @@ export function AccessForm({
     // con su dibujo y diciendo qué sigue funcionando, no con un párrafo suelto
     // en mitad de una pantalla en blanco.
     return (
-      <Vacio icono={<IconoLlave />} titulo="Aquí no hay cuentas configuradas">
-        Todo lo demás funciona igual y tu avance se guarda en este navegador. Lo único que no hay es
-        forma de llevártelo a otro aparato.
-      </Vacio>
+      // A mano y no con `ui/Vacio`: ése se centra, y centrado cae en una x distinta
+      // según la pantalla que lo pone (336 en una, 496 en otra) mientras el resto
+      // arranca en el borde común (adr/0060). Con su salida: un estado vacío sin
+      // acción deja parado delante de un «no hay», y lo que sigue es aprender.
+      <div className="flex max-w-md flex-col items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="border-border bg-surface text-brass flex size-14 items-center justify-center rounded-full border opacity-80 [&_svg]:size-6"
+        >
+          <IconoLlave />
+        </span>
+        <p className="text-text text-base font-medium">Aquí no hay cuentas configuradas</p>
+        <p className="text-text-muted text-sm text-balance">
+          Todo lo demás funciona igual y tu avance se guarda en este navegador. Lo único que no hay
+          es forma de llevártelo a otro aparato.
+        </p>
+        <Link href="/aprender" className={estiloBoton('primary')}>
+          Seguir aprendiendo
+        </Link>
+      </div>
     );
   }
 
+  const minimo = nuevo ? MIN_PASSWORD_LENGTH : 1;
+  // La comprobación la hace el formulario y no el navegador: la burbuja de
+  // `type="email"` la escribe el navegador **en su idioma**, y aquí se veía
+  // «Please include an '@' in the email address» encima de un formulario en
+  // español. Esa burbuja no se puede traducir; lo que sí se puede es no dejar que
+  // salga y decirlo en el campo, que es donde se arregla.
+  const correoMal = intentado ? problemaDelCorreo(email) : undefined;
+  const contrasenaMal =
+    intentado && password.length < minimo
+      ? nuevo
+        ? `Tiene que tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+        : 'Falta la contraseña.'
+      : undefined;
+
   async function submit(): Promise<void> {
-    // La comprobación la hace el formulario y no el navegador: la burbuja de
-    // `type="email"` la escribe el navegador **en su idioma**, y aquí se veía
-    // «Please include an '@' in the email address» encima de un formulario en
-    // español. Esa burbuja no se puede traducir; lo que sí se puede es no dejar
-    // que salga y decirlo con el `Aviso` de siempre.
-    if (!pareceUnCorreo(email)) {
-      setError(CORREO_MAL);
+    setIntentado(true);
+    if (problemaDelCorreo(email) !== undefined) {
+      campoCorreo.current?.focus();
+      return;
+    }
+    if (password.length < minimo) {
+      campoContrasena.current?.focus();
       return;
     }
 
@@ -101,40 +148,21 @@ export function AccessForm({
     });
   }
 
-  const puede = email.trim() !== '' && password.length >= (nuevo ? MIN_PASSWORD_LENGTH : 1);
-
-  return (
+  const formulario = (
     <Formulario onEnviar={submit}>
-      <div
-        role="group"
-        aria-label="Entrar o registrarse"
-        className="border-border flex w-fit border text-sm"
-      >
-        {[
-          { key: false, label: 'Ya tengo cuenta' },
-          { key: true, label: 'Crear una' },
-        ].map((option) => (
-          <button
-            key={String(option.key)}
-            type="button"
-            aria-pressed={nuevo === option.key}
-            onClick={() => {
-              setNuevo(option.key);
-              setError(null);
-            }}
-            // Del alto de lo que se pulsa, como todo lo demás: con `py-1.5` se
-            // quedaba en treinta y dos píxeles, y es el primer control del
-            // formulario y de los pocos que se dan con el pulgar en un móvil.
-            className={`min-h-tap px-3 ${
-              nuevo === option.key
-                ? 'bg-surface-raised text-brass-bright'
-                : 'text-text-muted hover:text-text'
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <Segmentado
+        etiqueta="Entrar o registrarse"
+        opciones={[
+          { valor: 'entrar', texto: 'Ya tengo cuenta' },
+          { valor: 'crear', texto: 'Crear una' },
+        ]}
+        valor={nuevo ? 'crear' : 'entrar'}
+        onCambiar={(valor) => {
+          setNuevo(valor === 'crear');
+          setError(null);
+          setIntentado(false);
+        }}
+      />
 
       {nuevo && (
         <TextField
@@ -147,7 +175,9 @@ export function AccessForm({
       )}
 
       <TextField
+        ref={campoCorreo}
         label="Correo"
+        error={correoMal}
         // `text` y no `email`: con `email` el navegador saca su propia burbuja
         // en su idioma antes de que este formulario pueda decir nada. El teclado
         // del teléfono se sigue pidiendo con `inputMode`.
@@ -159,20 +189,34 @@ export function AccessForm({
       />
 
       <TextField
+        ref={campoContrasena}
         label="Contraseña"
+        error={contrasenaMal}
         extra={nuevo && <span> · mínimo {MIN_PASSWORD_LENGTH}</span>}
-        type="password"
+        type={veContrasena ? 'text' : 'password'}
         required
         minLength={nuevo ? MIN_PASSWORD_LENGTH : undefined}
         autoComplete={nuevo ? 'new-password' : 'current-password'}
         value={password}
         onChange={(event) => setPassword(event.target.value)}
       />
+      {/* Fuera de la etiqueta del campo: un botón dentro de un `<label>` pasa a
+          ser parte de su nombre, y pulsarlo enfoca el campo además de hacer lo
+          suyo. `aria-pressed` y un rótulo fijo, porque un rótulo que cambia
+          («Mostrar» y luego «Ocultar») se anuncia dos veces. */}
+      <button
+        type="button"
+        aria-pressed={veContrasena}
+        onClick={() => setVeContrasena((visto) => !visto)}
+        className="text-text-muted hover:text-text min-h-tap -mt-2 inline-flex w-fit cursor-pointer items-center text-sm underline underline-offset-4"
+      >
+        Mostrar la contraseña
+      </button>
 
       <Aviso mensaje={error} />
 
       <div>
-        <Button type="submit" cargando={working} disabled={!puede || working}>
+        <Button type="submit" cargando={working} disabled={working}>
           {working ? 'Un momento…' : nuevo ? 'Crear la cuenta' : 'Entrar'}
         </Button>
       </div>
@@ -192,5 +236,20 @@ export function AccessForm({
         son las unidades que superas. Nada de audio.
       </p>
     </Formulario>
+  );
+
+  if (!marco) {
+    return formulario;
+  }
+  return (
+    <section
+      aria-label={inicial === 'crear' ? 'Crear la cuenta' : 'Entrar'}
+      className="superficie-viva relative p-5 pt-10"
+    >
+      <div className="absolute -top-6 left-5">
+        <Mascota className="size-16" />
+      </div>
+      {formulario}
+    </section>
   );
 }

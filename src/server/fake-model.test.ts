@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { degreesFor, isValidPath, type DegreeSymbol, type KeyMode } from '@core/music';
 
-import { SIN_IA, ideasSinIA, respuestaSinIA, versionesSinIA } from './fake-model';
+import { SIN_IA, respuestaSinIA, versionesSinIA } from './fake-model';
 
 /**
  * El modelo que no piensa.
@@ -170,28 +170,6 @@ describe('el cierre de las salidas sin IA', () => {
         `${mode}, acabando en ${ultimo}`,
       ).toBe(true);
     }
-  });
-});
-
-describe('las ideas sin IA', () => {
-  // En mayor y en menor no se proponen las mismas: los grados no son los mismos.
-  it('las de mayor y las de menor son distintas', () => {
-    const mayor = ideasSinIA('C', 'major') as { ideas: Array<{ degrees: string[] }> };
-    const menor = ideasSinIA('C', 'minor') as { ideas: Array<{ degrees: string[] }> };
-
-    expect(mayor.ideas.length).toBeGreaterThan(0);
-    expect(menor.ideas.length).toBeGreaterThan(0);
-    expect(mayor.ideas[0]?.degrees).not.toEqual(menor.ideas[0]?.degrees);
-  });
-
-  it('salen con su porque, y dicen que no las ha pensado nadie', () => {
-    const { ideas } = ideasSinIA('C', 'major') as {
-      ideas: Array<{ title: string; why: string }>;
-    };
-
-    expect(ideas.length).toBeGreaterThan(0);
-    expect(ideas.every((idea) => idea.title.includes(SIN_IA))).toBe(true);
-    expect(ideas.every((idea) => idea.why.length > 0)).toBe(true);
   });
 });
 

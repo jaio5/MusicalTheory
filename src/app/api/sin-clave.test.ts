@@ -9,10 +9,9 @@ import { describe, expect, it } from 'vitest';
  * ocurre.
  */
 
-import { validateIdeas, type IdeasRequest } from '@features/ideas/contract';
 import { validateVersions, type VersionsRequest } from '@features/versions/contract';
 
-import { ideasSinIA, respuestaSinIA, SIN_IA, versionesSinIA } from '@server/fake-model';
+import { respuestaSinIA, SIN_IA, versionesSinIA } from '@server/fake-model';
 
 const EN_DO: VersionsRequest = {
   key: { tonic: 'C', mode: 'major' },
@@ -124,30 +123,6 @@ describe('las versiones sin IA', () => {
     );
 
     expect(Array.isArray(versiones)).toBe(true);
-  });
-});
-
-describe('las ideas sin IA', () => {
-  it('pasan la verificación y dicen lo que son', () => {
-    const peticion: IdeasRequest = {
-      kind: 'progression',
-      key: { tonic: 'C', mode: 'major' },
-    };
-    const ideas = validateIdeas(ideasSinIA('C', 'major'), peticion);
-
-    expect(ideas.length).toBeGreaterThan(0);
-    for (const idea of ideas) {
-      expect(idea.title).toContain(SIN_IA);
-      // Los cifrados los recalcula el contrato desde los grados, como siempre.
-      expect(idea.chords?.length).toBe(idea.degrees?.length);
-    }
-  });
-
-  it('en menor usa los grados del menor', () => {
-    const peticion: IdeasRequest = { kind: 'progression', key: { tonic: 'A', mode: 'minor' } };
-    const ideas = validateIdeas(ideasSinIA('A', 'minor'), peticion);
-
-    expect(ideas.length).toBeGreaterThan(0);
   });
 });
 

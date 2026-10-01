@@ -57,13 +57,21 @@ export function DailyGoal({
             ) : (
               <>
                 Te faltan{' '}
-                <span className="text-brass-bright font-mono">{DAILY_GOAL_XP - hoy} XP</span>: una
-                unidad más.
+                {/* La mono solo para la cifra, que es lo que se compara dígito a
+                    dígito; la palabra va en la sans como el resto de la frase
+                    (adr/0024). */}
+                <span className="text-brass-bright">
+                  <span className="font-mono tabular-nums">{DAILY_GOAL_XP - hoy}</span> XP
+                </span>
+                : una unidad más.
               </>
             )}
           </p>
 
-          <p className="mt-1 flex flex-wrap items-baseline gap-x-3 font-mono text-xs">
+          {/* En la sans, con la mono solo en las cifras: «sin racha» y «medallas»
+              son palabras, y en letra de máquina la línea entera se leía como la
+              salida de un terminal (adr/0024). */}
+          <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-xs">
             <span
               className={streak > 0 ? 'text-tube-bright' : 'text-text-muted'}
               title={
@@ -74,17 +82,20 @@ export function DailyGoal({
             >
               {streak > 0 ? (
                 <>
-                  <IconoRacha /> {streak} {streak === 1 ? 'día' : 'días'} de racha
+                  <IconoRacha /> <span className="font-mono tabular-nums">{streak}</span>{' '}
+                  {streak === 1 ? 'día' : 'días'} de racha
                 </>
               ) : (
                 'sin racha'
               )}
             </span>
             <span className="text-text-muted">
-              {progress.xp} de {TOTAL_XP} XP
+              <span className="font-mono tabular-nums">{progress.xp}</span> de{' '}
+              <span className="font-mono tabular-nums">{TOTAL_XP}</span> XP
             </span>
             <span className="text-text-muted">
-              {medallas} de {BADGES.length} medallas
+              <span className="font-mono tabular-nums">{medallas}</span> de{' '}
+              <span className="font-mono tabular-nums">{BADGES.length}</span> medallas
             </span>
           </p>
         </div>

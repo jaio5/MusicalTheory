@@ -65,6 +65,16 @@ describe('sin cuentas configuradas', () => {
     expect(screen.getByText(/se guarda en este navegador/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Entrar' })).not.toBeInTheDocument();
   });
+
+  // Un «no hay» sin salida deja a quien llega parado: lo que sigue es aprender.
+  it('ofrece seguir, que es lo que se puede hacer', () => {
+    pintar({}, false);
+
+    expect(screen.getByRole('link', { name: 'Seguir aprendiendo' })).toHaveAttribute(
+      'href',
+      '/aprender',
+    );
+  });
 });
 
 describe('cuál de los dos viene puesto', () => {
@@ -119,27 +129,87 @@ describe('lo que espera el navegador para ofrecer la contraseña guardada', () =
   });
 });
 
+describe('el marco y la contraseña a la vista', () => {
+  // Entrar iba suelto y crear en tarjeta: el mismo formulario con dos caras.
+  it('con `marco` va en la tarjeta, y sin él, suelto', () => {
+    const { unmount } = pintar({ marco: true });
+    expect(screen.getByRole('region', { name: 'Entrar' })).toHaveClass('superficie-viva');
+    unmount();
+
+    pintar({ marco: true, inicial: 'crear' });
+    expect(screen.getByRole('region', { name: 'Crear la cuenta' })).toBeInTheDocument();
+  });
+
+  it('sin `marco` no hay tarjeta', () => {
+    pintar();
+
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+  });
+
+  it('la contraseña se puede ver y volver a esconder', async () => {
+    pintar();
+    const ver = screen.getByRole('button', { name: 'Mostrar la contraseña' });
+
+    await userEvent.click(ver);
+    expect(ver).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText(/Contraseña/)).toHaveAttribute('type', 'text');
+
+    await userEvent.click(ver);
+    expect(screen.getByLabelText(/Contraseña/)).toHaveAttribute('type', 'password');
+  });
+
+  it('el campo vacío dice que falta, y uno mal escrito que no tiene buena pinta', async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    expect(screen.getByLabelText(/Correo/)).toHaveAccessibleDescription('Falta el correo.');
+
+    await userEvent.type(screen.getByLabelText(/Correo/), 'nada');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    expect(screen.getByLabelText(/Correo/)).toHaveAccessibleDescription(/no tiene buena pinta/);
+  });
+});
+
 describe('entrar', () => {
-  it('no se puede pulsar sin los dos campos', async () => {
+  // Apagado no decía qué faltaba: se pulsa, y lo que falta se dice en su campo.
+  it('sin los dos campos, lleva al que falta y dice qué le pasa', async () => {
     pintar();
     const entrar = screen.getByRole('button', { name: 'Entrar' });
 
-    expect(entrar).toBeDisabled();
-    await userEvent.type(screen.getByLabelText(/Correo/), 'a@b.c');
-    expect(entrar).toBeDisabled();
-    await userEvent.type(screen.getByLabelText(/Contraseña/), 'x');
     expect(entrar).toBeEnabled();
+    await userEvent.click(entrar);
+    expect(screen.getByLabelText(/Correo/)).toHaveFocus();
+    expect(screen.getByLabelText(/Correo/)).toHaveAttribute('aria-invalid', 'true');
+
+    await userEvent.type(screen.getByLabelText(/Correo/), 'a@b.c');
+    await userEvent.click(entrar);
+    expect(screen.getByLabelText(/Contraseña/)).toHaveFocus();
+    expect(screen.getByLabelText(/Contraseña/)).toHaveAccessibleDescription('Falta la contraseña.');
+    expect(signInWithPassword).not.toHaveBeenCalled();
   });
 
-  it('al crear, la contraseña corta no deja pulsar', async () => {
+  it('al crear, la contraseña corta no se envía y se dice el mínimo', async () => {
     // Es la misma regla que el servidor. Comprobarla aquí evita un viaje que
     // solo puede terminar en «es corta».
     pintar({ inicial: 'crear' });
 
     await userEvent.type(screen.getByLabelText(/Correo/), 'a@b.c');
     await userEvent.type(screen.getByLabelText(/Contraseña/), 'corta');
+    await userEvent.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
 
-    expect(screen.getByRole('button', { name: 'Crear la cuenta' })).toBeDisabled();
+    expect(registerAccount).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/Contraseña/)).toHaveAccessibleDescription(/al menos 8/);
+  });
+
+  // Lo que se marcó al intentarlo en una pestaña no vale para la otra.
+  it('cambiar de pestaña quita las marcas del intento anterior', async () => {
+    pintar();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    expect(screen.getByLabelText(/Correo/)).toHaveAttribute('aria-invalid', 'true');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Crear una' }));
+    expect(screen.getByLabelText(/Correo/)).not.toHaveAttribute('aria-invalid');
   });
 
   it('al entrar se refrescan las dos cosas, y las dos hacen falta', async () => {
@@ -169,7 +239,8 @@ describe('entrar', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(signInWithPassword).not.toHaveBeenCalled();
-    expect(await screen.findByText(/no tiene buena pinta/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Correo/)).toHaveFocus();
+    expect(screen.getByLabelText(/Correo/)).toHaveAccessibleDescription(/no tiene buena pinta/);
   });
 
   it('el error se anuncia, para quien no ve la pantalla', async () => {

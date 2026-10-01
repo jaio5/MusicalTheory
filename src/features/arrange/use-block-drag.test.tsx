@@ -187,4 +187,63 @@ describe('Arrastrar un bloque', () => {
 
     expect(evento.defaultPrevented).toBe(true);
   });
+
+  /**
+   * **Moverse dentro del mismo hueco no cambia el estado.** Cada cambio de estado
+   * repinta el lienzo entero, y el puntero manda veinte movimientos por segundo
+   * que casi nunca cambian dónde caería el bloque.
+   */
+  it('moverse sin cambiar de hueco no cambia el estado', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(pulsar(), 'a'));
+    act(() => mover(40, 25));
+    const antes = vista.result.current.drag;
+
+    act(() => mover(45, 30));
+
+    expect(vista.result.current.drag).toBe(antes);
+  });
+
+  // El fantasma lo mueve el enganche, sin estado: al montarse se coloca donde
+  // está el puntero y en cada movimiento se le cambia el `transform`.
+  it('el fantasma sigue al puntero sin pasar por el estado', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(pulsar(), 'a'));
+    act(() => mover(40, 25));
+
+    const nodo = document.createElement('div');
+    act(() => vista.result.current.fantasma(nodo));
+    expect(nodo.style.transform).toBe('translate3d(40px, 25px, 0)');
+
+    act(() => mover(45, 30));
+    expect(nodo.style.transform).toBe('translate3d(45px, 30px, 0)');
+
+    // Y al desmontarse el fantasma no se escribe en ningún sitio.
+    act(() => vista.result.current.fantasma(null));
+    act(() => mover(50, 30));
+    expect(nodo.style.transform).toBe('translate3d(45px, 30px, 0)');
+  });
+
+  /**
+   * Desmontarse a mitad del gesto deja de escuchar: si no, el próximo movimiento
+   * del ratón arrastraría un bloque que ya no existe y soltarlo escribiría en la
+   * canción desde un lienzo que no está.
+   */
+  it('desmontarse a mitad del gesto deja de escuchar, sin soltar', () => {
+    const { onDrop, vista } = montar();
+    act(() => vista.result.current.start(pulsar(), 'a'));
+    act(() => mover(160, 25));
+
+    vista.unmount();
+    soltar(160, 25);
+
+    expect(onDrop).not.toHaveBeenCalled();
+  });
+
+  // Y desmontarse sin gesto en curso no tiene nada que quitar.
+  it('desmontarse sin gesto no hace nada', () => {
+    const { vista } = montar();
+
+    expect(() => vista.unmount()).not.toThrow();
+  });
 });

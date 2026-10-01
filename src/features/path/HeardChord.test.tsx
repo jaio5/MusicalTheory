@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -234,5 +234,32 @@ describe('El último acorde tocado se mantiene', () => {
     render(<HeardChord />);
 
     expect(screen.getByText('Am')).toBeInTheDocument();
+  });
+});
+
+/**
+ * **Al lector, el acorde que se queda y no el que suena.** Mientras se toca, el
+ * acorde cambia con cada rasgueo y leerlo sería un parloteo que además sale por
+ * el altavoz que el micro oye. Y la región está desde antes: una que nace con el
+ * texto dentro no se anuncia.
+ */
+describe('lo que se anuncia', () => {
+  beforeEach(() => {
+    useSessionStore.getState().actions.reset();
+  });
+
+  it('calla mientras suena y dice el ultimo al soltarlo, en una region que ya estaba', () => {
+    escuchando();
+    const { container } = render(<HeardChord />);
+    const region = container.querySelector('p.sr-only[aria-live="polite"]');
+    expect(region).toBeEmptyDOMElement();
+
+    act(() => useSessionStore.getState().actions.setHeardChord(AM));
+    expect(region).toBeEmptyDOMElement();
+    act(() => useSessionStore.getState().actions.setHeardChord(F));
+    expect(region).toBeEmptyDOMElement();
+
+    act(() => silencio());
+    expect(region).toHaveTextContent('Último acorde: F.');
   });
 });

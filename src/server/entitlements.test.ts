@@ -117,11 +117,11 @@ describe('pedirle algo al modelo', () => {
   });
 
   it('con un plan que no lo incluye, se dice cuál hace falta', async () => {
-    // Las ideas no entran en el gratis: es la parte más cara y la única que se
-    // puede pedir en cadena sin leer lo anterior.
+    // Las salidas no entran en el gratis: son lo más caro que se le puede pedir
+    // al modelo.
     await entrar('gratis');
 
-    const verdict = await entitlements.spendAi('ideas');
+    const verdict = await entitlements.spendAi('versiones');
 
     expect(verdict.kind).toBe('plan');
     expect(verdict.kind === 'plan' && verdict.needed).not.toBeNull();
@@ -143,6 +143,26 @@ describe('pedirle algo al modelo', () => {
     expect(primera.kind === 'ok' && primera.leftMonth).toBeGreaterThan(
       segunda.kind === 'ok' ? segunda.leftMonth : 999,
     );
+  });
+
+  /**
+   * El cupo se cuenta en preguntas al profesor y una salida gasta las que cuesta
+   * (adr/0067): con el modelo que haya puesto, `unidadesDe('versiones')`.
+   */
+  it('una tanda de salidas descuenta las preguntas que cuesta', async () => {
+    await entrar('medio');
+    const { unidadesDe } = await import('@core/billing');
+    const { configuredModel } = await import('./ai-model');
+    const k = unidadesDe('versiones', configuredModel());
+
+    const pregunta = await entitlements.spendAi('profesor');
+    const salida = await entitlements.spendAi('versiones');
+
+    expect(k).toBeGreaterThan(1);
+    expect(pregunta.kind === 'ok' && salida.kind === 'ok').toBe(true);
+    expect(
+      pregunta.kind === 'ok' && salida.kind === 'ok' && pregunta.leftMonth - salida.leftMonth,
+    ).toBe(k);
   });
 
   it('con la cuenta leída pero el contador roto, no se sirve', async () => {

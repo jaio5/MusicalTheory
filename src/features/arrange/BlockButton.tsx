@@ -97,6 +97,18 @@ const FILO: Readonly<Record<HarmonicRole, string>> = {
   approach: 'bg-border',
 };
 
+/**
+ * Las teclas del bloque, dichas donde se buscan.
+ *
+ * Existían desde el principio —flechas, `Shift` y flechas, `Supr`— y no las
+ * decía nadie: un atajo que no se anuncia no existe para quien no leyó el
+ * código. `aria-keyshortcuts` es lo que lee un lector de pantalla al llegar al
+ * bloque, y la misma frase va en el `title` para quien se para encima.
+ */
+export const TECLAS_DEL_BLOQUE = 'ArrowLeft ArrowRight Shift+ArrowLeft Shift+ArrowRight Delete';
+export const TECLAS_DEL_BLOQUE_DICHAS =
+  'Flechas: moverlo · Mayúsculas y flechas: estirarlo · Supr: quitarlo';
+
 export interface BlockButtonProps {
   readonly symbol: string;
   readonly degree: string;
@@ -166,6 +178,8 @@ export function BlockButton({
         doubtful ? ', dudoso' : ''
       }`}
       aria-pressed={selected}
+      aria-keyshortcuts={TECLAS_DEL_BLOQUE}
+      title={TECLAS_DEL_BLOQUE_DICHAS}
       onPointerDown={onPointerDown}
       onClick={onClick}
       onKeyDown={onKeyDown}

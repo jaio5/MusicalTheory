@@ -11,6 +11,7 @@ import type { Metronome, MetronomeOptions } from '@audio/metronome';
 import type { PitchEngine } from '@audio/pitch-engine';
 import { pitchClassFromName, writtenBlock } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
+import { useBancoStore } from '@state/banco';
 import type { ComposeDeed } from '@core/music';
 import { hechosDeComponer } from '@state/hechos-de-componer';
 import { useSessionStore } from '@state/session-store';
@@ -477,5 +478,23 @@ describe('cuando el ensayo no llega a empezar', () => {
     render(<Ensayo deps={DEPS} />);
 
     expect(screen.queryByRole('list', { name: 'Lo que vas a ensayar' })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * El vacío ofrece la salida, no solo la dice: los dos sitios donde se escribe
+ * una canción son dos espacios de esta misma pantalla.
+ */
+describe('sin nada que ensayar', () => {
+  it('lleva a escribirla o a tocarla', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    useBancoStore.getState().actions.espacio('ensayar');
+    render(<Ensayo />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Escribirla' }));
+    expect(useBancoStore.getState().espacio).toBe('escribir');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tocarla' }));
+    expect(useBancoStore.getState().espacio).toBe('tocando');
   });
 });
