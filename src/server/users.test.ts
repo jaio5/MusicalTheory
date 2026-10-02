@@ -289,16 +289,17 @@ describe('la suscripción de Stripe', () => {
 
     expect([a, b]).toEqual([{ kind: 'ok' }, { kind: 'error' }]);
     expect((await users.suscripcionDe(user.id))?.subscriptionId).toBe('sub_a');
-    expect(await users.vincularSuscripcion(user.id, { ...pago, subscriptionId: 'sub_b' })).toEqual(
-      { kind: 'otra', guardada: 'sub_a' },
-    );
+    expect(await users.vincularSuscripcion(user.id, { ...pago, subscriptionId: 'sub_b' })).toEqual({
+      kind: 'otra',
+      guardada: 'sub_a',
+    });
   });
 
   it('a una cuenta que no está, o con la base rota, no se vincula nada', async () => {
     const pago = { plan: 'medio' as const, customerId: 'cus_1', subscriptionId: 'sub_1' };
-    expect(
-      await users.vincularSuscripcion('00000000-0000-4000-8000-000000000000', pago),
-    ).toEqual({ kind: 'no-existe' });
+    expect(await users.vincularSuscripcion('00000000-0000-4000-8000-000000000000', pago)).toEqual({
+      kind: 'no-existe',
+    });
 
     const user = await crear();
     await base.ejecutar('alter table users rename to users_escondida');

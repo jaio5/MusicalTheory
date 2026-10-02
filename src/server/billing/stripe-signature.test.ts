@@ -153,7 +153,8 @@ describe('qué se le contesta a Stripe', () => {
   });
 
   it('solo pide reintento cuando reintentar puede arreglarlo', () => {
-    // Un único 500 en toda la ruta, y es el del error de escritura.
+    // Un único 500 en toda la ruta, el de `reintentar()`: cubre no poder escribir,
+    // no poder preguntar a Stripe y no poder cancelar la suscripción que sobra.
     expect([...RUTA.matchAll(/status: 500/g)]).toHaveLength(1);
   });
 

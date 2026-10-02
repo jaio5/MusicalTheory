@@ -24,7 +24,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const verifyStripeSignature = vi.fn();
 const vincularSuscripcion =
-  vi.fn<(userId: string, pago: unknown, o?: unknown) => Promise<{ kind: string; guardada?: string }>>();
+  vi.fn<
+    (userId: string, pago: unknown, o?: unknown) => Promise<{ kind: string; guardada?: string }>
+  >();
 const planDeSuscripcion = vi.fn<(id: string, plan: string, o: unknown) => Promise<string>>();
 
 vi.mock('@server/billing/stripe-signature', () => ({
@@ -125,7 +127,10 @@ beforeEach(() => {
   fetchFalso.mockReset();
   fetchFalso.mockImplementation(async (url, init) => {
     const id = url.split('/').at(-1) ?? '';
-    const hay = enStripe[id] ?? { status: 200, body: { ...suscripcion('active', 'price_medio'), id } };
+    const hay = enStripe[id] ?? {
+      status: 200,
+      body: { ...suscripcion('active', 'price_medio'), id },
+    };
     if (init?.method === 'DELETE' && hay.status === 200) {
       return contesta({ ...(hay.body as object), status: 'canceled' });
     }
@@ -328,7 +333,10 @@ describe('antes de vincular, cómo está la suscripción ahora', () => {
 
     await POST(aviso(PAGADO));
 
-    expect(vincularSuscripcion).toHaveBeenCalledWith('u1', expect.objectContaining({ plan: 'medio' }));
+    expect(vincularSuscripcion).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ plan: 'medio' }),
+    );
   });
 
   // Sin pagar pero sin terminar: se vincula, para que su vuelta a `active`
@@ -339,7 +347,10 @@ describe('antes de vincular, cómo está la suscripción ahora', () => {
     const res = await POST(aviso(PAGADO));
 
     expect(await res.json()).toEqual({ ok: true, plan: 'gratis' });
-    expect(vincularSuscripcion).toHaveBeenCalledWith('u1', expect.objectContaining({ plan: 'gratis' }));
+    expect(vincularSuscripcion).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ plan: 'gratis' }),
+    );
   });
 });
 

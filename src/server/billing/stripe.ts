@@ -214,8 +214,7 @@ export async function suscripcionEnStripe(id: string): Promise<SuscripcionEnStri
     return { kind: 'terminada' };
   }
   const precio = primerElemento((respuesta as Contestado).body)?.['price'] as
-    | { id?: unknown }
-    | undefined;
+    { id?: unknown } | undefined;
   return { kind: 'viva', status, plan: planOfPrice(precio?.id) };
 }
 

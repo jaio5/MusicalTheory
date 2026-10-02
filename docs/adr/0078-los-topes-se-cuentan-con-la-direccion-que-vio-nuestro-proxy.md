@@ -90,6 +90,13 @@ repartido, y mucho más caro de provocar que los cinco de antes.
 se cuenta para cualquier correo exista o no, y se dice con `DEMASIADOS_INTENTOS`.
 **El contador de memoria sigue siendo por instancia** sin base de datos.
 
+**Fallar al entrar cuesta lo de hoy** (añadido tras la revisión final). Una cuenta
+que aún no ha vuelto a entrar guarda su contraseña con `p=1` (31 ms) y un correo que
+no existe se compara con `HASH_DE_NADIE`, que usa `p=5` (119 ms): la diferencia delataba
+qué cuentas son antiguas. Cuando la contraseña no vale, `igualarCoste` deriva solo el
+`p` que falta para llegar al coste de hoy. Descartada: una segunda comprobación entera
+contra `HASH_DE_NADIE`, que dejaba la cuenta antigua en 150 ms y también se distinguía.
+
 ## Alternativas descartadas
 
 **La primera entrada de `X-Forwarded-For`.** Es lo que había, y la escribe quien

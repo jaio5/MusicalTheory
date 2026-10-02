@@ -42,18 +42,18 @@ equipo de quien toca y las cuentas no han cambiado eso.
 
 ## Variables de entorno
 
-| Variable                                  | Hace falta        | Para qué                                                                                                                       |
-| ----------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Las dos rutas. Sin ella contesta el modelo de casa si lo hay, y si tampoco, el dominio; en producción se contesta 503.         |
-| `OLLAMA_URL` / `OLLAMA_MODEL`             | No                | Un modelo en tu equipo para probar sin clave y sin factura. **La clave le gana**: con las dos puestas contesta la API.         |
-| `ANTHROPIC_MODEL`                         | No                | Cambiar de modelo sin tocar código. Por defecto, `claude-opus-5`. **Cambia los cupos de todos los planes**: ver abajo.         |
-| `DATABASE_URL`                            | Solo para cuentas | Postgres. Sin ella no hay cuentas ni planes, y todo lo demás funciona igual.                                                   |
-| `AUTH_SECRET`                             | Solo para cuentas | Firmar la cookie de sesión. `openssl rand -base64 32`.                                                                         |
-| `APP_URL`                                 | Solo para cobrar  | A dónde vuelve quien paga. Sin ella se supone `http://localhost:3000`, que en producción manda a la gente a su propio equipo.  |
-| `STRIPE_SECRET_KEY`                       | Solo para cobrar  | La clave de la pasarela.                                                                                                       |
-| `STRIPE_WEBHOOK_SECRET`                   | Solo para cobrar  | El secreto del endpoint, para comprobar la firma. **Sin él el webhook no acepta nada.**                                        |
-| `STRIPE_PRICE_BASICO` / `_MEDIO` / `_PRO` | Solo para cobrar  | Qué precio de Stripe es cada plan. Son distintos en la cuenta de pruebas y en la de verdad.                                    |
-| `TRUSTED_PROXY_HOPS`                      | En producción     | Cuántos proxies de confianza hay delante. **Sin ella no se cree `X-Forwarded-For`** y todo el mundo comparte los topes: abajo. |
+| Variable                                  | Hace falta        | Para qué                                                                                                                                                          |
+| ----------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Las dos rutas. Sin ella contesta el modelo de casa si lo hay, y si tampoco, el dominio; en producción se contesta 503.                                            |
+| `OLLAMA_URL` / `OLLAMA_MODEL`             | No                | Un modelo en tu equipo para probar sin clave y sin factura. **La clave le gana**: con las dos puestas contesta la API.                                            |
+| `ANTHROPIC_MODEL`                         | No                | Cambiar de modelo sin tocar código. Por defecto, `claude-opus-5`. **Cambia los cupos de todos los planes**: ver abajo.                                            |
+| `DATABASE_URL`                            | Solo para cuentas | Postgres. Sin ella no hay cuentas ni planes, y todo lo demás funciona igual.                                                                                      |
+| `AUTH_SECRET`                             | Solo para cuentas | Firmar la cookie de sesión. `openssl rand -base64 32`.                                                                                                            |
+| `APP_URL`                                 | Solo para cobrar  | A dónde vuelve quien paga. Sin ella se supone `http://localhost:3000`, que en producción manda a la gente a su propio equipo.                                     |
+| `STRIPE_SECRET_KEY`                       | Solo para cobrar  | La clave de la pasarela. **Va con el secreto del webhook**: sin ella cada pago contesta 500, porque el webhook pregunta a Stripe antes de dar un plan (adr/0077). |
+| `STRIPE_WEBHOOK_SECRET`                   | Solo para cobrar  | El secreto del endpoint, para comprobar la firma. **Sin él el webhook no acepta nada.**                                                                           |
+| `STRIPE_PRICE_BASICO` / `_MEDIO` / `_PRO` | Solo para cobrar  | Qué precio de Stripe es cada plan. Son distintos en la cuenta de pruebas y en la de verdad.                                                                       |
+| `TRUSTED_PROXY_HOPS`                      | En producción     | Cuántos proxies de confianza hay delante. **Sin ella no se cree `X-Forwarded-For`** y todo el mundo comparte los topes: abajo.                                    |
 
 `DATABASE_URL` y `AUTH_SECRET` van **juntas**: hacen falta las dos, y con una sola la
 aplicación se comporta como si no hubiera ninguna. Es a propósito: media configuración

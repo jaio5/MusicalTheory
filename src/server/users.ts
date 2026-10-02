@@ -389,9 +389,7 @@ interface CuentaEnStripe {
  * webhook no puede juntar: una cuenta borrada se contesta con 200, y una base que
  * no contesta con 500 para que Stripe lo reintente.
  */
-async function leerSuscripcion(
-  userId: string,
-): Promise<CuentaEnStripe | 'no-existe' | 'error'> {
+async function leerSuscripcion(userId: string): Promise<CuentaEnStripe | 'no-existe' | 'error'> {
   const database = db();
   if (database === null) {
     return 'error';
@@ -444,8 +442,7 @@ async function escribirCuenta(
  * tenía **otra** suscripción guardada, y cuál.
  */
 export type VincularResult =
-  | { readonly kind: SetPlanResult }
-  | { readonly kind: 'otra'; readonly guardada: string };
+  { readonly kind: SetPlanResult } | { readonly kind: 'otra'; readonly guardada: string };
 
 /**
  * Un pago confirmado: el plan, el cliente y la suscripción, **en una sentencia**.

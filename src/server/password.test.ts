@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { scryptSync } from 'node:crypto';
 
-import { HASH_DE_NADIE, hashPassword, necesitaRecifrar, verifyPassword } from './password';
+import {
+  HASH_DE_NADIE,
+  hashPassword,
+  igualarCoste,
+  necesitaRecifrar,
+  verifyPassword,
+} from './password';
 
 /**
  * Estos tests tardan más que el resto —cada cifrado son unos cien milisegundos a
@@ -121,5 +127,37 @@ describe('cifrado de contraseñas', () => {
     expect(HASH_DE_NADIE.startsWith(`${hoy}$`)).toBe(true);
     expect(necesitaRecifrar(HASH_DE_NADIE)).toBe(false);
     await expect(verifyPassword('', HASH_DE_NADIE)).resolves.toBe(false);
+  });
+});
+
+/**
+ * Lo que le falta a una comprobación fallida para costar lo de hoy. Sin medir
+ * tiempos: se mira cuánto `p` deriva, que con `N` y `r` fijos es lo que cuesta.
+ */
+describe('igualar el coste de una comprobación fallida', () => {
+  it('a una cuenta de antes, con p=1, le añade los cuatro que le faltan', async () => {
+    expect(await igualarCoste(`scrypt$16384$8$1$${'a'.repeat(8)}$${'b'.repeat(8)}`)).toBe(4);
+  });
+
+  it('a una de hoy, o a una más cara, no le añade nada', async () => {
+    expect(await igualarCoste(await hashPassword('x'))).toBe(0);
+    expect(await igualarCoste(HASH_DE_NADIE)).toBe(0);
+    expect(await igualarCoste('scrypt$16384$8$6$c2Fs$Y2xhdmU=')).toBe(0);
+  });
+
+  it('con otra N redondea hacia arriba: mejor pasarse que quedarse corto', async () => {
+    // 8192·8·1 es la mitad de una unidad de hoy: faltan cuatro y media.
+    expect(await igualarCoste('scrypt$8192$8$1$c2Fs$Y2xhdmU=')).toBe(5);
+  });
+
+  it('una fila sin formato, que falla al instante, paga la comprobación entera', async () => {
+    for (const roto of [
+      '',
+      'vaya',
+      'bcrypt$16384$8$5$c2Fs$Y2xhdmU=',
+      'scrypt$x$8$5$c2Fs$Y2xhdmU=',
+    ]) {
+      expect(await igualarCoste(roto), roto).toBe(5);
+    }
   });
 });

@@ -63,6 +63,17 @@ Las columnas nacen vacías: una cuenta con plan de pago puesto antes de esta
 migración no tiene suscripción guardada, y ningún aviso de Stripe le cambiará el
 plan.
 
+**Una cuenta, una suscripción** (añadido tras la revisión final). Antes de vincular
+un pago, el webhook pregunta a Stripe por el estado de esa suscripción: si ya está
+terminada no da nada, y si no se sabe contesta 500 para que Stripe reintente. Nunca
+pisa otra suscripción guardada. Si la guardada sigue viva, cancela la nueva; si está
+muerta, la nueva ocupa su sitio. Así dos Checkout a la vez dejan una sola cobrando, y
+un pago reintentado después de la baja no devuelve el plan. Cuesta una llamada a
+Stripe por pago, y **cancelar la que sobra no devuelve su primer cobro**: queda en el
+registro, solo con identificadores, para devolverlo a mano. Descartadas: fiarse del
+aviso, que no sabe si llega tarde; un registro de eventos vistos, que no arregla dos
+suscripciones vivas; y cancelar la vieja, que es la que conocen la cuenta y los avisos.
+
 ## Alternativas descartadas
 
 **Buscar por metadatos o por correo.** Los metadatos los escribimos al crear la

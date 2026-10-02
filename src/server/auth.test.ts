@@ -4,6 +4,7 @@ import { DEMASIADOS_INTENTOS } from '@core/auth-errors';
 
 import { levantarBaseDePrueba, type BaseDePrueba } from './db/para-tests';
 import type * as Auth from './auth';
+import type * as Password from './password';
 import type * as Users from './users';
 
 /**
@@ -22,6 +23,15 @@ import type * as Users from './users';
 
 let configuracion: Record<string, never>;
 const authFalso = vi.fn();
+
+// Las contraseñas de verdad, con un espía en lo que iguala el coste: así se ve si
+// entrar lo llama sin medir tiempos, que en un CI compartido no dicen nada.
+const igualarCoste = vi.fn<(stored: string) => Promise<number>>();
+vi.mock('./password', async (original) => {
+  const real = await original<typeof Password>();
+  igualarCoste.mockImplementation(real.igualarCoste);
+  return { ...real, igualarCoste: (stored: string) => igualarCoste(stored) };
+});
 
 vi.mock('next-auth', () => ({
   default: (config: Record<string, never>) => {
@@ -329,6 +339,58 @@ describe('las contraseñas cifradas con los parámetros de antes', () => {
     await expect(
       autorizar({ email: 'vieja@b.c', password: 'unaContrasenaLarga' }),
     ).resolves.toMatchObject({ email: 'vieja@b.c' });
+  });
+});
+
+/**
+ * **El tiempo al entrar delataba las cuentas viejas.** Con la contraseña mal, una
+ * cuenta cifrada con `p=1` contestaba en 31 ms y una de hoy, o un correo que no
+ * existe, en 119: la diferencia decía qué correos tienen cuenta desde hace tiempo.
+ */
+describe('fallar tarda lo mismo con una cuenta vieja', () => {
+  async function cuentaVieja(): Promise<string> {
+    await users.createUser({ email: 'vieja@b.c', password: 'unaContrasenaLarga' });
+    const { scryptSync } = await import('node:crypto');
+    const sal = Buffer.from('sal de las viejas');
+    const clave = scryptSync('unaContrasenaLarga', sal, 64, { N: 16_384, r: 8, p: 1 });
+    const vieja = ['scrypt', 16_384, 8, 1, sal.toString('base64'), clave.toString('base64')].join(
+      '$',
+    );
+    await base.ejecutar(`update users set password_hash = '${vieja}' where email = 'vieja@b.c'`);
+    return vieja;
+  }
+
+  beforeEach(() => {
+    igualarCoste.mockClear();
+  });
+
+  it('con la contraseña mal, se deriva lo que le falta para costar lo de hoy', async () => {
+    const vieja = await cuentaVieja();
+
+    expect(await autorizar({ email: 'vieja@b.c', password: 'mal' }, desde('10.0.9.1'))).toBeNull();
+
+    expect(igualarCoste).toHaveBeenCalledWith(vieja);
+    await expect(igualarCoste.mock.results[0]?.value).resolves.toBe(4);
+  });
+
+  it('con una de hoy, o un correo que no existe, no hace falta nada más', async () => {
+    await users.createUser({ email: 'nueva@b.c', password: 'unaContrasenaLarga' });
+
+    await autorizar({ email: 'nueva@b.c', password: 'mal' }, desde('10.0.9.2'));
+    await autorizar({ email: 'nadie@b.c', password: 'mal' }, desde('10.0.9.3'));
+
+    for (const resultado of igualarCoste.mock.results) {
+      await expect(resultado.value).resolves.toBe(0);
+    }
+    expect(igualarCoste).toHaveBeenCalledTimes(2);
+  });
+
+  it('con la buena no se iguala: entrar ya vuelve a cifrar, y eso cuesta lo de hoy', async () => {
+    await cuentaVieja();
+
+    await autorizar({ email: 'vieja@b.c', password: 'unaContrasenaLarga' }, desde('10.0.9.4'));
+
+    expect(igualarCoste).not.toHaveBeenCalled();
   });
 });
 
