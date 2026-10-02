@@ -22,10 +22,14 @@ const EN_DO: VersionsRequest = {
   ],
 };
 
-/** Una rearmonización con la forma que espera el validador. */
+/**
+ * Una rearmonización con la forma que espera el validador: la canción entera,
+ * desde el compás 1, que también vale como trozo.
+ */
 function version(steps: ReadonlyArray<{ degree: string; move: string | null }>) {
   return {
     path: 'rearmonizar',
+    desde: 1,
     title: 'Más oscura',
     why: 'Cambia la dominante por la de al lado.',
     sections: [
@@ -42,10 +46,14 @@ function version(steps: ReadonlyArray<{ degree: string; move: string | null }>) 
   };
 }
 
-/** Una salida que retoca tus compases: una sola progresión, sin partes. */
-function salida(path: string, pasos: ReadonlyArray<readonly [string, number]>) {
+/**
+ * Una salida que retoca tus compases: una sola parte con el trozo que cambia, y
+ * el compás donde empieza. Sin decirlo, desde el 1.
+ */
+function salida(path: string, pasos: ReadonlyArray<readonly [string, number]>, desde = 1) {
   return {
     path,
+    desde,
     title: 'Por aquí',
     why: 'Una salida distinta para lo mismo.',
     sections: [
@@ -305,6 +313,7 @@ describe('el titulo y el porque tienen tope', () => {
         versions: [
           {
             path: 'estirar',
+            desde: 1,
             title,
             why,
             sections: [
@@ -452,6 +461,7 @@ describe('validateVersions', () => {
     // ha tomado, y eso se descarta como cualquier otra declaración falsa.
     const mentirosa = {
       path: 'rearmonizar',
+      desde: 1,
       title: 'Otra',
       why: 'Cambia la dominante.',
       sections: [
@@ -538,6 +548,7 @@ describe('validateVersions', () => {
       // cambio que no existe.
       const conRuido = {
         path: 'estirar',
+        desde: 1,
         title: 'Dos compases en uno',
         why: 'Alarga la frase.',
         sections: [
@@ -679,6 +690,212 @@ describe('validateVersions', () => {
   });
 });
 
+/**
+ * **Al retocar, el modelo devuelve solo lo que cambia**, y dice desde qué compás
+ * (adr/0086). Contestaba el trozo aunque se le pidiera la canción entera, y las
+ * reglas lo leían como la canción: «rearmonizar no cambia el largo». Ahora la
+ * canción la monta el contrato, y las reglas de siempre juzgan lo montado.
+ */
+describe('retocar devuelve solo lo que cambia', () => {
+  /** Lo que llega a pantalla de una salida: grado, pulsos, de dónde y por qué. */
+  function compases(version: { steps: readonly { degree: string; beats: number }[] }) {
+    return version.steps.map((paso) => `${paso.degree}/${paso.beats}`);
+  }
+
+  /** Un trozo de rearmonización, con su movimiento compás a compás. */
+  function rearmonizacion(desde: number, pasos: ReadonlyArray<readonly [string, string | null]>) {
+    return {
+      path: 'rearmonizar',
+      desde,
+      title: 'Otro color',
+      why: 'Cambia un acorde por su sustituto.',
+      sections: [
+        {
+          name: 'Lo que llevas',
+          steps: pasos.map(([degree, move]) => ({ degree, beats: 4, move })),
+        },
+      ],
+    };
+  }
+
+  it('rearmonizar: el trozo tapa los compases que mide y lo demás se queda', () => {
+    const [version] = validateVersions(
+      { versions: [rearmonizacion(2, [['bII', 'tritono']])] },
+      EN_DO,
+    );
+
+    expect(compases(version!)).toEqual(['I/4', 'bII/4', 'vi/4', 'IV/4']);
+    // El `from` y el movimiento se calculan sobre la canción montada.
+    expect(version!.steps.map((paso) => paso.from)).toEqual(['I', 'V', 'vi', 'IV']);
+    expect(version!.steps.map((paso) => paso.move)).toEqual([null, 'tritono', null, null]);
+    expect(version!.steps.map((paso) => paso.symbol)).toEqual(['C', 'Db', 'Am', 'F']);
+    // Y sigue siendo una sola parte, como cualquier retoque.
+    expect(version!.sections).toHaveLength(1);
+  });
+
+  it('estirar: cambia los pulsos de los que tapa', () => {
+    const [version] = validateVersions(
+      {
+        versions: [
+          salida(
+            'estirar',
+            [
+              ['vi', 8],
+              ['IV', 2],
+            ],
+            3,
+          ),
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(compases(version!)).toEqual(['I/4', 'V/4', 'vi/8', 'IV/2']);
+  });
+
+  it('otro final: sustituye todo lo que viene después, y puede acabar antes', () => {
+    const versions = validateVersions(
+      {
+        versions: [
+          salida(
+            'otro-final',
+            [
+              ['IV', 4],
+              ['I', 4],
+            ],
+            3,
+          ),
+          salida('otro-final', [['I', 8]], 3),
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(versions.map(compases)).toEqual([
+      ['I/4', 'V/4', 'IV/4', 'I/4'],
+      ['I/4', 'V/4', 'I/8'],
+    ]);
+    expect(versions[1]!.steps.map((paso) => paso.from)).toEqual(['I', 'V', 'vi']);
+  });
+
+  it('la canción entera desde el compás 1 también vale', () => {
+    const [version] = validateVersions(
+      {
+        versions: [
+          salida('estirar', [
+            ['I', 8],
+            ['V', 4],
+            ['vi', 4],
+            ['IV', 4],
+          ]),
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(compases(version!)).toEqual(['I/8', 'V/4', 'vi/4', 'IV/4']);
+  });
+
+  it('un desde que no es uno de tus compases tira la salida', () => {
+    const trozo = [['bII', 'tritono']] as const;
+
+    for (const desde of [0, 5, 2.5, -1, Number.NaN]) {
+      expect(
+        validateVersions({ versions: [rearmonizacion(desde, trozo)] }, EN_DO),
+        `desde ${desde}`,
+      ).toEqual([]);
+    }
+    // Y sin decirlo, o diciéndolo en texto, tampoco: el esquema lo exige.
+    const sinDesde: Record<string, unknown> = { ...rearmonizacion(2, trozo) };
+    delete sinDesde['desde'];
+    expect(validateVersions({ versions: [sinDesde] }, EN_DO)).toEqual([]);
+    expect(validateVersions({ versions: [{ ...sinDesde, desde: '2' }] }, EN_DO)).toEqual([]);
+  });
+
+  it('un trozo que se pasa de tu último compás no tapa nada que exista', () => {
+    const rearmonizarDeMas = rearmonizacion(4, [
+      ['ii', 'relativo'],
+      ['I', null],
+    ]);
+    const estirarDeMas = salida(
+      'estirar',
+      [
+        ['vi', 2],
+        ['IV', 2],
+        ['IV', 2],
+      ],
+      3,
+    );
+
+    expect(validateVersions({ versions: [rearmonizarDeMas, estirarDeMas] }, EN_DO)).toEqual([]);
+  });
+
+  it('otro final que se pasa es alargar, y eso es de seguir', () => {
+    const alarga = salida(
+      'otro-final',
+      [
+        ['IV', 4],
+        ['V', 4],
+        ['I', 4],
+      ],
+      3,
+    );
+
+    expect(validateVersions({ versions: [alarga] }, EN_DO)).toEqual([]);
+  });
+
+  it('las reglas de siempre juzgan la canción montada', () => {
+    // Un movimiento falso —IV no es el tritono de V—, un estirar que cambia un
+    // grado y un otro final que toca la primera mitad: los tres montan, y los
+    // tres se caen por lo mismo que antes.
+    const versions = validateVersions(
+      {
+        versions: [
+          rearmonizacion(2, [['IV', 'tritono']]),
+          salida('estirar', [['ii', 4]], 2),
+          salida(
+            'otro-final',
+            [
+              ['IV', 4],
+              ['I', 4],
+            ],
+            2,
+          ),
+        ],
+      },
+      EN_DO,
+    );
+
+    expect(versions).toEqual([]);
+  });
+
+  it('un retoque va en una sola parte: ni dos ni ninguna', () => {
+    const dos = {
+      ...salida('estirar', [['I', 8]]),
+      sections: [
+        { name: 'A', steps: [{ degree: 'I', beats: 8, move: null }] },
+        { name: 'B', steps: [{ degree: 'V', beats: 8, move: null }] },
+      ],
+    };
+    const ninguna = { ...salida('estirar', [['I', 8]]), sections: [] };
+
+    expect(validateVersions({ versions: [dos, ninguna] }, EN_DO)).toEqual([]);
+  });
+
+  it('la marca de oído no se cuela en lo montado', () => {
+    const oido: VersionsRequest = {
+      ...EN_DO,
+      progression: EN_DO.progression.map((paso) => ({ ...paso, heard: true })),
+    };
+    const [version] = validateVersions(
+      { versions: [rearmonizacion(2, [['bII', 'tritono']])] },
+      oido,
+    );
+
+    expect(version!.steps.every((paso) => !('heard' in paso))).toBe(true);
+  });
+});
+
 describe('la clase que se pide manda', () => {
   it('una salida que retoca no vale cuando se pedía continuar, y al revés', () => {
     // No es quisquillosería: el esquema que se le manda al modelo depende de la
@@ -800,6 +1017,7 @@ describe('lo que llega mal formado, tanto de fuera como del modelo', () => {
         versions: [
           {
             path: 'rearmonizar',
+            desde: 1,
             title: 'x',
             why: 'y',
             sections: [{ name: 'A', steps: ['nada'] }],

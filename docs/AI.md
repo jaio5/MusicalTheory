@@ -559,7 +559,7 @@ Y lo que se pide se elige antes, entre dos cosas:
 | `kind`      | Qué hace                                 | Qué devuelve el modelo                    |
 | ----------- | ---------------------------------------- | ----------------------------------------- |
 | `continuar` | Sigue tu canción y le hace sus partes    | **Solo las partes que añade**, con nombre |
-| `retocar`   | Cambia estos compases sin salir de ellos | Una sola parte con la progresión entera   |
+| `retocar`   | Cambia estos compases sin salir de ellos | **Solo el trozo que cambia**, y `desde`   |
 
 **Elegir antes no es cosa de la interfaz.** Es lo que hace que el esquema pueda
 exigir lo que el validador comprueba —continuar necesita al menos una parte nueva
@@ -585,6 +585,17 @@ contra la API, que sigue pendiente.
 **Tus compases no se le piden.** Al continuar, el modelo devuelve solo lo que
 añade y el contrato pone tu parte delante. Pedirle que la copiara era la causa de
 que se cayera todo, y repetirla solo gastaba tokens.
+
+**Y al retocar, tampoco.** Cada salida dice `desde` —el compás donde empieza lo
+que devuelve— y trae solo ese trozo; la canción la monta `cancionRetocada`
+(`core/music/paths.ts`). En `rearmonizar` y `estirar` el trozo tapa tantos compases
+como mide y lo demás se queda; en `otro-final` sustituye todo lo que viene
+después, y puede medir menos. Después las reglas de siempre juzgan la canción
+montada, sin aflojar ninguna. Pedirle la canción entera era por lo que no salía
+nada: contestaba el trozo de todas formas y se leía como la canción —«rearmonizar
+no cambia el largo»—. El prompt le numera tus compases y le enseña un ejemplo de
+cada salida **hecho con los tuyos**, que es lo que copia
+([adr/0086](./adr/0086-retocar-devuelve-solo-lo-que-cambia.md)).
 
 **Aunque por delante se llame «grabar un trozo», aquí no sube nada de audio.** La
 aplicación ya sabe qué acorde suena —el motor de croma lo dice y `core/music/capture.ts`
@@ -621,17 +632,22 @@ lo mismo que hacían los grados enumerados de las ideas, y por la misma razón.
 Una salida se descarta entera cuando declara un camino y toma otro, cuando el
 camino no es de la clase que se pidió, cuando usa un grado que no existe en ese
 modo, cuando encadena un salto que el dominio no conoce, cuando se pasa de 32
-compases, cuando devuelve tu canción tal cual, o cuando **las partes que añade son
-tu parte otra vez** —visto con un modelo de verdad: un «puente» que era tu
+compases, cuando devuelve tu canción tal cual, cuando un retoque empieza en un
+compás que no existe o trae un trozo que se pasa de tu último compás, o cuando **las
+partes que añade son tu parte otra vez** —visto con un modelo de verdad: un «puente» que era tu
 progresión copiada—.
 
 Medido con modelos locales de 8B: **continuar sale 4 de 4 con `gemma4:e4b`**, todas
 con partes de verdad —`Lo que llevas(Am F C G) | verso(Am F C G Am)`—, contra 0 de 4
 con las reglas anteriores. Con `qwen3:8b`, 0 de 4: su «parte nueva» es siempre tu
-progresión copiada, y eso se rechaza. Retocar no lo pasa ninguno de los dos. `rearmonizar` sigue siendo
-la que peor se les da —devuelven la canción intacta—, lo que explica aquel 0 de 4
-mejor que ninguna otra cosa. El porqué entero está en
+progresión copiada, y eso se rechaza. El porqué entero está en
 [adr/0016](./adr/0016-salidas-en-vez-de-versiones.md).
+
+**Retocar, con `qwen3:8b` y ocho progresiones: 8 de 8 peticiones a la primera y 22
+de 24 salidas válidas**, contra 7 de 33 —y solo de `estirar`— cuando se le pedía la
+canción entera. Pero **21 de esas 22 son el ejemplo del prompt copiado**: lo que
+pone el modelo es el título y el porqué. Si uno grande propone algo suyo solo lo
+dirá la API ([adr/0086](./adr/0086-retocar-devuelve-solo-lo-que-cambia.md)).
 
 ### Lo que no capta
 

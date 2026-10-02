@@ -106,6 +106,30 @@ describe('las versiones sin IA', () => {
     expect(versiones.length).toBeGreaterThan(0);
   });
 
+  /**
+   * Devuelven solo el trozo que cambia, con su `desde`, como se le pide al modelo
+   * (adr/0086): así lo que se prueba sin clave es el montaje de verdad, y no un
+   * atajo que solo existe aquí.
+   */
+  it('devuelven solo el trozo que cambia, y montado pasa la misma verificación', () => {
+    const crudas = versionesSinIA({
+      tonic: EN_DO.key.tonic,
+      mode: EN_DO.key.mode,
+      progression: EN_DO.progression,
+    }) as { versions: { path: string; desde?: number; sections: { steps: unknown[] }[] }[] };
+    const versiones = validateVersions(crudas, EN_DO);
+    const retoques = crudas.versions.filter((v) => v.path !== 'seguir');
+
+    expect(retoques.map((v) => v.path)).toEqual(['rearmonizar', 'estirar']);
+    for (const retoque of retoques) {
+      expect(retoque.sections[0]!.steps.length).toBeLessThan(EN_DO.progression.length);
+    }
+    expect(versiones.map((v) => v.path)).toEqual(['rearmonizar', 'estirar']);
+    for (const version of versiones) {
+      expect(version.steps).toHaveLength(EN_DO.progression.length);
+    }
+  });
+
   it('una progresión a la que no se le puede hacer nada devuelve una lista vacía', () => {
     // Sin versiones válidas, la ruta contesta lo mismo que si el modelo no
     // hubiera dado nada aprovechable: no se inventa nada.

@@ -17,6 +17,7 @@
 
 import { MAX_DIRECTRICES_LENGTH, MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
 import {
+  cancionRetocada,
   DEFAULT_ROLE,
   degreesFor,
   cuerpoConTonalidad,
@@ -348,6 +349,40 @@ function leerSecciones(raw: Record<string, unknown>): SeccionCruda[] | null {
 }
 
 /**
+ * La canción entera, con lo tuyo puesto por nosotros y no por el modelo.
+ *
+ * **Al continuar**, tu parte va delante: el modelo devuelve solo las que añade.
+ * Así no hay forma de que llegue cambiada, y el validador la comprueba igual: la
+ * regla sigue escrita.
+ *
+ * **Al retocar**, el modelo devuelve solo el trozo que cambia y `desde`, el
+ * compás donde empieza, y `cancionRetocada` lo pone en su sitio. Es la misma
+ * lección dos veces: lo que ya tenemos no se le pide, porque copiarlo es una
+ * ocasión más de equivocarse —y se equivocaba: devolvía el trozo igualmente, y
+ * se leía como la canción entera—. Lo que no se pueda montar —`desde` que no
+ * existe, un trozo que se pasa del final, más de una parte— es nulo, y la salida
+ * se cae como cualquier otra que no cuadre.
+ *
+ * Después las reglas no cambian: `songProblem` juzga la canción montada.
+ */
+function montarLaCancion(
+  path: PathId,
+  original: readonly VersionStep[],
+  desde: unknown,
+  propuesta: readonly ProposedSection[],
+): ProposedSection[] | null {
+  if (kindOfPath(path) === 'continuar') {
+    return [{ name: 'Lo que llevas', yours: true, steps: [...original] }, ...propuesta];
+  }
+  const [unica] = propuesta;
+  if (unica === undefined || propuesta.length !== 1 || typeof desde !== 'number') {
+    return null;
+  }
+  const retoque = cancionRetocada(path, original, desde, unica.steps);
+  return 'pasos' in retoque ? [{ ...unica, steps: retoque.pasos }] : null;
+}
+
+/**
  * Valida lo que devuelve el modelo contra el dominio.
  *
  * **La declaración subió del compás al camino**, y esa es toda la diferencia con
@@ -432,15 +467,12 @@ export function validateVersions(payload: unknown, request: VersionsRequest): Ve
       }
       propuesta.push({ name: cruda.name, yours: cruda.yours, steps: pasos });
     }
+    if (rota) {
+      continue;
+    }
 
-    // Tu parte, delante y puesta por nosotros. Así no hay forma de que llegue
-    // cambiada, y el validador la comprueba igual: la regla sigue escrita.
-    const conLaTuya: ProposedSection[] =
-      kindOfPath(path.id) === 'continuar'
-        ? [{ name: 'Lo que llevas', yours: true, steps: [...original] }, ...propuesta]
-        : propuesta;
-
-    if (rota || songProblem(mode, path.id, original, conLaTuya) !== null) {
+    const conLaTuya = montarLaCancion(path.id, original, raw['desde'], propuesta);
+    if (conLaTuya === null || songProblem(mode, path.id, original, conLaTuya) !== null) {
       continue;
     }
 

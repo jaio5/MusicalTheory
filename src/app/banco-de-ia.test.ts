@@ -5,8 +5,8 @@
  * guitarra, y por una razón: lo que propone la IA es el corazón de esta
  * aplicación y **es lo único que no se puede comprobar con un test normal**. Lo
  * que hay medido sale de un modelo local de ocho mil millones, donde `retocar`
- * no pasa ninguna y `rearmonizar` devuelve la canción tal cual. Con eso no se
- * sabe si la función sirve o si el modelo es pequeño.
+ * pasa casi siempre pero copiando el ejemplo del prompt (adr/0086). Con eso no
+ * se sabe si la función sirve o si el modelo es pequeño.
  *
  * **No corre con los demás.** Sale a la red y cuesta dinero, así que hay que
  * pedirlo:

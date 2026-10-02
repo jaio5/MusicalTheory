@@ -119,6 +119,23 @@ describe('el esquema y el catálogo dependen de lo que se pida', () => {
     expect(versions.items.properties.sections.maxItems).toBe(1);
   });
 
+  // Al retocar se pide solo el trozo que cambia, y el compás donde empieza
+  // (adr/0086): el esquema lo exige y el prompt numera tus compases.
+  it('al retocar pide desde, y le numera tus compases', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'retocar' }));
+
+    const { prompt, schema } = llamada();
+    const items = (
+      (schema['properties'] as Record<string, unknown>)['versions'] as {
+        items: { required: string[] };
+      }
+    ).items;
+    expect(items.required).toContain('desde');
+    expect(prompt).toContain('1: i x4 | 2: VI x4 | 3: III x4 | 4: VII x4');
+  });
+
   it('le enseña el mapa de saltos, generado desde el dominio', async () => {
     // Es lo que convierte «inventa algo» en «elige por dónde», y lo que impide
     // que el prompt ofrezca un salto que el validador no sabe comprobar.
@@ -281,6 +298,45 @@ describe('lo que sale', () => {
 
     // Los cuatro tuyos y la cadencia: VI es Fa y i es La menor.
     expect(pasos.map((p) => p.symbol)).toEqual(['Am', 'F', 'C', 'G', 'F', 'Am']);
+  });
+
+  /**
+   * El fallo que esto arregla: el modelo devolvía solo el trozo que cambiaba y se
+   * leía como la canción entera, así que no salía nada. Ahora el trozo llega con
+   * su `desde` y la canción la monta el servidor: a pantalla va entera.
+   */
+  it('al retocar, el trozo que cambia vuelve montado en la canción entera', async () => {
+    askModel.mockResolvedValue({
+      versions: [
+        {
+          path: 'rearmonizar',
+          desde: 2,
+          title: 'Otra subdominante',
+          why: 'El VI por su relativo.',
+          sections: [
+            { name: 'Lo que llevas', steps: [{ degree: 'iv', beats: 4, move: 'relativo' }] },
+          ],
+        },
+        {
+          path: 'otro-final',
+          desde: 9,
+          title: 'Fuera',
+          why: 'Empieza en un compás que no existe.',
+          sections: [{ name: 'Lo que llevas', steps: [{ degree: 'i', beats: 4, move: null }] }],
+        },
+      ],
+    });
+
+    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'retocar' })));
+    const salidas = body['versions'] as {
+      steps: { degree: string; from: string | null; move: string | null }[];
+    }[];
+
+    expect(status).toBe(200);
+    expect(salidas).toHaveLength(1);
+    expect(salidas[0]!.steps.map((p) => p.degree)).toEqual(['i', 'iv', 'III', 'VII']);
+    expect(salidas[0]!.steps.map((p) => p.from)).toEqual(['i', 'VI', 'III', 'VII']);
+    expect(salidas[0]!.steps.map((p) => p.move)).toEqual([null, 'relativo', null, null]);
   });
 
   it('reintenta una vez y gasta cupo una sola', async () => {

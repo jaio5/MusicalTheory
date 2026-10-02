@@ -112,9 +112,17 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
 - **`pnpm docker:ia` está escrito y sin levantar.** El adaptador sí se probó
   contra un Ollama de verdad; el camino de compose, nunca, porque en este equipo
   Docker Desktop no tiene encendida la integración con WSL.
-- **`rearmonizar` es la salida que peor se le da a todos los modelos**: devuelven
-  la canción tal cual. Era el 100 % de la función antes de
-  [adr/0016](./adr/0016-salidas-en-vez-de-versiones.md) y ahora es un quinto.
+- **Retocar sale, pero copiando.** Desde que el modelo devuelve solo el trozo que
+  cambia, `qwen3:8b` saca 22 de 24 salidas válidas con ocho progresiones, y 21 son
+  el ejemplo del prompt tal cual: un acorde por su relativo, el primero al doble,
+  un final de un compás ([adr/0086](./adr/0086-retocar-devuelve-solo-lo-que-cambia.md)).
+  Lo que falta saber es si un modelo grande propone algo suyo.
+- **El presupuesto de entrada de las salidas se queda corto, y ya se quedaba.** El
+  estimado de `server/prompts.test.ts` no cuenta el mapa de saltos, las cadencias
+  ni las directrices: con ellos, el peor prompt pasa de los 1.400 tokens de
+  `TOKEN_BUDGETS.versiones` —unos 1.680 al continuar, 1.950 al retocar, a 3,2
+  caracteres por token—. Subirlo baja los cupos de Medio y Pro, así que es una
+  decisión de precio, con su ADR.
 - **Los bloques fantasma no tienen quien los llene.** `state/propuesta.ts` y su
   tira siguen funcionando, pero quien proponía era el panel de ideas, retirado. Si
   el copiloto en línea vuelve, tiene que volver con otra fuente: una salida

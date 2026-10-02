@@ -17,7 +17,7 @@
  * fija un esquema y pensar se cobra como salida.
  */
 
-import { MAX_VERSIONS } from '@core/billing';
+import { MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
 import {
   degreesFor,
   keyName,
@@ -124,7 +124,8 @@ exacto. Se comprueba contra sus reglas y la que no cuadre se descarta.
 Toda salida devuelve la cancion en sections. Cuando continuas lo que lleva, devuelves
 SOLO las partes que anades, con su nombre —estribillo, puente, cierre—: sus
 compases ya los tenemos y van delante solos, no los repitas. Cuando retocas sus
-compases va una sola parte con la progresion entera.
+compases va una sola parte con SOLO el trozo que cambias, y desde dice en que
+compas empieza: lo demas lo ponemos nosotros.
 
 Los saltos entre acordes que no estaban en su cancion tienen que estar en el
 mapa de saltos que te dan: de cada grado, a donde se puede ir.
@@ -216,6 +217,17 @@ export function versionsSchema(mode: KeyMode, kind: PathKind): Record<string, un
           type: 'object',
           properties: {
             path: { type: 'string', enum: [...PATHS_BY_KIND[kind]] },
+            // **Al retocar, el compás donde empieza lo que devuelve.** El modelo
+            // contestaba solo el trozo que cambiaba aunque se le pidiera la
+            // canción entera, y el validador lo leía como la canción: 0 válidas de
+            // 22 entre rearmonizar y otro final. Ahora se le pide eso mismo, el
+            // trozo, y el servidor lo pone en su sitio (adr/0086). Va detrás del
+            // camino y delante de los compases: decidir dónde empieza antes de
+            // escribirlo, como el camino antes de la canción. El tope es el de
+            // lo que se manda: cuenta tus compases, no los de la salida.
+            ...(kind === 'retocar'
+              ? { desde: { type: 'integer', minimum: 1, maximum: MAX_VERSION_DEGREES } }
+              : {}),
             title: { type: 'string' },
             why: { type: 'string' },
             // **Solo las partes nuevas cuando se continúa.** Tus compases no se
@@ -250,7 +262,9 @@ export function versionsSchema(mode: KeyMode, kind: PathKind): Record<string, un
                   name: { type: 'string' },
                   steps: {
                     type: 'array',
-                    minItems: 2,
+                    // Al retocar, un trozo de un compás es lo normal: cambiar un
+                    // acorde. La canción montada sigue teniendo los suyos.
+                    minItems: kind === 'retocar' ? 1 : 2,
                     maxItems: MAX_PATH_STEPS,
                     items: compas,
                   },
@@ -260,7 +274,10 @@ export function versionsSchema(mode: KeyMode, kind: PathKind): Record<string, un
               },
             },
           },
-          required: ['path', 'title', 'why', 'sections'],
+          required:
+            kind === 'retocar'
+              ? ['path', 'desde', 'title', 'why', 'sections']
+              : ['path', 'title', 'why', 'sections'],
           additionalProperties: false,
         },
       },

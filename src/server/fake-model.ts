@@ -65,12 +65,20 @@ export function versionesSinIA(peticion: Peticion): unknown {
         : { degree: destino, beats: paso.beats, move: move.id };
     });
 
-    if (steps.some((paso) => paso.move !== null)) {
+    // Y devuelve solo el trozo que cambia, con su `desde`, como se le pide al
+    // modelo (adr/0086): del primer compás cambiado al último.
+    const primero = steps.findIndex((paso) => paso.move !== null);
+    if (primero !== -1) {
+      const ultimo =
+        steps.length - 1 - [...steps].reverse().findIndex((paso) => paso.move !== null);
       versions.push({
         path: 'rearmonizar',
+        desde: primero + 1,
         title: `${SIN_IA} · ${move.name.toLowerCase()}`,
         why: `${move.why} La ha construido el dominio, no un modelo.`,
-        sections: [{ name: 'Lo que llevas', yours: false, steps }],
+        sections: [
+          { name: 'Lo que llevas', yours: false, steps: steps.slice(primero, ultimo + 1) },
+        ],
       });
       break;
     }
@@ -96,21 +104,20 @@ export function versionesSinIA(peticion: Peticion): unknown {
     });
   }
 
-  // 3. Otro reparto: el primer compás dura el doble. No toca un solo acorde.
-  if (progression.length > 0) {
+  // 3. Otro reparto: el primer compás dura el doble. No toca un solo acorde, y
+  // el trozo es ese compás solo: desde el 1, y lo demás lo pone el servidor.
+  const [inicial] = progression;
+  if (inicial !== undefined) {
     versions.push({
       path: 'estirar',
+      desde: 1,
       title: `${SIN_IA} · el primero, el doble`,
       why: 'Los mismos acordes en el mismo orden, con el primero durando el doble.',
       sections: [
         {
           name: 'Lo que llevas',
           yours: false,
-          steps: progression.map((paso, index) => ({
-            degree: paso.degree,
-            beats: index === 0 ? Math.min(16, paso.beats * 2) : paso.beats,
-            move: null,
-          })),
+          steps: [{ degree: inicial.degree, beats: Math.min(16, inicial.beats * 2), move: null }],
         },
       ],
     });

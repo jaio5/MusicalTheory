@@ -2,6 +2,8 @@
 
 > **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** las ideas ya no existen, y las salidas entran en Medio, no en Pro.
 
+> **Ampliado por [ADR 0086](./0086-retocar-devuelve-solo-lo-que-cambia.md):** al retocar, el modelo tampoco devuelve la canción entera: dice desde qué compás cambia, devuelve solo ese trozo y el servidor la monta.
+
 Fecha: 2026-08-26 · Estado: aceptada · Enmienda: [ADR 0011](./0011-versiones-verificadas-contra-el-dominio.md)
 
 ## Contexto

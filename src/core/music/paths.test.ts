@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   canFollow,
+  cancionRetocada,
   songProblem,
   hasSections,
   isValidPath,
@@ -175,6 +176,67 @@ describe('otro reparto', () => {
   it('no vale si toca un acorde', () => {
     const salida = pasos(['i', 8], ['iv', 2], ['III', 4], ['VII', 4]);
     expect(pathProblem('minor', 'estirar', TUYO, salida)).toBe('estirar no cambia los acordes');
+  });
+});
+
+/**
+ * Al retocar, el modelo devuelve solo el trozo que cambia y desde qué compás, y
+ * esto monta la canción (adr/0086). Monta, no juzga: lo juzga `pathProblem`.
+ */
+describe('la canción que sale de un retoque', () => {
+  const grados = (r: ReturnType<typeof cancionRetocada>) =>
+    'pasos' in r ? r.pasos.map((p) => `${p.degree}/${p.beats}`) : r.problema;
+
+  it('rearmonizar y estirar tapan tantos compases como mide el trozo', () => {
+    expect(grados(cancionRetocada('rearmonizar', TUYO, 2, pasos(['iv', 4])))).toEqual([
+      'i/4',
+      'iv/4',
+      'III/4',
+      'VII/4',
+    ]);
+    expect(grados(cancionRetocada('estirar', TUYO, 3, pasos(['III', 8], ['VII', 2])))).toEqual([
+      'i/4',
+      'VI/4',
+      'III/8',
+      'VII/2',
+    ]);
+  });
+
+  it('otro final sustituye todo lo que viene después, mida lo que mida', () => {
+    expect(grados(cancionRetocada('otro-final', TUYO, 3, pasos(['i', 8])))).toEqual([
+      'i/4',
+      'VI/4',
+      'i/8',
+    ]);
+  });
+
+  it('la canción entera desde el 1 es un trozo que lo tapa todo', () => {
+    const entera = pasos(['i', 8], ['VI', 4], ['III', 4], ['VII', 4]);
+
+    expect(grados(cancionRetocada('estirar', TUYO, 1, entera))).toEqual(
+      entera.map((p) => `${p.degree}/${p.beats}`),
+    );
+  });
+
+  it('desde tiene que ser uno de tus compases', () => {
+    for (const desde of [0, 5, 1.5, Number.NaN]) {
+      expect(grados(cancionRetocada('otro-final', TUYO, desde, pasos(['i', 4]))), `${desde}`).toBe(
+        'desde fuera de tus compases',
+      );
+    }
+  });
+
+  it('un trozo que se pasa del final no tapa nada que exista', () => {
+    expect(grados(cancionRetocada('estirar', TUYO, 4, pasos(['VII', 2], ['VII', 2])))).toBe(
+      'el trozo se pasa de tu último compás',
+    );
+  });
+
+  it('lo tuyo entra sin la marca de oído', () => {
+    const oido = TUYO.map((paso) => ({ ...paso, heard: true }));
+    const r = cancionRetocada('rearmonizar', oido, 2, pasos(['iv', 4]));
+
+    expect('pasos' in r && r.pasos.every((paso) => !('heard' in paso))).toBe(true);
   });
 });
 

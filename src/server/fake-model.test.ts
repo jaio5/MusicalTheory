@@ -65,6 +65,28 @@ describe('las salidas sin IA', () => {
     expect(versions.every((version) => version.title.includes(SIN_IA))).toBe(true);
   });
 
+  // Al retocar devuelven solo el trozo que cambia y desde dónde, como el modelo
+  // (adr/0086). Que montadas pasen el validador lo prueba `app/api/sin-clave.test.ts`.
+  it('al retocar devuelven solo el trozo que cambia, con su desde', () => {
+    const { versions } = versionesSinIA(EN_LA_MENOR) as {
+      versions: {
+        path: string;
+        desde?: number;
+        sections: { steps: { degree: string; beats: number; move: string | null }[] }[];
+      }[];
+    };
+    const rearmonizar = versions.find((v) => v.path === 'rearmonizar');
+    const estirar = versions.find((v) => v.path === 'estirar');
+
+    // Cambia un compás de cada dos: del 2 al 4, y el 1 no viaja.
+    expect(rearmonizar?.desde).toBe(2);
+    expect(rearmonizar?.sections[0]!.steps).toHaveLength(3);
+    expect(rearmonizar?.sections[0]!.steps[0]!.move).not.toBeNull();
+    // Y estirar, solo el primero, que es el que dura el doble.
+    expect(estirar?.desde).toBe(1);
+    expect(estirar?.sections[0]!.steps).toEqual([{ degree: 'i', beats: 8, move: null }]);
+  });
+
   // Y con un acorde solo sale lo que se puede hacer con uno.
   it('con un acorde no se inventa un reparto de dos', () => {
     const { versions } = versiones({

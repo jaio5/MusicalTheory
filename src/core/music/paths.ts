@@ -472,6 +472,54 @@ export function songProblem(
   );
 }
 
+/**
+ * La canción entera que resulta de un retoque, o por qué no se puede montar.
+ *
+ * **Al retocar, el modelo devuelve solo lo que cambia** y dice desde qué compás
+ * empieza; tus compases los pone esto, igual que al continuar los pone el
+ * contrato ([adr/0086](../../../docs/adr/0086-retocar-devuelve-solo-lo-que-cambia.md)).
+ * Pedirle la canción entera era la causa de que no saliera nada: contestaba el
+ * trozo de todas formas, y las reglas de `pathProblem` lo leían como la canción
+ * —«rearmonizar no cambia el largo», «otro final no deja en pie la primera
+ * mitad»—: de `rearmonizar` y `otro-final`, 0 válidas de 22.
+ *
+ * Qué tapa el trozo depende de la salida, y es lo único que se decide aquí:
+ *
+ * - `otro-final` cambia **lo que viene después**, así que el trozo sustituye todo
+ *   desde ese compás hasta el final. Puede medir menos, que es acabar antes.
+ * - las otras dos —`rearmonizar` y `estirar`— cambian compases sin moverlos de
+ *   sitio, así que el trozo tapa **tantos compases como mide** y lo demás se
+ *   queda. Un trozo que se pasa del final no tapa nada que exista.
+ *
+ * Lo que **no** se decide aquí es si el retoque vale: eso lo sigue diciendo
+ * `pathProblem` sobre la canción montada, con las mismas reglas que antes. Esto
+ * monta, no juzga. Y la canción entera con `desde` 1 sigue sirviendo, porque es
+ * un trozo que lo tapa todo.
+ */
+export function cancionRetocada(
+  path: PathId,
+  original: readonly PathStep[],
+  desde: number,
+  trozo: readonly ProposedStep[],
+): { readonly pasos: readonly ProposedStep[] } | { readonly problema: string } {
+  if (!Number.isInteger(desde) || desde < 1 || desde > original.length) {
+    return { problema: 'desde fuera de tus compases' };
+  }
+  // Los tuyos van sin la marca de oído: lo que se monta es lo que suena, y esa
+  // marca dice de dónde salió un compás, que aquí no se juzga.
+  const tuyos = original.map(({ degree, beats }) => ({ degree, beats }));
+  const antes = tuyos.slice(0, desde - 1);
+
+  if (path === 'otro-final') {
+    return { pasos: [...antes, ...trozo] };
+  }
+  const hasta = desde - 1 + trozo.length;
+  if (hasta > original.length) {
+    return { problema: 'el trozo se pasa de tu último compás' };
+  }
+  return { pasos: [...antes, ...trozo, ...tuyos.slice(hasta)] };
+}
+
 export function isValidPath(
   mode: KeyMode,
   path: PathId,

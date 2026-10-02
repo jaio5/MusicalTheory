@@ -166,8 +166,11 @@ describe('los topes de salida', () => {
 describe('el presupuesto de tokens de las versiones', () => {
   it('el prompt, el esquema, la progresión más larga y el catálogo caben', () => {
     // Lo peor: la progresión entera hasta su tope con sus pulsos, más los cinco
-    // movimientos con su nombre y su porqué, más los grados válidos.
-    const progresion = 'bVII x4, '.repeat(MAX_VERSION_DEGREES);
+    // movimientos con su nombre y su porqué, más los grados válidos. Al retocar
+    // va numerada —es lo que cuenta `desde`—, y eso es lo más largo que puede
+    // ser. Los ejemplos de retocar se miden aparte, en
+    // `features/versions/prompt.test.ts`: desde aquí no se puede abrir `features/`.
+    const progresion = '32: V/iii x16 | '.repeat(MAX_VERSION_DEGREES);
     const movimientos = MOVES.map((move) => `${move.id}: ${move.why}`).join('\n');
     const grados = 'bVII, '.repeat(20);
     const estimado = estimatedTokens(
@@ -200,6 +203,62 @@ describe('el presupuesto de tokens de las versiones', () => {
     const versiones = TOKEN_BUDGETS.versiones;
     const profesor = TOKEN_BUDGETS.profesor;
     expect(versiones.input + versiones.output).toBeGreaterThan(profesor.input + profesor.output);
+  });
+});
+
+/**
+ * Al retocar, cada salida trae `desde` —el compás donde empieza lo que devuelve— y
+ * solo el trozo que cambia (adr/0086). El esquema lo exige porque el validador lo
+ * exige: lo que el esquema no pide, el modelo no lo pone.
+ */
+describe('el esquema de las salidas', () => {
+  /** Lo que se pide de una salida, y de los compases de su parte. */
+  function salida(mode: KeyMode, kind: 'continuar' | 'retocar') {
+    const schema = versionsSchema(mode, kind) as {
+      properties: {
+        versions: {
+          items: {
+            properties: Record<string, Record<string, unknown>> & {
+              sections: { items: { properties: { steps: { minItems: number } } } };
+            };
+            required: string[];
+          };
+        };
+      };
+    };
+    return schema.properties.versions.items;
+  }
+
+  it('al retocar, desde es un entero obligatorio, de uno al tope de compases', () => {
+    for (const mode of ['major', 'minor'] as const) {
+      const items = salida(mode, 'retocar');
+
+      expect(items.required).toContain('desde');
+      expect(items.properties['desde']).toEqual({
+        type: 'integer',
+        minimum: 1,
+        maximum: MAX_VERSION_DEGREES,
+      });
+    }
+  });
+
+  it('va detrás del camino y delante de los compases: se decide antes de escribirlos', () => {
+    const orden = Object.keys(salida('major', 'retocar').properties);
+
+    expect(orden.indexOf('desde')).toBe(orden.indexOf('path') + 1);
+    expect(orden.indexOf('desde')).toBeLessThan(orden.indexOf('sections'));
+  });
+
+  it('y un trozo de un compás vale: cambiar un acorde es lo normal', () => {
+    expect(salida('major', 'retocar').properties.sections.items.properties.steps.minItems).toBe(1);
+  });
+
+  it('al continuar no hay desde, y una parte nueva sigue midiendo dos compases', () => {
+    const items = salida('minor', 'continuar');
+
+    expect(items.properties).not.toHaveProperty('desde');
+    expect(items.required).not.toContain('desde');
+    expect(items.properties.sections.items.properties.steps.minItems).toBe(2);
   });
 });
 
