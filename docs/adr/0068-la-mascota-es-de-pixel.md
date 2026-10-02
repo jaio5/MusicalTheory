@@ -93,3 +93,18 @@ escuchar, que es lo que hace el profesor, y las razones de
   que es justo lo que este cambio viene a quitar.
 - Se miró en los dos temas a 2× y a 4× en la lámina del script, y en un navegador
   a 64 px en el tutor de `/aprender`, con y sin movimiento reducido.
+
+**El icono de la pestaña es el mismo profesor** (2 de octubre de 2026). Lo saca
+`arte/mascota/iconos.py` de los píxeles de `build.py`, callado:
+
+- `src/app/icon.svg`, en rectángulos con `crispEdges` y con el contorno de cada tema
+  del sistema, porque el grafito del claro desaparece sobre una barra de pestañas
+  oscura;
+- `favicon.ico`, a 32 y a 64, solo a escala entera, para lo que no lee SVG;
+- `apple-icon.png`, a 180 sobre la noche de la sala.
+
+Si cambia el dibujo, se vuelve a ejecutar el script; `src/app/iconos.test.ts` vigila
+lo que Next lee de los tres. Descartadas: una letra o la nota de la marca, que a 16
+píxeles no dice nada que no diga el título; un PNG de 16, que obligaba a dibujar el
+profesor otra vez y peor; y un icono distinto para cada tema, que no todos los
+navegadores piden.
