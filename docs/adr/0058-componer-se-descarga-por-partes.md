@@ -1,5 +1,7 @@
 # ADR 0058 — Componer se descarga por partes
 
+> **Nota del 2 de octubre de 2026:** «El peso no está medido todavía» ya no vale. Medido en producción ese día, `/componer` baja **227 KB de JavaScript y 339 en total**, con `peso-de-las-rutas.mjs`. Los motores de audio, además, ya no viajan a las pantallas que no escuchan ([ADR 0079](./0079-el-marco-se-monta-una-vez-y-el-micro-sobrevive-a-navegar.md)).
+
 Fecha: 2026-09-30 · Estado: aceptada · Revisa lo descartado en [ADR 0045](./0045-un-barril-por-pantalla-no.md)
 
 ## Contexto

@@ -34,39 +34,48 @@ cualquier descripción.
 
 Después de la veinte, en un solo día (26 de agosto de 2026):
 
-| Qué                                                                                          |
-| -------------------------------------------------------------------------------------------- |
-| Un modelo de casa —Ollama— para poder preguntarle a la IA sin clave y sin factura.           |
-| El esquema de las ideas deja de pedir de menos: de 0 de 4 peticiones válidas a 36 de 36.     |
-| Un solo canal de texto libre, y el profesor declara si le preguntan de música.               |
-| El sonido se guarda y al parar se vuelve a escuchar entero, con ventana cuatro veces mayor.  |
-| Las versiones pasan a ser **salidas**: canciones distintas con sus partes, no retoques.      |
-| Repaso de toda la aplicación: código muerto fuera, tres fallos reales arreglados.            |
-| Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.            |
-| El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.              |
-| Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.            |
-| Qué nota puede seguir, siempre a la vista, y el punteo que tocas cae en la partitura.        |
-| Aprender gana unidades de oído: suena un acorde en tu tonalidad y dices qué era.             |
-| Remate: el lienzo se guarda, los acordes se reordenan escritos y el bVII deja de ser A#.     |
-| La interfaz se lee: fuera la monoespaciada de todo lo que no es un dato, y la rueda de pie.  |
-| Grabarse pasa a ser solo sonido, que se oye ahí mismo; se va la cámara y su capa entera.     |
-| El micrófono pasa a ser uno de verdad, y la tonalidad se recuerda de una vez para otra.      |
-| La pregunta se ve como lo que hay que hacer, y cada botón que trabaja lo dice.               |
-| La rueda se recorre con las flechas, y abrirla en un móvil deja de vaciar la pantalla.       |
-| La aplicación deja de prometer que detecta la tonalidad rasgueando: pide notas sueltas.      |
-| La clave de sol se dibuja de su trazo y por fin se reconoce; la armadura deja de pisarla.    |
-| Se usa la profundidad que ya estaba escrita: la partitura es hoja y las columnas se separan. |
-| Lo que estaba escrito tres y cinco veces pasa a estarlo una: rutas, oyentes y avisos.        |
-| Componer suma a la racha y a la meta, y una parte dice si es estrofa, estribillo o idea.     |
-| El grabado se mide en espacios de pentagrama, y la clave deja de parecer una clave de fa.    |
-| Componer pasa a ser un banco de areas que se pliegan, con su reparto por espacio de trabajo. |
-| Se compone tocando: el micro escribe acordes y punteo, y la toma de audio se queda al lado.  |
-| Ensayar lo escrito cuenta compases, racha y cual se atraganta, sin castigar por fallar.      |
-| Se retiran las ideas, que ya no tenían ruta ni panel, y las salidas bajan de Pro a Medio.    |
-| La portada cambia el vídeo por un local de ensayo de píxel, con el profesor sobre el ampli.  |
-| La claqueta suena toda la toma, y el clic es un golpe de ruido que el micro no confunde.     |
-| Las pantallas llenan el ancho: margen que crece, dos anchos y un `aside` pegado a un lado.   |
-| La diana de la rueda sale de una cuenta, y pulsar abajo en «C» ya no elige La menor.         |
+| Qué                                                                                               |
+| ------------------------------------------------------------------------------------------------- |
+| Un modelo de casa —Ollama— para poder preguntarle a la IA sin clave y sin factura.                |
+| El esquema de las ideas deja de pedir de menos: de 0 de 4 peticiones válidas a 36 de 36.          |
+| Un solo canal de texto libre, y el profesor declara si le preguntan de música.                    |
+| El sonido se guarda y al parar se vuelve a escuchar entero, con ventana cuatro veces mayor.       |
+| Las versiones pasan a ser **salidas**: canciones distintas con sus partes, no retoques.           |
+| Repaso de toda la aplicación: código muerto fuera, tres fallos reales arreglados.                 |
+| Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.                 |
+| El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.                   |
+| Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.                 |
+| Qué nota puede seguir, siempre a la vista, y el punteo que tocas cae en la partitura.             |
+| Aprender gana unidades de oído: suena un acorde en tu tonalidad y dices qué era.                  |
+| Remate: el lienzo se guarda, los acordes se reordenan escritos y el bVII deja de ser A#.          |
+| La interfaz se lee: fuera la monoespaciada de todo lo que no es un dato, y la rueda de pie.       |
+| Grabarse pasa a ser solo sonido, que se oye ahí mismo; se va la cámara y su capa entera.          |
+| El micrófono pasa a ser uno de verdad, y la tonalidad se recuerda de una vez para otra.           |
+| La pregunta se ve como lo que hay que hacer, y cada botón que trabaja lo dice.                    |
+| La rueda se recorre con las flechas, y abrirla en un móvil deja de vaciar la pantalla.            |
+| La aplicación deja de prometer que detecta la tonalidad rasgueando: pide notas sueltas.           |
+| La clave de sol se dibuja de su trazo y por fin se reconoce; la armadura deja de pisarla.         |
+| Se usa la profundidad que ya estaba escrita: la partitura es hoja y las columnas se separan.      |
+| Lo que estaba escrito tres y cinco veces pasa a estarlo una: rutas, oyentes y avisos.             |
+| Componer suma a la racha y a la meta, y una parte dice si es estrofa, estribillo o idea.          |
+| El grabado se mide en espacios de pentagrama, y la clave deja de parecer una clave de fa.         |
+| Componer pasa a ser un banco de areas que se pliegan, con su reparto por espacio de trabajo.      |
+| Se compone tocando: el micro escribe acordes y punteo, y la toma de audio se queda al lado.       |
+| Ensayar lo escrito cuenta compases, racha y cual se atraganta, sin castigar por fallar.           |
+| Se retiran las ideas, que ya no tenían ruta ni panel, y las salidas bajan de Pro a Medio.         |
+| La portada cambia el vídeo por un local de ensayo de píxel, con el profesor sobre el ampli.       |
+| La claqueta suena toda la toma, y el clic es un golpe de ruido que el micro no confunde.          |
+| Las pantallas llenan el ancho: margen que crece, dos anchos y un `aside` pegado a un lado.        |
+| La diana de la rueda sale de una cuenta, y pulsar abajo en «C» ya no elige La menor.              |
+| El profesor tiene delante un glosario comprobado: de 12 a 26 de 28 preguntas bien.                |
+| El cobro guarda la suscripción en la cuenta y cancela primero en Stripe: sin probarlo contra él.  |
+| Los topes cuentan la dirección que vio nuestro proxy, y entrar lleva tres claves.                 |
+| El marco se monta una vez para todas las pantallas, y el micro abierto sigue abierto al navegar.  |
+| Cambiar de modo recuerda lo que era cada bloque: ir y volver deja la canción como estaba.         |
+| El lienzo de componer se guarda solo en el navegador, y vuelve al recargar.                       |
+| Ensayar cuenta dos compases con el mismo metrónomo, y componer se pinta sin saltar al hidratar.   |
+| Lo que trabaja no se apaga y el foco se mueve a mano: tres fronteras de error y atajos con AltGr. |
+| Las opciones se barajan por unidad y las formas de acorde dejan de pedir cejillas imposibles.     |
 
 ## Los fallos que enseñaron algo
 
@@ -217,3 +226,34 @@ ninguno se veía leyendo el código:
   del generador. Ningún test mira eso, y para algo que se va a cobrar era el problema
   más caro de la página. Se cambió por una escena dibujada aquí, píxel a píxel
   ([adr/0069](./adr/0069-la-portada-es-una-escena-de-pixel.md)).
+- **Una auditoría completa, el 2 de octubre de 2026, encontró lo que seis comandos en
+  verde no veían.** Seguridad, rendimiento, accesibilidad y recorrido de extremo a
+  extremo, con navegador y medidas, y de ahí salieron los ADR 0077 a 0085. Lo que
+  enseñó, en una línea cada cosa:
+  - **Cancelar bajaba el plan y no le decía nada a Stripe**, que seguía cobrando; y
+    otro Checkout para cambiar de plan cobraba dos suscripciones. Escrito, probado y
+    nunca ejecutado contra Stripe ([adr/0077](./adr/0077-la-suscripcion-se-guarda-en-la-cuenta.md)).
+  - **El tope de entrar dejaba sin entrar a su dueño, y la dirección la escribía quien
+    pedía**: con doce peticiones cambiando `X-Forwarded-For`, cada una tenía su
+    contador. Los «cien milisegundos» de `scrypt` eran 31
+    ([adr/0078](./adr/0078-los-topes-se-cuentan-con-la-direccion-que-vio-nuestro-proxy.md)).
+  - **«`qwen3:8b` acierta los ocho» era falso**: resiste dos de ocho disfraces de la
+    marca, y borrar bien la marca no cambió el número
+    ([adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md), «Corrección»).
+  - **Navegar cerraba el micro con la barra diciendo que seguía escuchando**: cada
+    página montaba su marco y al irse arrastraba al micro
+    ([adr/0079](./adr/0079-el-marco-se-monta-una-vez-y-el-micro-sobrevive-a-navegar.md)).
+  - **Cambiar de modo atascaba el deshacer y no devolvía la canción**: lo que el
+    ADR 0030 daba por cierto no lo era
+    ([adr/0080](./adr/0080-cambiar-de-modo-recuerda-lo-que-era-cada-bloque.md)).
+  - **Recargar borraba el lienzo entero** de quien lo monta en muchas sesiones
+    ([adr/0081](./adr/0081-el-lienzo-se-guarda-solo-en-el-navegador.md)).
+  - **Componer saltaba al hidratar en un teléfono**, CLS de 0,116: el servidor pintaba
+    lo de escritorio y el cliente lo corregía
+    ([adr/0083](./adr/0083-componer-pinta-lo-de-escritorio-y-las-clases-lo-esconden.md)).
+  - **Un botón que trabaja soltaba el foco al `<body>`**, y el panel de «Tempo»
+    enseñaba 13 de sus 82 píxeles al llegar con el tabulador
+    ([adr/0084](./adr/0084-lo-que-trabaja-no-se-apaga-y-el-foco-se-mueve-a-mano.md)).
+  - **Una unidad de oído se aprobaba pulsando siempre la primera**, y una forma de F
+    pedía la cejilla encima de una cuerda al aire
+    ([adr/0085](./adr/0085-la-baraja-es-por-unidad-y-las-formas-se-eligen-por-nombre.md)).

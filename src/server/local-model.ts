@@ -14,9 +14,11 @@
  * es la regla que evita que la clave acabe en el bundle del navegador.
  *
  * Lo que **no** es: un proveedor de producción. La calidad de un modelo de ocho
- * mil millones de parámetros no es la de la API, y las rutas lo notan de forma
- * desigual —el profesor bien, las versiones mal, porque son las que se verifican
- * contra el dominio movimiento a movimiento—. Está en
+ * mil millones de parámetros no es la de la API, y las rutas lo notan las dos. Las
+ * versiones, porque se verifican contra el dominio movimiento a movimiento. Y el
+ * profesor, que aquí se daba por bueno y no lo era: sacando la teoría de memoria
+ * acertaba 10 de 28 preguntas de un examen, y llamaba cadencia perfecta a «C a G a
+ * C». Con el glosario delante sube a lo que dice `docs/adr/0076`. Está en
  * `docs/AI.md` y en `docs/adr/0014`.
  */
 
@@ -30,8 +32,15 @@ import { RespuestaTruncada } from './respuesta-truncada';
  * pesos en la gráfica antes de generar un solo token. Las siguientes tardan
  * segundos. Un tope de treinta segundos hacía fallar siempre la primera y
  * funcionar todas las demás, que es la clase de fallo que se persigue media hora.
+ *
+ * **Y tres minutos, no dos**, porque dos tampoco llegaban: medido en Docker sobre
+ * WSL, la carga en frío son entre 87 y 108 s y la primera respuesta otros 35, y
+ * la aplicación cortaba a los 120 con «no hemos podido contactar con el modelo»
+ * en cada arranque. Lo que lo arregla es `ia-calentar` en `compose.yml`, que
+ * carga el modelo antes de que nadie pregunte; esto cubre a quien pregunta
+ * mientras todavía está cargando.
  */
-const TIEMPO_MAXIMO_MS = 120_000;
+const TIEMPO_MAXIMO_MS = 180_000;
 
 export interface PeticionLocal {
   readonly prompt: string;

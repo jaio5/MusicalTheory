@@ -126,6 +126,11 @@ services:
       OLLAMA_URL: ${OLLAMA_URL_DOCKER:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5}
+      # Cuántos proxies de confianza hay delante. Sin pasarla aquí no llega al
+      # contenedor aunque esté en `.env`, y sin ella no se cree `X-Forwarded-For`:
+      # todos comparten los topes (`docs/DESPLIEGUE.md`). Vacía, que sin proxy
+      # delante es lo correcto.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-}
       # El servidor standalone de Next escucha en la interfaz que se le diga; sin
       # esto se queda en el bucle local del contenedor y desde fuera no contesta.
       HOSTNAME: 0.0.0.0
@@ -225,6 +230,35 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+    restart: 'no'
+
+  # **Cargar el modelo en la gráfica antes de que nadie pregunte.**
+  #
+  # Descargado no es cargado: tras cada `up`, la primera pregunta tenía que subir
+  # cinco gigas del disco a la gráfica antes de escribir nada. Medido en este
+  # equipo, 87 s de carga más 35 de la primera respuesta, por encima de los dos
+  # minutos que espera la aplicación: «no hemos podido contactar con el modelo» en
+  # cada arranque. Una petición vacía lo carga sin generar nada, y con
+  # `OLLAMA_KEEP_ALIVE` en -1 ya no se descarga. Después, la primera pregunta tarda
+  # lo que las demás (1,7 s medido).
+  #
+  # **La aplicación no lo espera**, a diferencia de `ia-modelo`: esperarlo es no
+  # poder abrir la página durante dos minutos. Quien pregunte mientras carga se
+  # queda en la cola de Ollama, y por eso el tope de `local-model.ts` cubre una
+  # carga entera.
+  ia-calentar:
+    profiles: ['ia']
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      MODELO: ${OLLAMA_MODEL:-qwen3:8b}
+    entrypoint: ['/bin/sh', '-c']
+    # La salida de `ollama run` es una ruedecita que llena el registro de basura.
+    command:
+      ['ollama run "$$MODELO" "" > /dev/null 2>&1 && echo "Modelo $$MODELO cargado en la gráfica."']
+    depends_on:
+      ia-modelo:
+        condition: service_completed_successfully
     restart: 'no'
 
 volumes:

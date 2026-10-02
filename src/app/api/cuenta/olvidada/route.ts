@@ -11,7 +11,7 @@
  * pantalla de entrar ya evita al no decir cuál de los dos campos falló.
  */
 
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { tooManyRequests } from '@server/api-response';
@@ -33,6 +33,17 @@ export const runtime = 'nodejs';
  */
 const limiter = new SlidingWindowRateLimiter({ limit: 3, windowMs: 60_000 });
 
+/**
+ * Tres por cuarto de hora y correo, cuente desde donde cuente.
+ *
+ * El de la dirección no bastaba: cambiándola, se podía llenar de correos el buzón
+ * de una persona concreta. Pasado este tope se contesta lo mismo y no se manda
+ * nada, así que tampoco dice si ese correo tiene cuenta: el tope cuenta igual
+ * para uno inventado.
+ */
+const LIMITE_POR_CORREO = { limit: 3, windowMs: 15 * 60_000 } as const;
+const limiterPorCorreo = new SlidingWindowRateLimiter(LIMITE_POR_CORREO);
+
 /** La misma frase siempre, se haya mandado algo o no. */
 const MANDADO =
   'Si ese correo tiene cuenta, le hemos mandado un enlace para poner una contraseña nueva. Caduca en una hora.';
@@ -46,6 +57,52 @@ async function puerta(request: Request): Promise<NextResponse | null> {
   });
 
   return allowed ? null : tooManyRequests(retryAfterSeconds);
+}
+
+/** Si a ese correo se le pueden mandar más enlaces ahora. */
+async function cabeOtroCorreo(email: unknown): Promise<boolean> {
+  const clave = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const { allowed } = await limitRequest({
+    memoria: limiterPorCorreo,
+    key: `olvidada:correo:${clave}`,
+    now: Date.now(),
+    options: LIMITE_POR_CORREO,
+  });
+  return allowed;
+}
+
+/**
+ * Crea el vale y manda el correo, si ese correo tiene cuenta.
+ *
+ * Nunca lanza: corre cuando la respuesta ya se ha ido y no hay a quién contarle
+ * un fallo. `requestReset` ya se traga los suyos; esto cubre el envío.
+ */
+async function mandarEnlace(email: unknown, correo: ReturnType<typeof mailer>): Promise<void> {
+  const now = new Date();
+  try {
+    const vale = await requestReset(email, now);
+    if (vale === null) {
+      return;
+    }
+    const enlace = `${appUrl()}/olvidada?vale=${encodeURIComponent(vale.token)}`;
+    await correo.send({
+      to: vale.email,
+      subject: 'Poner una contraseña nueva en Caos ordenado',
+      text: [
+        'Alguien ha pedido poner una contraseña nueva en tu cuenta.',
+        '',
+        'Si has sido tú, abre este enlace. Caduca en una hora y solo vale una vez:',
+        enlace,
+        '',
+        'Si no has sido tú, no hagas nada: tu contraseña de ahora sigue valiendo.',
+      ].join('\n'),
+    });
+    // Se aprovecha para soltar los vales caducados. Una tarea programada más que
+    // desplegar y vigilar para borrar unas filas no compensa.
+    await pruneResets(now);
+  } catch {
+    // El proveedor de correo no contesta: no hay respuesta que cambiar, ya salió.
+  }
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -70,29 +127,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const now = new Date();
-  const vale = await requestReset((await readJsonBody(request))['email'], now);
+  const email = (await readJsonBody(request))['email'];
 
-  if (vale !== null) {
-    const enlace = `${appUrl()}/olvidada?vale=${encodeURIComponent(vale.token)}`;
-    await correo.send({
-      to: vale.email,
-      subject: 'Poner una contraseña nueva en Caos ordenado',
-      text: [
-        'Alguien ha pedido poner una contraseña nueva en tu cuenta.',
-        '',
-        'Si has sido tú, abre este enlace. Caduca en una hora y solo vale una vez:',
-        enlace,
-        '',
-        'Si no has sido tú, no hagas nada: tu contraseña de ahora sigue valiendo.',
-      ].join('\n'),
-    });
-    // Se aprovecha para soltar los vales caducados. Una tarea programada más que
-    // desplegar y vigilar para borrar unas filas no compensa.
-    await pruneResets(now);
+  // **El trabajo va después de contestar** (`after`, de Next). Antes se esperaba
+  // a crear el vale y a mandar el correo, y eso solo pasa cuando la cuenta existe:
+  // la respuesta tardaba más con un correo registrado que con uno inventado, y
+  // midiéndolo desde fuera se sacaba la lista de cuentas que la frase de abajo
+  // se cuida de no dar. Ahora tarda lo mismo, porque lo que hace es lo mismo.
+  if (await cabeOtroCorreo(email)) {
+    after(() => mandarEnlace(email, correo));
   }
 
-  // La misma respuesta exista o no la cuenta.
+  // La misma respuesta exista o no la cuenta, y se haya mandado o no.
   return NextResponse.json({ message: MANDADO });
 }
 

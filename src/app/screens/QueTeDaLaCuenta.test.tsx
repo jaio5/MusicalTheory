@@ -45,4 +45,20 @@ describe('Lo que va al lado de la cuenta', () => {
     expect(screen.getByRole('link', { name: /Componer/ })).toHaveAttribute('href', '/componer');
     expect(screen.getByRole('link', { name: /Afinar/ })).toHaveAttribute('href', '/afinar');
   });
+
+  /**
+   * **Lo que no hay, dicho entero.** Decía «lo único que pide cuenta es la IA», y
+   * el repaso y guardar las canciones van con un plan, que va con una cuenta.
+   */
+  it('no dice que lo unico que falta sea la IA', () => {
+    for (const accounts of [false, true]) {
+      const { unmount } = pintar(accounts);
+
+      expect(document.body).not.toHaveTextContent(/Lo único que pide cuenta es la IA/);
+      expect(document.body).not.toHaveTextContent(/entera menos la IA/);
+      expect(document.body).toHaveTextContent(/el repaso de lo que fallaste/);
+      expect(document.body).toHaveTextContent(/guardar tus canciones en la cuenta/);
+      unmount();
+    }
+  });
 });

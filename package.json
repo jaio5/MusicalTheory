@@ -27,13 +27,14 @@
     "docker:ia": "bash scripts/docker-arriba.sh --ia",
     "docker:down": "docker compose --profile '*' down",
     "usuarios:prueba": "node --env-file=.env scripts/usuarios-de-prueba.ts",
+    "examen:profesor": "node --env-file=.env --import ./scripts/alias-de-src.ts scripts/examen-del-profesor.ts",
     "banco:ia": "BANCO_IA=1 node --env-file=.env ./node_modules/vitest/vitest.mjs run src/app/banco-de-ia.test.ts"
   },
   "license": "UNLICENSED",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
     "drizzle-orm": "^0.45.2",
-    "next": "^16.3.5",
+    "next": "^16.3.8",
     "next-auth": "5.0.0-beta.32",
     "postgres": "^3.4.9",
     "react": "^19.2.8",

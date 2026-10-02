@@ -1,8 +1,6 @@
-'use client';
+import type { StoreApi } from 'zustand';
 
-import { useEffect } from 'react';
-
-import { useArrangementStore } from './arrangement-store';
+import type { ArrangementState } from './arrangement-store';
 import { selectActiveKey, useSessionStore, type SessionState } from './session-store';
 
 /**
@@ -31,27 +29,45 @@ import { selectActiveKey, useSessionStore, type SessionState } from './session-s
  * para entonces el lienzo ya ha intentado leer los grados viejos y ha lanzado.
  * Los avisos de Zustand se reparten dentro del propio `set`, antes de que React
  * vuelva a pintar, así que cuando llega el repintado el montaje ya está
- * traducido. El efecto de aquí solo sirve para apuntarse y desapuntarse.
+ * traducido.
+ *
+ * **Tampoco puede depender de que componer esté montada**, que es como estuvo:
+ * la ponía un efecto de `ComposeScreen` y se quitaba al salir. Con cuatro
+ * bloques en Do mayor, ir a una unidad, pasar la rueda a La menor y volver a
+ * componer tumbaba la pantalla igual que antes de existir la vigilancia: el
+ * montaje sigue en memoria al navegar, y nadie lo había traducido. Por eso la
+ * arranca `arrangement-store` al crearse, en el navegador: **la vigilancia existe
+ * desde que existe el montaje**, en cualquier pantalla, y no hay hueco por el
+ * que se cuele un cambio de modo. Ni siquiera la portada, que tiene su rueda.
+ *
+ * El almacén del montaje entra por parámetro y no por `import` porque es él
+ * quien llama aquí: importarlo de vuelta sería un ciclo, y un ciclo entre dos
+ * módulos revienta en el navegador sin que lo vea ningún test.
  */
 const modoDe = (estado: SessionState): 'major' | 'minor' | null =>
   selectActiveKey(estado)?.mode ?? null;
 
-function ponerlo(modo: 'major' | 'minor' | null): void {
-  if (modo === null) {
-    return;
-  }
-  // `keepMode` devuelve el mismo montaje cuando no hay nada que traducir, así
-  // que llamarlo de más no gasta un paso del deshacer ni repinta a nadie.
-  useArrangementStore.getState().actions.keepMode(modo);
-}
+/** Lo que hace falta del almacén del montaje: leerlo y enterarse de que cambia. */
+export type AlmacenDelMontaje = Pick<StoreApi<ArrangementState>, 'getState' | 'subscribe'>;
 
 /**
  * Deja la vigilancia puesta y devuelve cómo quitarla.
  *
- * Fuera de un componente para poder probarla sin montar React, que es lo que
- * pedía `core/`: aquí no hay ventana que haga falta.
+ * Fuera de un componente para poder probarla sin montar React: aquí no hay
+ * ventana que haga falta.
  */
-export function vigilarElModoDelMontaje(): () => void {
+export function vigilarElModoDelMontaje(montaje: AlmacenDelMontaje): () => void {
+  const ponerlo = (modo: 'major' | 'minor' | null): void => {
+    if (modo === null) {
+      return;
+    }
+    // `keepMode` no toca el montaje cuando no hay nada que traducir, así que
+    // llamarlo de más no repinta a nadie. Y cuando traduce **no apila**: si
+    // apilara, deshacer devolvería los grados del modo viejo, esto los volvería a
+    // traducir y apilaría otra vez, y el botón de deshacer no haría nada.
+    montaje.getState().actions.keepMode(modo);
+  };
+
   ponerlo(modoDe(useSessionStore.getState()));
 
   const dejarLaTonalidad = useSessionStore.subscribe((estado, anterior) => {
@@ -61,7 +77,7 @@ export function vigilarElModoDelMontaje(): () => void {
     }
   });
 
-  const dejarElMontaje = useArrangementStore.subscribe((estado, anterior) => {
+  const dejarElMontaje = montaje.subscribe((estado, anterior) => {
     if (estado.arrangement !== anterior.arrangement) {
       ponerlo(modoDe(useSessionStore.getState()));
     }
@@ -71,9 +87,4 @@ export function vigilarElModoDelMontaje(): () => void {
     dejarLaTonalidad();
     dejarElMontaje();
   };
-}
-
-/** Lo mismo, para una pantalla que pinta el montaje. */
-export function useMontajeEnSuModo(): void {
-  useEffect(() => vigilarElModoDelMontaje(), []);
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Metronome as MetronomeEngine, MetronomeOptions } from '@audio/metronome';
 
@@ -69,7 +69,7 @@ describe('con una toma sonando', () => {
     expect(clic).toBeDisabled();
     expect(clic).toHaveAttribute('aria-pressed', 'false');
     expect(clic).toHaveAttribute('title', 'La toma lleva su propio clic');
-    expect(screen.getByRole('button', { hidden: true, name: /^Tempo:/ })).toBeDisabled();
+    expect(screen.getByRole('button', { hidden: true, name: /^100 bpm/ })).toBeDisabled();
 
     // Y no vuelve solo al acabar la toma.
     act(() => {
@@ -318,11 +318,33 @@ describe('En la barra', () => {
 
   it('el tempo abre el panel donde se cambia, y el compas va dentro', () => {
     const { view } = renderMetronome();
-    const tempo = screen.getByRole('button', { name: 'Tempo: 100 pulsos por minuto' });
+    const tempo = screen.getByRole('button', { name: '100 bpm, tempo y compás' });
     const panel = view.container.querySelector('[popover]')!;
 
+    // El nombre empieza por lo que se ve (WCAG 2.5.3): quien lo pide con la voz
+    // dice «100 bpm», que es lo que lee en el botón.
     expect(tempo).toHaveTextContent('100 bpm');
+    expect(tempo.getAttribute('aria-label')!.startsWith(tempo.textContent!.trim())).toBe(true);
     expect(tempo.getAttribute('popovertarget')).toBe(panel.id);
     expect(panel).toContainElement(screen.getByRole('combobox', { hidden: true, name: /compás/i }));
+  });
+});
+
+/**
+ * **El panel parece modal y no lo es**: lleva velo, y el tabulador salía de él
+ * por detrás hasta los controles tapados. Ahora salir con el foco lo cierra.
+ */
+describe('El panel del tempo', () => {
+  it('se cierra cuando el foco sale de el', () => {
+    const { view } = renderMetronome();
+    const panel = view.container.querySelector<HTMLElement>('[popover]')!;
+    const cerrar = vi.fn();
+    Object.assign(panel, { hidePopover: cerrar });
+
+    fireEvent.blur(screen.getByRole('button', { hidden: true, name: 'Dos pulsos más' }), {
+      relatedTarget: screen.getByRole('button', { name: 'Clic del metrónomo' }),
+    });
+
+    expect(cerrar).toHaveBeenCalled();
   });
 });

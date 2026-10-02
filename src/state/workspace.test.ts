@@ -53,6 +53,22 @@ describe('Preferencias', () => {
     expect(parsePreferences({ pinnedKey: guardado }).pinnedKey).toBeNull();
   });
 
+  /**
+   * Bastaba con que fuera texto, y una escala que ya no existe llegaba al
+   * mástil y tumbaba `/componer` entera en cada recarga.
+   */
+  it('un estilo, una escala o una afinación que no existen salen de fábrica', () => {
+    const leidas = parsePreferences({ styleId: 'reggae', scaleId: 'lydian', tuningId: 'sitar' });
+
+    expect(leidas.styleId).toBe(DEFAULT_PREFERENCES.styleId);
+    expect(leidas.scaleId).toBe(DEFAULT_PREFERENCES.scaleId);
+    expect(leidas.tuningId).toBe(DEFAULT_PREFERENCES.tuningId);
+  });
+
+  it('y lo que tiene cualquier objeto tampoco cuenta como escala', () => {
+    expect(parsePreferences({ scaleId: 'toString' }).scaleId).toBe(DEFAULT_PREFERENCES.scaleId);
+  });
+
   it('ignora lo que ya no guarda, como la pantalla', () => {
     expect(parsePreferences({ screen: 'banco', styleId: 'blues' })).toEqual({
       ...DEFAULT_PREFERENCES,

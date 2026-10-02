@@ -1,33 +1,69 @@
 /**
- * El webhook de la pasarela: lo que cambia el plan cuando el dinero ha entrado.
+ * El webhook de la pasarela: lo que cambia el plan cuando Stripe dice algo.
  *
  * **La firma se comprueba antes que nada, y sin secreto no se acepta nada.** Un
  * webhook sin comprobar es un formulario público para darse el plan Pro: basta
  * con saber la dirección y mandar un JSON. Por eso la comprobación es lo primero
  * que hay en la función y por eso `verifyStripeSignature` está probado aparte.
  *
- * El cuerpo se lee como **texto crudo** con `request.text()` y no con `.json()`.
- * No es un detalle: la firma se calcula sobre los bytes que mandó Stripe, y
- * volver a serializar el objeto cambia espacios y orden de claves. Es el fallo
- * clásico de esta integración.
+ * **Y antes de la firma, su cabecera.** Sin ella no hay nada que comprobar, así
+ * que se contesta 400 sin leer el cuerpo; y el cuerpo se lee **acotado**
+ * (`textoAcotado`): con `request.text()` cualquiera podía mandar cincuenta megas
+ * que el servidor juntaba enteros antes de descubrir que la firma no valía.
+ *
+ * El cuerpo se lee como **texto crudo** y no con `.json()`. No es un detalle: la
+ * firma se calcula sobre los bytes que mandó Stripe, y volver a serializar el
+ * objeto cambia espacios y orden de claves. Es el fallo clásico de esta
+ * integración.
+ *
+ * Cuatro avisos, con los nombres y campos de la documentación de Stripe
+ * (`billing/subscriptions/webhooks`, `api/checkout/sessions/object`):
+ *
+ * - `checkout.session.completed`: se ha pagado. Trae `client_reference_id`,
+ *   `customer`, `subscription` —identificadores, sin expandir—, `payment_status` y
+ *   nuestros `metadata`. **No trae `line_items`**: Stripe no los incluye si no se
+ *   piden, así que el plan sale de los metadatos que escribimos al crear la
+ *   sesión, junto con el precio de ese mismo plan.
+ * - `checkout.session.async_payment_succeeded`: lo mismo, cuando el pago tardó.
+ * - `customer.subscription.updated`: cambio de precio, de estado o renovación.
+ *   Aquí sí hay precio (`items.data[].price.id`), y es lo que manda.
+ * - `customer.subscription.deleted`: se acabó.
  *
  * Es idempotente sin llevar registro de eventos vistos, porque lo único que hace
  * es poner un plan: ponerlo dos veces deja lo mismo. Stripe reintenta los
  * webhooks que no contesta 2xx, así que esto pasa de verdad.
+ *
+ * **El orden, que Stripe no garantiza, no se le deja al aviso.** Los de la
+ * suscripción se aplican a quien la tenga guardada, y una que ya se soltó no
+ * encuentra a nadie. El del pago, en cambio, trae el nombre de la cuenta, y por sí
+ * solo no sabe si llega tarde: un `checkout.session.completed` reintentado después
+ * de la baja volvía a dar el plan de una suscripción muerta. Por eso, antes de
+ * vincular, **se le pregunta a Stripe cómo está ahora** (`suscripcionEnStripe`), y
+ * una terminada no da nada.
+ *
+ * **Y una cuenta tiene una suscripción, no dos.** Con dos Checkout pagados a la
+ * vez, el segundo aviso pisaba al primero: aquella seguía cobrando y sus avisos ya
+ * no encontraban a nadie. Ahora el segundo no pisa (`vincularSuscripcion`): si la
+ * guardada sigue viva, **la nueva se cancela en Stripe** y se deja escrito en el
+ * registro; si está muerta, la nueva ocupa su sitio.
  */
 
 import { NextResponse } from 'next/server';
 
 import type { PlanId } from '@core/billing';
-import { planOfPrice } from '@server/billing';
+import { accesoDe, planOfPrice } from '@server/billing';
+import { cancelarEnStripe, suscripcionEnStripe } from '@server/billing/stripe';
 import { verifyStripeSignature } from '@server/billing/stripe-signature';
-import { setPlan, type SetPlanResult } from '@server/users';
+import { textoAcotado } from '@server/request-body';
+import { planDeSuscripcion, vincularSuscripcion, type SetPlanResult } from '@server/users';
 
 export const runtime = 'nodejs';
 
-/** Los eventos que nos importan. Todo lo demás se acepta y se ignora. */
-const CAMBIA_A_PAGO = 'checkout.session.completed';
-const CAMBIA_A_GRATIS = 'customer.subscription.deleted';
+/** Los avisos que nos importan. Todo lo demás se acepta y se ignora. */
+const PAGADO = 'checkout.session.completed';
+const PAGADO_MAS_TARDE = 'checkout.session.async_payment_succeeded';
+const CAMBIADA = 'customer.subscription.updated';
+const BORRADA = 'customer.subscription.deleted';
 
 function get(value: unknown, ...path: readonly string[]): unknown {
   let actual = value;
@@ -40,39 +76,43 @@ function get(value: unknown, ...path: readonly string[]): unknown {
   return actual;
 }
 
-/**
- * A quién le toca el cambio.
- *
- * Sale de `client_reference_id` o de los metadatos, que es lo que se mandó al
- * crear la sesión. **No se busca por correo**: un correo se cambia, y dos
- * cuentas pueden acabar con el mismo si algún día se permite cambiarlo.
- */
-function userIdOf(object: unknown): string | null {
-  for (const candidate of [get(object, 'client_reference_id'), get(object, 'metadata', 'userId')]) {
-    if (typeof candidate === 'string' && candidate !== '') {
-      return candidate;
-    }
-  }
-  return null;
+/** Una cadena con algo dentro, o nulo. */
+function texto(value: unknown): string | null {
+  return typeof value === 'string' && value !== '' ? value : null;
 }
 
 /**
- * Qué plan se ha pagado.
+ * A quién le toca el pago.
  *
- * Del precio primero, porque es lo que Stripe sabe que se ha cobrado, y de los
- * metadatos solo como respaldo: los metadatos los escribimos nosotros al crear
- * la sesión y el precio lo pone la pasarela. Si los dos se contradijeran, manda
- * lo que se ha cobrado.
+ * Sale de `client_reference_id` o de los metadatos de la sesión, que es lo que se
+ * mandó al crearla. **No se busca por correo**: un correo se cambia, y dos
+ * cuentas pueden acabar con el mismo si algún día se permite cambiarlo.
  */
-function planOf(object: unknown): PlanId | null {
-  const porPrecio = planOfPrice(get(object, 'line_items', 'data', '0', 'price', 'id'));
-  if (porPrecio !== null) {
-    return porPrecio;
-  }
-  const enMetadatos = get(object, 'metadata', 'plan');
-  return enMetadatos === 'basico' || enMetadatos === 'medio' || enMetadatos === 'pro'
-    ? enMetadatos
-    : null;
+function userIdOf(session: unknown): string | null {
+  return texto(get(session, 'client_reference_id')) ?? texto(get(session, 'metadata', 'userId'));
+}
+
+/**
+ * El plan de una sesión pagada, de los metadatos que escribimos al crearla.
+ *
+ * Es de fiar porque solo este servidor crea sesiones —hace falta la clave— y las
+ * crea con el precio de ese mismo plan. El precio no viene en el aviso.
+ */
+function planDeLaSesion(session: unknown): PlanId | null {
+  const plan = get(session, 'metadata', 'plan');
+  return plan === 'basico' || plan === 'medio' || plan === 'pro' ? plan : null;
+}
+
+/**
+ * Si el dinero de esta sesión ha entrado.
+ *
+ * `paid`, o `no_payment_required` —un periodo de prueba o un cobro diferido—. Con
+ * `unpaid` la sesión está completa pero el dinero no: un adeudo bancario tarda
+ * días, y para eso llega `async_payment_succeeded` cuando entra.
+ */
+function cobrada(session: unknown): boolean {
+  const estado = get(session, 'payment_status');
+  return estado === 'paid' || estado === 'no_payment_required';
 }
 
 /**
@@ -86,6 +126,18 @@ function planOf(object: unknown): PlanId | null {
  * se quedaba en la cola de reintentos durante días sin que nunca fuera a salir
  * bien. Se vio al ejecutar el webhook por primera vez.
  */
+/**
+ * Que Stripe lo vuelva a mandar: **el único 500 de la ruta**, y solo para lo que
+ * reintentar puede arreglar —no se ha podido escribir, o no se ha podido
+ * preguntar a Stripe—.
+ *
+ * Una función y no una respuesta guardada: el cuerpo de una respuesta se lee una
+ * vez, y la misma servida a dos avisos llegaría vacía al segundo.
+ */
+function reintentar(error: string): NextResponse {
+  return NextResponse.json({ error }, { status: 500 });
+}
+
 function respuestaDe(resultado: SetPlanResult, plan: PlanId): NextResponse {
   switch (resultado) {
     case 'ok':
@@ -94,18 +146,138 @@ function respuestaDe(resultado: SetPlanResult, plan: PlanId): NextResponse {
       return NextResponse.json({ ignorado: 'esa cuenta ya no está' });
     default:
       // Aquí sí: no se ha podido escribir, y el reintento es lo que queremos.
-      return NextResponse.json({ error: 'no guardado' }, { status: 500 });
+      return reintentar('no guardado');
   }
 }
 
+/** Lo que hace un pago confirmado: plan, cliente y suscripción, juntos. */
+async function alPagar(session: unknown): Promise<NextResponse> {
+  if (!cobrada(session)) {
+    // 200 a propósito: el aviso es de verdad, solo que el dinero aún no ha
+    // entrado. Llegará otro cuando entre.
+    return NextResponse.json({ ignorado: 'sin cobrar todavía' });
+  }
+  const userId = userIdOf(session);
+  const plan = planDeLaSesion(session);
+  const customerId = texto(get(session, 'customer'));
+  const subscriptionId = texto(get(session, 'subscription'));
+  if (userId === null || plan === null || customerId === null || subscriptionId === null) {
+    // 200 a propósito: el evento venía firmado y es de verdad, así que
+    // reintentarlo no lo va a arreglar. Un 500 haría que Stripe lo repitiera
+    // durante días.
+    return NextResponse.json({ ignorado: 'sin cuenta, sin plan o sin suscripción' });
+  }
+
+  // Cómo está ahora, y no cómo estaba al mandar el aviso.
+  const ahora = await suscripcionEnStripe(subscriptionId);
+  if (ahora.kind === 'no-se-sabe') {
+    return reintentar('no se ha podido consultar');
+  }
+  if (ahora.kind === 'terminada') {
+    // 200: es un aviso viejo de una suscripción que ya no cobra. Reintentarlo
+    // no lo va a arreglar, y vincularla daría un plan que nadie paga.
+    return NextResponse.json({ ignorado: 'esa suscripción ya ha terminado' });
+  }
+  // El plan, del precio que cobra hoy: si se cambió en el portal después del
+  // pago, el aviso repetido devolvería el de entonces. Y una que ha dejado de
+  // cobrar sin terminar —`unpaid`, `paused`— se vincula, para que su vuelta a
+  // `active` encuentre a su dueño, pero sin plan de pago.
+  const hoy = accesoDe(ahora.status) === 'quitar' ? 'gratis' : (ahora.plan ?? plan);
+  const pago = { plan: hoy, customerId, subscriptionId };
+
+  const vinculo = await vincularSuscripcion(userId, pago);
+  if (vinculo.kind !== 'otra') {
+    return respuestaDe(vinculo.kind, hoy);
+  }
+  return conOtraGuardada(userId, pago, vinculo.guardada);
+}
+
+/**
+ * La cuenta ya tenía otra suscripción guardada: o esa está muerta y la nueva
+ * ocupa su sitio, o esa sigue cobrando y la nueva se cancela.
+ *
+ * Cancelar la nueva y no la vieja porque la vieja es la que la cuenta conoce: la
+ * que cancela el botón de «Cuenta» y la que encuentran los avisos. Quedarse con
+ * la nueva dejaría la vieja cobrando sin que nada de aquí la viera.
+ */
+async function conOtraGuardada(
+  userId: string,
+  pago: { plan: PlanId; customerId: string; subscriptionId: string },
+  guardada: string,
+): Promise<NextResponse> {
+  const vieja = await suscripcionEnStripe(guardada);
+  if (vieja.kind === 'no-se-sabe') {
+    return reintentar('no se ha podido consultar');
+  }
+  if (vieja.kind === 'terminada') {
+    // Su baja aún no ha llegado, o se perdió. La nueva ocupa su sitio, solo si
+    // sigue siendo esa la guardada: si ha cambiado entre medias, sale «otra» y se
+    // reintenta.
+    const vinculo = await vincularSuscripcion(userId, pago, { reemplaza: guardada });
+    return vinculo.kind === 'otra'
+      ? reintentar('ha cambiado entre medias')
+      : respuestaDe(vinculo.kind, pago.plan);
+  }
+
+  if (!(await cancelarEnStripe(pago.subscriptionId))) {
+    // Sin cancelar, la nueva sigue cobrando: que Stripe lo repita y se vuelva a
+    // intentar.
+    return reintentar('no se ha podido cancelar la que sobra');
+  }
+  // Al registro, con identificadores y nada más: es lo que hace falta para
+  // devolver el primer cobro de la cancelada desde el panel de Stripe, que
+  // cancelar no lo devuelve.
+  console.warn(
+    `[cobro] la cuenta ${userId} ya pagaba ${guardada}: se ha cancelado ${pago.subscriptionId}, que llegó después. Su primer cobro no se ha devuelto.`,
+  );
+  return NextResponse.json({ ignorado: 'ya tenía otra suscripción: la nueva se ha cancelado' });
+}
+
+/** Lo que diga Stripe de una suscripción, según su estado y su precio. */
+async function alCambiar(subscription: unknown, borrada: boolean): Promise<NextResponse> {
+  const id = texto(get(subscription, 'id'));
+  if (id === null) {
+    return NextResponse.json({ ignorado: 'sin suscripción' });
+  }
+
+  const status = get(subscription, 'status');
+  const acceso = borrada ? 'quitar' : accesoDe(status);
+  if (acceso === 'esperar') {
+    // `past_due` e `incomplete`: Stripe está reintentando el cobro. Ni se da ni se
+    // quita; lo que venga después lo dirá.
+    return NextResponse.json({ ignorado: `estado ${String(status)}` });
+  }
+  if (acceso === 'quitar') {
+    // Solo se suelta la suscripción cuando ya no puede volver: una `unpaid` que
+    // se paga vuelve a `active`, y entonces tiene que encontrar a su dueño.
+    const soltar = borrada || status === 'canceled' || status === 'incomplete_expired';
+    return respuestaDe(await planDeSuscripcion(id, 'gratis', { soltar }), 'gratis');
+  }
+
+  const plan = planOfPrice(get(subscription, 'items', 'data', '0', 'price', 'id'));
+  if (plan === null) {
+    return NextResponse.json({ ignorado: 'precio que no es de ningún plan' });
+  }
+  return respuestaDe(await planDeSuscripcion(id, plan, { soltar: false }), plan);
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
-  const secret = process.env['STRIPE_WEBHOOK_SECRET'] ?? '';
-  const body = await request.text();
+  const header = request.headers.get('stripe-signature');
+  if (header === null || header === '') {
+    // Sin cabecera no hay firma que comprobar: no se lee ni un byte del cuerpo.
+    return NextResponse.json({ error: 'firma' }, { status: 400 });
+  }
+
+  const body = await textoAcotado(request);
+  if (body === null) {
+    // Ningún aviso de Stripe se acerca al tope, que es de 128 KB.
+    return NextResponse.json({ error: 'cuerpo' }, { status: 400 });
+  }
 
   const verdict = verifyStripeSignature({
     body,
-    header: request.headers.get('stripe-signature'),
-    secret,
+    header,
+    secret: process.env['STRIPE_WEBHOOK_SECRET'] ?? '',
     now: Math.floor(Date.now() / 1000),
   });
 
@@ -126,28 +298,18 @@ export async function POST(request: Request): Promise<NextResponse> {
   const type = get(event, 'type');
   const object = get(event, 'data', 'object');
 
-  if (type === CAMBIA_A_PAGO) {
-    const userId = userIdOf(object);
-    const plan = planOf(object);
-    if (userId === null || plan === null) {
-      // 200 a propósito: el evento venía firmado y es de verdad, así que
-      // reintentarlo no lo va a arreglar. Un 500 haría que Stripe lo repitiera
-      // durante días.
-      return NextResponse.json({ ignorado: 'sin cuenta o sin plan' });
-    }
-    return respuestaDe(await setPlan(userId, plan), plan);
+  switch (type) {
+    case PAGADO:
+    case PAGADO_MAS_TARDE:
+      return alPagar(object);
+    case CAMBIADA:
+      return alCambiar(object, false);
+    case BORRADA:
+      return alCambiar(object, true);
+    default:
+      // Todo lo demás se acepta y se ignora. Stripe manda decenas de tipos de
+      // evento, y contestar error a los que no nos importan los pone en cola de
+      // reintentos para siempre.
+      return NextResponse.json({ ignorado: type });
   }
-
-  if (type === CAMBIA_A_GRATIS) {
-    const userId = userIdOf(object);
-    if (userId === null) {
-      return NextResponse.json({ ignorado: 'sin cuenta' });
-    }
-    return respuestaDe(await setPlan(userId, 'gratis'), 'gratis');
-  }
-
-  // Todo lo demás se acepta y se ignora. Stripe manda decenas de tipos de
-  // evento, y contestar error a los que no nos importan los pone en cola de
-  // reintentos para siempre.
-  return NextResponse.json({ ignorado: type });
 }

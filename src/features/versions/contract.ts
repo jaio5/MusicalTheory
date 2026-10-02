@@ -39,6 +39,7 @@ import {
   type SectionRole,
 } from '@core/music';
 import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
+import { sinMarca } from '@core/marca';
 import { isRecord } from '@core/parse';
 
 /**
@@ -59,9 +60,10 @@ export { MAX_DIRECTRICES_LENGTH, MAX_VERSION_DEGREES, MAX_VERSIONS };
  * una inyección decidida, pero convierte el «ignora lo anterior» en una frase más
  * dentro de un bloque marcado.
  *
- * Y `parseVersionsRequest` la borra de lo que escribas, porque si no, escribirla
- * cerraría el bloque antes de tiempo y lo de después se leería como instrucciones
- * nuestras: exactamente lo que se está evitando.
+ * Y `parseVersionsRequest` la borra de lo que escribas, en cualquiera de sus
+ * formas (`sinMarca`), porque si no, escribirla cerraría el bloque antes de tiempo
+ * y lo de después se leería como instrucciones nuestras: exactamente lo que se
+ * está evitando.
  */
 export const MARCA_DIRECTRICES = '###DIRECTRICES###';
 
@@ -237,7 +239,9 @@ function leerDirectrices(crudo: unknown): string | null {
   if (typeof crudo !== 'string') {
     return null;
   }
-  const limpias = crudo.split(MARCA_DIRECTRICES).join(' ').trim();
+  // Cualquier forma de la marca, no solo la exacta: lo mismo que la pregunta del
+  // profesor, y por lo mismo (`core/marca.ts`).
+  const limpias = sinMarca(crudo, 'DIRECTRICES').trim();
   return limpias === '' ? null : limpias.slice(0, MAX_DIRECTRICES_LENGTH);
 }
 

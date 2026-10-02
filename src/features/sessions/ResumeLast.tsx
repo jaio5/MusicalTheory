@@ -66,7 +66,12 @@ export function ResumeLast({ createStorage }: ResumeLastProps = {}) {
     return null;
   }
 
-  const escala = SCALES[last.scaleId];
+  // **Lo guardado no se cree a ciegas.** Una escala que ya no existe —renombrada,
+  // o de otra versión— se aplicaba igual, llegaba al mástil y tumbaba componer.
+  // Se ofrece la tonalidad, que es lo que se viene a retomar, y la escala solo si
+  // sigue en el catálogo. `Object.hasOwn` porque un `toString` también «está» en
+  // cualquier objeto.
+  const escala = Object.hasOwn(SCALES, last.scaleId) ? SCALES[last.scaleId] : undefined;
 
   return (
     <div className="border-border flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5">
@@ -79,7 +84,9 @@ export function ResumeLast({ createStorage }: ResumeLastProps = {}) {
         variant="quiet"
         onClick={() => {
           const { actions } = useSessionStore.getState();
-          actions.setScale(last.scaleId);
+          if (escala !== undefined) {
+            actions.setScale(last.scaleId);
+          }
           /* v8 ignore next 3 -- el aviso no se pinta sin tonalidad guardada, y aqui `last` ya la tiene */
           if (last.key !== null) {
             actions.pinKey(last.key);

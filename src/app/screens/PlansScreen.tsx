@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 
-import { monthlyAiRequests, planOf } from '@core/billing';
+import { monthlyAiRequests, PAID_PLANS, planOf } from '@core/billing';
 import { PlanCards } from '@features/account';
+import { enUnaFrase, loQueNoTrae, loQueSuma } from '@features/account/lo-que-va-con-plan';
 import { useAccount } from '@state/account';
 import { Screen, Section } from '@ui/Screen';
 
@@ -44,19 +45,24 @@ export function PlansScreen() {
             <strong className="text-text">gratis y lo van a seguir siendo</strong>: pasan enteros en
             tu navegador, así que servirlos no nos cuesta nada.
           </p>
+          {/* Sin enumerar lo que traen: lo enumeraba, se dejaba el repaso y las
+              canciones, y la tarjeta de al lado decía otra cosa. Lo dicen ellas. */}
           <p className="text-text-muted mt-2 max-w-prose">
             Lo que cuesta dinero es la IA —cada pregunta al profesor y cada tanda de salidas es una
-            llamada a un modelo que se paga— y el temario del Grado Profesional. De eso van estos
-            tres planes.
+            llamada a un modelo que se paga—. De eso van estos tres planes, que traen además lo que
+            no entra gratis: cada tarjeta dice qué.
           </p>
         </div>
 
         <Section title="Y sin pagar nada">
+          {/* Lo que no entra sale de la tabla de permisos: escrito a mano decía
+              «menos la IA y el Grado Profesional», y el repaso y guardar las
+              canciones también van con plan. */}
           <p className="text-text-muted max-w-prose text-sm">
-            Sin plan tienes la aplicación entera menos la IA y el Grado Profesional: los cuatro
-            cursos del Elemental, con sus preguntas generadas en la tonalidad que estés tocando, y{' '}
-            {monthlyAiRequests('gratis', account.aiModel)} preguntas al profesor al mes para que
-            puedas juzgar si merece la pena. Hace falta una cuenta para usar la IA —es la única
+            Sin plan tienes los cuatro cursos del Elemental, con sus preguntas generadas en la
+            tonalidad que estés tocando, y {monthlyAiRequests('gratis', account.aiModel)} preguntas
+            al profesor al mes para que puedas juzgar si merece la pena. Lo que no entra es{' '}
+            {enUnaFrase(loQueNoTrae('gratis'))}. Hace falta una cuenta para usar la IA —es la única
             forma de contar el gasto por persona— y el avance se guarda en este navegador.
           </p>
           <p className="text-text-muted mt-2 max-w-prose text-sm">
@@ -125,8 +131,10 @@ export function PlansScreen() {
             <div className="max-w-prose">
               <dt className="text-text">¿Hace falta pagar para probarlo?</dt>
               <dd className="text-text-muted mt-1">
-                No. Sin cuenta tienes la aplicación entera menos la IA y el Grado Profesional, y con
-                una cuenta gratis, unas preguntas al profesor para juzgar si merece la pena.
+                No. Sin cuenta tienes todo lo que pasa en tu navegador y los cuatro cursos del
+                Elemental, y con una cuenta gratis, unas preguntas al profesor para juzgar si merece
+                la pena. Desde el plan {PAID_PLANS[0]!.name} se suman{' '}
+                {enUnaFrase(loQueSuma(PAID_PLANS[0]!.id))}.
               </dd>
             </div>
           </dl>

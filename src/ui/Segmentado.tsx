@@ -64,7 +64,12 @@ export function Segmentado<T extends string>({
             onClick={() => onCambiar(opcion.valor)}
             // Sin borde propio: lo pone el grupo. Entre dos opciones, una raya del
             // mismo color, que es lo que las une en vez de separarlas.
-            className={`min-h-tap min-w-tap ease-salida inline-flex cursor-pointer items-center justify-center gap-1.5 px-3.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-150 ${
+            //
+            // **El aro del foco, hacia dentro** (`-outline-offset-3`). El de la
+            // casa va tres píxeles por fuera, y aquí por fuera está el
+            // `overflow-hidden` del carril, que lo recorta: con el tabulador no
+            // se veía cuál de las opciones tenía el foco.
+            className={`min-h-tap min-w-tap ease-salida inline-flex cursor-pointer items-center justify-center gap-1.5 px-3.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-150 focus-visible:-outline-offset-3 ${
               i > 0 ? 'border-border border-l' : ''
             } ${
               elegida

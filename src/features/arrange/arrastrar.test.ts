@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { useRef } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { arrastrar, colocar, useArrastre } from './arrastrar';
+import { EMPTY_ARRANGEMENT } from '@core/music';
+import { useArrangementStore } from '@state/arrangement-store';
+
+import { arrastrar, colocar, useArrastre, useCerrarAlDesmontar } from './arrastrar';
 
 function mover(x: number, y: number): void {
   window.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: y }));
@@ -82,5 +86,74 @@ describe('useArrastre', () => {
     rerender();
 
     expect(result.current).toBe(primera);
+  });
+});
+
+/**
+ * El gesto del deshacer, que se abre al empezar a arrastrar y se cierra al soltar.
+ *
+ * Desmontado a mitad, el soltar no llegaba y el gesto se quedaba abierto: tres
+ * acordes puestos después con clics se deshacían de un solo golpe, y con ellos el
+ * bloque que se estaba arrastrando.
+ */
+describe('desmontarse a mitad cierra el gesto del deshacer', () => {
+  const acciones = () => useArrangementStore.getState().actions;
+
+  beforeEach(() => {
+    useArrangementStore.setState({ arrangement: EMPTY_ARRANGEMENT, past: [] });
+    acciones().endGesture();
+  });
+
+  /** Lo que se hace después, a golpe de clic: tres pasos, no uno. */
+  function tresAcordesSueltos(parte: string): number {
+    acciones().addBlock(parte, 'IV', 4);
+    acciones().addBlock(parte, 'V', 4);
+    acciones().addBlock(parte, 'vi', 4);
+    return useArrangementStore.getState().past.length;
+  }
+
+  it('con useArrastre', () => {
+    const parte = acciones().addPart('A');
+    const { result, unmount } = renderHook(() => useArrastre());
+    acciones().beginGesture();
+    result.current({ mover: () => acciones().addBlock(parte, 'I', 4) });
+    mover(1, 2);
+    unmount();
+    const antes = useArrangementStore.getState().past.length;
+
+    expect(tresAcordesSueltos(parte) - antes).toBe(3);
+  });
+
+  it('y soltado antes de irse, no cierra nada que no sea suyo', () => {
+    const { result, unmount } = renderHook(() => useArrastre());
+    const alSoltar = vi.fn();
+    result.current({ mover: () => {}, soltar: alSoltar });
+    window.dispatchEvent(new PointerEvent('pointerup'));
+    // Un gesto de otro, abierto después: el que ya soltó no lo toca al irse.
+    acciones().beginGesture();
+    const parte = acciones().addPart('A');
+
+    unmount();
+
+    expect(alSoltar).toHaveBeenCalledOnce();
+    expect(tresAcordesSueltos(parte)).toBe(1);
+    acciones().endGesture();
+  });
+
+  it('con una referencia propia, que es como lo lleva el lienzo', () => {
+    const parte = acciones().addPart('A');
+    const cancelar = vi.fn();
+    const { unmount } = renderHook(() => {
+      const ref = useRef<(() => void) | null>(cancelar);
+      useCerrarAlDesmontar(ref);
+    });
+    acciones().beginGesture();
+    acciones().addBlock(parte, 'I', 4);
+
+    unmount();
+    const antes = useArrangementStore.getState().past.length;
+
+    expect(cancelar).toHaveBeenCalledOnce();
+    expect(tresAcordesSueltos(parte) - antes).toBe(3);
   });
 });

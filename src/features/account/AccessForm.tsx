@@ -34,8 +34,8 @@ import { Formulario } from '@ui/Formulario';
  * la contraseña guardada, y ponerlos mal es la razón por la que algunos
  * formularios no la ofrecen nunca.
  *
- * El botón se pulsa siempre que no esté en marcha: apagado hasta tener los dos
- * campos no decía qué faltaba. Lo que falta se dice en su campo y el foco va a él,
+ * El botón no se apaga nunca: apagado hasta tener los dos campos no decía qué
+ * faltaba, y apagado mientras trabaja soltaba el foco (`cargando` en `ui/Button`). Lo que falta se dice en su campo y el foco va a él,
  * como en `PasswordForm`.
  */
 export function AccessForm({
@@ -91,9 +91,12 @@ export function AccessForm({
           <IconoLlave />
         </span>
         <p className="text-text text-base font-medium">Aquí no hay cuentas configuradas</p>
+        {/* No «todo lo demás funciona igual»: el profesor y lo que abre un plan
+            —el repaso, guardar las canciones— también van con una cuenta. */}
         <p className="text-text-muted text-sm text-balance">
-          Todo lo demás funciona igual y tu avance se guarda en este navegador. Lo único que no hay
-          es forma de llevártelo a otro aparato.
+          Lo que pasa en tu navegador funciona igual, y tu avance se guarda en este navegador. Lo
+          que no hay es lo que va con una cuenta: llevártelo a otro aparato, el profesor y lo que
+          abre un plan.
         </p>
         <Link href="/aprender" className={estiloBoton('primary')}>
           Seguir aprendiendo
@@ -216,7 +219,7 @@ export function AccessForm({
       <Aviso mensaje={error} />
 
       <div>
-        <Button type="submit" cargando={working} disabled={working}>
+        <Button type="submit" cargando={working}>
           {working ? 'Un momento…' : nuevo ? 'Crear la cuenta' : 'Entrar'}
         </Button>
       </div>

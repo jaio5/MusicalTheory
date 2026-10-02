@@ -17,6 +17,7 @@ import { changePlan, useAccount } from '@state/account';
 import { Button, estiloBoton } from '@ui/Button';
 
 import { AccessForm } from './AccessForm';
+import { enUnaFrase, loQueTrae } from './lo-que-va-con-plan';
 import { ETIQUETAS } from './PlanCards';
 import { Aviso } from '@ui/Aviso';
 
@@ -108,12 +109,18 @@ export function Checkout({
         <h2 className="rotulo">Lo que vas a contratar</h2>
 
         <div className="superficie mt-3 overflow-hidden">
-          <div className="border-border flex items-baseline justify-between gap-4 border-b px-4 py-3">
-            <div>
+          {/* **Con la letra grande, el precio baja de línea en vez de cortarse.**
+              Iba `shrink-0` al lado del nombre en una caja que recorta, y al 150 %
+              «4,99 € al mes» se salía por la derecha y no se leía. Ahora la fila
+              se parte: el nombre parte de cero (`basis-0`) y crece, así que el
+              precio solo baja cuando no le quedan diez rem al nombre, y si ni solo
+              cabe, se parte él también. */}
+          <div className="border-border flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-4 py-3">
+            <div className="min-w-[min(100%,10rem)] grow basis-0">
               <p className="text-text text-lg">Plan {plan.name}</p>
               <p className="text-text-muted text-sm">{plan.claim}</p>
             </div>
-            <p className="text-brass-bright shrink-0 font-mono text-lg">{priceLabel(plan.id)}</p>
+            <p className="text-brass-bright min-w-0 font-mono text-lg">{priceLabel(plan.id)}</p>
           </div>
 
           <ul className="flex flex-col gap-1 px-4 py-3">
@@ -161,9 +168,13 @@ export function Checkout({
       </section>
 
       {!accounts ? (
+        // Lo que no hay sale de la tabla de permisos: decía «todo lo que no es IA
+        // funciona igual», y el repaso y guardar canciones tampoco están sin plan.
         <p className="text-text-muted max-w-prose text-sm">
           Esta copia de la aplicación no tiene cuentas configuradas, así que no hay dónde guardar un
-          plan. Todo lo que no es IA funciona igual y sin pagar nada.
+          plan, y lo que trae el {plan.name} tampoco está aquí: {enUnaFrase(loQueTrae(plan.id))}. Lo
+          que pasa en tu navegador —afinar, componer, grabar y el Grado Elemental— funciona igual y
+          sin pagar nada.
         </p>
       ) : !signedIn ? (
         <section aria-label="Entrar para continuar">
@@ -200,7 +211,7 @@ export function Checkout({
           </div>
 
           <div className="mt-4">
-            <Button onClick={() => void activar()} disabled={working}>
+            <Button onClick={() => void activar()} cargando={working}>
               {working ? 'Un momento...' : `Activar el plan ${plan.name}`}
             </Button>
           </div>

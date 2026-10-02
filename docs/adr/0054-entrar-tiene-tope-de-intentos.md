@@ -1,5 +1,7 @@
 # ADR 0054 — Entrar tiene tope de intentos, y por dos claves
 
+> **Sustituido en parte por [ADR 0078](./0078-los-topes-se-cuentan-con-la-direccion-que-vio-nuestro-proxy.md):** el tope de entrar lleva tres claves —correo y dirección juntos a cinco por minuto, dirección a veinte, correo a treinta cada quince—, porque cinco por minuto por correo solo dejaba sin entrar a su dueño, que es lo que se descartó abajo al hablar de bloquear la cuenta. La tabla de dos claves y los «cien milisegundos» de `scrypt` (eran 31) ya no valen; el tope sigue yendo antes de comprobar la contraseña.
+
 Fecha: 2026-09-27 · Estado: aceptada · Completa [ADR 0015](./0015-un-solo-canal-de-texto-libre.md)
 
 ## Contexto

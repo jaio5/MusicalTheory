@@ -85,17 +85,60 @@ export class SlidingWindowRateLimiter {
 }
 
 /**
- * Con qué se identifica a quien pide. La cabecera puede traer una cadena de
- * proxies: la primera es la del cliente.
+ * Cuántos proxies de confianza hay delante, leído de `TRUSTED_PROXY_HOPS`.
  *
- * No es a prueba de nada —quien quiera saltárselo puede— pero no es eso lo que
- * defiende: defiende de pulsar el botón veinte veces seguidas.
+ * Cero si no está, si no es un entero o si es negativo: **sin decirlo, no se
+ * cree ninguna cabecera**. Un número mal escrito no puede convertirse en fiarse
+ * de lo que mande el cliente.
+ */
+export function saltosDeConfianza(): number {
+  const crudo = process.env['TRUSTED_PROXY_HOPS'];
+  const n = Number(crudo);
+  return crudo === undefined || crudo === '' || !Number.isInteger(n) || n < 0 ? 0 : n;
+}
+
+/** La clave de todos cuando no hay de quién fiarse. */
+export const SIN_DIRECCION = 'sin-proxy-de-confianza';
+
+let avisado = false;
+
+/**
+ * Con qué se identifica a quien pide: la dirección que vio **el último proxy de
+ * confianza**, contando desde la derecha de `X-Forwarded-For`.
+ *
+ * Antes se tomaba la primera de la cadena, y esa la escribe el cliente: con doce
+ * peticiones cambiando la cabecera, cada una tenía su propio contador y el tope
+ * no paraba a nadie. Cada proxy **añade** a la derecha la dirección de quien le
+ * habló, así que lo único fiable es lo que añadieron los nuestros: con un proxy
+ * delante, la última; con dos —una CDN y un nginx—, la penúltima. Lo de su
+ * izquierda puede ser cualquier cosa.
+ *
+ * **Sin `TRUSTED_PROXY_HOPS` no se cree ninguna cabecera**, ni esta ni
+ * `X-Real-IP`, y todo el mundo comparte un contador. No hay alternativa mejor:
+ * `next start` pone `X-Forwarded-For` con la dirección del socket **solo si no
+ * venía ya** (`??=` en `base-server.js`), así que desde aquí no se distingue la
+ * que puso Next de la que escribió el cliente. Un contador compartido frena de
+ * más; uno por cabecera no frena nada. En producción se avisa una vez en el
+ * registro, porque frenar de más sin decirlo parecería una avería.
  */
 export function requesterKey(headers: Headers): string {
-  const forwarded = headers.get('x-forwarded-for');
-  if (forwarded !== null && forwarded !== '') {
-    /* v8 ignore next -- partir una cadena no vacia siempre da un primer trozo */
-    return forwarded.split(',')[0]?.trim() ?? 'desconocido';
+  const saltos = saltosDeConfianza();
+  if (saltos === 0) {
+    if (!avisado && process.env.NODE_ENV === 'production') {
+      avisado = true;
+      console.warn(
+        '[límite de frecuencia] sin TRUSTED_PROXY_HOPS no se cree X-Forwarded-For: todas las peticiones comparten contador. Ver docs/DESPLIEGUE.md.',
+      );
+    }
+    return SIN_DIRECCION;
   }
-  return headers.get('x-real-ip') ?? 'desconocido';
+
+  const cadena = (headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((trozo) => trozo.trim())
+    .filter((trozo) => trozo !== '');
+  // Con menos entradas que proxies, la más a la izquierda: es la que puso el
+  // primero de los nuestros que la recibió. Sin ninguna, nadie la puso, y eso en
+  // un despliegue con proxy es un proxy mal configurado, no un cliente.
+  return cadena[Math.max(0, cadena.length - saltos)] ?? 'desconocido';
 }

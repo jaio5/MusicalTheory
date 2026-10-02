@@ -1,5 +1,7 @@
 # ADR 0069 — La portada es una escena de píxel
 
+> **Corregido el 2 de octubre de 2026:** «el LCP es ahora la pared» **no es cierto**: el elemento LCP es la capa de delante, que asoma tres por ciento más de área. Por eso se **precargan las tres capas** y no solo la pared —solo la pared no movía el LCP—, y el LCP baja de 1016 a 780 ms con la CPU a ×4, a costa de unos 60–90 ms de FCP (ocho kilobytes). Y la escena se pausa fuera de la vista con su propio `data-fuera`, no con `data-parada`: parar es decisión de quien mira, y salir de la vista no decide nada.
+
 Fecha: 2026-10-01 · Estado: aceptada, sustituida en parte por [ADR 0071](./0071-la-sala-va-a-sangre-detras-del-titular.md) y [ADR 0073](./0073-las-pantallas-llenan-el-ancho.md) · Sustituye al vídeo del encabezado que
 metió en su caja [ADR 0026](./0026-el-blanco-hielo.md)
 

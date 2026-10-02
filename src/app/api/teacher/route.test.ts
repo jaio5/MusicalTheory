@@ -167,6 +167,42 @@ describe('lo que contesta', () => {
   });
 });
 
+describe('lo que contesta, contra el glosario', () => {
+  const PERFECTA = {
+    key: { tonic: 'C', mode: 'major' },
+    question: '¿Qué es una cadencia perfecta?',
+  };
+
+  /**
+   * La respuesta que destapó adr/0076, dos veces: la ruta reintenta una vez y,
+   * si la segunda tampoco vale, contesta que no ha venido bien formada. Teoría
+   * falsa no llega a la pantalla.
+   */
+  it('una cadencia mal dicha dos veces es un 502, no una respuesta', async () => {
+    askModel.mockResolvedValue({
+      tema: 'musica',
+      answer: 'La cadencia perfecta es el movimiento de I a V a I. En C mayor, es C a G a C.',
+    });
+
+    const { status, body } = await leer(await POST(pedir(PERFECTA)));
+
+    expect(status).toBe(502);
+    expect(body['error']).toMatchObject({ code: 'unparseable_response' });
+    expect(askModel).toHaveBeenCalledTimes(2);
+  });
+
+  it('si el reintento la dice bien, sale la del reintento', async () => {
+    askModel
+      .mockResolvedValueOnce({ tema: 'musica', answer: 'La cadencia perfecta es F-C.' })
+      .mockResolvedValueOnce({ tema: 'musica', answer: 'La cadencia perfecta es G → C.' });
+
+    const { status, body } = await leer(await POST(pedir(PERFECTA)));
+
+    expect(status).toBe(200);
+    expect(body['answer']).toBe('La cadencia perfecta es G → C.');
+  });
+});
+
 describe('el contexto que se le da', () => {
   it('la escala que se esta usando entra en la pregunta', async () => {
     askModel.mockResolvedValue({ answer: 'Porque sí.', degrees: [] });

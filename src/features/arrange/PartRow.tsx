@@ -23,6 +23,7 @@ import {
 import { Chip } from '@ui/Chip';
 import { Field } from '@ui/Field';
 import { TextField } from '@ui/TextField';
+import { useTraerALaVista } from '@ui/use-traer-a-la-vista';
 
 import { BlockButton, anchoDeBloque } from './BlockButton';
 import { BloqueFantasma } from './BloqueFantasma';
@@ -86,12 +87,16 @@ export interface PartRowProps {
     blockId: string,
   ) => void;
   readonly onBlockClick: (partId: string, blockId: string) => void;
-  readonly onBlockKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>, blockId: string) => void;
+  /**
+   * Las teclas sobre un acorde, **las mismas en las dos vistas**: el bloque de
+   * la tira y el cifrado de la partitura mandan aquí, y una sola función decide
+   * qué hace cada tecla y adónde va el foco después.
+   */
+  readonly onBlockKeyDown: (event: React.KeyboardEvent<Element>, blockId: string) => void;
   readonly onAddNote: (partId: string, offset: number, start: number) => void;
   readonly onSelectNote: (noteId: string) => void;
   readonly onMoveNote: (noteId: string, start: number, offset: number) => void;
   readonly onResizeNote: (noteId: string, length: number) => void;
-  readonly onRemoveBlock: (blockId: string) => void;
   readonly onResizeBlock: (blockId: string, beats: number) => void;
   readonly onMoveBlock: (partId: string, blockId: string, to: number) => void;
   readonly onGestureStart: () => void;
@@ -136,7 +141,6 @@ export const PartRow = memo(function PartRow({
   onSelectNote,
   onMoveNote,
   onResizeNote,
-  onRemoveBlock,
   onResizeBlock,
   onMoveBlock,
   onGestureStart,
@@ -145,6 +149,11 @@ export const PartRow = memo(function PartRow({
   onAceptarPropuesta,
 }: PartRowProps) {
   const [editando, setEditando] = useState(false);
+  /**
+   * Las tres tiras de la fila se desplazan de lado en un teléfono, y lo que
+   * recibe el foco se trae entero: el navegador solo lo hace asomar.
+   */
+  const traerALaVista = useTraerALaVista();
   /**
    * Lo que hay tecleado en el campo de compases mientras se teclea, o nulo.
    *
@@ -192,7 +201,10 @@ export const PartRow = memo(function PartRow({
           sonda de medidas tampoco lo veía—. Se desplaza a lo ancho, como la barra
           del lienzo, y el degradado dice que sigue. De `sm` para arriba cabe y no
           se toca nada. */}
-      <div className="hay-mas-al-lado flex items-center gap-2 max-sm:overflow-x-auto max-sm:[&>*]:shrink-0">
+      <div
+        onFocus={traerALaVista}
+        className="hay-mas-al-lado flex items-center gap-2 max-sm:overflow-x-auto sm:flex-wrap max-sm:[&>*]:shrink-0 sm:[&>*]:shrink-0"
+      >
         {editando ? (
           <TextField
             label="Nombre de la parte"
@@ -338,7 +350,9 @@ export const PartRow = memo(function PartRow({
             onClick={() => onPlay(part.id)}
             pressed={playing}
             tone="quiet"
-            disabled={part.blocks.length === 0}
+            // Lo que dura y no cuántos acordes tiene: una parte de solo
+            // punteo también suena, y con los acordes contados no se podía oír.
+            disabled={partLength(part) === 0}
             ariaLabel={playing ? `Parar ${part.name}` : `Escuchar ${part.name}`}
             tamano="compacto"
           >
@@ -367,6 +381,7 @@ export const PartRow = memo(function PartRow({
         <ul
           aria-label={`Acordes de ${part.name}`}
           data-parte-vacia={part.blocks.length === 0 ? part.id : undefined}
+          onFocus={traerALaVista}
           className="hay-mas-al-lado mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
         >
           {part.blocks.length === 0 && (
@@ -391,6 +406,7 @@ export const PartRow = memo(function PartRow({
                   <span aria-hidden className="bg-brass-bright mr-1 w-1 shrink-0 rounded-full" />
                 )}
                 <BlockButton
+                  blockId={block.id}
                   doubtful={isDoubtful(block)}
                   symbol={chord.symbol}
                   degree={block.degree}
@@ -449,7 +465,7 @@ export const PartRow = memo(function PartRow({
           partId={part.id}
           dropAt={dropAt}
           onSelectBlock={elegirBloque}
-          onRemoveBlock={onRemoveBlock}
+          onBlockKeyDown={onBlockKeyDown}
           onResizeBlock={onResizeBlock}
           onMoveBlock={moverBloque}
           onAdd={anadirNota}
@@ -477,6 +493,7 @@ export const PartRow = memo(function PartRow({
       {propuesta.length > 0 && (
         <ul
           aria-label={`Lo propuesto para ${part.name}`}
+          onFocus={traerALaVista}
           className="hay-mas-al-lado mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
         >
           {propuesta.map((degree, indice) => (

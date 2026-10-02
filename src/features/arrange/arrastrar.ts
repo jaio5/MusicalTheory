@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, type RefObject } from 'react';
+
+import { useArrangementStore } from '@state/arrangement-store';
 
 /**
  * El bucle de un arrastre, sin repetirlo en cada sitio.
@@ -64,10 +66,46 @@ export function arrastrar(opciones: ArrastreOpciones): () => void {
  */
 export function useArrastre(): (opciones: ArrastreOpciones) => void {
   const quitarRef = useRef<(() => void) | null>(null);
-  useEffect(() => () => quitarRef.current?.(), []);
+  useCerrarAlDesmontar(quitarRef);
   return useCallback((opciones: ArrastreOpciones) => {
-    quitarRef.current = arrastrar(opciones);
+    quitarRef.current = arrastrar({
+      ...opciones,
+      // Soltado, ya no hay gesto que cerrar al irse.
+      soltar: () => {
+        quitarRef.current = null;
+        opciones.soltar?.();
+      },
+    });
   }, []);
+}
+
+/**
+ * Al desmontarse a mitad de un gesto, deja de escucharlo **y lo cierra en el
+ * deshacer**.
+ *
+ * Quitar los oyentes no bastaba. Un gesto del lienzo abre `beginGesture` para
+ * que un arrastre entero sea un solo paso atrás, y lo cierra al soltar; perdido
+ * el soltar, el gesto se quedaba abierto, y **todo lo que se hacía después se
+ * fundía en el mismo paso**: tres acordes puestos a golpe de clic y un solo
+ * «Deshacer» se los llevaba los tres, y con ellos el bloque que se estaba
+ * arrastrando. Se cierra sin soltar —soltar escribe en la canción, y lo que se
+ * desmontó no terminó su gesto: lo perdió—.
+ *
+ * `cancelarRef` tiene lo que devolvió `arrastrar` mientras el gesto dura, y nulo
+ * cuando no hay ninguno: quien lo use lo vacía al soltar. Cerrar un gesto que no
+ * se abrió no hace nada, así que vale también para los que no abren ninguno.
+ */
+export function useCerrarAlDesmontar(cancelarRef: RefObject<(() => void) | null>): void {
+  useEffect(
+    () => () => {
+      const cancelar = cancelarRef.current;
+      if (cancelar !== null) {
+        cancelar();
+        useArrangementStore.getState().actions.endGesture();
+      }
+    },
+    [cancelarRef],
+  );
 }
 
 /**

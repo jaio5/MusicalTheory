@@ -246,6 +246,17 @@ viven en el módulo de `state/use-listening.ts`, y lo que cuenta el componente e
 **cuántos hay montados**: se suelta el aparato cuando no queda ninguno, no cuando
 se va uno. Un `<button>` que abre un recurso compartido no es su dueño.
 
+**Contar montados solo vale si lo que sujeta no se desmonta al navegar.** Cada
+`page.tsx` montaba su propio `AppShell`, así que ir de `/afinar` a `/aprender`
+desmontaba la barra, el recuento llegaba a cero y el micro se cerraba **con la
+barra diciendo que seguía escuchando**. Ahora el marco vive en el layout del grupo
+`app/(marco)/`, que Next conserva entre sus páginas: el micro abierto sigue
+abierto al cambiar de pantalla, y cuando el recuento sí llega a cero —al ir a la
+portada— la sesión vuelve a reposo con él. Y como abrirlo espera varias veces
+—a descargar los motores, al permiso—, cada espera mira si el arranque sigue
+siendo de alguien: un «parar» o una pantalla que se va en medio ya no dejan una
+pista viva sin dueño.
+
 **Server components por defecto.** En Next con App Router, un componente se
 renderiza en el servidor salvo que lleve `'use client'` en la primera línea.
 Todo lo que toque `navigator`, `window` o un hook necesita esa marca.

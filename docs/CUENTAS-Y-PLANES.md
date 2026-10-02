@@ -293,7 +293,11 @@ alguna etiqueta interna en la salida, así que los dos prompts de sistema piden
 explícitamente que no las incluya. Los prompts viven juntos en
 [`server/prompts.ts`](../src/server/prompts.ts) porque de su longitud dependen los
 cupos: `server/prompts.test.ts` los mide y falla si crecen hasta comerse la holgura
-del presupuesto de tokens.
+del presupuesto de tokens. Desde que el profesor lleva los acordes de la tonalidad y
+hasta dos entradas del glosario de teoría
+([adr/0076](./adr/0076-el-profesor-se-apoya-en-un-glosario-comprobado.md)), ese test
+construye el peor prompt de verdad pieza a pieza en vez de reservar un hueco a ojo,
+y cabe en los mismos 700 tokens: los cupos de arriba no cambiaron.
 
 ## El avance: dónde vive y cómo se junta
 
@@ -361,15 +365,20 @@ despliegue en la máquina sin compilador. Es la misma razón que hay detrás de
 funciones que OWASP recomienda para esto.
 
 El formato guardado lleva sus propios parámetros dentro
-—`scrypt$16384$8$1$sal$clave`— para poder subir el coste mañana sin invalidar lo
-guardado hoy.
+—`scrypt$16384$8$5$sal$clave`— para poder subir el coste sin invalidar lo guardado.
+**Se subió el 2 de octubre de 2026**: los de antes (`p=1`) eran el ejemplo de la
+documentación de Node y tardaban 31 ms; los de ahora son una de las cinco
+combinaciones de OWASP (`N=2^14, r=8, p=5`), tardan unos 120 ms y ocupan los mismos
+16 MiB. Una cuenta con los viejos sigue entrando, y **al entrar se vuelve a cifrar**
+con los nuevos, que es el único momento en que se tiene la contraseña en claro.
 
 Dos detalles que no se ven y que están probados:
 
 - **La comparación es en tiempo constante.** Comparar con `===` filtra cuántos
   bytes iniciales acertaste por lo que tarda en fallar.
-- **Entrar con un correo que no existe cifra igual de lento.** Si no, la diferencia
-  se mide desde fuera y regala la lista de quién tiene cuenta aquí.
+- **Entrar con un correo que no existe cifra igual de lento**, con los parámetros
+  de hoy. Si no, la diferencia se mide desde fuera y regala la lista de quién tiene
+  cuenta aquí.
 
 ### El plan no viaja en la cookie
 
@@ -381,8 +390,9 @@ caducara.
 
 ## Cómo se cobra: no se cobra
 
-Hay una interfaz de facturación (`server/billing/port.ts`) y detrás está
-`FakeBilling`, que **cambia el plan y no cobra nada**. Es el mismo patrón que
+Hay una interfaz de facturación (`server/billing/port.ts`) y, sin Stripe, detrás
+está `FakeBilling`, que **cambia el plan y no cobra nada** —fuera de producción— o
+`CobroCerrado`, que en producción no deja subir de plan. Es el mismo patrón que
 `AudioInput` o `SessionStorage`, y el porqué está en
 [adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md).
 
@@ -390,10 +400,9 @@ La pantalla de planes lo sabe: el cobrador declara `charges: false` y por eso pu
 avisar de que aquí no se cobra. Una pantalla de pago que no cobra y no lo dice es
 una pantalla que engaña.
 
-**Antes de publicar esto de cara al mundo hay que saber que cualquiera con una
-cuenta puede darse el plan Pro**: entra en `/planes/pro`, pulsa el botón y lo tiene.
-Mientras el cobrador sea este, los cupos protegen del gasto accidental y no del que
-quiere gastar.
+**Fuera de producción, cualquiera con una cuenta puede darse el plan Pro**: entra
+en `/planes/pro`, pulsa el botón y lo tiene. En producción ya no: antes sí, en
+cualquier copia publicada a la que le faltara una variable de Stripe.
 
 ## Lo que hace falta configurar
 

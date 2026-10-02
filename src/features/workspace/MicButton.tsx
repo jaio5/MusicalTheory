@@ -1,10 +1,20 @@
 'use client';
 
+import { useClaqueta } from '@state/claqueta';
 import { useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
+import { mientrasTrabaja } from '@ui/Button';
 import { IconoMicro, IconoMicroMudo } from '@ui/icons';
 
-export type MicButtonProps = ListeningDeps;
+export type MicButtonProps = ListeningDeps & {
+  /**
+   * Si la pastilla se anuncia. **No** donde otra pieza ya dice lo mismo con más
+   * sentido: el afinador tiene su propia región viva, que habla cuando cambia la
+   * nota o el consejo, y con las dos encendidas cada nota se oía dos veces —una
+   * de ellas con los cents, que no paran quietos—.
+   */
+  readonly anuncia?: boolean;
+};
 
 /**
  * El botón de escuchar, y la nota que suena a su lado.
@@ -20,7 +30,7 @@ export type MicButtonProps = ListeningDeps;
  * botón; encendido, aparece la pastilla con la nota y los cents, que es cuando
  * eso importa.
  */
-export function MicButton(deps: MicButtonProps = {}) {
+export function MicButton({ anuncia = true, ...deps }: MicButtonProps = {}) {
   const listening = useSessionStore((state) => state.listening);
   const message = useSessionStore((state) => state.message);
   /*
@@ -56,6 +66,14 @@ export function MicButton(deps: MicButtonProps = {}) {
   // análisis aunque sea el mismo.
   const heardChord = useSessionStore((state) => state.heardChord?.symbol ?? null);
   const { start, stop } = useListening(deps);
+  /*
+    **Callado mientras hay toma** (adr/0072): con la claqueta sonando, lo que se
+    toca es la canción, y un lector de pantalla que lee cada acorde y cada cent
+    por encima tapa el clic con el que se lleva el tiempo. La pastilla se sigue
+    viendo; lo que se calla es el anuncio.
+  */
+  const enLaToma = useClaqueta((estado) => estado.enLaToma);
+  const habla = anuncia && !enLaToma;
 
   const isListening = listening === 'listening';
   const busy = listening === 'requesting';
@@ -75,15 +93,17 @@ export function MicButton(deps: MicButtonProps = {}) {
     <div className="flex min-w-0 items-center gap-2">
       <button
         type="button"
-        onClick={() => void (isListening ? stop() : start())}
-        disabled={busy}
+        // Mientras el navegador pide permiso no hace caso, **pero no se apaga**:
+        // apagado con el foco dentro, el foco caía al `<body>` justo después de
+        // pulsarlo con Intro, y quien no ve la pantalla perdía el sitio.
+        {...mientrasTrabaja(busy, () => void (isListening ? stop() : start()))}
         aria-pressed={isListening}
         aria-label={isListening ? 'Dejar de escuchar la guitarra' : 'Escuchar la guitarra'}
         title={isListening ? 'Dejar de escuchar' : 'Escuchar la guitarra'}
-        className={`size-tap relative flex shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-[background-color,border-color,transform] duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`size-tap relative flex shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-[background-color,border-color,transform] duration-150 active:scale-95 aria-disabled:cursor-progress aria-disabled:opacity-50 aria-disabled:active:scale-100 ${
           isListening
             ? 'border-tube-bright bg-tube/25 text-tube-bright'
-            : 'border-border bg-surface text-text-muted hover:border-brass hover:text-brass-bright'
+            : 'border-border bg-surface text-text-muted not-aria-disabled:hover:border-brass not-aria-disabled:hover:text-brass-bright'
         }`}
       >
         <span data-senal className="flex">
@@ -98,8 +118,10 @@ export function MicButton(deps: MicButtonProps = {}) {
       </button>
 
       {/* Vive dentro de un `aria-live` para que quien no ve la pantalla se entere
-          de la nota igual que quien la ve: es la respuesta a haber tocado. */}
-      <span aria-live="polite" className="flex min-w-0 items-center gap-2">
+          de la nota igual que quien la ve: es la respuesta a haber tocado. Se
+          apaga con `off` y no desmontándola, para que al volver a hablar la
+          región ya estuviera ahí: una que nace con el texto dentro no se lee. */}
+      <span aria-live={habla ? 'polite' : 'off'} className="flex min-w-0 items-center gap-2">
         {(isListening || busy) && (
           <span
             className={`border-border bg-surface-raised inline-flex items-center gap-2 rounded-full border px-3 py-1 ${

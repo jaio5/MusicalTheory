@@ -56,6 +56,23 @@ describe('Los planes', () => {
     expect(screen.getByText(/Lo que cuesta dinero es la IA/)).toBeInTheDocument();
   });
 
+  /**
+   * **Y no se contradice con las tarjetas.** Decía «sin plan tienes todo menos la
+   * IA y el Grado Profesional», y el repaso y guardar las canciones van con el
+   * Básico. Lo que no entra sale ahora de la tabla de permisos.
+   */
+  it('sin pagar no entran ni el repaso ni guardar canciones, y lo dice', () => {
+    pintar();
+
+    const sinPagar = screen.getByText(/Sin plan tienes/);
+    expect(sinPagar).toHaveTextContent(/el repaso de lo que fallaste/);
+    expect(sinPagar).toHaveTextContent(/guardar tus canciones en la cuenta/);
+    expect(document.body).not.toHaveTextContent(/menos la IA y el Grado Profesional/);
+    expect(screen.getByText(/Desde el plan Básico se suman/)).toHaveTextContent(
+      /el repaso de lo que fallaste/,
+    );
+  });
+
   it('a quien no ha entrado le ofrece crear la cuenta', () => {
     pintar();
 

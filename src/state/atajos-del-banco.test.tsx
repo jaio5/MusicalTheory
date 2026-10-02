@@ -90,6 +90,75 @@ describe('las teclas del banco', () => {
     expect(useBancoStore.getState().espacio).toBe(DEFAULT_BANCO.espacio);
   });
 
+  /**
+   * **Con un teclado español, los corchetes y la barra piden AltGr**, y Windows
+   * lo manda como Ctrl+Alt. Con la regla de «modificador, no es nuestro», ninguno
+   * de los tres se podía pulsar. Lo que llega en `key` es el carácter que salió,
+   * y eso es lo que manda.
+   */
+  describe('con un teclado que pide AltGr', () => {
+    function pulsar(init: KeyboardEventInit) {
+      act(() => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }));
+      });
+    }
+
+    beforeEach(() => {
+      useBancoStore.getState().actions.espacio('escribir');
+    });
+
+    const plegadas = () => useBancoStore.getState().repartos.escribir.plegadas;
+
+    // Aunque llegue con Control puesto: si el navegador dice que es AltGr, lo es.
+    it('AltGr reconocido como tal pliega', () => {
+      render(<Banco />);
+      const antes = plegadas().includes('derecha');
+
+      pulsar({ key: ']', ctrlKey: true, modifierAltGraph: true } as KeyboardEventInit);
+
+      expect(plegadas().includes('derecha')).toBe(!antes);
+    });
+
+    it('Ctrl+Alt, que es como llega AltGr en Windows, también', () => {
+      render(<Banco />);
+      const antes = plegadas().includes('izquierda');
+
+      pulsar({ key: '[', ctrlKey: true, altKey: true });
+
+      expect(plegadas().includes('izquierda')).toBe(!antes);
+    });
+
+    it('y Opción en un Mac, que también los pide', () => {
+      useBancoStore.getState().actions.plegar('derecha');
+      render(<Banco />);
+
+      pulsar({ key: '\\', altKey: true });
+
+      expect(useBancoStore.getState().repartos.escribir).toEqual(DEFAULT_BANCO.repartos.escribir);
+    });
+
+    // Control sin Alt sí es un atajo de verdad, y Comando también.
+    it('Control solo o Comando siguen sin ser nuestros', () => {
+      render(<Banco />);
+      const antes = [...plegadas()];
+
+      pulsar({ key: '[', ctrlKey: true });
+      pulsar({ key: ']', metaKey: true });
+
+      expect(plegadas()).toEqual(antes);
+    });
+
+    // Los números no piden AltGr en ningún teclado: con modificador, del navegador.
+    it('los numeros con Alt o Ctrl+Alt no cambian de espacio', () => {
+      render(<Banco />);
+
+      pulsar({ key: '1', altKey: true });
+      pulsar({ key: '1', ctrlKey: true, altKey: true });
+
+      expect(useBancoStore.getState().espacio).toBe('escribir');
+    });
+  });
+
   // Abajo de `lg` las áreas van en pestañas: plegar no se ve, así que la tecla
   // cambiaría un estado invisible. Elegir espacio sí se nota, y sigue.
   it('sin banco, los numeros siguen y los corchetes no', async () => {

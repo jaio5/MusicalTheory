@@ -182,6 +182,7 @@ export function WorkHeader({
   back,
   actions,
   accionesCrecen = false,
+  lineaSoloEnElBanco = false,
 }: {
   readonly title: string;
   readonly lead?: string;
@@ -205,6 +206,22 @@ export function WorkHeader({
    * renglones. Con base cero no hay nada que contar.
    */
   readonly accionesCrecen?: boolean;
+  /**
+   * Que la línea **no se vea por debajo de `lg`**, y que ahí las acciones se
+   * queden con lo que deje el título.
+   *
+   * Es para componer: en un teléfono la línea no cabe —compartía fila con el
+   * título y con la barra que se desplaza, y le tocaban cuatro letras y unos
+   * puntos suspensivos— y no hay ancho en el que valga la pena partirla en otro
+   * renglón. Sin esto, la pantalla metía la línea dentro de sus acciones y
+   * repetía por dentro el reparto de esta cabecera.
+   *
+   * **Por clases y no preguntando el ancho**: el servidor no lo sabe, y lo que
+   * se ve al llegar no puede cambiar al hidratar (CLS 0,12 a 390 cuando
+   * dependía de JavaScript, `ComposeScreen.primera-pintura.test.tsx`). Desde
+   * `lg` es la cabecera de siempre: la línea crece y las acciones miden lo suyo.
+   */
+  readonly lineaSoloEnElBanco?: boolean;
 }) {
   return (
     <div className="border-border flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 md:px-4">
@@ -219,7 +236,12 @@ export function WorkHeader({
       {/* La misma letra que el título de `Screen`, a la altura de la franja: el
           taller no puede gastar sesenta píxeles en decir dónde estás, pero sí
           decirlo con la voz de la casa. */}
-      <h1 className="titular text-text shrink-0 text-lg">{title}</h1>
+      {/* **Puede partirse.** Iba con `shrink-0`, y con la letra al 200 % un
+          título largo —«La escala mayor, entera»— no cabía en la fila de un
+          teléfono y se salía por la derecha: el marco lo recortaba. Con
+          `min-w-0` solo encoge cuando él solo ya no cabe, porque `flex-wrap`
+          baja antes a las acciones a su renglón. */}
+      <h1 className="titular text-text min-w-0 text-lg break-words">{title}</h1>
       {/*
         `flex-1` con base cero, y no solo `min-w-0`: es lo que hace que la línea
         comparta fila con el rótulo en vez de bajarse a la suya.
@@ -233,7 +255,13 @@ export function WorkHeader({
         de 640 —casi una cuarta parte de la pantalla— en decir dónde estás.
       */}
       {lead !== undefined && (
-        <p className="text-text-muted min-w-0 flex-1 basis-0 truncate text-sm">{lead}</p>
+        <p
+          className={`text-text-muted min-w-0 flex-1 basis-0 truncate text-sm ${
+            lineaSoloEnElBanco ? 'max-lg:hidden' : ''
+          }`}
+        >
+          {lead}
+        </p>
       )}
       {/*
         El hueco de acciones **puede encoger**, y hace falta que pueda.
@@ -249,7 +277,15 @@ export function WorkHeader({
         `shrink-0`, la caja se estrecha, el de dentro se entera y parte la fila.
       */}
       {actions !== undefined && (
-        <div className={accionesCrecen ? 'min-w-0 flex-1 basis-0' : 'ml-auto min-w-0'}>
+        <div
+          className={
+            accionesCrecen
+              ? 'min-w-0 flex-1 basis-0'
+              : lineaSoloEnElBanco
+                ? 'min-w-0 max-lg:flex-1 max-lg:basis-0 lg:ml-auto'
+                : 'ml-auto min-w-0'
+          }
+        >
           {actions}
         </div>
       )}

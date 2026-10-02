@@ -224,7 +224,16 @@ export function Disclosure({
           // Sin `top` y con `bottom` no se arregla, aunque lo parezca: el
           // navegador resuelve entonces el alto por el contenido y sube el panel
           // hasta taparse el propio rótulo. Probado en la página.
-          className="border-border motion-safe:animate-desplegar absolute inset-x-0 top-full z-30 max-h-[calc(100dvh-22rem)] overflow-y-auto border-b shadow-[var(--sombra-alta)] md:max-h-[calc(100dvh-12rem)]"
+          //
+          // **Y tiene suelo: nueve rem, pase lo que pase** (`max()`). Restar un
+          // número fijo a la pantalla da cero —o menos— en cuanto la ventana es
+          // baja: a 320×256, que es un 1280×1024 con zoom al 400 % (WCAG 1.4.10),
+          // el panel medía **cero píxeles**, y a 640×400 cuarenta y ocho, con la
+          // rueda abierta y sin manera de verla. Con suelo, el panel puede pasar
+          // del borde de abajo, y por eso por debajo de 500 px de alto **el marco
+          // deja desplazar** su `<main>` y pliega la navegación de abajo a solo
+          // iconos (`app/AppShell.tsx`): lo que no cabe se alcanza bajando.
+          className="border-border motion-safe:animate-desplegar absolute inset-x-0 top-full z-30 max-h-[max(9rem,calc(100dvh-22rem))] overflow-y-auto border-b shadow-[var(--sombra-alta)] md:max-h-[max(9rem,calc(100dvh-12rem))]"
           style={PISTA_DE_QUE_SIGUE}
         >
           {children}

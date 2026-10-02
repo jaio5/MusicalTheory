@@ -365,7 +365,16 @@ export interface StaffProps {
   /** Entre qué dos compases caería lo que se está arrastrando, si es aquí. */
   readonly dropAt: number | null;
   readonly onSelectBlock: (blockId: string) => void;
-  readonly onRemoveBlock: (blockId: string) => void;
+  /**
+   * Las teclas sobre un cifrado —flechas, `Shift` y flechas, `Supr`—, que son
+   * **las mismas que sobre un bloque** y las decide el lienzo.
+   *
+   * Aquí solo se borraba: el panel de lo elegido prometía que las flechas
+   * movían el acorde, y en esta vista, que es la que se ve al entrar, no movían
+   * nada. Con una sola función para las dos vistas no pueden volver a decir
+   * cosas distintas.
+   */
+  readonly onBlockKeyDown: (event: ReactKeyboardEvent<Element>, blockId: string) => void;
   readonly onResizeBlock: (blockId: string, beats: number) => void;
   /** Lleva un acorde a otro sitio de la parte. */
   readonly onMoveBlock: (blockId: string, to: number) => void;
@@ -396,7 +405,7 @@ export const Staff = memo(function Staff({
   partId,
   dropAt,
   onSelectBlock,
-  onRemoveBlock,
+  onBlockKeyDown,
   onResizeBlock,
   onMoveBlock,
   onAdd,
@@ -853,9 +862,10 @@ export const Staff = memo(function Staff({
           Los cifrados, que aquí **son** los acordes y no su etiqueta.
 
           En esta vista no hay tira de bloques, así que el cifrado es lo único que
-          queda del acorde: se pulsa para elegirlo y se quita con `Supr`, igual
-          que un bloque. Debajo lleva una línea que dice hasta dónde llega, que es
-          lo que un cifrado suelto no dice y un bloque decía con su ancho.
+          queda del acorde: se pulsa para elegirlo, las flechas lo mueven y lo
+          estiran y se quita con `Supr`, igual que un bloque. Debajo lleva una
+          línea que dice hasta dónde llega, que es lo que un cifrado suelto no
+          dice y un bloque decía con su ancho.
         */}
           <g transform={`translate(0 ${-respiro})`}>
             {
@@ -893,6 +903,7 @@ export const Staff = memo(function Staff({
                       // encima, el hueco que se abre es el de aquí.
                       data-parte={partId}
                       data-indice={acumulado.x === 0 ? 0 : indice}
+                      data-bloque={block.id}
                       aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
                       aria-pressed={elegido}
                       style={{ touchAction: 'none' }}
@@ -905,11 +916,10 @@ export const Staff = memo(function Staff({
                         onSelectBlock(block.id);
                       }}
                       onKeyDown={(event) => {
-                        if (event.key === 'Delete' || event.key === 'Backspace') {
-                          event.preventDefault();
-                          onRemoveBlock(block.id);
-                        } else if (activa(event)) {
+                        if (activa(event)) {
                           onSelectBlock(block.id);
+                        } else {
+                          onBlockKeyDown(event, block.id);
                         }
                       }}
                     >
@@ -1036,7 +1046,10 @@ export const Staff = memo(function Staff({
               fontSize={CUERPO_PISTA}
               className="fill-text-muted pointer-events-none"
             >
-              <tspan>Pulsa en el pentagrama</tspan>
+              {/* El espacio entre las dos, suelto: un lector junta el texto de
+                  los `tspan` sin separarlos, y oía «pentagramay aquí». Partir el
+                  renglón es cosa del dibujo, no de la frase. */}
+              <tspan>Pulsa en el pentagrama</tspan>{' '}
               <tspan x={xPista} dy={CUERPO_PISTA + 3}>
                 y aquí se escribe el punteo.
               </tspan>
@@ -1094,6 +1107,7 @@ export const Staff = memo(function Staff({
                 transform={bajada(sitio.s)}
                 role="button"
                 tabIndex={0}
+                data-nota={note.id}
                 aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}${dudosa ? ', dudosa' : ''}`}
                 className="focus-visible:outline-brass-bright cursor-grab rounded-sm focus-visible:outline-2"
                 style={{ touchAction: 'none' }}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MAX_CUERPO, readJsonBody } from './request-body';
+import { MAX_CUERPO, readJsonBody, textoAcotado } from './request-body';
 
 /**
  * El cuerpo de una petición, leído sin creerse nada.
@@ -98,5 +98,19 @@ describe('el tope de tamaño', () => {
       body: JSON.stringify({ plan: 'pro' }),
     });
     expect(await readJsonBody(peticion)).toEqual({});
+  });
+});
+
+describe('el texto crudo, acotado', () => {
+  // Lo usa el webhook del cobro, que necesita los bytes tal cual llegaron para
+  // comprobar la firma y que antes los leía con `request.text()`, sin tope.
+  it('devuelve los bytes tal cual, sin interpretarlos', async () => {
+    const crudo = '{"type":  "checkout.session.completed" }';
+    expect(await textoAcotado(pedir(crudo))).toBe(crudo);
+  });
+
+  it('lo que se pasa del tope es nulo, y sin cuerpo es vacío', async () => {
+    expect(await textoAcotado(pedir('x'.repeat(MAX_CUERPO + 1)))).toBeNull();
+    expect(await textoAcotado(pedir())).toBe('');
   });
 });

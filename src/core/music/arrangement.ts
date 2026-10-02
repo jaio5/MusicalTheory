@@ -29,6 +29,7 @@
 
 import type { KeyMode } from './keys';
 import {
+  esEspecieDeBloque,
   esEspecieSimple,
   notasDeEspecieSimple,
   seventhNotes,
@@ -39,7 +40,13 @@ import {
 import { accidentalForKey } from './circle-of-fifths';
 import type { PitchClass } from './notes';
 import { voiceForPlayback, type PlaybackStep, type TimedEvent } from './playback';
-import { degreeInMode, resolveDegree, type DegreeSymbol, type ResolvedChord } from './progressions';
+import {
+  degreeInMode,
+  degreesFor,
+  resolveDegree,
+  type DegreeSymbol,
+  type ResolvedChord,
+} from './progressions';
 import type { CapturedStep } from './capture';
 import {
   clampOffset,
@@ -51,6 +58,7 @@ import {
 } from './melody';
 import {
   DEFAULT_ROLE,
+  isSectionRole,
   MAX_BARS,
   MAX_SECTIONS,
   MAX_SECTION_DEGREES,
@@ -106,6 +114,27 @@ export interface Block {
    */
   readonly confidence: number;
   /** Los grados que también pudo ser. Es lo que se ofrece al corregir. */
+  readonly alternatives: readonly DegreeSymbol[];
+  /**
+   * Lo que era este bloque en el otro modo, si llegó aquí traducido.
+   *
+   * **Es lo que hace reversible cambiar de modo.** La traducción por sí sola no
+   * puede serlo: el mayor nombra dieciséis grados y el menor once, así que hay
+   * dos de mayor que caen en el mismo de menor —el `vi` y el `bVI` son los dos
+   * `VI`—, y al volver no hay manera de saber cuál era. Sin esto, C G Am F en
+   * mayor volvía de menor como C G Ab Fm.
+   *
+   * Solo vale mientras el bloque siga siendo lo que salió de traducirlo: si se
+   * corrige en el otro modo, el recuerdo se olvida (`fixBlock`), porque devolver
+   * lo de antes desharía la corrección.
+   */
+  readonly delOtroModo?: GradoEnElOtroModo;
+}
+
+/** Qué grado tenía un bloque en el otro modo, y qué alternativas traía allí. */
+export interface GradoEnElOtroModo {
+  readonly mode: KeyMode;
+  readonly degree: DegreeSymbol;
   readonly alternatives: readonly DegreeSymbol[];
 }
 
@@ -338,17 +367,26 @@ export function partBeats(part: Part): number {
   return part.blocks.reduce((total, block) => total + block.beats, 0);
 }
 
-/** Y cuántos suenan, que con vueltas no es lo mismo. */
+/**
+ * Y cuántos suenan, que con vueltas no es lo mismo.
+ *
+ * **Con el punteo dentro**: una parte que es solo una melodía suena lo que dura
+ * la melodía. Contaba solo los acordes, así que un punteo sin acordes debajo
+ * medía cero, y con cero el lienzo apagaba «Escuchar la canción» y «MIDI» con
+ * la canción escrita delante. Es la misma medida con la que `soundOf` pone una
+ * vuelta detrás de otra (`partLength`), y tiene que serlo: si lo que se anuncia y
+ * lo que suena se midieran distinto, el rótulo diría una duración y sonaría otra.
+ */
 export function partPlayBeats(part: Part): number {
-  return partBeats(part) * repeatsOf(part);
+  return partLength(part) * repeatsOf(part);
 }
 
 /**
  * Cuántos pulsos dura el montaje entero al tocarlo.
  *
- * Cuenta las vueltas: es lo que se oye, que es lo que dice el rótulo de la
- * cabecera al lado del botón de escuchar. Lo que se escribe —el papel— se mide
- * con `partBeats` y con `drawnBars`.
+ * Cuenta las vueltas y el punteo: es lo que se oye, que es lo que dice el rótulo
+ * de la cabecera al lado del botón de escuchar. Lo que se escribe —el papel— se
+ * mide con `partBeats` y con `drawnBars`.
  */
 export function arrangementBeats(arrangement: Arrangement): number {
   return arrangement.parts.reduce((total, part) => total + partPlayBeats(part), 0);
@@ -634,7 +672,10 @@ export function fixBlock(
         block.degree,
         ...block.alternatives.filter((otro) => otro !== degree && otro !== block.degree),
       ];
-      return { ...block, degree, source: 'fixed', confidence: 1, alternatives };
+      // Corregido, lo que era en el otro modo ya no vale: al volver devolvería
+      // el acorde de antes de la corrección y la desharía sin decirlo.
+      const base = degree === block.degree ? block : sinRecuerdo(block);
+      return { ...base, degree, source: 'fixed', confidence: 1, alternatives };
     }),
   );
 }
@@ -1179,6 +1220,36 @@ export function partFromCapture(
   };
 }
 
+/** El otro de los dos modos. */
+function otroModo(mode: KeyMode): KeyMode {
+  return mode === 'major' ? 'minor' : 'major';
+}
+
+/** El bloque sin lo que recordaba del otro modo. */
+function sinRecuerdo(block: Block): Block {
+  if (block.delOtroModo === undefined) {
+    return block;
+  }
+  const copia: { -readonly [K in keyof Block]: Block[K] } = { ...block };
+  delete copia.delOtroModo;
+  return copia;
+}
+
+/**
+ * Lo que era el bloque en `mode`, si lo recuerda y el recuerdo sigue valiendo.
+ *
+ * Vale si traducir lo recordado da exactamente lo que hay: es la prueba de que
+ * nadie ha tocado el bloque desde que llegó traducido. Si no, se ignora, y el
+ * bloque se traduce como cualquier otro.
+ */
+function recordado(block: Block, mode: KeyMode): GradoEnElOtroModo | null {
+  const recuerdo = block.delOtroModo;
+  if (recuerdo === undefined || recuerdo.mode !== mode) {
+    return null;
+  }
+  return degreeInMode(recuerdo.degree, otroModo(mode)) === block.degree ? recuerdo : null;
+}
+
 /**
  * Pasa el montaje entero al otro modo, traduciendo cada grado.
  *
@@ -1195,27 +1266,53 @@ export function partFromCapture(
  * función —`I` es `i`, `IV` es `iv`, la casa sigue siendo la casa—, que es la
  * misma regla por la que un montaje son grados y el tono lo pone la rueda.
  *
- * Solo se cae lo que de verdad no existe allí: las tres dominantes secundarias
- * de mayor que el menor no tiene. Quien llama las cuenta por la diferencia de
- * longitud, que es como se sabe si hay algo que contarle a quien compone.
+ * **Y la vuelta deja la canción como estaba.** Cada bloque traducido se lleva lo
+ * que era (`delOtroModo`), y al volver al modo de antes se le devuelve tal cual,
+ * con sus alternativas. Sin eso, ir y volver era perder: el `vi` volvía como
+ * `bVI` y el `IV` como `iv`, porque traducir solo no puede saber de dónde venía.
+ * Lo que se escribe en el modo nuevo no trae recuerdo y se traduce por la tabla.
+ *
+ * Solo se cae lo que de verdad no existe allí, que hoy es una sola cosa: la
+ * dominante del `ii`, porque en menor el segundo grado es disminuido. Lo dice
+ * `bloquesSinTraduccion`, para que quien llama pueda contarlo antes de que se
+ * pierda.
  */
 export function translateToMode(arrangement: Arrangement, mode: KeyMode): Arrangement {
   return mapParts(arrangement, (part) => {
     let cambiado = false;
     const blocks: Block[] = [];
     for (const block of part.blocks) {
+      const recuerdo = recordado(block, mode);
+      if (recuerdo !== null) {
+        cambiado = true;
+        blocks.push({
+          ...sinRecuerdo(block),
+          degree: recuerdo.degree,
+          alternatives: recuerdo.alternatives,
+        });
+        continue;
+      }
       const degree = degreeInMode(block.degree, mode);
       if (degree === null) {
         cambiado = true;
         continue;
       }
       if (degree === block.degree) {
-        blocks.push(block);
+        // Un recuerdo de este modo que ya no vale —el bloque se tocó después de
+        // traducirlo— se olvida aquí: guardarlo solo serviría para que un día
+        // coincidiera por casualidad y devolviera algo que nadie pidió.
+        if (block.delOtroModo?.mode === mode) {
+          cambiado = true;
+          blocks.push(sinRecuerdo(block));
+        } else {
+          blocks.push(block);
+        }
         continue;
       }
       cambiado = true;
       // Las alternativas que trae un bloque oído son grados del modo viejo: se
-      // traducen igual, y la que no exista allí se cae y ya está.
+      // traducen igual, y la que no exista allí se cae y ya está. Las de antes se
+      // quedan en el recuerdo, que es lo que vuelve al volver.
       blocks.push({
         ...block,
         degree,
@@ -1223,8 +1320,167 @@ export function translateToMode(arrangement: Arrangement, mode: KeyMode): Arrang
           const otro = degreeInMode(alternativa, mode);
           return otro === null ? [] : [otro];
         }),
+        delOtroModo: {
+          mode: otroModo(mode),
+          degree: block.degree,
+          alternatives: block.alternatives,
+        },
       });
     }
     return cambiado ? { ...part, blocks } : part;
   });
+}
+
+/**
+ * Los bloques que `translateToMode` dejaría fuera al pasar a `mode`.
+ *
+ * Existe para avisar: un bloque que se cae sin que nadie lo diga es trabajo
+ * perdido, y quien sabe qué tonalidad había y cuál viene es la capa de estado,
+ * no esto.
+ */
+export function bloquesSinTraduccion(arrangement: Arrangement, mode: KeyMode): Block[] {
+  return arrangement.parts.flatMap((part) =>
+    part.blocks.filter(
+      (block) => recordado(block, mode) === null && degreeInMode(block.degree, mode) === null,
+    ),
+  );
+}
+
+/**
+ * Un montaje leído de fuera —lo que guardó el navegador—, sin creerse nada.
+ *
+ * Es la misma regla que `parseSong`: **lo que no se entiende se cae y lo demás
+ * se queda**. Un bloque con un grado que ya no existe se pierde él solo, no la
+ * parte entera; una parte sin identificador se pierde ella, no la canción. Y
+ * todo vuelve a pasar por los mismos topes que si se acabara de escribir, porque
+ * un montaje guardado por otra versión de la aplicación puede traer números que
+ * esta ya no admite.
+ *
+ * Los grados se aceptan **de los dos modos**: el montaje se guardó en el modo que
+ * hubiera, y quien lo traduzca al de ahora es `state/montaje-en-su-modo.ts`, que
+ * está mirando. Filtrarlos aquí contra un modo sería tirar media canción por
+ * haberla guardado en menor.
+ *
+ * Nulo si lo que llega no es un montaje en absoluto.
+ */
+export function leerMontaje(raw: unknown): Arrangement | null {
+  if (!esObjeto(raw) || !Array.isArray(raw['parts'])) {
+    return null;
+  }
+  const parts = raw['parts']
+    .map(leerParte)
+    .filter((part): part is Part => part !== null)
+    .slice(0, MAX_PARTS);
+  return { parts };
+}
+
+function esObjeto(raw: unknown): raw is Record<string, unknown> {
+  return typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+}
+
+const GRADOS_CONOCIDOS: ReadonlySet<string> = new Set<string>([
+  ...degreesFor('major'),
+  ...degreesFor('minor'),
+]);
+
+function esGrado(raw: unknown): raw is DegreeSymbol {
+  return typeof raw === 'string' && GRADOS_CONOCIDOS.has(raw);
+}
+
+function esNumero(raw: unknown): raw is number {
+  return typeof raw === 'number' && Number.isFinite(raw);
+}
+
+function leerGrados(raw: unknown): DegreeSymbol[] {
+  return Array.isArray(raw) ? raw.filter(esGrado) : [];
+}
+
+function leerParte(raw: unknown): Part | null {
+  if (!esObjeto(raw) || typeof raw['id'] !== 'string' || typeof raw['name'] !== 'string') {
+    return null;
+  }
+  const blocks = Array.isArray(raw['blocks'])
+    ? raw['blocks']
+        .map(leerBloque)
+        .filter((block): block is Block => block !== null)
+        .slice(0, MAX_PART_BLOCKS)
+    : [];
+  const notes = Array.isArray(raw['notes'])
+    ? ordenar(
+        raw['notes']
+          .map(leerNota)
+          .filter((note): note is LeadNote => note !== null)
+          .slice(0, MAX_LEAD_NOTES),
+      )
+    : [];
+  const bars = esNumero(raw['bars'])
+    ? Math.min(MAX_BARS, Math.max(1, Math.round(raw['bars'])))
+    : BARS_POR_DEFECTO;
+  const role = raw['role'];
+  const repeats = raw['repeats'];
+  return {
+    id: raw['id'],
+    name: raw['name'].trim() === '' ? 'Parte' : raw['name'],
+    blocks,
+    notes,
+    bars,
+    ...(isSectionRole(role) ? { role } : {}),
+    ...(esNumero(repeats)
+      ? { repeats: Math.min(MAX_REPEATS, Math.max(1, Math.round(repeats))) }
+      : {}),
+  };
+}
+
+function leerBloque(raw: unknown): Block | null {
+  if (!esObjeto(raw) || typeof raw['id'] !== 'string' || !esGrado(raw['degree'])) {
+    return null;
+  }
+  const source = raw['source'];
+  const especie = raw['especie'];
+  const recuerdo = leerRecuerdo(raw['delOtroModo']);
+  return {
+    id: raw['id'],
+    degree: raw['degree'],
+    ...(esEspecieDeBloque(especie) ? { especie } : {}),
+    beats: clampBeats(esNumero(raw['beats']) ? raw['beats'] : MIN_BLOCK_BEATS),
+    // Lo que no se reconoce se lee como escrito a mano, igual que en una canción
+    // guardada: es lo único que no inventa una duda que nadie tuvo.
+    source: source === 'heard' || source === 'fixed' ? source : 'written',
+    confidence: esNumero(raw['confidence']) ? Math.min(1, Math.max(0, raw['confidence'])) : 1,
+    alternatives: leerGrados(raw['alternatives']),
+    ...(recuerdo === null ? {} : { delOtroModo: recuerdo }),
+  };
+}
+
+function leerRecuerdo(raw: unknown): GradoEnElOtroModo | null {
+  if (!esObjeto(raw) || (raw['mode'] !== 'major' && raw['mode'] !== 'minor')) {
+    return null;
+  }
+  if (!esGrado(raw['degree'])) {
+    return null;
+  }
+  return {
+    mode: raw['mode'],
+    degree: raw['degree'],
+    alternatives: leerGrados(raw['alternatives']),
+  };
+}
+
+function leerNota(raw: unknown): LeadNote | null {
+  if (!esObjeto(raw) || typeof raw['id'] !== 'string') {
+    return null;
+  }
+  const { offset, start, length, clarity } = raw;
+  // Una nota con algo que no es un número se cae entera, como en `parseSong`:
+  // redondear un `null` a cero pondría una nota en la tónica que nadie tocó.
+  if (!esNumero(offset) || !esNumero(start) || !esNumero(length)) {
+    return null;
+  }
+  return {
+    id: raw['id'],
+    offset: clampOffset(offset),
+    start: clampStart(start),
+    length: snapLength(length),
+    ...(esNumero(clarity) ? { clarity: Math.min(1, Math.max(0, clarity)) } : {}),
+  };
 }

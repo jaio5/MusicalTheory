@@ -58,6 +58,24 @@ describe('la última sesión', () => {
     expect(useSessionStore.getState().scaleId).toBe('minorPentatonic');
   });
 
+  /**
+   * Una escala guardada que ya no existe se aplicaba igual, y el mástil, al
+   * buscar sus intervalos, tumbaba componer entera.
+   */
+  it('una escala que ya no existe no se aplica, y la tonalidad sí', async () => {
+    const conEscalaVieja = { ...AYER, scaleId: 'lydian' } as unknown as StoredSession;
+    const antes = useSessionStore.getState().scaleId;
+    render(<ResumeLast createStorage={almacen([conEscalaVieja])} />);
+
+    expect(await screen.findByText(/La última vez estabas en/)).toHaveTextContent(
+      'La última vez estabas en C mayor.',
+    );
+    await userEvent.click(screen.getByRole('button', { name: /Seguir por ahí/ }));
+
+    expect(useSessionStore.getState().pinnedKey).toEqual({ tonic: C, mode: 'major' });
+    expect(useSessionStore.getState().scaleId).toBe(antes);
+  });
+
   it('desaparece al aplicarla', async () => {
     render(<ResumeLast createStorage={almacen([AYER])} />);
     await userEvent.click(await screen.findByRole('button', { name: /Seguir por ahí/ }));

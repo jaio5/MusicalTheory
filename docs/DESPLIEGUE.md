@@ -42,17 +42,18 @@ equipo de quien toca y las cuentas no han cambiado eso.
 
 ## Variables de entorno
 
-| Variable                                  | Hace falta        | Para qué                                                                                                                      |
-| ----------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Las dos rutas. Sin ella contesta el modelo de casa si lo hay, y si tampoco, el dominio; en producción se contesta 503.        |
-| `OLLAMA_URL` / `OLLAMA_MODEL`             | No                | Un modelo en tu equipo para probar sin clave y sin factura. **La clave le gana**: con las dos puestas contesta la API.        |
-| `ANTHROPIC_MODEL`                         | No                | Cambiar de modelo sin tocar código. Por defecto, `claude-opus-5`. **Cambia los cupos de todos los planes**: ver abajo.        |
-| `DATABASE_URL`                            | Solo para cuentas | Postgres. Sin ella no hay cuentas ni planes, y todo lo demás funciona igual.                                                  |
-| `AUTH_SECRET`                             | Solo para cuentas | Firmar la cookie de sesión. `openssl rand -base64 32`.                                                                        |
-| `APP_URL`                                 | Solo para cobrar  | A dónde vuelve quien paga. Sin ella se supone `http://localhost:3000`, que en producción manda a la gente a su propio equipo. |
-| `STRIPE_SECRET_KEY`                       | Solo para cobrar  | La clave de la pasarela.                                                                                                      |
-| `STRIPE_WEBHOOK_SECRET`                   | Solo para cobrar  | El secreto del endpoint, para comprobar la firma. **Sin él el webhook no acepta nada.**                                       |
-| `STRIPE_PRICE_BASICO` / `_MEDIO` / `_PRO` | Solo para cobrar  | Qué precio de Stripe es cada plan. Son distintos en la cuenta de pruebas y en la de verdad.                                   |
+| Variable                                  | Hace falta        | Para qué                                                                                                                       |
+| ----------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ANTHROPIC_API_KEY`                       | Solo para la IA   | Las dos rutas. Sin ella contesta el modelo de casa si lo hay, y si tampoco, el dominio; en producción se contesta 503.         |
+| `OLLAMA_URL` / `OLLAMA_MODEL`             | No                | Un modelo en tu equipo para probar sin clave y sin factura. **La clave le gana**: con las dos puestas contesta la API.         |
+| `ANTHROPIC_MODEL`                         | No                | Cambiar de modelo sin tocar código. Por defecto, `claude-opus-5`. **Cambia los cupos de todos los planes**: ver abajo.         |
+| `DATABASE_URL`                            | Solo para cuentas | Postgres. Sin ella no hay cuentas ni planes, y todo lo demás funciona igual.                                                   |
+| `AUTH_SECRET`                             | Solo para cuentas | Firmar la cookie de sesión. `openssl rand -base64 32`.                                                                         |
+| `APP_URL`                                 | Solo para cobrar  | A dónde vuelve quien paga. Sin ella se supone `http://localhost:3000`, que en producción manda a la gente a su propio equipo.  |
+| `STRIPE_SECRET_KEY`                       | Solo para cobrar  | La clave de la pasarela.                                                                                                       |
+| `STRIPE_WEBHOOK_SECRET`                   | Solo para cobrar  | El secreto del endpoint, para comprobar la firma. **Sin él el webhook no acepta nada.**                                        |
+| `STRIPE_PRICE_BASICO` / `_MEDIO` / `_PRO` | Solo para cobrar  | Qué precio de Stripe es cada plan. Son distintos en la cuenta de pruebas y en la de verdad.                                    |
+| `TRUSTED_PROXY_HOPS`                      | En producción     | Cuántos proxies de confianza hay delante. **Sin ella no se cree `X-Forwarded-For`** y todo el mundo comparte los topes: abajo. |
 
 `DATABASE_URL` y `AUTH_SECRET` van **juntas**: hacen falta las dos, y con una sola la
 aplicación se comporta como si no hubiera ninguna. Es a propósito: media configuración
@@ -62,7 +63,12 @@ cuentas.
 **Las cinco de Stripe también van juntas**, y por lo mismo: `billing()` comprueba que
 estén la clave y los tres precios, y si falta cualquiera devuelve el cobrador que no
 cobra. Media configuración de pasarela sería una ventana de pago que promete cobrar y
-no puede.
+no puede. **En producción, ese cobrador no regala nada**: fuera de producción cambia
+el plan al pulsar, y en producción (`NODE_ENV=production`, que es lo que pone el
+`Dockerfile`) es `CobroCerrado`, que deja bajar a gratis y no deja subir. Antes
+regalaba el plan Pro a quien pulsara el botón en cualquier copia publicada a la que
+le faltara una variable. Para probar los planes en el Docker de casa están las
+cuentas de `pnpm usuarios:prueba`, una por plan.
 
 Ninguna lleva el prefijo `NEXT_PUBLIC_`, así que Next no las mete en el bundle
 del navegador. Si alguna vez añades una que sí lo lleve, ten claro que eso es
@@ -118,8 +124,13 @@ solo exista en uno de los dos, conviene saberlo.
   dejaría de proteger de lo único de lo que protege.
 - **`Permissions-Policy`** declara el micrófono y cierra cámara, ubicación, pagos
   y USB. Es la manera de decir por escrito lo que `CUENTAS-Y-PLANES.md` promete.
-- **`X-Content-Type-Options`**, **`Referrer-Policy`** y
-  **`Strict-Transport-Security`**, que son tres líneas y no se discuten.
+- **`X-Content-Type-Options`**, **`Referrer-Policy`**,
+  **`Strict-Transport-Security`** y **`Cross-Origin-Opener-Policy: same-origin`**
+  —que una página ajena abierta desde aquí no pueda tocar esta pestaña—, que son
+  cuatro líneas y no se discuten.
+- Y **sin `X-Powered-By`**, que esa la pone Next y se apaga en `next.config.ts`
+  (`poweredByHeader: false`): decir con qué está hecha solo le sirve a quien busca
+  qué fallo conocido tiene.
 
 `style-src` sí lleva `'unsafe-inline'`, y es a propósito: Tailwind y React
 escriben estilos en el atributo `style` —el ancho de un bloque, el avance de una
@@ -128,6 +139,37 @@ página; no puede ejecutar nada.
 
 Lo vigila `src/proxy.test.ts`, que comprueba que el número cambia en cada
 petición y que `'unsafe-inline'` no se cuela en los guiones.
+
+## Detrás de un proxy: de quién es cada petición
+
+Los topes de frecuencia —entrar, registrarse, pedir el enlace de la contraseña, las
+rutas de IA— cuentan por dirección, y la dirección sale de `X-Forwarded-For`. Esa
+cabecera **la puede escribir el cliente**: cada proxy añade a la derecha la
+dirección de quien le habló, y lo de la izquierda es lo que mandó cualquiera. Se
+tomaba la primera, y la auditoría del 2 de octubre de 2026 lo reprodujo con doce
+POST cambiándola: ninguno frenado, porque cada cabecera nueva era un contador nuevo.
+
+Ahora se toma **la que puso el último proxy de confianza**, contando desde la
+derecha (`requesterKey` en `server/rate-limit.ts`), y cuántos hay se dice en
+`TRUSTED_PROXY_HOPS`:
+
+| Delante de la aplicación                                        | `TRUSTED_PROXY_HOPS` |
+| --------------------------------------------------------------- | -------------------- |
+| Vercel, o un proxy inverso (nginx, Caddy) que añade la cabecera | `1`                  |
+| Una CDN y, detrás, un proxy inverso                             | `2`                  |
+| Nada: `next start` a pelo, o el Docker de casa                  | sin poner            |
+
+**Sin ponerla no se cree ninguna cabecera**, ni esta ni `X-Real-IP`, y todas las
+peticiones comparten un contador: frena de más, que es mejor que no frenar. No hay
+manera mejor sin proxy, porque `next start` pone `X-Forwarded-For` con la dirección
+del socket **solo si no venía ya**, y desde dentro no se distingue la suya de la del
+cliente. En producción se avisa una vez en el registro del servidor.
+
+Un número de más es lo peligroso: con `2` y un solo proxy, la clave vuelve a ser lo
+que escribe el cliente. Y vale solo si **nadie llega a la aplicación sin pasar por
+el proxy**: si el puerto de Next está abierto a internet, cualquiera le habla
+directamente y escribe la cabecera que quiera. **No se ha probado detrás de un proxy
+de verdad**: no hay ninguna copia publicada.
 
 ## Camino 1: Vercel
 
@@ -196,8 +238,14 @@ docker run -p 3000:3000 \
   -e ANTHROPIC_API_KEY=sk-ant-... \
   -e DATABASE_URL=postgres://... \
   -e AUTH_SECRET=... \
+  -e TRUSTED_PROXY_HOPS=1 \
   caos-ordenado
 ```
+
+`TRUSTED_PROXY_HOPS=1` es para el caso de siempre, **un proxy con certificado
+delante**, que es el que hace falta para el HTTPS; con otro reparto, el número de
+la tabla de arriba. Sin ella, todo el que entra comparte los mismos topes
+([«Detrás de un proxy»](#detrás-de-un-proxy-de-quién-es-cada-petición)).
 
 **Aquí es donde muerde una trampa que ya está resuelta, y conviene no
 deshacerla.** En este camino se construye sin variables de entorno y se arranca con
@@ -274,18 +322,17 @@ en [adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
 
 **La IA cuesta dinero, y ahora hay a quién cobrárselo… pero no se le cobra.** Los
 tres planes, sus permisos y sus cupos están puestos y funcionando, y detrás del
-cobro hay una interfaz cuya única implementación de hoy **cambia el plan sin cobrar
-nada** ([adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md)). Antes de publicar
-esto de cara al mundo hay que saber lo que eso significa:
+cobro hay una interfaz ([adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md))
+cuya implementación de Stripe **nunca se ha ejecutado**. Sin Stripe configurado:
 
-- Cualquiera con una cuenta puede darse el plan Pro y su cupo, entrando en
-  `/planes/pro` y pulsando un botón.
-- Los cupos protegen del gasto accidental, no del que quiere gastar.
+- **Fuera de producción**, cualquiera con una cuenta puede darse el plan Pro y su
+  cupo, entrando en `/planes/pro` y pulsando un botón (`FakeBilling`).
+- **En producción no**: el cobrador es `CobroCerrado`, que deja bajar a gratis y
+  contesta que no se ha podido al subir. Nadie tiene más plan que el que le den las
+  cuentas de prueba o la base de datos.
 
-Lo primero que hay que añadir si esto se publica en serio es una implementación de
-cobro de verdad. La pantalla de planes, mientras tanto, avisa de que aquí no se
-cobra: lo dice porque el cobrador declara que no cobra, no porque alguien se acordase
-de escribirlo.
+La pantalla de planes avisa de que aquí no se cobra en los dos casos: lo dice porque
+el cobrador declara que no cobra, no porque alguien se acordase de escribirlo.
 
 **La escena del encabezado son ocho kilobytes**: tres capas y una hoja de
 fotogramas en PNG con paleta (`app/EscenaPortada.tsx`,
@@ -329,8 +376,34 @@ Es lo que cambia el plan cuando el dinero ha entrado, y es la parte que hay que
 configurar con cuidado:
 
 1. En Stripe, crea un endpoint apuntando a `https://tu-dominio/api/pago/webhook`.
-2. Suscríbelo a `checkout.session.completed` y `customer.subscription.deleted`.
+2. Suscríbelo a cuatro avisos: `checkout.session.completed`,
+   `checkout.session.async_payment_succeeded`, `customer.subscription.updated` y
+   `customer.subscription.deleted`.
 3. Copia su secreto de firma en `STRIPE_WEBHOOK_SECRET`.
+4. En el portal de cliente de Stripe, activa **cambiar de plan** con los tres
+   precios. Pasar de un plan de pago a otro va por ahí y no por otro Checkout: con
+   suscripción viva, otro Checkout crea una segunda y se cobran las dos.
+
+Qué hace con cada aviso:
+
+- **Pagado** (los dos de `checkout.session`): si `payment_status` es `paid` o
+  `no_payment_required`, guarda el plan, el cliente y la suscripción de una vez. Con
+  `unpaid` —un adeudo bancario que tarda días— no sube nada, y espera al
+  `async_payment_succeeded`. El plan sale de los metadatos de la sesión, porque el
+  aviso **no trae `line_items`**: Stripe no los incluye si no se piden.
+- **Cambiada**: con `active` o `trialing`, el plan del precio que se cobra; con
+  `unpaid`, `canceled`, `incomplete_expired` o `paused`, gratis; con `past_due` o
+  `incomplete` no toca nada, porque Stripe está reintentando el cobro y su guía pide
+  avisar, no cortar.
+- **Borrada**: gratis, y suelta la suscripción.
+
+Los dos de la suscripción se aplican **a quien la tenga guardada**, no a quien digan
+los metadatos. Así funciona la baja —que llega con la suscripción y no con la
+sesión, y antes por eso se ignoraba— y un aviso viejo que llegue tarde no encuentra
+a nadie. Los metadatos van igualmente en la suscripción (`subscription_data`), para
+ver de quién es desde el panel de Stripe.
+
+Cabecera de firma ausente o cuerpo de más de 128 KB: 400 sin leer más.
 
 **Sin ese secreto el webhook no acepta nada**, y eso es a propósito: un webhook sin
 comprobar la firma es un formulario público para darse el plan Pro. La comprobación
@@ -350,11 +423,18 @@ da un secreto de pruebas que vale para lo mismo.
   esta ruta es idempotente porque lo único que hace es poner un plan. Los eventos que
   no le interesan los acepta y los ignora: contestar error los pondría en cola de
   reintentos para siempre.
-- **Cancelar baja el plan en el momento**, sin esperar al webhook. Si la llamada a
-  Stripe fallara, lo peligroso sería seguir dando el plan de pago.
-- **Nada de esto se ha ejecutado contra Stripe.** La firma, el mapeo de precios y las
-  respuestas del webhook están probados con datos fabricados; que la API conteste lo
-  que se espera, no. Es lo primero que hay que hacer con una clave de pruebas.
+- **Cancelar cancela en Stripe primero** (`DELETE /v1/subscriptions/:id`, en el
+  momento) y solo después baja el plan, sin esperar al webhook. Antes bajaba el plan
+  y no avisaba a Stripe, que seguía cobrando. Si Stripe no contesta, el plan no se
+  toca y la pantalla dice que no se ha podido: mejor reintentar que pagar sin plan.
+- **El portal abre con el cliente guardado**, no buscándolo por correo: Checkout
+  con `customer_email` crea un cliente nuevo cada vez, y la búsqueda daba uno
+  cualquiera.
+- **Nada de esto se ha ejecutado contra Stripe.** Los nombres de campos, avisos y
+  estados salen de su documentación, y la firma, la traducción de precios, las
+  llamadas y las respuestas del webhook están probadas con avisos con la forma que
+  documenta Stripe; que la API conteste lo que se espera, no. Es lo primero que hay
+  que hacer con una clave de pruebas y `stripe listen`.
 
 ## Recuperar la contraseña
 

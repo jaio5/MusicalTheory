@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MAX_RECORDING_SECONDS } from './recorder';
-import { listAudioInputDevices, WebAudioInput } from './web-audio-input';
+import { WebAudioInput } from './web-audio-input';
 
 /**
  * El contexto de audio, fingido lo justo.
@@ -407,31 +407,6 @@ describe('guardar el sonido para volver a mirarlo', () => {
 
     expect(grabadora.state).toBe('inactive');
     expect(await input.stopRecording()).toBeNull();
-  });
-});
-
-describe('las entradas que hay', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('solo las de audio', async () => {
-    vi.stubGlobal('navigator', {
-      mediaDevices: {
-        enumerateDevices: vi.fn(async () => [
-          { kind: 'audioinput', deviceId: 'mic' },
-          { kind: 'videoinput', deviceId: 'cam' },
-        ]),
-      },
-    });
-
-    expect((await listAudioInputDevices()).map((d) => d.deviceId)).toEqual(['mic']);
-  });
-
-  it('sin navegador que las sepa listar, ninguna', async () => {
-    vi.stubGlobal('navigator', {});
-
-    expect(await listAudioInputDevices()).toEqual([]);
   });
 });
 

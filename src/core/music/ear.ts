@@ -32,10 +32,15 @@
  * Los ejercicios salen fijos de la tonalidad, igual que los de `lessons.ts`. Aquí
  * no hay reloj ni sorteo: el mismo tono da los mismos ejercicios, y eso es lo que
  * permite probarlos comparando estructuras.
+ *
+ * **Y las opciones salen repartidas**, con la misma baraja sin azar que las
+ * lecciones (`baraja.ts`). Se escriben con la buena delante y nadie las movía, así
+ * que una unidad de oído se aprobaba entera pulsando la primera sin escuchar.
  */
 
 import { seventhNotes, seventhSymbol, type SeventhQuality } from './chords';
 import { HARMONIC_ROLES } from './harmonic-function';
+import { repartidasEnLaUnidad } from './baraja';
 import { accidentalForKey } from './circle-of-fifths';
 import type { Choice } from './lessons';
 import type { KeyMode } from './keys';
@@ -135,6 +140,10 @@ export interface EarExercise {
   readonly why: string;
 }
 
+/**
+ * La buena delante y las malas detrás, **solo para escribirlas**: quien las reparte
+ * es `earExercises`, al salir.
+ */
 function opciones(buena: string, otras: readonly string[]): Choice[] {
   return [{ text: buena, correct: true }, ...otras.map((text) => ({ text, correct: false }))];
 }
@@ -572,7 +581,16 @@ function circle(tonic: PitchClass, mode: KeyMode): EarExercise[] {
   ];
 }
 
-/** Los ejercicios de oído de esa clase, en esa tonalidad. */
+/**
+ * Los ejercicios de oído de esa clase, en esa tonalidad, con las opciones ya
+ * repartidas.
+ *
+ * Aquí y no en cada clase por lo mismo que `lessonNotes`: es la única puerta por la
+ * que salen, la usan la unidad y el repaso, y quien escriba mañana otra clase no
+ * tiene que acordarse de barajar. La tonalidad entra en la semilla porque aquí los
+ * textos no cambian con ella —«Sí» y «No» son los mismos en Do que en Mi bemol—, y
+ * sin ella cada pregunta caería en el mismo sitio en las veinticuatro.
+ */
 export function earExercises(kind: EarKind, tonic: PitchClass, mode: KeyMode): EarExercise[] {
   const catalogo: Readonly<Record<EarKind, (t: PitchClass, m: KeyMode) => EarExercise[]>> = {
     quality,
@@ -585,7 +603,7 @@ export function earExercises(kind: EarKind, tonic: PitchClass, mode: KeyMode): E
     borrowed,
     modes,
   };
-  return catalogo[kind](tonic, mode);
+  return repartidasEnLaUnidad(catalogo[kind](tonic, mode), `${kind}|${tonic}|${mode}`);
 }
 
 /** De qué va cada clase, para el rótulo de la unidad. */

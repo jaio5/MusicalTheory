@@ -34,9 +34,9 @@ const PRO: Account = {
   aiLeftMonth: 300,
 };
 
-function pintar(account: Account = ANONYMOUS) {
+function pintar(account: Account = ANONYMOUS, accounts = true) {
   return render(
-    <AccountProvider account={account} accounts>
+    <AccountProvider account={account} accounts={accounts}>
       <TeacherScreen />
     </AccountProvider>,
   );
@@ -114,5 +114,24 @@ describe('El profesor', () => {
     pintar(PRO);
 
     expect(screen.queryByText(/Con el plan Pro/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * **Sin cuentas no promete un cupo ni manda a entrar.** Decía «quince preguntas
+   * al mes» y llevaba a `/cuenta`, donde solo se leía que aquí no hay cuentas.
+   */
+  it('en una copia sin cuentas lo dice, y no ofrece ni cupo ni plan ni entrar', () => {
+    useSessionStore.getState().actions.reset();
+
+    pintar(ANONYMOUS, false);
+
+    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+    expect(screen.queryByText(/preguntas al\s+profesor al mes/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Con el plan Pro/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Entrar/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Seguir aprendiendo' })).toHaveAttribute(
+      'href',
+      '/aprender',
+    );
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { Exercise } from '@core/music';
 import { Button } from '@ui/Button';
@@ -47,10 +47,35 @@ export function Question({
   // durante el render comparando con la de antes, que es lo que React recomienda
   // para esto: hacerlo en un efecto provoca un render en cascada.
   const [tracked, setTracked] = useState(exercise);
+  // Si se llega a esta pregunta desde la anterior ya contestada —con «Siguiente»—,
+  // el foco tiene que entrar en ella: el botón que lo tenía acaba de desaparecer.
+  const [venimosDeOtra, setVenimosDeOtra] = useState(false);
   if (tracked !== exercise) {
     setTracked(exercise);
+    setVenimosDeOtra(answered);
     setChosen(null);
   }
+
+  /*
+    **El foco no se pierde al contestar.** Las opciones se desactivan al
+    corregir, y un botón desactivado suelta el foco: se iba al `body`, y quien
+    contestaba con el teclado tenía que volver a recorrer la pantalla entera para
+    llegar a «Siguiente». Ahora va a «Siguiente», que es lo único que queda por
+    hacer, y la corrección se anuncia por su región viva. Y al pasar de pregunta,
+    a la primera opción de la nueva, por la misma razón: «Siguiente» desaparece.
+  */
+  const siguiente = useRef<HTMLDivElement>(null);
+  const opciones = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (answered) {
+      siguiente.current?.querySelector('button')?.focus();
+    }
+  }, [answered]);
+  useEffect(() => {
+    if (venimosDeOtra) {
+      opciones.current?.querySelector('button')?.focus();
+    }
+  }, [venimosDeOtra, tracked]);
 
   /* v8 ignore next 3 -- mismo motivo: sin respuesta buena no hay pregunta que pintar */
   if (correct === null) {
@@ -113,7 +138,10 @@ export function Question({
           ancho mínimo cómodo para el dedo. La marca ocupa su sitio desde el
           principio, invisible hasta que hay algo que corregir: el texto no se
           mueve ni un píxel al contestar. */}
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(7rem,1fr))]">
+      <div
+        ref={opciones}
+        className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(7rem,1fr))]"
+      >
         {exercise.choices.map((choice) => {
           const picked = chosen === choice.text;
           return (
@@ -141,35 +169,53 @@ export function Question({
         })}
       </div>
 
-      {answered && (
-        <div
-          className={`mt-4 rounded-md border p-3 ${
-            acertada ? 'border-tube bg-tube/10' : 'border-oxblood-bright/50 bg-oxblood/10'
-          }`}
-        >
-          <p className="flex items-start gap-2 text-sm" aria-live="polite">
-            <span
-              aria-hidden="true"
-              className={`mt-0.5 shrink-0 [&_svg]:size-4 ${
-                acertada ? 'text-tube-bright' : 'text-oxblood-bright'
-              }`}
-            >
-              {acertada ? <IconoAcierto /> : <IconoFallo />}
-            </span>
-            <span className="text-text">
-              {acertada ? (
-                ''
-              ) : (
-                <strong className="text-oxblood-bright font-medium">Era {correct.text}. </strong>
-              )}
-              {exercise.why}
-            </span>
-          </p>
-          <div className="mt-3">
+      {/*
+        **La región viva está antes que la corrección.** Nacía con el texto dentro,
+        y una región que aparece ya llena no la anuncia ningún lector de pantalla
+        de forma fiable: se contestaba y no se oía si era buena o mala. Ahora está
+        montada desde el principio, vacía y sin ocupar sitio (`empty:sr-only`, como
+        `ui/Aviso`), y al contestar se rellena. «Siguiente» va fuera de ella, para
+        que no se lea como parte del porqué.
+      */}
+      <div
+        className={
+          answered
+            ? `mt-4 rounded-md border p-3 ${
+                acertada ? 'border-tube bg-tube/10' : 'border-oxblood-bright/50 bg-oxblood/10'
+              }`
+            : ''
+        }
+      >
+        <p className="flex items-start gap-2 text-sm empty:sr-only" aria-live="polite">
+          {answered && (
+            <>
+              <span
+                aria-hidden="true"
+                className={`mt-0.5 shrink-0 [&_svg]:size-4 ${
+                  acertada ? 'text-tube-bright' : 'text-oxblood-bright'
+                }`}
+              >
+                {acertada ? <IconoAcierto /> : <IconoFallo />}
+              </span>
+              <span className="text-text">
+                {acertada ? (
+                  // La marca verde no se oye: sin esto, acertar sonaba igual que
+                  // un párrafo cualquiera.
+                  <span className="sr-only">Bien. </span>
+                ) : (
+                  <strong className="text-oxblood-bright font-medium">Era {correct.text}. </strong>
+                )}
+                {exercise.why}
+              </span>
+            </>
+          )}
+        </p>
+        {answered && (
+          <div ref={siguiente} className="mt-3">
             <Button onClick={onNext}>{last ? lastLabel : 'Siguiente'}</Button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </fieldset>
   );
 }

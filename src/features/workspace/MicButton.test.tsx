@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { AudioInput, AudioInputState } from '@audio/audio-input';
 import type { PitchEngine } from '@audio/pitch-engine';
+import { useClaqueta } from '@state/claqueta';
 import { useSessionStore } from '@state/session-store';
 
 import { MicButton } from './MicButton';
@@ -234,6 +235,81 @@ describe('mientras se pide el micro', () => {
     await userEvent.click(screen.getByRole('button'));
 
     expect(await screen.findByText('pidiendo permiso')).toBeInTheDocument();
+  });
+
+  /**
+   * **No se apaga, y el foco se queda en él.** Con `disabled` mientras el
+   * navegador preguntaba, el foco caía al `<body>` justo después de pulsarlo con
+   * Intro. Ahora se marca `aria-disabled` y otro clic no pide el micro dos veces.
+   */
+  it('mientras pregunta no suelta el foco ni pide dos veces', async () => {
+    let pedidas = 0;
+    class EntradaLenta extends EntradaFalsa {
+      override async start(): Promise<void> {
+        pedidas += 1;
+        await new Promise(() => {});
+      }
+    }
+    const entrada = new EntradaLenta();
+    render(<MicButton createInput={() => entrada} createEngine={() => new MotorCallado()} />);
+    const boton = screen.getByRole('button');
+
+    boton.focus();
+    await userEvent.keyboard('{Enter}');
+    await screen.findByText('pidiendo permiso');
+    await userEvent.click(boton);
+
+    expect(boton).toHaveFocus();
+    expect(boton).not.toBeDisabled();
+    expect(boton).toHaveAttribute('aria-disabled', 'true');
+    expect(pedidas).toBe(1);
+  });
+});
+
+/**
+ * Lo que se anuncia, y cuándo se calla.
+ *
+ * La pastilla vive en una región viva para que quien no ve la pantalla oiga la
+ * respuesta a lo que toca. Pero hay dos sitios donde hablar estorba: **durante la
+ * toma**, donde lo que importa es el clic (adr/0072), y **en el afinador**, que
+ * ya tiene su propia región y la nota se oía dos veces.
+ */
+describe('lo que anuncia el boton', () => {
+  function region(): HTMLElement {
+    return screen.getByText('A2').closest('[aria-live]') as HTMLElement;
+  }
+
+  beforeEach(() => {
+    useClaqueta.setState({ enLaToma: false });
+    useSessionStore.getState().actions.setListening('listening');
+    useSessionStore.setState({
+      reading: { name: 'A', pitchClass: 9, octave: 2, cents: 0, frequency: 110, midi: 45 },
+      hasSignal: true,
+    });
+  });
+
+  it('fuera de la toma, la nota se anuncia', () => {
+    render(<MicButton />);
+
+    expect(region()).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('durante la toma se calla, y vuelve a hablar al acabar', () => {
+    useClaqueta.setState({ enLaToma: true });
+    render(<MicButton />);
+
+    expect(region()).toHaveAttribute('aria-live', 'off');
+    // Se sigue viendo: lo que se calla es el anuncio, no la pastilla.
+    expect(screen.getByText('A2')).toBeVisible();
+
+    act(() => useClaqueta.setState({ enLaToma: false }));
+    expect(region()).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('donde otro ya lo anuncia, se calla', () => {
+    render(<MicButton anuncia={false} />);
+
+    expect(region()).toHaveAttribute('aria-live', 'off');
   });
 });
 

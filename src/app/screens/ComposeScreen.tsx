@@ -12,7 +12,13 @@ import {
   type LazyExoticComponent,
 } from 'react';
 
-import { keyName, type DegreeSymbol, type EspecieDeBloque } from '@core/music';
+import {
+  blockChord,
+  keyName,
+  type DegreeSymbol,
+  type EspecieDeBloque,
+  type PitchClass,
+} from '@core/music';
 // Del módulo y no del índice: `@features/arrange` reexporta también el lienzo y
 // el ensayo, que van en diferido, y un índice es la manera más corta de volver a
 // traérselos al paquete de entrada sin que nadie lo note (adr/0045, adr/0058).
@@ -28,9 +34,9 @@ import { ResumeLast } from '@features/sessions/ResumeLast';
 import { BarraDeTonalidad, KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
 import { ATAJOS, useAtajosDelBanco } from '@state/atajos-del-banco';
-import { useArrangementStore } from '@state/arrangement-store';
+import { useArrangementStore, type QuitadosAlCambiarDeModo } from '@state/arrangement-store';
+import { useClaqueta } from '@state/claqueta';
 import { selectPlegada, selectReparto, useBancoStore, type EditorDeAbajo } from '@state/banco';
-import { useMontajeEnSuModo } from '@state/montaje-en-su-modo';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { TOPES_DEL_BANCO } from '@state/workspace';
 import { Area } from '@ui/Area';
@@ -49,8 +55,11 @@ import {
   IconoSesiones,
   IconoTocar,
 } from '@ui/icons';
+import { Aviso } from '@ui/Aviso';
 import { WorkHeader } from '@ui/Screen';
 import { useHayBanco } from '@ui/use-hay-banco';
+import { useTraerALaVista } from '@ui/use-traer-a-la-vista';
+import { cerrarAlSalirElFoco } from '@ui/cerrar-al-salir-el-foco';
 
 interface Editor {
   readonly id: EditorDeAbajo;
@@ -235,6 +244,62 @@ function cerrarPanel(id: string): void {
 }
 
 /**
+ * Lo que un cambio de modo dejó fuera, dicho en una frase.
+ *
+ * Los cifrados van en el modo **de antes**, que es el que tenía esos grados: en
+ * el de ahora no existen, y por eso se quitaron.
+ */
+function fraseDeLoQuitado(tonica: PitchClass, { hacia, bloques }: QuitadosAlCambiarDeModo): string {
+  const antes = hacia === 'minor' ? 'major' : 'minor';
+  const nombres = bloques.map(
+    (bloque) => `${blockChord(tonica, antes, bloque).symbol} (${bloque.degree})`,
+  );
+  const lista = new Intl.ListFormat('es', { type: 'conjunction' }).format(nombres);
+  const modo = hacia === 'minor' ? 'menor' : 'mayor';
+  return nombres.length === 1
+    ? `Al pasar a ${modo} se ha quitado ${lista}: en ${modo} no tiene sitio.`
+    : `Al pasar a ${modo} se han quitado ${lista}: en ${modo} no tienen sitio.`;
+}
+
+/**
+ * **Lo que se quitó al cambiar de modo, dicho.** Traducir la canción a otro modo
+ * deja fuera los grados que allí no existen —un `V/ii` no tiene sitio en menor—,
+ * y se quitaban sin avisar: se cambiaba la rueda y la canción tenía un acorde
+ * menos sin que nadie supiera por qué.
+ *
+ * Aquí y no en el lienzo porque el modo se cambia desde cualquier espacio, y en
+ * Tocando o en Ensayar el lienzo no está. **Durante una toma se calla**: la voz
+ * del lector sale por el mismo altavoz que el clic, con el micro abierto, y
+ * cuando acaba la toma vuelve a estar.
+ *
+ * Con `ui/Aviso`, que monta la región viva vacía antes de que haya nada que
+ * decir: una que nace con el texto dentro no se lee en todos los lectores.
+ */
+function LoQueSeQuito() {
+  const quitados = useArrangementStore((state) => state.quitadosAlCambiarDeModo);
+  const olvidar = useArrangementStore((state) => state.actions.olvidarQuitados);
+  const enLaToma = useClaqueta((estado) => estado.enLaToma);
+  const tonica = useSessionStore((state) => selectActiveKey(state)?.tonic ?? null);
+  const frase =
+    quitados === null || enLaToma || tonica === null ? null : fraseDeLoQuitado(tonica, quitados);
+
+  return (
+    <div
+      className={
+        frase === null ? '' : 'border-border flex shrink-0 items-start gap-3 border-b px-3 py-2'
+      }
+    >
+      <Aviso mensaje={frase} className="min-w-0 grow text-xs" />
+      {frase !== null && (
+        <Chip onClick={olvidar} tone="quiet" tamano="compacto" className="shrink-0">
+          Vale
+        </Chip>
+      )}
+    </div>
+  );
+}
+
+/**
  * Componer: un banco de trabajo de cuatro áreas.
  *
  * **Una sola pantalla repartida, y no dos caras con un conmutador.** Lo segundo
@@ -262,10 +327,6 @@ function cerrarPanel(id: string): void {
  * convierte un editor en una pelea.
  */
 export function ComposeScreen() {
-  // El montaje se escribe en grados, y los grados no se llaman igual en mayor
-  // que en menor: sin esto, cambiar de tonalidad con la canción empezada tumba
-  // la pantalla entera. Vive en `state/` porque son dos almacenes hablándose.
-  useMontajeEnSuModo();
   const activeKey = useSessionStore(selectActiveKey);
 
   // Por porciones y no el objeto entero: el motor entrega veinte lecturas por
@@ -286,8 +347,16 @@ export function ComposeScreen() {
    * y plegar, que arriba es un gesto útil, ahí solo añade tiras que ocupan sin
    * enseñar nada. Se elige con el pulgar, como el resto de la aplicación en
    * pantalla estrecha.
+   *
+   * **Pero la primera pintura no lo pregunta.** El servidor no sabe el ancho y
+   * contesta que sí; lo que se ve nada más llegar —la cabecera, las de las
+   * áreas, la fila de abajo, «Más»— se elige con `max-lg:` y `lg:`, y esto solo
+   * poda después lo que ya estaba escondido. Lo que depende de la tonalidad
+   * puede seguir mirándolo: la tonalidad se lee del almacenamiento al montar,
+   * así que nunca está en esa primera pintura.
    */
   const hayBanco = useHayBanco();
+  const traerALaVista = useTraerALaVista();
   /*
     Plegada **solo donde hay banco**, y las dos cosas con la misma cuenta.
 
@@ -431,14 +500,19 @@ export function ComposeScreen() {
    * En el banco es la fila de abajo de siempre, a lo ancho. En un teléfono es
    * una lista dentro de «Más», y elegir uno cierra el panel: lo elegido se abre
    * abajo, y el panel encima lo taparía.
+   *
+   * La fila de abajo lleva además `max-lg:hidden`: el servidor no sabe el ancho
+   * y la pinta siempre, y sin la clase un teléfono la enseñaba hasta hidratar.
    */
-  const bandeja = (
+  const bandeja = (enPanel: boolean) => (
     <section
       aria-label="Qué se ve abajo"
-      className={hayBanco ? 'border-border flex shrink-0 flex-col border-t' : 'flex flex-col'}
+      className={
+        enPanel ? 'flex flex-col' : 'border-border flex shrink-0 flex-col border-t max-lg:hidden'
+      }
     >
       <div
-        className={hayBanco ? 'flex gap-1.5 overflow-x-auto px-3 py-2' : 'flex flex-col gap-1.5'}
+        className={enPanel ? 'flex flex-col gap-1.5' : 'flex gap-1.5 overflow-x-auto px-3 py-2'}
         onPointerOver={precargarLaBandeja}
         onFocus={precargarLaBandeja}
       >
@@ -447,14 +521,14 @@ export function ComposeScreen() {
             key={candidato.id}
             onClick={() => {
               accionesDelBanco.abrirAbajo(candidato.id);
-              if (!hayBanco) {
+              if (enPanel) {
                 cerrarPanel(idBandeja);
               }
             }}
             pressed={abajo === candidato.id}
             tone="quiet"
             tamano="compacto"
-            className={hayBanco ? 'shrink-0' : 'justify-start'}
+            className={enPanel ? 'justify-start' : 'shrink-0'}
           >
             <candidato.Icono />
             {candidato.name}
@@ -476,23 +550,34 @@ export function ComposeScreen() {
     // `--banco-alto` y se quedaba con el alto que le sobrara. El mástil, que se
     // ajusta a su caja, salía entonces del tamaño de un sello.
     <div className="flex h-full min-h-0 flex-col" style={medidas}>
+      {/*
+        **La cabecera sale igual del servidor que del cliente, en cualquier
+        ancho.** El servidor no sabe cuánto mide la pantalla y pinta el banco;
+        cuando esta fila dependía de `hayBanco`, un teléfono recibía la de
+        escritorio —con la línea y los mandos envolviéndose en tres renglones— y
+        al hidratar se quedaba en uno: la pantalla entera subía de golpe (CLS 0,12
+        a 390, 0,05 a 800). Ahora lo de cada ancho lo eligen las clases.
+
+        La línea va en `lead`, y `lineaSoloEnElBanco` la esconde por debajo de
+        `lg`: en un teléfono no cabe —compartía fila con el título y la barra, y
+        le tocaban cuatro letras y unos puntos suspensivos—. Ahí los mandos se
+        quedan con lo que deje el título, y desde `lg` miden lo suyo y se van a la
+        derecha. Antes la línea vivía dentro de las acciones, que repetían por
+        dentro el reparto de `WorkHeader`.
+      */}
       <WorkHeader
         title="Componer"
-        // En un teléfono, sin la línea: compartía fila con el título y la barra,
-        // y lo que le tocaba eran cuatro letras y unos puntos suspensivos.
-        {...(hayBanco
-          ? {
-              lead:
-                espacio === 'tocando'
-                  ? 'Toca, y lo que suena se escribe solo.'
-                  : espacio === 'ensayar'
-                    ? 'Tócala contra el metrónomo, y te digo cómo ha ido.'
-                    : 'Escribe la canción, mírala acorde a acorde y escúchala.',
-            }
-          : {})}
-        accionesCrecen={!hayBanco}
+        lead={
+          espacio === 'tocando'
+            ? 'Toca, y lo que suena se escribe solo.'
+            : espacio === 'ensayar'
+              ? 'Tócala contra el metrónomo, y te digo cómo ha ido.'
+              : 'Escribe la canción, mírala acorde a acorde y escúchala.'
+        }
+        lineaSoloEnElBanco
         actions={
-          /*
+          <>
+            {/*
             **En un teléfono, una sola fila que se desplaza de lado.**
 
             Eran dos filas que se envolvían —los espacios y las pestañas arriba,
@@ -500,20 +585,22 @@ export function ComposeScreen() {
             bandeja de abajo el marco se llevaba 365 píxeles de 844: quedaban 479
             para trabajar. Ahora todo lo que se elige va aquí, en el orden en que
             se usa, y lo que no cabe se alcanza arrastrando, con la pista de
-            `hay-mas-al-lado` que dice que sigue.
+            `hay-mas-al-lado` que dice que sigue —que solo se pinta por debajo de
+            40rem, así que puede ir puesta siempre—.
 
             **Ocupa lo que deja el título**, con `accionesCrecen`: midiendo lo
             que mide su contenido, una fila de seiscientos píxeles en un hueco de
             doscientos sesenta se bajaba a un renglón propio.
-          */
-          <div
-            className={`flex items-center gap-2 ${
-              hayBanco ? 'flex-wrap' : 'hay-mas-al-lado w-full overflow-x-auto [&>*]:shrink-0'
-            }`}
-          >
-            {/* Los espacios de trabajo antes que el metrónomo: son lo que cambia
+          */}
+            {/* Lo que recibe el foco se trae entero: a 390, «Tempo» enseñaba 13
+                de sus 82 píxeles y quien va con teclado no sabía qué tenía. */}
+            <div
+              onFocus={traerALaVista}
+              className="hay-mas-al-lado flex min-w-0 items-center gap-2 max-lg:w-full max-lg:overflow-x-auto lg:ml-auto lg:flex-wrap max-lg:[&>*]:shrink-0"
+            >
+              {/* Los espacios de trabajo antes que el metrónomo: son lo que cambia
                 la pantalla entera, y lo que cambia más cosas va primero. */}
-            {/*
+              {/*
               En un teléfono, **los espacios son también las pestañas**.
 
               Había dos filas: los tres espacios arriba y, debajo, «Tocando · A
@@ -527,62 +614,62 @@ export function ComposeScreen() {
               si se llega antes de que la pantalla haya tenido un momento de
               reposo (adr/0058).
             */}
-            <span
-              className="flex gap-1"
-              role="group"
-              aria-label="Espacio de trabajo"
-              onPointerOver={() => precargar('lienzo', 'ensayo')}
-              onFocus={() => precargar('lienzo', 'ensayo')}
-            >
-              {ESPACIOS.map((candidato) => (
-                <Chip
-                  key={candidato.id}
-                  onClick={() => {
-                    accionesDelBanco.espacio(candidato.id);
-                    setAreaMovil('arreglo');
-                  }}
-                  pressed={espacio === candidato.id && (hayBanco || areaMovil === 'arreglo')}
-                  tone="quiet"
-                  tamano="compacto"
-                  ariaLabel={candidato.name}
-                  atajo={candidato.atajo}
-                >
-                  <candidato.Icono />
-                  {/* En un teléfono, solo el icono: la fila se desplaza, y con los
+              <span
+                className="flex gap-1"
+                role="group"
+                aria-label="Espacio de trabajo"
+                onPointerOver={() => precargar('lienzo', 'ensayo')}
+                onFocus={() => precargar('lienzo', 'ensayo')}
+              >
+                {ESPACIOS.map((candidato) => (
+                  <Chip
+                    key={candidato.id}
+                    onClick={() => {
+                      accionesDelBanco.espacio(candidato.id);
+                      setAreaMovil('arreglo');
+                    }}
+                    pressed={espacio === candidato.id && (hayBanco || areaMovil === 'arreglo')}
+                    tone="quiet"
+                    tamano="compacto"
+                    ariaLabel={candidato.name}
+                    atajo={candidato.atajo}
+                  >
+                    <candidato.Icono />
+                    {/* En un teléfono, solo el icono: la fila se desplaza, y con los
                       tres rótulos las pestañas de detrás quedaban siempre fuera. */}
-                  <span className="hidden sm:inline">{candidato.name}</span>
-                </Chip>
-              ))}
-              {!hayBanco && activeKey !== null && (
-                <>
-                  <Separador />
-                  {(
-                    [
-                      ['camino', 'A dónde ir'],
-                      ['acorde', 'Acorde'],
-                    ] as const
-                  ).map(([id, nombre]) => (
-                    <Chip
-                      key={id}
-                      onClick={() => setAreaMovil(id)}
-                      pressed={areaMovil === id}
-                      tone="quiet"
-                      tamano="compacto"
-                    >
-                      {nombre}
-                    </Chip>
-                  ))}
-                </>
-              )}
-            </span>
+                    <span className="hidden sm:inline">{candidato.name}</span>
+                  </Chip>
+                ))}
+                {!hayBanco && activeKey !== null && (
+                  <>
+                    <Separador />
+                    {(
+                      [
+                        ['camino', 'A dónde ir'],
+                        ['acorde', 'Acorde'],
+                      ] as const
+                    ).map(([id, nombre]) => (
+                      <Chip
+                        key={id}
+                        onClick={() => setAreaMovil(id)}
+                        pressed={areaMovil === id}
+                        tone="quiet"
+                        tamano="compacto"
+                      >
+                        {nombre}
+                      </Chip>
+                    ))}
+                  </>
+                )}
+              </span>
 
-            {/* **Una raya entre los espacios y el metrónomo.** Tenían la misma
+              {/* **Una raya entre los espacios y el metrónomo.** Tenían la misma
                 pinta —pastillas grises de la misma altura— y «− 100 +» se leía
                 como otro espacio de trabajo más. */}
-            <Separador />
-            <Metronome />
+              <Separador />
+              <Metronome />
 
-            {/*
+              {/*
               La tonalidad, **dentro de la fila cuando ya hay una**.
 
               Sin tonalidad la barra de abajo se abre sola, y tiene que poder: es
@@ -592,34 +679,37 @@ export function ComposeScreen() {
               panel por encima de todo, como el del metrónomo y por lo mismo: un
               panel anclado dentro de esta fila lo recortaría el desplazamiento.
             */}
-            {!hayBanco && activeKey !== null && (
-              <>
-                <button
-                  type="button"
-                  popoverTarget={idTonalidad}
-                  className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center gap-1 rounded-md border px-3 text-[13px] font-medium"
-                >
-                  <IconoAfinar />
-                  <span className="text-brass-bright">
-                    {keyName(activeKey.tonic, activeKey.mode)}
-                  </span>
-                </button>
-                <div
-                  id={idTonalidad}
-                  popover="auto"
-                  role="region"
-                  aria-label="Cambiar la tonalidad"
-                  className="superficie-alta text-text backdrop:bg-night/50 m-auto max-h-[calc(100dvh-2rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto p-3"
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <KeyPanel compact />
-                    <Settings />
+              {!hayBanco && activeKey !== null && (
+                <>
+                  <button
+                    type="button"
+                    popoverTarget={idTonalidad}
+                    className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center gap-1 rounded-md border px-3 text-[13px] font-medium"
+                  >
+                    <IconoAfinar />
+                    <span className="text-brass-bright">
+                      {keyName(activeKey.tonic, activeKey.mode)}
+                    </span>
+                  </button>
+                  <div
+                    id={idTonalidad}
+                    popover="auto"
+                    // Lleva velo y parece modal: si el tabulador se sale, se
+                    // cierra, en vez de seguir por los controles que tapa.
+                    onBlur={cerrarAlSalirElFoco}
+                    role="region"
+                    aria-label="Cambiar la tonalidad"
+                    className="superficie-alta text-text backdrop:bg-night/50 m-auto max-h-[calc(100dvh-2rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto p-3"
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <KeyPanel compact />
+                      <Settings />
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
 
-            {/*
+              {/*
               La bandeja de abajo, **plegada a «Más»** en un teléfono.
 
               Era una fila fija de sesenta y un píxeles con cuatro paneles que se
@@ -627,57 +717,61 @@ export function ComposeScreen() {
               sesiones— y que en ningún móvil cabía entera. Lo que se abre sigue
               apareciendo abajo, con su botón de cerrar; lo que se va es la fila.
             */}
-            {!hayBanco && (
-              <>
-                <button
-                  type="button"
-                  popoverTarget={idBandeja}
-                  onPointerOver={precargarLaBandeja}
-                  onFocus={precargarLaBandeja}
-                  className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-[13px] font-medium"
-                >
-                  Más
-                </button>
-                <div
-                  id={idBandeja}
-                  popover="auto"
-                  className="superficie-alta text-text backdrop:bg-night/50 m-auto w-[min(20rem,calc(100vw-2rem))] p-3"
-                >
-                  {bandeja}
-                </div>
-              </>
-            )}
+              {/* **Siempre en el árbol, y escondido en el banco con `lg:hidden`**: es
+                lo único de esta fila que solo existe en un teléfono y está ahí
+                desde la primera pintura, así que tiene que venir ya del servidor,
+                que no sabe el ancho. Lo de dentro del panel sí espera a saberlo:
+                cerrado no se ve, y montarlo después no mueve nada. */}
+              <button
+                type="button"
+                popoverTarget={idBandeja}
+                onPointerOver={precargarLaBandeja}
+                onFocus={precargarLaBandeja}
+                className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-[13px] font-medium lg:hidden"
+              >
+                Más
+              </button>
+              <div
+                id={idBandeja}
+                popover="auto"
+                onBlur={cerrarAlSalirElFoco}
+                className="superficie-alta text-text backdrop:bg-night/50 m-auto w-[min(20rem,calc(100vw-2rem))] p-3"
+              >
+                {!hayBanco && bandeja(true)}
+              </div>
 
-            {/* Lo que queda de IA, a la vista antes de gastarlo: estaba solo
+              {/* Lo que queda de IA, a la vista antes de gastarlo: estaba solo
                 dentro del panel que lo gasta, así que para saberlo había que
                 abrir el que ibas a usar
                 ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)). */}
-            <CupoDeIA className="px-2" />
+              <CupoDeIA className="px-2" />
 
-            {/* La salida para quien se lo ha dejado imposible. Un banco que se
+              {/* La salida para quien se lo ha dejado imposible. Un banco que se
                 mueve necesita una manera de volver, o plegar y arrastrar dan
                 miedo; y como el reparto es de este espacio, devolverlo no toca
                 los otros dos. **«Restablecer paneles» y no «Reordenar»**: no
                 ordena nada, devuelve el reparto de fábrica, y el nombre tiene
                 que decir lo que se pierde al pulsarlo. */}
-            {hayBanco && (
-              <button
-                type="button"
-                onClick={() => accionesDelBanco.devolverElReparto()}
-                className="text-text-muted hover:text-brass-bright min-h-tap inline-flex cursor-pointer items-center px-2 text-xs"
-                title={`Devolver las áreas a como venían en este espacio · ${ATAJOS.devolver}`}
-                aria-keyshortcuts={ATAJOS.devolver}
-              >
-                Restablecer paneles
-              </button>
-            )}
-          </div>
+              {hayBanco && (
+                <button
+                  type="button"
+                  onClick={() => accionesDelBanco.devolverElReparto()}
+                  className="text-text-muted hover:text-brass-bright min-h-tap inline-flex cursor-pointer items-center px-2 text-xs max-lg:hidden"
+                  title={`Devolver las áreas a como venían en este espacio · ${ATAJOS.devolver}`}
+                  aria-keyshortcuts={ATAJOS.devolver}
+                >
+                  Restablecer paneles
+                </button>
+              )}
+            </div>
+          </>
         }
       />
 
       {/* Se ofrece la última sesión, no se pone. Desaparece sola en cuanto
           eliges tonalidad o tocas algo. */}
       <ResumeLast />
+      <LoQueSeQuito />
 
       {/* En estrecho la tonalidad se pliega a una línea: la rueda ocupa media
           pantalla de teléfono y es justo lo que se toca una vez al empezar. En
@@ -768,9 +862,12 @@ export function ComposeScreen() {
           teléfono, la pestaña dejaba **una pantalla en negro**. Medido: la
           región existía, con su lista dentro, en una caja de 0×0.
         */}
+        {/* `max-lg:` y no `hidden` a secas: así el banco no tiene que esperar a
+            JavaScript para saber que esto no se esconde, y el teléfono tampoco
+            para saber que sí. */}
         <div
           className={`flex min-h-0 min-w-0 grow flex-col ${
-            hayBanco || areaMovil === 'arreglo' || areaMovil === 'camino' ? '' : 'hidden'
+            areaMovil === 'acorde' ? 'max-lg:hidden' : ''
           }`}
         >
           <Area
@@ -798,6 +895,7 @@ export function ComposeScreen() {
             // entre ceder y cortar.
             scroll={cediendoAlMastil}
             sinCabecera={!hayBanco}
+            cabeceraSoloEnElBanco
             // Suelo, porque es lo único que no se desplaza por dentro: lo que
             // no le quepa al lienzo se recorta y deja su barra sin alcanzar.
             // Diez rem en el banco —es lo que deja sitio al área de abajo para
@@ -818,15 +916,21 @@ export function ComposeScreen() {
             // arriba.
             className={`min-h-[26rem] grow ${
               cediendoAlMastil ? 'lg:min-h-32' : 'lg:min-h-56 xl:min-h-44'
-            } ${hayBanco || areaMovil === 'arreglo' ? '' : 'hidden'}`}
+            } ${areaMovil === 'arreglo' ? '' : 'max-lg:hidden'}`}
           >
             {activeKey === null ? (
               // `my-auto` en el hijo y no `justify-center` aquí, que es la regla
               // de la casa: centrar en la caja que se desplaza saca lo que no
               // cabe por los dos lados y deja la mitad de arriba fuera de
               // alcance.
+              //
+              // **Y solo en el banco.** En un teléfono, centrado, el bloque
+              // bajaba mientras llegaba el HTML: cada trozo que entraba lo hacía
+              // crecer y el margen automático lo recolocaba, y la pantalla daba
+              // un salto antes de hidratar. Arriba no salta, y en un teléfono
+              // arriba es donde se mira.
               <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-                <div className="my-auto">
+                <div className="lg:my-auto">
                   <EmpezarPorTonalidad />
                 </div>
               </div>
@@ -871,6 +975,7 @@ export function ComposeScreen() {
               onPlegar={hayBanco ? () => accionesDelBanco.plegar('camino') : undefined}
               pliegue="horizontal"
               sinCabecera={!hayBanco}
+              cabeceraSoloEnElBanco
               /*
                 Pide trece rem, pero **cede**: al abrir el área de abajo el alto
                 no da para todos, y lo que no puede encogerse es el arreglo. Esta
@@ -957,6 +1062,7 @@ export function ComposeScreen() {
             atajo={hayBanco ? ATAJOS.derecha : undefined}
             medida={hayBanco ? medidaDe('derecha', derecha, 'ancho') : undefined}
             sinCabecera={!hayBanco}
+            cabeceraSoloEnElBanco
             // Apilada tiene tope: es una consulta, no el trabajo, y sin él se
             // llevaba más alto que la propia canción.
             className={`border-border border-t max-lg:grow lg:shrink-0 lg:border-t-0 lg:border-l ${
@@ -1089,7 +1195,7 @@ export function ComposeScreen() {
         )}
 
         {/* En el banco, la fila de siempre; en un teléfono vive en «Más». */}
-        {hayBanco && bandeja}
+        {hayBanco && bandeja(false)}
       </div>
     </div>
   );

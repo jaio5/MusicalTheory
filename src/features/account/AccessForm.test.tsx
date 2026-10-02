@@ -63,6 +63,9 @@ describe('sin cuentas configuradas', () => {
 
     expect(screen.getByText(/no hay cuentas configuradas/i)).toBeInTheDocument();
     expect(screen.getByText(/se guarda en este navegador/i)).toBeInTheDocument();
+    // Y no que lo único que falta es llevárselo: el profesor y lo del plan tampoco.
+    expect(screen.queryByText(/Lo único que no hay/)).not.toBeInTheDocument();
+    expect(screen.getByText(/el profesor y lo que abre un plan/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Entrar' })).not.toBeInTheDocument();
   });
 
@@ -253,6 +256,28 @@ describe('entrar', () => {
 
     const aviso = await screen.findByText('El correo o la contraseña.');
     expect(aviso).toHaveAttribute('aria-live', 'polite');
+  });
+
+  /**
+   * **Mientras entra, el botón no suelta el foco.** Apagado con `disabled`, el
+   * navegador mandaba el foco al `<body>` y quien no ve la pantalla perdía el
+   * sitio justo al pulsar Intro. Sigue enfocado, dice que no está disponible y
+   * otro clic no manda dos veces.
+   */
+  it('mientras entra, el boton se queda con el foco y no manda dos veces', async () => {
+    signInWithPassword.mockReturnValue(new Promise(() => {}));
+    pintar();
+
+    await userEvent.type(screen.getByLabelText(/Correo/), 'a@b.c');
+    await userEvent.type(screen.getByLabelText(/Contraseña/), 'secreta');
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+    const boton = await screen.findByRole('button', { name: /Un momento/ });
+    await userEvent.click(boton);
+
+    expect(boton).toHaveFocus();
+    expect(boton).not.toBeDisabled();
+    expect(boton).toHaveAttribute('aria-disabled', 'true');
+    expect(signInWithPassword).toHaveBeenCalledTimes(1);
   });
 
   it('un fallo sin frase tiene una de respaldo', async () => {

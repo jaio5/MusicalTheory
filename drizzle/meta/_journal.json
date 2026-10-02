@@ -36,6 +36,13 @@
       "when": 1787671499326,
       "tag": "0004_cool_vanisher",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790943842257,
+      "tag": "0005_quick_wrecker",
+      "breakpoints": true
     }
   ]
 }

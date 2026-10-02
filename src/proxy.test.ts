@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { NextRequest } from 'next/server';
 
+import nextConfig from '../next.config';
+
 import { proxy } from './proxy';
 
 /**
@@ -65,6 +67,15 @@ describe('Las cabeceras de seguridad', () => {
     expect(cabeceras.get('X-Content-Type-Options')).toBe('nosniff');
     expect(cabeceras.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
     expect(cabeceras.get('Strict-Transport-Security')).toContain('max-age=31536000');
+  });
+
+  it('una ventana ajena no se queda con un puntero a esta', () => {
+    expect(respuestaDe().get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+  });
+
+  // Esta no la pone el proxy sino Next, y se apaga en su configuración.
+  it('no se anuncia con qué está hecha', () => {
+    expect(nextConfig.poweredByHeader).toBe(false);
   });
 
   /** Y el número llega a quien lo necesita: el guion del tema, en `layout.tsx`. */

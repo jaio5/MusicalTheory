@@ -1,5 +1,7 @@
 # ADR 0062 — La rejilla del punteo llega a veinticuatro, y lo que se coge no es lo que se pinta
 
+> **Matizado por [ADR 0084](./0084-lo-que-trabaja-no-se-apaga-y-el-foco-se-mueve-a-mano.md):** la rejilla se queda en 24 px tras la auditoría de accesibilidad. A 44 una parte de trece filas mediría 572 px, y hay una alternativa a 44 px.
+
 Fecha: 2026-09-30 · Estado: aceptada · Amplía [ADR 0019](./0019-punteos-y-partitura.md)
 
 ## Contexto

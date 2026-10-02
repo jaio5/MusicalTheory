@@ -32,7 +32,11 @@ export default defineConfig({
 
       Vitest no expone ninguna variable que lo diga, así que se pone aquí.
     */
-    env: { COBERTURA: midiendoCobertura ? '1' : '' },
+    // `TRUSTED_PROXY_HOPS`: los tests de las rutas mandan `X-Forwarded-For` como
+    // lo pondría un proxy delante, y sin proxy de confianza esa cabecera ya no se
+    // cree (`server/rate-limit.ts`): todos compartirían un tope y los de frecuencia
+    // fallarían por ruido. Uno es lo que hay en el despliegue típico.
+    env: { COBERTURA: midiendoCobertura ? '1' : '', TRUSTED_PROXY_HOPS: '1' },
     /*
       Con la cobertura puesta se espera más a cada test, y por lo mismo de
       arriba: **el instrumentado de V8 multiplica por tres lo que tarda todo.**

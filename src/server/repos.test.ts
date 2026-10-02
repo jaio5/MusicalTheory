@@ -148,6 +148,22 @@ describe('las canciones', () => {
     expect(await songs.listSongs(userId)).toHaveLength(MAX_SONGS);
   });
 
+  it('dos guardados a la vez con una sola plaza no dejan el tope pasado', async () => {
+    // Antes contar y escribir eran dos sentencias, y los dos contaban 49.
+    const userId = await cuenta();
+    for (let i = 0; i < MAX_SONGS - 1; i += 1) {
+      await songs.createSong(userId, { ...CANCION, name: `La ${i}` });
+    }
+
+    const resultados = await Promise.all(
+      [1, 2, 3].map((i) => songs.createSong(userId, { ...CANCION, name: `A la vez ${i}` })),
+    );
+
+    expect(resultados.filter((r) => r.kind === 'ok')).toHaveLength(1);
+    expect(resultados.filter((r) => r.kind === 'llena')).toHaveLength(2);
+    expect(await songs.listSongs(userId)).toHaveLength(MAX_SONGS);
+  });
+
   it('actualizar una que no existe no la crea', async () => {
     const userId = await cuenta();
 
@@ -361,6 +377,22 @@ describe('el vale de la contraseña olvidada', () => {
       'vale-no-vale',
     );
     expect((await users.findUserById(userId))?.id).toBe(userId);
+  });
+
+  it('el mismo enlace dos veces a la vez cambia la contraseña una sola vez', async () => {
+    // Antes se leía «sin usar», se cambiaba la contraseña y se marcaba al final:
+    // las dos peticiones leían a la vez «sin usar» y las dos entraban.
+    const userId = await cuenta();
+    const pedido = await vales.requestReset('a@b.c', new Date());
+
+    const resultados = await Promise.all([
+      vales.resetPassword(pedido!.token, 'laPrimeraLarga', new Date()),
+      vales.resetPassword(pedido!.token, 'laSegundaLarga', new Date()),
+    ]);
+
+    expect([...resultados].sort()).toEqual(['ok', 'vale-no-vale']);
+    // Y la versión de sesión sube una vez, no dos.
+    expect((await users.findUserById(userId))?.sessionVersion).toBe(1);
   });
 
   it('caducado no sirve', async () => {

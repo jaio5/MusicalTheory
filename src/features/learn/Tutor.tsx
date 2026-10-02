@@ -34,9 +34,12 @@ import { Teacher } from './Teacher';
  *
  * Habla escribiendo, letra a letra y directamente en el DOM: por el estado eran
  * cien renders de React por frase. Nada de voz sintética, que suena a robot y se
- * pisa con lo que estés tocando. Para quien no ve la pantalla, el globo lleva la
- * frase entera desde el primer momento —anunciarla letra a letra sería
+ * pisa con lo que estés tocando. Para quien no ve la pantalla, una región viva
+ * lleva la frase entera desde el primer momento —anunciarla letra a letra sería
  * inservible— y con `prefers-reduced-motion` no entra deslizándose ni escribe.
+ *
+ * **Abierto es un panel que tapa, y se sale de él como de uno**: con Escape, o
+ * yéndose con el foco a otra cosa.
  *
  * **Y no se abre solo donde no cabe.** Abierto mide lo que mide el formulario, y
  * en un teléfono eso es media pantalla: al fallar una pregunta se plantaba encima
@@ -111,6 +114,14 @@ export function Tutor({
     aviso !== null && cabeElGlobo() && !prefersReducedMotion(),
   );
   const globo = useRef<HTMLSpanElement>(null);
+  const anuncio = useRef<HTMLParagraphElement>(null);
+  const muneco = useRef<HTMLButtonElement>(null);
+  // El aviso de visto, el último que llegó: quien lo pasa lo escribe como flecha
+  // en cada render, y el efecto de Escape no tiene por qué rehacerse por eso.
+  const avisoVisto = useRef(onAvisoVisto);
+  useEffect(() => {
+    avisoVisto.current = onAvisoVisto;
+  });
 
   const frase = aviso ?? '¿Qué quieres saber? Te lo explico con los acordes de tu tonalidad.';
 
@@ -124,6 +135,51 @@ export function Tutor({
       setHablando(!quieto);
     }
   }
+
+  /*
+    **La región viva está montada antes de que haya nada que decir**, y se rellena
+    después, como en `ui/Aviso`. Iba dentro del globo y nacía con la frase
+    puesta: una región que aparece ya llena no la anuncia ningún lector de
+    pantalla de forma fiable, así que el «esa no era» del muñeco no se oía. Se
+    escribe desde el efecto y no desde el render para que sea así incluso cuando
+    el muñeco se monta ya con el aviso.
+  */
+  useEffect(() => {
+    /* v8 ignore next 3 -- el parrafo se pinta siempre, abierto o cerrado */
+    if (anuncio.current === null) {
+      return;
+    }
+    anuncio.current.textContent = abierto ? frase : '';
+  }, [abierto, frase]);
+
+  /*
+    **Escape cierra el globo**, esté donde esté el foco. Abierto tapa la pregunta
+    que hay debajo, y era lo único flotante de la aplicación de lo que no se salía
+    con el teclado. Si el foco estaba dentro vuelve al muñeco, que es lo que se
+    acaba de cerrar; si estaba fuera, se queda donde estaba. Lo que flota dentro
+    de otra cosa y se cierra con Escape —`ui/Disclosure`— corta la propagación,
+    así que una pulsación no cierra dos cosas.
+  */
+  useEffect(() => {
+    if (!abierto) {
+      return;
+    }
+    function escape(evento: KeyboardEvent): void {
+      if (evento.key !== 'Escape') {
+        return;
+      }
+      // El marco está pintado: este efecto solo corre con el globo abierto.
+      const dentro = marco.current!.contains(document.activeElement);
+      setAbierto(false);
+      setHablando(false);
+      avisoVisto.current?.();
+      if (dentro) {
+        muneco.current?.focus();
+      }
+    }
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [abierto]);
 
   useEffect(() => {
     if (!abierto) {
@@ -229,6 +285,26 @@ export function Tutor({
     onAvisoVisto?.();
   }
 
+  /**
+   * Y se cierra cuando el foco se va a otra cosa de la pantalla.
+   *
+   * Quien avanza con el tabulador sale del globo hacia la pregunta, y el globo se
+   * quedaba encima de ella. Solo cuando el foco aterriza en algo de fuera: si se
+   * va a ninguna parte —otra ventana, otra pestaña— el globo sigue como estaba.
+   */
+  function salirse(evento: React.FocusEvent<HTMLDivElement>): void {
+    const destino = evento.relatedTarget;
+    if (abierto && destino !== null && !evento.currentTarget.contains(destino)) {
+      cerrar();
+    }
+  }
+
+  /** «Cerrar» desaparece con el globo, así que el foco vuelve al muñeco. */
+  function cerrarDesdeDentro(): void {
+    cerrar();
+    muneco.current?.focus();
+  }
+
   const derecha = sitio.lado === 'derecha';
   // Hacia dónde crece el globo. Si el muñeco está en la mitad de abajo se ancla
   // por abajo y el globo sube; si está arriba, al revés. Anclando siempre por
@@ -243,6 +319,7 @@ export function Tutor({
       onPointerMove={mover}
       onPointerUp={soltar}
       onPointerCancel={soltar}
+      onBlur={salirse}
       // La altura la pone el sitio guardado; el lado, una de las dos anclas. El
       // globo se abre hacia dentro de la pantalla, así que en el lado derecho la
       // fila se invierte y el pico del globo cambia de esquina.
@@ -252,6 +329,7 @@ export function Tutor({
       }`}
     >
       <button
+        ref={muneco}
         type="button"
         onClick={() => {
           if (abierto) {
@@ -272,6 +350,8 @@ export function Tutor({
         <Mascota hablando={hablando} atento={abierto} />
       </button>
 
+      <p ref={anuncio} className="sr-only" aria-live="polite" />
+
       {abierto && (
         <div
           className={`superficie-alta w-[min(26rem,calc(100vw-6rem))] p-3 ${
@@ -284,9 +364,11 @@ export function Tutor({
                 : 'rounded-bl-none'
           } ${quieto ? '' : 'animate-asomar'}`}
         >
-          <p className="text-text text-sm" aria-live="polite">
-            <span aria-hidden="true" ref={globo} />
-            <span className="sr-only">{frase}</span>
+          {/* Lo que se ve se escribe letra a letra y no se lee: la frase entera
+              la dice la región de arriba, que va justo antes en el orden de
+              lectura. */}
+          <p className="text-text text-sm" aria-hidden="true">
+            <span ref={globo} />
           </p>
 
           {/* El formulario de siempre, aquí dentro: preguntar no debería costar
@@ -318,7 +400,7 @@ export function Tutor({
             </button>
             <button
               type="button"
-              onClick={cerrar}
+              onClick={cerrarDesdeDentro}
               className="text-text-muted hover:text-text min-h-tap px-2 text-xs"
             >
               Cerrar

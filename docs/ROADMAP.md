@@ -101,6 +101,14 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
   `otro-final` ni aparecen**. Con esto no se sabe si la función sirve o si el
   modelo es pequeño, que es exactamente para lo que hace falta la API.
 
+- **Pasar el examen del profesor contra la API.** `pnpm examen:profesor` son 28
+  preguntas de teoría por el mismo camino que la ruta, pero hoy solo sabe llamar al
+  modelo de casa (`server/local-model.ts`). Con `qwen3:8b` y el glosario
+  delante salen 26 de 28 ([adr/0076](./adr/0076-el-profesor-se-apoya-en-un-glosario-comprobado.md)):
+  el ii–V–I contesta sin acordes y dice que el bajo sube, y los siete modos, sin
+  nombrar ninguno. El validador solo mira las cadencias y la relativa, así que
+  errores pequeños fuera de ellas —«la menor natural tiene la séptima justa»—
+  siguen llegando a la pantalla.
 - **`pnpm docker:ia` está escrito y sin levantar.** El adaptador sí se probó
   contra un Ollama de verdad; el camino de compose, nunca, porque en este equipo
   Docker Desktop no tiene encendida la integración con WSL.
@@ -121,12 +129,16 @@ El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
 ([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
 la manera normal de componer aquí.
 
-- **El lienzo no se guarda solo, y eso es lo primero de esta sección.** Hay que
-  guardarlo como canción desde la pestaña de Canciones, y si no te acuerdas se
-  pierde. Estaba anotado como un detalle razonado y **sube a urgente el 26 de
-  septiembre de 2026**, porque quien la usa ha dicho que una canción se monta en
-  **muchas** sesiones y no en una: con sesiones largas esto no es una molestia, es
-  perder trabajo.
+- **El lienzo ya se guarda solo en el navegador: hecho.** Estaba anotado como lo
+  primero de esta sección desde el 26 de septiembre de 2026 —una canción se monta
+  en **muchas** sesiones, y sin plan un F5 la borraba entera—. Ahora el lienzo que
+  hay se guarda en la IndexedDB `caos-ordenado`, con su versión, al cabo de 300 ms
+  del último cambio y nunca a mitad de un arrastre, y vuelve al abrir
+  (`guardarElLienzo` en `state/arrangement-store.ts`). Es local y no sube nada.
+  **Lo que no hace**: no guarda el deshacer, que es de la sesión; no es una
+  canción con nombre —es un solo lienzo, el último—, así que tener varias sigue
+  pidiendo guardarlas desde Canciones; y lo de otro navegador u otro aparato no
+  lo ve, que para eso está la cuenta.
 - **Y reabrir ya no desagrupa los bloques: hecho.** Un grado sigue siendo un
   compás, que es lo que leen la ruta de salidas y la de canciones, pero la
   agrupación se guarda aparte en `compasesPorBloque`. Aquí ponía que arreglarlo
@@ -187,18 +199,15 @@ Lo que queda, en el orden en que se hace:
   aparezca, el ADR 0035 se amplía con la medida delante
   ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
 
-- **El parpadeo del primer fotograma en un teléfono.** `useHayBanco` contesta que
-  sí hay banco en el servidor, así que en estrecho se pinta el reparto ancho y al
-  hidratar cambia a pestañas. El tema lo resolvió con un guion en el `<head>`;
-  aquí no vale, porque no es un atributo sino otro árbol.
-
-  **Medido antes de ponerse:** las pestañas tardan unos 300 ms en aparecer en un
-  portátil, pero eso es lo de menos. El servidor **no puede saber la tonalidad**
-  —vive en el navegador—, así que el primer fotograma dice «sin elegir» y enseña
-  la rueda abierta pase lo que pase, y al cargar el estado cambia media pantalla.
-  Arreglar solo el banco deja el parpadeo grande igual. Lo que resolvería los dos
-  es pintar el marco y esperar al estado, y eso es una decisión con alternativas:
-  va con su ADR.
+- **El parpadeo del primer fotograma en un teléfono: el del banco, hecho.**
+  El servidor sigue contestando que sí hay banco, pero su árbol lleva las clases que
+  esconden lo de escritorio en un teléfono, y el CLS de componer a 390 pasa de 0,116
+  a 0 ([adr/0083](./adr/0083-componer-pinta-lo-de-escritorio-y-las-clases-lo-esconden.md)).
+  **Lo que queda de lo que se anotó aquí**: el servidor no puede saber la tonalidad
+  —vive en el navegador—, y que el primer fotograma diga «sin elegir» y enseñe la
+  rueda abierta hasta cargar el estado **no se ha vuelto a medir** después de este
+  cambio. Si sigue ahí, lo que lo resolvería es pintar el marco y esperar al estado,
+  y eso es una decisión con alternativas: va con su ADR.
 
 ## 5. Que aprender y componer sean lo mismo
 
@@ -272,6 +281,17 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
 - **`lectura` entre 768 y 1023** deja el `aside` en unos 200 px
   ([adr/0073](./adr/0073-las-pantallas-llenan-el-ancho.md)), y `WorkHeader` sigue con
   16 px de margen frente al `px-margen` del cuerpo.
+- **Nada vigila que los tres cortes de la navegación se muevan juntos**: `AppShell`
+  en `md`, el tope del panel flotante de `ui/Disclosure` y el corte de 500 px de alto.
+  Lo caza la sonda del skill `arrancar`, que no corre sola
+  ([adr/0084](./adr/0084-lo-que-trabaja-no-se-apaga-y-el-foco-se-mueve-a-mano.md)).
+- **El lienzo guardado no está atado a la cuenta.** Es por navegador: quien comparta
+  uno ve la canción del otro. Está en
+  [PARA-PUBLICAR.md](./PARA-PUBLICAR.md) porque pesa al publicar, no antes
+  ([adr/0081](./adr/0081-el-lienzo-se-guarda-solo-en-el-navegador.md)).
+- **Medir la inyección del profesor contra la API.** Con `qwen3:8b` resisten dos de
+  ocho disfraces, y contra el modelo de pago no se ha pasado: son los mismos ocho
+  casos de [adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md), «Corrección».
 - **Regenerar la escena y la mascota con la paleta del
   [adr/0070](./adr/0070-la-sala-encendida.md)**: `arte/portada/build.py` y
   `arte/mascota/build.py`.

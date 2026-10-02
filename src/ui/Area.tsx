@@ -74,6 +74,7 @@ export function Area({
   atajo,
   pliegue = 'vertical',
   sinCabecera = false,
+  cabeceraSoloEnElBanco = false,
   medida,
 }: {
   readonly titulo: string;
@@ -117,6 +118,17 @@ export function Area({
    */
   readonly sinCabecera?: boolean;
   /**
+   * Que la cabecera **se esconda por debajo de `lg` con clases**, sin esperar a
+   * que JavaScript diga que no hay banco.
+   *
+   * `sinCabecera` lo decide el cliente después de hidratar, y el servidor no sabe
+   * el ancho: pinta el árbol del banco, con su cabecera. En un teléfono eso era
+   * una franja de cuarenta y cuatro píxeles que salía y se iba al hidratar, y
+   * arrastraba la pantalla entera hacia arriba (CLS 0,12 en `/componer`). Con
+   * esto, la primera pintura ya sale sin ella.
+   */
+  readonly cabeceraSoloEnElBanco?: boolean;
+  /**
    * Estrecharla y ensancharla **sin arrastrar**, desde su cabecera.
    *
    * El reparto se movía solo con el divisor: arrastrando o, con el foco puesto
@@ -159,7 +171,11 @@ export function Area({
         // La tira mide lo mismo que una cabecera, para que plegar no mueva de
         // sitio las líneas de la pantalla. Y lleva `size-tap` de fondo: es un
         // botón, y aquí los botones se pulsan con el dedo.
-        className={`bg-surface border-border text-text-muted hover:text-brass-bright hover:bg-surface-raised flex shrink-0 cursor-pointer items-center justify-center gap-2 transition-colors ${
+        //
+        // El aro del foco va **hacia dentro** (`-outline-offset-3`): la tira vive
+        // pegada al borde de una caja que recorta, y el de la casa, tres píxeles
+        // por fuera, se quedaba cortado contra ese borde.
+        className={`bg-surface border-border text-text-muted hover:text-brass-bright hover:bg-surface-raised flex shrink-0 cursor-pointer items-center justify-center gap-2 transition-colors focus-visible:-outline-offset-3 ${
           depie ? 'min-w-tap w-7 flex-col border-r py-2' : 'min-h-tap w-full border-t px-2'
         } ${className}`}
       >
@@ -188,7 +204,11 @@ export function Area({
       {sinCabecera ? (
         <h2 className="sr-only">{titulo}</h2>
       ) : (
-        <header className="border-border text-text-muted min-h-tap flex shrink-0 items-center gap-2 border-b px-2">
+        <header
+          className={`border-border text-text-muted min-h-tap flex shrink-0 items-center gap-2 border-b px-2 ${
+            cabeceraSoloEnElBanco ? 'max-lg:hidden' : ''
+          }`}
+        >
           {icono !== undefined && (
             <span aria-hidden="true" className="shrink-0 opacity-70 [&_svg]:size-3.5">
               {icono}

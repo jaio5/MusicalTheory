@@ -3,12 +3,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import type { AudioInput, AudioInputState } from '@audio/audio-input';
-import { AutocorrelationPitchEngine } from '@audio/autocorrelation-pitch-engine';
 import type { ChordEngine } from '@audio/chord-engine';
-import { ChromaChordEngine } from '@audio/chord-engine';
 import type { PitchEngine } from '@audio/pitch-engine';
-import { WebAudioInput } from '@audio/web-audio-input';
-import { useSessionStore, type ListeningState } from './session-store';
+import { useSessionStore, type ListeningState, type SessionActions } from './session-store';
 
 /**
  * Conecta la captura de audio con el estado de sesión.
@@ -38,6 +35,15 @@ import { useSessionStore, type ListeningState } from './session-store';
  * Las dependencias entran por parámetro porque en React no hay contenedor de
  * inyección: quien quiera otro motor —un test, o mañana YIN— pasa otra fábrica.
  * Las usa **quien arranca**, que es quien decide con qué se escucha.
+ *
+ * **Y el micro abierto sigue abierto al cambiar de pantalla**, porque lo que lo
+ * abre de verdad es el botón de la barra, y la barra no se va: el marco común
+ * vive en el layout de `(marco)`, no en cada página. Quien abre el micro en
+ * `/afinar` y se va a `/aprender` a hacer una unidad de oído espera seguir
+ * oyéndose, y el piloto de la barra sigue diciendo que escucha y sigue siendo
+ * el botón que lo cierra. Lo que no puede pasar es lo que pasaba: cada página
+ * montaba su propio marco, al navegar se desmontaba, **el micro se cerraba y la
+ * barra seguía encendida**, y el primer clic en ella no paraba nada.
  */
 export interface ListeningDeps {
   readonly createInput?: (deviceId?: string) => AudioInput;
@@ -84,13 +90,37 @@ let motorDeAcordes: ChordEngine | null = null;
 let dejarDeMirarElEstado: (() => void) | null = null;
 
 /**
+ * Cuántas veces se ha soltado lo abierto.
+ *
+ * Es lo que dice si un arranque **sigue siendo de alguien**. Abrir el micro
+ * espera varias veces —a descargar los motores, a que el navegador conteste el
+ * permiso, a que arranque el análisis— y entretanto puede pasar que se pare, o
+ * que se vaya el último que lo tenía montado. Antes de esto el arranque seguía
+ * igual al volver de la espera: con el permiso tardando tres segundos y un
+ * cambio de pantalla en medio, la pista quedaba viva, sin dueño y con la barra
+ * apagada y sin manera de cerrarla. Ahora cada espera mira si la vuelta es la
+ * misma con la que empezó, y si no, suelta lo suyo y se va.
+ */
+let vuelta = 0;
+
+/**
+ * La vuelta del arranque que está a medias, o nula si no hay ninguno.
+ *
+ * Una vuelta y no un sí o un no: un arranque que se ha quedado sin dueño
+ * —esperando el permiso cuando se fue la pantalla— no puede impedir el
+ * siguiente. Solo estorba el que sigue siendo de la vuelta de ahora.
+ */
+let arrancandoEn: number | null = null;
+
+/**
  * Cuántos componentes tienen el gancho montado.
  *
  * Se cuenta porque el micro ya no lo cierra el componente que se va: si lo
  * hiciera, salir del afinador cerraría el micro que había abierto el botón de la
- * barra, que vive en el marco y no se desmonta nunca. Se cierra cuando **no
- * queda nadie**, que es lo que pasa al recargar en caliente o al cerrar la
- * pestaña, y es de lo que protegía el efecto de limpieza original.
+ * barra, que vive en el marco y no se desmonta al navegar. Se cierra cuando **no
+ * queda nadie** —al recargar en caliente, al ir a la portada, que no lleva el
+ * marco— y entonces **la interfaz también lo dice**: cerrar el aparato y dejar
+ * el estado en «escuchando» era el piloto encendido de un micro apagado.
  */
 let montados = 0;
 
@@ -113,6 +143,9 @@ export function motorDeTonoActivo(): PitchEngine | null {
 
 /** Suelta el aparato sin tocar el estado de la interfaz. */
 async function soltarLoAbierto(): Promise<void> {
+  // Lo primero: un arranque que esté esperando ya sabe, al volver, que no es suyo.
+  vuelta += 1;
+
   motorSonando?.stop();
   motorSonando = null;
 
@@ -125,6 +158,57 @@ async function soltarLoAbierto(): Promise<void> {
   const entrada = entradaSonando;
   entradaSonando = null;
   await entrada?.stop();
+}
+
+/**
+ * Los motores de la aplicación, **descargados al pulsar y no al cargar**.
+ *
+ * El gancho lo monta la barra, y la barra está en todas las pantallas: con los
+ * `import` de arriba, el análisis de tono, el croma y la entrada de Web Audio
+ * viajaban a `/planes`, a `/cuenta` y a `/profesor`, donde no se escucha nada
+ * hasta que alguien pulsa el micro. Aquí llegan cuando se pulsa, que es cuando
+ * hacen falta, y el navegador ya los guarda para la vez siguiente.
+ *
+ * Solo en el camino de casa: quien pasa sus fábricas —los tests— no descarga
+ * nada.
+ */
+async function crearEntradaDeCasa(deviceId?: string): Promise<AudioInput> {
+  const { WebAudioInput } = await import('@audio/web-audio-input');
+  return new WebAudioInput(deviceId === undefined ? {} : { deviceId });
+}
+
+async function crearMotorDeCasa(): Promise<PitchEngine> {
+  const { AutocorrelationPitchEngine } = await import('@audio/autocorrelation-pitch-engine');
+  return new AutocorrelationPitchEngine();
+}
+
+async function crearMotorDeAcordesDeCasa(): Promise<ChordEngine> {
+  const { ChromaChordEngine } = await import('@audio/chord-engine');
+  return new ChromaChordEngine();
+}
+
+/** Lo que el motor de acordes reconoce, dicho como lo guarda la sesión. */
+function oirAcordes(motor: ChordEngine, actions: SessionActions): void {
+  motor.subscribe((chord) => {
+    actions.setHeardChord(
+      chord === null
+        ? null
+        : {
+            symbol: chord.best.symbol,
+            root: chord.best.root,
+            notes: chord.best.notes,
+            score: chord.best.score,
+            margin: chord.margin,
+            alternatives: chord.alternatives.map((otra) => ({
+              symbol: otra.symbol,
+              root: otra.root,
+              notes: otra.notes,
+              score: otra.score,
+            })),
+            at: performance.now(),
+          },
+    );
+  });
 }
 
 export function useListening({
@@ -156,72 +240,146 @@ export function useListening({
     actions.setListening('idle');
   }, [actions]);
 
-  const start = useCallback(
-    async (deviceId?: string) => {
-      if (entradaSonando !== null) {
+  /**
+   * Pone a escuchar acordes sobre la entrada que ya hay.
+   *
+   * Hace falta porque el micro ya no se cierra al cambiar de pantalla: abierto
+   * en `/afinar`, que no pide acordes, seguía abierto en `/componer`, y la toma
+   * que lo pedía prestado se encontraba sin croma y no escribía ni un acorde.
+   */
+  const anadirAcordes = useCallback(
+    async (input: AudioInput, mia: number): Promise<void> => {
+      const chordEngine = await (factories.current.createChordEngine?.() ??
+        crearMotorDeAcordesDeCasa());
+      if (vuelta !== mia) {
+        // Se ha parado mientras se descargaba: este motor no llegó a escuchar
+        // nada y se queda sin arrancar.
         return;
       }
-
-      const input =
-        factories.current.createInput?.(deviceId) ??
-        new WebAudioInput(deviceId === undefined ? {} : { deviceId });
-      entradaSonando = input;
-      dejarDeMirarElEstado = input.subscribe((state) => {
-        actions.setListening(LISTENING_BY_INPUT_STATE[state], input.error?.message ?? null);
-      });
-
-      actions.setListening('requesting');
-      await input.start();
-
-      if (input.state !== 'running') {
-        // El permiso se ha denegado o el dispositivo ha fallado: el mensaje ya lo
-        // ha puesto la suscripción, aquí solo hay que soltar lo abierto.
-        dejarDeMirarElEstado?.();
-        dejarDeMirarElEstado = null;
-        entradaSonando = null;
-        return;
-      }
-
-      const engine = factories.current.createEngine?.() ?? new AutocorrelationPitchEngine();
-      motorSonando = engine;
-      engine.subscribeLevel((rms) => actions.setLevel(rms));
-      engine.subscribe((sample) => {
-        actions.setPitch(
-          sample?.frequency ?? null,
-          sample?.clarity ?? 0,
-          sample?.at ?? 0,
-          sample?.rms,
-        );
-      });
-      await engine.start(input);
-
-      if (factories.current.chords === true) {
-        const chordEngine = factories.current.createChordEngine?.() ?? new ChromaChordEngine();
-        motorDeAcordes = chordEngine;
-        chordEngine.subscribe((chord) => {
-          actions.setHeardChord(
-            chord === null
-              ? null
-              : {
-                  symbol: chord.best.symbol,
-                  root: chord.best.root,
-                  notes: chord.best.notes,
-                  score: chord.best.score,
-                  margin: chord.margin,
-                  alternatives: chord.alternatives.map((otra) => ({
-                    symbol: otra.symbol,
-                    root: otra.root,
-                    notes: otra.notes,
-                    score: otra.score,
-                  })),
-                  at: performance.now(),
-                },
-          );
-        });
-        await chordEngine.start(input);
+      motorDeAcordes = chordEngine;
+      oirAcordes(chordEngine, actions);
+      await chordEngine.start(input);
+      if (vuelta !== mia) {
+        // Parado mientras arrancaba: `soltarLoAbierto` ya lo paró, pero arrancar
+        // después de parar lo habría dejado en marcha.
+        chordEngine.stop();
       }
     },
     [actions],
+  );
+
+  /**
+   * Abre el micro, o añade lo que falte al que ya está abierto.
+   *
+   * **Después de cada espera se mira si el arranque sigue siendo de alguien**
+   * (`vuelta`), y si no, se suelta lo que haya abierto él y se va. Cada `await`
+   * es un hueco por el que puede entrar un «parar» o un cambio de pantalla.
+   *
+   * Las fábricas se esperan siempre, devuelvan o no una promesa: así el camino
+   * de casa, que descarga, y el de los tests, que no, son el mismo.
+   */
+  const start = useCallback(
+    async (deviceId?: string) => {
+      if (arrancandoEn === vuelta) {
+        return;
+      }
+      const mia = vuelta;
+      arrancandoEn = mia;
+      try {
+        if (entradaSonando !== null) {
+          if (
+            factories.current.chords === true &&
+            motorDeAcordes === null &&
+            entradaSonando.state === 'running'
+          ) {
+            await anadirAcordes(entradaSonando, mia);
+          }
+          return;
+        }
+
+        // «Pidiendo» desde el primer instante: descargar los motores tarda, y el
+        // botón tiene que contestar al dedo antes de que lleguen.
+        actions.setListening('requesting');
+
+        const input = await (factories.current.createInput?.(deviceId) ??
+          crearEntradaDeCasa(deviceId));
+        if (vuelta !== mia) {
+          // Se paró mientras se descargaba: todavía no se ha pedido nada.
+          return;
+        }
+
+        entradaSonando = input;
+        dejarDeMirarElEstado = input.subscribe((state) => {
+          actions.setListening(LISTENING_BY_INPUT_STATE[state], input.error?.message ?? null);
+        });
+
+        await input.start();
+
+        if (vuelta !== mia) {
+          // **El permiso llegó tarde y ya no es de nadie.** Lo que lo esperaba se
+          // fue —otra pantalla, o un «parar»— y ya soltó lo abierto, pero el
+          // navegador contesta después y entrega una pista viva. Se cierra aquí,
+          // que es el único sitio que todavía la tiene.
+          await input.stop();
+          return;
+        }
+
+        if (input.state !== 'running') {
+          // El permiso se ha denegado o el dispositivo ha fallado: el mensaje ya lo
+          // ha puesto la suscripción, aquí solo hay que soltar lo abierto.
+          dejarDeMirarElEstado?.();
+          dejarDeMirarElEstado = null;
+          entradaSonando = null;
+          return;
+        }
+
+        const engine = await (factories.current.createEngine?.() ?? crearMotorDeCasa());
+        if (vuelta !== mia) {
+          return;
+        }
+        motorSonando = engine;
+        engine.subscribeLevel((rms) => actions.setLevel(rms));
+        engine.subscribe((sample) => {
+          actions.setPitch(
+            sample?.frequency ?? null,
+            sample?.clarity ?? 0,
+            sample?.at ?? 0,
+            sample?.rms,
+          );
+        });
+        await engine.start(input);
+        if (vuelta !== mia) {
+          engine.stop();
+          return;
+        }
+
+        if (factories.current.chords === true) {
+          await anadirAcordes(input, mia);
+        }
+      } catch {
+        // Lo que más fácil falla aquí es la descarga de los motores —sin red, o
+        // con una versión nueva publicada a mitad de sesión—. Sin esto el botón
+        // se quedaba en «pidiendo» para siempre, desactivado y sin decir nada.
+        //
+        // Si ya no es su vuelta, lo que tenía abierto lo soltó quien la cambió, y
+        // lo de ahora es de otro arranque: no se toca.
+        if (vuelta !== mia) {
+          return;
+        }
+        await soltarLoAbierto();
+        actions.setHeardChord(null);
+        actions.setPitch(null);
+        actions.setListening(
+          'error',
+          'No he podido preparar la escucha. Recarga la página y vuelve a probar.',
+        );
+      } finally {
+        if (arrancandoEn === mia) {
+          arrancandoEn = null;
+        }
+      }
+    },
+    [actions, anadirAcordes],
   );
 
   // Un micrófono abierto es un recurso, y en React el sitio de soltarlo es el
@@ -236,9 +394,15 @@ export function useListening({
       montados -= 1;
       if (montados === 0) {
         void soltarLoAbierto();
+        // Y la interfaz en reposo, como al parar: lo que se oía ya no suena.
+        // Sin esto, lo siguiente que se montara leería «escuchando» de un micro
+        // cerrado.
+        actions.setHeardChord(null);
+        actions.setPitch(null);
+        actions.setListening('idle');
       }
     };
-  }, []);
+  }, [actions]);
 
   return { start, stop };
 }

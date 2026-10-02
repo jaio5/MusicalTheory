@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Chip } from '@ui/Chip';
 import { IconoParar, IconoSonar } from '@ui/icons';
 import { Field } from '@ui/Field';
+import { cerrarAlSalirElFoco } from '@ui/cerrar-al-salir-el-foco';
 
 import { WebAudioMetronome, type Metronome as MetronomeEngine } from '@audio/metronome';
 import { BEATS_PER_BAR, clampBpm, MAX_BPM, MIN_BPM } from '@core/music';
@@ -187,7 +188,10 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
         disabled={enLaToma}
         title={enLaToma ? 'El tempo no se cambia a mitad de una toma' : undefined}
         className="border-border text-text-muted enabled:hover:border-brass-dim enabled:hover:text-text min-h-tap flex shrink-0 cursor-pointer items-center gap-2 rounded-md border px-3 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-60"
-        aria-label={`Tempo: ${bpm} pulsos por minuto`}
+        // **Empieza por lo que se ve**, «100 bpm» (WCAG 2.5.3): quien lo usa
+        // con la voz dice lo que lee en el botón, y el nombre era «Tempo: 100
+        // pulsos por minuto», que no contiene «100 bpm». Detrás va lo que abre.
+        aria-label={`${bpm} bpm, tempo y compás`}
       >
         <span className="font-mono tabular-nums">{bpm} bpm</span>
         {/* La luz del pulso, a la vista y no dentro del panel: quien toca con
@@ -213,6 +217,9 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
       <div
         id={panel}
         popover="auto"
+        // Lleva velo y parece modal: si el tabulador se sale, se cierra, en vez
+        // de seguir por los controles que tapa.
+        onBlur={cerrarAlSalirElFoco}
         aria-label="Tempo y compás"
         // El navegador lo centra con `margin: auto`, y la hoja base de Tailwind
         // pone todos los márgenes a cero: sin `m-auto` sale pegado a la esquina.

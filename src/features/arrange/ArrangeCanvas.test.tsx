@@ -217,6 +217,31 @@ describe('el teclado, que es lo que un arrastre no da', () => {
 
     expect(acordesDe('Estrofa')).toHaveLength(1);
   });
+
+  // Y el foco no se pierde: va al bloque de al lado, o al nombre de la parte
+  // si ya no queda ninguno.
+  it('tras Supr el foco va al vecino, y sin vecinos a la parte', async () => {
+    await conDosAcordes();
+    const segundo = tiraDe('Estrofa')[1]!;
+    segundo.focus();
+    await userEvent.keyboard('{Delete}');
+
+    expect(tiraDe('Estrofa')[0]!).toHaveFocus();
+
+    await userEvent.keyboard('{Backspace}');
+    expect(screen.getByRole('button', { name: 'Estrofa' })).toHaveFocus();
+  });
+
+  // Mover saca el nodo de su sitio, y sacarlo soltaba el foco.
+  it('al moverlo con las flechas no suelta el foco', async () => {
+    await conDosAcordes();
+    const primero = tiraDe('Estrofa')[0]!;
+    const suId = primero.getAttribute('data-bloque');
+    primero.focus();
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(document.activeElement?.getAttribute('data-bloque')).toBe(suId);
+  });
 });
 
 describe('deshacer', () => {
@@ -303,6 +328,58 @@ describe('lo grabado', () => {
   });
 });
 
+describe('La fila de una parte', () => {
+  /**
+   * **Una parte de solo punteo se puede oír sola.** El botón miraba si había
+   * acordes, así que lo traído como punteo salía con «Escuchar» apagado aunque
+   * tuviera ocho compases de notas.
+   */
+  it('con solo punteo, escucharla sola se puede', () => {
+    conTonalidad();
+    useArrangementStore.setState({
+      arrangement: {
+        parts: [
+          {
+            id: 'p',
+            name: 'Punteo',
+            blocks: [],
+            notes: [{ id: 'n', start: 0, length: 2, offset: 0 }],
+            bars: 1,
+          },
+        ],
+      },
+      past: [],
+    });
+    render(<ArrangeCanvas />);
+
+    expect(screen.getByRole('button', { name: 'Escuchar Punteo' })).toBeEnabled();
+  });
+
+  it('vacia, no', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: '+ Parte' }));
+
+    expect(screen.getByRole('button', { name: 'Escuchar Parte 1' })).toBeDisabled();
+  });
+
+  /**
+   * **Nada de la fila se encoge: si no cabe, se parte.** Con el nombre largo de
+   * lo traído —«Lo que has tocado»— y el lienzo a 1280, el selector del papel
+   * cedía su ancho y se leía «Una ide», y el nombre se partía en dos renglones
+   * dentro de su pastilla.
+   */
+  it('no encoge a nadie para caber, se envuelve', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+
+    const papel = screen.getByRole('combobox', { name: 'Papel de Estrofa' });
+    const fila = papel.closest('.hay-mas-al-lado')!;
+    expect(fila).toHaveClass('sm:flex-wrap', 'sm:[&>*]:shrink-0', 'max-sm:[&>*]:shrink-0');
+  });
+});
+
 describe('escribir un acorde', () => {
   it('lo que se teclea se convierte en el grado que le toca', async () => {
     conTonalidad();
@@ -312,6 +389,38 @@ describe('escribir un acorde', () => {
     await userEvent.click(screen.getByRole('button', { name: 'G' }));
 
     expect(acordesDe('Estrofa')).toEqual(['G']);
+  });
+
+  /**
+   * **Intro pone el primero que cabe.** Escribir «Am» y pulsar Intro no hacía
+   * nada, y es lo primero que prueba quien teclea un acorde: había que soltar el
+   * teclado e ir a por el botón de debajo.
+   */
+  it('Intro pone el primero que cabe y deja el campo listo para otro', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    const campo = screen.getByLabelText('Escribe un acorde');
+
+    await userEvent.type(campo, 'Am{Enter}');
+
+    expect(acordesDe('Estrofa')).toEqual(['Am']);
+    expect(campo).toHaveValue('');
+    // Y se encadena sin salir del campo.
+    await userEvent.type(campo, 'F{Enter}');
+    expect(acordesDe('Estrofa')).toEqual(['Am', 'F']);
+  });
+
+  // Lo apagado no entra por Intro: el aviso de debajo ya dice por qué.
+  it('con nada que quepa, Intro no pone nada', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    const campo = screen.getByLabelText('Escribe un acorde');
+
+    await userEvent.type(campo, 'F#{Enter}');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, '{Enter}');
+
+    expect(screen.getByText(/La canción está en blanco/)).toBeInTheDocument();
   });
 
   /**
@@ -1703,6 +1812,77 @@ describe('Lo que se hace con un acorde de la partitura', () => {
   });
 
   /**
+   * **Las flechas también, que es lo que el panel promete.** «Con el teclado:
+   * flechas, moverlo» salía con un cifrado elegido en la partitura, y en esta
+   * vista —la que se ve al entrar— las flechas no movían nada: solo se
+   * escuchaba `Supr`.
+   */
+  it('las flechas lo mueven, y el foco se va con el', async () => {
+    await conDosAcordes();
+    const antes = grados();
+    const primero = cifrados()[0]!;
+    const suId = primero.getAttribute('data-bloque');
+    primero.focus();
+
+    fireEvent.keyDown(primero, { key: 'ArrowRight' });
+
+    expect(grados()).toEqual([antes[1], antes[0]]);
+    expect(document.activeElement?.getAttribute('data-bloque')).toBe(suId);
+
+    fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
+    expect(grados()).toEqual(antes);
+  });
+
+  it('con Shift las flechas lo estiran', async () => {
+    await conDosAcordes();
+
+    fireEvent.keyDown(cifrados()[0]!, { key: 'ArrowRight', shiftKey: true });
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.blocks[0]!.beats).toBe(5);
+  });
+
+  // Otra tecla cualquiera no hace nada, y sigue su camino.
+  it('otra tecla no lo toca', async () => {
+    await conDosAcordes();
+    const antes = useArrangementStore.getState().arrangement;
+
+    fireEvent.keyDown(cifrados()[0]!, { key: 'a' });
+
+    expect(useArrangementStore.getState().arrangement).toBe(antes);
+  });
+
+  /**
+   * **Después de `Supr`, el foco va al vecino.** Caía en el `<body>`, y el
+   * siguiente tabulador empezaba otra vez por arriba de la página.
+   */
+  it('al quitarlo con Supr el foco pasa al de al lado', async () => {
+    await conDosAcordes();
+    const segundo = cifrados()[1]!;
+    const suId = segundo.getAttribute('data-bloque');
+    cifrados()[0]!.focus();
+
+    fireEvent.keyDown(cifrados()[0]!, { key: 'Delete' });
+
+    expect(cifrados()).toHaveLength(1);
+    expect(document.activeElement?.getAttribute('data-bloque')).toBe(suId);
+  });
+
+  /**
+   * Un acorde que atiende la tecla no la deja subir: la lista escucha las del
+   * punteo, y con una nota elegida `Supr` sobre el acorde se llevaba también la
+   * nota.
+   */
+  it('Supr sobre un acorde no quita la nota que haya elegida', async () => {
+    await conDosAcordes();
+    const notas = within(screen.getByRole('region', { name: 'Qué nota puede seguir' }));
+    await userEvent.click(notas.getAllByRole('button')[0]!);
+
+    fireEvent.keyDown(cifrados()[0]!, { key: 'Delete' });
+
+    expect(useArrangementStore.getState().arrangement.parts[0]!.notes).toHaveLength(1);
+  });
+
+  /**
    * Y se mueve arrastrándolo por la partitura: era lo único que había que ir a
    * hacer a la otra vista, y en una partitura los acordes están ahí escritos.
    */
@@ -1715,6 +1895,43 @@ describe('Lo que se hace con un acorde de la partitura', () => {
     window.dispatchEvent(new PointerEvent('pointerup', {}));
 
     expect(grados()).toEqual([antes[1], antes[0]]);
+  });
+});
+
+describe('El foco, despues de quitar una nota', () => {
+  /** Las notas de la partitura, que dicen en qué pulso empiezan. */
+  function notasDeLaPartitura() {
+    return within(screen.getByRole('region', { name: 'Estrofa' })).queryAllByLabelText(
+      /en el pulso/,
+    );
+  }
+
+  /**
+   * Lo mismo que con los acordes: la nota enfocada desaparece y el foco caía en
+   * el `<body>`. Va a la de al lado, y sin ninguna, al nombre de la parte.
+   */
+  it('va a la nota de al lado, y sin ninguna a la parte', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await userEvent.click(propuestas()[0]!);
+    const notas = within(screen.getByRole('region', { name: 'Qué nota puede seguir' }));
+    await userEvent.click(notas.getAllByRole('button')[0]!);
+    await userEvent.click(notas.getAllByRole('button')[0]!);
+    expect(notasDeLaPartitura()).toHaveLength(2);
+
+    const [primera, segunda] = notasDeLaPartitura();
+    const suId = segunda!.getAttribute('data-nota');
+    fireEvent.click(primera!);
+    primera!.focus();
+    fireEvent.keyDown(primera!, { key: 'Delete' });
+
+    expect(notasDeLaPartitura()).toHaveLength(1);
+    expect(document.activeElement?.getAttribute('data-nota')).toBe(suId);
+
+    fireEvent.click(document.activeElement!);
+    fireEvent.keyDown(document.activeElement!, { key: 'Delete' });
+    expect(notasDeLaPartitura()).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Estrofa' })).toHaveFocus();
   });
 });
 

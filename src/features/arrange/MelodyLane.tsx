@@ -36,6 +36,17 @@ import { PX_POR_PULSO } from './BlockButton';
 /**
  * Alto de cada fila, y **es el mínimo de la norma para lo que se pulsa**.
  *
+ * **No llega a los 44 del resto de la aplicación, y no puede.** Es una rejilla:
+ * cada fila es una altura, y el alto de la fila es lo que separa una nota de la
+ * de al lado. Con la escala puesta son trece filas, que a 44 miden 572 píxeles
+ * por parte —el doble de lo que deja el lienzo en un portátil— y sin ella
+ * veintidós, 968: la rejilla dejaría de verse entera, y una rejilla de notas que
+ * hay que desplazar para saber a qué altura va cada una no se lee. Lo que pide
+ * WCAG 2.2 en AA son 24 (2.5.8); los 44 son del nivel AAA (2.5.5), que admite
+ * una alternativa equivalente, y la hay: las notas de «Y de nota» del panel de al
+ * lado escriben lo mismo y miden 44.
+ *
+ *
  * Estaba en 22: las filas se tocan unas con otras, así que no hay hueco que
  * cuente como margen y cada una tenía que medir 24 por sí sola. Las notas miden
  * lo mismo, porque su zona de agarre es la fila entera aunque se pinten más
@@ -302,7 +313,11 @@ export const MelodyLane = memo(function MelodyLane({
                 // no hay ninguna casilla que suene mal.
                 onClick={(event) => escribirEnFila(event, offset)}
                 aria-label={`Escribir ${nombre} en ${partName}`}
-                className={`absolute inset-x-0 block ${
+                // **El aro hacia dentro.** El de la casa va tres píxeles por
+                // fuera, y aquí fuera está el borde de una caja que se desplaza:
+                // lo recortaba entero y la fila enfocada no se distinguía de las
+                // demás. Dentro de su propio alto se ve siempre.
+                className={`absolute inset-x-0 block focus-visible:-outline-offset-2 ${
                   offset === 0
                     ? 'bg-surface-raised'
                     : enEscala
@@ -348,6 +363,7 @@ export const MelodyLane = memo(function MelodyLane({
               <button
                 key={note.id}
                 type="button"
+                data-nota={note.id}
                 onPointerDown={(event) => cogerNota(event, note)}
                 onClick={() => onSelect(note.id)}
                 aria-label={`${nombre}, ${note.length} pulsos, en el pulso ${note.start}${
@@ -359,7 +375,9 @@ export const MelodyLane = memo(function MelodyLane({
                 // dieciocho —con tres de aire arriba y abajo para que dos filas
                 // seguidas no se lean como una barra— y una semicorchea, ocho de
                 // ancho: cogerla así era apuntar a un palillo.
-                className="absolute rounded-sm"
+                // El aro hacia dentro, por lo mismo que las filas: la rejilla
+                // recorta lo que sale de ella.
+                className="absolute rounded-sm focus-visible:-outline-offset-2"
                 style={{
                   left: note.start * porPulso,
                   top: fila * ALTO_FILA,

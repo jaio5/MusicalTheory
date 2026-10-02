@@ -341,9 +341,7 @@ describe('Cómo aparece la frase', () => {
 
     const { container } = pintar(<Tutor aviso="Otra vez esa." />);
 
-    const globo = container.querySelector(
-      '[aria-hidden="true"] + .sr-only',
-    )?.previousElementSibling;
+    const globo = container.querySelector('.superficie-alta p[aria-hidden="true"]');
     expect(globo?.textContent).toBe('Otra vez esa.');
     vi.unstubAllGlobals();
   });
@@ -362,7 +360,7 @@ describe('Cómo aparece la frase', () => {
     vi.stubGlobal('cancelAnimationFrame', () => undefined);
 
     const { container } = pintar(<Tutor aviso="Hola." />);
-    const globo = container.querySelector('p > span[aria-hidden="true"]');
+    const globo = container.querySelector('.superficie-alta p[aria-hidden="true"]');
 
     // A los 36 ms van dos letras: uno cada 18.
     ahora = 36;
@@ -375,7 +373,7 @@ describe('Cómo aparece la frase', () => {
     expect(globo?.textContent).toBe('Hola.');
 
     // Y la copia que lee un lector de pantalla la tuvo entera desde el principio.
-    expect(container.querySelector('.sr-only')?.textContent).toBe('Hola.');
+    expect(container.querySelector('[aria-live="polite"]')?.textContent).toBe('Hola.');
 
     reloj.mockRestore();
     vi.unstubAllGlobals();
@@ -464,5 +462,164 @@ describe('un aviso que llega con la pantalla estrecha', () => {
     );
 
     expect(screen.queryByRole('button', { name: /cerrar el profesor/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * La frase del muñeco se anuncia, y para eso la región viva tiene que estar antes
+ * que la frase. Iba dentro del globo y nacía con el texto puesto: «esa no era» no
+ * lo decía ningún lector de pantalla.
+ */
+describe('lo que dice el muñeco se anuncia', () => {
+  it('la región viva está montada y vacía con el globo cerrado', () => {
+    const { container } = pintar(<Tutor />);
+
+    const region = container.querySelector('[aria-live="polite"]');
+    expect(region).toBeInTheDocument();
+    expect(region?.textContent).toBe('');
+  });
+
+  it('cuando llega un aviso, la misma región se rellena con la frase', () => {
+    const { container, rerender } = pintar(<Tutor />);
+    const region = container.querySelector('[aria-live="polite"]');
+
+    rerender(
+      <AccountProvider account={ANONYMOUS} accounts={false}>
+        <Tutor aviso="Esa no era." />
+      </AccountProvider>,
+    );
+
+    expect(container.querySelector('[aria-live="polite"]')).toBe(region);
+    expect(region?.textContent).toBe('Esa no era.');
+  });
+
+  it('al cerrarse, la región se vacía', async () => {
+    const { container } = pintar(<Tutor aviso="Esa no era." />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^cerrar$/i }));
+
+    expect(container.querySelector('[aria-live="polite"]')?.textContent).toBe('');
+  });
+});
+
+/**
+ * Abierto, el globo tapa la pregunta que tiene debajo. Era lo único flotante de
+ * la aplicación de lo que no se salía con el teclado.
+ */
+describe('se sale del globo como de un panel', () => {
+  it('Escape lo cierra y devuelve el foco al muñeco', async () => {
+    const visto = vi.fn();
+    pintar(<Tutor aviso="Esa no era." onAvisoVisto={visto} />);
+
+    screen.getByRole('button', { name: /^cerrar$/i }).focus();
+    await userEvent.keyboard('{Escape}');
+
+    const muneco = screen.getByRole('button', { name: /preguntarle al profesor/i });
+    expect(muneco).toHaveAttribute('aria-expanded', 'false');
+    expect(muneco).toHaveFocus();
+    expect(visto).toHaveBeenCalledOnce();
+  });
+
+  it('con el foco fuera, Escape lo cierra y deja el foco donde estaba', async () => {
+    render(
+      <AccountProvider account={ANONYMOUS} accounts={false}>
+        <button type="button">Siguiente</button>
+        <Tutor aviso="Esa no era." />
+      </AccountProvider>,
+    );
+    const siguiente = screen.getByRole('button', { name: 'Siguiente' });
+    siguiente.focus();
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.getByRole('button', { name: /preguntarle al profesor/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(siguiente).toHaveFocus();
+  });
+
+  it('otra tecla no lo cierra', async () => {
+    pintar(<Tutor aviso="Esa no era." />);
+
+    await userEvent.keyboard('a');
+
+    expect(screen.getByRole('button', { name: /cerrar el profesor/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('cerrado, Escape no hace nada', async () => {
+    const visto = vi.fn();
+    pintar(<Tutor onAvisoVisto={visto} />);
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(visto).not.toHaveBeenCalled();
+  });
+
+  it('se cierra cuando el foco se va a otra cosa de la pantalla', async () => {
+    render(
+      <AccountProvider account={ANONYMOUS} accounts={false}>
+        <Tutor aviso="Esa no era." />
+        <button type="button">La pregunta</button>
+      </AccountProvider>,
+    );
+
+    // «Cerrar» es lo último del globo: el tabulador sale de él a la pregunta.
+    screen.getByRole('button', { name: /^cerrar$/i }).focus();
+    await userEvent.tab();
+
+    expect(screen.getByRole('button', { name: 'La pregunta' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /preguntarle al profesor/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('moverse por dentro del globo no lo cierra', async () => {
+    pintar(<Tutor aviso="Esa no era." />);
+
+    screen.getByRole('button', { name: /cerrar el profesor/i }).focus();
+    await userEvent.tab();
+
+    expect(screen.getByRole('button', { name: /cerrar el profesor/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('si el foco se va a ninguna parte —otra ventana—, sigue abierto', () => {
+    pintar(<Tutor aviso="Esa no era." />);
+
+    const cerrar = screen.getByRole('button', { name: /^cerrar$/i });
+    cerrar.focus();
+    fireEvent.blur(cerrar, { relatedTarget: null });
+
+    expect(screen.getByRole('button', { name: /cerrar el profesor/i })).toBeInTheDocument();
+  });
+
+  it('cerrado, perder el foco no avisa de nada', () => {
+    const visto = vi.fn();
+    render(
+      <AccountProvider account={ANONYMOUS} accounts={false}>
+        <Tutor onAvisoVisto={visto} />
+        <button type="button">Fuera</button>
+      </AccountProvider>,
+    );
+
+    const muneco = screen.getByRole('button', { name: /preguntarle al profesor/i });
+    fireEvent.blur(muneco, { relatedTarget: screen.getByRole('button', { name: 'Fuera' }) });
+
+    expect(visto).not.toHaveBeenCalled();
+  });
+
+  it('«Cerrar» devuelve el foco al muñeco, porque él desaparece con el globo', async () => {
+    pintar(<Tutor aviso="Esa no era." />);
+
+    await userEvent.click(screen.getByRole('button', { name: /^cerrar$/i }));
+
+    expect(screen.getByRole('button', { name: /preguntarle al profesor/i })).toHaveFocus();
   });
 });

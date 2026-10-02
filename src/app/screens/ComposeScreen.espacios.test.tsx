@@ -22,6 +22,13 @@ import { DEFAULT_BANCO } from '@state/workspace';
  */
 // El módulo y no el índice: la pantalla lo importa de ahí para no traerse el
 // lienzo en el paquete de entrada (adr/0058).
+// **El lienzo de verdad solo lo carga su propio test.** Vitest reutiliza cada
+// proceso para varios ficheros, y si en uno caían dos que cargaban
+// `ArrangeCanvas.tsx`, V8 tenía dos copias del mismo módulo y al juntar la
+// cobertura se quedaba con las cuentas de una: las ramas bajaban al 90 % una
+// pasada de cada dos, con todos los tests en verde. Aquí basta con que llegue.
+vi.mock('@features/arrange/ArrangeCanvas', () => ({ ArrangeCanvas: () => null }));
+
 vi.mock('@features/arrange/TocarParaEscribir', async (original) => ({
   ...(await original<typeof Tocar>()),
   TocarParaEscribir: ({ onEscrito }: { readonly onEscrito?: () => void }) => (

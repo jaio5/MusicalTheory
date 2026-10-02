@@ -197,6 +197,23 @@ describe('al cambiarla, la sesión de aquí no se cae', () => {
     expect(await screen.findByText(/otros aparatos se han cerrado/i)).toBeInTheDocument();
   });
 
+  // Mientras cambia, el botón no se apaga: apagado soltaba el foco al `<body>`.
+  it('mientras cambia, el boton se queda con el foco y no manda dos veces', async () => {
+    const fetchMock = vi.fn<typeof fetch>(() => new Promise(() => {}));
+    vi.stubGlobal('fetch', fetchMock);
+    pintar();
+
+    await escribir('la-de-siempre', 'una-nueva-larga', 'una-nueva-larga');
+    await userEvent.click(screen.getByRole('button', { name: /cambiar la contraseña/i }));
+    const boton = await screen.findByRole('button', { name: /Un momento/ });
+    await userEvent.click(boton);
+
+    expect(boton).toHaveFocus();
+    expect(boton).not.toBeDisabled();
+    expect(boton).toHaveAttribute('aria-disabled', 'true');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('si no se puede volver a entrar, lo dice en vez de fingir que todo va bien', async () => {
     entrar.mockResolvedValue({ error: 'CredentialsSignin' });
     vi.stubGlobal('fetch', responder({ account: { ...DENTRO } }));

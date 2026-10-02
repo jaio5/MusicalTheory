@@ -23,6 +23,30 @@ funciona entera sin ellos. Ninguno de los tres ha hablado con su servicio.
 | **Correo** | `NoMailer` no manda, y la pantalla lo dice | Dos variables del proveedor                |
 | **Modelo** | Contesta el dominio, o el Ollama de casa   | Una clave de API                           |
 
+**El de cobro, en producción, no regala nada**: allí, sin Stripe, es `CobroCerrado`,
+que no deja subir de plan. `FakeBilling` es solo fuera de producción.
+
+**Y lo que hay escrito para Stripe** —cancelar en Stripe antes de bajar el plan,
+cambiar de plan por el portal y no por otro Checkout, los cuatro avisos del webhook
+con `payment_status` y los estados de la suscripción— sale de su documentación y
+está probado con avisos de la forma que ella describe, **nunca contra Stripe**
+([DESPLIEGUE.md](./DESPLIEGUE.md#cobrar-de-verdad)).
+
+**Lo que falta probar contra Stripe**, con una clave de pruebas y la CLI
+(`stripe listen`), y hasta entonces no se sabe
+([adr/0077](./adr/0077-la-suscripcion-se-guarda-en-la-cuenta.md)):
+
+- Que el portal, configurado para cambiar de plan con los tres precios, **acepta el
+  flujo `subscription_update_confirm`** tal como se construye, con su prorrateo y la
+  autenticación de la tarjeta.
+- Que cancelar con `DELETE` sobre la suscripción **para el cobro** y que el aviso de
+  baja llega y encuentra a su dueño.
+- Que los cuatro avisos llegan con los campos que se leen —`payment_status`,
+  `customer`, `subscription` y el precio de `items`— y que el orden en que llegan no
+  cambia el plan que queda.
+- Qué pasa con `past_due` a la vista: hoy no se corta el plan y **la aplicación no le
+  dice nada a quien paga**.
+
 El cobro fue mecánico porque
 [adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md) lo dejó como puerto desde
 el principio; lo mismo el correo con
@@ -84,11 +108,30 @@ El detalle entero, con la tabla de qué da cada plan y qué se guarda de ti, est
 - **El límite de frecuencia en memoria** es por instancia. Con base de datos se
   comparte; con varias instancias y sin ella, cada una lleva su cuenta.
 - ~~**Entrar no tiene límite de intentos.**~~ **Hecho el 27 de septiembre de
-  2026**: cinco por minuto, contados por dirección **y** por correo, y antes de
-  comprobar la contraseña, que es lo que evita gastar el `scrypt` que el tope viene
-  a proteger ([adr/0054](./adr/0054-entrar-tiene-tope-de-intentos.md)). Lo que sigue
-  en pie es lo de abajo: **el contador de memoria es por instancia**, así que sin
-  base de datos cada una lleva su cuenta.
+  2026**, antes de comprobar la contraseña, que es lo que evita gastar el `scrypt`
+  que el tope viene a proteger ([adr/0054](./adr/0054-entrar-tiene-tope-de-intentos.md)).
+  Desde el 2 de octubre se cuenta por **correo y dirección juntos** —cinco por
+  minuto—, con dos topes más anchos detrás: veinte por minuto por dirección y
+  treinta por cuarto de hora por correo. Con el correo solo, cinco intentos de
+  cualquiera dejaban fuera al dueño de la cuenta. Lo que sigue en pie es lo de
+  abajo: **el contador de memoria es por instancia**, así que sin base de datos cada
+  una lleva su cuenta.
+- **Los topes por dirección piden `TRUSTED_PROXY_HOPS`.** Sin ella no se cree
+  `X-Forwarded-For` —la escribe el cliente— y todo el mundo comparte un contador
+  ([DESPLIEGUE.md](./DESPLIEGUE.md#detrás-de-un-proxy-de-quién-es-cada-petición)).
+  **No se ha probado detrás de un proxy de verdad.**
+- **El lienzo de componer es por navegador y no por persona.** Se guarda solo en la
+  IndexedDB de este navegador ([adr/0081](./adr/0081-el-lienzo-se-guarda-solo-en-el-navegador.md)):
+  no pasa por la cuenta ni por el servidor, así que **quien comparta navegador ve la
+  canción del otro** —también una persona que cierre sesión y entre otra— y quien
+  cambie de aparato no ve la suya. Para un equipo compartido habría que atarlo a la
+  cuenta o borrarlo al cerrar sesión; hoy no se hace ninguna de las dos.
+- **La inyección en el profesor está acotada, no resuelta.** `qwen3:8b` resiste dos de
+  ocho disfraces de la marca, con la marca bien borrada
+  ([adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md), «Corrección»): lo que
+  limita el abuso es que lo que sale solo lo ve quien pregunta, el tope de 400 tokens
+  y el cupo del plan. **Contra la API no se ha medido**, y habría que repetir los
+  mismos ocho casos antes de publicar con otro modelo.
 - **Registrarse no exige verificar el correo, y el plan gratis da quince
   peticiones de IA.** Así que una dirección inventada son quince llamadas al
   modelo pagadas, y el registro admite cinco por minuto.

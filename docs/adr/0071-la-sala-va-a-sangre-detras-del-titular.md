@@ -1,5 +1,7 @@
 # ADR 0071 — La sala va a sangre detrás del titular
 
+> **Nota del 2 de octubre de 2026:** la escena se pausa fuera de la vista con `data-fuera` (un `IntersectionObserver`), aparte de `data-parada`, y las tres capas se precargan; el elemento LCP es la capa de delante, no la pared. Detalle en la nota del [ADR 0069](./0069-la-portada-es-una-escena-de-pixel.md).
+
 Fecha: 2026-10-01 · Estado: aceptada, sustituida en parte por [ADR 0073](./0073-las-pantallas-llenan-el-ancho.md) (el escalado y el anclaje) · Sustituye en parte a
 [ADR 0069](./0069-la-portada-es-una-escena-de-pixel.md), que la metía en una caja,
 y a [ADR 0026](./0026-el-blanco-hielo.md), que descartó el encabezado a sangre

@@ -131,6 +131,21 @@ describe('elegir una tonalidad', () => {
     expect(onPick).toHaveBeenNthCalledWith(1, C, 'major');
     expect(onPick).toHaveBeenNthCalledWith(2, pitchClassFromName('A'), 'minor');
   });
+
+  /**
+   * **El nombre empieza por lo que se ve** (WCAG 2.5.3). La menor dice «Am» y se
+   * llamaba «A menor»: quien la pide por voz leyendo lo que ve no la encontraba.
+   */
+  it('cada casilla se llama empezando por lo que dice', () => {
+    elegible();
+
+    expect(screen.getByRole('button', { name: 'Am, A menor' })).toHaveTextContent(/^Am/);
+    expect(screen.getByRole('button', { name: 'F#m, F# menor' })).toBeInTheDocument();
+    // Las mayores ya empezaban igual, y no se les repite la letra.
+    expect(screen.getByRole('button', { name: 'C mayor' })).toBeInTheDocument();
+    // El título sigue siendo el nombre a secas: es lo que sale al pasar el ratón.
+    expect(screen.getByTitle('A menor')).toBe(screen.getByRole('button', { name: 'Am, A menor' }));
+  });
 });
 
 /**

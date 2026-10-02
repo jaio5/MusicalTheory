@@ -28,8 +28,9 @@ import { Formulario } from '@ui/Formulario';
  * campos cuadraban, y un botón gris no dice por qué: quien no veía la pantalla
  * oía «Cambiar la contraseña, no disponible» y nada más. Ahora se pulsa siempre, y
  * lo que falta se dice en el campo que falla —`aria-invalid` y su frase debajo— y
- * el foco va a él, que es como se entera un lector de pantalla. Solo se apaga
- * mientras está en marcha.
+ * el foco va a él, que es como se entera un lector de pantalla. Mientras está en
+ * marcha no hace caso, pero tampoco se apaga: apagado soltaba el foco
+ * (`cargando` en `ui/Button`).
  */
 export function PasswordForm() {
   const { account: cuenta, refresh } = useAccount();
@@ -152,7 +153,7 @@ export function PasswordForm() {
       />
 
       <div>
-        <Button type="submit" disabled={working} cargando={working}>
+        <Button type="submit" cargando={working}>
           {working ? 'Un momento…' : 'Cambiar la contraseña'}
         </Button>
       </div>

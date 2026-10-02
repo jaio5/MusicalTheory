@@ -60,8 +60,26 @@ describe('el desplegable', () => {
 
     const caja = container.querySelector('details > div')!;
 
-    expect(caja.className).toMatch(/max-h-\[calc\(100dvh-\d+rem\)\]/);
+    expect(caja.className).toMatch(/max-h-\[max\(\d+rem,calc\(100dvh-\d+rem\)\)\]/);
     expect(caja.className).toContain('overflow-y-auto');
+  });
+
+  /**
+   * **Con suelo.** Restar un número fijo a la pantalla daba cero en una ventana
+   * baja: a 320×256 —un 1280×1024 al 400 %— el panel medía cero píxeles con la
+   * rueda abierta dentro. Con `max()` nunca baja de nueve rem, y lo que no quepa
+   * se alcanza desplazando el marco, que por debajo de 500 px de alto se deja.
+   */
+  it('en una ventana muy baja no se queda en cero: tiene suelo, a los dos lados de md', () => {
+    const { container } = render(
+      <Disclosure summary="Tonalidad" abierto flotante>
+        <p>La rueda</p>
+      </Disclosure>,
+    );
+
+    const clases = container.querySelector('details > div')!.className.split(' ');
+    expect(clases).toContain('max-h-[max(9rem,calc(100dvh-22rem))]');
+    expect(clases).toContain('md:max-h-[max(9rem,calc(100dvh-12rem))]');
   });
 
   it('sin flotante no se posiciona nada, que es como lo usa la portada', () => {

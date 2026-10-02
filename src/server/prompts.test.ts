@@ -9,10 +9,25 @@ import {
   MAX_VERSIONS,
   TOKEN_BUDGETS,
 } from '@core/billing';
-import { MOVES } from '@core/music';
+import {
+  COURSES,
+  degreesFor,
+  GLOSSARY,
+  keyChordTable,
+  MOVES,
+  SHARP_NAMES,
+  SCALE_IDS,
+  theoryReference,
+  type KeyMode,
+  type PitchClass,
+} from '@core/music';
 
 import {
   ANSWER_SCHEMA,
+  CABECERA_DE_TEORIA,
+  cabeceraDePrompt,
+  lineaDeEscala,
+  lineaDeTema,
   TEACHER_SYSTEM_PROMPT,
   versionsSchema,
   VERSIONS_SYSTEM_PROMPT,
@@ -68,12 +83,60 @@ const VERSIONS_SCHEMA_MAS_LARGO = (['major', 'minor'] as const)
   )
   .reduce((largo, texto) => (texto.length > largo.length ? texto : largo));
 
+/** El más largo de varios textos. */
+function elMasLargo(textos: readonly string[]): string {
+  return textos.reduce((largo, texto) => (texto.length > largo.length ? texto : largo), '');
+}
+
+/** Las veinticuatro tonalidades, como las manda el cliente: tónica con sostenidos. */
+const TONALIDADES = SHARP_NAMES.flatMap((tonic, indice) =>
+  (['major', 'minor'] as const).map((mode: KeyMode) => ({
+    nombre: { tonic, mode },
+    clase: { tonic: indice as PitchClass, mode },
+  })),
+);
+
+/**
+ * El prompt del profesor más largo que se puede mandar, **medido y no supuesto**.
+ *
+ * Reservaba trescientos caracteres a ojo para los datos de la tonalidad. Desde que
+ * el prompt lleva la tabla de acordes y hasta dos entradas del glosario
+ * (adr/0076), eso son más de seiscientos, y el número a ojo habría dejado pasar
+ * un prompt que se come el presupuesto entero. Así que se construye con cada pieza
+ * en su peor caso: la cabecera y la tabla de la tonalidad más larga de las
+ * veinticuatro, la escala de nombre más largo, la unidad de título más largo, las
+ * **dos** entradas más largas del glosario —cada una en su peor tonalidad— y la
+ * pregunta hasta su tope, con sus dos marcas.
+ */
+function peorPromptDelProfesor(): string {
+  const referencias = GLOSSARY.map((entrada) =>
+    elMasLargo(TONALIDADES.map(({ clase }) => theoryReference(entrada, clase))),
+  )
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 2)
+    .map((referencia) => `- ${referencia}`);
+  const marca = '###PREGUNTA###';
+
+  return [
+    elMasLargo(
+      TONALIDADES.map(({ nombre }) => cabeceraDePrompt(nombre, degreesFor(nombre.mode)).join('\n')),
+    ),
+    elMasLargo(TONALIDADES.map(({ clase }) => keyChordTable(clase))),
+    elMasLargo(SCALE_IDS.map(lineaDeEscala)),
+    elMasLargo(COURSES.flatMap((curso) => curso.units.map((unidad) => lineaDeTema(unidad.title)))),
+    CABECERA_DE_TEORIA,
+    ...referencias,
+    `${marca}\n${'x'.repeat(MAX_QUESTION_LENGTH)}\n${marca}`,
+  ].join('\n');
+}
+
 describe('el presupuesto de tokens del profesor', () => {
-  it('el prompt de sistema, el esquema y la pregunta más larga caben', () => {
-    // Lo que la ruta manda como mucho: sistema + esquema + los datos de la
-    // tonalidad (unos 300 caracteres entre grados, escala y tema) + la pregunta.
-    const datos = 'x'.repeat(300 + MAX_QUESTION_LENGTH);
-    const estimado = estimatedTokens(TEACHER_SYSTEM_PROMPT, schemaText(ANSWER_SCHEMA), datos);
+  it('el prompt de sistema, el esquema y el peor prompt de verdad caben', () => {
+    const estimado = estimatedTokens(
+      TEACHER_SYSTEM_PROMPT,
+      schemaText(ANSWER_SCHEMA),
+      peorPromptDelProfesor(),
+    );
 
     expect(estimado).toBeLessThanOrEqual(TOKEN_BUDGETS.profesor.input);
   });

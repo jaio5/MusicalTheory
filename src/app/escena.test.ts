@@ -197,6 +197,18 @@ describe('la escena de la portada', () => {
    * La regla general de globals.css lo frenaría igual, pero dejando el último
    * fotograma, y el del paralaje tiene la pared corrida.
    */
+  /**
+   * Fuera de la vista se pausa, y con su propio atributo: `data-parada` es lo que
+   * pide el botón, y salir de la pantalla no tiene que tocar lo que se pidió.
+   */
+  it('fuera de la vista las tiras se pausan, con su atributo y no con el del boton', () => {
+    const movimiento = HOJA_DE_ESTILOS.split('@media (prefers-reduced-motion: no-preference)')[1]!;
+
+    expect(movimiento).toContain(
+      '.escena[data-fuera] .escena-tira {\n    animation-play-state: paused;',
+    );
+  });
+
   it('no hay ninguna animación fuera del movimiento aceptado', () => {
     const fuera = HOJA_DE_ESTILOS.split('@media (prefers-reduced-motion: no-preference)')[0]!;
 

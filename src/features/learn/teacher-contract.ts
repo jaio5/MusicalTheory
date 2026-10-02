@@ -10,6 +10,7 @@
  */
 
 import {
+  checkAnswerAgainstTheory,
   degreesFor,
   cuerpoConTonalidad,
   findUnit,
@@ -21,6 +22,7 @@ import {
   type ScaleId,
 } from '@core/music';
 import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
+import { sinMarca } from '@core/marca';
 import { isRecord } from '@core/parse';
 import { pitchClassFromName } from '@core/music';
 import { MAX_QUESTION_LENGTH } from '@core/billing';
@@ -46,9 +48,11 @@ export const MAX_ANSWER_LENGTH = 900;
  * contra una inyección decidida— pero convierte el caso habitual, el «ignora lo
  * anterior», en una frase más dentro de un bloque marcado.
  *
- * Y por eso `parseTeacherRequest` la borra de la pregunta: sin eso, quien la
- * escribiera cerraría el bloque antes de tiempo y lo de después se leería como
- * instrucciones nuestras, que es exactamente lo que se está evitando.
+ * Y por eso `parseTeacherRequest` la borra de la pregunta, **en cualquiera de
+ * sus formas** (`sinMarca`): sin eso, quien la escribiera cerraría el bloque antes
+ * de tiempo y lo de después se leería como instrucciones nuestras, que es
+ * exactamente lo que se está evitando. Borrar solo esta cadena exacta lo saltaban
+ * `### PREGUNTA ###`, `###pregunta###` y un espacio de ancho cero.
  */
 export const MARCA_PREGUNTA = '###PREGUNTA###';
 
@@ -134,9 +138,10 @@ export function parseTeacherRequest(body: unknown): TeacherRequest | null {
   if (typeof question !== 'string' || question.trim() === '') {
     return null;
   }
-  // Fuera la marca antes de nada: es lo que impide cerrar el bloque a mano y
-  // escribir instrucciones fuera de él.
-  const limpia = question.split(MARCA_PREGUNTA).join(' ').trim();
+  // Fuera la marca antes de nada, **escrita como se escriba** —con espacios, en
+  // minúsculas, con ancho cero o de ancho completo—: es lo que impide cerrar el
+  // bloque a mano y escribir instrucciones fuera de él (`core/marca.ts`).
+  const limpia = sinMarca(question, 'PREGUNTA').trim();
   /* v8 ignore next 3 -- una pregunta que solo fueran marcas ya se ha caido por el largo minimo */
   if (limpia === '') {
     return null;
@@ -182,6 +187,12 @@ export function topicOf(request: TeacherRequest): string | undefined {
  * Valida la respuesta contra el dominio. Los cifrados del ejemplo no se creen:
  * se recalculan desde los grados, que es la única forma de que no aparezca en
  * pantalla un acorde que no existe en esa tonalidad.
+ *
+ * **Y la prosa se comprueba contra el glosario.** Si la pregunta es por algo con
+ * firma —una cadencia, la relativa— y la respuesta lo nombra, tiene que decir sus
+ * acordes y no los de otra cosa (`checkAnswerAgainstTheory`). Lo que no pasa
+ * vuelve nulo, y la ruta reintenta una vez con otra temperatura: es lo que hace
+ * que «la cadencia perfecta es C a G a C» no llegue a la pantalla.
  */
 export function validateTeacherAnswer(
   payload: unknown,
@@ -211,6 +222,13 @@ export function validateTeacherAnswer(
   const result: { answer: string; example?: TeacherAnswer['example'] } = {
     answer: answer.trim().slice(0, MAX_ANSWER_LENGTH),
   };
+  const tonic = pitchClassFromName(request.key.tonic);
+  if (
+    checkAnswerAgainstTheory(request.question, result.answer, { tonic, mode: request.key.mode }) !==
+    null
+  ) {
+    return null;
+  }
 
   const example = payload['example'];
   if (isRecord(example) && Array.isArray(example['degrees'])) {
@@ -221,7 +239,7 @@ export function validateTeacherAnswer(
       degrees.every((degree) => typeof degree === 'string' && valid.includes(degree))
     ) {
       const chords = resolveProgression(
-        pitchClassFromName(request.key.tonic),
+        tonic,
         request.key.mode,
         degrees as readonly DegreeSymbol[],
       ).map((chord) => chord.symbol);

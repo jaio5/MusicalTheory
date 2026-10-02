@@ -35,3 +35,4 @@ export * from './ensayo';
 export * from './capture';
 export * from './playback';
 export * from './midi';
+export * from './glossary';

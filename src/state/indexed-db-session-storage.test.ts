@@ -2,11 +2,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { IDBFactory } from 'fake-indexeddb';
 
-import { pitchClassFromName } from '@core/music';
+import { pitchClassFromName, writtenBlock, type Arrangement } from '@core/music';
 
 import {
+  createAlmacenDelLienzo,
   createSessionStorage,
+  IndexedDbLienzo,
   IndexedDbSessionStorage,
+  MemoriaDelLienzo,
+  VERSION_DEL_LIENZO,
   MAX_STORED_SESSIONS,
   MemorySessionStorage,
   type StoredSession,
@@ -185,5 +189,127 @@ describe('cuando la base falla', () => {
     const sinId = { ...sesion('x', 1000), id: undefined } as unknown as StoredSession;
 
     await expect(almacen.save(sinId)).rejects.toBeDefined();
+  });
+});
+
+/** Una canción corta: dos acordes y una nota. */
+const CANCION: Arrangement = {
+  parts: [
+    {
+      id: 'estrofa',
+      name: 'Estrofa',
+      blocks: [writtenBlock('a', 'I', 4), writtenBlock('b', 'vi', 4, 'minor7')],
+      notes: [{ id: 'n', offset: 4, start: 1, length: 1 }],
+      bars: 4,
+    },
+  ],
+};
+
+/** Escribe tal cual en el almacén del lienzo, para probar qué pasa con lo raro. */
+function escribirEnElLienzo(valor: unknown): Promise<void> {
+  return new Promise((listo, fallo) => {
+    const abrir = indexedDB.open('caos-ordenado', 2);
+    abrir.onupgradeneeded = () => {
+      abrir.result.createObjectStore('sessions', { keyPath: 'id' });
+      abrir.result.createObjectStore('lienzo');
+    };
+    abrir.onsuccess = () => {
+      const db = abrir.result;
+      const poner = db
+        .transaction('lienzo', 'readwrite')
+        .objectStore('lienzo')
+        .put(valor, 'actual');
+      poner.onsuccess = () => {
+        db.close();
+        listo();
+      };
+      poner.onerror = () => fallo(poner.error);
+    };
+    abrir.onerror = () => fallo(abrir.error);
+  });
+}
+
+/**
+ * El lienzo de componer, guardado en el navegador.
+ *
+ * Existe porque la canción se perdía al recargar sin plan. Lo que se prueba aquí
+ * es la mitad que habla con IndexedDB: que lo guardado vuelva entero, que subir
+ * la versión de la base no se lleve las sesiones y que lo raro no tumbe nada.
+ */
+describe('el lienzo guardado', () => {
+  it('lo guardado vuelve entero', async () => {
+    const lienzo = new IndexedDbLienzo();
+
+    await lienzo.guardar(CANCION);
+
+    expect(await lienzo.leer()).toEqual(CANCION);
+  });
+
+  it('sin nada guardado, nada', async () => {
+    expect(await new IndexedDbLienzo().leer()).toBeNull();
+  });
+
+  it('guardar otra vez pisa lo de antes: hay un solo lienzo', async () => {
+    const lienzo = new IndexedDbLienzo();
+    await lienzo.guardar(CANCION);
+    await lienzo.guardar({ parts: [] });
+
+    expect(await lienzo.leer()).toEqual({ parts: [] });
+  });
+
+  /**
+   * Quien venía de la versión 1 de la base tiene sus sesiones dentro. Subir a
+   * la 2 para meter el lienzo no puede llevárselas: `onupgradeneeded` crea lo
+   * que falta y no toca lo que hay.
+   */
+  it('subir la base de versión no borra las sesiones', async () => {
+    await new Promise<void>((listo, fallo) => {
+      const abrir = indexedDB.open('caos-ordenado', 1);
+      abrir.onupgradeneeded = () => {
+        abrir.result.createObjectStore('sessions', { keyPath: 'id' }).put(sesion('de-antes', 1000));
+      };
+      abrir.onsuccess = () => {
+        abrir.result.close();
+        listo();
+      };
+      abrir.onerror = () => fallo(abrir.error);
+    });
+
+    await new IndexedDbLienzo().guardar(CANCION);
+
+    expect((await almacen.list()).map((s) => s.id)).toEqual(['de-antes']);
+    expect(await new IndexedDbLienzo().leer()).toEqual(CANCION);
+  });
+
+  // Lo de otra versión, o basura en la clave, no se lee: `/componer` tiene que
+  // abrir aunque el navegador guarde cualquier cosa.
+  it.each([
+    ['basura', 'texto'],
+    ['una lista', []],
+    ['nulo', null],
+    ['otra versión', { version: VERSION_DEL_LIENZO + 1, arrangement: CANCION }],
+    ['sin montaje', { version: VERSION_DEL_LIENZO }],
+  ])('%s no se lee', async (_, valor) => {
+    await escribirEnElLienzo(valor);
+
+    expect(await new IndexedDbLienzo().leer()).toBeNull();
+  });
+
+  it('en memoria hace lo mismo, y lo leído es una copia', async () => {
+    const lienzo = new MemoriaDelLienzo();
+    expect(await lienzo.leer()).toBeNull();
+
+    const cancion = structuredClone(CANCION);
+    await lienzo.guardar(cancion);
+    (cancion.parts as unknown[]).length = 0;
+
+    expect(await lienzo.leer()).toEqual(CANCION);
+  });
+
+  it('con IndexedDB, el de verdad; sin ella, el de memoria', () => {
+    expect(createAlmacenDelLienzo()).toBeInstanceOf(IndexedDbLienzo);
+
+    delete (globalThis as { indexedDB?: unknown }).indexedDB;
+    expect(createAlmacenDelLienzo()).toBeInstanceOf(MemoriaDelLienzo);
   });
 });

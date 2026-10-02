@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
   output: 'standalone',
 
   /**
+   * Sin `X-Powered-By: Next.js`. Decir con qué está hecho no sirve a quien usa la
+   * aplicación y sí a quien busca qué versión tiene un fallo conocido.
+   */
+  poweredByHeader: false,
+
+  /**
    * `next dev` deja de escribir en el `CLAUDE.md` de este repositorio.
    *
    * Desde la 16.3 añade solo un bloque en inglés al final del fichero —y lo

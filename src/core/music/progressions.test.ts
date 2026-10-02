@@ -192,3 +192,24 @@ describe('el cuarto menor prestado', () => {
     expect(degreeInMode('iv', 'major')).toBe('iv');
   });
 });
+
+/**
+ * Las dominantes secundarias de mayor, al pasar a menor.
+ *
+ * Devolvían `null`, y el bloque se caía sin avisar: C G Am F E7 en Do mayor
+ * pasaba a Do menor sin el E7. Se traducen por función, como todo lo demás.
+ */
+describe('las dominantes secundarias al cambiar de modo', () => {
+  it('la del vi pasa a ser la del VI, que es el III', () => {
+    expect(degreeInMode('V/vi', 'minor')).toBe('III');
+  });
+
+  it('la del iii pasa a ser la del III, que es el VII', () => {
+    expect(degreeInMode('V/iii', 'minor')).toBe('VII');
+  });
+
+  // Un disminuido no se prepara con su dominante: esa no tiene dónde caer.
+  it('la del ii no tiene contraparte', () => {
+    expect(degreeInMode('V/ii', 'minor')).toBeNull();
+  });
+});

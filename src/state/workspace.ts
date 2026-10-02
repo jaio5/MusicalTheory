@@ -15,8 +15,15 @@
  * a pedirla mañana es no haber escuchado la primera vez.
  */
 
-import type { KeyMode, PitchClass, ScaleId, StyleId } from '@core/music';
-import type { TuningId } from '@core/instrument';
+import {
+  SCALES,
+  STYLES,
+  type KeyMode,
+  type PitchClass,
+  type ScaleId,
+  type StyleId,
+} from '@core/music';
+import { TUNINGS, type TuningId } from '@core/instrument';
 
 /** La tonalidad fijada a mano. Nula significa «sigue a la detección». */
 export interface PinnedKey {
@@ -132,17 +139,34 @@ export function parsePreferences(raw: unknown): WorkspacePreferences {
   }
   const record = raw as Record<string, unknown>;
 
-  const styleId = record['styleId'];
-  const scaleId = record['scaleId'];
-  const tuningId = record['tuningId'];
-
   return {
-    styleId: typeof styleId === 'string' ? (styleId as StyleId) : DEFAULT_PREFERENCES.styleId,
-    scaleId: typeof scaleId === 'string' ? (scaleId as ScaleId) : DEFAULT_PREFERENCES.scaleId,
-    tuningId: typeof tuningId === 'string' ? (tuningId as TuningId) : DEFAULT_PREFERENCES.tuningId,
+    styleId: unoDe(STYLES, record['styleId'], DEFAULT_PREFERENCES.styleId),
+    scaleId: unoDe(SCALES, record['scaleId'], DEFAULT_PREFERENCES.scaleId),
+    tuningId: unoDe(TUNINGS, record['tuningId'], DEFAULT_PREFERENCES.tuningId),
     pinnedKey: parsePinnedKey(record['pinnedKey']),
     banco: parseBanco(record['banco']),
   };
+}
+
+/**
+ * Lo guardado, **si está en el catálogo**; si no, lo de fábrica.
+ *
+ * Bastaba con que fuera texto, y un texto no es una escala. Una que ya no existe
+ * —se renombró, o la guardó otra versión— llegaba hasta el mástil, que buscaba
+ * sus intervalos en `SCALES`, encontraba `undefined` y **tumbaba `/componer`
+ * entera** al cargar, sin manera de arreglarlo desde la aplicación: la
+ * preferencia rota se volvía a leer en cada recarga. Medido con `lydian` y
+ * `reggae` guardados: «This page couldn't load» en componer y nada en las demás.
+ *
+ * `Object.hasOwn` y no `in`: con `in`, un `toString` guardado pasaría por una
+ * escala, porque lo tiene cualquier objeto.
+ */
+function unoDe<Id extends string>(
+  catalogo: Readonly<Record<Id, unknown>>,
+  raw: unknown,
+  porDefecto: Id,
+): Id {
+  return typeof raw === 'string' && Object.hasOwn(catalogo, raw) ? (raw as Id) : porDefecto;
 }
 
 /**

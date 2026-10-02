@@ -51,6 +51,8 @@ import {
   type Arrangement,
   type Block,
   bloquesEnDuda,
+  bloquesSinTraduccion,
+  leerMontaje,
 } from './arrangement';
 import { MAX_LEAD_NOTES, type LeadNote } from './melody';
 import { pitchClassFromName } from './notes';
@@ -211,6 +213,37 @@ describe('cuentas', () => {
   it('los pulsos son la suma de los bloques', () => {
     expect(arrangementBeats(montaje())).toBe(16);
     expect(arrangementBeats(EMPTY_ARRANGEMENT)).toBe(0);
+  });
+
+  /**
+   * Un punteo solo, sin acordes debajo, dura lo que dura: contaba solo los
+   * bloques, medía cero y el lienzo apagaba «Escuchar la canción» y «MIDI» con
+   * la melodía escrita delante.
+   */
+  it('un punteo sin acordes también dura, y con sus vueltas', () => {
+    const soloPunteo: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'P',
+          blocks: [],
+          notes: [{ id: 'n', offset: 0, start: 4, length: 2 }],
+          bars: 4,
+          repeats: 2,
+        },
+      ],
+    };
+
+    expect(arrangementBeats(soloPunteo)).toBe(12);
+    // Y es lo mismo que suena: la segunda vuelta empieza donde acaba la primera.
+    expect(soundOf(soloPunteo, 0, 'major').events.map((e) => e.startBeat)).toEqual([4, 10]);
+  });
+
+  // Con acordes y punteo, manda el que llega más lejos.
+  it('una melodía que se sale de los acordes alarga la canción', () => {
+    const a = addNote(montaje(), 'estribillo', { id: 'n', offset: 0, start: 6, length: 2 });
+
+    expect(arrangementBeats(a)).toBe(20);
   });
 
   it('el último grado de una parte es desde donde se sugiere', () => {
@@ -520,31 +553,154 @@ describe('translateToMode', () => {
     expect(a.parts[1]?.blocks.map((b) => b.degree)).toEqual(['V']);
   });
 
-  it('y se vuelve del menor al mayor por el mismo camino', () => {
+  /**
+   * **Ir y volver deja la canción como estaba.** Antes no: el `vi` volvía como
+   * `bVI` y el `IV` como `iv`, porque la tabla de vuelta no puede saber de cuál
+   * de los dos venía un `VI`. Lo sabe el bloque, que se lleva lo que era.
+   */
+  it('y al volver al mayor, cada bloque vuelve a ser el que era', () => {
     const enMenor = translateToMode(montaje(), 'minor');
 
-    // El vi vuelve como bVI: en menor el sexto grado es mayor, y al volver se
-    // dice con su bemol. Suena el mismo acorde que sonaba en menor.
-    //
-    // Y el `iv` vuelve como `iv`, por lo mismo: desde que el cuarto menor existe
-    // en mayor —el préstamo, [adr/0036](../../../docs/adr/0036-el-cuarto-menor-prestado.md)—
-    // no hay que cambiarlo de nombre para decirlo, así que el Fa menor que
-    // sonaba en menor sigue sonando.
-    expect(translateToMode(enMenor, 'major').parts[0]?.blocks.map((b) => b.degree)).toEqual([
-      'I',
-      'bVI',
-      'iv',
-    ]);
+    expect(translateToMode(enMenor, 'major')).toEqual(montaje());
   });
 
-  // Las tres dominantes secundarias de mayor que el menor no tiene son lo único
-  // que se cae, y se cae porque allí no existe ese acorde.
-  it('lo que de verdad no existe en el modo nuevo se queda fuera', () => {
+  // Lo que se escribe en menor no trae recuerdo, así que va por la tabla: el
+  // `VI` del menor se dice `bVI` en mayor, que suena el mismo acorde.
+  it('lo escrito en menor pasa al mayor por la tabla, y vuelve como era', () => {
+    const enMenor: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'P',
+          blocks: [bloque('a', 'i'), bloque('b', 'VI'), bloque('c', 'iv')],
+          notes: [],
+          bars: 4,
+        },
+      ],
+    };
+    const enMayor = translateToMode(enMenor, 'major');
+
+    expect(enMayor.parts[0]?.blocks.map((b) => b.degree)).toEqual(['I', 'bVI', 'iv']);
+    expect(translateToMode(enMayor, 'minor')).toEqual(enMenor);
+  });
+
+  /**
+   * La reproducción exacta del fallo: C G Am F y un E7 —la dominante del vi—
+   * en Do mayor, y a Do menor. Quedaba Cm G Ab Fm: el E7 desaparecía sin avisar,
+   * y al volver salía C G Ab Fm.
+   */
+  it('C G Am F E7 va a menor sin perder el E7, y vuelve entero', () => {
+    const cancion: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'Estrofa',
+          blocks: [
+            bloque('c', 'I'),
+            bloque('g', 'V'),
+            bloque('am', 'vi'),
+            bloque('f', 'IV'),
+            writtenBlock('e7', 'V/vi', 4, 'dominant7'),
+          ],
+          notes: [],
+          bars: 5,
+        },
+      ],
+    };
+    const DO = pitchClassFromName('C');
+    const cifrados = (a: Arrangement, modo: 'major' | 'minor') =>
+      a.parts[0]!.blocks.map((b) => blockChord(DO, modo, b).symbol);
+
+    const enMenor = translateToMode(cancion, 'minor');
+    // La dominante del vi es, en menor, la del VI: el Eb7 que lleva al Ab. Con
+    // su séptima, que viaja con el bloque.
+    expect(cifrados(enMenor, 'minor')).toEqual(['Cm', 'G', 'Ab', 'Fm', 'Eb7']);
+    expect(bloquesSinTraduccion(cancion, 'minor')).toEqual([]);
+
+    const deVuelta = translateToMode(enMenor, 'major');
+    expect(cifrados(deVuelta, 'major')).toEqual(['C', 'G', 'Am', 'F', 'E7']);
+    expect(deVuelta).toEqual(cancion);
+  });
+
+  // Las alternativas de un bloque oído también vuelven como eran: allí se cae la
+  // que no existe, y al volver tiene que estar otra vez para poder elegirla.
+  it('las alternativas vuelven enteras', () => {
+    const a: Arrangement = {
+      parts: [
+        { id: 'p', name: 'P', blocks: [oido('a', 'I', 0.03, ['vi', 'V/ii'])], notes: [], bars: 4 },
+      ],
+    };
+    const enMenor = translateToMode(a, 'minor');
+    expect(enMenor.parts[0]!.blocks[0]!.alternatives).toEqual(['VI']);
+
+    expect(translateToMode(enMenor, 'major')).toEqual(a);
+  });
+
+  /**
+   * Lo que se corrige en el otro modo ya no vuelve como era: volver al acorde de
+   * antes desharía la corrección sin decirlo. Corregido, el bloque pasa por la
+   * tabla como si se hubiera escrito allí.
+   */
+  it('lo que se corrige en el otro modo se queda corregido', () => {
+    const enMenor = translateToMode(montaje(), 'minor');
+    const corregido = fixBlock(enMenor, 'b', 'VII');
+
+    const deVuelta = translateToMode(corregido, 'major');
+    expect(deVuelta.parts[0]?.blocks.map((b) => b.degree)).toEqual(['I', 'bVII', 'IV']);
+  });
+
+  // Confirmar lo que ya decía no lo cambia, así que no tiene por qué olvidar.
+  it('confirmar en el otro modo no olvida lo que era', () => {
+    const a: Arrangement = {
+      parts: [{ id: 'p', name: 'P', blocks: [oido('a', 'vi', 0.03, ['I'])], notes: [], bars: 4 }],
+    };
+    const confirmado = fixBlock(translateToMode(a, 'minor'), 'a', 'VI', true);
+
+    expect(translateToMode(confirmado, 'major').parts[0]?.blocks[0]?.degree).toBe('vi');
+  });
+
+  /**
+   * Un recuerdo que no cuadra con lo que hay —llegó de fuera, o el bloque se
+   * cambió por un camino que no lo borró— no se usa, y se olvida para que no
+   * coincida un día por casualidad.
+   */
+  it('un recuerdo que ya no cuadra se ignora y se olvida', () => {
+    const conRecuerdoViejo: Arrangement = {
+      parts: [
+        {
+          id: 'p',
+          name: 'P',
+          blocks: [
+            { ...bloque('a', 'V'), delOtroModo: { mode: 'major', degree: 'IV', alternatives: [] } },
+          ],
+          notes: [],
+          bars: 4,
+        },
+      ],
+    };
+
+    expect(translateToMode(conRecuerdoViejo, 'major').parts[0]?.blocks[0]).toEqual(
+      bloque('a', 'V'),
+    );
+  });
+
+  // Ya en su modo, un bloque que recuerda el otro no cambia: el recuerdo es
+  // para cuando se vuelva.
+  it('traducir al modo que ya tiene no toca un bloque traducido', () => {
+    const enMenor = translateToMode(montaje(), 'minor');
+
+    expect(translateToMode(enMenor, 'minor')).toBe(enMenor);
+  });
+
+  // La dominante del ii es lo único que se cae: en menor el segundo grado es
+  // disminuido y no se prepara con su dominante. Se cae, pero se dice cuál.
+  it('lo que de verdad no existe en el modo nuevo se queda fuera, y se dice cuál es', () => {
     const conSecundaria = addBlock(montaje(), 'estrofa', bloque('z', 'V/ii'));
 
     const a = translateToMode(conSecundaria, 'minor');
     expect(a.parts[0]?.blocks.map((b) => b.degree)).not.toContain('V/ii');
     expect(a.parts[0]?.blocks).toHaveLength(3);
+    expect(bloquesSinTraduccion(conSecundaria, 'minor')).toEqual([bloque('z', 'V/ii')]);
   });
 
   // La parte se queda aunque se vacíe: borrarla haría desaparecer un nombre que
@@ -1222,5 +1378,135 @@ describe('los bloques en duda', () => {
   // Y lo escrito a mano no se pregunta nunca, por dudoso que parezca el número.
   it('lo escrito a mano no entra', () => {
     expect(bloquesEnDuda(montaje(bloque('a', 'I', 4)))).toEqual([]);
+  });
+});
+
+/**
+ * Leer un montaje guardado en el navegador.
+ *
+ * Lo escribió esta aplicación, pero quizá otra versión, y lo que hay en el
+ * navegador lo puede tocar cualquiera: se lee sin creerse nada y sin tumbar lo
+ * que sí se entiende.
+ */
+describe('leerMontaje', () => {
+  it('lo que guarda el lienzo se lee tal cual', () => {
+    const a = translateToMode(
+      addNote(montaje(), 'estrofa', { id: 'n', offset: 3, start: 1, length: 1, clarity: 0.5 }),
+      'minor',
+    );
+    const conTodo = setRepeats(setPartRole(a, 'estrofa', 'estribillo'), 'estrofa', 2);
+    const leido = leerMontaje(JSON.parse(JSON.stringify(conTodo)));
+
+    expect(leido).toEqual(conTodo);
+  });
+
+  it('lo que no es un montaje no se lee', () => {
+    expect(leerMontaje(null)).toBeNull();
+    expect(leerMontaje('texto')).toBeNull();
+    expect(leerMontaje([])).toBeNull();
+    expect(leerMontaje({ parts: 'no' })).toBeNull();
+  });
+
+  it('lo que no se entiende se cae, y lo demás se queda', () => {
+    const leido = leerMontaje({
+      parts: [
+        'basura',
+        { id: 7, name: 'Sin identificador' },
+        { id: 'z', name: 3 },
+        { id: 'p', name: 'P', blocks: 'no', notes: 'no' },
+        {
+          id: 'q',
+          name: '   ',
+          bars: 900,
+          repeats: 99,
+          role: 'inventado',
+          blocks: [
+            null,
+            { id: 'x', degree: 'XIII' },
+            { id: 1, degree: 'I' },
+            {
+              id: 'a',
+              degree: 'IV',
+              especie: 'rara',
+              beats: 'mucho',
+              source: 'quien-sabe',
+              confidence: 7,
+              alternatives: ['V', 'nada', 3],
+              delOtroModo: { mode: 'dorico', degree: 'iv' },
+            },
+            { id: 'b', degree: 'VI', beats: 3, delOtroModo: { mode: 'major', degree: 'XX' } },
+            { id: 'c', degree: 'V', source: 'heard', confidence: 0.02, delOtroModo: 'no' },
+            { id: 'd', degree: 'ii', source: 'fixed', especie: 'quinta' },
+          ],
+          notes: [
+            null,
+            { id: 5, offset: 0, start: 0, length: 1 },
+            { id: 'mala', offset: null, start: 0, length: 1 },
+            { id: 'n2', offset: 99, start: 2.1, length: 0.9 },
+            { id: 'n1', offset: 0, start: 0, length: 1, clarity: 'mucha' },
+          ],
+        },
+      ],
+    });
+
+    expect(leido).toEqual({
+      parts: [
+        { id: 'p', name: 'P', blocks: [], notes: [], bars: BARS_POR_DEFECTO },
+        {
+          id: 'q',
+          name: 'Parte',
+          bars: MAX_BARS,
+          repeats: MAX_REPEATS,
+          blocks: [
+            {
+              id: 'a',
+              degree: 'IV',
+              beats: 1,
+              source: 'written',
+              confidence: 1,
+              alternatives: ['V'],
+            },
+            { id: 'b', degree: 'VI', beats: 3, source: 'written', confidence: 1, alternatives: [] },
+            {
+              id: 'c',
+              degree: 'V',
+              beats: 1,
+              source: 'heard',
+              confidence: 0.02,
+              alternatives: [],
+            },
+            {
+              id: 'd',
+              degree: 'ii',
+              especie: 'quinta',
+              beats: 1,
+              source: 'fixed',
+              confidence: 1,
+              alternatives: [],
+            },
+          ],
+          notes: [
+            { id: 'n1', offset: 0, start: 0, length: 1 },
+            { id: 'n2', offset: 24, start: 2, length: 1 },
+          ],
+        },
+      ],
+    });
+  });
+
+  // Los topes son los de escribir: lo guardado por otra versión no los salta.
+  it('no deja pasar más partes ni más bloques de los que caben', () => {
+    const muchos = Array.from({ length: MAX_PART_BLOCKS + 3 }, (_, i) => bloque(`b${i}`, 'I'));
+    const partes = Array.from({ length: MAX_PARTS + 2 }, (_, i) => ({
+      id: `p${i}`,
+      name: `P${i}`,
+      blocks: muchos,
+      notes: [],
+      bars: 4,
+    }));
+
+    const leido = leerMontaje({ parts: partes });
+    expect(leido?.parts).toHaveLength(MAX_PARTS);
+    expect(leido?.parts[0]?.blocks).toHaveLength(MAX_PART_BLOCKS);
   });
 });

@@ -3,10 +3,32 @@ import '@testing-library/jest-dom/vitest';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type * as ReactDom from 'react-dom';
+import { preload } from 'react-dom';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EscenaPortada } from './EscenaPortada';
+
+/*
+  La imagen importada, como la entrega Next: un objeto con su URL con huella.
+  Vite la daría como una cadena, y la precarga pediría `undefined`.
+*/
+vi.mock('./_escena/fondo.png', () => ({
+  default: { src: '/_next/static/media/fondo.huella.png', width: 192, height: 112 },
+}));
+vi.mock('./_escena/medio.png', () => ({
+  default: { src: '/_next/static/media/medio.huella.png', width: 192, height: 112 },
+}));
+vi.mock('./_escena/frente.png', () => ({
+  default: { src: '/_next/static/media/frente.huella.png', width: 192, height: 112 },
+}));
+
+// La precarga de React, para poder preguntar qué se le pidió.
+vi.mock('react-dom', async (original) => ({
+  ...(await original<typeof ReactDom>()),
+  preload: vi.fn(),
+}));
 
 /**
  * La escena del encabezado.
@@ -115,6 +137,25 @@ describe('la escena de la portada', () => {
     // Lo quieto ya está entero: las tres capas y las tiras en su sitio.
     expect(html).toContain('escena-fondo');
     expect(html).toContain('data-tira="mascota"');
+  });
+
+  /**
+   * Las tres capas son el LCP de la portada —se lo lleva la que más asoma—, y un
+   * `background-image` no se descubre hasta tener la hoja aplicada. Se precargan
+   * **con la URL que da el import**, que es la misma que pide la hoja: escrita a
+   * mano se bajarían dos.
+   */
+  it('precarga las tres capas, con la URL del import y prioridad alta', () => {
+    preferencias();
+
+    renderToString(<EscenaPortada />);
+
+    for (const capa of ['fondo', 'medio', 'frente']) {
+      expect(preload).toHaveBeenCalledWith(`/_next/static/media/${capa}.huella.png`, {
+        as: 'image',
+        fetchPriority: 'high',
+      });
+    }
   });
 
   it('con movimiento aceptado se pone viva y se puede parar', () => {
@@ -254,6 +295,80 @@ describe('la escena de la portada', () => {
     fireEvent.pointerMove(window, { clientX: 10, clientY: 10 });
 
     expect(requestAnimationFrame).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Fuera de la vista, la escena se pausa sola: siete tiras en bucle eran
+   * sesenta recálculos de estilo por segundo con la portada bajada. El
+   * `IntersectionObserver` se dobla porque jsdom no lo trae.
+   */
+  describe('fuera de la vista', () => {
+    let avisar: (entradas: Array<{ isIntersecting: boolean }>) => void = () => {};
+    const observados: Element[] = [];
+    const desconectar = vi.fn();
+
+    function conObservador() {
+      observados.length = 0;
+      desconectar.mockClear();
+      vi.stubGlobal(
+        'IntersectionObserver',
+        class {
+          constructor(llamada: typeof avisar) {
+            avisar = llamada;
+          }
+          observe(nodo: Element) {
+            observados.push(nodo);
+          }
+          disconnect() {
+            desconectar();
+          }
+        },
+      );
+    }
+
+    function seVe(dentro: boolean) {
+      act(() => avisar([{ isIntersecting: !dentro }, { isIntersecting: dentro }]));
+    }
+
+    it('se marca al salir y se desmarca al volver, mirando el ultimo aviso', () => {
+      preferencias();
+      conObservador();
+      const { container, unmount } = render(<EscenaPortada />);
+      expect(observados).toEqual([escena(container)]);
+
+      seVe(false);
+      expect(escena(container)).toHaveAttribute('data-fuera');
+      // No es parar: el botón sigue diciendo lo mismo.
+      expect(escena(container)).not.toHaveAttribute('data-parada');
+      expect(screen.getByRole('button', { name: 'Parar la escena' })).toBeInTheDocument();
+
+      seVe(true);
+      expect(escena(container)).not.toHaveAttribute('data-fuera');
+
+      unmount();
+      expect(desconectar).toHaveBeenCalled();
+    });
+
+    it('fuera, tampoco sigue al puntero', () => {
+      preferencias();
+      conObservador();
+      const { container } = render(<EscenaPortada />);
+      colocar(container);
+
+      seVe(false);
+      fireEvent.pointerMove(window, { clientX: 1000, clientY: 800 });
+
+      expect(requestAnimationFrame).not.toHaveBeenCalled();
+    });
+
+    it('quieta no hay nada que pausar, y no se mira', () => {
+      preferencias({ reducido: true });
+      conObservador();
+      const { container } = render(<EscenaPortada />);
+
+      expect(observados).toEqual([]);
+      expect(escena(container)).not.toHaveAttribute('data-fuera');
+    });
   });
 
   it('al desmontar suelta el puntero y cancela el fotograma pendiente', () => {

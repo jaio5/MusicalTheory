@@ -153,6 +153,36 @@ describe('Panel de sesiones', () => {
     });
   });
 
+  /**
+   * **Una escala que ya no está en el catálogo no se aplica.** Llegaba tal cual
+   * al almacén, de ahí al mástil, y componer se caía entera. Es el mismo fallo
+   * que ya se arregló en `ResumeLast`: la tonalidad se retoma, la escala no.
+   */
+  describe('una sesión con una escala que ya no existe', () => {
+    for (const scaleId of ['escala-retirada', 'toString']) {
+      it(`«${scaleId}» no se aplica, y la tonalidad sí`, async () => {
+        const { actions } = useSessionStore.getState();
+        actions.setScale('major');
+        actions.followDetection();
+        const guardada = new MemorySessionStorage();
+        await guardada.save({
+          id: 'vieja',
+          savedAt: SAVED_AT,
+          key: { tonic: A, mode: 'minor' },
+          scaleId: scaleId as never,
+          notes: ['A'],
+          chords: [],
+        });
+        render(<SessionsPanel createStorage={() => guardada} now={() => SAVED_AT} />);
+
+        await userEvent.click(await screen.findByRole('button', { name: /retomar/i }));
+
+        expect(useSessionStore.getState().scaleId).toBe('major');
+        expect(useSessionStore.getState().pinnedKey).toEqual({ tonic: A, mode: 'minor' });
+      });
+    }
+  });
+
   describe('guardar una sesión sin tonalidad', () => {
     /**
      * Sin tonalidad no hay acorde que apuntar: se guarda la escala y las notas, y

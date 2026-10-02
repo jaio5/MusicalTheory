@@ -42,7 +42,7 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
   // El mismo con el que se arma el guion al ensayar: la vista previa y lo que
   // suena tienen que contar los compases igual.
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
-  const { fase, paso, guion, resultados, resultado, empezar, parar } = useEnsayo(
+  const { fase, paso, guion, resultados, resultado, cuenta, empezar, parar } = useEnsayo(
     arrangement,
     activeKey?.tonic ?? null,
     activeKey?.mode ?? 'major',
@@ -120,6 +120,8 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
   };
 
   const ensayando = fase === 'ensayando';
+  /** Contando los dos compases de entrada: el micro ya está abierto y nada puntúa. */
+  const contando = fase === 'preparando' && cuenta !== null && cuenta > 0;
 
   return (
     // `my-auto` en el hijo y no `justify-center` aquí, que es la regla de la
@@ -132,11 +134,15 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
           <>
             {/* El que toca, grande, y los dos que vienen detrás en pequeño. Leer
               con un compás de antelación es de lo que va tocar con metrónomo. */}
+            {/* **Sin región viva**, aunque sea lo que cambia. Anunciaba el acorde
+              de cada compás, y la voz del lector sale por el mismo altavoz que
+              el clic mientras el croma escucha: cada «La menor» dicho en voz alta
+              era un acorde más para el motor, encima del que se estaba tocando
+              ([adr/0072](../../../docs/adr/0072-la-claqueta-suena-toda-la-toma.md)).
+              El acorde se puede leer aquí cuando se quiera; lo que no se hace es
+              decirlo encima de la toma. */}
             <div className="flex items-baseline justify-center gap-6">
-              <span
-                className="font-display text-brass-bright text-6xl leading-none"
-                aria-live="polite"
-              >
+              <span className="font-display text-brass-bright text-6xl leading-none">
                 {cifrado(paso)}
               </span>
               <span className="text-text-muted font-display text-3xl leading-none opacity-60">
@@ -174,7 +180,10 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
               ))}
             </ul>
 
-            <Button onClick={parar} variant="quiet">
+            {/* Con el foco puesto al aparecer: quien empezó el ensayo tenía el
+              foco en «Empezar el ensayo», que se va de la pantalla al arrancar,
+              y sin esto el foco caía en el `<body>`. */}
+            <Button onClick={parar} variant="quiet" autoFocus>
               <IconoParar />
               Parar
             </Button>
@@ -250,12 +259,15 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
               aria-label="Lo que vas a ensayar"
               className="flex max-w-4xl flex-wrap justify-center gap-2"
             >
-              {/* **Solo los grados que existen en este modo.** El montaje se
-                traduce al cambiar de tonalidad, pero eso pasa en un efecto
-                ([adr/0030](../../../docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)):
-                hay un fotograma con los grados del modo anterior dentro, y
-                `blockChord` no perdona un `I` en menor. Medido: reventaba la
-                pantalla entera al saltar a la escala que propone una idea. */}
+              {/* **Solo los grados que existen en este modo**, y es una red y
+                no el camino. El montaje se traduce al cambiar de modo dentro del
+                mismo `set` que cambia la tonalidad, antes de que React pinte, y
+                la vigilancia está puesta desde que existe el montaje
+                (`state/montaje-en-su-modo.ts`,
+                [adr/0030](../../../docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)).
+                Se queda porque `blockChord` no perdona un `I` en menor: cuando
+                la traducción dependía de que componer estuviera montada, un
+                grado del modo anterior tumbaba la pantalla entera. */}
               {guionDeEnsayo(arrangement, beatsPerBar)
                 .filter((sitio) => degreesFor(activeKey.mode).includes(sitio.degree))
                 .map((sitio, indice) => (
@@ -279,14 +291,39 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
                 ))}
             </ol>
 
+            {/* **«Empezar el ensayo» y no «Ensayar»**: arriba, en la fila de los
+              espacios, hay otro «Ensayar» que es el espacio, y con dos botones
+              del mismo nombre a la vez el lector no sabe cuál es cuál.
+
+              Mientras se abre el micro, `cargando` y no `disabled`: apagado
+              soltaba el foco justo después de pulsarlo. Y **contando, el mismo
+              botón la corta**, como en Tocando: dos compases en los que el único
+              botón de la pantalla no hiciera nada se leen como que se ha
+              colgado. Es el mismo botón en los tres momentos, así que el foco no
+              se mueve de él. */}
             <Button
-              onClick={() => void empezar()}
-              disabled={fase === 'preparando'}
+              onClick={() => (contando ? parar() : void empezar())}
+              cargando={fase === 'preparando' && !contando}
+              variant={contando ? 'quiet' : 'primary'}
               className="min-w-56"
             >
-              <IconoTocar />
-              {fase === 'preparando' ? 'Abriendo el micro…' : 'Ensayar'}
+              {contando ? <IconoParar /> : <IconoTocar />}
+              {contando
+                ? 'Dejarlo'
+                : fase === 'preparando'
+                  ? 'Abriendo el micro…'
+                  : 'Empezar el ensayo'}
             </Button>
+            {/* La cuenta, a la vista y **sin anunciarse**: el micro ya está
+              abierto, y una voz contando por el altavoz entraría en él. */}
+            {contando && (
+              <p className="text-center" aria-hidden="true">
+                <span className="text-fluid-hero tabular-nums">{cuenta}</span>
+                <span className="text-text-muted mt-1 block text-sm">
+                  Dos compases de cuenta. El primer acorde se enciende con el último clic.
+                </span>
+              </p>
+            )}
             <p className="text-text-muted max-w-prose text-sm">
               Suena el metrónomo y se enciende el acorde que toca, con los dos siguientes a la
               vista. Te escucho por el micro y al final te digo cuántos salieron y cuál se te

@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
+
 import { badgesOf, DAILY_GOAL_XP, goalCompletion, type Progress } from '@core/music';
 import { Button } from '@ui/Button';
 
@@ -33,6 +35,18 @@ export function UnitDone({
   /** Qué dice el botón: casi siempre «Seguir», y otra cosa al terminar el grado. */
   readonly nextLabel: string;
 }) {
+  /*
+    **El foco, al título de lo que se ha terminado.** Lo último que se pulsó fue
+    la respuesta de la última pregunta, y esa pregunta ya no está: el foco caía
+    al `<body>`, sin dirección, y el lector de pantalla no decía que la unidad
+    había acabado. En el título se lee lo que ha pasado, y el siguiente tabulador
+    lleva a «Seguir».
+  */
+  const titulo = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    titulo.current?.focus();
+  }, []);
+
   const nuevas = badgesOf(celebration.newBadges);
   const parte = day === null ? 0 : goalCompletion(progress, day);
 
@@ -46,7 +60,10 @@ export function UnitDone({
               ? 'Repaso terminado'
               : 'Unidad superada'}
         </p>
-        <h2 className="text-text mt-1 text-2xl">{celebration.title}</h2>
+        {/* `tabIndex={-1}`: recibe el foco por código sin ser una parada más. */}
+        <h2 ref={titulo} tabIndex={-1} className="text-text mt-1 text-2xl">
+          {celebration.title}
+        </h2>
       </div>
 
       <dl className="flex flex-wrap items-baseline justify-center gap-x-8 gap-y-3">

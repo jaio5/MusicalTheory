@@ -43,6 +43,19 @@ describe('La pantalla de después', () => {
     expect(screen.getByText('+20 XP')).toBeInTheDocument();
   });
 
+  /**
+   * **El foco va al título.** La última pregunta desaparece al contestarla, y
+   * con ella el botón que tenía el foco: caía al `<body>` y el lector de
+   * pantalla no decía que la unidad había terminado.
+   */
+  it('al aparecer, el foco va a su titulo', () => {
+    pintar();
+
+    const titulo = screen.getByRole('heading', { name: 'Qué es un grado' });
+    expect(titulo).toHaveFocus();
+    expect(titulo).toHaveAttribute('tabindex', '-1');
+  });
+
   it('marca cuando se ha acertado todo a la primera', () => {
     pintar({ flawless: true });
 

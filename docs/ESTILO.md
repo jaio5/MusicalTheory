@@ -153,6 +153,17 @@ la rueda / 260`: llega a 44 con una rueda de 318 px, así que **desde un teléfo
   va con `motion-safe`, así que quien pide menos movimiento no ve un arco parado
   —la regla global congela toda animación a 0,01 ms—; le queda el rótulo, que dice
   lo mismo.
+- **Y mientras trabaja no se apaga: deja de hacer caso.** `cargando` lo marca
+  `aria-disabled` e ignora el clic —también el Intro que envía el formulario—, pero
+  no le pone `disabled`. Un botón que se apaga con el foco dentro lo suelta al
+  `<body>`, y quien no ve la pantalla pierde el sitio justo después de pulsar. Pasaba
+  al entrar, al cambiar la contraseña, al pedir el enlace de la olvidada y en el
+  micro de la cabecera. Lo que no es un `Button` y también espera —el micro— usa
+  `mientrasTrabaja`, de la misma pieza. **Y cuando lo pulsado desaparece**, el foco
+  va a lo que lo sustituye: el aviso de la olvidada, el título de la unidad
+  terminada, con `tabIndex={-1}` para no ser una parada más del tabulador.
+- **Un botón no nace apagado por lo que falta.** Gris, no dice qué le pasa: se
+  pulsa siempre y lo que falta se dice en el campo o con `ui/Aviso`.
 - **Lo que corrige no se apaga.** Al contestar una pregunta, las opciones se
   desactivan, y el `disabled:opacity-40` las dejaba todas al cuarenta por ciento:
   la acertada en verde y la fallada en roja son justo lo que hay que leer
@@ -170,6 +181,15 @@ la rueda / 260`: llega a 44 con una rueda de 318 px, así que **desde un teléfo
   que quien no ve la pantalla pulsaba `Tab` para recorrerla y se encontraba cuatro
   acordes metidos en su canción. Si el aviso sale además a la vista, la región es
   la caja de fuera y no una copia escondida: dicho dos veces se oye dos veces.
+- **Y una región viva se calla donde estorba**, con `aria-live="off"` y sin
+  desmontarla: la del micro de la cabecera no habla durante la toma —se toca contra
+  el clic ([adr/0072](adr/0072-la-claqueta-suena-toda-la-toma.md))— ni en el
+  afinador, que ya dice la nota con su consejo.
+- **El nombre de un control empieza por lo que se ve** (WCAG 2.5.3): la casilla
+  que dice «Am» se llama «Am, A menor», no «A menor», o quien la pide por voz
+  leyendo la pantalla no la encuentra.
+- **El aro del foco va hacia dentro donde la caja recorta** (`-outline-offset-3`):
+  el de la casa va tres píxeles por fuera, y un `overflow-hidden` se lo come.
 
 ## Los dos temas
 

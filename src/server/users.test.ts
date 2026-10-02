@@ -163,6 +163,181 @@ describe('el plan', () => {
   });
 });
 
+describe('la suscripción de Stripe', () => {
+  /*
+    Lo que hace que cancelar pare el cobro y que la baja encuentre a alguien: el
+    pago confirmado guarda la suscripción, y lo que Stripe diga después de ella se
+    aplica a quien la tenga guardada, no a quien digan unos metadatos.
+  */
+  it('un pago confirmado guarda plan, cliente y suscripción de una vez', async () => {
+    const user = await crear();
+
+    expect(
+      await users.vincularSuscripcion(user.id, {
+        plan: 'medio',
+        customerId: 'cus_1',
+        subscriptionId: 'sub_1',
+      }),
+    ).toEqual({ kind: 'ok' });
+
+    expect((await users.findUserById(user.id))?.plan).toBe('medio');
+    expect(await users.suscripcionDe(user.id)).toEqual({
+      customerId: 'cus_1',
+      subscriptionId: 'sub_1',
+    });
+  });
+
+  it('lo que diga Stripe de la suscripción se aplica a quien la tiene', async () => {
+    const user = await crear();
+    await users.vincularSuscripcion(user.id, {
+      plan: 'medio',
+      customerId: 'cus_1',
+      subscriptionId: 'sub_1',
+    });
+
+    expect(await users.planDeSuscripcion('sub_1', 'pro', { soltar: false })).toBe('ok');
+    expect((await users.findUserById(user.id))?.plan).toBe('pro');
+
+    // La baja la suelta: un aviso viejo de esa misma suscripción que llegue tarde
+    // ya no encuentra a nadie, y no puede devolverle el plan de pago.
+    expect(await users.planDeSuscripcion('sub_1', 'gratis', { soltar: true })).toBe('ok');
+    expect(await users.planDeSuscripcion('sub_1', 'pro', { soltar: false })).toBe('no-existe');
+    expect((await users.findUserById(user.id))?.plan).toBe('gratis');
+    // El cliente se queda: volver a pagar usa el mismo.
+    expect(await users.suscripcionDe(user.id)).toEqual({
+      customerId: 'cus_1',
+      subscriptionId: null,
+    });
+  });
+
+  it('soltarla desde aquí deja gratis y sin suscripción', async () => {
+    const user = await crear();
+    await users.vincularSuscripcion(user.id, {
+      plan: 'pro',
+      customerId: 'cus_1',
+      subscriptionId: 'sub_1',
+    });
+
+    expect(await users.soltarSuscripcion(user.id)).toBe('ok');
+
+    expect((await users.findUserById(user.id))?.plan).toBe('gratis');
+    expect((await users.suscripcionDe(user.id))?.subscriptionId).toBeNull();
+  });
+
+  /**
+   * **Dos Checkout pagados a la vez.** El segundo aviso pisaba la suscripción del
+   * primero: aquella seguía cobrando y sus avisos ya no encontraban a nadie.
+   * Ahora no pisa, y dice cuál hay guardada para que el webhook decida.
+   */
+  it('no pisa otra suscripción guardada: dice cuál hay', async () => {
+    const user = await crear();
+    const pago = { plan: 'medio' as const, customerId: 'cus_1', subscriptionId: 'sub_1' };
+    await users.vincularSuscripcion(user.id, pago);
+
+    expect(
+      await users.vincularSuscripcion(user.id, { ...pago, plan: 'pro', subscriptionId: 'sub_2' }),
+    ).toEqual({ kind: 'otra', guardada: 'sub_1' });
+
+    expect((await users.findUserById(user.id))?.plan).toBe('medio');
+    expect((await users.suscripcionDe(user.id))?.subscriptionId).toBe('sub_1');
+  });
+
+  it('la misma otra vez sí escribe: es el aviso repetido', async () => {
+    const user = await crear();
+    const pago = { plan: 'medio' as const, customerId: 'cus_1', subscriptionId: 'sub_1' };
+    await users.vincularSuscripcion(user.id, pago);
+
+    expect(await users.vincularSuscripcion(user.id, { ...pago, plan: 'pro' })).toEqual({
+      kind: 'ok',
+    });
+    expect((await users.findUserById(user.id))?.plan).toBe('pro');
+  });
+
+  it('con `reemplaza`, la nueva ocupa el sitio de esa y de ninguna otra', async () => {
+    const user = await crear();
+    const pago = { plan: 'medio' as const, customerId: 'cus_1', subscriptionId: 'sub_1' };
+    await users.vincularSuscripcion(user.id, pago);
+    const nueva = { ...pago, plan: 'pro' as const, subscriptionId: 'sub_2' };
+
+    expect(await users.vincularSuscripcion(user.id, nueva, { reemplaza: 'sub_otra' })).toEqual({
+      kind: 'otra',
+      guardada: 'sub_1',
+    });
+    expect(await users.vincularSuscripcion(user.id, nueva, { reemplaza: 'sub_1' })).toEqual({
+      kind: 'ok',
+    });
+    expect(await users.suscripcionDe(user.id)).toEqual({
+      customerId: 'cus_1',
+      subscriptionId: 'sub_2',
+    });
+    expect((await users.findUserById(user.id))?.plan).toBe('pro');
+  });
+
+  /**
+   * Los dos avisos a la vez, de verdad: los dos leen la cuenta vacía antes de que
+   * ninguno escriba. Solo uno escribe; el otro no pisa y pide reintento, y al
+   * reintentarse ya ve la suscripción del primero.
+   */
+  it('dos a la vez: uno escribe, el otro no pisa y pide reintento', async () => {
+    const user = await crear();
+    const pago = { plan: 'medio' as const, customerId: 'cus_1' };
+
+    const [a, b] = await Promise.all([
+      users.vincularSuscripcion(user.id, { ...pago, subscriptionId: 'sub_a' }),
+      users.vincularSuscripcion(user.id, { ...pago, subscriptionId: 'sub_b' }),
+    ]);
+
+    expect([a, b]).toEqual([{ kind: 'ok' }, { kind: 'error' }]);
+    expect((await users.suscripcionDe(user.id))?.subscriptionId).toBe('sub_a');
+    expect(await users.vincularSuscripcion(user.id, { ...pago, subscriptionId: 'sub_b' })).toEqual(
+      { kind: 'otra', guardada: 'sub_a' },
+    );
+  });
+
+  it('a una cuenta que no está, o con la base rota, no se vincula nada', async () => {
+    const pago = { plan: 'medio' as const, customerId: 'cus_1', subscriptionId: 'sub_1' };
+    expect(
+      await users.vincularSuscripcion('00000000-0000-4000-8000-000000000000', pago),
+    ).toEqual({ kind: 'no-existe' });
+
+    const user = await crear();
+    await base.ejecutar('alter table users rename to users_escondida');
+    try {
+      expect(await users.vincularSuscripcion(user.id, pago)).toEqual({ kind: 'error' });
+      expect(await users.suscripcionDe(user.id)).toBeNull();
+    } finally {
+      await base.ejecutar('alter table users_escondida rename to users');
+    }
+  });
+
+  it('una cuenta que nunca ha pagado no tiene nada, y una que no existe tampoco', async () => {
+    const user = await crear();
+
+    expect(await users.suscripcionDe(user.id)).toEqual({
+      customerId: null,
+      subscriptionId: null,
+    });
+    expect(await users.suscripcionDe('00000000-0000-4000-8000-000000000000')).toBeNull();
+    expect(await users.soltarSuscripcion('00000000-0000-4000-8000-000000000000')).toBe('no-existe');
+  });
+});
+
+describe('volver a cifrar la contraseña', () => {
+  it('solo escribe si lo guardado es lo que se comprobó', async () => {
+    // Si entre comprobarla y recifrarla alguien la cambió, pisarla con la vieja
+    // sería devolverle la cuenta a quien se quería echar.
+    const user = await crear();
+    const antes = (await users.findUserWithPassword('a@b.c'))?.passwordHash ?? '';
+
+    await users.recifrarContrasena(user.id, 'otra cosa', CONTRASENA);
+    expect((await users.findUserWithPassword('a@b.c'))?.passwordHash).toBe(antes);
+
+    await users.recifrarContrasena(user.id, antes, CONTRASENA);
+    const despues = (await users.findUserWithPassword('a@b.c'))?.passwordHash;
+    expect(despues).not.toBe(antes);
+  });
+});
+
 describe('borrar la cuenta', () => {
   it('pide la contraseña, no solo estar dentro', async () => {
     const user = await crear();
@@ -210,6 +385,8 @@ describe('sin base de datos', () => {
       // está» —no reintentes— de «no se ha podido» —reintenta—. Sin base de
       // datos no hay cuentas, así que nadie ha podido pagar y el caso no se da.
       expect(await users.setPlan('x', 'pro'), 'setPlan').toBe('error');
+      expect(await users.suscripcionDe('x'), 'suscripcionDe').toBeNull();
+      expect(await users.soltarSuscripcion('x'), 'soltarSuscripcion').toBe('error');
       expect(await users.deleteAccount('x', CONTRASENA), 'deleteAccount').toBe('sin-base-de-datos');
       expect(await users.setName('x', 'Javier'), 'setName').toBeNull();
       expect(
@@ -253,6 +430,10 @@ describe('con la base rota', () => {
       expect(await users.setPlan('u1', 'pro')).toBe('error');
       expect((await users.changePassword('u1', CONTRASENA, CONTRASENA)).kind).toBe('error');
       expect(await users.deleteAccount('u1', CONTRASENA)).toBe('error');
+      expect(await users.suscripcionDe('u1')).toBeNull();
+      expect(await users.planDeSuscripcion('sub_1', 'gratis', { soltar: true })).toBe('error');
+      // Y recifrar no revienta: entrar no puede fallar por no mejorar cómo se guarda.
+      await expect(users.recifrarContrasena('u1', 'x', CONTRASENA)).resolves.toBeUndefined();
     });
   });
 });

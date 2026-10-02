@@ -18,7 +18,7 @@ import { and, count, desc, eq } from 'drizzle-orm';
 import { MAX_SONGS, parseSong, sortSongs, type Song } from '@core/music';
 
 import { db } from './db/client';
-import { songs as songsTable } from './db/schema';
+import { songs as songsTable, users } from './db/schema';
 
 /**
  * Qué ha pasado al escribir.
@@ -107,32 +107,49 @@ export async function listSongs(userId: string): Promise<Song[] | null> {
   }
 }
 
-/** Crea una canción. El identificador lo pone Postgres, no quien llama. */
+/**
+ * Crea una canción. El identificador lo pone Postgres, no quien llama.
+ *
+ * **Contar y escribir van en una transacción, con la cuenta bloqueada.** Antes
+ * eran dos sentencias sueltas: dos guardados a la vez con 49 canciones contaban
+ * 49 los dos y escribían los dos, y el tope de 50 quedaba en 51. Meterlo en una
+ * sola sentencia —`insert … select … where (select count(*)) < 50`— no basta en
+ * Postgres: con `read committed`, la segunda espera a la primera pero cuenta con
+ * la foto de cuando empezó, así que sigue viendo 49. Bloquear la fila de la cuenta
+ * antes de contar sí: la segunda espera, y su recuento, que ya es otra sentencia,
+ * ve la canción de la primera.
+ */
 export async function createSong(userId: string, song: Song): Promise<SaveResult> {
   const database = db();
   if (database === null) {
     return { kind: 'error' };
   }
   try {
-    const [existing] = await database
-      .select({ total: count() })
-      .from(songsTable)
-      .where(eq(songsTable.userId, userId));
+    return await database.transaction(async (tx) => {
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
 
-    /* v8 ignore next -- un `count()` siempre devuelve su fila, aunque sea con un cero */
-    if ((existing?.total ?? 0) >= MAX_SONGS) {
-      return { kind: 'llena' };
-    }
+      const [existing] = await tx
+        .select({ total: count() })
+        .from(songsTable)
+        .where(eq(songsTable.userId, userId));
 
-    const [row] = await database
-      .insert(songsTable)
-      .values({ userId, name: song.name, data: documentOf(song) })
-      .returning(COLUMNAS);
+      /* v8 ignore next -- un `count()` siempre devuelve su fila, aunque sea con un cero */
+      if ((existing?.total ?? 0) >= MAX_SONGS) {
+        return { kind: 'llena' } as const;
+      }
 
-    /* v8 ignore start -- lo que se acaba de escribir vuelve, y vuelve con el documento que se le puso */
-    const created = row === undefined ? null : songOfRow(row);
-    return created === null ? { kind: 'error' } : { kind: 'ok', song: created };
-    /* v8 ignore stop */
+      const [row] = await tx
+        .insert(songsTable)
+        .values({ userId, name: song.name, data: documentOf(song) })
+        .returning(COLUMNAS);
+
+      /* v8 ignore start -- lo que se acaba de escribir vuelve, y vuelve con el documento que se le puso */
+      const created = row === undefined ? null : songOfRow(row);
+      return created === null
+        ? ({ kind: 'error' } as const)
+        : ({ kind: 'ok', song: created } as const);
+      /* v8 ignore stop */
+    });
   } catch {
     return { kind: 'error' };
   }

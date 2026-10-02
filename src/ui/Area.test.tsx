@@ -126,6 +126,10 @@ describe('el área del banco', () => {
       'title',
       'Desplegar Arreglo',
     );
+    // La tira va pegada al borde de una caja que recorta: el aro, por dentro.
+    expect(screen.getByRole('button', { name: 'Desplegar Arreglo' })).toHaveClass(
+      'focus-visible:-outline-offset-3',
+    );
 
     rerender(
       <Area titulo="Mástil" scroll={false} sinCabecera>

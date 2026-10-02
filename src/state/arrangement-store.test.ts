@@ -14,7 +14,12 @@ function montaje() {
 }
 
 beforeEach(() => {
-  useArrangementStore.setState({ arrangement: EMPTY_ARRANGEMENT, past: [] });
+  useArrangementStore.setState({
+    arrangement: EMPTY_ARRANGEMENT,
+    past: [],
+    quitadosAlCambiarDeModo: null,
+    selectedBlockId: null,
+  });
 });
 
 describe('nuevoId', () => {
@@ -125,6 +130,73 @@ describe('cambiar de modo', () => {
 
     acciones().keepMode('minor');
     expect(useArrangementStore.getState().past.length).toBe(antes);
+  });
+
+  /**
+   * **Traducir no gasta un paso del deshacer, ni siquiera cuando cambia algo.**
+   * Lo gastaba, y el botón se quedaba atascado: deshacer devolvía los grados del
+   * modo viejo, la vigilancia los traducía y apilaba otra vez, y la pila no
+   * bajaba nunca.
+   */
+  it('traducir reemplaza la cima y no apila', () => {
+    const parte = acciones().addPart();
+    acciones().addBlock(parte, 'I', 4);
+    acciones().addBlock(parte, 'vi', 4);
+    const pila = useArrangementStore.getState().past;
+
+    acciones().keepMode('minor');
+
+    expect(montaje().parts[0]?.blocks.map((b) => b.degree)).toEqual(['i', 'VI']);
+    expect(useArrangementStore.getState().past).toBe(pila);
+  });
+
+  /**
+   * Lo que se queda fuera se dice. Hoy solo la dominante del ii, que en menor no
+   * tiene dónde caer: se guarda tal como era para que la pantalla pueda contar
+   * qué acorde se ha perdido.
+   */
+  it('lo que no cabe en el modo nuevo se apunta para avisar, y se puede olvidar', () => {
+    const parte = acciones().addPart();
+    acciones().addBlock(parte, 'I', 4);
+    const secundaria = acciones().addBlock(parte, 'V/ii', 4);
+    acciones().elegirBloque(secundaria);
+
+    acciones().keepMode('minor');
+
+    const quitados = useArrangementStore.getState().quitadosAlCambiarDeModo;
+    expect(quitados?.hacia).toBe('minor');
+    expect(quitados?.bloques.map((b) => b.degree)).toEqual(['V/ii']);
+    // Elegido y fuera de la canción no puede ser: la columna del acorde
+    // enseñaría algo que ya no está.
+    expect(useArrangementStore.getState().selectedBlockId).toBeNull();
+
+    acciones().olvidarQuitados();
+    expect(useArrangementStore.getState().quitadosAlCambiarDeModo).toBeNull();
+  });
+
+  it('si lo que se cae no es lo elegido, lo elegido sigue', () => {
+    const parte = acciones().addPart();
+    const tonica = acciones().addBlock(parte, 'I', 4);
+    acciones().addBlock(parte, 'V/ii', 4);
+    acciones().elegirBloque(tonica);
+
+    acciones().keepMode('minor');
+
+    expect(useArrangementStore.getState().selectedBlockId).toBe(tonica);
+  });
+
+  // Un cambio que no deja nada fuera no borra el aviso del anterior: el aviso
+  // se quita cuando quien lo lee lo cierra.
+  it('un cambio sin pérdidas no pisa el aviso de antes', () => {
+    const parte = acciones().addPart();
+    acciones().addBlock(parte, 'V/ii', 4);
+    acciones().addBlock(parte, 'vi', 4);
+    acciones().keepMode('minor');
+    const aviso = useArrangementStore.getState().quitadosAlCambiarDeModo;
+
+    acciones().keepMode('major');
+
+    expect(useArrangementStore.getState().quitadosAlCambiarDeModo).toBe(aviso);
   });
 });
 

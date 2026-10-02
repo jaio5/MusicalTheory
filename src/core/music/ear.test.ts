@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { EAR_KINDS, earExercises, gradoDe, sonidoDe, type EarKind } from './ear';
-import { pitchClassFromName } from './notes';
+import { pitchClassFromName, type PitchClass } from './notes';
 import { degreesFor } from './progressions';
 import { scaleNotes } from './scales';
 
@@ -216,6 +216,65 @@ describe('la relativa se queda en casa y la vecina no', () => {
         deLaVecina.some((nota) => !escala.has(nota)),
         `${mode}: la vecina no trae ninguna nota de fuera`,
       ).toBe(true);
+    }
+  });
+});
+
+/**
+ * La buena salía siempre la primera: `opciones` la escribe delante y nadie la
+ * movía, así que una unidad de oído se aprobaba pulsando a la izquierda sin
+ * escuchar. Se mira en las veinticuatro tonalidades y en todas las clases.
+ */
+describe('las opciones de oído salen repartidas', () => {
+  const TONALIDADES = Array.from({ length: 12 }, (_, tonic) => tonic as PitchClass).flatMap(
+    (tonic) => (['major', 'minor'] as const).map((mode) => [tonic, mode] as const),
+  );
+
+  it('la buena no cae siempre en el mismo sitio', () => {
+    const sitios = new Map<number, number>();
+    let total = 0;
+
+    for (const kind of CLASES) {
+      for (const [tonic, mode] of TONALIDADES) {
+        for (const ejercicio of earExercises(kind, tonic, mode)) {
+          const donde = ejercicio.choices.findIndex((choice) => choice.correct);
+          sitios.set(donde, (sitios.get(donde) ?? 0) + 1);
+          total += 1;
+        }
+      }
+    }
+
+    expect([...sitios.keys()].sort()).toEqual([0, 1, 2]);
+    // Con dos opciones en casi todas, la primera rondaría la mitad; lo que no
+    // puede es quedarse con casi todas, que es lo que pasaba.
+    expect(sitios.get(0)!).toBeLessThan(total * 0.65);
+  });
+
+  /**
+   * Y dentro de una misma unidad: con dos opciones y tres preguntas, la unidad de
+   * modos salía «la primera, la primera, la primera» en las veinticuatro
+   * tonalidades aun barajando, porque sus textos no cambian con la tonalidad.
+   */
+  it('en ninguna unidad y ninguna tonalidad la buena cae siempre en el mismo sitio', () => {
+    for (const kind of CLASES) {
+      for (const [tonic, mode] of TONALIDADES) {
+        const sitios = new Set(
+          earExercises(kind, tonic, mode).map((ejercicio) =>
+            ejercicio.choices.findIndex((choice) => choice.correct),
+          ),
+        );
+        expect(sitios.size, `${kind} en ${tonic} ${mode}`).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it('el reparto es el mismo cada vez que se pide la misma unidad', () => {
+    for (const kind of CLASES) {
+      const textos = () =>
+        earExercises(kind, Eb, 'major').map((ejercicio) =>
+          ejercicio.choices.map((choice) => choice.text),
+        );
+      expect(textos(), kind).toEqual(textos());
     }
   });
 });

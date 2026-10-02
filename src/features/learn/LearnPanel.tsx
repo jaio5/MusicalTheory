@@ -53,7 +53,8 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
     piden y lo suelta cuando no queda ninguno; aquí se pide como lo pide el
     afinador.
   */
-  const escuchando = useSessionStore((state) => state.listening) === 'listening';
+  const microfono = useSessionStore((state) => state.listening);
+  const escuchando = microfono === 'listening';
   const { start } = useListening(deps);
 
   const [running, setRunning] = useState(false);
@@ -200,6 +201,11 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
       <p className="mt-6" aria-live="polite">
         {!running ? (
           <span className="text-text-muted">Pulsa «Empezar» y toca la primera nota.</span>
+        ) : microfono === 'requesting' ? (
+          // Mientras el navegador pregunta, el micro no está cerrado: se está
+          // abriendo. Decía «está cerrado. Abrirlo.» justo cuando se acababa de
+          // pulsar «Empezar», y ofrecía pedir otra vez lo que ya se estaba pidiendo.
+          <span className="text-text-muted">Abriendo el micrófono…</span>
         ) : !escuchando ? (
           // Y si el micro no llegó a abrirse —permiso denegado, o cerrado desde
           // la cabecera—, se dice y se ofrece dónde, en vez de dejar «Toca C»

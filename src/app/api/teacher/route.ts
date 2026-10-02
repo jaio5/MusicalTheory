@@ -1,19 +1,17 @@
 import type { NextResponse } from 'next/server';
 
 import { TOKEN_BUDGETS } from '@core/billing';
-import { degreesFor } from '@core/music';
 import {
-  MARCA_PREGUNTA,
   parseTeacherRequest,
   teacherError,
-  topicOf,
   validateTeacherAnswer,
-  type TeacherRequest,
 } from '@features/learn/teacher-contract';
 import { responderConModelo } from '@server/ai-route';
 import { respuestaSinIA } from '@server/fake-model';
-import { ANSWER_SCHEMA, cabeceraDePrompt, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
+import { ANSWER_SCHEMA, TEACHER_SYSTEM_PROMPT } from '@server/prompts';
 import { SlidingWindowRateLimiter } from '@server/rate-limit';
+
+import { promptDelProfesor } from './prompt';
 
 /**
  * El profesor. Como el de salidas, es un route handler: el SDK de Anthropic y la
@@ -22,8 +20,8 @@ import { SlidingWindowRateLimiter } from '@server/rate-limit';
  *
  * El cuerpo —las puertas, el reintento y qué contestar en cada final— lo pone
  * `server/ai-route.ts`, que es el mismo para las dos rutas. Aquí solo queda lo
- * que distingue al profesor: cómo se lee su petición, cómo se escribe su prompt
- * y qué esquema se le exige a la respuesta.
+ * que distingue al profesor: cómo se lee su petición, qué esquema se le exige a
+ * la respuesta y cómo se valida. El prompt se escribe en `prompt.ts`, al lado.
  *
  * `max_tokens` sale de `TOKEN_BUDGETS`, en el dominio, y no de un número escrito
  * aquí. Es el mismo número con el que se calculan los cupos, así que el peor caso
@@ -39,33 +37,13 @@ const MAX_TOKENS = TOKEN_BUDGETS.profesor.output;
 
 const limiter = new SlidingWindowRateLimiter();
 
-function buildPrompt(request: TeacherRequest, validDegrees: readonly string[]): string {
-  const lines = cabeceraDePrompt(request.key, validDegrees);
-
-  if (request.scale !== undefined) {
-    lines.push(`Escala que está usando: ${request.scale}.`);
-  }
-  // El título sale del temario, no de lo que mande el cliente.
-  const topic = topicOf(request);
-  if (topic !== undefined) {
-    lines.push(`Está leyendo sobre: ${topic}.`);
-  }
-
-  // La pregunta va marcada y al final: es uno de los dos textos libres que entran
-  // al modelo —el otro son las directrices de una salida— y el prompt de sistema
-  // dice que lo de dentro de las marcas es un dato. La marca ya se le ha quitado a la pregunta al
-  // validarla, así que nadie puede cerrar el bloque antes de tiempo.
-  lines.push(`${MARCA_PREGUNTA}\n${request.question}\n${MARCA_PREGUNTA}`);
-  return lines.join('\n');
-}
-
 export async function POST(request: Request): Promise<NextResponse> {
   return responderConModelo(request, {
     limiter,
     error: teacherError,
     puerta: { feature: 'profesor', loQueEs: 'Preguntarle al profesor', plural: false },
     parse: parseTeacherRequest,
-    prompt: (peticion) => buildPrompt(peticion, degreesFor(peticion.key.mode)),
+    prompt: promptDelProfesor,
     system: TEACHER_SYSTEM_PROMPT,
     schema: () => ANSWER_SCHEMA,
     maxTokens: MAX_TOKENS,

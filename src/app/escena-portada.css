@@ -439,6 +439,14 @@
   .escena[data-parada] .escena-tira {
     animation-play-state: paused;
   }
+
+  /* Y fuera de la vista también, sin que nadie lo pida: cada fotograma de una
+     tira es un recálculo de estilo, y bajada la portada eran sesenta por segundo
+     para nadie. Lo pone `EscenaPortada` mirando con un IntersectionObserver;
+     al volver, cada tira sigue en el fotograma donde se quedó. */
+  .escena[data-fuera] .escena-tira {
+    animation-play-state: paused;
+  }
 }
 
 /*

@@ -183,6 +183,51 @@ describe('las acciones de una cabecera de trabajo', () => {
   });
 });
 
+describe('la linea de una cabecera de trabajo, solo en el banco', () => {
+  /**
+   * En un teléfono la línea de componer no cabe, y la pantalla la metía dentro
+   * de sus acciones repitiendo el reparto de la cabecera. Con
+   * `lineaSoloEnElBanco` se esconde por debajo de `lg` **con una clase** —el
+   * servidor no sabe el ancho— y ahí las acciones crecen; desde `lg`, la línea
+   * crece y las acciones miden lo suyo.
+   */
+  it('se esconde por debajo de lg, y ahi las acciones crecen', () => {
+    render(
+      <WorkHeader
+        title="Componer"
+        lead="Escribe la canción."
+        lineaSoloEnElBanco
+        actions={<span>Mandos</span>}
+      />,
+    );
+
+    expect(screen.getByText('Escribe la canción.')).toHaveClass('max-lg:hidden', 'flex-1');
+    expect(screen.getByText('Mandos').parentElement).toHaveClass(
+      'max-lg:flex-1',
+      'max-lg:basis-0',
+      'lg:ml-auto',
+    );
+  });
+
+  it('sin pedirlo, la linea se ve en cualquier ancho', () => {
+    render(<WorkHeader title="Componer" lead="Escribe la canción." />);
+
+    expect(screen.getByText('Escribe la canción.')).not.toHaveClass('max-lg:hidden');
+  });
+
+  /**
+   * Y el título puede partirse: con `shrink-0`, a la letra al 200 % un título
+   * largo se salía por la derecha de un teléfono.
+   */
+  it('el titulo puede partirse en vez de salirse', () => {
+    render(<WorkHeader title="La escala mayor, entera" />);
+
+    const titulo = screen.getByRole('heading', { level: 1 });
+    expect(titulo).toHaveClass('min-w-0', 'break-words');
+    expect(titulo).not.toHaveClass('shrink-0');
+  });
+});
+
 describe('una cabecera de trabajo sin mandos', () => {
   // La mayoría de las pantallas de trabajo no llevan nada a la derecha del
   // título: sin esto quedaba una caja vacía empujando la línea.

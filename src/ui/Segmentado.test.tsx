@@ -59,4 +59,20 @@ describe('Segmentado', () => {
     expect(elegida.className).not.toContain('bg-brass');
     expect(screen.getByRole('group').className).toContain('mt-2');
   });
+
+  /**
+   * **El aro del foco va por dentro.** El carril recorta (`overflow-hidden`), y
+   * el aro de la casa, tres píxeles por fuera, quedaba cortado: con el tabulador
+   * no se veía cuál de las opciones tenía el foco.
+   */
+  it('el aro del foco va hacia dentro, donde el carril no lo recorta', () => {
+    render(
+      <Segmentado etiqueta="Qué tocas" opciones={OPCIONES} valor="punteo" onCambiar={() => {}} />,
+    );
+
+    expect(screen.getByRole('group')).toHaveClass('overflow-hidden');
+    for (const boton of screen.getAllByRole('button')) {
+      expect(boton).toHaveClass('focus-visible:-outline-offset-3');
+    }
+  });
 });

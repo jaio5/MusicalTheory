@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
  * ocurre.
  */
 
+import { validateTeacherAnswer } from '@features/learn/teacher-contract';
 import { validateVersions, type VersionsRequest } from '@features/versions/contract';
 
 import { respuestaSinIA, SIN_IA, versionesSinIA } from '@server/fake-model';
@@ -132,5 +133,28 @@ describe('la respuesta del profesor sin IA', () => {
 
     expect(answer).toMatch(/no hay modelo conectado/i);
     expect(answer).toContain('ANTHROPIC_API_KEY');
+  });
+
+  /**
+   * Lo que contesta el glosario pasa el mismo validador que la respuesta de un
+   * modelo, en todas las cadencias y en los dos modos: es la misma teoría que va
+   * en el prompt, así que si no lo pasara, el validador estaría rechazando la
+   * referencia que se le da al modelo.
+   */
+  it('lo que contesta el glosario pasa la comprobación del profesor', () => {
+    for (const mode of ['major', 'minor'] as const) {
+      for (const question of [
+        '¿Qué es una cadencia perfecta?',
+        '¿Qué es una cadencia plagal?',
+        '¿Qué es una cadencia rota?',
+        '¿Qué es una semicadencia?',
+        '¿Cuál es la relativa?',
+      ]) {
+        const peticion = { key: { tonic: 'E' as const, mode }, question };
+        const validada = validateTeacherAnswer(respuestaSinIA(peticion), peticion);
+
+        expect(validada?.answer, `${question} en ${mode}`).toContain(SIN_IA);
+      }
+    }
   });
 });

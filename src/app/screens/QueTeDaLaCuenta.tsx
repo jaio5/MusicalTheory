@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { monthlyAiRequests } from '@core/billing';
+import { enUnaFrase, loQueNoTrae, loQueTrae } from '@features/account/lo-que-va-con-plan';
 import { useAccount } from '@state/account';
 import { IconoAfinar, IconoCamino, IconoComponer, IconoProfesor, IconoTocar } from '@ui/icons';
 
@@ -75,9 +76,13 @@ export function QueTeDaLaCuenta({ accounts }: { readonly accounts: boolean }) {
             </li>
           ))}
         </ul>
+        {/* Lo que no hay sale de la tabla de permisos. Decía «lo único que pide
+            cuenta es la IA», y el repaso y guardar las canciones también van con
+            un plan, que va con una cuenta. */}
         <p className="text-text-muted max-w-prose text-sm">
-          Lo único que pide cuenta es la IA —el profesor y las salidas—, porque es lo único que
-          cuesta dinero servir y hay que saber de quién es el gasto.
+          Lo que no hay sin cuenta es lo que va con ella: {enUnaFrase(loQueTrae('pro'))}. La IA,
+          porque cuesta dinero servirla y hay que saber de quién es el gasto; lo demás, porque va
+          con un plan, y un plan va con una cuenta.
         </p>
       </section>
     );
@@ -120,9 +125,10 @@ export function QueTeDaLaCuenta({ accounts }: { readonly accounts: boolean }) {
       </ul>
 
       <p className="text-text-muted max-w-prose text-sm">
-        Sin cuenta la aplicación funciona <strong className="text-text">entera</strong> menos la IA:
+        Sin cuenta funciona <strong className="text-text">todo lo que pasa en tu navegador</strong>:
         el afinador, la rueda, el mástil, el metrónomo, componer, grabar y los cuatro cursos del
-        Grado Elemental. El avance se queda guardado en este navegador.{' '}
+        Grado Elemental, con el avance guardado en él. Lo que va con un plan no:{' '}
+        {enUnaFrase(loQueNoTrae('gratis'))}.{' '}
         <Link href="/planes" className="enlace">
           Ver los tres planes
         </Link>

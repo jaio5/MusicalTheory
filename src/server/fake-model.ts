@@ -22,7 +22,10 @@
 import {
   applyMove,
   cadenciasParaCerrar,
+  findTheory,
   MOVES,
+  pitchClassFromName,
+  theoryReference,
   type DegreeSymbol,
   type KeyMode,
   type NoteName,
@@ -116,8 +119,29 @@ export function versionesSinIA(peticion: Peticion): unknown {
   return { versions: versions.slice(0, 3) };
 }
 
-/** Una respuesta del profesor que dice lo que es. */
-export function respuestaSinIA(): unknown {
+/** Lo que hace falta de una pregunta al profesor para contestarla sin modelo. */
+interface PreguntaSinIA {
+  readonly key: { readonly tonic: NoteName; readonly mode: KeyMode };
+  readonly question: string;
+}
+
+/**
+ * Una respuesta del profesor que dice lo que es.
+ *
+ * **Si la pregunta casa con el glosario, contesta el glosario**, resuelto en la
+ * tonalidad: sin clave ya se dice algo cierto, y es la misma teoría que va en el
+ * prompt cuando hay modelo, así que pasa el mismo validador. Si no casa, dice que
+ * no hay modelo y qué hacer, como siempre. Las dos llevan «Sin IA» delante.
+ */
+export function respuestaSinIA(pregunta?: PreguntaSinIA): unknown {
+  const [entrada] = pregunta === undefined ? [] : findTheory(pregunta.question, 1);
+  if (pregunta !== undefined && entrada !== undefined) {
+    const key = { tonic: pitchClassFromName(pregunta.key.tonic), mode: pregunta.key.mode };
+    return {
+      tema: 'musica',
+      answer: `${SIN_IA}, del glosario. ${theoryReference(entrada, key)}`,
+    };
+  }
   return {
     // Declara el tema como cualquier respuesta, porque el validador lo exige a
     // todo el mundo. Un puerto falso que se salte una comprobación deja de servir

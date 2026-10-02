@@ -20,8 +20,8 @@
 import NextAuth, { CredentialsSignin, type DefaultSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 
-import { verifyPassword } from './password';
-import { findUserWithPassword } from './users';
+import { HASH_DE_NADIE, igualarCoste, necesitaRecifrar, verifyPassword } from './password';
+import { findUserWithPassword, recifrarContrasena } from './users';
 import { hasDatabase } from './db/client';
 import { DEMASIADOS_INTENTOS } from '@core/auth-errors';
 
@@ -41,23 +41,6 @@ declare module 'next-auth' {
   }
 }
 
-/**
- * Una contraseña cifrada que no es de nadie, con el formato bueno.
- *
- * Sirve para comprobar la contraseña también cuando el correo no existe. Sin
- * esto, entrar con un correo desconocido contesta en un milisegundo y entrar con
- * uno conocido tarda cien: la diferencia se mide desde fuera y regala una lista
- * de quién tiene cuenta aquí.
- */
-const HASH_DE_NADIE = [
-  'scrypt',
-  16_384,
-  8,
-  1,
-  Buffer.alloc(16).toString('base64'),
-  Buffer.alloc(64).toString('base64'),
-].join('$');
-
 function secret(): string | null {
   const value = process.env['AUTH_SECRET'];
   return value === undefined || value === '' ? null : value;
@@ -76,16 +59,27 @@ export function authAvailable(): boolean {
 }
 
 /**
- * Cuántos intentos de entrar se aceptan, y en cuánto tiempo.
+ * Cuántos intentos de entrar se aceptan, y en cuánto tiempo, por cada clave.
  *
- * Cinco por minuto, el mismo que el registro. No es un número afinado contra
- * nada: es el que deja entrar a quien se equivoca dos veces al teclear y corta a
- * quien prueba contraseñas, que es toda la diferencia que hace falta.
+ * **La que manda es correo y dirección juntos**: cinco por minuto, el mismo que el
+ * registro, que deja entrar a quien se equivoca dos veces al teclear y corta a
+ * quien prueba contraseñas.
+ *
+ * Las otras dos son más anchas a propósito. Con el correo solo, como antes,
+ * cualquiera que supiera tu correo te dejaba sin entrar: cinco intentos suyos y
+ * tú, desde tu casa, esperando un minuto, todos los minutos que quisiera. Ahora
+ * para eso tiene que gastar las del correo, que son treinta en un cuarto de hora
+ * —contra quien va a por una cuenta desde muchos sitios— y la dirección sola
+ * corta a quien prueba muchas cuentas desde uno.
  */
 const LIMITE_ENTRAR = { limit: 5, windowMs: 60_000 } as const;
+const LIMITE_POR_DIRECCION = { limit: 20, windowMs: 60_000 } as const;
+const LIMITE_POR_CORREO = { limit: 30, windowMs: 15 * 60_000 } as const;
 
-/** El de memoria, para las copias sin base de datos. */
+/** El de memoria, para las copias sin base de datos. Uno por tope. */
 const limitador = new SlidingWindowRateLimiter(LIMITE_ENTRAR);
+const limitadorPorDireccion = new SlidingWindowRateLimiter(LIMITE_POR_DIRECCION);
+const limitadorPorCorreo = new SlidingWindowRateLimiter(LIMITE_POR_CORREO);
 
 /**
  * Se ha probado demasiadas veces.
@@ -105,37 +99,37 @@ class DemasiadosIntentos extends CredentialsSignin {
  * y eso es lo que dice el mensaje, así que el número exacto no se usa para nada y
  * pasarlo sería llevarlo hasta la pantalla para no enseñarlo.
  *
- * **Se cuenta por dos claves, y las dos hacen falta**: por dirección, que corta a
- * quien prueba muchas contraseñas desde un sitio; y por correo, que corta a quien
- * prueba la misma cuenta desde muchos sitios. Con una sola, la otra manera queda
- * abierta.
+ * **Tres claves**, de la más estrecha a la más ancha: correo y dirección, la
+ * dirección sola y el correo solo (los topes, arriba). La estrecha es la que para a
+ * quien se pone a probar; las anchas, a quien reparte los intentos entre muchas
+ * cuentas o muchas direcciones. Ninguna de las anchas deja a nadie fuera con
+ * cinco intentos ajenos.
  *
  * Se cuenta **antes de saber si la cuenta existe y para cualquier correo**, así
  * que esto no dice si alguien tiene cuenta aquí: un correo inventado se limita
  * igual que uno de verdad.
  */
 async function pasadoDeIntentos(request: Request | undefined, correo: unknown): Promise<boolean> {
-  const claves: string[] = [];
   // Auth.js siempre pasa la petición; el `?.` es para no depender de ello, y si
   // algún día no llegara **sigue contando por correo**, que es la clave que para
   // a quien va a por una cuenta concreta.
-  const direccion = request?.headers;
-  if (direccion !== undefined) {
-    claves.push(`entrar:${requesterKey(direccion)}`);
-  }
+  const direccion = request === undefined ? 'desconocido' : requesterKey(request.headers);
   // En minúsculas y sin espacios, que es como se guarda: si no, «A@b.com» y
   // «a@b.com» serían dos cupos para la misma cuenta.
-  if (typeof correo === 'string') {
-    claves.push(`entrar:correo:${correo.trim().toLowerCase()}`);
-  }
+  const email = typeof correo === 'string' ? correo.trim().toLowerCase() : '';
 
-  for (const key of claves) {
-    const { allowed } = await limitRequest({
-      memoria: limitador,
-      key,
-      now: Date.now(),
-      options: LIMITE_ENTRAR,
-    });
+  const claves = [
+    { key: `entrar:${email}:${direccion}`, memoria: limitador, options: LIMITE_ENTRAR },
+    {
+      key: `entrar:direccion:${direccion}`,
+      memoria: limitadorPorDireccion,
+      options: LIMITE_POR_DIRECCION,
+    },
+    { key: `entrar:correo:${email}`, memoria: limitadorPorCorreo, options: LIMITE_POR_CORREO },
+  ];
+
+  for (const clave of claves) {
+    const { allowed } = await limitRequest({ ...clave, now: Date.now() });
     if (!allowed) {
       return true;
     }
@@ -179,13 +173,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const found = await findUserWithPassword(raw?.['email']);
 
-        const ok = await verifyPassword(password, found?.passwordHash ?? HASH_DE_NADIE);
+        const guardado = found?.passwordHash ?? HASH_DE_NADIE;
+        const ok = await verifyPassword(password, guardado);
         if (!ok || found === null) {
+          // Y lo que le falte para tardar lo de hoy: una cuenta cifrada con los
+          // parámetros de antes falla en 31 ms y no en 119, y esa diferencia
+          // también dice quién tiene cuenta (`igualarCoste`).
+          await igualarCoste(guardado);
           // Nulo y no una excepción con motivo: al que se equivoca se le dice
           // «el correo o la contraseña no son correctos», sin aclarar cuál de
           // los dos, que es lo que evita usar la pantalla de entrar como
           // buscador de cuentas.
           return null;
+        }
+
+        // Entrar es el único momento en que se tiene la contraseña en claro, así
+        // que es cuando una cuenta cifrada con los parámetros de antes pasa a los
+        // de hoy. Se espera a que termine: son cien milisegundos una sola vez.
+        if (necesitaRecifrar(found.passwordHash)) {
+          await recifrarContrasena(found.user.id, found.passwordHash, password);
         }
 
         return {

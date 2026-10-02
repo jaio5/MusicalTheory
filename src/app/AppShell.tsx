@@ -74,13 +74,19 @@ const SCREENS: ReadonlyArray<{
  * a la cabecera: allí abajo estorbaría y hay sitio de sobra.
  *
  * Lo que suena es de esta pestaña, no de la aplicación entera.
+ *
+ * **Lo monta una vez el layout de `(marco)`, no cada página.** Montado en cada
+ * `page.tsx`, navegar lo desmontaba entero, y con él el botón del micro: el micro
+ * se cerraba con la barra diciendo que seguía escuchando. Ahora la barra, el
+ * micro abierto y lo cargado del espacio de trabajo pasan de una pantalla a otra.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const actions = useSessionStore((state) => state.actions);
   const pathname = usePathname();
 
   // La configuración guardada se recupera después de pintar: leerla durante el
-  // render daría un HTML distinto en servidor y en cliente.
+  // render daría un HTML distinto en servidor y en cliente. Una vez por carga, y
+  // no al cambiar de pantalla: el marco ya no se vuelve a montar.
   useEffect(() => {
     actions.loadWorkspace();
   }, [actions]);
@@ -130,14 +136,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* La barra deja ver la sala por detrás, con el velo justo para leer: un
           rectángulo opaco encima de la luz de la bombilla la cortaba en recto. */}
-      <header className="border-border bg-surface/80 flex shrink-0 items-center gap-2 border-b px-3 py-2 backdrop-blur-md sm:gap-3 md:px-4">
+      {/* `@container`: el nombre de la marca se calla por **el ancho de la barra
+          medido en rem**, no por el de la ventana. Una consulta de ventana mide
+          en los rem de partida del navegador, y con la letra al 200 % la barra
+          seguía creyendo que cabía: a 390 px el micro y el tema se salían por la
+          derecha. Medida en la caja, la marca se calla cuando de verdad no cabe. */}
+      <header className="border-border bg-surface/80 @container flex shrink-0 items-center gap-2 border-b px-3 py-2 backdrop-blur-md sm:gap-3 md:px-4">
         {/* **La marca lleva al profesor delante**, a 32 px —un píxel de pantalla
             por cada uno del dibujo—: es lo que une cada pantalla con la sala de la
             portada, y la válvula es más reconocible de reojo que dos palabras. El
             nombre lo dice el texto, así que el muñeco va decorativo.
 
             **Y el nombre se calla donde no cabe**, que son dos tramos: por debajo
-            de 360, con los tres botones redondos al lado, y entre 768 y 1023, donde
+            de 360 —21 rem de barra sin su relleno, medidos en ella y no en la
+            ventana, para que la letra grande también cuente—, con los tres
+            botones redondos al lado, y entre 768 y 1023, donde
             sube la navegación entera. En los dos, con la cuenta configurada, la
             barra pedía 44 px más de los que había y se llevaba el botón de la
             cuenta por la derecha —el marco recorta y no desplaza—. Ahí queda el
@@ -148,7 +161,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           title="Volver a la portada"
         >
           <Mascota decorativa className="size-8 shrink-0 drop-shadow-none" />
-          <span className="titular text-[0.9375rem] max-[22.5rem]:sr-only sm:text-base md:max-lg:sr-only">
+          <span className="titular text-[0.9375rem] sm:text-base md:max-lg:sr-only @max-[21rem]:sr-only">
             Caos ordenado
           </span>
         </Link>
@@ -188,43 +201,69 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        {/* Reconocer acordes solo donde sirve: en componer. */}
+        {/* Reconocer acordes solo donde sirve: en componer. Y anunciar la nota
+            donde nadie más lo hace: el afinador ya la dice con su consejo. */}
         <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
-          <MicButton chords={pathname === '/componer'} />
+          <MicButton chords={pathname === '/componer'} anuncia={pathname !== '/afinar'} />
           <ThemeToggle />
           <AccountMenu />
         </div>
       </header>
 
-      <main id="contenido" tabIndex={-1} className="min-h-0 grow overflow-hidden">
+      {/* **Por debajo de 500 px de alto, el contenido se deja desplazar.** Cada
+          pantalla reparte su alto por dentro y aquí no hace falta, salvo en una
+          ventana tan baja que lo que flota no cabe: el panel de la tonalidad
+          tiene suelo (`ui/Disclosure`) y a 320×256 —un 1280×1024 al 400 %— pasa
+          del borde. Recortado, la rueda estaba abierta y no se podía alcanzar;
+          desplazable, se baja hasta ella. Por encima de 500 sigue recortando,
+          que es lo que hace que cada pantalla mida lo que mide la ventana. */}
+      <main
+        id="contenido"
+        tabIndex={-1}
+        className="min-h-0 grow overflow-hidden [@media(max-height:500px)]:overflow-y-auto"
+      >
         {children}
       </main>
 
       {/* La misma navegación, abajo y con icono, solo en pantalla estrecha. Va en un
           `nav` distinto con su propio nombre para que un lector de pantalla no
           anuncie dos veces la misma lista. */}
+      {/* **Se pliega a solo iconos en dos casos**, y en los dos el rótulo se
+          sigue leyendo para quien no ve (`sr-only`):
+
+          - **Una ventana de menos de 500 px de alto**, que es un teléfono
+            tumbado o un zoom grande. La barra medía 65 px de los 256 que quedan a
+            320×256, y con el rótulo debajo de cada icono era la cuarta parte de
+            la pantalla diciendo dónde ir. Plegada mide lo de un dedo, 44.
+          - **La barra con menos de 16 rem de ancho**, que solo pasa con la letra
+            grande: al 200 %, a 390 px, los cuatro rótulos no cabían y «Afinar»
+            se salía por la derecha. Se mide en la barra (`@container`) y no en
+            la ventana por lo mismo que la marca de arriba: la consulta de ventana
+            no se entera de la letra. */}
       <nav
         aria-label="Pantallas, abajo"
-        className="border-border bg-surface/90 flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+        className="border-border bg-surface/90 @container flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
       >
         {SCREENS.map((screen) => (
           <Link
             key={screen.href}
             href={screen.href}
             aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
-            className={`flex grow basis-0 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors duration-150 ${
+            className={`min-h-tap flex grow basis-0 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors duration-150 [@media(max-height:500px)]:py-0 ${
               isHere(pathname, screen.href) ? 'text-brass-bright piloto' : 'text-text-muted'
             }`}
           >
             <span
               aria-hidden="true"
-              className={`flex min-h-7 items-center rounded-full px-4 transition-colors duration-150 ${
+              className={`flex min-h-7 items-center rounded-full px-4 transition-colors duration-150 @max-[16rem]:px-2 ${
                 isHere(pathname, screen.href) ? 'bg-surface-raised' : ''
               }`}
             >
               <screen.Icono />
             </span>
-            {screen.name}
+            <span className="@max-[16rem]:sr-only [@media(max-height:500px)]:sr-only">
+              {screen.name}
+            </span>
           </Link>
         ))}
       </nav>

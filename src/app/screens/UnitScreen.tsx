@@ -56,6 +56,8 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   const acceso = unitAccess(progress, account.plan, unitId);
   const repasa = can(account.plan, 'repaso');
 
+  // La página ya contesta 404 a una unidad que no está en el temario; esto queda
+  // para la pantalla montada suelta, que no sabe de dónde le llega el nombre.
   if (found === null) {
     return (
       <Marco titulo="Esta unidad no existe">

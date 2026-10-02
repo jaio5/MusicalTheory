@@ -58,6 +58,20 @@ export const users = pgTable('users', {
    * una consulta que ya se hacía. Sigue sin haber tabla de sesiones.
    */
   sessionVersion: integer('session_version').notNull().default(0),
+  /**
+   * El cliente y la suscripción de Stripe, o nulo si nunca ha pagado.
+   *
+   * **Sin esto no se podía cancelar ni cambiar de plan sin cobrar dos veces.**
+   * Cancelar bajaba la fila a gratis y Stripe seguía cobrando, porque no había
+   * con qué decirle qué suscripción parar; pedir otro plan abría un Checkout
+   * nuevo encima de la suscripción viva. Y el aviso de baja no encontraba a nadie:
+   * llega con la suscripción, no con la sesión de pago.
+   *
+   * La suscripción se suelta al darse de baja; el cliente se queda, para que
+   * volver a pagar use el mismo y el portal enseñe todas sus facturas.
+   */
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id').unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

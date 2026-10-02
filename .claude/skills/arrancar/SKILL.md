@@ -258,23 +258,28 @@ una función nueva; «el afinador se descarga _Añadir otra parte_» es un fallo
 discusión. Por eso el guion lleva escritas unas cuantas cadenas que solo existen en
 una pantalla y avisa si aparecen en otra.
 
-Referencia, medida el 1 de octubre de 2026 con la escena de píxel en la portada
-([adr/0069](../../../docs/adr/0069-la-portada-es-una-escena-de-pixel.md)):
+Referencia, medida el 2 de octubre de 2026 contra el servidor de producción, con
+la escena de píxel en la portada
+([adr/0069](../../../docs/adr/0069-la-portada-es-una-escena-de-pixel.md)) y las
+tres letras servidas desde aquí ([adr/0070](../../../docs/adr/0070-la-sala-encendida.md)):
 
-| Ruta                 | JS     |
-| -------------------- | ------ |
-| `/planes`            | 157 KB |
-| `/registro`          | 159 KB |
-| `/afinar`            | 160 KB |
-| `/profesor`          | 163 KB |
-| `/` (portada)        | 167 KB |
-| `/aprender`          | 172 KB |
-| `/aprender/repaso`   | 189 KB |
-| `/aprender/[unidad]` | 192 KB |
-| `/componer`          | 220 KB |
+| Ruta                 | JS     | Media | Total  |
+| -------------------- | ------ | ----- | ------ |
+| `/planes`            | 168 KB | 78 KB | 277 KB |
+| `/registro`          | 170 KB | 61 KB | 258 KB |
+| `/afinar`            | 171 KB | 78 KB | 277 KB |
+| `/profesor`          | 175 KB | 61 KB | 268 KB |
+| `/` (portada)        | 179 KB | 88 KB | 300 KB |
+| `/aprender`          | 182 KB | 78 KB | 294 KB |
+| `/aprender/repaso`   | 195 KB | 78 KB | 303 KB |
+| `/aprender/[unidad]` | 199 KB | 78 KB | 307 KB |
+| `/componer`          | 227 KB | 78 KB | 339 KB |
 
-La portada es además la única con algo en la columna de media: 9 KB de la escena,
-y 205 KB en total. Con el vídeo eran 527 KB de media y 720 en total.
+**La media ya no es solo de la portada: son las letras** (`app/fuentes.ts`). La
+de títulos y la del cuerpo se precargan en todas las rutas —27 y 34 KB—, y la
+monoespaciada, 18, solo se pide donde se pinta algo con ella: por eso `/profesor`
+y `/registro` se quedan en 61. La portada suma a eso los 9 KB de su escena. Con
+el vídeo eran 527 KB de media solo en la portada.
 
 Antes de arreglarlo eran **287 KB en todas**, la misma cifra clavada, que es la
 señal de que no hay división ninguna.

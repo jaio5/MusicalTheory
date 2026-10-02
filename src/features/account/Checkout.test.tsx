@@ -128,14 +128,44 @@ describe('confirmar', () => {
     expect(screen.queryByRole('button', { name: /Activar el plan/ })).not.toBeInTheDocument();
   });
 
-  it('sin cuentas configuradas se dice, y lo que no es IA sigue funcionando', () => {
+  /**
+   * **Y no se dice que todo lo que no es IA funciona.** Lo decía, y el repaso y
+   * guardar las canciones también van con plan: sin cuentas, tampoco están. Lo
+   * que falta sale de la tabla de permisos, con las palabras de las tarjetas.
+   */
+  it('sin cuentas configuradas se dice, y que lo del plan tampoco esta', () => {
     render(
       <AccountProvider account={ANONYMOUS} accounts={false}>
         <Checkout plan={PRO} />
       </AccountProvider>,
     );
 
-    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+    const aviso = screen.getByText(/no tiene cuentas configuradas/);
+    expect(aviso).toHaveTextContent(/el repaso de lo que fallaste/);
+    expect(aviso).toHaveTextContent(/guardar tus canciones en la cuenta/);
+    expect(aviso).not.toHaveTextContent(/todo lo que no es IA/i);
+  });
+
+  // Con la letra grande el precio no cabía al lado del nombre y la caja lo
+  // recortaba: la fila se parte en vez de comérselo.
+  it('el precio baja de linea antes que cortarse', () => {
+    pintar();
+
+    const precio = screen.getByText(/€ al mes/);
+    expect(precio.parentElement).toHaveClass('flex-wrap');
+    expect(precio).not.toHaveClass('shrink-0');
+  });
+
+  // Mientras activa, el botón no se apaga: apagado soltaba el foco al `<body>`.
+  it('mientras activa, el boton no suelta el foco', async () => {
+    changePlan.mockReturnValue(new Promise(() => {}));
+    pintar();
+
+    await userEvent.click(screen.getByRole('button', { name: /Activar el plan/ }));
+    const boton = await screen.findByRole('button', { name: /Un momento/ });
+
+    expect(boton).toHaveFocus();
+    expect(boton).toHaveAttribute('aria-disabled', 'true');
   });
 
   it('al activarlo se refresca el servidor, que es quien lee el plan', async () => {

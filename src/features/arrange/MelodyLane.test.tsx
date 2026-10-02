@@ -346,3 +346,21 @@ describe('Con «solo la escala» puesta', () => {
     expect(screen.queryByText(/no es de la escala/)).not.toBeInTheDocument();
   });
 });
+
+/**
+ * **El aro del foco, hacia dentro.** El de la casa sale tres píxeles por fuera,
+ * y la rejilla se desplaza de lado: lo recortaba entero, y con el tabulador no
+ * se sabía en qué fila se estaba.
+ */
+describe('el foco en la rejilla', () => {
+  it('filas y notas llevan el aro por dentro, que la rejilla no recorta', () => {
+    pintar({ notes: [{ id: 'n', start: 0, length: 1, offset: 0 }] });
+
+    expect(screen.getAllByRole('button', { name: /^Escribir Do|^Escribir C/ })[0]!).toHaveClass(
+      'focus-visible:-outline-offset-2',
+    );
+    expect(screen.getByRole('button', { name: /en el pulso 0/ })).toHaveClass(
+      'focus-visible:-outline-offset-2',
+    );
+  });
+});

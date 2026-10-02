@@ -27,9 +27,12 @@
  * `transferSize` es lo que viaja comprimido, cabeceras incluidas, que es lo que
  * paga quien abre la página. No es el tamaño del fichero en disco.
  *
- * La media va en columna aparte porque no es código. Hoy solo la tiene la
- * portada, y son los 9 KB de su escena de píxel; con el vídeo que había antes
- * eran 527, y la portada pesaba más que ninguna por eso y no por su JavaScript.
+ * La media va en columna aparte porque no es código. **Son sobre todo las
+ * letras** de `app/fuentes.ts`: unos 78 KB en cada ruta, 61 donde no se pinta
+ * nada en monoespaciada, que solo se pide si hace falta. La portada suma los
+ * 9 KB de su escena de píxel; con el vídeo que había antes eran 527, y la
+ * portada pesaba más que ninguna por eso y no por su JavaScript. Las cifras de
+ * referencia, en el `SKILL.md` de al lado.
  */
 
 import { chromium } from '/home/javie/.nvm/versions/node/v24.15.0/lib/node_modules/playwright/index.mjs';

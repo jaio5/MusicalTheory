@@ -65,7 +65,10 @@ export function TheoryUnit({
 
       {exercise !== undefined && (
         <div className="border-border mt-6 max-w-prose border-t pt-4">
-          <h3 className="rotulo">Compruébalo</h3>
+          {/* `h2` y no `h3`: lo de encima es el título de la unidad, el `h1`, y
+              saltarse un nivel deja a quien navega por encabezados preguntándose
+              qué apartado se ha perdido. */}
+          <h2 className="rotulo">Compruébalo</h2>
 
           <Question
             exercise={exercise}

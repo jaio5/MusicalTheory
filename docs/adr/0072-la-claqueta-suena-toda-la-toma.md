@@ -1,5 +1,7 @@
 # ADR 0072 — La claqueta suena toda la toma
 
+> **Ampliado por [ADR 0082](./0082-ensayar-cuenta-dos-compases-con-el-mismo-metronomo.md):** Ensayar cuenta también dos compases con el mismo metrónomo y marca la toma en la claqueta.
+
 Fecha: 2026-10-01 · Estado: aceptada · Sustituye en parte a
 [ADR 0053](./0053-la-claqueta-cuenta-y-se-calla.md), que la callaba al empezar a apuntar
 

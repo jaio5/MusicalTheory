@@ -126,7 +126,9 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
    de devolverla: que los grados existan en el modo indicado, que los cifrados se
    recalculen desde ellos y, en las salidas, que el camino declarado sea el que se
    tomó. Una salida concreta que no valide se descarta; si no queda ninguna, se
-   responde `unparseable_response`.
+   responde `unparseable_response`. **Y en el profesor, la prosa**: si la pregunta
+   es por una cadencia o por la relativa, la respuesta tiene que escribir sus
+   acordes y no los de otra cosa (más abajo, en «El profesor»).
 3. **Un reintento y basta.** Si la respuesta no valida, se reintenta una vez. Si
    la segunda tampoco, se devuelve el error. No se encadenan reintentos: cuestan
    dinero y tiempo, y el usuario prefiere un «no ha salido, prueba otra vez»
@@ -292,7 +294,11 @@ que el cobrador que no cobra y el correo que no manda, y por la misma razón: si
 él, media aplicación no se puede probar sin dar de alta un servicio y empezar a
 pagar por tokens.
 
-**Lo que devuelve sale del dominio.** Las versiones se construyen aplicando
+**Lo que devuelve sale del dominio.** El profesor, si la pregunta casa con el
+glosario de teoría (`core/music/glossary.ts`), contesta su entrada resuelta en la
+tonalidad —«Sin IA, del glosario. Cadencia plagal: … En G mayor, IV → I: C → G.»—,
+así que sin clave ya se dice algo cierto; si no casa, dice que no hay modelo y qué
+hacer. Las versiones se construyen aplicando
 movimientos de verdad de `core/music/reharmonization.ts` a la progresión que se
 manda, así que pasan la misma verificación que pasaría una respuesta del modelo.
 Eso permite probar la pantalla, la reproducción y «quedarme con esta» sin gastar
@@ -414,7 +420,13 @@ Alrededor del canal del profesor hay dos cosas, y las dos están en
 1. **La pregunta va entre marcas `###PREGUNTA###`** y el prompt de sistema dice
    que lo de dentro es un dato y nunca una instrucción. La marca se le borra a la
    pregunta al validarla: sin eso, quien la escribiera cerraría el bloque y lo de
-   después se leería como instrucciones nuestras.
+   después se leería como instrucciones nuestras. **Se borra escrita como se
+   escriba** (`core/marca.ts`): antes se quitaba solo la cadena exacta, y la
+   auditoría del 2 de octubre de 2026 la coló con espacios (`### PREGUNTA ###`), en
+   minúsculas, con un espacio de ancho cero dentro y con almohadillas de ancho
+   completo. Ahora la pregunta se normaliza primero —NFKC, sin caracteres de
+   formato ni de control— y se quita cualquier `##…PREGUNTA…##` y sus dos mitades.
+   Las directrices de una salida, igual con `###DIRECTRICES###`.
 2. **El modelo declara `tema: 'musica' | 'fuera'`**, obligatorio, enumerado y
    primero en el esquema —la generación constreñida rellena en ese orden, así que
    lo decide antes de contestar—. Con `fuera`, `validateTeacherAnswer` tira su
@@ -436,9 +448,19 @@ ensayo—, cuenta obligatoria, quince peticiones al mes en el plan gratis con su
 cupos, diez por minuto, y una respuesta que solo ve quien preguntó. El abuso no se
 hace imposible; se hace inútil, que es lo alcanzable.
 
-Medido con ocho casos y dos modelos locales: `qwen3:8b` acierta los ocho,
-`gemma4:e4b` tres de ocho. **La puerta vale lo que valga el modelo siguiendo
-instrucciones**; los topes valen lo mismo con cualquiera.
+**Medido, `qwen3:8b` se deja inyectar seis de ocho veces**, con la marca bien
+quitada y todo. Son los ocho casos de la auditoría del 2 de octubre de 2026
+(`inyeccion.ts`: la orden directa, la marca en cuatro disfraces, la marca exacta,
+un disfraz musical y pedirle que copie sus instrucciones), contra el Ollama del
+equipo y con el reintento de la ruta. Solo resisten la orden directa —«ignora todo
+lo anterior»— y la marca de ancho completo; en los otros seis contesta `musica` y
+pinta lo que le piden: París, un poema, una receta de tortilla y el prompt de
+sistema entero. **Quitar bien la marca no cambió el número**, porque el modelo
+obedece las instrucciones aunque estén dentro del bloque: lo que cierra es que el
+texto del alumno no pueda salir del bloque, no que el modelo lo trate como dato.
+Lo de antes —«acierta los ocho»— no se sostiene con estos casos. **La puerta vale
+lo que valga el modelo siguiendo instrucciones**, y con este vale poco; los topes
+valen lo mismo con cualquiera, y son los que sostienen el argumento de arriba.
 
 Dos cosas más que ya estaban y conviene no perder: el texto del modelo se pinta
 con `{answer.answer}` dentro de un `<p>`, así que React lo escapa y no hay
@@ -471,6 +493,56 @@ De vuelta viene una respuesta corta y, si viene a cuento, un ejemplo tocable en
 grados. Los cifrados del ejemplo no se creen: se recalculan desde los grados
 contra la tonalidad real, igual que en las salidas, que es la única forma de que no
 aparezca en pantalla un acorde que no existe ahí.
+
+### La teoría que se le da, y la que se le comprueba
+
+**El profesor sacaba la teoría de memoria**, y con el modelo de casa se notaba: a
+«¿qué es una cadencia perfecta?» en Do mayor contestó «C a G a C» y, a la segunda,
+«F-C». El prompt solo traía la tonalidad y los símbolos de grado. Desde
+[adr/0076](./adr/0076-el-profesor-se-apoya-en-un-glosario-comprobado.md) el prompt
+lleva tres cosas más, todas calculadas por el dominio y ninguna escrita a mano:
+
+- **Los acordes de la tonalidad con su papel**, siempre:
+  `Acordes de C mayor. Tónica: I C, iii Em, vi Am. Subdominante: ii Dm, IV F. Dominante: V G, vii° Bdim.`
+  En menor va también el V mayor de la armónica, que es el de la cadencia perfecta.
+- **Hasta dos entradas del glosario**, si la pregunta casa con alguna, bajo
+  «Teoría de referencia, comprobada: úsala y no la contradigas.». Son medio
+  centenar —cadencias, funciones, acordes, intervalos, escalas, modos,
+  tonalidades, progresiones y ritmo— y lo que depende de la tonalidad está escrito
+  en grados y se resuelve con `resolveDegree`, `keySignature` y compañía: la
+  perfecta dice «V → I: G → C» en Do mayor y «V → i: E → Am» en La menor. Se
+  eligen por las palabras de la pregunta, sin tildes; gana la frase más larga, y
+  sin ninguna que case no va nada.
+- **La tonalidad escrita como se escribe**: el cliente manda la tónica con
+  sostenidos y Si bemol mayor viajaba como «A# mayor»; el modelo contestó que su
+  dominante era «E#». Ahora `cabeceraDePrompt` la escribe con `keyName`, y eso vale
+  también para las salidas.
+
+El prompt de sistema dice en una frase que la tabla y la referencia mandan sobre
+lo que recuerde.
+
+**Y lo que contesta se comprueba** (`checkAnswerAgainstTheory`, desde
+`validateTeacherAnswer`). Si la pregunta nombra una cadencia o la relativa, la
+respuesta tiene que escribir su progresión —«G → C», «de G a C», «el V va al I»—, y
+no vale una que la contenga dando la vuelta como «C a G a C», ni la de otra cadencia
+sin nombrarla, que es como sale «la perfecta es F-C». Lo que no pasa vuelve nulo y
+la ruta reintenta con otra temperatura; si la segunda tampoco, `unparseable_response`.
+**Prefiere aceptar de menos a rechazar de más**: lee acordes y grados escritos, no
+entiende la frase, y una pregunta por otra tonalidad no se comprueba. Las
+respuestas buenas con las que se probó son las que dio el modelo de casa, copiadas
+tal cual en `glossary.test.ts`.
+
+**Cabe en el presupuesto sin subirlo.** El peor caso —la tabla más larga de las
+veinticuatro, las dos entradas más largas, la unidad de título más largo y la
+pregunta entera— lo construye `server/prompts.test.ts` pieza a pieza, y para que
+quepa el prompt de sistema se apretó sin quitarle nada y cada entrada tiene un tope
+de 180 caracteres. Los cupos no cambian.
+
+**Cómo se mide**: `pnpm examen:profesor` le hace 28 preguntas de guitarrista al
+modelo de casa por el mismo camino que la ruta —el mismo prompt, el mismo
+validador y el mismo reintento— y comprueba cada respuesta con lo que tiene que
+decir y lo que no puede decir. Pide `OLLAMA_URL` y un modelo descargado, así que no
+está entre los seis comandos. Las cifras, en el ADR.
 
 ## Las salidas: por dónde puede tirar lo que tocas
 

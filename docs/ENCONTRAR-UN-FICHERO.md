@@ -40,24 +40,32 @@ la derecha, menos sabe de la pantalla y más de la música.
 
 Siempre son los mismos saltos, y siempre en el mismo orden. Con el afinador:
 
-| Salto          | Fichero                      | Qué hay dentro                                 |
-| -------------- | ---------------------------- | ---------------------------------------------- |
-| 1. La ruta     | `app/afinar/page.tsx`        | nueve líneas: qué pantalla va aquí y su título |
-| 2. La pantalla | `app/screens/TuneScreen.tsx` | el marco y qué apartados tiene                 |
-| 3. La función  | `features/tuner/`            | el comportamiento de verdad                    |
-| 4. El motor    | `audio/autocorrelation.ts`   | cómo se detecta el tono                        |
-| 5. El dominio  | `core/instrument/tunings.ts` | las ocho afinaciones                           |
+| Salto          | Fichero                       | Qué hay dentro                   |
+| -------------- | ----------------------------- | -------------------------------- |
+| 1. La ruta     | `app/(marco)/afinar/page.tsx` | qué pantalla va aquí y su título |
+| 2. La pantalla | `app/screens/TuneScreen.tsx`  | el marco y qué apartados tiene   |
+| 3. La función  | `features/tuner/`             | el comportamiento de verdad      |
+| 4. El motor    | `audio/autocorrelation.ts`    | cómo se detecta el tono          |
+| 5. El dominio  | `core/instrument/tunings.ts`  | las ocho afinaciones             |
 
 Y se puede leer al revés. Si tocas `core/instrument/tunings.ts`, sabes que lo que
 cambias sale en el afinador y en el mástil, porque son los únicos que lo abren.
 
-Las doce rutas son todos los `src/app/*/page.tsx`:
+Las doce rutas son la portada, `src/app/page.tsx`, y todos los
+`src/app/(marco)/*/page.tsx`. El paréntesis no sale en la dirección: es un grupo
+de rutas, y su `layout.tsx` monta el marco común —la barra, el micro— **una vez
+para todas**, así que cambiar de pantalla no lo desmonta. La portada va fuera
+porque pinta su propia sala, sin barra.
 
 ```
 /            /afinar        /componer     /profesor
 /aprender    /aprender/[unidad]           /aprender/repaso
 /planes      /planes/[plan]  /registro    /cuenta      /olvidada
 ```
+
+Si una pantalla revienta al pintarse, lo que se ve sale de `app/Averia.tsx`, por
+una de tres fronteras: `(marco)/error.tsx` deja la barra puesta, `app/error.tsx`
+coge lo de fuera del marco y `app/global-error.tsx` lo que rompa el layout raíz.
 
 ## Cuatro ejemplos de verdad
 

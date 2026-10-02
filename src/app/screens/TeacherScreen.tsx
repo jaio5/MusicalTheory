@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import {
   can,
   cheapestPlanWith,
@@ -13,6 +15,7 @@ import { Teacher } from '@features/learn';
 import { KeyPanel } from '@features/wheel';
 import { Disclosure } from '@ui/Disclosure';
 import { useAccount } from '@state/account';
+import { estiloBoton } from '@ui/Button';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { PlanLock } from '@ui/PlanLock';
 import { Screen, Section } from '@ui/Screen';
@@ -31,7 +34,7 @@ import { Screen, Section } from '@ui/Screen';
  */
 export function TeacherScreen() {
   const activeKey = useSessionStore(selectActiveKey);
-  const { account, signedIn } = useAccount();
+  const { account, accounts, signedIn } = useAccount();
   const plan = planOf(account.plan);
 
   // Con relieve y con el relleno justo: cerrada es **una línea**, y una caja de
@@ -77,8 +80,8 @@ export function TeacherScreen() {
 
       {/* El cupo es de todos los planes, así que aquí no hay candado que enseñar
           salvo el del profesor que sabe por dónde vas, que es lo que distingue a
-          Pro. */}
-      {!can(account.plan, 'profesor-con-progreso') && (
+          Pro. Sin cuentas, ni ese: un plan que no se puede contratar no se ofrece. */}
+      {accounts && !can(account.plan, 'profesor-con-progreso') && (
         <Section title="Con el plan Pro">
           {/* Aquí no es compacto: es el contenido entero de un apartado, y su
               enlace es lo único que se puede hacer en él. Compacto es para una
@@ -91,14 +94,16 @@ export function TeacherScreen() {
         </Section>
       )}
 
-      <p className="text-text-muted max-w-prose text-xs">
-        Tu plan {plan.name} incluye {monthlyAiRequests(plan.id, account.aiModel)} preguntas al
-        profesor al mes —hasta {dailyAiRequests(plan.id, account.aiModel)} en un mismo día—
-        {can(plan.id, 'versiones') && (
-          <>, y las salidas de componer salen de ahí: {gastoDeUnaSalida(account.aiModel)}</>
-        )}
-        . A la IA solo viajan símbolos: la tonalidad, la escala y lo que escribas. Nada de audio.
-      </p>
+      {accounts && (
+        <p className="text-text-muted max-w-prose text-xs">
+          Tu plan {plan.name} incluye {monthlyAiRequests(plan.id, account.aiModel)} preguntas al
+          profesor al mes —hasta {dailyAiRequests(plan.id, account.aiModel)} en un mismo día—
+          {can(plan.id, 'versiones') && (
+            <>, y las salidas de componer salen de ahí: {gastoDeUnaSalida(account.aiModel)}</>
+          )}
+          . A la IA solo viajan símbolos: la tonalidad, la escala y lo que escribas. Nada de audio.
+        </p>
+      )}
     </>
   );
 
@@ -127,7 +132,27 @@ export function TeacherScreen() {
         la rueda es para quien quiere otra.
       */}
       <Section title="La pregunta">
-        <Teacher />
+        {accounts ? (
+          <Teacher />
+        ) : (
+          /*
+            **Sin cuentas, el profesor no está, y se dice.** Prometía «quince
+            preguntas al mes» y mandaba a entrar en `/cuenta`, donde lo único que
+            se leía era que aquí no hay cuentas: un callejón con dos puertas. El
+            profesor necesita saber de quién es el gasto, y en esta copia no hay de
+            quién.
+          */
+          <div className="flex max-w-prose flex-col items-start gap-3">
+            <p className="text-text-muted text-sm">
+              Esta copia de la aplicación no tiene cuentas configuradas, y el profesor necesita una:
+              cada pregunta es una llamada a un modelo que se paga, y hay que saber de quién es el
+              gasto. Lo que pasa en tu navegador —el camino, componer, afinar— funciona igual.
+            </p>
+            <Link href="/aprender" className={estiloBoton('primary')}>
+              Seguir aprendiendo
+            </Link>
+          </div>
+        )}
       </Section>
     </Screen>
   );

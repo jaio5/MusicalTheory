@@ -305,6 +305,8 @@ describe('grabar un trozo', () => {
     componiendo(['I', 'V']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    // Abrir el micro descarga sus motores la primera vez: no es al instante.
+    await screen.findByRole('button', { name: 'Parar de grabar' });
 
     expect(screen.getByRole('status')).toHaveTextContent(/Grabando lo que tocas/);
     expect(screen.getByRole('button', { name: /Salidas de esto/ })).toBeDisabled();
@@ -319,6 +321,8 @@ describe('grabar un trozo', () => {
     componiendo(['vi', 'IV']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    // Abrir el micro descarga sus motores la primera vez: no es al instante.
+    await screen.findByRole('button', { name: 'Parar de grabar' });
     // A 100 bpm un pulso son 600 ms. Do dos pulsos, Sol cuatro.
     oye(C, 0);
     oye(G, 1200);
@@ -350,6 +354,8 @@ describe('grabar un trozo', () => {
     componiendo(['vi', 'IV']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    // Abrir el micro descarga sus motores la primera vez: no es al instante.
+    await screen.findByRole('button', { name: 'Parar de grabar' });
     oye(C, 0);
     oye(G, 1200);
     reloj = 3600;
@@ -366,6 +372,8 @@ describe('grabar un trozo', () => {
     componiendo(['vi', 'IV']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    // Abrir el micro descarga sus motores la primera vez: no es al instante.
+    await screen.findByRole('button', { name: 'Parar de grabar' });
     oye(C, 0);
     oye(G, 1200);
     reloj = 3600;
@@ -381,6 +389,8 @@ describe('grabar un trozo', () => {
     componiendo(['I', 'V']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Grabar un trozo' }));
+    // Abrir el micro descarga sus motores la primera vez: no es al instante.
+    await screen.findByRole('button', { name: 'Parar de grabar' });
     reloj = 5000;
     await userEvent.click(screen.getByRole('button', { name: 'Parar de grabar' }));
 

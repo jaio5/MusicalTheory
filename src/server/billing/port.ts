@@ -7,8 +7,9 @@
  * tres planes funcionando y probados **antes** de que exista una cuenta de
  * Stripe, y enchufar Stripe después sin tocar ni las rutas ni las pantallas.
  *
- * Lo que hay hoy detrás de esta interfaz es `FakeBilling`, que cambia el plan al
- * pulsar y no cobra nada. Lo que habrá mañana es `StripeBilling`, que devuelve
+ * Detrás hay tres: `FakeBilling` en desarrollo, que cambia el plan al pulsar y no
+ * cobra nada; `CobroCerrado` en producción sin pasarela, que no deja subir de plan
+ * —publicar sin Stripe no puede regalar planes—; y `StripeBilling`, que devuelve
  * una dirección de Checkout y espera a que su webhook confirme. La diferencia
  * entre las dos está en `start`: una termina el cambio en el momento y la otra
  * manda a otro sitio y termina más tarde. Todo lo demás es igual, y por eso el

@@ -1,10 +1,25 @@
+// Los tipos de `import … from '….png'` los pone Next en `next-env.d.ts`, que
+// se genera al arrancar y no está en el repositorio: sin esta línea, el
+// `typecheck` de la integración continua, que corre antes del build, no los ve.
+/// <reference types="next/image-types/global" />
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type RefObject,
+} from 'react';
+import { preload } from 'react-dom';
 
 import { IconoSonar } from '@ui/icons';
 import { prefersReducedMotion } from '@ui/motion';
 
+import fondo from './_escena/fondo.png';
+import frente from './_escena/frente.png';
+import medio from './_escena/medio.png';
 import { HOJA, LIENZO, TIRAS, type CapaDeLaEscena } from './escena-pixeles';
 import './escena-portada.css';
 
@@ -51,9 +66,29 @@ import './escena-portada.css';
  * titular de al lado.
  */
 export function EscenaPortada() {
+  /*
+    **Las tres capas se precargan, y no solo la pared.** Son lo más grande que se
+    pinta en la portada, y un `background-image` no se descubre leyendo el HTML:
+    el navegador las pedía al tener la hoja aplicada, compitiendo con las letras.
+    Las tres miden lo mismo y el LCP se lo lleva la que más asoma —lo de delante,
+    por un tres por ciento de área—, así que precargar solo la pared no movía
+    nada: medido con la CPU a ×4 y 1,6 Mb/s, de 1 016 a 984 ms. Con las tres el
+    LCP cae con la primera pintura, unos 780 ms. Son ocho kilobytes.
+
+    Se importan aquí para que la URL sea **la misma que la de la hoja**, con su
+    huella: escrita a mano, la precarga bajaría una imagen y la hoja otra. Y en
+    el render, que es donde React las sube a la cabecera desde el servidor —en
+    producción, como cabecera `Link` de la respuesta—.
+  */
+  for (const capa of [fondo, medio, frente]) {
+    preload(capa.src, { as: 'image', fetchPriority: 'high' });
+  }
+
+  const raiz = useRef<HTMLDivElement>(null);
   const escenario = useRef<HTMLDivElement>(null);
   const viva = useSyncExternalStore(suscribirseAlMovimiento, puedeMoverse, quietaEnElServidor);
   const [parada, setParada] = useState(false);
+  const fuera = useFueraDeLaVista(raiz, viva);
 
   useEffect(() => {
     const nodo = escenario.current;
@@ -61,7 +96,9 @@ export function EscenaPortada() {
     if (nodo === null) {
       return;
     }
-    if (!viva || parada || !punteroFino()) {
+    // Fuera de la vista tampoco: cada fotograma escribe seis variables en el
+    // estilo, y moverlas donde nadie las ve es recalcular para nada.
+    if (!viva || parada || fuera || !punteroFino()) {
       return;
     }
 
@@ -99,7 +136,7 @@ export function EscenaPortada() {
       cancelAnimationFrame(pendiente);
       desplazar(nodo, 0, 0);
     };
-  }, [viva, parada]);
+  }, [viva, parada, fuera]);
 
   const medidas = {
     '--lienzo-ancho': LIENZO.ancho,
@@ -110,10 +147,12 @@ export function EscenaPortada() {
 
   return (
     <div
+      ref={raiz}
       className="escena"
       data-escena=""
       data-viva={viva ? '' : undefined}
       data-parada={viva && parada ? '' : undefined}
+      data-fuera={viva && fuera ? '' : undefined}
     >
       <div
         ref={escenario}
@@ -173,6 +212,45 @@ export function EscenaPortada() {
       )}
     </div>
   );
+}
+
+/**
+ * Si la escena ha salido de la pantalla, mientras está viva.
+ *
+ * **Lo que late sigue latiendo donde nadie lo ve.** Siete tiras en bucle por
+ * fotogramas, y cada cambio de fotograma es un recálculo de estilo: medido en un
+ * teléfono con la CPU a ×4, sesenta por segundo con la portada bajada, los
+ * mismos que con la escena delante. Con esto la hoja las pausa
+ * (`data-fuera`, en `escena-portada.css`) y siguen donde estaban al volver.
+ *
+ * Un atributo aparte y no `data-parada`: parar es una decisión de quien mira, que
+ * cambia el botón y se queda; salir de la vista no decide nada, y al volver la
+ * escena tiene que estar como la dejó, parada o no.
+ *
+ * Sin `IntersectionObserver` se da por dentro: es lo que había, y los
+ * navegadores a los que va esto lo traen desde 2019.
+ */
+function useFueraDeLaVista(raiz: RefObject<HTMLElement | null>, viva: boolean): boolean {
+  const [fuera, setFuera] = useState(false);
+
+  useEffect(() => {
+    const nodo = raiz.current;
+    /* v8 ignore next 3 -- la ref está puesta al correr el efecto; el nulo es para el tipo */
+    if (nodo === null) {
+      return;
+    }
+    if (!viva || typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+    const observador = new IntersectionObserver((entradas) => {
+      // La última es la que vale: si llegan dos juntas, la de antes ya pasó.
+      setFuera(!entradas.at(-1)!.isIntersecting);
+    });
+    observador.observe(nodo);
+    return () => observador.disconnect();
+  }, [raiz, viva]);
+
+  return fuera;
 }
 
 const CAPAS: readonly CapaDeLaEscena[] = ['fondo', 'medio', 'frente'];

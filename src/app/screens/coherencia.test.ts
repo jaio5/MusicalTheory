@@ -101,15 +101,20 @@ function clasesDeBotones(codigo: string): ReadonlyArray<string> {
  * `/planes/[plan]` y `/olvidada` se escribían dentro de su `page.tsx`, y por eso
  * ningún guardián las veía: la ventana de pago llevaba el `h1` en otra letra, la
  * columna centrada y las esquinas cuadradas, y las nueve verdes. Una página cuenta
- * como pantalla cuando monta `AppShell` y **no** delega en una de `screens/`.
+ * como pantalla cuando vive bajo el marco común —el grupo `(marco)`, que pone
+ * `AppShell` en su layout— y **no** delega en una de `screens/`.
  */
 function pantallas(): ReadonlyArray<{ nombre: string; codigo: string }> {
   return FICHEROS.filter(
     ({ ruta, codigo }) =>
       (ruta.includes('/screens/') && ruta.endsWith('Screen.tsx')) ||
-      (ruta.endsWith('/page.tsx') && codigo.includes('<AppShell') && !/\/screens\//.test(codigo)),
+      (ruta.startsWith('src/app/(marco)/') &&
+        ruta.endsWith('/page.tsx') &&
+        !/\/screens\//.test(codigo)),
   ).map(({ ruta, codigo }) => ({
-    nombre: ruta.endsWith('/page.tsx') ? ruta.replace('src/app/', '') : ruta.split('/').pop()!,
+    nombre: ruta.endsWith('/page.tsx')
+      ? ruta.replace('src/app/(marco)/', '')
+      : ruta.split('/').pop()!,
     codigo,
   }));
 }

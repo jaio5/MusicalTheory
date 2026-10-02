@@ -25,7 +25,7 @@ const CAJA = { left: 0, top: 0, right: 900, bottom: 200, width: 900, height: 200
 function pintar(props: Partial<React.ComponentProps<typeof Staff>> = {}) {
   const manos = {
     onSelectBlock: vi.fn(),
-    onRemoveBlock: vi.fn(),
+    onBlockKeyDown: vi.fn(),
     onResizeBlock: vi.fn(),
     onMoveBlock: vi.fn(),
     onAdd: vi.fn(),
@@ -219,6 +219,19 @@ describe('La partitura', () => {
   });
 
   /**
+   * **Y se lee como una frase.** Los dos renglones son dos `tspan` pegados, y un
+   * lector junta su texto sin separarlo: oía «pentagramay aquí».
+   */
+  it('las dos lineas se leen separadas por un espacio', () => {
+    const { container } = pintar({ notes: [] });
+    const pista = [...container.querySelectorAll('text')].find((n) =>
+      /Pulsa en el pentagrama/.test(n.textContent ?? ''),
+    )!;
+
+    expect(pista.textContent).toBe('Pulsa en el pentagrama y aquí se escribe el punteo.');
+  });
+
+  /**
    * Iba a once píxeles y arrancando pegada a la clave. A doce, que es el mínimo
    * de la casa, y centrada bajo la música, que es donde se escribe.
    */
@@ -386,21 +399,20 @@ describe('Los acordes sobre la partitura', () => {
     expect(onSelectBlock).toHaveBeenCalledWith('a');
   });
 
-  // Supr sobre el acorde elegido lo quita: en un teclado es lo que se espera.
-  it('Supr quita el acorde', () => {
-    const { onRemoveBlock, container } = pintar();
+  /**
+   * Las teclas de un acorde —Supr, flechas, `Shift` y flechas— **las decide el
+   * lienzo**, el mismo para las dos vistas: aquí solo se le dice qué acorde.
+   * Cuando la partitura las resolvía por su cuenta, solo sabía de `Supr`, y las
+   * flechas que el panel prometía no movían nada.
+   */
+  it('las teclas de un acorde se las lleva el lienzo, con su acorde', () => {
+    const { onBlockKeyDown, container } = pintar();
 
     fireEvent.keyDown(porEtiqueta(container, 'C, grado I'), { key: 'Delete' });
+    fireEvent.keyDown(porEtiqueta(container, 'F, grado IV'), { key: 'ArrowRight' });
 
-    expect(onRemoveBlock).toHaveBeenCalledWith('a');
-  });
-
-  it('y Retroceso tambien', () => {
-    const { onRemoveBlock, container } = pintar();
-
-    fireEvent.keyDown(porEtiqueta(container, 'F, grado IV'), { key: 'Backspace' });
-
-    expect(onRemoveBlock).toHaveBeenCalledWith('b');
+    expect(onBlockKeyDown).toHaveBeenNthCalledWith(1, expect.anything(), 'a');
+    expect(onBlockKeyDown).toHaveBeenNthCalledWith(2, expect.anything(), 'b');
   });
 
   /**
@@ -424,13 +436,14 @@ describe('Los acordes sobre la partitura', () => {
     expect(siguio).toBe(false);
   });
 
-  it('otra tecla no quita nada', () => {
-    const { onRemoveBlock, onSelectBlock, container } = pintar();
+  // Intro y Espacio eligen y no siguen hasta el lienzo: elegir no es mover.
+  it('Intro elige y no se la pasa al lienzo', () => {
+    const { onBlockKeyDown, onSelectBlock, container } = pintar();
 
-    fireEvent.keyDown(porEtiqueta(container, 'C, grado I'), { key: 'a' });
+    fireEvent.keyDown(porEtiqueta(container, 'C, grado I'), { key: 'Enter' });
 
-    expect(onRemoveBlock).not.toHaveBeenCalled();
-    expect(onSelectBlock).not.toHaveBeenCalled();
+    expect(onSelectBlock).toHaveBeenCalledWith('a');
+    expect(onBlockKeyDown).not.toHaveBeenCalled();
   });
 
   it('arrastrar el cifrado lo lleva a otro sitio', () => {

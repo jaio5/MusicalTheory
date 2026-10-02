@@ -4,9 +4,9 @@ import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
-import { EMPTY_PROGRESS, UNIT_ORDER } from '@core/music';
+import { EMPTY_PROGRESS, REVIEW_XP, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
-import { loadProgress } from '@state/learn-progress';
+import { loadProgress, today } from '@state/learn-progress';
 
 import { useProgress } from './use-progress';
 
@@ -167,6 +167,35 @@ describe('cerrar un repaso', () => {
 
     expect(result.current.celebration?.unitId).toBe('repaso');
     expect(result.current.celebration?.flawless).toBe(true);
+  });
+
+  /**
+   * **Lo que dice la celebración es lo de este repaso**, no lo del día. El
+   * primer repaso de hoy, con lo fallado ayer, no puede restar los puntos de
+   * ayer: el `xpToday` guardado es del último día con actividad, que no es hoy.
+   * Esta rama llevó un `v8 ignore` que decía que no se daba nunca.
+   */
+  it('el primer repaso del dia cuenta lo suyo, aunque ayer se ganara mas', () => {
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    localStorage.setItem(
+      'caos-ordenado:aprender',
+      JSON.stringify({ ...EMPTY_PROGRESS, lastDay: today(ayer), xpToday: 30 }),
+    );
+    const { result } = montar();
+
+    act(() => result.current.finishReview(true));
+
+    expect(result.current.celebration?.xp).toBe(REVIEW_XP);
+  });
+
+  it('y el segundo del mismo dia, tambien solo lo suyo', () => {
+    const { result } = montar();
+    act(() => result.current.finishReview(true));
+
+    act(() => result.current.finishReview(true));
+
+    expect(result.current.celebration?.xp).toBe(REVIEW_XP);
   });
 });
 

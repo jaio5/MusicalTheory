@@ -13,16 +13,16 @@
  *    exactamente el mismo motivo por el que las contraseñas tampoco se guardan.
  * 2. **Caduca.** Una hora. Un vale que vale para siempre es una segunda
  *    contraseña que nadie sabe que tiene, escrita en un buzón de correo.
- * 3. **Un solo uso.** Se marca al gastarlo, y los anteriores de esa cuenta se
- *    invalidan al pedir uno nuevo: si no, pedir tres correos dejaría tres puertas
- *    abiertas.
+ * 3. **Un solo uso, y atómico.** Se marca al gastarlo en la misma sentencia que
+ *    comprueba que no estaba gastado, y los anteriores de esa cuenta se invalidan
+ *    al pedir uno nuevo: si no, pedir tres correos dejaría tres puertas abiertas.
  * 4. **Usarlo echa a las demás sesiones**, subiendo `sessionVersion`. Quien
  *    recupera la contraseña suele estar haciéndolo porque alguien más entró.
  */
 
 import { randomBytes, createHash } from 'node:crypto';
 
-import { and, eq, isNull, lt } from 'drizzle-orm';
+import { and, eq, gt, isNull, lt, sql } from 'drizzle-orm';
 
 import { MIN_PASSWORD_LENGTH } from '@core/billing';
 
@@ -142,46 +142,45 @@ export async function resetPassword(
   const hash = hashResetToken(token);
 
   try {
-    const [row] = await database
-      .select()
-      .from(passwordResets)
-      .where(eq(passwordResets.tokenHash, hash))
-      .limit(1);
+    return await database.transaction(async (tx) => {
+      // **Gastarlo es lo primero, y en una sola sentencia**: se marca solo si
+      // sigue sin usar y sin caducar, y lo que vuelve dice si se ha marcado. Antes
+      // se leía, se comprobaba y se marcaba al final, y dos peticiones a la vez con
+      // el mismo enlace leían las dos «sin usar» y cambiaban las dos la
+      // contraseña. Ahora la segunda no encuentra nada que marcar.
+      const [gastado] = await tx
+        .update(passwordResets)
+        .set({ usedAt: now })
+        .where(
+          and(
+            eq(passwordResets.tokenHash, hash),
+            isNull(passwordResets.usedAt),
+            gt(passwordResets.expiresAt, now),
+          ),
+        )
+        .returning({ userId: passwordResets.userId, tokenHash: passwordResets.tokenHash });
 
-    // Se busca por la huella —es la clave— y luego se comparan en tiempo
-    // constante. Buscar ya es una comparación, pero la de Postgres no lo es, y
-    // esta línea cuesta nada.
-    if (row === undefined || !sameHex(row.tokenHash, hash)) {
-      return 'vale-no-vale';
-    }
-    if (row.usedAt !== null || row.expiresAt.getTime() <= now.getTime()) {
-      return 'vale-no-vale';
-    }
+      // Buscar ya es una comparación, pero la de Postgres no es en tiempo
+      // constante, y esta línea cuesta nada.
+      if (gastado === undefined || !sameHex(gastado.tokenHash, hash)) {
+        return 'vale-no-vale';
+      }
 
-    const [user] = await database
-      .select({ sessionVersion: users.sessionVersion })
-      .from(users)
-      .where(eq(users.id, row.userId))
-      .limit(1);
-    /* v8 ignore next 3 -- el vale se borra en cascada con la cuenta, asi que si esta el vale esta el usuario */
-    if (user === undefined) {
-      return 'vale-no-vale';
-    }
+      // En la misma transacción: si cambiar la contraseña falla, el vale no se
+      // queda gastado y el enlace sigue sirviendo.
+      await tx
+        .update(users)
+        .set({
+          passwordHash: await hashPassword(nueva),
+          // Quien recupera la contraseña suele estar haciéndolo porque alguien
+          // más entró. Dejar viva la sesión de esa persona sería recuperar la
+          // cuenta a medias. Se suma en la base, no leyendo antes el número.
+          sessionVersion: sql`${users.sessionVersion} + 1`,
+        })
+        .where(eq(users.id, gastado.userId));
 
-    await database
-      .update(users)
-      .set({
-        passwordHash: await hashPassword(nueva),
-        // Quien recupera la contraseña suele estar haciéndolo porque alguien más
-        // entró. Dejar viva la sesión de esa persona sería recuperar la cuenta a
-        // medias.
-        sessionVersion: user.sessionVersion + 1,
-      })
-      .where(eq(users.id, row.userId));
-
-    await database.update(passwordResets).set({ usedAt: now }).where(eq(passwordResets.id, row.id));
-
-    return 'ok';
+      return 'ok';
+    });
   } catch {
     return 'error';
   }

@@ -466,10 +466,18 @@ export function nextDegrees(mode: KeyMode, from: DegreeSymbol): DegreeMove[] {
  * acorde, sí, pero es que has cambiado de tonalidad; lo que no cambia es que sea
  * el sitio al que todo vuelve.
  *
- * Lo que no tiene contraparte son **tres dominantes secundarias de mayor** —la
- * del ii, la del iii y la del vi—, que caen en grados que el menor no tiene.
- * Esas devuelven `null` y quien llame decide; aquí no se inventa un acorde que
- * nadie ha pedido.
+ * **Las dominantes secundarias también se traducen por función**: lo que dice
+ * una `V/vi` es «la dominante del sexto grado», y en menor el sexto grado es el
+ * `VI`, cuya dominante es el `III`. Así que el E7 que prepara el La menor de Do
+ * mayor pasa a ser, en Do menor, el Eb7 que prepara el Ab. Antes devolvía `null`
+ * y el bloque se caía sin avisar: escribías C G Am F E7, pasabas a menor y el E7
+ * ya no estaba. Lo mismo la del `iii`, que en menor es el `III` y su dominante
+ * el `VII`.
+ *
+ * Lo único que de verdad no tiene contraparte es **la dominante del `ii`**: en
+ * menor el segundo grado es disminuido, y a un disminuido no se le prepara con
+ * su dominante. Esa devuelve `null` y quien llame decide; aquí no se inventa un
+ * acorde que nadie ha pedido.
  */
 const A_MENOR: Readonly<Partial<Record<MajorDegreeSymbol, MinorDegreeSymbol>>> = {
   I: 'i',
@@ -491,6 +499,10 @@ const A_MENOR: Readonly<Partial<Record<MajorDegreeSymbol, MinorDegreeSymbol>>> =
   bVI: 'VI',
   bVII: 'VII',
   'V/V': 'V/V',
+  // La dominante del grado traducido: la del `VI` es el `III` y la del `III` es
+  // el `VII`, una quinta por encima de cada uno.
+  'V/vi': 'III',
+  'V/iii': 'VII',
 };
 
 const A_MAYOR: Readonly<Partial<Record<MinorDegreeSymbol, MajorDegreeSymbol>>> = {
@@ -530,6 +542,12 @@ export function degreeInMode(degree: DegreeSymbol, to: KeyMode): DegreeSymbol | 
     La consecuencia es que un `iv` de menor se queda `iv` al pasar a mayor, y eso
     es lo que ya hace el `vi`: va a `VI` y vuelve como `bVI`. **Suena el mismo
     acorde**, que es el trato de esta traducción desde el principio.
+
+    **Esto, a solas, no es reversible**, y no puede serlo: el mayor tiene dieciséis
+    grados y el menor once, así que hay grados de mayor que caen en el mismo de
+    menor. La ida y vuelta la sostiene el bloque, que recuerda qué era en el otro
+    modo (`Block.delOtroModo`, en `arrangement.ts`): con eso, el `vi` que fue a
+    `VI` vuelve como `vi` y no como `bVI`.
   */
   const tabla = to === 'minor' ? MINOR_DEGREES : MAJOR_DEGREES;
   if (degree in tabla) {

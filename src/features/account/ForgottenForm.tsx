@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useEnvio } from './use-envio';
 
@@ -10,7 +10,7 @@ import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
 import { Aviso } from '@ui/Aviso';
 
-import { CORREO_MAL, pareceUnCorreo } from './correo';
+import { problemaDelCorreo } from './correo';
 import { Formulario } from '@ui/Formulario';
 
 export interface ForgottenFormProps {
@@ -50,12 +50,51 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
 
   const conVale = vale !== undefined && vale !== '';
 
+  /*
+    El vale fuera de la barra de direcciones en cuanto se ha leído.
+
+    Con él dentro, la dirección entera —vale incluido— se quedaba en el historial,
+    en las pestañas sincronizadas de otros aparatos y en cualquier captura de
+    pantalla: durante una hora, eso es una llave de la cuenta. El vale ya lo tiene
+    este componente, así que la barra no lo necesita. `replaceState` y no
+    `router.replace`: no hay que volver a pedir la página, solo cambiar lo que se
+    lee arriba, y Next se entera igual («Native History API», en
+    `node_modules/next/dist/docs/01-app/01-getting-started/04-linking-and-navigating.md`).
+  */
+  useEffect(() => {
+    if (!conVale) {
+      return;
+    }
+    const direccion = new URL(window.location.href);
+    if (!direccion.searchParams.has('vale')) {
+      return;
+    }
+    direccion.searchParams.delete('vale');
+    window.history.replaceState(window.history.state, '', direccion.toString());
+  }, [conVale]);
+
+  /*
+    **El foco va al aviso cuando el formulario se va.** Lo que se pulsó era el
+    botón de enviar, y al terminar ese botón deja de existir: el foco caía al
+    `<body>`, el lector de pantalla no decía nada y el siguiente tabulador
+    empezaba otra vez por la cabecera. Con el foco en la frase, se lee lo que ha
+    pasado y se sigue desde ahí.
+  */
+  const aviso = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (hecho !== null) {
+      aviso.current?.focus();
+    }
+  }, [hecho]);
+
   async function pedirEnlace(): Promise<void> {
     // Igual que en el formulario de entrar: la burbuja de `type="email"` la
     // escribe el navegador en su idioma, así que se comprueba aquí y se dice con
     // el `Aviso`, que es el sitio donde esta pantalla ya cuenta lo que pasa.
-    if (!pareceUnCorreo(email)) {
-      setError(CORREO_MAL);
+    // Vacío también: el botón no se apaga por lo que falta, lo dice.
+    const problema = problemaDelCorreo(email);
+    if (problema !== undefined) {
+      setError(problema);
       return;
     }
 
@@ -79,6 +118,14 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
   }
 
   async function cambiar(): Promise<void> {
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`La contraseña nueva tiene que tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+      return;
+    }
+    if (password !== repetida) {
+      setError('Las dos no son la misma: escríbela otra vez igual.');
+      return;
+    }
     await enviar(async () => {
       try {
         const response = await request({
@@ -100,7 +147,9 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
 
   if (hecho !== null) {
     return (
-      <div className="max-w-prose">
+      // `tabIndex={-1}`: se le puede llevar el foco por código sin que pase a
+      // ser una parada más del tabulador.
+      <div ref={aviso} tabIndex={-1} className="max-w-prose">
         <p className="text-text text-sm" role="status">
           {hecho}
         </p>
@@ -113,10 +162,11 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
     );
   }
 
+  // **El botón no se apaga por lo que falta.** Nacía apagado hasta tener el
+  // correo, y un botón gris no dice qué le pasa: quien no veía la pantalla oía
+  // «no disponible» y nada más. Se pulsa siempre, y lo que falta lo dice el
+  // `Aviso`, como en los demás formularios de la cuenta.
   const coinciden = password === repetida;
-  const puede = conVale
-    ? password.length >= MIN_PASSWORD_LENGTH && coinciden && !working
-    : email !== '' && !working;
 
   return (
     <Formulario onEnviar={() => (conVale ? cambiar() : pedirEnlace())}>
@@ -154,7 +204,7 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
       <Aviso mensaje={error} anuncio="urgente" />
 
       <div className="w-fit">
-        <Button type="submit" disabled={!puede} cargando={working}>
+        <Button type="submit" cargando={working}>
           {working ? 'Un momento…' : conVale ? 'Poner esta contraseña' : 'Mandarme el enlace'}
         </Button>
       </div>

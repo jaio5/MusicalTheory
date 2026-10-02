@@ -48,12 +48,16 @@ let users: typeof Users;
 beforeAll(async () => {
   base = await levantarBaseDePrueba();
   process.env['AUTH_SECRET'] = 'un-secreto-de-prueba';
+  // Como detrás de un proxy: sin esto no se cree `X-Forwarded-For` y todas las
+  // peticiones de estos tests compartirían dirección.
+  process.env['TRUSTED_PROXY_HOPS'] = '1';
   auth = await import('./auth');
   users = await import('./users');
 });
 
 afterAll(async () => {
   delete process.env['AUTH_SECRET'];
+  delete process.env['TRUSTED_PROXY_HOPS'];
   await base.cerrar();
 });
 
@@ -165,18 +169,54 @@ describe('el tope de intentos al entrar', () => {
   });
 
   /**
-   * **Se cuenta por correo además de por dirección**, y por eso probar la misma
-   * cuenta desde muchos sitios tampoco sirve: con solo la dirección, cambiar de
-   * salida a internet dejaba el ataque abierto.
+   * **Cinco intentos ajenos no te dejan fuera.** Con el tope contado solo por
+   * correo, cualquiera que supiera el tuyo te tenía esperando un minuto, todos los
+   * minutos que quisiera. La clave estrecha es correo y dirección: lo que gasta
+   * quien prueba desde su casa no lo pagas tú desde la tuya.
    */
-  it('cambiar de direccion no reinicia el tope de esa cuenta', async () => {
-    for (let i = 0; i < 5; i += 1) {
-      await autorizar({ email: CORREO, password: 'no' }, desde(`10.0.1.${i}`));
+  it('lo que falla otro desde otra direccion no te cierra la puerta', async () => {
+    await users.createUser({ email: CORREO, password: 'la-buena-de-verdad' });
+    await fallar(6, desde('10.0.1.1'));
+
+    await expect(
+      autorizar({ email: CORREO, password: 'la-buena-de-verdad' }, desde('10.0.1.99')),
+    ).resolves.toMatchObject({ email: CORREO });
+  });
+
+  /**
+   * **Y repartir los intentos entre muchas direcciones lo para el tope del
+   * correo**, que es más ancho —treinta en un cuarto de hora— para que no sirva
+   * para lo de arriba.
+   */
+  it('cambiar de direccion en cada intento acaba en el tope del correo', async () => {
+    for (let i = 0; i < 30; i += 1) {
+      expect(await autorizar({ email: CORREO, password: 'no' }, desde(`10.0.4.${i}`))).toBeNull();
     }
 
     await expect(
-      autorizar({ email: CORREO, password: 'no' }, desde('10.0.1.99')),
+      autorizar({ email: CORREO, password: 'no' }, desde('10.0.4.200')),
     ).rejects.toMatchObject({ code: DEMASIADOS_INTENTOS });
+  }, 30_000);
+
+  // Y probar muchas cuentas desde un sitio lo para la dirección sola.
+  it('probar veinte cuentas desde la misma direccion para a la veintiuna', async () => {
+    for (let i = 0; i < 20; i += 1) {
+      expect(
+        await autorizar({ email: `c${i}@ejemplo.test`, password: 'no' }, desde('10.0.5.1')),
+      ).toBeNull();
+    }
+
+    await expect(
+      autorizar({ email: 'c99@ejemplo.test', password: 'no' }, desde('10.0.5.1')),
+    ).rejects.toMatchObject({ code: DEMASIADOS_INTENTOS });
+  }, 30_000);
+
+  it('sin peticion, sigue contando por correo', async () => {
+    await fallar(5);
+
+    await expect(autorizar({ email: CORREO, password: 'no' })).rejects.toMatchObject({
+      code: DEMASIADOS_INTENTOS,
+    });
   });
 
   // Y el tope de una cuenta no cierra la puerta a otra: si no, bastaría con probar
@@ -257,6 +297,38 @@ describe('entrar con correo y contraseña', () => {
     const desconocido = performance.now() - empiezaDesconocido;
 
     expect(desconocido).toBeGreaterThan(conocido / 5);
+  });
+});
+
+describe('las contraseñas cifradas con los parámetros de antes', () => {
+  /**
+   * Al subir el coste de `scrypt` lo guardado no se invalida —cada fila lleva sus
+   * parámetros—, pero tampoco mejora solo. Entrar es el único momento en que se
+   * tiene la contraseña en claro, así que es ahí donde se vuelve a cifrar.
+   */
+  it('al entrar se vuelven a cifrar con los de hoy, sin echar a nadie', async () => {
+    const creada = await users.createUser({ email: 'vieja@b.c', password: 'unaContrasenaLarga' });
+    if (creada.kind !== 'ok') {
+      throw new Error(creada.kind);
+    }
+    const { scryptSync } = await import('node:crypto');
+    const sal = Buffer.from('sal de las viejas');
+    const clave = scryptSync('unaContrasenaLarga', sal, 64, { N: 16_384, r: 8, p: 1 });
+    const vieja = ['scrypt', 16_384, 8, 1, sal.toString('base64'), clave.toString('base64')].join(
+      '$',
+    );
+    await base.ejecutar(`update users set password_hash = '${vieja}' where email = 'vieja@b.c'`);
+
+    const entrada = await autorizar({ email: 'vieja@b.c', password: 'unaContrasenaLarga' });
+
+    expect(entrada).toMatchObject({ email: 'vieja@b.c', sessionVersion: 0 });
+    const ahora = await users.findUserWithPassword('vieja@b.c');
+    expect(ahora?.passwordHash.startsWith('scrypt$16384$8$5$')).toBe(true);
+    expect(ahora?.user.sessionVersion).toBe(0);
+    // Y sigue entrando con la misma.
+    await expect(
+      autorizar({ email: 'vieja@b.c', password: 'unaContrasenaLarga' }),
+    ).resolves.toMatchObject({ email: 'vieja@b.c' });
   });
 });
 

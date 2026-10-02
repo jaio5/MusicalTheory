@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { keyName, noteName, resolveProgression } from '@core/music';
+import { keyName, noteName, resolveProgression, SCALES } from '@core/music';
 import {
   createSessionStorage,
   describeSession,
@@ -78,7 +78,13 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
 
   async function restore(session: StoredSession) {
     const { actions } = useSessionStore.getState();
-    actions.setScale(session.scaleId);
+    // **Lo guardado no se cree a ciegas**, igual que en `ResumeLast`: una escala
+    // que ya no existe —renombrada, o de otra versión— llegaba al mástil y tumbaba
+    // componer. Se retoma la tonalidad, y la escala solo si sigue en el catálogo.
+    // `Object.hasOwn` porque un `toString` también «está» en cualquier objeto.
+    if (Object.hasOwn(SCALES, session.scaleId)) {
+      actions.setScale(session.scaleId);
+    }
     if (session.key !== null) {
       actions.pinKey(session.key);
     }

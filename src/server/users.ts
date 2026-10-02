@@ -8,7 +8,7 @@
  * son dos frases distintas.
  */
 
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, type SQL } from 'drizzle-orm';
 
 import { MAX_NAME_LENGTH, MIN_PASSWORD_LENGTH, planOf, type PlanId } from '@core/billing';
 
@@ -374,5 +374,182 @@ export async function setPlan(userId: string, plan: PlanId): Promise<SetPlanResu
     return rows.length > 0 ? 'ok' : 'no-existe';
   } catch {
     return 'error';
+  }
+}
+
+interface CuentaEnStripe {
+  readonly customerId: string | null;
+  readonly subscriptionId: string | null;
+}
+
+/**
+ * Lo que Stripe sabe de esta cuenta, o por qué no se sabe.
+ *
+ * Distingue «no está» de «no se ha podido leer», que `suscripcionDe` junta y el
+ * webhook no puede juntar: una cuenta borrada se contesta con 200, y una base que
+ * no contesta con 500 para que Stripe lo reintente.
+ */
+async function leerSuscripcion(
+  userId: string,
+): Promise<CuentaEnStripe | 'no-existe' | 'error'> {
+  const database = db();
+  if (database === null) {
+    return 'error';
+  }
+  try {
+    const [row] = await database
+      .select({
+        customerId: users.stripeCustomerId,
+        subscriptionId: users.stripeSubscriptionId,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return row ?? 'no-existe';
+  } catch {
+    return 'error';
+  }
+}
+
+/**
+ * Lo que Stripe sabe de esta cuenta: su cliente y su suscripción viva.
+ *
+ * Nulo cuando no se ha podido leer —sin base, base caída o cuenta que ya no
+ * está—, que para quien cobra es lo mismo: no hay con qué ir a Stripe.
+ */
+export async function suscripcionDe(userId: string): Promise<CuentaEnStripe | null> {
+  const cuenta = await leerSuscripcion(userId);
+  return typeof cuenta === 'string' ? null : cuenta;
+}
+
+/** Escribe y dice si había a quién, con los tres resultados de `setPlan`. */
+async function escribirCuenta(
+  donde: SQL,
+  cambios: Partial<typeof users.$inferInsert>,
+): Promise<SetPlanResult> {
+  const database = db();
+  if (database === null) {
+    return 'error';
+  }
+  try {
+    const rows = await database.update(users).set(cambios).where(donde).returning({ id: users.id });
+    return rows.length > 0 ? 'ok' : 'no-existe';
+  } catch {
+    return 'error';
+  }
+}
+
+/**
+ * Lo que pasó al vincular un pago: los tres de `setPlan`, o que la cuenta ya
+ * tenía **otra** suscripción guardada, y cuál.
+ */
+export type VincularResult =
+  | { readonly kind: SetPlanResult }
+  | { readonly kind: 'otra'; readonly guardada: string };
+
+/**
+ * Un pago confirmado: el plan, el cliente y la suscripción, **en una sentencia**.
+ *
+ * Juntos porque son lo mismo dicho tres veces. Con el plan puesto y la suscripción
+ * sin guardar, cancelar no sabría qué parar en Stripe y el aviso de baja no
+ * encontraría a nadie: el plan de pago se quedaría para siempre.
+ *
+ * **Y solo si la cuenta no tenía otra.** Con dos Checkout pagados a la vez, el
+ * segundo aviso pisaba la suscripción del primero: esa seguía cobrando y sus
+ * avisos ya no encontraban a nadie. Ahora se escribe solo si lo guardado es nulo,
+ * es esta misma —un aviso repetido— o es `reemplaza`, la que quien llama ya ha
+ * comprobado en Stripe que está muerta. Y la escritura lleva **en su `where` lo
+ * que se leyó**: mirar y escribir por separado deja una rendija, y por ella se
+ * colaban los dos avisos a la vez.
+ */
+export async function vincularSuscripcion(
+  userId: string,
+  pago: { plan: PlanId; customerId: string; subscriptionId: string },
+  opciones: { reemplaza?: string } = {},
+): Promise<VincularResult> {
+  const cuenta = await leerSuscripcion(userId);
+  if (typeof cuenta === 'string') {
+    return { kind: cuenta };
+  }
+
+  const guardada = cuenta.subscriptionId;
+  if (guardada !== null && guardada !== pago.subscriptionId && guardada !== opciones.reemplaza) {
+    return { kind: 'otra', guardada };
+  }
+
+  // Se escribe solo si lo guardado sigue siendo lo que se acaba de leer. Si otro
+  // aviso lo cambió entre medias no se escribe nada, y es un error a propósito:
+  // Stripe lo reintenta, y la vez siguiente ya ve la suscripción del otro.
+  const escrito = await escribirCuenta(
+    and(
+      eq(users.id, userId),
+      guardada === null
+        ? isNull(users.stripeSubscriptionId)
+        : eq(users.stripeSubscriptionId, guardada),
+    ) as SQL,
+    {
+      plan: pago.plan,
+      stripeCustomerId: pago.customerId,
+      stripeSubscriptionId: pago.subscriptionId,
+    },
+  );
+  return { kind: escrito === 'no-existe' ? 'error' : escrito };
+}
+
+/**
+ * Lo que diga Stripe de una suscripción, aplicado a la cuenta que la tiene.
+ *
+ * **Se busca por la suscripción guardada y no por los metadatos del aviso.** Un
+ * aviso viejo que llegue tarde —Stripe no garantiza el orden— trae una
+ * suscripción que ya se soltó, y entonces no encuentra a nadie: no puede
+ * devolverle el plan de pago a quien ya se dio de baja.
+ *
+ * Con `soltar`, además se olvida la suscripción: es el aviso de que se acabó.
+ */
+export async function planDeSuscripcion(
+  subscriptionId: string,
+  plan: PlanId,
+  opciones: { soltar: boolean },
+): Promise<SetPlanResult> {
+  return escribirCuenta(eq(users.stripeSubscriptionId, subscriptionId), {
+    plan,
+    ...(opciones.soltar ? { stripeSubscriptionId: null } : {}),
+  });
+}
+
+/** Gratis y sin suscripción: lo que queda después de cancelarla en Stripe. */
+export async function soltarSuscripcion(userId: string): Promise<SetPlanResult> {
+  return escribirCuenta(eq(users.id, userId), { plan: 'gratis', stripeSubscriptionId: null });
+}
+
+/**
+ * Vuelve a cifrar la contraseña con los parámetros de hoy.
+ *
+ * Solo la llama la entrada, que es el único sitio donde se tiene la contraseña en
+ * claro y ya comprobada. **Solo escribe si lo guardado sigue siendo lo que se
+ * comprobó**: si entre medias alguien la cambió, esta escritura pisaría la nueva
+ * con la vieja.
+ *
+ * No sube `sessionVersion`, a propósito: es la misma contraseña, y echar a las
+ * demás sesiones por cambiar cómo se guarda sería un susto sin motivo. Si falla
+ * no pasa nada: se intenta la próxima vez que entre.
+ */
+export async function recifrarContrasena(
+  userId: string,
+  comprobado: string,
+  password: string,
+): Promise<void> {
+  const database = db();
+  /* v8 ignore next 3 -- solo se llama despues de haber leido la cuenta de la base */
+  if (database === null) {
+    return;
+  }
+  try {
+    await database
+      .update(users)
+      .set({ passwordHash: await hashPassword(password) })
+      .where(and(eq(users.id, userId), eq(users.passwordHash, comprobado)));
+  } catch {
+    // Entrar no puede fallar porque no se haya podido mejorar cómo se guarda.
   }
 }

@@ -110,6 +110,11 @@ export const TECLAS_DEL_BLOQUE_DICHAS =
   'Flechas: moverlo · Mayúsculas y flechas: estirarlo · Supr: quitarlo';
 
 export interface BlockButtonProps {
+  /**
+   * De qué bloque es, para que el lienzo lo encuentre y le devuelva el foco
+   * después de moverlo o de quitar el de al lado.
+   */
+  readonly blockId?: string;
   readonly symbol: string;
   readonly degree: string;
   readonly beats: number;
@@ -142,6 +147,7 @@ export interface BlockButtonProps {
 }
 
 export function BlockButton({
+  blockId,
   symbol,
   degree,
   beats,
@@ -162,6 +168,7 @@ export function BlockButton({
   return (
     <button
       type="button"
+      data-bloque={blockId}
       // `min-h-tap` y no una altura fija: es lo que se pulsa, y aquí no hay
       // excepciones ni para lo que se arrastra.
       className={`superficie-alta min-h-tap relative flex flex-col justify-center overflow-hidden rounded-md px-3 py-2 text-left transition-[border-color,opacity,transform] duration-150 ${

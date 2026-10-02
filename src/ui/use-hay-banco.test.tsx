@@ -10,9 +10,9 @@ import { useHayBanco } from './use-hay-banco';
  *
  * Por debajo de 64rem la pantalla no es el mismo árbol con otro reparto, es otra
  * cosa: por eso esto no se resuelve solo con clases. **En el servidor se
- * contesta que sí**, que es el caso que sirve la mayoría de las visitas;
- * equivocarse hacia el móvil dejaría al escritorio pintando pestañas durante un
- * fotograma.
+ * contesta que sí**: el árbol del banco es el que lleva lo de escritorio, y lo
+ * que un teléfono no enseña ya lo esconden las clases hasta hidratar (lo prueba
+ * `ComposeScreen.test.tsx`, con el HTML del servidor).
  */
 function Mirilla() {
   return <span>{useHayBanco() ? 'banco' : 'pestañas'}</span>;

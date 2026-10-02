@@ -11,8 +11,8 @@ import { AccountProvider } from '@state/account';
 /**
  * Las direcciones: qué se abre en cada una.
  *
- * Una página de Next es cuatro líneas —el marco y la pantalla— y por eso no
- * tienen test propio cada una. Lo que sí tiene sentido probar, y solo se ve
+ * Una página de Next es la pantalla y su título —el marco lo pone el layout de
+ * `(marco)`, y se prueba en el suyo— y por eso no tienen test propio cada una. Lo que sí tiene sentido probar, y solo se ve
  * montándolas, es **el mapa**: que cada dirección abre la pantalla que dice su
  * nombre, que cada una lleva su título de pestaña, y que las tres que deciden
  * algo lo deciden bien —una unidad que no existe, un plan que no existe y la
@@ -21,6 +21,13 @@ import { AccountProvider } from '@state/account';
  * Sin esto, un `import` cruzado entre dos páginas no lo nota nadie hasta abrir
  * el navegador.
  */
+
+// **El lienzo de verdad solo lo carga su propio test.** Vitest reutiliza cada
+// proceso para varios ficheros, y si en uno caían dos que cargaban
+// `ArrangeCanvas.tsx`, V8 tenía dos copias del mismo módulo y al juntar la
+// cobertura se quedaba con las cuentas de una: las ramas bajaban al 90 % una
+// pasada de cada dos, con todos los tests en verde. Aquí basta con que llegue.
+vi.mock('@features/arrange/ArrangeCanvas', () => ({ ArrangeCanvas: () => null }));
 
 vi.mock('next/navigation', async () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
@@ -67,14 +74,14 @@ describe('las pantallas de trabajo', () => {
     // que fue —un `ref` en un componente de servidor solo revienta sirviendo la
     // página de verdad—, pero sí que la portada siga montándose.
     ['/', () => import('./page'), 'Caos ordenado'],
-    ['/afinar', () => import('./afinar/page'), 'Afinar'],
-    ['/aprender', () => import('./aprender/page'), 'Aprender'],
-    ['/componer', () => import('./componer/page'), 'Componer'],
-    ['/profesor', () => import('./profesor/page'), 'Profesor'],
-    ['/planes', () => import('./planes/page'), 'Planes'],
-    ['/registro', () => import('./registro/page'), 'Crear tu cuenta'],
-    ['/cuenta', () => import('./cuenta/page'), 'Tu cuenta'],
-    ['/aprender/repaso', () => import('./aprender/repaso/page'), 'Repaso'],
+    ['/afinar', () => import('./(marco)/afinar/page'), 'Afinar'],
+    ['/aprender', () => import('./(marco)/aprender/page'), 'Aprender'],
+    ['/componer', () => import('./(marco)/componer/page'), 'Componer'],
+    ['/profesor', () => import('./(marco)/profesor/page'), 'Profesor'],
+    ['/planes', () => import('./(marco)/planes/page'), 'Planes'],
+    ['/registro', () => import('./(marco)/registro/page'), 'Crear tu cuenta'],
+    ['/cuenta', () => import('./(marco)/cuenta/page'), 'Tu cuenta'],
+    ['/aprender/repaso', () => import('./(marco)/aprender/repaso/page'), 'Repaso'],
   ] as const;
 
   /**
@@ -114,7 +121,7 @@ describe('una unidad por direccion', () => {
       default: Unidad,
       generateMetadata,
       generateStaticParams,
-    } = await import('./aprender/[unidad]/page');
+    } = await import('./(marco)/aprender/[unidad]/page');
     const unidad = UNIT_ORDER[0]!;
 
     pintar(await Unidad({ params: Promise.resolve({ unidad }) }));
@@ -125,14 +132,14 @@ describe('una unidad por direccion', () => {
     expect(generateStaticParams()).toHaveLength(UNIT_ORDER.length);
   });
 
-  it('la que no existe no revienta: lo dice la pantalla', async () => {
-    // Esta página no decide si se puede entrar —eso depende del avance y del
-    // plan— así que un identificador inventado llega hasta la pantalla.
-    const { default: Unidad, generateMetadata } = await import('./aprender/[unidad]/page');
+  it('la que no existe es un 404, no una pagina buena que dice que no existe', async () => {
+    // Si se puede entrar lo decide la pantalla —el avance y el plan—, pero si la
+    // unidad existe lo sabe el temario, y una que no está contestaba 200.
+    const { default: Unidad, generateMetadata } = await import('./(marco)/aprender/[unidad]/page');
 
-    pintar(await Unidad({ params: Promise.resolve({ unidad: 'inventada' }) }));
-
-    expect(screen.getByRole('heading', { name: /no existe/ })).toBeInTheDocument();
+    await expect(Unidad({ params: Promise.resolve({ unidad: 'inventada' }) })).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
     expect(
       (await generateMetadata({ params: Promise.resolve({ unidad: 'inventada' }) })).title,
     ).toMatch(/no encontrada/);
@@ -141,7 +148,7 @@ describe('una unidad por direccion', () => {
 
 describe('la ventana de pago de un plan', () => {
   it('los tres de pago tienen la suya', async () => {
-    const { default: Plan, generateStaticParams } = await import('./planes/[plan]/page');
+    const { default: Plan, generateStaticParams } = await import('./(marco)/planes/[plan]/page');
 
     pintar(await Plan({ params: Promise.resolve({ plan: 'pro' }) }));
 
@@ -151,7 +158,7 @@ describe('la ventana de pago de un plan', () => {
 
   // Y el título de la pestaña lleva el plan: es lo que se ve al compartirla.
   it('el titulo de la pestaña lleva el nombre del plan', async () => {
-    const { generateMetadata } = await import('./planes/[plan]/page');
+    const { generateMetadata } = await import('./(marco)/planes/[plan]/page');
 
     const meta = await generateMetadata({ params: Promise.resolve({ plan: 'pro' }) });
 
@@ -161,7 +168,7 @@ describe('la ventana de pago de un plan', () => {
 
   it('un nombre viejo sigue llevando a su plan, no a un 404', async () => {
     // Un renombrado no puede romper un enlace guardado.
-    const { default: Plan } = await import('./planes/[plan]/page');
+    const { default: Plan } = await import('./(marco)/planes/[plan]/page');
 
     pintar(await Plan({ params: Promise.resolve({ plan: 'estudiante' }) }));
 
@@ -171,7 +178,7 @@ describe('la ventana de pago de un plan', () => {
   it('el gratis no es una compra: esa direccion no existe', async () => {
     // Una ventana de pago para el plan gratis sería una pantalla que no puede
     // terminar en nada.
-    const { default: Plan, generateMetadata } = await import('./planes/[plan]/page');
+    const { default: Plan, generateMetadata } = await import('./(marco)/planes/[plan]/page');
 
     await expect(Plan({ params: Promise.resolve({ plan: 'gratis' }) })).rejects.toThrow(
       'NEXT_NOT_FOUND',
@@ -184,7 +191,7 @@ describe('la ventana de pago de un plan', () => {
 
 describe('la contraseña olvidada', () => {
   it('sin vale pide el correo', async () => {
-    const { default: Olvidada } = await import('./olvidada/page');
+    const { default: Olvidada } = await import('./(marco)/olvidada/page');
 
     pintar(await Olvidada({ searchParams: Promise.resolve({}) }));
 
@@ -193,7 +200,7 @@ describe('la contraseña olvidada', () => {
   });
 
   it('con vale pide la contraseña nueva: quien vuelve del buzon esta terminando', async () => {
-    const { default: Olvidada } = await import('./olvidada/page');
+    const { default: Olvidada } = await import('./(marco)/olvidada/page');
 
     pintar(await Olvidada({ searchParams: Promise.resolve({ vale: 'abc' }) }));
 
@@ -204,7 +211,7 @@ describe('la contraseña olvidada', () => {
     // Un formulario que no puede terminar en nada deja a alguien esperando
     // delante de un buzón vacío.
     mandaCorreo.mockReturnValue(false);
-    const { default: Olvidada } = await import('./olvidada/page');
+    const { default: Olvidada } = await import('./(marco)/olvidada/page');
 
     pintar(await Olvidada({ searchParams: Promise.resolve({}) }));
 
@@ -215,7 +222,7 @@ describe('la contraseña olvidada', () => {
 
   it('y sin cuentas configuradas, tampoco', async () => {
     authDisponible.mockReturnValue(false);
-    const { default: Olvidada } = await import('./olvidada/page');
+    const { default: Olvidada } = await import('./(marco)/olvidada/page');
 
     pintar(await Olvidada({ searchParams: Promise.resolve({}) }));
 
@@ -257,5 +264,21 @@ describe('una direccion que no lleva a ninguna parte', () => {
     expect(screen.getByRole('heading', { name: /no existe/ })).toBeInTheDocument();
     expect(metadata.title).toMatch(/Caos ordenado/);
     expect(screen.getByRole('link', { name: 'Ir al camino' })).toHaveAttribute('href', '/aprender');
+  });
+
+  /**
+   * Y la de dentro del marco **no trae marco**: la pinta el layout de `(marco)`,
+   * que ya lo puso. Con la de la raíz, una unidad o un plan que no existen salían
+   * con dos cabeceras y dos barras de abajo.
+   */
+  it('dentro del marco dice lo mismo, sin un segundo marco', async () => {
+    const { default: NoEncontrada, metadata } = await import('./(marco)/not-found');
+
+    pintar(NoEncontrada());
+
+    expect(screen.getByRole('heading', { name: /no existe/ })).toBeInTheDocument();
+    expect(metadata.title).toMatch(/Caos ordenado/);
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Escuchar la guitarra/ })).not.toBeInTheDocument();
   });
 });

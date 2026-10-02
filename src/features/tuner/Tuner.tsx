@@ -11,9 +11,11 @@ import { Panel } from '@ui/Panel';
 import { useSessionStore, type ListeningState } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { listAudioInputDevices } from '@audio/web-audio-input';
+// De su propio módulo y no de `web-audio-input`: listar los micrófonos no abre
+// nada, y desde allí se traía la entrada entera a `/afinar` y a la portada.
+import { listAudioInputDevices } from '@audio/entradas-de-audio';
 
 import { LevelMeter } from './LevelMeter';
 import { TuningMeter } from './TuningMeter';
@@ -29,13 +31,15 @@ import {
 export type TunerProps = ListeningDeps;
 
 export function Tuner(deps: TunerProps = {}) {
+  /*
+    **Aquí solo lo que cambia cuando se pulsa algo.** La lectura, la claridad y
+    el nivel llegan veinte veces por segundo, y leídas aquí repintaban el panel
+    entero —el botón de parar, la lista de micrófonos, la región viva— para
+    mover una aguja. Las lee `Listening`, que es quien las enseña, y la región
+    viva lee su frase ya hecha: una cadena igual no repinta nada.
+  */
   const listening = useSessionStore((state) => state.listening);
   const message = useSessionStore((state) => state.message);
-  const reading = useSessionStore((state) => state.reading);
-  const hasSignal = useSessionStore((state) => state.hasSignal);
-  const clarity = useSessionStore((state) => state.clarity);
-  const level = useSessionStore((state) => state.level);
-  const tuningId = useSessionStore((state) => state.tuningId);
   const { start, stop } = useListening(deps);
 
   const [devices, setDevices] = useState<readonly MediaDeviceInfo[]>([]);
@@ -59,6 +63,27 @@ export function Tuner(deps: TunerProps = {}) {
     };
   }, [listening]);
 
+  /**
+   * Si hay que devolver el foco cuando se acabe de abrir o de cerrar el micro.
+   *
+   * Los dos botones —«Escuchar la guitarra» y «Dejar de escuchar»— viven en
+   * pantallas distintas, y al pulsar uno la suya se cambia por la otra: el botón
+   * se iba con el foco dentro y el foco caía en el `<body>`. Se apunta que lo
+   * pidió un botón y, cuando la otra pantalla ya está, el foco pasa a su botón
+   * equivalente. Mientras se pide permiso no: el botón sigue ahí, trabajando.
+   */
+  const devolverElFoco = useRef(false);
+  useEffect(() => {
+    if (!devolverElFoco.current || listening === 'requesting') {
+      return;
+    }
+    devolverElFoco.current = false;
+    // Solo si se ha perdido: si el permiso se denegó, el botón sigue con él.
+    if (document.activeElement === document.body) {
+      document.querySelector<HTMLElement>('[data-mando-del-afinador]')?.focus();
+    }
+  }, [listening]);
+
   async function switchDevice(next: string) {
     setDeviceId(next);
     await stop();
@@ -80,16 +105,17 @@ export function Tuner(deps: TunerProps = {}) {
     <Panel id="afinador" title="Afinador" rotuloOculto>
       {listening === 'listening' ? (
         <>
-          <Listening
-            reading={reading}
-            hasSignal={hasSignal}
-            clarity={clarity}
-            level={level}
-            tuningId={tuningId}
-          />
+          <Listening />
 
           <div className="border-border mt-8 flex flex-wrap items-end gap-4 border-t pt-4">
-            <Button variant="quiet" onClick={() => void stop()}>
+            <Button
+              variant="quiet"
+              data-mando-del-afinador
+              onClick={() => {
+                devolverElFoco.current = true;
+                void stop();
+              }}
+            >
               Dejar de escuchar
             </Button>
             {devices.length > 1 && (
@@ -110,15 +136,37 @@ export function Tuner(deps: TunerProps = {}) {
           </div>
         </>
       ) : (
-        <Stopped listening={listening} message={message} onStart={() => void start()} />
+        <Stopped
+          listening={listening}
+          message={message}
+          onStart={() => {
+            devolverElFoco.current = true;
+            void start();
+          }}
+        />
       )}
 
-      {/* Región viva con el aviso resumido. Solo cambia cuando cambia la nota o
-          el estado: anunciar cada cent sería inservible. */}
-      <p aria-live="polite" className="sr-only">
-        {listening === 'listening' ? readingAnnouncement(reading) : ''}
-      </p>
+      <AvisoEnVivo />
     </Panel>
+  );
+}
+
+/**
+ * Región viva con el aviso resumido. Solo cambia cuando cambia la nota o el
+ * estado: anunciar cada cent sería inservible.
+ *
+ * **Y por eso lee una cadena y no la lectura**: la frase es la misma mientras
+ * la nota y el consejo no cambien, y una cadena igual no repinta, como en
+ * `MicButton`. Leyendo la lectura se repintaba con cada cent.
+ */
+function AvisoEnVivo() {
+  const aviso = useSessionStore((state) =>
+    state.listening === 'listening' ? readingAnnouncement(state.reading) : '',
+  );
+  return (
+    <p aria-live="polite" className="sr-only">
+      {aviso}
+    </p>
   );
 }
 
@@ -143,7 +191,15 @@ function Stopped({
         icono={<IconoMicro />}
         titulo="Necesitamos oírte para afinarte"
         accion={
-          <Button onClick={onStart} disabled={blocked || listening === 'requesting'}>
+          // Pidiendo permiso **trabaja y no se apaga**: apagado soltaba el foco
+          // justo después de pulsarlo. Sin micrófono que pedir sí se apaga, que
+          // ahí nadie lo ha pulsado.
+          <Button
+            onClick={onStart}
+            disabled={blocked}
+            cargando={listening === 'requesting'}
+            data-mando-del-afinador
+          >
             <IconoMicro />
             {listening === 'requesting' ? 'Pidiendo permiso…' : 'Escuchar la guitarra'}
           </Button>
@@ -162,19 +218,13 @@ function Stopped({
   );
 }
 
-function Listening({
-  reading,
-  hasSignal,
-  clarity,
-  level,
-  tuningId,
-}: {
-  readonly reading: PitchReading | null;
-  readonly hasSignal: boolean;
-  readonly clarity: number;
-  readonly level: number;
-  readonly tuningId: TuningId;
-}) {
+/** Lo que se mira mientras se escucha. Es lo único que se repinta con el motor. */
+function Listening() {
+  const reading = useSessionStore((state) => state.reading);
+  const hasSignal = useSessionStore((state) => state.hasSignal);
+  const clarity = useSessionStore((state) => state.clarity);
+  const level = useSessionStore((state) => state.level);
+  const tuningId = useSessionStore((state) => state.tuningId);
   const nota = reading !== null;
 
   // **Tres estados que no parpadean**, cada uno con un umbral para entrar y otro

@@ -557,7 +557,13 @@ function KeyLabel({
           >
             {label}
           </span>
-          <span className="sr-only">{name}</span>
+          {/* **El nombre empieza por lo que se ve** (WCAG 2.5.3): la menor dice
+              «Am» y se llamaba «A menor», así que quien la pide por voz diciendo
+              lo que lee —«pulsa Am»— no la encontraba. Las mayores ya empiezan
+              igual: «C» y «C mayor». */}
+          <span className="sr-only">
+            {name.startsWith(`${label} `) ? name : `${label}, ${name}`}
+          </span>
         </button>
       </foreignObject>
     </g>

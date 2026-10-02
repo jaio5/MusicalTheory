@@ -68,10 +68,52 @@ describe('pedir el enlace', () => {
     expect(await screen.findByText(/no tiene buena pinta/)).toBeInTheDocument();
   });
 
-  it('sin correo escrito no se puede pedir', () => {
-    render(<ForgottenForm request={vi.fn()} />);
+  /**
+   * **Sin correo, se dice que falta.** El botón nacía apagado, y un botón gris no
+   * dice qué le pasa: quien no ve la pantalla oía «no disponible» y nada más.
+   */
+  it('sin correo escrito se puede pulsar, y dice que falta', async () => {
+    const request = vi.fn();
+    render(<ForgottenForm request={request} />);
 
-    expect(screen.getByRole('button', { name: /Mandarme el enlace/ })).toBeDisabled();
+    const boton = screen.getByRole('button', { name: /Mandarme el enlace/ });
+    expect(boton).toBeEnabled();
+    await userEvent.click(boton);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falta el correo.');
+  });
+
+  // Mientras pide, el botón no se apaga: apagado soltaba el foco al `<body>`.
+  it('mientras pide, el boton se queda con el foco y no pide dos veces', async () => {
+    const request = vi.fn(() => new Promise<Response>(() => {}));
+    render(<ForgottenForm request={request} />);
+
+    await userEvent.type(screen.getByLabelText('Tu correo'), 'javier@example.com');
+    await userEvent.click(screen.getByRole('button', { name: /Mandarme el enlace/ }));
+    const boton = await screen.findByRole('button', { name: /Un momento/ });
+    await userEvent.click(boton);
+
+    expect(boton).toHaveFocus();
+    expect(boton).toHaveAttribute('aria-disabled', 'true');
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * **Y al terminar, el foco va a lo que ha pasado.** El botón que se pulsó
+   * desaparece con el formulario, y el foco caía al `<body>`: el lector de
+   * pantalla se callaba y el tabulador volvía a empezar por la cabecera.
+   */
+  it('al mandarlo, el foco va al aviso que sustituye al formulario', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ message: 'Si ese correo…' }));
+    render(<ForgottenForm request={request} />);
+
+    await userEvent.type(screen.getByLabelText('Tu correo'), 'javier@example.com');
+    await userEvent.click(screen.getByRole('button', { name: /Mandarme el enlace/ }));
+
+    const aviso = (await screen.findByRole('status')).parentElement!;
+    expect(aviso).toHaveFocus();
+    expect(aviso).toHaveAttribute('tabindex', '-1');
   });
 
   it('sin proveedor de correo se dice, en vez de dejar esperando', async () => {
@@ -91,6 +133,32 @@ describe('pedir el enlace', () => {
 
 describe('poner la contraseña nueva', () => {
   const VALE = 'un-vale-de-prueba';
+
+  /**
+   * **El vale sale de la barra de direcciones en cuanto se lee.** Con él dentro,
+   * la dirección se quedaba en el historial y en las pestañas sincronizadas: una
+   * llave de la cuenta durante una hora. Lo demás de la dirección se queda.
+   */
+  it('quita el vale de la dirección y deja lo demás', () => {
+    window.history.replaceState(null, '', `/olvidada?vale=${VALE}&desde=correo#arriba`);
+
+    render(<ForgottenForm vale={VALE} request={vi.fn()} />);
+
+    expect(window.location.search).toBe('?desde=correo');
+    expect(window.location.hash).toBe('#arriba');
+    expect(window.location.pathname).toBe('/olvidada');
+  });
+
+  it('sin vale en la dirección no toca el historial', () => {
+    window.history.replaceState(null, '', '/olvidada');
+    const replace = vi.spyOn(window.history, 'replaceState');
+
+    render(<ForgottenForm vale={VALE} request={vi.fn()} />);
+    render(<ForgottenForm request={vi.fn()} />);
+
+    expect(replace).not.toHaveBeenCalled();
+    replace.mockRestore();
+  });
 
   it('con vale pide la contraseña, no el correo', () => {
     render(<ForgottenForm vale={VALE} request={vi.fn()} />);
@@ -112,14 +180,28 @@ describe('poner la contraseña nueva', () => {
     expect(JSON.parse(init.body as string)).toEqual({ vale: VALE, password: 'contraseñalarga' });
   });
 
-  it('no deja mandar si las dos no coinciden', async () => {
-    render(<ForgottenForm vale={VALE} request={vi.fn()} />);
+  it('no manda si las dos no coinciden, y lo dice', async () => {
+    const request = vi.fn();
+    render(<ForgottenForm vale={VALE} request={request} />);
 
     await userEvent.type(screen.getByLabelText('Contraseña nueva'), 'contraseñalarga');
     await userEvent.type(screen.getByLabelText(/Otra vez/), 'otracosa');
 
     expect(screen.getByText('Las dos no son la misma.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Poner esta contraseña/ })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /Poner esta contraseña/ }));
+
+    expect(request).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no son la misma/);
+  });
+
+  it('no manda una contraseña corta, y dice el minimo', async () => {
+    const request = vi.fn();
+    render(<ForgottenForm vale={VALE} request={request} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Poner esta contraseña/ }));
+
+    expect(request).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/al menos \d+ caracteres/);
   });
 
   it('avisa de que las demás sesiones se han cerrado', async () => {

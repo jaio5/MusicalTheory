@@ -157,6 +157,20 @@ beforeEach(() => {
   metronomo = new MetronomoFalso();
 });
 
+/**
+ * Empieza y deja pasar los dos compases de cuenta.
+ *
+ * Antes de puntuar se cuentan dos compases (`state/use-ensayo.ts`): los ocho
+ * primeros clics son de cuenta y no puntúan, y el acorde del compás uno se
+ * enciende con el último.
+ */
+async function empezarYContar(): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: 'Empezar el ensayo' }));
+  await act(async () => {
+    metronomo.pulsar(8);
+  });
+}
+
 describe('Ensayar', () => {
   it('sin tonalidad no se puede, y se dice por que', () => {
     cancion();
@@ -179,7 +193,81 @@ describe('Ensayar', () => {
     cancion();
     rerender(<Ensayo deps={DEPS} />);
 
-    expect(screen.getByRole('button', { name: /^Ensayar$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Empezar el ensayo' })).toBeInTheDocument();
+  });
+
+  /**
+   * **Ni se dice el acorde de cada paso, ni se pierde el foco.**
+   *
+   * El cifrado que se enciende iba en una región viva: el lector lo decía en voz
+   * alta en cada compás, por el mismo altavoz que el clic y con el croma
+   * escuchando, y la voz entraba en el micro como un acorde más (adr/0072). Y el
+   * botón de empezar se iba de la pantalla con el foco dentro.
+   */
+  it('mientras se ensaya no hay region viva, y el foco pasa a Parar', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    const { container } = render(<Ensayo deps={DEPS} />);
+    screen.getByRole('button', { name: 'Empezar el ensayo' }).focus();
+
+    await empezarYContar();
+
+    expect(screen.getByText('C')).toBeInTheDocument();
+    expect(container.querySelector('[aria-live]')).toBeNull();
+    expect(screen.getByRole('button', { name: /Parar/ })).toHaveFocus();
+  });
+
+  /**
+   * **La cuenta se ve, y el mismo botón la corta.** Son dos compases con el
+   * micro abierto en los que no se puntúa nada: sin número a la vista se leen
+   * como que se ha colgado, y sin manera de cortarlos son una espera obligada.
+   * Es el mismo botón que se pulsó, así que el foco no se mueve.
+   */
+  it('contando se ve la cuenta, y el mismo boton la corta sin puntuar', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    render(<Ensayo deps={DEPS} />);
+    const boton = screen.getByRole('button', { name: 'Empezar el ensayo' });
+    boton.focus();
+    await userEvent.click(boton);
+
+    await act(async () => {
+      metronomo.pulsar(3);
+    });
+    expect(screen.getByText('5')).toBeInTheDocument();
+    const dejarlo = screen.getByRole('button', { name: 'Dejarlo' });
+    expect(dejarlo).toHaveFocus();
+
+    await userEvent.click(dejarlo);
+
+    expect(await screen.findByRole('button', { name: 'Empezar el ensayo' })).toBeInTheDocument();
+    expect(screen.queryByText(/compases a tiempo/)).not.toBeInTheDocument();
+    expect(metronomo.running).toBe(false);
+  });
+
+  /** Mientras se abre el micro el botón trabaja sin apagarse, que soltaría el foco. */
+  it('mientras se abre el micro el boton conserva el foco', async () => {
+    let abrir: () => void = () => {};
+    class EntradaLenta extends EntradaFalsa {
+      override start(): Promise<void> {
+        return new Promise<void>((listo) => {
+          abrir = () => void super.start().then(listo);
+        });
+      }
+    }
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    cancion();
+    render(<Ensayo deps={{ ...DEPS, createInput: () => new EntradaLenta() }} />);
+    const boton = screen.getByRole('button', { name: 'Empezar el ensayo' });
+    boton.focus();
+
+    await userEvent.click(boton);
+
+    const abriendo = screen.getByRole('button', { name: /Abriendo el micro/ });
+    expect(abriendo).toHaveFocus();
+    expect(abriendo).not.toBeDisabled();
+    expect(abriendo).toHaveAttribute('aria-disabled', 'true');
+    await act(async () => abrir());
   });
 
   it('al empezar abre el micro, arranca el pulso y enciende el acorde que toca', async () => {
@@ -187,7 +275,7 @@ describe('Ensayar', () => {
     cancion();
     render(<Ensayo deps={DEPS} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     expect(useSessionStore.getState().listening).toBe('listening');
     expect(metronomo.running).toBe(true);
@@ -205,7 +293,7 @@ describe('Ensayar', () => {
     useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
     cancion();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     await act(async () => {
       suena(0, [0, 4, 7]); // Do, el I
@@ -225,7 +313,7 @@ describe('Ensayar', () => {
     useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
     cancion();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     await act(async () => {
       suena(0, [0, 4, 7]); // el I sí
@@ -247,7 +335,7 @@ describe('Ensayar', () => {
     useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
     cancion();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     await act(async () => {
       // Pasada la mitad del compás: el acorde es el bueno, pero llega tarde.
@@ -270,7 +358,7 @@ describe('Ensayar', () => {
     useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
     cancion();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     // Primer compás sin tocar nada: se queda en rojo.
     await act(async () => {
@@ -284,7 +372,7 @@ describe('Ensayar', () => {
     useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
     cancion();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     await act(async () => {
       metronomo.pulsar(3);
@@ -300,12 +388,15 @@ describe('Ensayar', () => {
     useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
     cancion();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
     await act(async () => {
       metronomo.pulsar(8);
     });
 
     await userEvent.click(screen.getByRole('button', { name: /Otra vez/ }));
+    await act(async () => {
+      metronomo.pulsar(8);
+    });
 
     expect(await screen.findByRole('button', { name: /Parar/ })).toBeInTheDocument();
   });
@@ -316,7 +407,7 @@ describe('Ensayar', () => {
     useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
     cancion();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
     await act(async () => {
       metronomo.pulsar(8);
     });
@@ -348,7 +439,7 @@ describe('lo que suma ensayar', () => {
     cancion();
     const { hechos, soltar } = apuntados();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     await act(async () => {
       suena(0, [0, 4, 7]);
@@ -368,7 +459,7 @@ describe('lo que suma ensayar', () => {
     cancion();
     const { hechos, soltar } = apuntados();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     await act(async () => {
       metronomo.pulsar(8);
@@ -383,7 +474,7 @@ describe('lo que suma ensayar', () => {
     cancion();
     const { hechos, soltar } = apuntados();
     render(<Ensayo deps={DEPS} />);
-    await userEvent.click(screen.getByRole('button', { name: /^Ensayar$/ }));
+    await empezarYContar();
 
     await act(async () => {
       suena(0, [0, 4, 7]);
@@ -412,7 +503,7 @@ describe('el metronomo de verdad', () => {
     };
     render(<Ensayo deps={sinMetronomo} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Ensayar/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar el ensayo' }));
 
     expect(await screen.findByRole('button', { name: /Parar/ })).toBeInTheDocument();
   });
@@ -431,9 +522,9 @@ describe('cuando el ensayo no llega a empezar', () => {
     cancion();
     render(<Ensayo deps={{ ...DEPS, createInput: () => new EntradaQueNoArranca() }} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /Ensayar/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar el ensayo' }));
 
-    expect(screen.getByRole('button', { name: /Ensayar/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Empezar el ensayo' })).toBeInTheDocument();
     expect(metronomo.running).toBe(false);
   });
 
@@ -452,7 +543,7 @@ describe('cuando el ensayo no llega a empezar', () => {
     render(<Ensayo deps={DEPS} />);
 
     expect(screen.getByText(/Todavía no hay nada que ensayar/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Ensayar/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Empezar el ensayo' })).not.toBeInTheDocument();
   });
 
   /**

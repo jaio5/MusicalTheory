@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
 import {
@@ -40,6 +40,7 @@ import { useAtajosDeLaPropuesta } from '@state/atajos-de-la-propuesta';
 import { usePropuestaStore } from '@state/propuesta';
 import { Button } from '@ui/Button';
 import { useMedida } from '@ui/use-medida';
+import { useTraerALaVista } from '@ui/use-traer-a-la-vista';
 import { Chip } from '@ui/Chip';
 import { Segmentado } from '@ui/Segmentado';
 import { EmpezarPorTonalidad } from '@ui/EmpezarPorTonalidad';
@@ -48,7 +49,7 @@ import { useIsomorphicLayoutEffect } from '@ui/use-isomorphic-layout-effect';
 import { IconoCanciones } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
 
-import { arrastrar, colocar } from './arrastrar';
+import { arrastrar, colocar, useCerrarAlDesmontar } from './arrastrar';
 import {
   TECLAS_DEL_BLOQUE_DICHAS,
   ZONA_ESTIRAR_PX,
@@ -283,14 +284,17 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
    * Los dos se enganchan al `window`, y si el lienzo se desmonta a mitad —se
    * cambia de espacio con el teclado, que es un atajo sin modificador— los
    * oyentes se quedaban colgados: el siguiente movimiento del ratón estiraba un
-   * bloque de un lienzo que ya no estaba.
+   * bloque de un lienzo que ya no estaba. Y el gesto del deshacer, abierto: lo
+   * que se hiciera después se deshacía de golpe con él (`useCerrarAlDesmontar`).
    */
   const cancelarGestoRef = useRef<(() => void) | null>(null);
-  useEffect(() => () => cancelarGestoRef.current?.(), []);
+  useCerrarAlDesmontar(cancelarGestoRef);
   // Encendida se dibujan solo las notas de la escala, y no hay manera de escribir
   // una que desafine. Es el mismo eje que separa los bloques de la partitura.
   const [onlyScale, setOnlyScale] = useState(true);
   const listaRef = useRef<HTMLDivElement | null>(null);
+  /** La barra se desplaza de lado en un teléfono: lo enfocado se trae entero. */
+  const traerALaVista = useTraerALaVista();
 
   /**
    * El ancho del lienzo, medido, y la escala que sale de él.
@@ -363,6 +367,51 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
   );
 
   /**
+   * A quién devolverle el foco en cuanto se pinte lo que acaba de cambiar.
+   *
+   * **Quitar con `Supr` dejaba el foco en el `<body>`**: el bloque enfocado
+   * desaparece, el navegador no sabe adónde llevarlo y el siguiente tabulador
+   * empieza por arriba de la página. Mover tenía el mismo fallo a medias: para
+   * cambiar el orden, React saca de su sitio el nodo que se mueve, y sacar el
+   * enfocado también lo suelta. Se apunta aquí quién debe tenerlo —el vecino
+   * del que se fue, o el mismo que se movió— y se le da después de pintar.
+   *
+   * Por identificador y no por referencia al nodo, porque el nodo bueno es el
+   * del pintado siguiente. Y en las dos vistas a la vez: el bloque de la tira y
+   * el cifrado de la partitura llevan el mismo `data-bloque`.
+   */
+  const focoPendienteRef = useRef<{ que: 'bloque' | 'nota' | 'parte'; id: string } | null>(null);
+  useIsomorphicLayoutEffect(() => {
+    const pendiente = focoPendienteRef.current;
+    focoPendienteRef.current = null;
+    // **Solo si el foco se ha perdido.** Si la tecla no cambió nada —mover el
+    // primero hacia atrás— no hay pintado, y lo apuntado se queda esperando al
+    // siguiente: para entonces el foco puede estar en cualquier otro sitio, y
+    // quitárselo a quien lo tenga sería un salto sin motivo.
+    const activo = document.activeElement;
+    if (pendiente === null || (activo !== null && activo !== document.body)) {
+      return;
+    }
+    const raiz = listaRef.current;
+    /* v8 ignore next 3 -- la lista solo falta sin tonalidad, y sin tonalidad no hay acorde ni nota que enfocar */
+    if (raiz === null) {
+      return;
+    }
+    // Se busca comparando y no metiendo el identificador en el selector: así no
+    // hay que escaparlo, venga como venga.
+    const atributo = pendiente.que === 'parte' ? 'parteDestino' : pendiente.que;
+    const nodo = [
+      ...raiz.querySelectorAll<HTMLElement | SVGElement>(
+        pendiente.que === 'parte' ? '[data-parte-destino]' : `[data-${pendiente.que}]`,
+      ),
+    ].find((candidato) => candidato.dataset[atributo] === pendiente.id);
+    // Sin vecino al que ir, al primer mando de la parte, que es su nombre: es
+    // donde estaba lo que se quitó.
+    const destino = pendiente.que === 'parte' ? nodo?.querySelector('button') : nodo;
+    destino?.focus();
+  });
+
+  /**
    * El punteo con el teclado.
    *
    * Más y menos alteran la nota elegida medio tono, que es como se escribe un
@@ -382,6 +431,13 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
+        const enOrden = [...sitio.part.notes].sort((a, b) => a.start - b.start);
+        const donde = enOrden.findIndex((otra) => otra.id === note.id);
+        const vecina = enOrden[donde + 1] ?? enOrden[donde - 1];
+        focoPendienteRef.current =
+          vecina === undefined
+            ? { que: 'parte', id: sitio.part.id }
+            : { que: 'nota', id: vecina.id };
         acciones.removeNote(selectedNoteId);
         setSelectedNoteId(null);
       } else if (event.key === '+' || event.key === '-') {
@@ -390,6 +446,7 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
       } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         event.preventDefault();
         const paso = event.key === 'ArrowLeft' ? -GRID : GRID;
+        focoPendienteRef.current = { que: 'nota', id: note.id };
         if (event.shiftKey) {
           acciones.resizeNote(selectedNoteId, note.length + paso * 2);
         } else {
@@ -488,36 +545,47 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
    * El lienzo con el teclado, que es lo que un arrastre nunca da.
    *
    * Las flechas mueven el bloque de sitio, con `Shift` lo estiran y `Supr` lo
-   * quita. Sin esto, montar una canción exigiría ratón.
+   * quita. Sin esto, montar una canción exigiría ratón. **Vale igual en las dos
+   * vistas**: lo mandan el bloque de la tira y el cifrado de la partitura.
+   *
+   * Lo que se atiende aquí no sigue subiendo: la caja de la lista escucha las
+   * teclas del punteo, y con una nota elegida `Supr` sobre un acorde quitaba
+   * también la nota.
    */
-  const teclaEnBloque = useEstable(
-    (event: React.KeyboardEvent<HTMLButtonElement>, blockId: string) => {
-      const sitio = findBlock(arrangement, blockId);
-      /* v8 ignore next 3 -- el boton y el montaje salen del mismo pintado: el bloque que manda la tecla esta en el */
-      if (sitio === null) {
-        return;
-      }
+  const teclaEnBloque = useEstable((event: React.KeyboardEvent<Element>, blockId: string) => {
+    const sitio = findBlock(arrangement, blockId);
+    /* v8 ignore next 3 -- el boton y el montaje salen del mismo pintado: el bloque que manda la tecla esta en el */
+    if (sitio === null) {
+      return;
+    }
 
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault();
-        acciones.removeBlock(blockId);
-        setSelectedBlockId(null);
-        return;
-      }
-
-      const paso = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
-      if (paso === 0) {
-        return;
-      }
+    if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
+      event.stopPropagation();
+      const vecino = sitio.part.blocks[sitio.index + 1] ?? sitio.part.blocks[sitio.index - 1];
+      focoPendienteRef.current =
+        vecino === undefined
+          ? { que: 'parte', id: sitio.part.id }
+          : { que: 'bloque', id: vecino.id };
+      acciones.removeBlock(blockId);
+      setSelectedBlockId(null);
+      return;
+    }
 
-      if (event.shiftKey) {
-        acciones.resizeBlock(blockId, sitio.block.beats + paso);
-      } else {
-        acciones.moveBlock(blockId, sitio.part.id, sitio.index + paso);
-      }
-    },
-  );
+    const paso = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
+    if (paso === 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    focoPendienteRef.current = { que: 'bloque', id: blockId };
+
+    if (event.shiftKey) {
+      acciones.resizeBlock(blockId, sitio.block.beats + paso);
+    } else {
+      acciones.moveBlock(blockId, sitio.part.id, sitio.index + paso);
+    }
+  });
 
   /**
    * Los acordes que se proponen, y por qué.
@@ -1017,13 +1085,6 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
     },
     [setSelectedBlockId],
   );
-  const quitarBloque = useCallback(
-    (blockId: string) => {
-      acciones.removeBlock(blockId);
-      setSelectedBlockId(null);
-    },
-    [acciones, setSelectedBlockId],
-  );
   // La acción del estado recibe `(bloque, parte, sitio)` y la fila manda
   // `(parte, bloque, sitio)`. Los tres son del mismo tipo, así que cambiarlos de
   // orden compila y no mueve nada.
@@ -1095,7 +1156,10 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
         alcanza arrastrando, que es lo que hace cualquier barra de herramientas
         en un móvil. `shrink-0` para que la fila no ceda su altura.
       */}
-      <div className="border-border hay-mas-al-lado flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2 sm:flex-wrap sm:overflow-x-visible [&>*]:shrink-0 sm:[&>*]:shrink">
+      <div
+        onFocus={traerALaVista}
+        className="border-border hay-mas-al-lado flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2 sm:flex-wrap sm:overflow-x-visible [&>*]:shrink-0 sm:[&>*]:shrink"
+      >
         <Button
           onClick={() => player.toggle(null)}
           disabled={pulsos === 0}
@@ -1351,7 +1415,6 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
                 onBlockPointerDown={cogerBloque}
                 onBlockClick={elegirBloqueDeLaParte}
                 onBlockKeyDown={teclaEnBloque}
-                onRemoveBlock={quitarBloque}
                 onResizeBlock={acciones.resizeBlock}
                 onMoveBlock={moverBloqueDeLaParte}
                 onAddNote={escribirNota}

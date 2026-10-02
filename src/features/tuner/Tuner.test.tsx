@@ -3,14 +3,33 @@ import '@testing-library/jest-dom/vitest';
 
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AudioInput, AudioInputError, AudioInputState } from '@audio/audio-input';
 import type { PitchEngine, PitchSample } from '@audio/pitch-engine';
 import { DEFAULT_PITCH_ENGINE_OPTIONS } from '@audio/pitch-engine';
 import { midiToFrequency } from '@core/music';
 
+import type * as PanelDeUi from '@ui/Panel';
+
 import { Tuner } from './Tuner';
+
+/**
+ * Cuántas veces se pinta el marco del afinador, que es lo que pinta el `Tuner`
+ * de fuera. Se cuenta envolviendo `Panel`: solo se repinta si se repinta él.
+ */
+const marco = vi.hoisted(() => ({ pintado: 0 }));
+vi.mock('@ui/Panel', async (original) => {
+  const { createElement } = await import('react');
+  const real = await original<typeof PanelDeUi>();
+  return {
+    ...real,
+    Panel: (props: Parameters<typeof real.Panel>[0]) => {
+      marco.pintado += 1;
+      return createElement(real.Panel, props);
+    },
+  };
+});
 
 class FakeInput implements AudioInput {
   state: AudioInputState = 'idle';
@@ -156,6 +175,40 @@ describe('Afinador', () => {
 
     const live = container.querySelector('[aria-live="polite"]');
     expect(live).toHaveTextContent('A2, está afinada.');
+  });
+
+  /**
+   * **Lo que llega del motor no repinta el marco.** Leído arriba, cada lectura
+   * —veinte por segundo— repintaba el panel entero, el botón de parar y la lista
+   * de micrófonos, para mover una aguja. Lo lee quien lo enseña.
+   */
+  it('lo que llega veinte veces por segundo no repinta el marco', async () => {
+    renderTuner();
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
+    await screen.findByText('A');
+    const antes = marco.pintado;
+
+    // La misma nota con otros cents, y el nivel subiendo y bajando: la aguja y
+    // el medidor se mueven, la frase de la región viva no cambia.
+    for (const [cents, rms] of [
+      [3, 0.18],
+      [-2, 0.22],
+      [1, 0.2],
+    ] as const) {
+      act(() =>
+        engine.emit({
+          frequency: midiToFrequency(45) * 2 ** (cents / 1200),
+          clarity: 0.99,
+          rms,
+          at: 0,
+        }),
+      );
+      act(() => engine.emitLevel(rms));
+    }
+
+    expect(screen.getByText(/\+1\.0 cents/)).toBeInTheDocument();
+    expect(marco.pintado).toBe(antes);
   });
 
   it('dice hacia dónde corregir cuando la nota está alta', async () => {
@@ -380,7 +433,44 @@ describe('mientras el navegador decide', () => {
     await userEvent.click(boton);
 
     const pidiendo = await screen.findByRole('button', { name: /pidiendo permiso/i });
-    expect(pidiendo).toBeDisabled();
+    // **Trabaja sin apagarse**: con `disabled` soltaba el foco justo después de
+    // pulsarlo. Con `aria-disabled` el clic se ignora igual.
+    expect(pidiendo).toHaveAttribute('aria-disabled', 'true');
+    expect(pidiendo).toHaveFocus();
+  });
+});
+
+/**
+ * **El foco no se cae al abrir ni al cerrar el micro.** Cada botón vive en su
+ * pantalla, y al pulsarlo la suya se cambia por la otra: el foco se iba con él al
+ * `<body>`. Ahora pasa al botón equivalente de la que llega.
+ */
+describe('el foco al abrir y cerrar el micro', () => {
+  it('pasa de «Escuchar la guitarra» a «Dejar de escuchar», y vuelve', async () => {
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
+    const escuchar = screen.getByRole('button', { name: /escuchar la guitarra/i });
+    escuchar.focus();
+
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByRole('button', { name: /dejar de escuchar/i })).toHaveFocus();
+
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByRole('button', { name: /escuchar la guitarra/i })).toHaveFocus();
+  });
+
+  // Si el permiso se deniega, el botón sigue en su sitio y con el foco: no se
+  // mueve a ningún otro.
+  it('si se deniega, el foco sigue donde estaba', async () => {
+    render(
+      <Tuner createInput={() => new FakeInput('denied')} createEngine={() => new FakeEngine()} />,
+    );
+    const escuchar = screen.getByRole('button', { name: /escuchar la guitarra/i });
+    escuchar.focus();
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toHaveFocus();
   });
 });
 

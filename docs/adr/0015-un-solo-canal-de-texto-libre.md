@@ -2,6 +2,8 @@
 
 > **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** `/api/ideas` ya no existe; quedan el profesor y las salidas.
 
+> **Corregido el 2 de octubre de 2026** (sección «Corrección», al final): la frase «`qwen3:8b` acierta los ocho» **es falsa** con los casos de la auditoría, y quitar la marca ya no es borrar la cadena exacta.
+
 Fecha: 2026-08-26 · Estado: aceptada · Amplía: [ADR 0011](./0011-versiones-verificadas-contra-el-dominio.md)
 
 ## Contexto
@@ -123,3 +125,35 @@ pregunta tonterías se queda sin sus quince del mes él solo.
 Cerraría el último canal y haría el problema desaparecer. Se descarta porque el
 profesor es exactamente la función de escribir lo que no sabes decir con un menú;
 sin eso no queda nada que proteger.
+
+## Corrección del 2 de octubre de 2026
+
+Lo que sigue **no se sostiene** y se deja escrito arriba por lo que enseñó:
+
+- **«`qwen3:8b` acierta los ocho» es falso.** Con los ocho casos de la auditoría de
+  seguridad —la orden directa, la marca en cuatro disfraces, la marca exacta, un
+  disfraz musical y pedirle que copie sus instrucciones—, contra el mismo modelo y con
+  el reintento de la ruta, **resiste dos de ocho, antes y después de arreglar la
+  marca**: la orden directa y la marca con almohadillas de ancho completo. En los
+  otros seis contesta `musica` y pinta lo que le piden: París, un poema, una receta
+  de tortilla y el prompt de sistema entero. Los ocho casos de este ADR eran otros
+  —tres preguntas legítimas, dos fuera de tema y tres inyecciones— y no cubrían los
+  disfraces de la marca.
+- **Borrar la marca exacta no bastaba.** Para el modelo, `### PREGUNTA ###`, la marca
+  en minúsculas, con un espacio de ancho cero dentro de la palabra o con almohadillas
+  de ancho completo son la marca; para un `split` de la cadena exacta, ninguna.
+  `core/marca.ts` normaliza lo escrito (NFKC, sin caracteres de formato `\p{Cf}`, sin
+  caracteres de control) y borra **cualquier variante** de la marca, cada una de sus
+  dos mitades y el sostenido musical `♯`, repitiendo hasta que no quede. La usan los
+  dos contratos —la pregunta y las directrices—.
+- **Lo que eso cierra y lo que no.** Impide que el texto del alumno salga del bloque
+  entre marcas. **No hace que el modelo lo trate como un dato**: obedece las órdenes
+  también dentro del bloque, por eso el número no se movió. La puerta del tema vale lo
+  que valga el modelo siguiendo instrucciones, y con este vale poco.
+- **El impacto está acotado, y es lo que ya decía el contexto**: lo que sale solo lo
+  ve quien preguntó, a costa de su cupo y con 400 tokens como tope. Es lo que sostiene
+  el argumento, no la puerta.
+
+Un modelo mejor puede cerrar parte de esto, y habría que volver a medirlo con los
+mismos ocho casos antes de decir que acierta
+([docs/AI.md](../AI.md), «Medido, `qwen3:8b` se deja inyectar seis de ocho veces»).

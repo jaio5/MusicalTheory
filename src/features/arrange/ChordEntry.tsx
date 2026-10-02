@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type KeyboardEvent } from 'react';
 
 import {
   blockChord,
@@ -125,6 +125,34 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
    */
   const noCaben = candidatos.filter((c) => c.degree === null).map((c) => c.escrito);
 
+  /**
+   * Poner un candidato y dejar el campo listo para el siguiente.
+   *
+   * Lo comparten el botón y `Intro`: escribir «Am» y pulsar Intro no hacía
+   * nada, y es lo primero que prueba quien teclea un acorde —el campo parecía
+   * roto, y había que soltar el teclado para ir a por el botón de debajo—.
+   */
+  function poner(degree: DegreeSymbol, especie: EspecieDeBloque | null): void {
+    onPick(degree, especie ?? undefined);
+    setTexto('');
+  }
+
+  /**
+   * `Intro` pone **el primero que cabe**, que es el que el buscador da por más
+   * probable y el primero de la fila. Si no cabe ninguno no pone nada: el campo
+   * se queda como estaba y el aviso de debajo ya dice por qué.
+   */
+  function alPulsarTecla(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key !== 'Enter') {
+      return;
+    }
+    event.preventDefault();
+    const primero = candidatos.find((candidato) => candidato.degree !== null);
+    if (primero?.degree != null) {
+      poner(primero.degree, primero.especie);
+    }
+  }
+
   return (
     <div>
       <TextField
@@ -134,6 +162,8 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
         placeholder="Am7, F#, Bb…"
         value={texto}
         onChange={(event) => setTexto(event.target.value)}
+        onKeyDown={alPulsarTecla}
+        enterKeyHint="done"
       />
 
       {candidatos.length > 0 && (
@@ -144,10 +174,9 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
                 type="button"
                 disabled={candidato.degree === null}
                 onClick={() => {
-                  /* v8 ignore next 4 -- el boton va desactivado cuando no hay grado, asi que no se pulsa */
+                  /* v8 ignore next 3 -- el boton va desactivado cuando no hay grado, asi que no se pulsa */
                   if (candidato.degree !== null) {
-                    onPick(candidato.degree, candidato.especie ?? undefined);
-                    setTexto('');
+                    poner(candidato.degree, candidato.especie);
                   }
                 }}
                 title={

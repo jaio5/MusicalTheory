@@ -47,14 +47,14 @@ export const MAX_CUERPO = 128 * 1024;
  * en cuanto se pasa. Quedarse solo con la cabecera sería una comprobación que
  * cualquiera puede saltarse omitiéndola.
  */
-async function textoAcotado(request: Request): Promise<string | null> {
+export async function textoAcotado(request: Request): Promise<string | null> {
   const declarado = Number(request.headers.get('content-length'));
   if (Number.isFinite(declarado) && declarado > MAX_CUERPO) {
     return null;
   }
 
   const flujo = request.body;
-  /* v8 ignore next 3 -- una peticion sin cuerpo no llega aqui: las rutas que leen cuerpo son POST y PUT */
+  // Sin cuerpo es cuerpo vacío: lo que haya que decir de eso lo dice quien llama.
   if (flujo === null) {
     return '';
   }

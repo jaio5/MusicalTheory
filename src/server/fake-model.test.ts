@@ -185,4 +185,28 @@ describe('la respuesta del profesor sin IA', () => {
     expect(respuesta.tema).toBe('musica');
     expect(respuesta.answer).toMatch(/no hay modelo conectado/i);
   });
+
+  /**
+   * Sin clave ya se dice algo cierto: si la pregunta casa con el glosario, se
+   * contesta con su entrada resuelta en la tonalidad, y dice de dónde sale.
+   */
+  it('si la pregunta es del glosario, contesta el glosario en su tonalidad', () => {
+    const respuesta = respuestaSinIA({
+      key: { tonic: 'G', mode: 'major' },
+      question: '¿Qué es una cadencia plagal?',
+    }) as { tema: string; answer: string };
+
+    expect(respuesta.tema).toBe('musica');
+    expect(respuesta.answer.startsWith(`${SIN_IA}, del glosario.`)).toBe(true);
+    expect(respuesta.answer).toContain('IV → I: C → G');
+  });
+
+  it('si no casa con nada, dice lo de siempre', () => {
+    const respuesta = respuestaSinIA({
+      key: { tonic: 'G', mode: 'major' },
+      question: '¿Cómo cambio las cuerdas?',
+    }) as { answer: string };
+
+    expect(respuesta.answer).toMatch(/no hay modelo conectado/i);
+  });
 });

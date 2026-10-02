@@ -136,13 +136,36 @@ describe('Panel de aprender', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
 
-    expect(screen.getByText(/el micrófono está cerrado/i)).toBeInTheDocument();
+    // Empezar lo pide, y aquí no hay micro que dar: se queda cerrado.
+    expect(await screen.findByText(/el micrófono está cerrado/i)).toBeInTheDocument();
     expect(screen.queryByText(/^Toca /)).not.toBeInTheDocument();
+    const cerrado = useSessionStore.getState().listening;
+    const cambios: string[] = [];
+    const dejar = useSessionStore.subscribe((state) => cambios.push(state.listening));
 
-    // Y desde ahí se abre: es el sitio donde se descubre que hacía falta.
+    // Y desde ahí se vuelve a pedir: es el sitio donde se descubre que hacía falta.
     await userEvent.click(screen.getByRole('button', { name: 'Abrirlo' }));
+    dejar();
 
-    expect(useSessionStore.getState().listening).not.toBe('idle');
+    expect(cerrado).not.toBe('requesting');
+    expect(cambios).toContain('requesting');
+  });
+
+  /**
+   * Mientras el navegador pregunta por el permiso, el micro no está cerrado: se
+   * está abriendo. Decía «está cerrado. Abrirlo.» justo después de pulsar
+   * «Empezar», y ofrecía pedir otra vez lo que ya se estaba pidiendo.
+   */
+  it('mientras se abre el micro, dice que se está abriendo y no ofrece abrirlo', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+
+    act(() => useSessionStore.setState({ listening: 'requesting' }));
+
+    expect(screen.getByText('Abriendo el micrófono…')).toBeInTheDocument();
+    expect(screen.queryByText(/el micrófono está cerrado/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Abrirlo' })).not.toBeInTheDocument();
   });
 
   /**

@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as NextServer from 'next/server';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * «He olvidado mi contraseña».
@@ -27,12 +28,37 @@ vi.mock('@server/password-reset', () => ({
 }));
 vi.mock('@server/app-url', () => ({ appUrl: () => 'http://x' }));
 
+/**
+ * `after` de Next, a mano: guarda lo que se deja para después de contestar, y el
+ * test decide cuándo esperarlo. Así se ve que la respuesta no espera al correo.
+ */
+const pendientes: Promise<unknown>[] = [];
+vi.mock('next/server', async (original) => ({
+  ...(await original<typeof NextServer>()),
+  after: (trabajo: () => Promise<unknown>) => {
+    pendientes.push(Promise.resolve().then(trabajo));
+  },
+}));
+
+async function despuesDeContestar(): Promise<void> {
+  await Promise.all(pendientes.splice(0));
+}
+
+// Como detrás de un proxy: si no, no se cree `X-Forwarded-For` y todas las
+// peticiones de aquí compartirían dirección.
+process.env['TRUSTED_PROXY_HOPS'] = '1';
+afterAll(() => {
+  delete process.env['TRUSTED_PROXY_HOPS'];
+});
+
 const { POST, PUT } = await import('./route');
 
 const CORREO_QUE_MANDA = { sends: true, send: vi.fn(async () => true) };
 const CORREO_QUE_NO_MANDA = { sends: false, send: vi.fn(async () => false) };
 
 function pedir(metodo: string, body: unknown): Request {
+  // Cada petición con su dirección y, si no se dice, su correo: los dos topes
+  // tienen sus propios tests abajo.
   return new Request('http://x/api/cuenta/olvidada', {
     method: metodo,
     headers: { 'Content-Type': 'application/json', 'x-forwarded-for': `10.9.0.${cuenta()}` },
@@ -56,7 +82,9 @@ beforeEach(() => {
   requestReset.mockReset();
   requestReset.mockResolvedValue(null);
   resetPassword.mockReset();
-  CORREO_QUE_MANDA.send.mockClear();
+  CORREO_QUE_MANDA.send.mockReset();
+  CORREO_QUE_MANDA.send.mockResolvedValue(true);
+  pendientes.length = 0;
 });
 
 describe('pedir el vale', () => {
@@ -85,15 +113,47 @@ describe('pedir el vale', () => {
   it('cuando la cuenta existe, se manda el correo', async () => {
     requestReset.mockResolvedValue({ token: 't', email: 'a@b.c' });
 
-    await POST(pedir('POST', { email: 'a@b.c' }));
+    await POST(pedir('POST', { email: 'existe@b.c' }));
+    await despuesDeContestar();
 
     expect(CORREO_QUE_MANDA.send).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * **La respuesta no espera al correo.** Antes se esperaba a crear el vale y a
+   * mandarlo, y eso solo pasa cuando la cuenta existe: medido desde fuera, un
+   * correo registrado tardaba más que uno inventado.
+   */
+  it('contesta sin esperar a crear el vale ni a mandar el correo', async () => {
+    let soltar: () => void = () => undefined;
+    requestReset.mockReturnValue(
+      new Promise((resolve) => {
+        soltar = () => resolve({ token: 't', email: 'a@b.c' });
+      }),
+    );
+
+    const res = await POST(pedir('POST', { email: 'lento@b.c' }));
+
+    expect(res.status).toBe(200);
+    expect(CORREO_QUE_MANDA.send).not.toHaveBeenCalled();
+    soltar();
+    await despuesDeContestar();
+    expect(CORREO_QUE_MANDA.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('si el proveedor de correo revienta, ya se había contestado y no pasa nada', async () => {
+    requestReset.mockResolvedValue({ token: 't', email: 'a@b.c' });
+    CORREO_QUE_MANDA.send.mockRejectedValue(new Error('sin red'));
+
+    expect((await POST(pedir('POST', { email: 'roto@b.c' }))).status).toBe(200);
+    await expect(despuesDeContestar()).resolves.toBeUndefined();
   });
 
   it('cuando no existe, no se manda nada', async () => {
     requestReset.mockResolvedValue(null);
 
     await POST(pedir('POST', { email: 'nadie@b.c' }));
+    await despuesDeContestar();
 
     expect(CORREO_QUE_MANDA.send).not.toHaveBeenCalled();
   });
@@ -104,6 +164,7 @@ describe('pedir el vale', () => {
     requestReset.mockResolvedValue(null);
 
     const { status } = await leer(await POST(pedir('POST', { email: 'esto no' })));
+    await despuesDeContestar();
 
     expect(status).toBe(200);
     expect(CORREO_QUE_MANDA.send).not.toHaveBeenCalled();
@@ -185,6 +246,32 @@ describe('probar correos a lo bruto', () => {
     }
 
     expect(ultima).toBe(429);
+  });
+
+  /**
+   * **Y por correo**, porque cambiando de dirección se podía llenar de enlaces el
+   * buzón de una persona concreta. Pasado el tope se contesta lo mismo y no se
+   * manda nada: tampoco dice si ese correo tiene cuenta.
+   */
+  it('cambiar de dirección no manda más de tres enlaces al mismo correo', async () => {
+    requestReset.mockResolvedValue({ token: 't', email: 'buzon@b.c' });
+
+    for (let i = 0; i < 5; i += 1) {
+      const { status, body } = await leer(await POST(pedir('POST', { email: ' Buzon@B.c ' })));
+      expect(status).toBe(200);
+      expect(body['message']).toMatch(/Si ese correo tiene cuenta/);
+    }
+    await despuesDeContestar();
+
+    expect(CORREO_QUE_MANDA.send).toHaveBeenCalledTimes(3);
+  });
+
+  it('un correo que no es una cadena cuenta en el mismo tope, sin revelar nada', async () => {
+    const { status, body } = await leer(await POST(pedir('POST', { email: 42 })));
+    await despuesDeContestar();
+
+    expect(status).toBe(200);
+    expect(body['message']).toMatch(/Si ese correo tiene cuenta/);
   });
 
   it('y el mismo contador vale para poner la contraseña nueva', async () => {

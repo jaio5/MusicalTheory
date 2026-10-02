@@ -628,12 +628,12 @@ describe('solo grabar', () => {
   async function unaToma() {
     render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
     await userEvent.click(screen.getByRole('button', { name: 'Solo grabar' }));
-    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Grabar$/ }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Parar y escribirlo/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Parar la grabación/ })).toBeInTheDocument();
     });
     suenaUnAcorde();
-    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Parar la grabación/ }));
   }
 
   /**
@@ -646,7 +646,7 @@ describe('solo grabar', () => {
     // Sin rejilla no hay clic, y no se ofrece.
     expect(screen.queryByRole('slider', { name: 'Volumen del clic' })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Grabar$/ }));
 
     await waitFor(() => {
       expect(useSessionStore.getState().capturing).toBe(true);
@@ -693,11 +693,11 @@ describe('solo grabar', () => {
     expect(screen.getByText(/Elige una tonalidad y toca/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Solo grabar' }));
 
-    await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Grabar$/ }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Parar y escribirlo/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Parar la grabación/ })).toBeInTheDocument();
     });
-    await userEvent.click(screen.getByRole('button', { name: /Parar y escribirlo/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Parar la grabación/ }));
 
     expect(await screen.findByLabelText('La toma que acabas de grabar')).toBeInTheDocument();
     expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
@@ -714,6 +714,30 @@ describe('solo grabar', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Descartar la toma' }));
 
     expect(screen.queryByLabelText('La toma que acabas de grabar')).not.toBeInTheDocument();
+  });
+  /**
+   * **Y no promete escribir.** El botón decía «Parar y escribirlo», la línea de
+   * debajo «escuchando el punteo» y el párrafo «al parar, esto entra en la
+   * canción»: con una tonalidad puesta, las tres cosas eran mentira en una toma
+   * que no escribe nada.
+   */
+  it('lo que dice mientras graba no promete escribir en la cancion', async () => {
+    render(<TocarParaEscribir deps={DEPS_CON_CLAQUETA} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Solo grabar' }));
+
+    expect(screen.getByText(/sin apuntar nada/)).toBeInTheDocument();
+    expect(screen.queryByText(/lo tocado entra en la canción/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^Grabar$/ }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Parar la grabación/ })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('button', { name: /escribirlo/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/grabando el sonido/)).toBeInTheDocument();
+    expect(screen.queryByText(/escuchando el punteo/)).not.toBeInTheDocument();
+    expect(screen.getByText(/No se escribe nada en la canción/)).toBeInTheDocument();
+    expect(screen.queryByText(/esto entra en la canción/)).not.toBeInTheDocument();
   });
 });
 
@@ -734,6 +758,38 @@ describe('Tocar para escribir', () => {
     expect(useSessionStore.getState().listening).toBe('listening');
     expect(useSessionStore.getState().capturing).toBe(true);
     expect(screen.getByRole('button', { name: /Parar y escribirlo/ })).toBeInTheDocument();
+  });
+
+  /**
+   * **Mientras se abre el micro, el botón no suelta el foco.** Iba con
+   * `disabled`, y un botón que se apaga con el foco dentro lo manda al `<body>`:
+   * el siguiente tabulador empezaba otra vez por arriba de la página.
+   */
+  it('mientras se abre el micro el boton sigue con el foco, y no hace caso', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    let abrir: () => void = () => {};
+    class EntradaLenta extends EntradaFalsa {
+      override start(): Promise<void> {
+        return new Promise<void>((listo) => {
+          abrir = () => void super.start().then(listo);
+        });
+      }
+    }
+    render(<TocarParaEscribir deps={{ ...DEPS, createInput: () => new EntradaLenta() }} />);
+    const boton = screen.getByRole('button', { name: /^Tocar$/ });
+    boton.focus();
+
+    await userEvent.click(boton);
+
+    const abriendo = screen.getByRole('button', { name: /Abriendo el micro/ });
+    expect(abriendo).toHaveFocus();
+    expect(abriendo).not.toBeDisabled();
+    expect(abriendo).toHaveAttribute('aria-disabled', 'true');
+    // Otro clic mientras abre no empieza otra toma.
+    await userEvent.click(abriendo);
+
+    await act(async () => abrir());
+    expect(await screen.findByRole('button', { name: /Parar y escribirlo/ })).toHaveFocus();
   });
 
   // Tocar contra una pantalla quieta es tocar a ciegas: hay que ver que te oye.

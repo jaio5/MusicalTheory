@@ -174,6 +174,16 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
   const empiezaEnRef = useRef(0);
   const tempoRef = useRef({ bpm: 0, beatsPerBar: 0 });
   const dejarDeOirRef = useRef<(() => void) | null>(null);
+  /**
+   * La fase y la escucha, para la limpieza: el efecto que limpia se escribe una
+   * vez y tiene que leer las de ahora, no las del primer render.
+   */
+  const faseRef = useRef<FaseDeTocar>('quieto');
+  const escuchaRef = useRef(escucha);
+  useEffect(() => {
+    faseRef.current = fase;
+    escuchaRef.current = escucha;
+  });
 
   // Las fábricas en una referencia, y no en las dependencias: un componente que
   // pase funciones anónimas las cambia en cada render, y ahí dentro eso cerraría
@@ -433,6 +443,19 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       grabadorRef.current = null;
       micRef.current = null;
       metronomoRef.current = null;
+
+      // **Y lo que la toma había puesto en la sesión.** El micro ya no se cierra
+      // al cambiar de pantalla —lo sujeta la barra, que no se va—, así que irse a
+      // mitad de una toma dejaba la sesión «capturando» con el análisis abierto:
+      // la barra encendida en `/afinar` sobre una toma que ya no existía.
+      // Se para como al pulsar «Parar»: la captura y la escucha que abrió la toma.
+      // Estando quieto no se toca: ese micro, si lo hay, es de la barra.
+      if (useSessionStore.getState().capturing) {
+        useSessionStore.getState().actions.stopCapture(performance.now());
+      }
+      if (faseRef.current !== 'quieto') {
+        void escuchaRef.current.stop();
+      }
     };
   }, []);
 

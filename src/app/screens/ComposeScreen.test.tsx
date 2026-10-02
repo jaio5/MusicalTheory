@@ -5,13 +5,26 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { pitchClassFromName } from '@core/music';
+import { pitchClassFromName, writtenBlock } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
 import { selectReparto, useBancoStore } from '@state/banco';
+import { useClaqueta } from '@state/claqueta';
 import { useSessionStore } from '@state/session-store';
 import { DEFAULT_BANCO, loadPreferences, REPARTOS_DE_FABRICA } from '@state/workspace';
 
 import { ComposeScreen } from './ComposeScreen';
+
+// **El lienzo de verdad solo lo carga su propio test.** Vitest reutiliza cada
+// proceso para varios ficheros, y si en uno caían dos que cargaban
+// `ArrangeCanvas.tsx`, V8 tenía dos copias del mismo módulo y al juntar la
+// cobertura se quedaba con las cuentas de una: las ramas bajaban al 90 % una
+// pasada de cada dos, con todos los tests en verde. Aquí basta con que llegue.
+vi.mock('@features/arrange/ArrangeCanvas', async () => {
+  const { createElement } = await import('react');
+  return {
+    ArrangeCanvas: () => createElement('button', { type: 'button' }, 'Escuchar la canción'),
+  };
+});
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
@@ -308,8 +321,10 @@ describe('Las pestañas de una pantalla estrecha', () => {
     // Y lo que hay dentro es la lista, no una caja vacía: el buscador es lo
     // primero que se ve al abrirla.
     expect(within(area).getByRole('combobox', { name: 'Buscar un acorde' })).toBeInTheDocument();
-    // La caja que las guarda a las dos no puede estar escondida.
-    expect(area.closest('.hidden')).toBeNull();
+    // La caja que las guarda a las dos no puede estar escondida. En estrecho se
+    // esconde con `max-lg:hidden`, para que la primera pintura no espere a
+    // saber el ancho.
+    expect(area.closest('.hidden, .max-lg\\:hidden')).toBeNull();
   });
 
   it('y con la del arreglo puesta, el arreglo es el que se ve', async () => {
@@ -324,7 +339,7 @@ describe('Las pestañas de una pantalla estrecha', () => {
     // que repita lo que ya dice «Escribir».
     await userEvent.click(screen.getByRole('button', { name: 'Escribir' }));
 
-    expect(screen.getByLabelText('Arreglo').closest('.hidden')).toBeNull();
+    expect(screen.getByLabelText('Arreglo').closest('.hidden, .max-lg\\:hidden')).toBeNull();
   });
 });
 
@@ -906,8 +921,9 @@ describe('Componer en un telefono', () => {
     expect(document.getElementById(mas.getAttribute('popovertarget')!)).toContainElement(
       screen.getByRole('region', { hidden: true, name: 'Qué se ve abajo' }),
     );
-    // Sin la línea, que en un teléfono eran cuatro letras y unos puntos.
-    expect(fila.querySelector(':scope > p')).toBeNull();
+    // Sin la línea, que en un teléfono eran cuatro letras y unos puntos: la
+    // esconde la clase, que es lo que el servidor sabe pintar sin saber el ancho.
+    expect(fila.querySelector(':scope > p')).toHaveClass('max-lg:hidden');
     // Y sin «Restablecer paneles», que es del banco.
     expect(screen.queryByRole('button', { name: 'Restablecer paneles' })).not.toBeInTheDocument();
   });
@@ -926,6 +942,67 @@ describe('Componer en un telefono', () => {
     expect(screen.getByRole('region', { name: 'Sesiones' })).toBeInTheDocument();
     expect(cerrar).toHaveBeenCalled();
     delete (HTMLElement.prototype as Partial<HTMLElement>).hidePopover;
+  });
+
+  /**
+   * **Los paneles de la fila parecen modales y no lo son**: llevan velo, y el
+   * tabulador salía de ellos por detrás hasta los controles tapados. Salir con
+   * el foco los cierra, a los dos.
+   */
+  it('«Mas» y la tonalidad se cierran cuando el foco sale de ellos', () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    const { container } = render(<ComposeScreen />);
+    const fila = container.querySelector('h1')!.parentElement!;
+    const fuera = within(fila).getByRole('button', { name: 'Tocando' });
+
+    for (const nombre of ['Más', /Do mayor|C mayor/] as const) {
+      const boton = within(fila).getByRole('button', { name: nombre });
+      const panel = document.getElementById(boton.getAttribute('popovertarget')!)!;
+      const cerrar = vi.fn();
+      Object.assign(panel, { hidePopover: cerrar });
+
+      fireEvent.blur(panel.querySelector('button')!, { relatedTarget: fuera });
+
+      expect(cerrar).toHaveBeenCalled();
+    }
+  });
+
+  /**
+   * **Lo que recibe el foco en la fila se trae entero.** El navegador solo lo
+   * hace asomar: a 390, «Tempo» enseñaba 13 de sus 82 píxeles.
+   */
+  it('lo que recibe el foco en la fila que se desplaza se trae a la vista', () => {
+    enEstrecho();
+    const traido = vi.fn();
+    Element.prototype.scrollIntoView = traido;
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+    const mas = screen.getByRole('button', { name: 'Más' });
+    const tira = mas.closest<HTMLElement>('.hay-mas-al-lado')!;
+    Object.defineProperty(tira, 'scrollWidth', { value: 900, configurable: true });
+    Object.defineProperty(tira, 'clientWidth', { value: 390, configurable: true });
+
+    fireEvent.focus(mas);
+
+    expect(traido).toHaveBeenCalledWith({ inline: 'nearest', block: 'nearest' });
+  });
+
+  /**
+   * **El estado vacío no se centra en un teléfono.** Centrado con `my-auto`,
+   * bajaba mientras llegaba el HTML —cada trozo lo hacía crecer y el margen lo
+   * recolocaba— y la pantalla saltaba antes de hidratar. Arriba no salta.
+   */
+  it('sin tonalidad, lo que se ve no se centra en vertical por debajo de lg', () => {
+    enEstrecho();
+    render(<ComposeScreen />);
+
+    const vacio = screen
+      .getAllByText(/Empieza eligiendo la tonalidad/)
+      .map((nodo) => nodo.closest('.lg\\:my-auto'))
+      .find((caja) => caja !== null);
+    expect(vacio).toBeTruthy();
+    expect(vacio).not.toHaveClass('my-auto');
   });
 
   // jsdom no trae la API: sin ella se abre igual y no revienta al cerrar.
@@ -989,5 +1066,73 @@ describe('Un solo vacio que mande', () => {
     rerender(<ComposeScreen />);
 
     expect(screen.getByText('Pulsa un acorde de tu canción')).toBeInTheDocument();
+  });
+});
+
+/**
+ * **Lo que un cambio de modo deja fuera se dice.** Traducir la canción a menor
+ * quita los grados que allí no existen, y se quitaban en silencio: la canción
+ * tenía un acorde menos sin que nadie supiera por qué.
+ */
+describe('Lo que se quita al cambiar de modo', () => {
+  function seQuito(bloques = [writtenBlock('x', 'V/ii', 4)]) {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'minor' });
+    useArrangementStore.setState({ quitadosAlCambiarDeModo: { hacia: 'minor', bloques } });
+  }
+
+  afterEach(() => {
+    useArrangementStore.setState({ quitadosAlCambiarDeModo: null });
+    useClaqueta.setState({ enLaToma: false });
+  });
+
+  it('se dice con el cifrado del modo de antes, y se cierra', async () => {
+    seQuito();
+    render(<ComposeScreen />);
+
+    expect(
+      screen.getByText('Al pasar a menor se ha quitado A (V/ii): en menor no tiene sitio.'),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Vale' }));
+
+    expect(useArrangementStore.getState().quitadosAlCambiarDeModo).toBeNull();
+    expect(screen.queryByText(/se ha quitado/)).not.toBeInTheDocument();
+  });
+
+  it('varios, en plural y en una lista', () => {
+    seQuito([writtenBlock('x', 'V/ii', 4), writtenBlock('y', 'V/vi', 4)]);
+    render(<ComposeScreen />);
+
+    expect(
+      screen.getByText(
+        'Al pasar a menor se han quitado A (V/ii) y E (V/vi): en menor no tienen sitio.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  // Y al revés, de menor a mayor, se dice igual.
+  it('hacia mayor tambien', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'major' });
+    useArrangementStore.setState({
+      quitadosAlCambiarDeModo: { hacia: 'major', bloques: [writtenBlock('x', 'V/iv', 4)] },
+    });
+    render(<ComposeScreen />);
+
+    // El V/iv de La menor es un La mayor: el dominante del Re menor.
+    expect(screen.getByText(/Al pasar a mayor se ha quitado A \(V\/iv\)/)).toBeInTheDocument();
+  });
+
+  /**
+   * **Durante una toma se calla**: la voz del lector sale por el mismo altavoz
+   * que el clic, con el micro abierto. La región sigue montada y vacía, para que
+   * lo que entre después se anuncie.
+   */
+  it('durante una toma no sale, y la region sigue montada', () => {
+    seQuito();
+    useClaqueta.setState({ enLaToma: true });
+    const { container } = render(<ComposeScreen />);
+
+    expect(screen.queryByText(/se ha quitado/)).not.toBeInTheDocument();
+    expect(container.querySelector('p[aria-live="polite"]:empty')).not.toBeNull();
   });
 });

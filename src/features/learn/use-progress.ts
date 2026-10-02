@@ -212,7 +212,8 @@ export function useProgress() {
       setCelebration({
         unitId: 'repaso',
         title: 'Repaso',
-        /* v8 ignore next -- al repasar ya se ha practicado hoy: el dia guardado es el de hoy */
+        // Lo ganado ayer no se resta: `xpToday` es del último día con actividad, y
+        // se repasa el primer día después de fallar, cuando ese día es otro.
         xp: next.xpToday - (current.lastDay === hoy ? current.xpToday : 0),
         ...loQueCambio(current, next, hoy),
         flawless: cleared,

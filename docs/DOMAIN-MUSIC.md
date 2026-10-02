@@ -147,6 +147,24 @@ Cualquier grado se puede convertir en acorde concreto dentro de una tonalidad, y
 al revés: dado un acorde sonando se puede saber qué grado es, incluidos los
 prestados, para sugerir a dónde ir desde ahí.
 
+### Cambiar de modo con la canción escrita
+
+Los dos modos no nombran los mismos grados, así que al pasar de mayor a menor
+cada grado se dice en el otro **por su función** (`degreeInMode`): el `I` es el
+`i`, el `IV` el `iv`, el `vi` el `VI`. Las dominantes secundarias también: la del
+`vi` pasa a ser la del `VI`, que es el `III` —en Do, el E7 que lleva a Am se
+vuelve el Eb7 que lleva a Ab—, y la del `iii` pasa a ser el `VII`. Lo único que no
+tiene dónde caer es **la dominante del `ii`**: en menor el segundo grado es
+disminuido, y a un disminuido no se le prepara con su dominante. Ésa se cae, y el
+almacén del montaje la apunta para poder decirlo.
+
+La tabla sola no es reversible —el mayor tiene dieciséis grados y el menor once,
+y el `vi` y el `bVI` caen los dos en el `VI`—, así que **cada bloque traducido
+recuerda lo que era** (`Block.delOtroModo`) y al volver se le devuelve tal cual:
+C G Am F en mayor va a menor y vuelve C G Am F, no C G Ab Fm. Lo que se corrige
+en el otro modo olvida el recuerdo, porque volver a lo de antes desharía la
+corrección. Y traducir no gasta un paso del deshacer.
+
 ### Cuatríadas
 
 Lo mismo apilando una tercera más: sobre cada grado, la nota que está seis
@@ -227,12 +245,32 @@ y se descartan las que no se pueden tocar. Las reglas:
 - La cuerda más grave que suena lleva la **fundamental**. Las inversiones son
   música válida, pero no es lo que se busca al aprender un acorde.
 - La mano abarca **cuatro trastes**, contando solo lo que se pisa.
+- Hay **cuatro dedos**. Si se pisan más cuerdas, el índice hace **cejilla** en el
+  traste más bajo, y una cejilla no puede tener debajo una cuerda al aire ni una
+  muda: la pisaría. Lo que no cabe en cuatro dedos así, no se ofrece. Por eso no
+  sale `103211` para F —cejilla en el 1 con la quinta al aire debajo—, y sí
+  `133211`.
+- La cejilla solo cuenta **cuando hace falta**: D `xx0232` tiene dos cuerdas en
+  el 2 y se coge con tres dedos sueltos.
 - Una cuerda muda en medio de dos que suenan resta: se puede, pero cuesta.
+- Dos dedos en el traste más bajo con cuerdas al aire entre ellos restan si
+  están lejos: cerca se ponen —A7 `x02020`—, separados la mano se tumba y apaga
+  las del medio. F `10321x` o Bm `x20402` se pueden escribir, y casi nadie las
+  coge.
 
 De las que sobreviven se ordenan por lo cómodas que son, y manda la posición: un
 acorde en primera posición con cuerdas al aire es el que se aprende y el que se
-usa, aunque más arriba haya diez formas más. Se devuelve **una por posición**,
-porque si no las cuatro mejores son la misma forma con cuerdas quitadas.
+usa, aunque más arriba haya diez formas más. Se devuelve **una por nombre**,
+porque si no las cuatro mejores son la misma forma con cuerdas quitadas; y por
+nombre y no por traste porque en el mismo traste caben dos manos: Bm sin cejilla
+`x2443x` y con ella `x24432`.
+
+El nombre dice cómo se coge. **«Al aire»** es lo que suena con cuerdas sueltas
+dentro de la primera posición de la mano —sin pasar del cuarto traste—: G
+`320003`, C `x32010`, Em `022000`. Lo demás es «3.ª posición», con «con cejilla»
+si la lleva. Una forma se escribe pegada, `x32010`, mientras todos los trastes
+son de una cifra; con uno de dos se separa, `x-8-7-10-10-8`, porque pegada no se
+sabe dónde acaba cada uno.
 
 Como se buscan y no se copian, funciona igual con un `7#9` que con un `Am`.
 
@@ -292,6 +330,36 @@ segundo y la tónica tercera. Ordenado así no se puede aprender nada.
 acorde distinto—. Y un `m7b5` es **ø7**, semidisminuido; escribirlo «°7» lo
 confunde con el disminuido entero, que tiene la séptima disminuida y no la menor.
 
+## El glosario del profesor (`glossary.ts`)
+
+Medio centenar de entradas de lo que de verdad pregunta un guitarrista —cadencias,
+funciones, acordes, intervalos, escalas, los siete modos, tonalidades,
+progresiones y ritmo— que se le dan al profesor cuando la pregunta casa con
+alguna ([adr/0076](./adr/0076-el-profesor-se-apoya-en-un-glosario-comprobado.md)).
+
+**Nada de lo que depende de la tonalidad está escrito.** Las cadencias se guardan
+en grados y se resuelven con `resolveDegree`: la perfecta es V → I, que en Do mayor
+sale G → C y en La menor E → Am, con el V mayor de la menor armónica. La armadura
+sale de `keySignature`, la relativa del círculo, las sustituciones de
+`substitutionOfDegree`, y los intervalos de cada acorde de `CHORD_SHAPES`.
+
+**Las notas se escriben por letras, no por teclas.** El E7 de La menor es E G# B D,
+no E Ab B D, y la menor armónica de D# lleva un C## porque cada grado ocupa su
+letra. Es lo único que el glosario sabe hacer y el resto del dominio no:
+`noteName` tiene doce nombres por alteración y por eso el séptimo grado de F# mayor
+sale «F» en el cifrado —`Fdim`, no `E#dim`—; el glosario lo escribe igual para que
+el acorde y sus notas digan lo mismo.
+
+Tres cosas que el resto del dominio no tenía y aquí se calculan: **el lidio y el
+locrio**, como la mayor empezando en su cuarto y su séptimo grado —los otros modos
+ya estaban en `scales.ts` y de allí sale lo que se dice de ellos—, **la menor
+melódica**, como la natural con la sexta y la séptima subidas, y **los nombres de
+los intervalos**.
+
+Y sirve también para comprobar: las cadencias y la relativa llevan una firma que se
+puede leer en un texto, y una respuesta del profesor que las nombra sin escribir
+sus acordes, o escribiendo los de otra, no llega a la pantalla.
+
 ## Lo que este dominio todavía no hace
 
 - Tensiones por encima de la séptima: novenas, oncenas, trecenas.
@@ -312,5 +380,6 @@ confunde con el disminuido entero, que tiene la séptima disminuida y no la meno
   silencios, ligaduras, grupos irregulares, dos voces y anacrusa. Por eso una nota
   que dura más de lo que le queda al compás se escribe donde empieza y cruza la
   barra, en vez de partirse con una ligadura.
-- Intervalos como materia: el dominio los calcula en semitonos para sacar acordes
-  y escalas, pero no los nombra —segunda mayor, cuarta aumentada— ni los enseña.
+- Intervalos como materia, a medias: el glosario los nombra para el profesor
+  —segunda mayor, tritono— pero no hay unidad que los enseñe ni ejercicio que los
+  pregunte.

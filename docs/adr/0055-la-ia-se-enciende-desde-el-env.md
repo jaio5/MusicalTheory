@@ -1,6 +1,6 @@
 # ADR 0055 — La IA se enciende desde el `.env`, no desde la línea de órdenes
 
-Fecha: 2026-09-28 · Estado: aceptada · Completa [ADR 0047](./0047-la-ia-es-un-perfil-no-un-fichero.md) y [ADR 0050](./0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)
+Fecha: 2026-09-28 · Estado: aceptada, completada por [ADR 0075](./0075-el-modelo-se-carga-al-levantar.md), que carga el modelo al levantar · Completa [ADR 0047](./0047-la-ia-es-un-perfil-no-un-fichero.md) y [ADR 0050](./0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)
 
 ## Contexto
 
@@ -59,13 +59,13 @@ Postgres de Windows.
 
 Medido después de hacerlo, con `docker compose up -d` a secas:
 
-| Qué                                       | Resultado                                 |
-| ----------------------------------------- | ----------------------------------------- |
-| La gráfica llega al contenedor            | RTX 3060, 12 GB                           |
-| La aplicación espera a que el modelo esté | sí: arranca cuando `ia-modelo` termina    |
-| Primera respuesta                         | **86 s** —cargar el modelo en la gráfica— |
-| Siguientes                                | **6,4 s**                                 |
-| Lo que ocupa el modelo cargado            | 6,9 GB de los 12                          |
+| Qué                                       | Resultado                                                                                                                                |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| La gráfica llega al contenedor            | RTX 3060, 12 GB                                                                                                                          |
+| La aplicación espera a que el modelo esté | sí: arranca cuando `ia-modelo` termina                                                                                                   |
+| Primera respuesta                         | **86 s** —cargar el modelo en la gráfica—; hoy la carga `ia-calentar` al levantar ([ADR 0075](./0075-el-modelo-se-carga-al-levantar.md)) |
+| Siguientes                                | **6,4 s**                                                                                                                                |
+| Lo que ocupa el modelo cargado            | 6,9 GB de los 12                                                                                                                         |
 
 **La primera vez descarga 5,2 GB** y la aplicación no arranca hasta que acaba. Es a
 propósito —si no, la primera pregunta contestaría un 502 mientras bajan cinco

@@ -7,6 +7,7 @@
  * a mano que se puedan desincronizar del resto del dominio.
  */
 
+import { conOpcionesRepartidas } from './baraja';
 import { diatonicSevenths, diatonicTriads, chordSymbol } from './chords';
 import { accidentalForKey, keySignature, relativeMajor, relativeMinor } from './circle-of-fifths';
 import type { KeyMode } from './keys';
@@ -738,60 +739,6 @@ const BUILDERS: Readonly<Record<LessonId, (tonic: PitchClass, mode: KeyMode) => 
 };
 
 /**
- * Un número estable sacado de un texto (FNV-1a de 32 bits).
- *
- * Cuatro líneas y sin dependencias, que es todo lo que hace falta: no se está
- * cifrando nada, solo repartiendo. `>>> 0` en cada vuelta porque en JavaScript la
- * multiplicación se sale de los 32 bits y sin eso el resultado deja de ser el
- * mismo en máquinas distintas.
- */
-function seedFrom(text: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < text.length; i += 1) {
-    hash = ((hash ^ text.charCodeAt(i)) * 0x01000193) >>> 0;
-  }
-  /* v8 ignore next -- ningun enunciado del temario da cero, y el uno es solo para que la baraja no se pare */
-  return hash === 0 ? 1 : hash;
-}
-
-/**
- * Baraja las opciones **sin azar de verdad**, y eso es lo importante.
- *
- * Con `Math.random()` las opciones cambiarían de sitio en cada repintado: bastaría
- * con que React volviera a pintar la pregunta —al contestar, al cambiar de
- * tonalidad, al llegar el cupo de la IA— para que el botón se moviera debajo del
- * dedo. Aquí la misma pregunta con las mismas opciones sale siempre igual, y dos
- * preguntas distintas salen distintas, que es lo único que se pedía.
- *
- * Como la semilla sale del texto de la pregunta y del de sus opciones, y las
- * opciones se generan en tu tonalidad, la misma pregunta en otra tonalidad reparte
- * de otra forma. Fisher-Yates con un generador xorshift de 32 bits.
- */
-function shuffled(choices: readonly Choice[], seed: number): readonly Choice[] {
-  const out = [...choices];
-  let state = seed;
-
-  for (let i = out.length - 1; i > 0; i -= 1) {
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    state >>>= 0;
-
-    const j = state % (i + 1);
-    [out[i], out[j]] = [out[j]!, out[i]!];
-  }
-
-  return out;
-}
-
-function arranged(exercise: Exercise): Exercise {
-  const semilla = seedFrom(
-    `${exercise.prompt}|${exercise.choices.map((choice) => choice.text).join('|')}`,
-  );
-  return { ...exercise, choices: shuffled(exercise.choices, semilla) };
-}
-
-/**
  * La lección en tu tonalidad, con las opciones ya repartidas.
  *
  * El reparto se hace aquí, en la única puerta por la que salen las lecciones, y no
@@ -800,5 +747,8 @@ function arranged(exercise: Exercise): Exercise {
  */
 export function lessonNotes(id: LessonId, tonic: PitchClass, mode: KeyMode): LessonNotes {
   const notes = BUILDERS[id](tonic, mode);
-  return { ...notes, exercises: notes.exercises.map(arranged) };
+  return {
+    ...notes,
+    exercises: notes.exercises.map((exercise) => conOpcionesRepartidas(exercise)),
+  };
 }

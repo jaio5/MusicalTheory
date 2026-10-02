@@ -270,12 +270,15 @@ export function TocarParaEscribir({
    *
    * Apagado a propósito: es contexto, no lo que se está haciendo.
    */
-  // **Solo los grados que existen en este modo.** El montaje se traduce al
-  // cambiar de tonalidad, pero eso pasa en un efecto
-  // ([adr/0030](../../../docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)):
-  // hay un fotograma con los grados del modo anterior dentro, y `blockChord` no
-  // perdona un `I` en menor. Medido: reventaba la pantalla entera al saltar a la
-  // escala que propone una idea.
+  // **Solo los grados que existen en este modo**, y es una red y no el camino.
+  // El montaje se traduce al cambiar de modo dentro del mismo `set` que cambia
+  // la tonalidad, antes de que React pinte, y la vigilancia está puesta desde
+  // que existe el montaje (`state/montaje-en-su-modo.ts`,
+  // [adr/0030](../../../docs/adr/0030-cambiar-de-modo-traduce-la-cancion.md)).
+  // Se queda porque `blockChord` no perdona un `I` en menor: cuando la
+  // traducción dependía de que componer estuviera montada, un grado del modo
+  // anterior tumbaba la pantalla entera, y un acorde sin enseñar es mucho menos
+  // precio que eso.
   const loQueYaHay =
     activeKey === null
       ? []
@@ -379,12 +382,20 @@ export function TocarParaEscribir({
         {/* **Contando también se para**, y con el mismo botón: pulsarlo durante la
             cuenta la corta y no graba nada. Deshabilitarlo ahí dejaba dos
             compases en los que el único botón de la pantalla no hacía nada y
-            después arrancaba solo. */}
+            después arrancaba solo.
+
+            **Y mientras se abre el micro, `cargando` y no `disabled`.** Apagado,
+            el botón soltaba el foco justo después de pulsarlo: el navegador lo
+            mandaba al `<body>` y el siguiente tabulador empezaba por arriba de
+            la página. Así se queda donde estaba y el clic se ignora.
+
+            Solo grabar no escribe nada, y el botón no lo promete: «Grabar» y
+            «Parar la grabación», no «Tocar» y «Parar y escribirlo». */}
         <Button
           onClick={() =>
             void (contando ? dejarlo() : tocando ? pararYEscribir() : empezar(!soloGrabar))
           }
-          disabled={fase === 'preparando'}
+          cargando={fase === 'preparando'}
           variant={tocando || contando ? 'quiet' : 'primary'}
           className="min-w-56"
         >
@@ -394,8 +405,12 @@ export function TocarParaEscribir({
             : contando
               ? 'Dejarlo'
               : tocando
-                ? 'Parar y escribirlo'
-                : 'Tocar'}
+                ? soloGrabar
+                  ? 'Parar la grabación'
+                  : 'Parar y escribirlo'
+                : soloGrabar
+                  ? 'Grabar'
+                  : 'Tocar'}
         </Button>
 
         {/* La cuenta, además de oírse.
@@ -455,26 +470,39 @@ export function TocarParaEscribir({
             )}
             {/* Lo que se enseña es **lo que va a entrar**, no todo lo que el micro
                 oye: con un punteo puesto, el acorde que el croma cree reconocer no
-                se va a escribir, y enseñarlo sería prometer algo que no pasa. */}
+                se va a escribir, y enseñarlo sería prometer algo que no pasa. Por
+                lo mismo, grabando sin escribir no se enseña nada: no entra nada. */}
             {/* Sin `aria-live`: leído en voz alta, cada acorde saldría por el
                 altavoz y el micro lo apuntaría. */}
-            <p className="font-display text-brass-bright text-4xl leading-none">
-              {papel === 'ritmica' ? (acordeOido ?? '—') : (notaOida ?? '—')}
-            </p>
+            {!soloGrabar && (
+              <p className="font-display text-brass-bright text-4xl leading-none">
+                {papel === 'ritmica' ? (acordeOido ?? '—') : (notaOida ?? '—')}
+              </p>
+            )}
             <p className="text-text-muted font-mono text-xs">
-              {papel === 'ritmica'
-                ? apuntados === 1
-                  ? '1 acorde apuntado'
-                  : `${apuntados} acordes apuntados`
-                : 'escuchando el punteo'}{' '}
+              {soloGrabar
+                ? 'grabando el sonido'
+                : papel === 'ritmica'
+                  ? apuntados === 1
+                    ? '1 acorde apuntado'
+                    : `${apuntados} acordes apuntados`
+                  : 'escuchando el punteo'}{' '}
               · {segundos}s
             </p>
+            {/* **Solo grabar no escribe, tenga tonalidad o no.** Esta línea miraba
+                solo la tonalidad, y con una puesta prometía que «esto entra en la
+                canción» a una toma que no iba a escribir nada. */}
             <p className="text-text-muted max-w-prose text-sm">
-              {activeKey === null
+              {soloGrabar || activeKey === null
                 ? 'Al parar, la toma se queda aquí para oírla y descargarla. No se escribe nada en la canción.'
                 : `Toca en ${keyName(activeKey.tonic, activeKey.mode)}. Al parar, esto entra en la canción como una parte y se puede seguir por bloques o en la partitura.`}
             </p>
           </div>
+        ) : soloGrabar ? (
+          <p className="text-text-muted max-w-prose text-sm">
+            Se abre el micro y se graba el sonido, sin apuntar nada. Al parar, la toma se queda aquí
+            para oírla y descargarla, y la canción no cambia.
+          </p>
         ) : (
           <p className="text-text-muted max-w-prose text-sm">
             Se abre el micro, se graba el sonido y se apunta lo que suena. Al parar, lo tocado entra

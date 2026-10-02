@@ -44,6 +44,38 @@ export const ATAJOS = {
   devolver: '\\',
 } as const;
 
+/**
+ * Si la tecla viene con un modificador **que es nuestro problema**.
+ *
+ * Los números se pulsan solos en cualquier teclado, así que con cualquier
+ * modificador son un atajo del navegador o del sistema —Alt+1 cambia de pestaña
+ * en Firefox— y no se tocan.
+ *
+ * **Los corchetes y la barra no.** En un teclado español no tienen tecla propia:
+ * se escriben con AltGr —`[` es AltGr y el acento grave, `]` es AltGr++, `\` es AltGr+º—, y
+ * Windows manda AltGr como Ctrl+Alt. Con la regla de los números, ninguno de los
+ * tres se podía pulsar en el teclado de quien usa esta aplicación. Lo que llega
+ * en `key` es el carácter que salió, así que si dice `[` es que se escribió un
+ * `[`, con las teclas que hicieran falta en ese teclado:
+ *
+ * - AltGr que el navegador reconoce como tal (`getModifierState('AltGraph')`);
+ * - Ctrl+Alt juntos, que es como llega AltGr en Windows;
+ * - Alt solo, que es Opción en un Mac: ahí los corchetes también la piden.
+ *
+ * Lo que sigue sin ser nuestro: Comando, y Control **sin** Alt, que es un atajo de
+ * verdad —Ctrl+[ es Escape en medio mundo—.
+ */
+function conModificadorAjeno(evento: KeyboardEvent, esSimbolo: boolean): boolean {
+  if (evento.metaKey) {
+    return true;
+  }
+  if (!esSimbolo) {
+    return evento.ctrlKey || evento.altKey;
+  }
+  const altGr = evento.getModifierState('AltGraph') || (evento.ctrlKey && evento.altKey);
+  return !altGr && evento.ctrlKey;
+}
+
 /** Si el foco está en algo donde se escribe. */
 function escribiendo(destino: EventTarget | null): boolean {
   if (!(destino instanceof HTMLElement)) {
@@ -65,8 +97,8 @@ function escribiendo(destino: EventTarget | null): boolean {
 export function useAtajosDelBanco(hayBanco: boolean): void {
   useEffect(() => {
     function alPulsar(evento: KeyboardEvent): void {
-      // Con modificador es un atajo del navegador o del sistema, no nuestro.
-      if (evento.ctrlKey || evento.metaKey || evento.altKey || escribiendo(evento.target)) {
+      const esSimbolo = LADOS[evento.key] !== undefined || evento.key === ATAJOS.devolver;
+      if (conModificadorAjeno(evento, esSimbolo) || escribiendo(evento.target)) {
         return;
       }
 

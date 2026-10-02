@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, MouseEvent, MouseEventHandler } from 'react';
 
 export type ButtonVariant = 'primary' | 'quiet' | 'danger';
 export type ButtonSize = 'normal' | 'compacto';
@@ -6,13 +6,21 @@ export type ButtonSize = 'normal' | 'compacto';
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variant?: ButtonVariant;
   /**
-   * Que está trabajando: se dibuja la ruedecilla y se marca `aria-busy`.
+   * Que está trabajando: se dibuja la ruedecilla, se marca `aria-busy` y **el
+   * botón deja de hacer caso sin dejar de existir**.
    *
-   * No desactiva el botón por su cuenta —eso lo decide quien lo usa, y a veces
-   * hay que poder cancelar—, pero sí dice que hay algo en marcha. Hace falta
-   * porque lo que más tarda aquí son las llamadas al modelo, que pueden pasarse
-   * varios segundos: cambiar el rótulo a «Pensando…» y nada más deja dudando de
-   * si se ha pulsado o si aquello se ha quedado colgado.
+   * Hace falta porque lo que más tarda aquí son las llamadas al modelo, que
+   * pueden pasarse varios segundos: cambiar el rótulo a «Pensando…» y nada más
+   * deja dudando de si se ha pulsado o si aquello se ha quedado colgado.
+   *
+   * **Con `aria-disabled` y no con `disabled`, a propósito.** Quien lo usaba lo
+   * apagaba con `disabled` mientras trabajaba, y un botón que se apaga con el foco
+   * dentro lo suelta: el navegador lo manda al `<body>`, el lector de pantalla
+   * deja de decir dónde estás y el siguiente tabulador empieza otra vez por
+   * arriba. Pasaba al entrar, al cambiar la contraseña y al pedir el enlace de la
+   * olvidada. Así el foco se queda donde estaba, se anuncia «no disponible» y el
+   * clic se ignora —también el que manda el formulario al pulsar Intro, que el
+   * navegador escribe como un clic en este botón—.
    */
   readonly cargando?: boolean;
   /**
@@ -24,6 +32,32 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
    * y los botones salían de 12, 14 y 16 px con el mismo alto.
    */
   readonly tamano?: ButtonSize;
+}
+
+/**
+ * Lo que hace que un botón trabaje **sin soltar el foco**: `aria-busy`,
+ * `aria-disabled` y un clic que no hace nada.
+ *
+ * Suelto para el botón que no es un `Button` —el redondo del micro— y que
+ * también se queda pensando mientras el navegador pide permiso: si lo apagara
+ * con `disabled` perdería el foco igual que los formularios. El porqué entero
+ * está en `cargando`.
+ */
+export function mientrasTrabaja<T extends Element>(
+  cargando: boolean,
+  onClick?: MouseEventHandler<T>,
+): {
+  readonly 'aria-busy': true | undefined;
+  readonly 'aria-disabled': true | undefined;
+  readonly onClick: MouseEventHandler<T> | undefined;
+} {
+  return {
+    'aria-busy': cargando || undefined,
+    'aria-disabled': cargando || undefined,
+    // `preventDefault` y no solo no llamar a nadie: en un botón de enviar, el
+    // clic es lo que manda el formulario, y cancelarlo es lo que lo para.
+    onClick: cargando ? (evento: MouseEvent<T>) => evento.preventDefault() : onClick,
+  };
 }
 
 /**
@@ -57,7 +91,8 @@ function Ruedecilla() {
  * - **La transición es de 150 ms**, con la curva de la casa (`ease-salida`), y el
  *   hundido de 75: por debajo no se percibe y por encima se nota lenta al
  *   encadenar acordes. El paso del ratón solo cambia lo que **se puede** pulsar
- *   (`not-disabled:`, que vale también para un enlace con pinta de botón; `enabled:` no lo haría): un botón apagado que se enciende al pasar por encima miente.
+ *   (`not-disabled:`, que vale también para un enlace con pinta de botón; `enabled:` no lo haría): un botón apagado que se enciende al pasar por encima miente. Y
+ *   `not-aria-disabled:` por lo mismo: el que trabaja tampoco se enciende.
  * - **`cursor-pointer`, siempre.** Un `<button>` no lo trae de serie, y sin él la
  *   mitad de la interfaz no se siente pulsable aunque lo sea.
  *
@@ -66,7 +101,7 @@ function Ruedecilla() {
  * texto**, y ese hueco escrito a mano quince veces acaba siendo quince huecos.
  */
 const BASE =
-  'inline-flex min-h-tap cursor-pointer items-center justify-center gap-2 rounded-md py-2.5 font-semibold tracking-[0.005em] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-salida active:translate-y-px active:duration-75 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0';
+  'inline-flex min-h-tap cursor-pointer items-center justify-center gap-2 rounded-md py-2.5 font-semibold tracking-[0.005em] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-salida active:translate-y-px active:duration-75 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 aria-disabled:cursor-progress aria-disabled:active:translate-y-0';
 
 // La letra y el relleno de los lados van aparte de la base: con los dos en ella,
 // un `className` que quisiera otra medida dependía del orden en que Tailwind
@@ -78,7 +113,7 @@ const TAMANOS: Record<ButtonSize, string> = {
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-brass text-background filo-luz not-disabled:hover:bg-brass-bright not-disabled:hover:filo-luz-alto',
+    'bg-brass text-background filo-luz not-disabled:not-aria-disabled:hover:bg-brass-bright not-disabled:not-aria-disabled:hover:filo-luz-alto',
   /**
    * Lo secundario: la otra salida, la que no es la de la pantalla.
    *
@@ -87,7 +122,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
    * «esto es una pieza» y el borde se enciende al pasar.
    */
   quiet:
-    'border border-border bg-surface text-text filo-luz not-disabled:hover:border-brass-dim not-disabled:hover:text-brass-bright not-disabled:hover:bg-surface-raised',
+    'border border-border bg-surface text-text filo-luz not-disabled:not-aria-disabled:hover:border-brass-dim not-disabled:not-aria-disabled:hover:text-brass-bright not-disabled:not-aria-disabled:hover:bg-surface-raised',
   /**
    * Lo que borra, lo que descarta y lo que cierra una cuenta.
    *
@@ -96,7 +131,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
    * principal. Se enciende al pasar por encima, que es cuando ya hay intención.
    */
   danger:
-    'border border-border bg-surface text-oxblood-bright not-disabled:hover:border-oxblood-bright not-disabled:hover:bg-oxblood/20',
+    'border border-border bg-surface text-oxblood-bright not-disabled:not-aria-disabled:hover:border-oxblood-bright not-disabled:not-aria-disabled:hover:bg-oxblood/20',
 };
 
 /**
@@ -121,16 +156,21 @@ export function Button({
   type,
   cargando = false,
   tamano = 'normal',
+  onClick,
   children,
   ...props
 }: ButtonProps) {
+  const trabajando = mientrasTrabaja(cargando, onClick);
   return (
     <button
       // Sin esto, un botón dentro de un formulario lo enviaría sin querer.
       type={type ?? 'button'}
-      aria-busy={cargando || undefined}
       className={estiloBoton(variant, className, tamano)}
       {...props}
+      // Después de `props`, para que un `aria-disabled` de fuera no le quite la
+      // marca a un botón que está trabajando, ni lo deje sin ella si no trabaja.
+      {...trabajando}
+      aria-disabled={trabajando['aria-disabled'] ?? props['aria-disabled']}
     >
       {cargando && <Ruedecilla />}
       {children}

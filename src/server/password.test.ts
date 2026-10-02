@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { hashPassword, verifyPassword } from './password';
+import { scryptSync } from 'node:crypto';
+
+import { HASH_DE_NADIE, hashPassword, necesitaRecifrar, verifyPassword } from './password';
 
 /**
  * Estos tests tardan más que el resto —cada cifrado son unos cien milisegundos a
@@ -36,7 +38,7 @@ describe('cifrado de contraseñas', () => {
   it('guarda sus propios parámetros, para poder subirlos sin invalidar nada', async () => {
     const stored = await hashPassword('cualquiera');
 
-    expect(stored.startsWith('scrypt$16384$8$1$')).toBe(true);
+    expect(stored.startsWith('scrypt$16384$8$5$')).toBe(true);
     expect(stored.split('$')).toHaveLength(6);
   });
 
@@ -82,5 +84,42 @@ describe('cifrado de contraseñas', () => {
     const stored = await hashPassword(compuesta);
 
     await expect(verifyPassword(precompuesta, stored)).resolves.toBe(true);
+  });
+
+  /*
+    Los parámetros de OWASP (`N=2^14, r=8, p=5`), y lo que hay alrededor de
+    subirlos: lo guardado con los de antes sigue valiendo, se sabe que hay que
+    volver a cifrarlo, y la cuenta que no existe tarda lo que tarda una de hoy.
+  */
+  it('cifra con una de las combinaciones de OWASP', async () => {
+    const [, n, r, p] = (await hashPassword('cualquiera')).split('$').map(Number);
+    // Las cinco de la hoja de OWASP cuestan lo mismo: N·r·p = 2^17 · 8.
+    expect((n ?? 0) * (r ?? 0) * (p ?? 0)).toBeGreaterThanOrEqual(2 ** 17 * 8 * 0.6);
+    expect(r).toBe(8);
+  });
+
+  it('lo cifrado con los parámetros viejos sigue entrando, y pide recifrarse', async () => {
+    const sal = Buffer.from('una sal de prueb');
+    const clave = scryptSync('la de siempre', sal, 64, { N: 16_384, r: 8, p: 1 });
+    const viejo = ['scrypt', 16_384, 8, 1, sal.toString('base64'), clave.toString('base64')].join(
+      '$',
+    );
+
+    await expect(verifyPassword('la de siempre', viejo)).resolves.toBe(true);
+    expect(necesitaRecifrar(viejo)).toBe(true);
+    expect(necesitaRecifrar(await hashPassword('la de siempre'))).toBe(false);
+  });
+
+  it('una fila sin formato no se recifra: no se ha podido comprobar', () => {
+    expect(necesitaRecifrar('vaya')).toBe(false);
+  });
+
+  it('el hash de nadie lleva los parámetros de hoy, y no entra con nada', async () => {
+    // Es lo que iguala el tiempo de un correo que no existe con el de uno que sí:
+    // con los parámetros viejos escritos a mano, igualaba el de una cuenta vieja.
+    const hoy = (await hashPassword('x')).split('$').slice(0, 4).join('$');
+    expect(HASH_DE_NADIE.startsWith(`${hoy}$`)).toBe(true);
+    expect(necesitaRecifrar(HASH_DE_NADIE)).toBe(false);
+    await expect(verifyPassword('', HASH_DE_NADIE)).resolves.toBe(false);
   });
 });

@@ -83,6 +83,11 @@ export function proxy(request: NextRequest) {
   // Al salir a otro sitio se manda el dominio, no la dirección entera: por la
   // dirección se sabe qué unidad estabas estudiando.
   respuesta.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Una ventana que abramos o que nos abra no se queda con un puntero a la otra:
+  // sin esto, una página ajena abierta desde aquí podía leer `window.opener` y
+  // mandar esta pestaña a otra dirección. Aquí no hay ventanas emergentes que lo
+  // necesiten —el pago es una navegación entera, no un `window.open`—.
+  respuesta.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
   /*
     El micrófono, dicho en voz alta.
 
