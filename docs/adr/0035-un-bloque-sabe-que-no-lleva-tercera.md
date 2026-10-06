@@ -1,5 +1,7 @@
 # ADR 0035 — Un bloque sabe que no lleva tercera
 
+> **Ampliado por [ADR 0090](./0090-los-cifrados-salen-de-una-tabla-por-especie.md):** `seventhNotes` sale de una tabla por especie y la grafía de la fundamental la fija la tríada del grado.
+
 Fecha: 2026-09-18 · Estado: aceptada · Amplía: [ADR 0032](./0032-la-progresion-y-el-montaje-son-lo-mismo.md)
 
 ## Contexto

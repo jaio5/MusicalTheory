@@ -1,5 +1,7 @@
 # ADR 0046 — El mástil solo ocupa lo que dibuja
 
+> **Ajustado por [ADR 0102](./0102-lo-que-se-lee-a-un-metro-se-ve-y-lo-que-se-pulsa-se-sujeta.md):** el tope del mástil pasa a `100dvh-31rem` (`xl`: `28rem`) y el arreglo conserva su suelo con el área de abajo abierta; y el mástil tiene suelo de 14 rem, así que en una ventana baja cede el arreglo.
+
 Fecha: 2026-09-23 · Estado: aceptada · Ajusta: [ADR 0039](./0039-el-mastil-se-estira-a-lo-ancho.md), [ADR 0040](./0040-ni-cuadrado-ni-tira.md)
 
 ## Contexto

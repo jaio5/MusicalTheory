@@ -1,5 +1,7 @@
 # ADR 0015 — Un solo canal de texto libre, y el modelo declara si le preguntan de música
 
+> **Ampliado por [ADR 0088](./0088-el-profesor-siempre-contesta-y-sabe-mas.md):** la ruta del profesor nunca devuelve un error por falta de respuesta del modelo: hay respaldo, y gasta cupo.
+
 > **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** `/api/ideas` ya no existe; quedan el profesor y las salidas.
 
 > **Corregido el 2 de octubre de 2026** (sección «Corrección», al final): la frase «`qwen3:8b` acierta los ocho» **es falsa** con los casos de la auditoría, y quitar la marca ya no es borrar la cadena exacta.

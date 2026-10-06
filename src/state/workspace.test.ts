@@ -17,7 +17,31 @@ describe('Preferencias', () => {
       tuningId: 'dropD',
       pinnedKey: null,
       banco: DEFAULT_BANCO,
+      microfono: null,
     });
+  });
+
+  /**
+   * El micrófono se guarda por su identificador y su nombre, que no se pueden
+   * comprobar al leer: la lista llega después y sin permiso viene vacía. Se mira
+   * la forma, y lo que no esté conectado lo resuelve quien abre el micro.
+   */
+  it('recupera el micrófono elegido, si parece uno', () => {
+    expect(
+      parsePreferences({ microfono: { id: 'scarlett', nombre: 'Scarlett 2i2' } }).microfono,
+    ).toEqual({
+      id: 'scarlett',
+      nombre: 'Scarlett 2i2',
+    });
+    // Sin nombre que valga se guarda sin él: se eligió antes de dar permiso.
+    expect(parsePreferences({ microfono: { id: 'scarlett', nombre: 7 } }).microfono).toEqual({
+      id: 'scarlett',
+      nombre: '',
+    });
+    expect(parsePreferences({ microfono: 'scarlett' }).microfono).toBeNull();
+    expect(parsePreferences({ microfono: { id: '' } }).microfono).toBeNull();
+    expect(parsePreferences({ microfono: { id: 'x'.repeat(257) } }).microfono).toBeNull();
+    expect(parsePreferences({ microfono: [] }).microfono).toBeNull();
   });
 
   /**
@@ -58,12 +82,23 @@ describe('Preferencias', () => {
    * mástil y tumbaba `/componer` entera en cada recarga.
    */
   it('un estilo, una escala o una afinación que no existen salen de fábrica', () => {
-    const leidas = parsePreferences({ styleId: 'reggae', scaleId: 'lydian', tuningId: 'sitar' });
+    const leidas = parsePreferences({ styleId: 'salsa', scaleId: 'lydian', tuningId: 'sitar' });
 
     expect(leidas.styleId).toBe(DEFAULT_PREFERENCES.styleId);
     expect(leidas.scaleId).toBe(DEFAULT_PREFERENCES.scaleId);
     expect(leidas.tuningId).toBe(DEFAULT_PREFERENCES.tuningId);
   });
+
+  /**
+   * Los seis estilos que llegaron después se guardan y se leen como los de antes, y
+   * lo guardado con uno de los de siempre sigue valiendo: añadir no mueve nada.
+   */
+  it.each(['funk', 'country', 'reggae', 'bolero', 'flamenco', 'cine', 'rock', 'jazz'])(
+    'el estilo %s sobrevive a recargar',
+    (styleId) => {
+      expect(parsePreferences({ styleId }).styleId).toBe(styleId);
+    },
+  );
 
   it('y lo que tiene cualquier objeto tampoco cuenta como escala', () => {
     expect(parsePreferences({ scaleId: 'toString' }).scaleId).toBe(DEFAULT_PREFERENCES.scaleId);

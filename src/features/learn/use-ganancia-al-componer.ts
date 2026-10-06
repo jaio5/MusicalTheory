@@ -44,7 +44,7 @@ export interface ComposeGain {
  * vez que se guarda algo, no cada vez que se abre la pantalla.
  *
  * **Uno solo por pantalla**, igual que antes lo era `escuchaComponer`: dos
- * apuntados sumarían el mismo hecho dos veces. Solo lo monta `ComposeScreen`.
+ * apuntados sumarían el mismo hecho dos veces. Lo monta `ComposeScreen`, una vez.
  */
 export function useGananciaAlComponer() {
   const { signedIn, account } = useAccount();

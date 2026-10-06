@@ -12,8 +12,10 @@ import type { ReactNode } from 'react';
  * girando en sentidos distintos.
  *
  * Empieza arriba y no a la derecha, que es donde empieza un círculo en SVG: un
- * cuarto de vuelta de giro. Y crece con una transición de 400 ms, lo justo para
- * que se vea que ha subido al terminar una unidad.
+ * cuarto de vuelta de giro. Y crece con la duración de una entrada y la curva
+ * de la casa —lo justo para que se vea que ha subido al terminar una unidad—;
+ * llevaba 400 ms y un `ease-out` escritos a mano, los únicos de la aplicación
+ * fuera de `--duracion-*` y `ease-salida`.
  */
 export function ProgressRing({
   part,
@@ -60,7 +62,7 @@ export function ProgressRing({
             strokeLinecap="round"
             strokeDasharray={vuelta}
             strokeDashoffset={vuelta * (1 - hecho)}
-            style={{ transition: 'stroke-dashoffset 400ms ease-out' }}
+            style={{ transition: 'stroke-dashoffset var(--duracion-entrada) var(--ease-salida)' }}
           />
         </g>
       </svg>

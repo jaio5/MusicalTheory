@@ -134,14 +134,15 @@ export function Question({
           justo cuando se acababa de pulsar. En un teléfono eran además cuatro
           botones de 50 a 66 px, uno por respuesta y todos distintos.
 
-          Dos por fila en estrecho y las que haya en una a partir de `sm`, con un
-          ancho mínimo cómodo para el dedo. La marca ocupa su sitio desde el
-          principio, invisible hasta que hay algo que corregir: el texto no se
-          mueve ni un píxel al contestar. */}
-      <div
-        ref={opciones}
-        className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(7rem,1fr))]"
-      >
+          **Dos por fila a cualquier ancho, y de 56 px de alto.** Iban en una
+          sola fila a partir de `sm`, como pastillas `quiet`: texto gris de 14 px
+          sin borde ni fondo, lo más pequeño y apagado de la pantalla, para lo
+          único que hay que hacer en ella. Cuatro cajas en 2 × 2 con el borde de
+          un control y la letra de leer (`opcion` de `ui/Chip`) se leen como
+          opciones desde un metro, y `grande` es lo que las sube de 44 a 58.
+          La marca ocupa su sitio desde el principio, invisible hasta que hay
+          algo que corregir: el texto no se mueve ni un píxel al contestar. */}
+      <div ref={opciones} className="mt-4 grid grid-cols-2 gap-2">
         {exercise.choices.map((choice) => {
           const picked = chosen === choice.text;
           return (
@@ -150,8 +151,9 @@ export function Question({
               onClick={() => answer(choice.text)}
               pressed={picked}
               disabled={answered}
-              tone={answered && choice.correct ? 'acierto' : picked ? 'fallo' : 'quiet'}
-              className="w-full px-3 text-base"
+              tone={answered && choice.correct ? 'acierto' : picked ? 'fallo' : 'opcion'}
+              tamano="grande"
+              className="w-full"
             >
               {/* La marca solo en las dos que dicen algo: la acertada y la que
                   se eligió. En las demás el hueco queda vacío, que es lo que

@@ -9,6 +9,8 @@ import {
   sitioDelTutorEnServidor,
   suscribirseAlSitio,
 } from '@state/tutor-spot';
+import { useAccount } from '@state/account';
+import { Button } from '@ui/Button';
 import { Mascota } from '@ui/Mascota';
 import { prefersReducedMotion } from '@ui/motion';
 
@@ -49,6 +51,13 @@ import { Teacher } from './Teacher';
  * no tapa nada, así que ahí sigue saliendo él solo; en una estrecha se queda
  * donde está, a un dedo, y lo abre quien lo quiera.
  *
+ * **Y cuando se abre él solo, se abre pequeño.** Con el formulario dentro medía
+ * 230 px de alto y, anclado abajo, subía sobre el final de la corrección, con
+ * «Entrar para preguntar» en latón al lado del otro latón, «Siguiente». Con un
+ * aviso trae la frase y un solo botón discreto, «Preguntar al profesor», que es
+ * el que despliega el formulario; sin cuentas configuradas ni eso, porque no
+ * habría a quién.
+ *
  * **Se agarra y se mueve.** Al soltarlo se va al lado más cercano —solo izquierda
  * o derecha— y se queda a la altura donde lo dejaste. Los dos lados y no donde
  * caiga, porque un muñeco suelto en mitad de la pantalla acaba tapando justo lo
@@ -59,16 +68,21 @@ import { Teacher } from './Teacher';
 /**
  * Si la pantalla da sitio para un panel flotante sin taparlo todo.
  *
- * 640 es el mismo corte que usa el resto de la aplicación. Se mide el ancho y no
- * se pregunta por `matchMedia` a propósito: es la misma respuesta y así no se
- * mezcla con la consulta de movimiento reducido, que también pasa por ahí.
+ * 1024 —`lg`— y no 640: por debajo la columna de la pregunta ocupa el ancho
+ * entero y la barra de pantallas va abajo, así que el globo, que sube desde la
+ * esquina de abajo, solo puede caer **sobre la corrección**, que es lo que hay
+ * que leer en ese momento. Medido a 700 × 600: tapaba «Era Re (D)…» y pisaba
+ * «Siguiente». Desde `lg` la columna va centrada con aire a los lados y la barra
+ * arriba, y el globo pequeño cabe al lado. Se mide el ancho y no se pregunta por
+ * `matchMedia` a propósito: es la misma respuesta y así no se mezcla con la
+ * consulta de movimiento reducido, que también pasa por ahí.
  *
  * Se pregunta en el momento de abrirse y no se guarda: quien gira el teléfono o
  * estira la ventana cambia la respuesta, y esto solo decide un gesto que ocurre
  * una vez.
  */
 function cabeElGlobo(): boolean {
-  return typeof window !== 'undefined' && window.innerWidth >= 640;
+  return typeof window !== 'undefined' && window.innerWidth >= 1024;
 }
 
 /**
@@ -98,6 +112,7 @@ export function Tutor({
   readonly onAvisoVisto?: () => void;
 }) {
   const sitio = useSyncExternalStore(suscribirseAlSitio, sitioDelTutor, sitioDelTutorEnServidor);
+  const { accounts } = useAccount();
   const [quieto] = useState(prefersReducedMotion);
   const marco = useRef<HTMLDivElement>(null);
   // Mientras se arrastra, la posición se escribe directamente en el estilo del
@@ -107,6 +122,11 @@ export function Tutor({
   // Si ya viene con algo que decir, nace abierto: comparar solo el cambio dejaba
   // callado al muñeco que se monta ya con el aviso puesto.
   const [abierto, setAbierto] = useState(aviso !== null && cabeElGlobo());
+  // Abierto por un aviso: solo la frase y el botón de preguntar, sin formulario.
+  const [soloElAviso, setSoloElAviso] = useState(aviso !== null && cabeElGlobo());
+  // Al pulsar «Preguntar al profesor» ese botón desaparece con el foco dentro, y
+  // el foco pasa a lo primero del formulario que lo sustituye (adr/0084).
+  const enfocarElFormulario = useRef(false);
   // Empieza a hablar en el momento en que se abre, no dentro del efecto: poner
   // estado en el cuerpo de un efecto encadena un render de más, y la regla de
   // React que lo prohíbe está encendida en este proyecto.
@@ -132,9 +152,22 @@ export function Tutor({
     setAvisado(aviso);
     if (aviso !== null && cabeElGlobo()) {
       setAbierto(true);
+      setSoloElAviso(true);
       setHablando(!quieto);
     }
   }
+
+  useEffect(() => {
+    if (!enfocarElFormulario.current || soloElAviso) {
+      return;
+    }
+    enfocarElFormulario.current = false;
+    marco.current
+      ?.querySelector<HTMLElement>(
+        '.superficie-alta input, .superficie-alta a, .superficie-alta button',
+      )
+      ?.focus();
+  }, [soloElAviso]);
 
   /*
     **La región viva está montada antes de que haya nada que decir**, y se rellena
@@ -337,6 +370,7 @@ export function Tutor({
             return;
           }
           setAbierto(true);
+          setSoloElAviso(false);
           setHablando(!quieto);
         }}
         aria-expanded={abierto}
@@ -374,9 +408,26 @@ export function Tutor({
           {/* El formulario de siempre, aquí dentro: preguntar no debería costar
               salirse de la unidad. Sin las preguntas de arranque, que en un globo
               ocupan más que el propio campo. */}
-          <div className="mt-3">
-            <Teacher unitId={unitId} compact />
-          </div>
+          {soloElAviso ? (
+            accounts && (
+              <div className="mt-3">
+                <Button
+                  variant="quiet"
+                  tamano="compacto"
+                  onClick={() => {
+                    enfocarElFormulario.current = true;
+                    setSoloElAviso(false);
+                  }}
+                >
+                  Preguntar al profesor
+                </Button>
+              </div>
+            )
+          ) : (
+            <div className="mt-3">
+              <Teacher unitId={unitId} compact />
+            </div>
+          )}
 
           {/*
             **Cambiarlo de lado sin arrastrar** (WCAG 2.5.7). Moverlo solo se

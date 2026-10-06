@@ -115,6 +115,22 @@ describe('los tokens de diseño no se separan del CSS', () => {
  * `popover`: si `night` se aclarara con el tema, el botón de parar la escena
  * saldría blanco sobre la sala y el velo dejaría de velar.
  */
+/**
+ * Las piezas de la hoja que nacieron de una auditoría, para que no se vuelvan
+ * a perder en un retoque: la pista de que una tira sigue llega hasta `lg`, que
+ * es hasta donde la fila de mandos de componer se desplaza de verdad, y la
+ * sombra del muñeco sale de la sala.
+ */
+describe('las piezas de la hoja', () => {
+  it('la pista de que una tira sigue vale hasta lg, no hasta sm', () => {
+    expect(CSS).toMatch(/@media \(width < 64rem\)\s*\{\s*\.hay-mas-al-lado/);
+  });
+
+  it('la sombra del muñeco sale de la noche, no del negro de Tailwind', () => {
+    expect(CSS).toMatch(/\.sombra-pixel\s*\{\s*filter: drop-shadow\([^)]*var\(--color-night\)/);
+  });
+});
+
 describe('la sala no cambia con el tema', () => {
   it('night y bulb valen lo mismo de día y de noche, y night es la pared de noche', () => {
     expect(paletaClara.night).toBe(paletaOscura.night);

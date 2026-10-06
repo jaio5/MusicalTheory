@@ -320,7 +320,7 @@ export function TocarParaEscribir({
         {tocando ? (
           <p className="rotulo">{PAPELES_DE_TOMA[papel].name}</p>
         ) : (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-2" data-tour="componer-papel">
             {/* El rótulo se ve y el grupo lo lleva de nombre: el lector lo oye una
                 vez, al entrar en el grupo. */}
             <p className="rotulo mb-1 text-center" aria-hidden="true">
@@ -349,37 +349,41 @@ export function TocarParaEscribir({
             tocando cuando se descubre que con auriculares sobra. Quitarlo no para
             el pulso: la rejilla sigue sabiendo dónde cae cada compás. Solo
             grabar no lleva clic, así que ahí no se enseña. */}
-        {!soloGrabar && (
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Chip
-              tone="quiet"
-              tamano="compacto"
-              pressed={!clicCallado}
-              onClick={() => claqueta.callar(!clicCallado)}
-              ariaLabel="Clic durante la toma"
-            >
-              {clicCallado ? <IconoParar /> : <IconoSonar />}
-              {clicCallado ? 'Sin clic' : 'Con clic'}
-            </Chip>
-            <label className="text-text-muted flex items-center gap-2 text-sm">
-              Volumen del clic
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={Math.round((clicCallado ? 0 : volumenDelClic) * 100)}
-                onChange={(event) => claqueta.ponerVolumen(Number(event.target.value) / 100)}
-                aria-valuetext={
-                  clicCallado ? 'Sin clic' : `${Math.round(volumenDelClic * 100)} por ciento`
-                }
-                className="accent-brass min-h-tap w-32"
-              />
-            </label>
-          </div>
-        )}
+        {/* El clic y el botón, juntos en una caja para que el recorrido los
+            señale a la vez: se explican con la misma frase. Mide lo mismo que
+            sueltos, con el mismo hueco entre ellos. */}
+        <div className="flex flex-col items-center gap-4" data-tour="componer-tocar">
+          {!soloGrabar && (
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Chip
+                tone="quiet"
+                tamano="compacto"
+                pressed={!clicCallado}
+                onClick={() => claqueta.callar(!clicCallado)}
+                ariaLabel="Clic durante la toma"
+              >
+                {clicCallado ? <IconoParar /> : <IconoSonar />}
+                {clicCallado ? 'Sin clic' : 'Con clic'}
+              </Chip>
+              <label className="text-text-muted flex items-center gap-2 text-sm">
+                Volumen del clic
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={Math.round((clicCallado ? 0 : volumenDelClic) * 100)}
+                  onChange={(event) => claqueta.ponerVolumen(Number(event.target.value) / 100)}
+                  aria-valuetext={
+                    clicCallado ? 'Sin clic' : `${Math.round(volumenDelClic * 100)} por ciento`
+                  }
+                  className="accent-brass min-h-tap w-32"
+                />
+              </label>
+            </div>
+          )}
 
-        {/* **Contando también se para**, y con el mismo botón: pulsarlo durante la
+          {/* **Contando también se para**, y con el mismo botón: pulsarlo durante la
             cuenta la corta y no graba nada. Deshabilitarlo ahí dejaba dos
             compases en los que el único botón de la pantalla no hacía nada y
             después arrancaba solo.
@@ -391,27 +395,28 @@ export function TocarParaEscribir({
 
             Solo grabar no escribe nada, y el botón no lo promete: «Grabar» y
             «Parar la grabación», no «Tocar» y «Parar y escribirlo». */}
-        <Button
-          onClick={() =>
-            void (contando ? dejarlo() : tocando ? pararYEscribir() : empezar(!soloGrabar))
-          }
-          cargando={fase === 'preparando'}
-          variant={tocando || contando ? 'quiet' : 'primary'}
-          className="min-w-56"
-        >
-          {tocando || contando ? <IconoParar /> : <IconoMicro />}
-          {fase === 'preparando'
-            ? 'Abriendo el micro…'
-            : contando
-              ? 'Dejarlo'
-              : tocando
-                ? soloGrabar
-                  ? 'Parar la grabación'
-                  : 'Parar y escribirlo'
-                : soloGrabar
-                  ? 'Grabar'
-                  : 'Tocar'}
-        </Button>
+          <Button
+            onClick={() =>
+              void (contando ? dejarlo() : tocando ? pararYEscribir() : empezar(!soloGrabar))
+            }
+            cargando={fase === 'preparando'}
+            variant={tocando || contando ? 'quiet' : 'primary'}
+            className="min-w-56"
+          >
+            {tocando || contando ? <IconoParar /> : <IconoMicro />}
+            {fase === 'preparando'
+              ? 'Abriendo el micro…'
+              : contando
+                ? 'Dejarlo'
+                : tocando
+                  ? soloGrabar
+                    ? 'Parar la grabación'
+                    : 'Parar y escribirlo'
+                  : soloGrabar
+                    ? 'Grabar'
+                    : 'Tocar'}
+          </Button>
+        </div>
 
         {/* La cuenta, además de oírse.
             Un número que baja dice cuándo entrar mejor que cuatro clics a los que

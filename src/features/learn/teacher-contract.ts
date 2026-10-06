@@ -13,7 +13,11 @@ import {
   checkAnswerAgainstTheory,
   degreesFor,
   cuerpoConTonalidad,
+  findTheory,
   findUnit,
+  keyChordTable,
+  normalizeForSearch,
+  respuestaDelGlosario,
   resolveProgression,
   SCALE_IDS,
   type DegreeSymbol,
@@ -68,6 +72,52 @@ export const MARCA_PREGUNTA = '###PREGUNTA###';
 export const FUERA_DE_TEMA =
   'Aquí solo sé de música. Pregúntame por la tonalidad, los acordes o qué escala tocar.';
 
+/** Quién ha escrito una respuesta que no es del modelo. */
+export type FuenteDeLaRespuesta = 'glosario' | 'aviso';
+
+/**
+ * Lo que va delante de una respuesta del glosario cuando el modelo no ha dado una
+ * que valga. **Dice de quién es**: quien lee tiene derecho a saber que eso no lo ha
+ * escrito la IA, y que es la teoría comprobada de la aplicación.
+ */
+export const DEL_GLOSARIO =
+  'Esto no lo ha escrito la IA: no ha dado una respuesta que se pueda comprobar, así que contesta el glosario de la aplicación.';
+
+/**
+ * Lo que se contesta cuando el modelo no ha dado una respuesta que valga y la
+ * pregunta no casa con el glosario. Honrado —no ha salido— y útil: cómo
+ * preguntarlo para que salga, y los acordes de la tonalidad, que son ciertos
+ * siempre.
+ */
+export function sinRespuesta(tabla: string): string {
+  return `El profesor no ha dado con una respuesta que se pueda dar por buena, y prefiero no enseñarte una dudosa. Prueba a preguntarlo con otras palabras, nombrando lo que quieres saber: una cadencia, un modo, un intervalo, las notas de un acorde. ${tabla}`;
+}
+
+/**
+ * Por qué contesta el respaldo y no el modelo: no se le ha podido hablar, o habló y
+ * lo que dijo no valía. Son los dos 502 que el respaldo evita.
+ *
+ * **No son el mismo consejo.** Con lo que no valía, preguntarlo de otra manera
+ * ayuda; con el modelo caído, preguntarlo de otra manera es gastar otra pregunta
+ * contra lo mismo. Por eso viaja en la respuesta: la pantalla elige su frase con él.
+ */
+export type MotivoDelRespaldo = Extract<AiErrorCode, 'model_unavailable' | 'unparseable_response'>;
+
+/**
+ * Lo que se dice cuando no se ha podido hablar con el modelo. Lo que toca es
+ * esperar, no reescribir la pregunta.
+ */
+export const SIN_CONTACTO =
+  'No hemos podido contactar con el modelo; vuelve a intentarlo en un minuto.';
+
+/**
+ * Lo que va delante del glosario cuando el modelo no ha contestado. Dice de quién
+ * es, como `DEL_GLOSARIO`, pero **no dice que la respuesta no se pudo comprobar**:
+ * no hubo respuesta que comprobar, y decirlo mandaría a buscar el fallo en la
+ * pregunta.
+ */
+export const DEL_GLOSARIO_SIN_CONTACTO = `${SIN_CONTACTO} Mientras, contesta el glosario de la aplicación, que no lo ha escrito la IA.`;
+
 export interface TeacherRequest {
   readonly key: { readonly tonic: NoteName; readonly mode: KeyMode };
   readonly question: string;
@@ -91,6 +141,13 @@ export interface TeacherAnswer {
     readonly degrees: readonly DegreeSymbol[];
     readonly chords: readonly string[];
   };
+  /**
+   * De dónde sale cuando **no** la ha escrito el modelo: del glosario, o nuestro
+   * aviso de que no ha salido. Ausente es el modelo (`respaldoDelProfesor`).
+   */
+  readonly fuente?: FuenteDeLaRespuesta;
+  /** Por qué no ha contestado el modelo. Solo lo lleva lo que tiene `fuente`. */
+  readonly motivo?: MotivoDelRespaldo;
 }
 
 /**
@@ -197,6 +254,7 @@ export function topicOf(request: TeacherRequest): string | undefined {
 export function validateTeacherAnswer(
   payload: unknown,
   request: TeacherRequest,
+  instrucciones?: string,
 ): TeacherAnswer | null {
   if (!isRecord(payload)) {
     return null;
@@ -210,6 +268,14 @@ export function validateTeacherAnswer(
     return null;
   }
   if (tema === 'fuera') {
+    // **Salvo que la pregunta sea de aquí de verdad.** El modelo de casa rechazaba
+    // «¿la aplicación sube mi audio?» y «¿puedo grabar un vídeo?» con el glosario
+    // delante diciéndole qué contestar; entonces su «fuera» no vale: se reintenta y,
+    // si insiste, contesta el glosario (`respaldoDelProfesor`). Pero rozar el
+    // glosario no basta (`esDeAqui`).
+    if (esDeAqui(request.question)) {
+      return null;
+    }
     // Ni su texto ni su ejemplo. Lo que sale es nuestra frase.
     return { answer: FUERA_DE_TEMA };
   }
@@ -222,6 +288,12 @@ export function validateTeacherAnswer(
   const result: { answer: string; example?: TeacherAnswer['example'] } = {
     answer: answer.trim().slice(0, MAX_ANSWER_LENGTH),
   };
+  // Ha dicho `musica` y no habla de música, o copia sus instrucciones: es lo que
+  // sale cuando una inyección funciona (adr/0015). Se tira como cualquier
+  // respuesta que no vale, y la ruta reintenta o contesta con lo nuestro.
+  if (!hablaDeMusica(result.answer) || copiaLasInstrucciones(result.answer, instrucciones)) {
+    return null;
+  }
   const tonic = pitchClassFromName(request.key.tonic);
   if (
     checkAnswerAgainstTheory(request.question, result.answer, { tonic, mode: request.key.mode }) !==
@@ -248,4 +320,247 @@ export function validateTeacherAnswer(
   }
 
   return result;
+}
+
+/**
+ * Las raíces de las palabras con las que se habla de música, de tocar o de esta
+ * aplicación. Comparadas por el principio, sin tildes: «acord» vale por «acorde» y
+ * «acordes».
+ *
+ * **Larga a propósito**, porque se equivoca en una sola dirección que importa: una
+ * respuesta de música que no dijera ninguna se tiraría. Por eso entra lo que suena a
+ * música aunque también se diga fuera de ella —«suena», «ritmo», «nota»—, y un
+ * acorde o un grado escritos cuentan solos. Y se queda fuera lo que en castellano
+ * es sobre todo otra cosa: «bajo» es una preposición, «modo» una manera, «mayor» y
+ * «menor» adjetivos de todo, y con ellas dentro un poema sobre París «bajo el alba»
+ * pasaba por música. Lo que caza es lo que sale cuando una inyección funciona.
+ */
+const RAICES_DE_MUSICA: readonly string[] = [
+  'acord',
+  'nota',
+  'tonalidad',
+  'tono',
+  'semiton',
+  'escala',
+  'grado',
+  'cadenci',
+  'compas',
+  'ritm',
+  'pulso',
+  'tempo',
+  'bpm',
+  'metronom',
+  'melod',
+  'armon',
+  'interval',
+  'segunda',
+  'tercera',
+  'cuarta',
+  'quinta',
+  'sexta',
+  'septima',
+  'octava',
+  'triton',
+  'tonica',
+  'dominant',
+  'subdominant',
+  'sensible',
+  'jonic',
+  'doric',
+  'frigi',
+  'lidi',
+  'mixolidi',
+  'eolic',
+  'locri',
+  'pentaton',
+  'blues',
+  'guitarr',
+  'cuerda',
+  'traste',
+  'mastil',
+  'sonid',
+  'suena',
+  'suenan',
+  'tocar',
+  'tocas',
+  'tocando',
+  'musica',
+  'cancion',
+  'estribillo',
+  'riff',
+  'punteo',
+  'rasgue',
+  'afin',
+  'cents',
+  'micro',
+  'audio',
+  'grab',
+  'ensay',
+  'compon',
+  'partitura',
+  'pentagrama',
+  'armadura',
+  'sostenid',
+  'bemol',
+  'alteracion',
+  'relativ',
+  'circulo',
+  'progresion',
+  'resuelv',
+  'sincop',
+  'contratiempo',
+  'corchea',
+  'disminuid',
+  'aumentad',
+  'suspendid',
+  'inversion',
+  'prestad',
+  'modul',
+];
+
+/**
+ * Un acorde o un grado escritos: «G7», «Am», «V/V», «bVII». La «A» sola no, que
+ * es la preposición: «A continuación, pon las patatas» pasaba por un acorde de La.
+ */
+const SIMBOLO_MUSICAL =
+  /(?<![\p{L}\p{N}])(?:[B-G][#b]?(?:maj7|m7b5|m7|m|7|5|dim|aug|sus2|sus4)?|A(?:[#b]|maj7|m7b5|m7|m|7|5|dim|aug|sus2|sus4)|b?(?:VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii)°?(?:\/[ivIV]+)?)(?![\p{L}\p{N}])/u;
+
+/**
+ * Si una respuesta habla de música: alguna de sus palabras, o un acorde o un grado
+ * escritos.
+ *
+ * El ADR 0015 descartó filtrar **la pregunta** por palabras, y con razón: «¿por qué
+ * suena triste?» no lleva ninguna técnica. La respuesta es otra cosa. A una
+ * pregunta de música se le contesta con música —esa misma la contestó el modelo
+ * con «A menor» y «Bdim»—, y lo que no lleva ni una palabra de música cuando el
+ * modelo ha dicho `musica` es que el modelo ha dicho otra cosa de la que hace.
+ */
+export function hablaDeMusica(answer: string): boolean {
+  if (SIMBOLO_MUSICAL.test(answer)) {
+    return true;
+  }
+  const palabras = answer
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/);
+  return palabras.some((palabra) => RAICES_DE_MUSICA.some((raiz) => palabra.startsWith(raiz)));
+}
+
+/**
+ * Si una pregunta que el modelo ha declarado fuera de tema es, en realidad, de aquí.
+ *
+ * **Que case con el glosario no basta**, porque la recuperación es ancha a
+ * propósito —plurales, faltas, una palabra suelta de un nombre— y en una pregunta
+ * de otra cosa eso es un roce: «¿cómo hago un modo oscuro en CSS?» casaba con los
+ * modos y «¿qué es un intervalo de confianza?» con los intervalos, y los dos
+ * costaban una llamada más para que acabara contestando el glosario. Hace falta
+ * además una de dos:
+ *
+ * - **que la nombre entera**: un nombre de varias palabras escrito tal cual —«sube
+ *   mi audio»—, o dos nombres de la misma —«grabar» y «vídeo»—;
+ * - **o que la pregunta diga otra cosa de música**, fuera de las palabras con las
+ *   que ha casado: «¿cómo afino **la guitarra**?» es de aquí aunque «afino» suelto
+ *   no lo fuera.
+ *
+ * Se equivoca hacia aceptar el «fuera»: lo que se pierde es una pregunta de música
+ * dicha con una sola palabra del glosario, y el modelo casi nunca la rechaza.
+ */
+function esDeAqui(question: string): boolean {
+  const entradas = findTheory(question);
+  if (entradas.length === 0) {
+    return false;
+  }
+  const dichas = normalizeForSearch(question).split(' ');
+  const texto = ` ${dichas.join(' ')} `;
+  const nombradas = entradas
+    .flatMap((entrada) => entrada.names)
+    .filter((nombre) => texto.includes(` ${nombre} `));
+  if (nombradas.length >= 2 || nombradas.some((nombre) => nombre.includes(' '))) {
+    return true;
+  }
+  // Lo que la ha hecho casar no cuenta como «otra»: «intervalo» es de música, y es
+  // justo la que casó. Solo los nombres de una palabra, con su plural: los de
+  // varias se llevarían «guitarra» de «afinar la guitarra», que sí es otra.
+  const suyas = entradas
+    .flatMap((entrada) => [...entrada.names, ...(entrada.aliases ?? [])])
+    .filter((nombre) => !nombre.includes(' ') && nombre.length >= 4);
+  const otras = dichas.filter((palabra) => !suyas.some((suya) => palabra.startsWith(suya)));
+  return (
+    SIMBOLO_MUSICAL.test(question) ||
+    otras.some((palabra) => RAICES_DE_MUSICA.some((raiz) => palabra.startsWith(raiz)))
+  );
+}
+
+/** Cuántas palabras seguidas de las instrucciones hacen falta para decir que las copia. */
+const PALABRAS_COPIADAS = 8;
+
+/**
+ * Si la respuesta copia las instrucciones del prompt de sistema: ocho palabras
+ * seguidas suyas.
+ *
+ * Es lo que pedía el último de los ocho casos de la auditoría, y `qwen3:8b` lo
+ * pintó entero. Ocho palabras seguidas no salen por casualidad explicando una
+ * cadencia, y siete ya se pueden: «en la tonalidad que te den» son seis. Llegan
+ * como parámetro porque el prompt de sistema vive en el servidor y esto no puede
+ * abrirlo.
+ */
+export function copiaLasInstrucciones(answer: string, instrucciones?: string): boolean {
+  if (instrucciones === undefined) {
+    return false;
+  }
+  const trozos = (texto: string) =>
+    texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+  const suyas = trozos(instrucciones);
+  const seguidas = new Set(
+    suyas
+      .slice(0, Math.max(0, suyas.length - PALABRAS_COPIADAS + 1))
+      .map((_, inicio) => suyas.slice(inicio, inicio + PALABRAS_COPIADAS).join(' ')),
+  );
+  const dichas = trozos(answer);
+  return dichas.some((_, inicio) =>
+    seguidas.has(dichas.slice(inicio, inicio + PALABRAS_COPIADAS).join(' ')),
+  );
+}
+
+/**
+ * Lo que contesta el profesor cuando el modelo no ha dado nada que valga: no ha
+ * contestado, se ha cortado o lo que dijo no pasó el validador dos veces.
+ *
+ * **Si la pregunta casa con el glosario, contesta el glosario**, resuelto en la
+ * tonalidad y diciendo que no es de la IA. Es la misma teoría que iba en el prompt,
+ * así que es lo que el modelo tenía que haber dicho. Si no casa, un aviso con los
+ * acordes de la tonalidad, que son ciertos siempre. Nunca la pantalla de error:
+ * quien pregunta ha gastado su pregunta igual.
+ *
+ * **Y lo que se dice delante depende del `motivo`.** Si el modelo contestó algo que
+ * no valía, `sinRespuesta` aconseja preguntarlo con otras palabras; si no se le pudo
+ * hablar, ese consejo hace gastar otra pregunta contra un modelo caído, y lo que
+ * toca es esperar un minuto (`SIN_CONTACTO`).
+ */
+export function respaldoDelProfesor(
+  request: TeacherRequest,
+  motivo: MotivoDelRespaldo = 'unparseable_response',
+): TeacherAnswer {
+  const key = { tonic: pitchClassFromName(request.key.tonic), mode: request.key.mode };
+  const glosario = respuestaDelGlosario(request.question, key);
+  const sinContacto = motivo === 'model_unavailable';
+  if (glosario === null) {
+    const tabla = keyChordTable(key);
+    return {
+      answer: sinContacto ? `${SIN_CONTACTO} ${tabla}` : sinRespuesta(tabla),
+      fuente: 'aviso',
+      motivo,
+    };
+  }
+  return {
+    answer: `${sinContacto ? DEL_GLOSARIO_SIN_CONTACTO : DEL_GLOSARIO} ${glosario}`,
+    fuente: 'glosario',
+    motivo,
+  };
 }

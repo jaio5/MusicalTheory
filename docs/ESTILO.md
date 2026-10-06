@@ -33,7 +33,8 @@ diagramas grandes, y el significado de un color al lado del color.
 
 - **Los controles de formulario son tres y solo tres**: `ui/Field` para elegir una
   opción, `ui/Disclosure` para abrir un bloque y `ui/TextField` para escribir.
-  Ninguno se escribe a mano —lo vigila `coherencia.test.ts`—, porque así salieron
+  Ninguno se escribe a mano —lo vigila `coherencia.test.ts`, **sin excepciones**: un
+  `<input>` o `<textarea>` fuera de `ui/TextField` falla—, porque así salieron
   cinco pintas distintas. El campo de texto estuvo suelto en catorce sitios y lo
   que la copia escondía era peor: **ninguno llegaba a los 44 px**. El ancho se pide
   (`completo`, `auto`, `crece`); heredarlo llenaba una barra de herramientas con un
@@ -72,6 +73,15 @@ la rueda / 260`: llega a 44 con una rueda de 318 px, así que **desde un teléfo
   de 390 pasa en todas partes** (44 a 50 px) **y en uno de 320 no puede** (35 a
   41): dos anillos de doce que comparten ángulo no caben en 288 px con dianas de 44. Tampoco en la columna de componer de escritorio (41), que con su relleno
   deja la rueda en 295.
+- **Con el dedo, lo que se arrastra se sujeta primero (300 ms);
+  `touch-action: none` solo en lo que no tiene eje que ceder.** Siete `none` pensados
+  para el ratón dejaban la tira de acordes sin desplazarse en un teléfono
+  ([adr/0102](./adr/0102-lo-que-se-lee-a-un-metro-se-ve-y-lo-que-se-pulsa-se-sujeta.md)).
+- **Lo que se elige leyendo a un metro es un `Chip` de tono `opcion` y tamaño
+  `grande`**: 16 px, 58 px de alto y borde `border-strong`. Seis contornos iguales
+  en fila se leen como una rejilla, no como opciones.
+- **Lo tapado se ve tapado**, con `inert:opacity-50 inert:saturate-50`: la variante y
+  no una clase que cambie al hidratar.
 - **Un mando se tabula una vez y se recorre con las flechas.** La rueda de
   quintas pedía veinticuatro turnos del tabulador —doce mayores y doce menores—,
   así que entrar en componer con el teclado y llegar a la lista de acordes era un

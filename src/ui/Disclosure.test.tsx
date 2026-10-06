@@ -79,7 +79,26 @@ describe('el desplegable', () => {
 
     const clases = container.querySelector('details > div')!.className.split(' ');
     expect(clases).toContain('max-h-[max(9rem,calc(100dvh-22rem))]');
-    expect(clases).toContain('md:max-h-[max(9rem,calc(100dvh-12rem))]');
+    expect(clases).toContain('md:max-h-[max(9rem,calc(100dvh-14rem))]');
+    expect(clases).toContain('lg:max-h-[max(9rem,calc(100dvh-12rem))]');
+  });
+
+  /**
+   * Y entre 640 y 767 descuenta menos: el tope de abajo cuenta con más marco del
+   * que hay ahí. A 700×600 el panel se quedaba en 248 px con 373 libres, y los
+   * cuatro atajos de salida salían cortados por el borde. Medido: el panel
+   * empieza en el píxel 222 en componer —cabecera con los mandos en dos filas—
+   * y en el 162 en la unidad, y la navegación de abajo mide 65.
+   */
+  it('desde sm descuenta el marco que hay de verdad entre 640 y 767', () => {
+    const { container } = render(
+      <Disclosure summary="Tonalidad" abierto flotante>
+        <p>La rueda</p>
+      </Disclosure>,
+    );
+
+    const clases = container.querySelector('details > div')!.className.split(' ');
+    expect(clases).toContain('sm:max-h-[max(9rem,calc(100dvh-18.5rem))]');
   });
 
   it('sin flotante no se posiciona nada, que es como lo usa la portada', () => {

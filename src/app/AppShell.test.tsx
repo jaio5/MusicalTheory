@@ -69,6 +69,51 @@ describe('el marco', () => {
     expect(screen.getByRole('button', { name: /Cambiar al tema/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Caos ordenado' })).toHaveAttribute('href', '/');
   });
+
+  /**
+   * A 390 con la cuenta configurada la barra se pasaba por trece píxeles, y el
+   * marco recorta: el botón de la cuenta dejaba de existir. Sin base de datos
+   * no se pinta, así que se cuenta aquí: por debajo de `sm` la marca va sin
+   * margen y con la letra a 14, los huecos a 6, y el nombre se calla a 22,5 rem
+   * de caja —lo que pide esa cuenta— y no a 22,25. Y si aun así no cabe —la
+   * letra del navegador al doble—, la barra envuelve en vez de recortar.
+   */
+  it('a 390 deja sitio al boton de la cuenta, y si no cabe envuelve', () => {
+    pintar();
+
+    const nombre = screen.getByText('Caos ordenado');
+    const marca = nombre.closest('a')!;
+    expect(nombre).toHaveClass('text-sm', 'sm:text-base', '@max-[22.5rem]:sr-only');
+    expect(marca).toHaveClass('gap-1.5', 'sm:gap-2', 'sm:mr-1');
+    expect(marca).not.toHaveClass('mr-1');
+    expect(screen.getByRole('button', { name: /Cambiar al tema/ }).parentElement).toHaveClass(
+      'gap-1.5',
+      'sm:gap-3',
+    );
+    expect(nombre.closest('header')).toHaveClass('flex-wrap');
+  });
+});
+
+/**
+ * La barra con el micro abierto.
+ *
+ * A 390, durante una toma, la pastilla del micro se metía debajo del botón del
+ * tema. Lo que cabe lo mide la sonda del skill `arrancar` en un navegador; aquí se
+ * fija la regla, que jsdom no sabe medir: **el nombre de la marca se calla cuando
+ * la barra lleva la pastilla dentro**, y lo pregunta a la pastilla y no a un
+ * estado copiado.
+ */
+describe('la barra con el micro abierto', () => {
+  it('el nombre de la marca se calla mientras hay pastilla, y se sigue leyendo', () => {
+    pintar('/componer');
+
+    const nombre = screen.getByText('Caos ordenado');
+    const barra = nombre.closest('header');
+    expect(barra).toHaveClass('group/barra', '@container');
+    expect(nombre).toHaveClass('@max-[67rem]:group-has-data-lectura/barra:sr-only');
+    // Callado a la vista: el enlace sigue llamándose así para quien no ve.
+    expect(screen.getByRole('link', { name: 'Caos ordenado' })).toBeInTheDocument();
+  });
 });
 
 describe('la navegacion', () => {

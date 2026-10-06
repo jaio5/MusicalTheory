@@ -13,14 +13,36 @@
 import { moveById, pathById } from '@core/music';
 import { Button } from '@ui/Button';
 
-import type { Version } from './contract';
+import type { Version, VersionStepOut } from './contract';
+
+/**
+ * Lo que se dice de un compás tuyo que sigue siendo el mismo acorde y dura otra
+ * cosa. **El V de un ii–V partido** es el caso que lo pidió: mismo grado, misma
+ * especie y mismo cifrado, y se pintaba apagado y con «Se queda como estaba» cuando
+ * suena la mitad.
+ */
+function loQueDura(step: VersionStepOut, antes: number): string {
+  if (step.move === 'ii-v') {
+    return 'Ahora dura la mitad: la otra mitad es su ii, que la prepara';
+  }
+  if (step.beats * 2 === antes) {
+    return 'Ahora dura la mitad que en lo que tocaste';
+  }
+  if (step.beats === antes * 2) {
+    return 'Ahora dura el doble que en lo que tocaste';
+  }
+  return `Ahora dura ${step.beats} pulsos, y en lo que tocaste ${antes}`;
+}
 
 export interface SalidaProps {
   readonly version: Version;
   /** Si es esta la que está sonando. */
   readonly suena: boolean;
   /**
-   * Qué compás va sonando, o nulo.
+   * Qué compás va sonando **de la salida entera**, o nulo.
+   *
+   * Contado sobre `version.steps`, que es lo que se toca: el reproductor no sabe
+   * de partes.
    *
    * Va aparte de `suena` y no colapsado en uno, que es lo que se intentó
    * primero: una salida puede estar sonando con el compás todavía en nulo —justo
@@ -33,6 +55,16 @@ export interface SalidaProps {
 }
 
 export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: SalidaProps) {
+  // Dónde empieza cada parte dentro de la salida entera. **El compás que suena se
+  // cuenta sobre la salida y cada parte numera los suyos desde cero**: comparando
+  // los dos a pelo, con un cierre detrás de lo tuyo se encendía a la vez el
+  // primero de cada parte y, pasado lo tuyo, el que no sonaba.
+  const empiezas: number[] = [];
+  let contados = 0;
+  for (const seccion of version.sections) {
+    empiezas.push(contados);
+    contados += seccion.steps.length;
+  }
   return (
     <li className="superficie p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -58,7 +90,7 @@ export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: Salid
       </div>
       <p className="text-text-muted mt-1 text-sm">{version.why}</p>
 
-      {version.sections.map((seccion) => (
+      {version.sections.map((seccion, parte) => (
         <div key={`${version.title}-${seccion.name}`} className="mt-3">
           {/* El nombre de la parte solo se pinta cuando hay más de una:
                 con una sola sería un rótulo de adorno encima de lo mismo
@@ -75,12 +107,24 @@ export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: Salid
           >
             {seccion.steps.map((step, index) => {
               const move = step.move === null ? null : moveById(step.move);
-              const sonandoEste = suena && compas === index;
+              const sonandoEste = suena && compas === empiezas[parte]! + index;
               // Tres estados y no dos, desde que una salida puede alargar:
               // el compás es nuevo, es tuyo y ha cambiado, o es tuyo y sigue
               // igual. Lo que no es tuyo es lo que hay que mirar primero.
               const nuevo = step.from === null;
-              const cambia = !nuevo && step.from !== step.degree;
+              const cambiaDeGrado = !nuevo && step.from !== step.degree;
+              // Y cambiar de especie también es cambiar, aunque el grado sea el
+              // mismo: un `I` que pasa a `Imaj7` no «se queda como estaba».
+              const cambiaDeEspecie =
+                !nuevo &&
+                !cambiaDeGrado &&
+                step.fromSymbol !== undefined &&
+                step.fromSymbol !== step.symbol;
+              // Y lo que dura: el mismo acorde con la mitad de pulsos ha cambiado.
+              const cambiaDeDuracion =
+                !nuevo && step.fromBeats !== undefined && step.fromBeats !== step.beats;
+              // Un movimiento declarado es un cambio aunque no se vea en lo demás.
+              const cambia = cambiaDeGrado || cambiaDeEspecie || cambiaDeDuracion || move !== null;
               return (
                 <li
                   key={`${version.title}-${seccion.name}-${index}`}
@@ -95,15 +139,23 @@ export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: Salid
                   title={
                     nuevo
                       ? 'Compás nuevo: no estaba en lo que tocaste'
-                      : cambia
-                        ? (move?.why ?? 'Cambia respecto a lo que tocaste')
-                        : 'Se queda como estaba'
+                      : !cambia
+                        ? 'Se queda como estaba'
+                        : !cambiaDeGrado && !cambiaDeEspecie && cambiaDeDuracion
+                          ? loQueDura(step, step.fromBeats)
+                          : (move?.why ?? 'Cambia respecto a lo que tocaste')
                   }
                   aria-current={sonandoEste ? 'true' : undefined}
                 >
                   <span className="text-text block font-mono text-base">{step.symbol}</span>
-                  <span className="text-text-muted block font-mono text-xs">
-                    {cambia ? `${step.from} → ${step.degree}` : step.degree}
+                  <span className="text-text-muted block text-xs">
+                    {cambiaDeGrado
+                      ? `${step.from} → ${step.degree}`
+                      : cambiaDeEspecie
+                        ? `${step.fromSymbol} → ${step.symbol}`
+                        : cambiaDeDuracion
+                          ? `${step.degree} · ${step.fromBeats} → ${step.beats} pulsos`
+                          : step.degree}
                   </span>
                   {nuevo && <span className="text-brass-bright block text-xs">nuevo</span>}
                   {move !== null && (

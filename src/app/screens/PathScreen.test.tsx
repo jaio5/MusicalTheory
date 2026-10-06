@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ANONYMOUS, type Account } from '@core/billing';
 import { EMPTY_PROGRESS, findUnit, pitchClassFromName, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
+import { CLAVE_RECORRIDO, SIN_EMPEZAR, estadoDelRecorrido } from '@state/recorrido';
 import { useSessionStore } from '@state/session-store';
 
 import { PathScreen } from './PathScreen';
@@ -54,6 +55,7 @@ describe('El profesor dentro del camino', () => {
  */
 
 const UNIDAD = findUnit(UNIT_ORDER[0]!)!;
+const DE_TOCAR = UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!;
 
 const PRO: Account = {
   email: 'javier@example.com',
@@ -87,7 +89,9 @@ describe('lo que se pulsa nueve de cada diez veces', () => {
 
   it('sin plan, al acabar el Elemental lo siguiente es el Profesional', () => {
     // Y se ofrece: aquí sí se arregla pagando.
-    const elemental = UNIT_ORDER.filter((id) => id.startsWith('e'));
+    // Por el grado de su curso y no por la letra del id: el id se conserva aunque
+    // la unidad cambie de grado, y las de blues empiezan por «e» y se cobran.
+    const elemental = UNIT_ORDER.filter((id) => findUnit(id)?.course.grade === 'elemental');
     localStorage.setItem(
       'caos-ordenado:aprender',
       JSON.stringify({ ...EMPTY_PROGRESS, done: elemental }),
@@ -149,7 +153,9 @@ describe('moverse por el camino', () => {
       'caos-ordenado:aprender',
       JSON.stringify({
         ...EMPTY_PROGRESS,
-        review: [{ unitId: UNIT_ORDER[0]!, index: 0, dueOn: dia, streak: 0 }],
+        // De una de tocar, que siempre tiene pasos a los que volver: una posición
+        // que su lección no tiene se suelta al leer, y no habría nada pendiente.
+        review: [{ unitId: DE_TOCAR, index: 0, seenOn: dia, hits: 0 }],
       }),
     );
 
@@ -196,7 +202,7 @@ describe('el rótulo del botón de seguir', () => {
   });
 
   it('y en el Profesional lo dice también', () => {
-    const profesional = UNIT_ORDER.find((id) => id.startsWith('p'))!;
+    const profesional = UNIT_ORDER.find((id) => findUnit(id)?.course.grade === 'profesional')!;
     const antes = UNIT_ORDER.slice(0, UNIT_ORDER.indexOf(profesional));
     localStorage.setItem(
       'caos-ordenado:aprender',
@@ -233,5 +239,46 @@ describe('lo que se lee y se alcanza con el teclado', () => {
     const medallas = screen.getByRole('region', { name: 'Medallas' });
 
     expect(medallas).toHaveAttribute('tabindex', '0');
+  });
+
+  // Apiladas eran quince renglones al final de la columna: van plegadas en una
+  // línea que dice cuántas llevas, y abiertas en ancho.
+  it('apiladas, las medallas van plegadas y dicen cuántas llevas', () => {
+    pintar();
+
+    const medallas = screen.getByRole('region', { name: 'Medallas' });
+    const plegable = medallas.querySelector('details')!;
+
+    expect(plegable).not.toHaveAttribute('open');
+    expect(plegable.querySelector('summary')).toHaveTextContent('Medallas: 0 de 15');
+    expect(plegable.parentElement).toHaveClass('lg:hidden');
+    expect(medallas.querySelector('.hidden.lg\\:block h2')).toHaveTextContent('Medallas');
+  });
+
+  // Era una frase gris que solo se subrayaba al pasar el ratón: no parecía pulsable.
+  it('volver a ver el recorrido tiene forma de botón', () => {
+    pintar();
+
+    expect(screen.getByRole('button', { name: /ver otra vez el recorrido/i })).toHaveClass(
+      'border-border',
+      'min-h-tap',
+    );
+  });
+});
+
+/**
+ * El recorrido de la primera visita se vuelve a ver desde aquí: es la pantalla
+ * por la que se empieza y la que está en la navegación con cualquier ancho.
+ */
+describe('volver a ver el recorrido', () => {
+  it('el botón lo vuelve a poner en marcha desde el principio', async () => {
+    localStorage.setItem(CLAVE_RECORRIDO, 'visto');
+    pintar();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Ver otra vez el recorrido por la aplicación' }),
+    );
+
+    expect(estadoDelRecorrido()).toEqual(SIN_EMPEZAR);
   });
 });

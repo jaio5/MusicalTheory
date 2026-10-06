@@ -312,13 +312,19 @@ export const PartRow = memo(function PartRow({
             no habría forma de escribir el segundo. Con el texto a medias en
             local y la validación en el `blur`, se puede teclear.
           */}
-          <input
+          {/* `ui/TextField` y no un `<input>` a mano: escrito aquí llevaba el
+              borde de separar cajas, 1,5:1 sobre el fondo, y un campo vacío es
+              solo su borde (WCAG 1.4.11 pide 3:1). `completo` porque el ancho lo
+              pone el campo con `w-14`, y en esta fila `crece` le daría doce rem
+              a dos cifras. */}
+          <TextField
             type="number"
             inputMode="numeric"
             min={minimoBars}
             max={MAX_BARS}
             value={escribiendo ?? compases}
-            aria-label={`Compases de ${part.name}`}
+            label={`Compases de ${part.name}`}
+            compact
             onChange={(event) => setEscribiendo(event.target.value)}
             onFocus={(event) => event.currentTarget.select()}
             onBlur={(event) => {
@@ -330,7 +336,7 @@ export const PartRow = memo(function PartRow({
                 event.currentTarget.blur();
               }
             }}
-            className="border-border bg-surface text-text hover:border-brass-dim focus:border-brass-dim min-h-tap w-12 rounded-md border px-1 text-center font-mono text-xs tabular-nums"
+            className="w-14 text-center font-mono tabular-nums"
           />
 
           <Chip

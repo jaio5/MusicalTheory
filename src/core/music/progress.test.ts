@@ -36,12 +36,20 @@ import {
   type BadgeId,
   type Progress,
 } from './progress';
+import { posicionesDeLaUnidad } from './posiciones';
 import { isUnitCracked, MASTERED_HITS } from './review';
 
 /** Un instante cualquiera: el dominio lo pide por parámetro y aquí da igual cuál. */
 const CUANDO = '2026-09-24T10:00:00.000Z';
 
 const C = pitchClassFromName('C');
+
+/**
+ * Una unidad a la que la cola de repaso siempre puede apuntar: la primera de
+ * tocar, que tiene un paso por nota de la escala. Las de teoría no valen para
+ * esto, porque cuántas preguntas tienen lo decide su lección y se reescribe.
+ */
+const DE_TOCAR = UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!;
 
 /** Termina unidades seguidas desde el principio, todas el mismo día. */
 function avanzar(cuantas: number, day = '2026-07-29'): Progress {
@@ -401,7 +409,8 @@ describe('missQuestion y hitQuestion', () => {
 
 describe('mergeProgress', () => {
   it('junta lo hecho en los dos sitios y recalcula el XP', () => {
-    const cuenta = completeUnit(EMPTY_PROGRESS, 'e1-grados', '2026-07-28');
+    // La de la cuenta es una de las tres del equipo: la unión no la cuenta dos veces.
+    const cuenta = completeUnit(EMPTY_PROGRESS, UNIT_ORDER[0]!, '2026-07-28');
     const equipo = avanzar(3, '2026-07-30');
 
     const junto = mergeProgress(cuenta, equipo);
@@ -555,14 +564,56 @@ describe('interpretar el avance guardado', () => {
   it('recupera la cola de repaso y tira lo que no encaja', () => {
     const progress = parseProgress({
       review: [
-        { unitId: PRIMERA, index: 1, seenOn: '2026-07-29', hits: 1 },
+        { unitId: DE_TOCAR, index: 1, seenOn: '2026-07-29', hits: 1 },
         { unitId: 'curso-de-laud-medieval', index: 0, seenOn: '2026-07-29', hits: 0 },
-        { unitId: PRIMERA, index: -3, seenOn: '2026-07-29', hits: 0 },
+        { unitId: DE_TOCAR, index: -3, seenOn: '2026-07-29', hits: 0 },
+        { unitId: DE_TOCAR, index: 1.5, seenOn: '2026-07-29', hits: 0 },
+        { unitId: DE_TOCAR, index: 'uno', seenOn: '2026-07-29', hits: 0 },
+        { unitId: 7, index: 0, seenOn: '2026-07-29', hits: 0 },
         'ni siquiera es un objeto',
       ],
     });
 
-    expect(progress.review).toEqual([{ unitId: PRIMERA, index: 1, seenOn: '2026-07-29', hits: 1 }]);
+    expect(progress.review).toEqual([
+      { unitId: DE_TOCAR, index: 1, seenOn: '2026-07-29', hits: 1 },
+    ]);
+  });
+
+  /**
+   * El temario se reescribe y la cola no: una lección puede quedarse con menos
+   * preguntas, o la unidad cambiar de lección. Lo que apunta más allá de la
+   * última no se puede volver a preguntar, y si se quedara contaría como
+   * pendiente para siempre sin que el repaso pudiera enseñarlo.
+   */
+  it('tira la posición que su unidad ya no tiene, y guarda la última que sí', () => {
+    for (const id of UNIT_ORDER) {
+      const unidad = findUnit(id)!.unit;
+      const cuantas = posicionesDeLaUnidad(unidad);
+      const leido = parseProgress(
+        {
+          review: [
+            { unitId: id, index: cuantas - 1, seenOn: '2026-07-29', hits: 0 },
+            { unitId: id, index: cuantas, seenOn: '2026-07-29', hits: 0 },
+          ],
+        },
+        posicionesDeLaUnidad,
+      );
+
+      expect(
+        leido.review.map((item) => item.index),
+        id,
+      ).toEqual(cuantas > 0 ? [cuantas - 1] : []);
+    }
+  });
+
+  // Contarlas pide generar las lecciones, y quien lee el avance en el navegador
+  // no las carga: allí la posición se deja como está y el repaso la salta.
+  it('sin saber contarlas, no tira ninguna posición', () => {
+    const leido = parseProgress({
+      review: [{ unitId: DE_TOCAR, index: 999, seenOn: '2026-07-29', hits: 0 }],
+    });
+
+    expect(leido.review.map((item) => item.index)).toEqual([999]);
   });
 
   // Con los aciertos suficientes la pregunta debería haber salido de la cola.
@@ -570,7 +621,7 @@ describe('interpretar el avance guardado', () => {
   // de quedarse una pregunta que no toca nunca.
   it('recorta los aciertos de una pregunta que debería estar fuera', () => {
     const progress = parseProgress({
-      review: [{ unitId: PRIMERA, index: 0, seenOn: '2026-07-29', hits: 99 }],
+      review: [{ unitId: DE_TOCAR, index: 0, seenOn: '2026-07-29', hits: 99 }],
     });
 
     expect(progress.review[0]?.hits).toBeLessThan(MASTERED_HITS);
@@ -1153,9 +1204,117 @@ describe('los bordes del avance guardado', () => {
   it('una fecha imposible en la cola se lee como la mas vieja', () => {
     const leido = parseProgress({
       done: [],
-      review: [{ unitId: UNIT_ORDER[0]!, index: 0, seenOn: 'ayer', hits: 0 }],
+      review: [{ unitId: DE_TOCAR, index: 0, seenOn: 'ayer', hits: 0 }],
     });
 
     expect(leido.review[0]?.seenOn).toBe('1970-01-01');
+  });
+});
+
+/**
+ * El temario se reordenó al estilo del conservatorio: unidades nuevas delante,
+ * otras que cambiaron de curso conservando su id y cinco que se retiraron por
+ * repetir la lección de otra. Lo que ya hay guardado —en el navegador y en la
+ * cuenta— se escribió con el de antes, y tiene que seguir leyéndose.
+ */
+describe('lo guardado con el temario de antes', () => {
+  /** Las unidades del temario anterior, tal cual se guardaban. */
+  const HECHAS_ANTES = [
+    'e1-grados',
+    'e1-escala',
+    'e1-oido',
+    'e1-repaso',
+    'e2-calidades',
+    'e2-menor',
+    'e2-repaso',
+    'e3-rueda',
+    'e3-oido',
+    'e3-pentatonica',
+    'e4-escalas',
+    'e4-pentatonica',
+    'e4-blues',
+    'p1-funciones',
+    'p1-oido',
+    'p1-escala',
+    'p1-repaso',
+  ];
+  const RETIRADAS = ['e1-repaso', 'p1-escala', 'p1-repaso', 'p4-tritono', 'p6-repaso'];
+
+  const GUARDADO = {
+    done: HECHAS_ANTES,
+    xp: 400,
+    streak: 3,
+    bestStreak: 9,
+    lastDay: '2026-07-29',
+    badges: ['primer-paso', 'cinco-escalas', 'elemental-superado'],
+    xpToday: 20,
+    review: [
+      { unitId: 'p1-repaso', index: 0, seenOn: '2026-07-28', hits: 0 },
+      { unitId: 'p4-tritono', index: 1, seenOn: '2026-07-28', hits: 0 },
+      { unitId: 'e1-grados', index: 0, seenOn: '2026-07-28', hits: 1 },
+      { unitId: 'e1-grados', index: 500, seenOn: '2026-07-28', hits: 0 },
+    ],
+    startCourse: 'elemental-4',
+    startCourseAt: CUANDO,
+  };
+
+  it('se queda con lo hecho que sigue en el temario y suelta lo retirado', () => {
+    const leido = parseProgress(GUARDADO);
+
+    expect(leido.done).toEqual(HECHAS_ANTES.filter((id) => !RETIRADAS.includes(id)));
+    expect(leido.xp).toBe(leido.done.reduce((total, id) => total + findUnit(id)!.unit.xp, 0));
+    // Las medallas no se recalculan: lo que se ganó, se ganó.
+    expect(leido.badges).toEqual(['primer-paso', 'cinco-escalas', 'elemental-superado']);
+  });
+
+  it('de la cola solo queda lo que se puede volver a preguntar', () => {
+    const leido = parseProgress(GUARDADO, posicionesDeLaUnidad);
+
+    expect(leido.review).toEqual([
+      { unitId: 'e1-grados', index: 0, seenOn: '2026-07-28', hits: 1 },
+    ]);
+  });
+
+  it('el punto de partida sigue existiendo, y las unidades nuevas de detrás se abren', () => {
+    const leido = parseProgress(GUARDADO);
+
+    expect(leido.startCourse).toBe('elemental-4');
+    // Todo lo anterior al punto de partida está abierto, también lo nuevo.
+    expect(isUnitUnlocked(leido, 'e1-notas')).toBe(true);
+    expect(isUnitUnlocked(leido, 'e3-menores')).toBe(true);
+    // Y por delante se sigue por la primera que falta desde allí.
+    expect(nextUnit(leido)).toBe(
+      UNIT_ORDER.slice(startIndex(leido)).find((id) => !leido.done.includes(id)),
+    );
+  });
+
+  it('sin punto de partida, lo nuevo se abre detrás de lo que ya estaba hecho', () => {
+    const leido = parseProgress({ ...GUARDADO, startCourse: null, startCourseAt: null });
+
+    expect(nextUnit(leido)).toBe(UNIT_ORDER[0]);
+    // Medir intervalos va justo detrás de la escala mayor tocada, que estaba hecha.
+    expect(isUnitUnlocked(leido, 'e2-intervalos')).toBe(true);
+    // Y lo hecho no se cierra aunque lo de delante sea nuevo y esté sin hacer.
+    expect(isUnitDone(leido, 'e1-escala')).toBe(true);
+  });
+
+  it('se funde con un avance del temario nuevo sin traer nada retirado', () => {
+    const nuevo = completeUnit(EMPTY_PROGRESS, 'e1-notas', '2026-07-30');
+    // La cuenta guardó con el temario de antes y no se pasó por la lectura: la
+    // fusión tampoco puede dejar entrar lo retirado.
+    const viejo: Progress = { ...parseProgress(GUARDADO), done: HECHAS_ANTES };
+
+    const junto = mergeProgress(viejo, nuevo);
+
+    expect(junto.done).toContain('e1-notas');
+    expect(junto.done.some((id) => RETIRADAS.includes(id))).toBe(false);
+    expect(junto.xp).toBe(junto.done.reduce((total, id) => total + findUnit(id)!.unit.xp, 0));
+  });
+
+  it('terminar una unidad nueva con medallas de antes no pierde ninguna', () => {
+    const leido = parseProgress(GUARDADO);
+    const despues = completeUnit(leido, 'e1-notas', '2026-07-30');
+
+    expect(despues.badges).toEqual(expect.arrayContaining([...leido.badges]));
   });
 });

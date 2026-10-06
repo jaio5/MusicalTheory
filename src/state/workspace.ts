@@ -116,6 +116,22 @@ export interface WorkspacePreferences {
   readonly tuningId: TuningId;
   readonly pinnedKey: PinnedKey | null;
   readonly banco: BancoLayout;
+  /**
+   * El micrófono elegido, o nulo para el del sistema.
+   *
+   * **Se guarda el identificador y el nombre**, porque el identificador solo
+   * aguanta una recarga si el permiso es para siempre: con «solo esta vez», el
+   * navegador lo cambia en cada página, y lo elegido se perdía al recargar —medido
+   * en Chromium—. El nombre, en cambio, es el mismo, y con él se le reconoce
+   * (`state/microfono.ts`).
+   */
+  readonly microfono: MicrofonoGuardado | null;
+}
+
+export interface MicrofonoGuardado {
+  readonly id: string;
+  /** Vacío si se eligió sin permiso, que es cuando el navegador no lo da. */
+  readonly nombre: string;
 }
 
 export const DEFAULT_PREFERENCES: WorkspacePreferences = {
@@ -124,6 +140,7 @@ export const DEFAULT_PREFERENCES: WorkspacePreferences = {
   tuningId: 'standard',
   pinnedKey: null,
   banco: DEFAULT_BANCO,
+  microfono: null,
 };
 
 const STORAGE_KEY = 'caos-ordenado:workspace';
@@ -145,6 +162,33 @@ export function parsePreferences(raw: unknown): WorkspacePreferences {
     tuningId: unoDe(TUNINGS, record['tuningId'], DEFAULT_PREFERENCES.tuningId),
     pinnedKey: parsePinnedKey(record['pinnedKey']),
     banco: parseBanco(record['banco']),
+    microfono: parseMicrofono(record['microfono']),
+  };
+}
+
+/**
+ * El micrófono guardado, si parece uno.
+ *
+ * No se puede comprobar contra la lista al leer —la lista llega después, y sin
+ * permiso viene vacía—, así que aquí solo se mira la forma: un identificador no
+ * vacío y los dos de un largo razonable (los de Chromium son 64 caracteres). Lo
+ * que no esté conectado lo resuelve quien abre el micro, que cae en el del
+ * sistema y lo dice.
+ */
+const LARGO_MAXIMO_DEL_MICROFONO = 256;
+
+function parseMicrofono(raw: unknown): MicrofonoGuardado | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return null;
+  }
+  const { id, nombre } = raw as Record<string, unknown>;
+  const valeId = typeof id === 'string' && id !== '' && id.length <= LARGO_MAXIMO_DEL_MICROFONO;
+  if (!valeId) {
+    return null;
+  }
+  return {
+    id,
+    nombre: typeof nombre === 'string' && nombre.length <= LARGO_MAXIMO_DEL_MICROFONO ? nombre : '',
   };
 }
 

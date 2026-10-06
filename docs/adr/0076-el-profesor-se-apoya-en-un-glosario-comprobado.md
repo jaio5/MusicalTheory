@@ -1,5 +1,9 @@
 # ADR 0076 — El profesor se apoya en un glosario comprobado
 
+> **Ampliado por [ADR 0088](./0088-el-profesor-siempre-contesta-y-sabe-mas.md):** el glosario tiene 59 entradas, el examen son 88 preguntas y, si el modelo falla, contesta el glosario como respaldo. Las cifras de 28 preguntas son las de entonces.
+
+> **Corregido el 4 de octubre de 2026** (sección del mismo día, al final): el glosario ya cifra cada acorde con la letra de su grado —`E#dim` en Fa# mayor—, y el validador lee esos cifrados por su altura.
+
 > **Ampliado y corregido el 2 de octubre de 2026** (sección «Corrección», al final): el lector de respuestas **sí lee nombres en castellano** en ciertos sitios, y un paréntesis tras un acorde es un aparte con su propia progresión.
 
 Fecha: 2026-10-02 · Estado: aceptada · Se apoya en:
@@ -158,3 +162,17 @@ Descartado: saltar solo las etiquetas del otro tipo, que deja fuera los apartes 
 progresión, y cortar la cadena siempre en el paréntesis, que parte una progresión que
 sigue detrás de él. Sigue valiendo todo lo demás de «lo que no aguanta»: acepta de
 menos antes que rechazar de más.
+
+## Corrección del 4 de octubre de 2026
+
+La viñeta de «lo que no aguanta» sobre Fa sostenido mayor **ya no es cierta**. El
+glosario cifra cada acorde con la letra de su grado y la especie de `resolveDegree`,
+como las lecciones: el vii° de F# es «E#dim = E# G# B», y lo prestado de Db mayor,
+«Fb, Bbb, Cb». La única excepción es el sustituto tritonal, que se cifra como en la
+lección de sustituciones —D7 y no Ebb7 en Db—.
+
+Y el validador lee esos cifrados por su altura —la letra y sus alteraciones, la especie
+sobre una C—, porque el lector de cifrados del dominio solo conoce los doce nombres:
+sin eso, la respuesta del propio glosario a «¿qué es la dominante de la dominante?» en
+Re# menor, que es E#7, no pasaba su validador. `resolveDegree` no cambia: lo usa
+componer, que sigue escribiendo con doce nombres.

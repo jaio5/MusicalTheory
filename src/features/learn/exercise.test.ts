@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { describePitch, midiToFrequency, pitchClassFromName } from '@core/music';
+import {
+  COURSES,
+  describePitch,
+  midiToFrequency,
+  pitchClassFromName,
+  posicionesDeLaUnidad,
+  SCALE_IDS,
+  parseSpelledName,
+  type NoteName,
+  type PitchClass,
+} from '@core/music';
 
 import {
   advanceExercise,
@@ -48,6 +58,49 @@ describe('cómo se arma el ejercicio', () => {
     const up = exercise.steps.filter((step) => !step.descending).map((step) => step.midi);
     const down = exercise.steps.filter((step) => step.descending).map((step) => step.midi);
     expect(down).toEqual([...up].reverse().slice(1));
+  });
+});
+
+/**
+ * Las notas se escriben con la letra de su grado, como en las lecciones: con los
+ * doce nombres de `noteName`, Fa# mayor decía F donde la lección dice E#.
+ */
+describe('cómo se escribe cada nota', () => {
+  const nombres = (tonic: NoteName, id: Parameters<typeof createExercise>[1]) =>
+    createExercise(pitchClassFromName(tonic), id)
+      .steps.map((step) => step.name)
+      .join(' ');
+
+  it('en Fa# mayor la séptima es E#, subiendo y bajando', () => {
+    expect(nombres('F#', 'major')).toBe('F# G# A# B C# D# E# F# E# D# C# B A# G# F#');
+  });
+
+  it('en Sol# menor, la natural lleva F# y la armónica F##', () => {
+    expect(nombres('G#', 'naturalMinor')).toBe('G# A# B C# D# E F# G# F# E D# C# B A# G#');
+    expect(nombres('G#', 'harmonicMinor')).toBe('G# A# B C# D# E F## G# F## E D# C# B A# G#');
+  });
+
+  it('Reb mayor con bemoles y Do mayor sin nada', () => {
+    expect(nombres('Db', 'major')).toBe('Db Eb F Gb Ab Bb C Db C Bb Ab Gb F Eb Db');
+    expect(nombres('C', 'major')).toBe('C D E F G A B C B A G F E D C');
+  });
+
+  it('las pentatónicas y el blues, con su nota de paso', () => {
+    expect(nombres('F#', 'majorPentatonic')).toBe('F# G# A# C# D# F# D# C# A# G# F#');
+    expect(nombres('C', 'blues')).toBe('C Eb F Gb G Bb C Bb G Gb F Eb C');
+    expect(nombres('C#', 'blues')).toBe('C# E F# G G# B C# B G# G F# E C#');
+  });
+
+  it('el nombre suena como la nota que se valida, en las doce tónicas y en todas las escalas', () => {
+    for (let tonic = 0; tonic < 12; tonic++) {
+      for (const id of SCALE_IDS) {
+        for (const step of createExercise(tonic as PitchClass, id).steps) {
+          expect(parseSpelledName(step.name).pitch, `${step.name} en ${id} de ${tonic}`).toBe(
+            step.pitchClass,
+          );
+        }
+      }
+    }
   });
 });
 
@@ -203,5 +256,24 @@ describe('un ejercicio sin pasos', () => {
     const vacio = { steps: [], scaleId: 'major' as const, tonic: A, name: 'Vacía' };
 
     expect(exerciseCompletion(INITIAL_PROGRESS, vacio as never)).toBe(0);
+  });
+});
+
+/**
+ * La cola de repaso apunta a pasos de este ejercicio, y el dominio los cuenta
+ * por su cuenta para soltar los que ya no existen: si las dos cuentas se
+ * separasen, se tiraría lo que sí se puede repasar o se quedaría lo que no.
+ */
+describe('lo que cuenta el dominio para el repaso', () => {
+  it('son los mismos pasos que tiene el ejercicio de cada unidad de tocar', () => {
+    for (const unit of COURSES.flatMap((course) => course.units)) {
+      if (unit.kind === 'play') {
+        for (const tonic of [A, C]) {
+          expect(posicionesDeLaUnidad(unit), unit.id).toBe(
+            createExercise(tonic, unit.scaleId).steps.length,
+          );
+        }
+      }
+    }
   });
 });

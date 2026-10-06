@@ -193,16 +193,30 @@ describe('el avance', () => {
     expect(leido.kind === 'ok' && leido.progress.done).toEqual(['e1-grados']);
   });
 
+  it('al leer suelta lo que la cola apunta a una pregunta que ya no existe', async () => {
+    // Lo guardado se escribió con un temario anterior, en el que esa lección
+    // tenía más preguntas.
+    const userId = await cuenta();
+    const review = [
+      { unitId: 'e1-escala', index: 0, seenOn: '2026-07-29', hits: 0 },
+      { unitId: 'e1-escala', index: 999, seenOn: '2026-07-29', hits: 0 },
+    ];
+    await progreso.saveAccountProgress(userId, { ...EMPTY_PROGRESS, review });
+
+    const leido = await progreso.loadAccountProgress(userId);
+    expect(leido.kind === 'ok' && leido.progress.review).toEqual([review[0]]);
+  });
+
   it('guardar dos veces actualiza en vez de duplicar', async () => {
     // Una fila por cuenta: si se insertara otra, leerlo devolvería la primera y
     // el avance parecería congelado.
     const userId = await cuenta();
 
     await progreso.saveAccountProgress(userId, { ...EMPTY_PROGRESS, done: ['e1-grados'] });
-    await progreso.saveAccountProgress(userId, { ...EMPTY_PROGRESS, done: ['e1-repaso'] });
+    await progreso.saveAccountProgress(userId, { ...EMPTY_PROGRESS, done: ['e1-notas'] });
 
     const leido = await progreso.loadAccountProgress(userId);
-    expect(leido.kind === 'ok' && leido.progress.done).toEqual(['e1-repaso']);
+    expect(leido.kind === 'ok' && leido.progress.done).toEqual(['e1-notas']);
   });
 });
 

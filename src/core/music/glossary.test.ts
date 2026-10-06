@@ -5,6 +5,7 @@ import { keySignature, relativeMajor, relativeMinor } from './circle-of-fifths';
 import {
   checkAnswerAgainstTheory,
   findTheory,
+  respuestaDelGlosario,
   GLOSSARY,
   keyChordTable,
   MAX_REFERENCE_LENGTH,
@@ -17,6 +18,7 @@ import { keyName, type KeyMode } from './keys';
 import { normalizePitchClass, type PitchClass } from './notes';
 import { resolveDegree, type DegreeSymbol } from './progressions';
 import { scaleNotes } from './scales';
+import { keyDegree, spelledName } from './spelling';
 
 /** Las veinticuatro tonalidades: doce tónicas por dos modos. */
 const TONALIDADES: readonly TheoryKey[] = Array.from({ length: 12 }, (_, tonic) =>
@@ -34,9 +36,19 @@ function entrada(id: string) {
   return encontrada;
 }
 
+/**
+ * El acorde de un grado de la escala como lo escribe el glosario: la especie de
+ * `resolveDegree` y la fundamental con la letra del grado —`E#dim` y no `Fdim`
+ * en Fa# mayor—. Solo para los grados sin bemol ni secundaria, que son los que
+ * se piden aquí.
+ */
 function acorde(key: TheoryKey, degree: DegreeSymbol): string {
-  return resolveDegree(key.tonic, key.mode, degree).symbol;
+  const numero = NUMEROS.indexOf(degree.replace('°', '').toUpperCase()) + 1;
+  const especie = resolveDegree(key.tonic, key.mode, degree).symbol.replace(/^[A-G][#b]?/, '');
+  return `${spelledName(keyDegree(key.tonic, key.mode, numero))}${especie}`;
 }
+
+const NUMEROS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
 const LETRAS: Readonly<Record<string, number>> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
@@ -67,9 +79,13 @@ describe('el glosario, resuelto en las veinticuatro tonalidades', () => {
     }
   });
 
-  it('hay entre treinta y cincuenta entradas, y cada nombre es de una sola', () => {
+  it('hay entre treinta y setenta entradas, y cada nombre es de una sola', () => {
+    // Setenta y no cincuenta desde que el examen ampliado enseñó lo que faltaba:
+    // la inversión, los acordes de la tonalidad, las figuras, la dominante de la
+    // dominante aparte y cinco de la aplicación. El tope no es de tokens —van dos
+    // por pregunta como mucho—, es para que no crezca sin mirarlo.
     expect(GLOSSARY.length).toBeGreaterThanOrEqual(30);
-    expect(GLOSSARY.length).toBeLessThanOrEqual(50);
+    expect(GLOSSARY.length).toBeLessThanOrEqual(70);
 
     const vistos = new Map<string, string>();
     for (const item of GLOSSARY) {
@@ -112,6 +128,38 @@ describe('el glosario, resuelto en las veinticuatro tonalidades', () => {
   it('la perfecta en Do mayor es G → C, y en La menor E → Am', () => {
     expect(theoryReference(entrada('cadencia-perfecta'), DO_MAYOR)).toContain('V → I: G → C');
     expect(theoryReference(entrada('cadencia-perfecta'), LA_MENOR)).toContain('V → i: E → Am');
+  });
+
+  /**
+   * Con los nombres del conservatorio: la perfecta pide los dos acordes en estado
+   * fundamental y la tónica arriba, y si no, es imperfecta. Decía solo «la
+   * dominante resolviendo en la tónica», que es las dos a la vez.
+   */
+  it('la perfecta dice qué la separa de la imperfecta', () => {
+    const texto = theoryReference(entrada('cadencia-perfecta'), DO_MAYOR);
+    expect(texto).toContain('estado fundamental');
+    expect(texto).toContain('tónica arriba');
+    expect(texto).toContain('imperfecta');
+  });
+
+  /**
+   * Lo que se nombra a partir de la tónica se escribe con su letra. `keyName`
+   * llamaba «Db mayor» al paralelo de C# menor —cuyo V no es G# sino Ab— y «Db
+   * mayor» a la vecina de arriba de F# mayor, que está una quinta por encima de
+   * Fa#: Do#.
+   */
+  it('el paralelo y las vecinas conservan la letra de la tónica', () => {
+    const doSostenidoMenor: TheoryKey = { tonic: 1, mode: 'minor' };
+    expect(theoryReference(entrada('prestado'), doSostenidoMenor)).toContain(
+      'G#, que es el de C# mayor',
+    );
+    expect(theoryReference(entrada('circulo-de-quintas'), { tonic: 6, mode: 'major' })).toContain(
+      'Vecinas de F# mayor: C# mayor y B mayor',
+    );
+    expect(theoryReference(entrada('circulo-de-quintas'), { tonic: 3, mode: 'major' })).toContain(
+      'Vecinas de Eb mayor: Bb mayor y Ab mayor',
+    );
+    expect(theoryReference(entrada('circulo-de-quintas'), LA_MENOR)).toContain('E menor y D menor');
   });
 
   it('la relativa es la del círculo, de los dos lados', () => {
@@ -256,10 +304,68 @@ describe('la tabla de la tonalidad', () => {
   });
 });
 
+/**
+ * Los acordes se cifran con la letra de su grado, como en las lecciones: el
+ * profesor no puede decir `Fdim` al lado de una unidad que dice `E#dim`.
+ */
+describe('cada acorde con la letra de su grado', () => {
+  const FA_SOSTENIDO_MAYOR: TheoryKey = { tonic: 6, mode: 'major' };
+  const SOL_SOSTENIDO_MENOR: TheoryKey = { tonic: 8, mode: 'minor' };
+  const RE_SOSTENIDO_MENOR: TheoryKey = { tonic: 3, mode: 'minor' };
+  const RE_BEMOL_MAYOR: TheoryKey = { tonic: 1, mode: 'major' };
+
+  it('en Fa# mayor el vii° es E#dim, y sus notas E# G# B', () => {
+    expect(keyChordTable(FA_SOSTENIDO_MAYOR)).toBe(
+      'Acordes de F# mayor. Tónica: I F#, iii A#m, vi D#m. Subdominante: ii G#m, IV B. Dominante: V C#, vii° E#dim.',
+    );
+    expect(theoryReference(entrada('disminuido'), FA_SOSTENIDO_MAYOR)).toContain(
+      'En F# mayor: E#dim = E# G# B, el vii°.',
+    );
+    expect(theoryReference(entrada('m7b5'), FA_SOSTENIDO_MAYOR)).toContain(
+      'E#m7b5 = E# G# B D#, el viiø7.',
+    );
+  });
+
+  it('en Re# menor el ii° es E#dim y la dominante de la dominante, E#7', () => {
+    expect(keyChordTable(RE_SOSTENIDO_MENOR)).toContain('Subdominante: ii° E#dim, iv G#m.');
+    expect(theoryReference(entrada('dominante-de-la-dominante'), RE_SOSTENIDO_MENOR)).toContain(
+      'En D# menor: E#7 → A#7 → D#m.',
+    );
+  });
+
+  it('en Sol# menor la armónica lleva F## y da D#', () => {
+    expect(theoryReference(entrada('menor-armonica'), SOL_SOSTENIDO_MENOR)).toContain(
+      'En G# menor: G# A# B C# D# E F##; da D# (V) y no D#m.',
+    );
+  });
+
+  it('en Reb mayor lo prestado va con la letra del grado, y el sustituto tritonal no', () => {
+    expect(theoryReference(entrada('prestado'), RE_BEMOL_MAYOR)).toContain(
+      'En Db mayor: Gbm (iv), Fb (bIII), Bbb (bVI), Cb (bVII).',
+    );
+    // Como en la lección de sustituciones: en rigor sería Ebb7, y se cifra D7.
+    expect(theoryReference(entrada('sustitucion-tritonal'), RE_BEMOL_MAYOR)).toContain(
+      'En Db mayor: D7 → Db en vez de Ab7 → Db.',
+    );
+  });
+
+  it('en Do mayor no cambia nada: ninguna letra pide alteración', () => {
+    expect(theoryReference(entrada('disminuido'), DO_MAYOR)).toContain(
+      'En C mayor: Bdim = B D F, el vii°.',
+    );
+    expect(theoryReference(entrada('prestado'), DO_MAYOR)).toContain(
+      'En C mayor: Fm (iv), Eb (bIII), Ab (bVI), Bb (bVII).',
+    );
+  });
+});
+
 describe('qué entrada contesta a cada pregunta', () => {
   it.each([
     ['¿Qué es una cadencia perfecta?', ['cadencia-perfecta']],
     ['¿Qué es una cadencia auténtica?', ['cadencia-perfecta']],
+    // La imperfecta es el mismo V → I con otra colocación, y vive en la misma
+    // entrada: antes caía en la general de las cadencias, que no la nombra.
+    ['¿Qué es una cadencia imperfecta?', ['cadencia-perfecta']],
     ['¿Qué es una cadencia?', ['cadencia']],
     [
       '¿Qué diferencia hay entre la cadencia perfecta y la plagal?',
@@ -273,7 +379,8 @@ describe('qué entrada contesta a cada pregunta', () => {
     ['¿Qué es un acorde de séptima?', ['septima-dominante']],
     ['¿Y un Cmaj7, qué es la séptima mayor?', ['maj7']],
     ['¿Por qué suena tan bien un ii–V–I?', ['ii-v-i']],
-    ['¿Qué es el V/V?', ['dominante-secundaria']],
+    ['¿Qué es el V/V?', ['dominante-de-la-dominante']],
+    ['¿Qué es una dominante secundaria?', ['dominante-secundaria']],
     ['¿Qué tiene de especial el lidio?', ['modo-lidio']],
     ['¿Qué modo es el mixolidio y cuándo lo uso?', ['modos', 'modo-mixolidio']],
     ['¿Qué notas tiene la escala de blues?', ['blues']],
@@ -634,16 +741,31 @@ describe('comprobar lo que contesta el profesor', () => {
   });
 
   /**
-   * El patrón de cifrados deja pasar una letra con su alteración, y `E#`, `Cb` o
-   * `Fb7` son de esas: suenan, pero el lector del dominio no los conoce. No son de
-   * la tonalidad, y no hacen de ningún grado.
+   * El glosario escribe cada fundamental con la letra de su grado —`E#dim` en Fa#
+   * mayor, `Cb` como bVII de Reb—, así que el validador las lee por su altura,
+   * como las notas: si no, rechazaría la respuesta que copia la referencia. Leídas
+   * así, `Fb7 → Cb` en Do mayor es E7 → B, que no es ninguna cadencia.
    */
-  it('un cifrado que el lector no conoce no es de la tonalidad', () => {
+  it('un cifrado con la letra del grado se lee por lo que suena', () => {
     expect(comprueba('¿Qué es la cadencia perfecta?', 'La perfecta es Fb7 → Cb.')).not.toBeNull();
     expect(comprueba('¿Qué es una semicadencia?', 'La semicadencia: C → E#.')).not.toBeNull();
     expect(
       comprueba('¿Qué es la cadencia perfecta?', 'La perfecta es G → C; E# y Cb son otra cosa.'),
     ).toBeNull();
+
+    const reSostenidoMenor: TheoryKey = { tonic: 3, mode: 'minor' };
+    expect(
+      comprueba('¿Qué es la dominante de la dominante?', 'Es E#7, que va a A#7.', reSostenidoMenor),
+    ).toBeNull();
+    expect(
+      comprueba('¿Qué es la dominante de la dominante?', 'Es B7, que va a A#7.', reSostenidoMenor),
+    ).not.toBeNull();
+
+    const faSostenidoMayor: TheoryKey = { tonic: 6, mode: 'major' };
+    expect(comprueba('x', 'El E#dim (vii°) tira a F#.', faSostenidoMayor)).toBeNull();
+    // Suena igual, y el validador mira alturas: no es él quien enseña a escribir.
+    expect(comprueba('x', 'El Fdim (vii°) tira a F#.', faSostenidoMayor)).toBeNull();
+    expect(comprueba('x', 'El C#dim (vii°) tira a F#.', faSostenidoMayor)).toMatch(/vii°/);
   });
 
   it('lo que no tiene firma no se comprueba', () => {
@@ -670,5 +792,303 @@ describe('las firmas, en los dos modos', () => {
         }
       }
     }
+  });
+});
+
+describe('encontrar la pregunta escrita como se escribe', () => {
+  it.each([
+    // Singular y plural, en los dos sentidos.
+    ['¿Qué son las cadencias perfectas?', 'cadencia-perfecta'],
+    ['¿Qué es un acorde prestado?', 'prestado'],
+    ['¿Y los acordes prestados?', 'prestado'],
+    ['¿Cuántos compases tiene un blues?', 'blues-de-doce'],
+    // Las abreviaturas de un mensaje.
+    ['q es el circulo d quintas', 'circulo-de-quintas'],
+    // Faltas de una letra, y de dos en una palabra larga.
+    ['q es una kadencia perfeta', 'cadencia-perfecta'],
+    ['que es el modo frijio', 'modo-frigio'],
+    ['la pentatnica menor', 'pentatonica-menor'],
+    ['una cadnecia plagal', 'cadencia-plagal'],
+    // Los grados prestados, por su cifra.
+    ['¿Qué es el bVII y de dónde sale?', 'prestado'],
+  ])('%s', (pregunta, esperada) => {
+    expect(findTheory(pregunta).map((item) => item.id)).toContain(esperada);
+  });
+
+  it('lo que está bien escrito no se corrige a otra cosa', () => {
+    // «armonía» está en «armonía funcional», y a una letra de «armónica».
+    expect(findTheory('¿Qué es la armonía funcional?').map((item) => item.id)).toEqual([
+      'funciones',
+    ]);
+    expect(findTheory('¿Qué es la armonía?')).toEqual([]);
+  });
+
+  it('las palabras corrientes no se corrigen nunca: «tiempo» no es «tempo»', () => {
+    expect(findTheory('¿Qué tiempo hará mañana?')).toEqual([]);
+    expect(findTheory('¿Cuántas negras caben en un compás de 3/4?').map((item) => item.id)).toEqual(
+      ['compas', 'figuras'],
+    );
+  });
+
+  it('en una palabra corta, una letra es otra palabra y no se corrige', () => {
+    expect(findTheory('¿Qué es una rata?')).toEqual([]);
+  });
+});
+
+describe('las notas de un acorde escrito en la pregunta', () => {
+  it.each([
+    [
+      '¿Qué notas tiene un G7?',
+      'Notas de G7: G B D F (fundamental, 3.ª mayor, 5.ª justa, 7.ª menor).',
+    ],
+    ['q notas lleva el acorde de re mayor', 'Notas de D: D F# A'],
+    ['¿Qué notas forman el acorde de la menor?', 'Notas de Am: A C E'],
+    ['¿Cómo se forma el acorde de A menor?', 'Notas de Am: A C E'],
+    ['¿Qué notas tiene sol7?', 'Notas de G7: G B D F'],
+    ['¿Qué notas tiene el acorde de A mayor?', 'Notas de A: A C# E'],
+    // El primero que se escribe.
+    ['¿Qué notas tienen un C y un G7?', 'Notas de C: C E G'],
+    ['¿Qué notas tiene el acorde de si bemol?', 'Notas de Bb: Bb D F'],
+    ['¿Y las notas de un Bm7b5?', 'Notas de Bm7b5: B D F A'],
+  ])('%s', (pregunta, esperada) => {
+    const [primera] = findTheory(pregunta);
+
+    expect(primera === undefined ? '' : theoryReference(primera, DO_MAYOR)).toContain(esperada);
+  });
+
+  it('sin preguntar notas no hay entrada del acorde', () => {
+    expect(findTheory('¿Por qué suena tan bien un G7?').map((item) => item.id)).not.toContain(
+      'notas-de-G7',
+    );
+  });
+
+  it('«A menor» a secas es la tonalidad, y «mi canción» no es el acorde de Mi', () => {
+    expect(
+      findTheory('¿Qué notas tiene la escala de A menor?').filter((item) =>
+        item.id.startsWith('notas-de'),
+      ),
+    ).toEqual([]);
+    expect(findTheory('¿Qué notas lleva el acorde de mi canción?')).toEqual([]);
+  });
+
+  it('las especies que no se deletrean contando semitonos no tienen entrada', () => {
+    expect(findTheory('¿Qué notas tiene un Bdim7?')).toEqual([]);
+  });
+});
+
+describe('comprobar las notas que se preguntan', () => {
+  it('las de un acorde tienen que estar todas, en letra o en castellano', () => {
+    const pregunta = 'q notas lleva el acorde de re mayor';
+    const enRe: TheoryKey = { tonic: 2, mode: 'major' };
+
+    // Lo que contestó el modelo de casa: «sol» en vez de «la».
+    expect(
+      comprueba(pregunta, 'El acorde de re mayor lleva las notas re, fa#, sol.', enRe),
+    ).not.toBeNull();
+    expect(comprueba(pregunta, 'Lleva D, F# y A.', enRe)).toBeNull();
+    expect(comprueba(pregunta, 'Lleva re, fa sostenido y la.', enRe)).toBeNull();
+    // Valen igual dichas de otra tonalidad: las notas de un acorde no dependen de ella.
+    expect(comprueba(pregunta, 'Lleva D, Gb y A.', DO_MAYOR)).toBeNull();
+  });
+
+  it('las de la escala de la tonalidad, también', () => {
+    const enMi: TheoryKey = { tonic: 4, mode: 'minor' };
+    const pregunta = '¿Qué notas tiene la pentatónica menor?';
+
+    expect(
+      comprueba(pregunta, 'E, G, A, B y D: la menor sin la segunda ni la sexta.', enMi),
+    ).toBeNull();
+    expect(comprueba(pregunta, 'E, G, A y B.', enMi)).not.toBeNull();
+  });
+
+  it('no comprueba la escala que puede ser de dos tónicas', () => {
+    // En Do mayor, «la pentatónica menor» puede ser la de Do o la de La.
+    expect(comprueba('¿Qué notas tiene la pentatónica menor?', 'C, Eb, F, G y Bb.')).toBeNull();
+  });
+
+  it('ni la escala si la pregunta es de otra tonalidad, ni nada si no pide notas', () => {
+    expect(comprueba('¿Qué notas tiene la escala mayor de G mayor?', 'G y nada más.')).toBeNull();
+    expect(comprueba('¿Qué es la escala mayor?', 'Siete notas: T T S T T T S.')).toBeNull();
+  });
+});
+
+describe('comprobar los intervalos', () => {
+  it('un intervalo no puede medir otros semitonos que los suyos', () => {
+    expect(comprueba('¿Qué es un acorde mayor?', 'La tercera mayor tiene 3 semitonos.')).toMatch(
+      /tercera mayor/,
+    );
+    expect(comprueba('x', 'Un tritono son cinco semitonos.')).not.toBeNull();
+    expect(
+      comprueba('x', 'La tercera mayor tiene cuatro semitonos y la quinta justa 7.'),
+    ).toBeNull();
+    expect(comprueba('x', 'Una octava de 12 semitonos.')).toBeNull();
+  });
+
+  it('lo que va separado del nombre no se lee', () => {
+    expect(comprueba('x', 'La tercera mayor, de C a E, son cuatro semitonos.')).toBeNull();
+  });
+});
+
+describe('comprobar la armadura', () => {
+  const pregunta = '¿Cuántos sostenidos tiene la armadura?';
+
+  it('la cuenta tiene que ser la suya', () => {
+    const enMi: TheoryKey = { tonic: 4, mode: 'major' };
+
+    // Lo que contestó el modelo de casa.
+    expect(comprueba(pregunta, 'La armadura de Mi mayor tiene 1 sostenido: F#.', enMi)).toMatch(
+      /armadura/,
+    );
+    expect(comprueba(pregunta, 'Lleva cuatro sostenidos: F#, C#, G# y D#.', enMi)).toBeNull();
+    expect(comprueba(pregunta, 'Lleva F#, C#, G# y D#.', enMi)).toBeNull();
+  });
+
+  it('vale con que una cuenta sea la buena, y sin alteraciones se dice de varias maneras', () => {
+    const enFa: TheoryKey = { tonic: 5, mode: 'major' };
+
+    expect(comprueba(pregunta, 'Ningún sostenido: lleva un bemol, el Bb.', enFa)).toBeNull();
+    expect(comprueba(pregunta, 'Tiene 0 sostenidos.', enFa)).toBeNull();
+    expect(comprueba(pregunta, 'Tiene dos bemoles.', enFa)).not.toBeNull();
+    expect(comprueba(pregunta, 'C mayor no lleva alteraciones.')).toBeNull();
+    expect(comprueba(pregunta, 'C mayor no lleva ningún sostenido ni bemol.')).toBeNull();
+    expect(comprueba(pregunta, 'Lleva un sostenido.')).not.toBeNull();
+  });
+});
+
+describe('comprobar el acorde que se pregunta', () => {
+  const enFa: TheoryKey = { tonic: 5, mode: 'major' };
+
+  it('la dominante de la dominante tiene que ser la suya', () => {
+    const pregunta = '¿Cuál es la dominante de la dominante?';
+
+    // Las dos que contestó el modelo de casa en Fa mayor.
+    expect(
+      comprueba(
+        pregunta,
+        'La dominante de la dominante es el V/V, que en F mayor es C7. Lleva a la dominante C.',
+        enFa,
+      ),
+    ).not.toBeNull();
+    expect(comprueba(pregunta, 'Es el G7, que lleva a C7 y de ahí a F.', enFa)).toBeNull();
+    // Sin un solo acorde explica sin equivocarse, y pasa.
+    expect(comprueba(pregunta, 'Es el V del V: lleva a la dominante.', enFa)).toBeNull();
+    // Por un alias, «el V de V», no se exige: puede contestar sin nombrarla.
+    expect(
+      comprueba('¿Qué es el V de V?', 'La dominante de la dominante lleva al C.', enFa),
+    ).toBeNull();
+  });
+
+  it('la dominante dicha tiene que ser el V, y no la de otra tonalidad', () => {
+    const bb: TheoryKey = { tonic: 10, mode: 'major' };
+
+    expect(
+      comprueba('¿Cuál es la dominante?', 'La dominante de Bb mayor es Eb.', bb),
+    ).not.toBeNull();
+    expect(comprueba('¿Cuál es la dominante?', 'La dominante de Bb mayor es F.', bb)).toBeNull();
+    expect(comprueba('x', 'La dominante es Eb.', bb)).toMatch(/dominante es Eb/);
+    expect(comprueba('x', 'La dominante de G mayor es D.', bb)).toBeNull();
+    expect(comprueba('x', 'La dominante de la dominante es C7.', bb)).toBeNull();
+  });
+
+  it('los acordes de la tonalidad tienen que estar escritos', () => {
+    const pregunta = 'ke acordes van bien en esta tonalidad, osea los q tiene';
+
+    // Lo que contestó el modelo de casa: grados a secas.
+    expect(
+      comprueba(
+        pregunta,
+        'Los acordes que van bien son los de i, ii°, III, iv, v, VI y VII.',
+        LA_MENOR,
+      ),
+    ).not.toBeNull();
+    expect(comprueba(pregunta, 'Am, Bdim, C, Dm, Em, F y G, y el E.', LA_MENOR)).toBeNull();
+  });
+});
+
+describe('comprobar los modos', () => {
+  it('por los siete modos, hay que nombrarlos', () => {
+    const pregunta = '¿Qué diferencia hay entre los siete modos?';
+
+    expect(comprueba(pregunta, 'Cada uno tiene un sonido distinto.', LA_MENOR)).not.toBeNull();
+    expect(
+      comprueba(
+        pregunta,
+        'El jónico y el lidio son mayores; el dórico y el frigio, menores.',
+        LA_MENOR,
+      ),
+    ).toBeNull();
+  });
+
+  it('por uno de ellos, no', () => {
+    expect(comprueba('¿Qué modos hay como el dórico?', 'Es menor con la sexta mayor.')).toBeNull();
+  });
+});
+
+describe('un acorde con su grado al lado', () => {
+  const enFa: TheoryKey = { tonic: 5, mode: 'major' };
+
+  it('tiene que ser ese grado', () => {
+    expect(comprueba('x', 'Si usas D7 (V/vi), va a Dm.', enFa)).toMatch(/V\/vi/);
+    expect(comprueba('x', 'Usa A7, que es el V/V.', enFa)).not.toBeNull();
+    expect(comprueba('x', 'El V es G.', enFa)).not.toBeNull();
+    expect(comprueba('x', 'A7 (V/vi) va a Dm, y C (V) a F.', enFa)).toBeNull();
+    expect(comprueba('x', 'El bVII = Eb.', enFa)).toBeNull();
+  });
+
+  it('en menor, el VI y el VII pueden ser los subidos', () => {
+    expect(comprueba('x', 'G (VII) o G#dim (vii°), y F (VI).', LA_MENOR)).toBeNull();
+    expect(comprueba('x', 'Bb (VII).', LA_MENOR)).not.toBeNull();
+  });
+
+  it('lo de otra tonalidad, lo que va con «de» y los paréntesis con más de una pieza no se miran', () => {
+    expect(comprueba('x', 'En su relativa, A menor: da E (V).')).toBeNull();
+    expect(comprueba('x', 'G7 es el V de C.', enFa)).toBeNull();
+    expect(comprueba('x', 'V → I (G → C).', enFa)).toBeNull();
+    expect(comprueba('x', 'G (V de C).', enFa)).toBeNull();
+  });
+});
+
+describe('contestar con el glosario', () => {
+  it('nada si no casa, y las entradas resueltas si casa', () => {
+    expect(respuestaDelGlosario('¿Cómo cambio las cuerdas?', DO_MAYOR)).toBeNull();
+    expect(respuestaDelGlosario('¿Qué es una cadencia plagal?', DO_MAYOR)).toContain(
+      'IV → I: F → C',
+    );
+  });
+
+  /**
+   * Lo que contesta el glosario tiene que pasar el mismo validador que la
+   * respuesta del modelo, en las veinticuatro: si no, la ruta tiraría la referencia
+   * que le da al modelo, y el respaldo diría algo que la aplicación da por falso.
+   */
+  it('pasa su propio validador en las veinticuatro tonalidades', () => {
+    const preguntas = [
+      ...GLOSSARY.map((item) => `¿Qué es ${item.names[0] ?? item.id}?`),
+      ...GLOSSARY.filter((item) => item.notesOf !== undefined).map(
+        (item) => `¿Qué notas tiene ${item.names[0] ?? item.id}?`,
+      ),
+      '¿Qué notas tiene un G7?',
+      '¿Cuál es la dominante de la dominante?',
+      '¿Qué diferencia hay entre los siete modos?',
+      '¿Qué acordes tiene esta tonalidad?',
+    ];
+    for (const key of TONALIDADES) {
+      for (const pregunta of preguntas) {
+        const respuesta = respuestaDelGlosario(pregunta, key);
+        if (respuesta !== null) {
+          expect(
+            checkAnswerAgainstTheory(pregunta, respuesta, key),
+            `${pregunta} en ${keyName(key.tonic, key.mode)}`,
+          ).toBeNull();
+        }
+      }
+    }
+    // Son unas dos mil comprobaciones: con el equipo cargado pasan de los cinco
+    // segundos de serie.
+  }, 30_000);
+
+  it('la aplicación, con lo que de verdad hace: la afinación sale del mástil', () => {
+    expect(respuestaDelGlosario('¿Cómo afino la guitarra?', DO_MAYOR)).toContain('E A D G B E');
+    expect(respuestaDelGlosario('¿Puedo grabar un vídeo?', DO_MAYOR)).toContain('No graba vídeo');
   });
 });

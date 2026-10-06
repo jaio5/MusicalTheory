@@ -31,9 +31,11 @@ import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
  * acordes, que es lo que distingue haber entendido el V grado de haberse aprendido
  * que la respuesta era Sol.
  *
- * El precio de esta decisión: si una unidad desaparece del temario, sus preguntas
- * pendientes desaparecen con ella. Es correcto —no hay nada que preguntar— y por
- * eso `parseProgress` las tira al leer.
+ * El precio de esta decisión: si una unidad desaparece del temario, o su lección
+ * se queda con menos preguntas, lo pendiente que apuntaba allí desaparece con
+ * ella. Es correcto —no hay nada que preguntar— y por eso `parseProgress` lo tira
+ * al leer: si se quedara, contaría como pendiente en el camino sin que aquí
+ * saliera nunca.
  *
  * **Se repasan las dos cosas.** Una unidad de teoría trae su pregunta; una de
  * tocar trae la nota que se te atragantó, y esa se contesta con la guitarra. Van

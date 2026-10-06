@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { LanzadorDelRecorrido } from '@features/tour';
+
 import { AppShell } from '../AppShell';
 
 /**
@@ -21,7 +23,19 @@ import { AppShell } from '../AppShell';
  * raíz: la portada pinta su propia sala, sin barra, y no tiene por qué descargar
  * la barra ni el micro. El paréntesis del nombre hace que `(marco)` no salga en
  * la dirección. El `force-dynamic` del layout raíz vale también aquí: lo hereda.
+ *
+ * **El recorrido de la primera visita vive aquí, al lado del marco y no dentro.**
+ * Aquí porque sale la primera vez que se entra en cualquier pantalla de trabajo,
+ * y no en la portada; y porque, como el marco, no se desmonta al navegar, que es
+ * lo que le deja ir de una pantalla a otra sin perderse. Al lado y no dentro de
+ * `AppShell` porque no es parte de la barra: es un diálogo que se pone encima de
+ * todo, y la barra no tiene por qué saber que existe.
  */
 export default function Marco({ children }: { children: ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <>
+      <AppShell>{children}</AppShell>
+      <LanzadorDelRecorrido />
+    </>
+  );
 }

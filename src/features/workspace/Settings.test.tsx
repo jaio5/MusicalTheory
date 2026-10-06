@@ -5,6 +5,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { STYLE_GROUPS, STYLE_IDS } from '@core/music';
 import { useSessionStore } from '@state/session-store';
 
 import { Settings } from './Settings';
@@ -33,6 +34,26 @@ describe('los ajustes del taller', () => {
     await userEvent.selectOptions(estilo, 'jazz');
 
     expect(useSessionStore.getState().styleId).toBe('jazz');
+  });
+
+  it('los doce estilos están, en tres grupos y cada uno una vez', () => {
+    render(<Settings />);
+
+    const estilo = screen.getByLabelText(/estilo/i);
+    const grupos = [...estilo.querySelectorAll('optgroup')];
+    expect(grupos.map((grupo) => grupo.label)).toEqual(STYLE_GROUPS.map((grupo) => grupo.name));
+    const opciones = [...estilo.querySelectorAll('option')].map((opcion) => opcion.value);
+    expect([...opciones].sort()).toEqual([...STYLE_IDS].sort());
+  });
+
+  it('se puede elegir uno de los nuevos, y se ve con su nombre', async () => {
+    render(<Settings />);
+
+    const estilo = screen.getByLabelText(/estilo/i);
+    await userEvent.selectOptions(estilo, 'flamenco');
+
+    expect(useSessionStore.getState().styleId).toBe('flamenco');
+    expect(screen.getByRole('option', { name: 'Flamenco' })).toBeInTheDocument();
   });
 
   it('elegir una escala, igual', async () => {

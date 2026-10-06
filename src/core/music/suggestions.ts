@@ -211,6 +211,18 @@ function seventhWhy(shape: ShapeId): string {
   }
 }
 
+/**
+ * Los grados de la escala que un estilo **evita** aunque sean de la tonalidad: la v
+ * menor en flamenco y en bolero, donde la dominante es mayor y con sensible. Con el
+ * peso de los diatónicos salía arriba, al lado del V que es su centro.
+ */
+const GRADOS_QUE_SE_EVITAN: Readonly<
+  Record<KeyMode, Readonly<Record<string, Partial<Record<StyleId, number>>>>>
+> = {
+  major: {},
+  minor: { v: { flamenco: 0.3, bolero: 0.4 } },
+};
+
 function diatonicCandidates(mode: KeyMode): Candidate[] {
   const degrees = mode === 'major' ? MAJOR_DEGREES : MINOR_DEGREES;
   const romans = mode === 'major' ? MAJOR_ROMAN : MINOR_ROMAN;
@@ -224,6 +236,7 @@ function diatonicCandidates(mode: KeyMode): Candidate[] {
     const substitution = substitutionOfDegree(mode, index);
     const rank = teachingRank(mode, index);
 
+    const evitado = GRADOS_QUE_SE_EVITAN[mode][romans[index]!];
     candidates.push({
       rootOffset: offset,
       shape: shapes[index]!,
@@ -233,6 +246,7 @@ function diatonicCandidates(mode: KeyMode): Candidate[] {
       role,
       rank,
       substitution,
+      ...(evitado === undefined ? {} : { weights: evitado }),
     });
     candidates.push({
       rootOffset: offset,
@@ -410,7 +424,9 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
         label: 'I7',
         family: 'borrowed',
         why: 'La tónica con séptima menor. En blues no es una licencia, es la norma.',
-        weights: { blues: 1, rock: 0.55 },
+        // Y en funk tampoco: es el vamp. En country y en bolero es la tónica que se
+        // hace dominante del IV, el I7 que abre el cambio.
+        weights: { blues: 1, funk: 1, rock: 0.55, country: 0.6, bolero: 0.7 },
         role: 'tonic',
         rank: OUTSIDE_RANK + 14,
       },
@@ -420,7 +436,7 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
         label: 'IV7',
         family: 'borrowed',
         why: 'El cuarto grado también dominante: el compás cinco del blues.',
-        weights: { blues: 0.95, rock: 0.5 },
+        weights: { blues: 0.95, funk: 0.95, rock: 0.5, country: 0.45 },
         role: 'subdominant',
         rank: OUTSIDE_RANK + 15,
       },
@@ -434,6 +450,8 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
       label: 'IV',
       family: 'borrowed',
       why: 'El cuarto grado mayor: color dórico dentro del menor.',
+      // El im7 – IV7 es el vamp del funk en menor, y el i – IV, el del reggae.
+      weights: { funk: 0.9, reggae: 0.6 },
       role: 'subdominant',
       rank: OUTSIDE_RANK + 11,
       substitution: {
@@ -447,6 +465,9 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
       label: 'V',
       family: 'borrowed',
       why: 'Dominante con sensible, prestada del menor armónico. Aprieta más que la menor.',
+      // En flamenco es el centro, adonde llega la andaluza; en bolero, la dominante
+      // de siempre. En ninguno de los dos es un préstamo.
+      weights: { flamenco: 1, bolero: 0.95 },
       role: 'dominant',
       rank: OUTSIDE_RANK + 10,
       substitution: {
@@ -460,6 +481,7 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
       label: 'V7',
       family: 'borrowed',
       why: 'La misma dominante con séptima: pide volver a casa.',
+      weights: { bolero: 1, flamenco: 0.7 },
       role: 'dominant',
       rank: OUTSIDE_RANK + 12,
     },
@@ -472,8 +494,9 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
       role: 'tonic',
       rank: OUTSIDE_RANK + 13,
       // En folk y en jazz es un final de toda la vida; en rock y metal, casi
-      // nunca. Con el peso de la familia salía demasiado arriba en rock.
-      weights: { rock: 0.25, metal: 0.15, pop: 0.3 },
+      // nunca. Con el peso de la familia salía demasiado arriba en rock. Tampoco en
+      // un vamp de funk o de reggae, que no acaba: vuelve.
+      weights: { rock: 0.25, metal: 0.15, pop: 0.3, funk: 0.2, reggae: 0.2 },
     },
   ];
 }
@@ -573,6 +596,8 @@ function chromaticCandidates(mode: KeyMode): Candidate[] {
       label: 'V7b9',
       family: 'altered',
       why: 'Dominante con la novena bemol: aprieta hacia el menor.',
+      // La novena bemol sobre el V es la nota del flamenco, el Fa sobre el Mi.
+      weights: { flamenco: 0.8 },
       role: 'dominant',
       rank: OUTSIDE_RANK + 64,
     },

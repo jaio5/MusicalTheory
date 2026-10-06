@@ -2,6 +2,8 @@
 
 Fecha: 2026-09-23 · Estado: aceptada · Corrige: [ADR 0022](./0022-aprender-de-oido.md)
 
+Sustituido en parte por [ADR 0096](./0096-el-temario-sigue-al-conservatorio.md): el temario ya no son 34 unidades sino 41, el oído son diez clases con el dictado de intervalos, y los cursos que se decían cojos se reparten de otro modo.
+
 ## Contexto
 
 Revisando el temario apareció una unidad que no se puede hacer: `p2-oido`, «Qué
@@ -104,7 +106,7 @@ haber oído ninguno es memorizar una tabla.
 
 ## Consecuencias
 
-El temario pasa de **31 unidades a 34**, y el oído de seis clases a nueve. De los
+El temario pasa de **31 unidades a 34**, y el oído de seis clases a nueve (hoy son diez: el ADR 0096 añade el dictado de intervalos). De los
 diez cursos, los que estaban cojos bajan de seis a tres, y **los tres que quedan
 lo están por el mismo motivo: les falta una unidad de tocar que hoy no se puede
 escribir.**

@@ -1,5 +1,9 @@
 # ADR 0016 — Salidas en vez de versiones: la declaración sube del compás al camino
 
+> **Ampliado por [ADR 0089](./0089-las-salidas-las-construye-el-dominio-y-el-modelo-elige.md):** el esquema de las salidas es `{opcion, title, why}`; sustituye en parte lo que 0086 dice de `desde`.
+
+> **Ampliado por [ADR 0097](./0097-las-salidas-se-juzgan-por-lo-que-encajan.md):** las salidas se ordenan por un juez de encaje y se aplican solo a la parte a la que se refieren.
+
 > **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** las ideas ya no existen, y las salidas entran en Medio, no en Pro.
 
 > **Ampliado por [ADR 0086](./0086-retocar-devuelve-solo-lo-que-cambia.md):** al retocar, el modelo tampoco devuelve la canción entera: dice desde qué compás cambia, devuelve solo ese trozo y el servidor la monta.

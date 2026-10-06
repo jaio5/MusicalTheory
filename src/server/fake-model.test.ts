@@ -1,100 +1,68 @@
 import { describe, expect, it } from 'vitest';
 
-import { degreesFor, isValidPath, type DegreeSymbol, type KeyMode } from '@core/music';
+import { degreesFor, salidasPosibles, type DegreeSymbol, type KeyMode } from '@core/music';
 
 import { SIN_IA, respuestaSinIA, versionesSinIA } from './fake-model';
 
 /**
  * El modelo que no piensa.
  *
- * Lo que devuelve sale del dominio y no de un fichero de ejemplos: las versiones
- * se construyen aplicando movimientos de verdad, así que pasan la misma
- * verificación que pasaría una respuesta del modelo. Eso es lo que permite
- * probar la pantalla entera sin gastar un céntimo.
+ * Contesta como el modelo: **un número del menú, un título y un porqué**. El menú
+ * se lo da la ruta, el mismo que se le enseña al modelo, y la ruta decide también
+ * cuáles contesta (`lasTresMejores`). Que montado pase el contrato lo prueba
+ * `app/api/sin-clave.test.ts`, que es la capa que ve los dos lados.
  *
  * Y todo lo que sale de aquí lo dice en su propio texto: en pantalla se lee «Sin
  * IA» y no un título que parezca escrito por alguien.
  */
-const EN_LA_MENOR = {
-  tonic: 'A' as const,
-  mode: 'minor' as const,
-  progression: [
-    { degree: 'i' as const, beats: 4 },
-    { degree: 'VI' as const, beats: 4 },
-    { degree: 'III' as const, beats: 4 },
-    { degree: 'VII' as const, beats: 4 },
-  ],
-};
+const MENU = salidasPosibles('minor', 'retocar', [
+  { degree: 'i', beats: 4 },
+  { degree: 'VI', beats: 4 },
+  { degree: 'III', beats: 4 },
+  { degree: 'VII', beats: 4 },
+]);
 
-function versiones(peticion = EN_LA_MENOR) {
-  return versionesSinIA(peticion) as { versions: Array<{ path: string; title: string }> };
+function versiones(peticion: Parameters<typeof versionesSinIA>[0] = { menu: MENU }) {
+  return versionesSinIA(peticion).versions;
 }
 
 describe('las salidas sin IA', () => {
-  it('cada una lleva escrito que no las ha escrito nadie', () => {
-    const { versions } = versiones();
-
-    expect(versions.length).toBeGreaterThan(0);
-    expect(versions.every((version) => version.title.includes(SIN_IA))).toBe(true);
+  it('sin decir cuáles, las tres primeras del menú, en su orden', () => {
+    expect(MENU.length).toBeGreaterThan(3);
+    expect(versiones().map((v) => v.opcion)).toEqual([1, 2, 3]);
   });
 
-  /**
-   * Sin un solo acorde no hay nada que rearmonizar ni que alargar, y tampoco
-   * hay «el primero, el doble»: no se inventa una salida sobre nada.
-   */
-  it('sin acordes no sale ninguna', () => {
-    const { versions } = versiones({ ...EN_LA_MENOR, progression: [] });
-
-    expect(versions).toEqual([]);
+  it('las que le dicen, por su número, y nunca una que el menú no tiene', () => {
+    expect(versiones({ menu: MENU, elegidas: [1, 3, 4] }).map((v) => v.opcion)).toEqual([1, 3, 4]);
+    expect(
+      versiones({ menu: MENU.slice(0, 3), elegidas: [1, 3, 4, 9] }).map((v) => v.opcion),
+    ).toEqual([1, 3]);
   });
 
-  // Y en mayor se alarga hacia su tónica, que no es la misma que en menor.
-  it('en mayor se alarga hacia el I, no hacia el i', () => {
-    const { versions } = versiones({
-      tonic: 'C' as const,
-      mode: 'major' as const,
-      progression: [
-        { degree: 'I', beats: 4 },
-        { degree: 'V', beats: 4 },
-      ],
-    } as unknown as typeof EN_LA_MENOR);
-
-    // Lo que importa es que se construya sobre los grados de mayor: la tónica
-    // a la que se va no es la misma que en menor.
-    expect(versions.length).toBeGreaterThan(0);
-    expect(versions.every((version) => version.title.includes(SIN_IA))).toBe(true);
+  it('cada una lleva escrito que no las ha escrito nadie, y lo que hace', () => {
+    versiones().forEach((version, i) => {
+      expect(version.title).toBe(`${SIN_IA} · ${MENU[i]!.nombre}`);
+      expect(version.why).toBe(MENU[i]!.que);
+    });
   });
 
-  // Al retocar devuelven solo el trozo que cambia y desde dónde, como el modelo
-  // (adr/0086). Que montadas pasen el validador lo prueba `app/api/sin-clave.test.ts`.
-  it('al retocar devuelven solo el trozo que cambia, con su desde', () => {
-    const { versions } = versionesSinIA(EN_LA_MENOR) as {
-      versions: {
-        path: string;
-        desde?: number;
-        sections: { steps: { degree: string; beats: number; move: string | null }[] }[];
-      }[];
-    };
-    const rearmonizar = versions.find((v) => v.path === 'rearmonizar');
-    const estirar = versions.find((v) => v.path === 'estirar');
-
-    // Cambia un compás de cada dos: del 2 al 4, y el 1 no viaja.
-    expect(rearmonizar?.desde).toBe(2);
-    expect(rearmonizar?.sections[0]!.steps).toHaveLength(3);
-    expect(rearmonizar?.sections[0]!.steps[0]!.move).not.toBeNull();
-    // Y estirar, solo el primero, que es el que dura el doble.
-    expect(estirar?.desde).toBe(1);
-    expect(estirar?.sections[0]!.steps).toEqual([{ degree: 'i', beats: 8, move: null }]);
-  });
-
-  // Y con un acorde solo sale lo que se puede hacer con uno.
-  it('con un acorde no se inventa un reparto de dos', () => {
-    const { versions } = versiones({
-      ...EN_LA_MENOR,
-      progression: [{ degree: 'i', beats: 4 }],
+  it('el porqué es el del juez, y si no hay ninguno, lo que hace', () => {
+    const elegidas = versiones({
+      menu: MENU,
+      elegidas: [1, 3, 4],
+      porques: ['V I: cierra.', 'x', ''],
     });
 
-    expect(versions.some((version) => version.path === 'estirar')).toBe(true);
+    expect(elegidas.map((v) => v.why)).toEqual([
+      'V I: cierra.',
+      // La tercera no tiene motivo, y la cuarta ni siquiera viene.
+      MENU[2]!.que,
+      MENU[3]!.que,
+    ]);
+  });
+
+  it('sin menú no sale ninguna', () => {
+    expect(versiones({ menu: [] })).toEqual([]);
   });
 });
 
@@ -102,39 +70,11 @@ describe('las salidas sin IA', () => {
  * **Un cierre es una cadencia, y una cadencia no empieza en casa.**
  *
  * Esto salía `I IV I` —en Mi mayor, «Mi La Mi»—: la tónica dos veces y sin
- * cadencia ninguna. La causa era que el cierre se alargaba **hacia delante**
- * hasta caer en la tónica, con un mínimo de dos compases, y desde un V el primer
- * paso ya la daba: el bucle no podía parar ahí, así que se iba de casa y volvía.
- *
- * Ningún test mataba esto porque ninguno miraba lo que había **dentro** del
- * cierre; solo que la salida existiera y llevara «Sin IA».
+ * cadencia ninguna (adr/0051). Ningún test lo mataba porque ninguno miraba lo que
+ * había **dentro** del cierre. Lo que elige sin IA sale del menú, y el menú lo
+ * ordena el juez, así que se mira cada cierre que hay en él y no solo el primero.
  */
 describe('el cierre de las salidas sin IA', () => {
-  interface Seccion {
-    readonly name: string;
-    readonly steps: readonly { readonly degree: DegreeSymbol; readonly beats: number }[];
-  }
-
-  /** El cierre que propone cuando lo que llevas acaba en ese grado. */
-  function cierreTras(mode: KeyMode, ultimo: DegreeSymbol) {
-    const tonica: DegreeSymbol = mode === 'minor' ? 'i' : 'I';
-    const progression = [
-      { degree: tonica, beats: 4 },
-      { degree: ultimo, beats: 4 },
-    ];
-    const { versions } = versionesSinIA({ tonic: 'E', mode, progression }) as {
-      versions: readonly { path: string; sections: readonly Seccion[] }[];
-    };
-    const seguir = versions.find((version) => version.path === 'seguir');
-
-    return {
-      tonica,
-      progression,
-      cierre: seguir?.sections.find((seccion) => seccion.name === 'Cierre')?.steps,
-      todos: seguir?.sections.flatMap((seccion) => seccion.steps),
-    };
-  }
-
   /** Cada grado de los dos modos, que son los sitios donde puede acabar tu parte. */
   function todosLosFinales(): { mode: KeyMode; ultimo: DegreeSymbol }[] {
     return (['major', 'minor'] as KeyMode[]).flatMap((mode) =>
@@ -142,55 +82,25 @@ describe('el cierre de las salidas sin IA', () => {
     );
   }
 
-  it('acabe tu parte donde acabe, hay cierre y acaba en la tonica', () => {
+  it('acabe tu parte donde acabe, cada cierre acaba en la tonica y la toca una sola vez', () => {
     for (const { mode, ultimo } of todosLosFinales()) {
-      const { tonica, cierre } = cierreTras(mode, ultimo);
+      const tonica: DegreeSymbol = mode === 'minor' ? 'i' : 'I';
+      const progression = [
+        { degree: tonica, beats: 4 },
+        { degree: ultimo, beats: 4 },
+      ];
+      const cierres = salidasPosibles(mode, 'continuar', progression)
+        .flatMap((salida) => salida.secciones)
+        .filter((seccion) => seccion.name === 'Cierre');
 
-      expect(cierre, `${mode}, acabando en ${ultimo}`).toBeDefined();
-      expect(cierre!.at(-1)!.degree, `${mode}, acabando en ${ultimo}`).toBe(tonica);
-    }
-  });
-
-  /**
-   * La regla que faltaba. No es «que no se repita un acorde» —dos compases del
-   * mismo grado son legítimos en otro sitio—: es que **la tónica es el final**, y
-   * un cierre que la toca antes ya ha cerrado y lo que viene después sobra.
-   */
-  it('la tonica sale una sola vez, y es la ultima', () => {
-    for (const { mode, ultimo } of todosLosFinales()) {
-      const { tonica, cierre } = cierreTras(mode, ultimo);
-      const veces = cierre!.filter((paso) => paso.degree === tonica).length;
-
-      expect(
-        veces,
-        `${mode}, acabando en ${ultimo}: ${cierre!.map((p) => p.degree).join(' ')}`,
-      ).toBe(1);
-    }
-  });
-
-  /**
-   * Dos compases: una parte de uno la tira `songProblem`
-   * (`MIN_BARS_PER_SECTION`), y más de lo justo no es una cadencia.
-   */
-  it('mide dos compases', () => {
-    for (const { mode, ultimo } of todosLosFinales()) {
-      expect(cierreTras(mode, ultimo).cierre, `${mode}, acabando en ${ultimo}`).toHaveLength(2);
-    }
-  });
-
-  /**
-   * Y lo que sale de aquí pasa el mismo validador que pasaría una respuesta del
-   * modelo de verdad, que es lo que hace que estas salidas sirvan para probar la
-   * pantalla entera.
-   */
-  it('el validador del dominio lo acepta', () => {
-    for (const { mode, ultimo } of todosLosFinales()) {
-      const { progression, todos } = cierreTras(mode, ultimo);
-
-      expect(
-        isValidPath(mode, 'seguir', progression, todos!),
-        `${mode}, acabando en ${ultimo}`,
-      ).toBe(true);
+      for (const cierre of cierres) {
+        const donde = `${mode}, acabando en ${ultimo}: ${cierre.steps.map((p) => p.degree).join(' ')}`;
+        expect(cierre.steps.at(-1)!.degree, donde).toBe(tonica);
+        expect(
+          cierre.steps.filter((paso) => paso.degree === tonica),
+          donde,
+        ).toHaveLength(1);
+      }
     }
   });
 });

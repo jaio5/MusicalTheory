@@ -343,6 +343,245 @@ describe('Las pestañas de una pantalla estrecha', () => {
   });
 });
 
+/**
+ * **En un teléfono el mástil es una hoja, no una franja.** Abajo, en su área,
+ * le tocaba el ancho de la pantalla y su proporción lo dejaba en 102 px de alto
+ * a 390 —dianas de 9 px y letras de 6—. Como hoja flota encima de todo, con el
+ * mismo `popover` que «Más» (adr/0065), y dentro el dibujo va a tamaño de
+ * lectura y se arrastra de lado.
+ */
+describe('El mástil en una pantalla estrecha', () => {
+  function enEstrecho() {
+    vi.stubGlobal('innerWidth', 390);
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })),
+    );
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete (HTMLElement.prototype as Partial<HTMLElement>).showPopover;
+  });
+
+  it('no vuelve a abrir una hoja que ya está abierta (el doble efecto de desarrollo)', () => {
+    enEstrecho();
+    const abrir = vi.fn();
+    HTMLElement.prototype.showPopover = abrir;
+    // Solo se finge el estado abierto; el resto de selectores sigue siendo el
+    // de verdad, que es el que usa Testing Library para buscar por papel.
+    const deVerdad = Element.prototype.matches;
+    const abierta = vi.spyOn(Element.prototype, 'matches').mockImplementation(function (
+      this: Element,
+      selector: string,
+    ) {
+      return selector === ':popover-open' || deVerdad.call(this, selector);
+    });
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+
+    const lista = screen.getByRole('region', { hidden: true, name: 'Qué se ve abajo' });
+    fireEvent.click(within(lista).getByRole('button', { hidden: true, name: 'Mástil' }));
+
+    expect(document.querySelector('[data-hoja-del-mastil]')).not.toBeNull();
+    abierta.mockRestore();
+    expect(abrir).not.toHaveBeenCalled();
+  });
+
+  it('se abre como hoja flotante, con su escala y su cierre dentro', async () => {
+    enEstrecho();
+    const abrir = vi.fn();
+    HTMLElement.prototype.showPopover = abrir;
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+
+    const lista = screen.getByRole('region', { hidden: true, name: 'Qué se ve abajo' });
+    fireEvent.click(within(lista).getByRole('button', { hidden: true, name: 'Mástil' }));
+
+    const hoja = document.querySelector<HTMLElement>('[data-hoja-del-mastil]')!;
+    expect(hoja).toHaveAttribute('popover', 'auto');
+    expect(abrir).toHaveBeenCalled();
+    const area = await within(hoja).findByRole('region', { hidden: true, name: 'Mástil' });
+    // Los rótulos llegan en diferido con el panel (adr/0058).
+    expect(
+      await within(area).findByRole('combobox', { hidden: true, name: 'Escala' }),
+    ).toBeInTheDocument();
+    expect(
+      within(area).getByRole('button', { hidden: true, name: 'Cerrar Mástil' }),
+    ).toBeInTheDocument();
+    // Y el dibujo va a tamaño de lectura y se arrastra de lado, en vez de
+    // encogerse al ancho del teléfono.
+    const dibujo = await within(area).findByRole('img', { hidden: true, name: /mástil de/i });
+    const hueco = dibujo.parentElement!.parentElement!;
+    expect(hueco.style.height).toBe('18rem');
+    expect(hueco.parentElement).toHaveClass('overflow-x-auto', 'hay-mas-al-lado');
+    // Sin clase de `display`: una pisaría el `display: none` del popover cerrado.
+    expect([...hoja.classList].some((clase) => /^(flex|block|grid|inline)/.test(clase))).toBe(
+      false,
+    );
+    // El foco entra con la hoja (adr/0084).
+    expect(hoja.contains(document.activeElement)).toBe(true);
+  });
+
+  it('cerrarla por su cuenta cierra el area, y cerrar el area la quita', async () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+    const lista = screen.getByRole('region', { hidden: true, name: 'Qué se ve abajo' });
+    fireEvent.click(within(lista).getByRole('button', { hidden: true, name: 'Mástil' }));
+    const hoja = document.querySelector<HTMLElement>('[data-hoja-del-mastil]')!;
+
+    // Escape o un toque fuera: el navegador la cierra y lo dice con `toggle`.
+    fireEvent(hoja, Object.assign(new Event('toggle', { bubbles: false }), { newState: 'closed' }));
+
+    expect(selectReparto(useBancoStore.getState()).abajo).toBeNull();
+    expect(document.querySelector('[data-hoja-del-mastil]')).toBeNull();
+
+    fireEvent.click(within(lista).getByRole('button', { hidden: true, name: 'Mástil' }));
+    const hoja2 = document.querySelector<HTMLElement>('[data-hoja-del-mastil]')!;
+    // Abrirse, sin cerrarse, no toca el reparto.
+    fireEvent(hoja2, Object.assign(new Event('toggle'), { newState: 'open' }));
+    expect(selectReparto(useBancoStore.getState()).abajo).toBe('mastil');
+    await userEvent.click(
+      within(hoja2).getByRole('button', { hidden: true, name: 'Cerrar Mástil' }),
+    );
+    expect(document.querySelector('[data-hoja-del-mastil]')).toBeNull();
+  });
+
+  // Lo demás de la bandeja es texto, y el texto se lee en una franja de abajo.
+  it('las sesiones siguen abriendose abajo, en su area', () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+    const lista = screen.getByRole('region', { hidden: true, name: 'Qué se ve abajo' });
+
+    fireEvent.click(within(lista).getByRole('button', { hidden: true, name: 'Sesiones' }));
+
+    expect(document.querySelector('[data-hoja-del-mastil]')).toBeNull();
+    expect(screen.getByRole('region', { name: 'Sesiones' })).toBeInTheDocument();
+  });
+});
+
+/**
+ * La fila de arriba, en los tres anchos que la cambian.
+ */
+describe('La fila de mandos de arriba', () => {
+  function enEstrecho() {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} })),
+    );
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * **En un teléfono, los espacios dicen su nombre.** Iban solo con icono para
+   * que asomaran las pestañas, y lo que asomaba eran tres dibujos que nadie
+   * sabía nombrar: el de en medio es el mismo que «Componer» en la barra de
+   * abajo. Son el concepto central (adr/0034); el icono es lo que se esconde.
+   */
+  it('los espacios llevan el nombre a la vista en todos los anchos, y el icono desde sm', () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(<ComposeScreen />);
+    const grupo = screen.getByRole('group', { name: 'Espacio de trabajo' });
+
+    for (const nombre of ['Tocando', 'Escribir', 'Ensayar']) {
+      const boton = within(grupo).getByRole('button', { name: nombre });
+      const texto = [...boton.childNodes].find((nodo) => nodo.nodeType === Node.TEXT_NODE);
+      expect(texto?.textContent).toBe(nombre);
+      expect(boton.querySelector('svg')!.closest('.max-sm\\:hidden')).not.toBeNull();
+      expect(boton).toHaveClass('max-sm:px-2');
+    }
+  });
+
+  /**
+   * **Entre `sm` y `lg`, dos filas y nada que arrastrar**: los espacios y las
+   * pestañas arriba; el metrónomo, la tonalidad y «Más» abajo. Desplazándose, la
+   * fila se cortaba contra el título sin pista —«Componer ▌nsayar»—.
+   */
+  it('entre sm y lg la fila se parte en dos, y en un telefono se desplaza', () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    const { container } = render(<ComposeScreen />);
+    const fila = screen
+      .getByRole('button', { name: 'Más' })
+      .closest<HTMLElement>('.hay-mas-al-lado')!;
+
+    expect(fila).toHaveClass('max-sm:overflow-x-auto', 'sm:max-lg:flex-wrap');
+    expect(fila).not.toHaveClass('max-lg:overflow-x-auto');
+    const salto = container.querySelector('[data-salto]')!;
+    expect(salto).toHaveClass('hidden', 'basis-full', 'sm:max-lg:block');
+    // El salto va entre las pestañas y el metrónomo, y la raya de en medio
+    // sobra donde ya separa la fila.
+    expect(salto.previousElementSibling).toBe(
+      screen.getByRole('group', { name: 'Espacio de trabajo' }),
+    );
+    expect(salto.nextElementSibling).toHaveAttribute('data-separador');
+    expect(salto.nextElementSibling).toHaveClass('sm:max-lg:hidden');
+  });
+
+  /**
+   * **Lo tapado por la rueda se ve tapado.** `inert` quitaba el foco y la voz y
+   * nada a la vista: los atajos de tonalidad seguían a todo color detrás de la
+   * rueda. Va con la variante `inert:`, que es la misma clase con y sin velo:
+   * la primera pintura no cambia al hidratar (adr/0083).
+   */
+  it('lo inerte detras de la rueda va atenuado con una clase que no cambia', () => {
+    enEstrecho();
+    const { container } = render(<ComposeScreen />);
+
+    const inertes = container.querySelectorAll('[inert]');
+    expect(inertes.length).toBeGreaterThan(0);
+    for (const caja of inertes) {
+      expect(caja).toHaveClass('inert:opacity-50', 'inert:saturate-50');
+    }
+  });
+});
+
+/**
+ * **El arreglo tiene suelo de verdad, también con el mástil abierto.** Cedía
+ * hasta ocho rem y, con las cinco áreas abiertas, la canción se quedaba en
+ * 128 px de 900 —un 14 %— debajo de un cajón de «a dónde ir» de 384: los dos
+ * eran `min-height` y el flex no sabe cuál importa. El que cede es el cajón,
+ * que se desplaza por dentro.
+ */
+describe('El reparto con el area de abajo abierta', () => {
+  it('el arreglo conserva su suelo y «a donde ir» pierde el suyo', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+    useBancoStore.getState().actions.plegar('camino');
+    render(<ComposeScreen />);
+    const arreglo = screen.getByRole('region', { name: 'Arreglo' });
+    const camino = screen.getByRole('region', { name: 'A dónde ir' });
+    // Los tramos por alto de ventana: `[@media(...)]:min-h-…`.
+    expect(camino.className).toMatch(/\]:min-h-/);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mástil' }));
+
+    expect(screen.getByRole('region', { name: 'Arreglo' })).toHaveClass(
+      'lg:min-h-56',
+      'xl:min-h-44',
+      // En una ventana baja cede él, para que el mástil no baje de sus 14 rem.
+      'lg:[@media(max-height:699px)]:min-h-24',
+    );
+    expect(arreglo).not.toHaveClass('lg:min-h-32');
+    // Pierde sus tramos por alto, pero nunca su cabecera.
+    expect(screen.getByRole('region', { name: 'A dónde ir' })).toHaveClass(
+      'shrink',
+      'basis-52',
+      'min-h-11',
+    );
+    expect(screen.getByRole('region', { name: 'A dónde ir' }).className).not.toMatch(/\]:min-h-/);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar Mástil' }));
+    expect(screen.getByRole('region', { name: 'A dónde ir' }).className).toMatch(/\]:min-h-/);
+  });
+});
+
 describe('Mientras la rueda tapa la pantalla', () => {
   function enEstrecho() {
     vi.stubGlobal(

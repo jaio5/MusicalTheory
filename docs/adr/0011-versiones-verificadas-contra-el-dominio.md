@@ -1,5 +1,9 @@
 # ADR 0011 — Las versiones de una canción se verifican contra el dominio, y no sube audio
 
+> **Ampliado por [ADR 0089](./0089-las-salidas-las-construye-el-dominio-y-el-modelo-elige.md):** las salidas ya no se verifican a posteriori solo: las construye el dominio y el modelo elige.
+
+> **Ampliado por [ADR 0097](./0097-las-salidas-se-juzgan-por-lo-que-encajan.md):** además de válidas, las salidas se ordenan por lo que encajan con lo que llevas, y los movimientos son doce, no cinco.
+
 > **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** las salidas entran en Medio, no en Pro, y las ideas ya no existen.
 
 Fecha: 2026-08-25 · Estado: aceptada · Se apoya en: [ADR 0004](./0004-reconocimiento-de-acordes-por-croma.md), [ADR 0008](./0008-los-cupos-salen-del-precio.md)

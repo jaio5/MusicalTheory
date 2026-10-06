@@ -24,6 +24,10 @@ function GlifoDeMedida({
   return (
     <svg
       viewBox="0 0 16 16"
+      // Adorno de un botón que ya se llama por su `aria-label`: se calla él
+      // mismo, y no solo a través del `span` que lo envuelve.
+      aria-hidden="true"
+      focusable="false"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
@@ -219,8 +223,14 @@ export function Area({
             lado cuando los dos son del tamaño del dedo. Y estirado, para que lo
             que lleva dentro pueda tomar el alto de la cabecera: sin esto, un
             `self-stretch` ahí abajo se estira contra esta caja, que mide lo que
-            mide un icono. Medido: el botón seguía en 44 por 12. */}
-          <div className="ml-auto flex shrink-0 items-stretch gap-2 self-stretch">
+            mide un icono. Medido: el botón seguía en 44 por 12.
+
+            **Y un píxel más abajo que la cabecera** (`-mb-px`): los 44 de
+            `min-h-tap` son con el borde de abajo dentro, así que a lo que se
+            estira le quedaban 43. Bajando la caja de los mandos ese píxel, los
+            botones miden los 44 enteros y la línea sigue donde estaba: pisan el
+            borde, que debajo de un botón sin fondo no se nota. */}
+          <div className="-mb-px ml-auto flex shrink-0 items-stretch gap-2 self-stretch">
             {mandos}
             {medida !== undefined && (
               <span className="flex items-stretch" role="group" aria-label={`Medida de ${titulo}`}>

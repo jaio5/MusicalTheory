@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useBlockDrag, type Medida } from './use-block-drag';
+import { PULSACION_LARGA_MS, useBlockDrag, type Medida } from './use-block-drag';
 
 /**
  * Arrastrar un bloque de sitio, que es el gesto del lienzo.
@@ -27,6 +27,16 @@ const MEDIDAS: readonly Medida[] = [
 
 function pulsar(boton = 0): React.PointerEvent {
   return { button: boton, clientX: 10, clientY: 10 } as React.PointerEvent;
+}
+
+/** La misma pulsación, con el dedo. */
+function tocar(): React.PointerEvent {
+  return { button: 0, clientX: 10, clientY: 10, pointerType: 'touch' } as React.PointerEvent;
+}
+
+/** Lo que el navegador manda antes de desplazar, y lo único que puede frenarlo. */
+function barrido(cancelable = true): TouchEvent {
+  return new TouchEvent('touchmove', { cancelable });
 }
 
 /** Un movimiento del puntero, de los que escucha la ventana. */
@@ -245,5 +255,205 @@ describe('Arrastrar un bloque', () => {
     const { vista } = montar();
 
     expect(() => vista.unmount()).not.toThrow();
+  });
+});
+
+/**
+ * Con el dedo, mover es desplazar: la tira se sale por la derecha en un
+ * teléfono y los bloques la tapan casi entera. Medido a 390 con ocho acordes,
+ * un barrido sobre la tira la dejaba en `scrollLeft` 0 y cambiaba el orden de
+ * los acordes. Así que el bloque se sujeta primero —`PULSACION_LARGA_MS`
+ * quieto— y entonces se mueve; antes, el gesto es del navegador.
+ */
+describe('Arrastrar un bloque con el dedo', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('moverse sin sujetarlo no arrastra: es desplazar', () => {
+    const { onDrop, vista } = montar();
+
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => mover(80, 10));
+    act(() => soltar(80, 10));
+
+    expect(vista.result.current.drag).toBeNull();
+    expect(onDrop).not.toHaveBeenCalled();
+  });
+
+  // Y el navegador conserva el gesto: el barrido no se frena.
+  it('antes de sujetarlo, el barrido es del navegador', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+
+    const evento = barrido();
+    act(() => {
+      window.dispatchEvent(evento);
+    });
+
+    expect(evento.defaultPrevented).toBe(false);
+  });
+
+  // Un dedo nunca sujeta completamente quieto: temblar dentro del umbral no
+  // cancela la pulsación larga.
+  it('temblar dentro del umbral sigue siendo sujetar', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => mover(12, 11));
+
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+
+    expect(vista.result.current.drag?.blockId).toBe('a');
+  });
+
+  // Irse antes de tiempo deja de escuchar: sujetar después, en otro sitio, no
+  // levanta el bloque que se soltó.
+  it('irse antes de tiempo cancela la pulsacion larga', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => mover(80, 10));
+
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+
+    expect(vista.result.current.drag).toBeNull();
+  });
+
+  it('sujetarlo lo levanta donde esta, sin moverlo todavia', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+
+    expect(vista.result.current.drag).toEqual({
+      blockId: 'a',
+      target: { partId: 'estrofa', index: 0 },
+    });
+  });
+
+  // El fantasma nace bajo el dedo, no en la esquina.
+  it('y el fantasma sale bajo el dedo', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+
+    const nodo = document.createElement('div');
+    act(() => vista.result.current.fantasma(nodo));
+
+    expect(nodo.style.transform).toBe('translate3d(10px, 10px, 0)');
+  });
+
+  // Sujetarlo y soltarlo sin moverlo es un toque largo, no un cambio de sitio.
+  it('soltarlo sin moverlo no lo cambia de sitio', () => {
+    const { onDrop, vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+    act(() => mover(12, 11));
+
+    act(() => soltar(12, 11));
+
+    expect(onDrop).not.toHaveBeenCalled();
+    expect(vista.result.current.drag).toBeNull();
+  });
+
+  it('sujeto, se mueve y se suelta como con el raton', () => {
+    const { onDrop, vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+
+    act(() => mover(160, 80));
+    expect(vista.result.current.drag?.target).toEqual({ partId: 'estribillo', index: 2 });
+
+    act(() => soltar(160, 80));
+    expect(onDrop).toHaveBeenCalledWith('a', 'estribillo', 2);
+  });
+
+  // Un `pointermove` no puede impedir que el navegador desplace: eso lo dice el
+  // `touchmove`, y solo con el bloque ya sujeto.
+  it('sujeto, el barrido se frena para que la tira no se desplace', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+
+    const evento = barrido();
+    act(() => {
+      window.dispatchEvent(evento);
+    });
+
+    expect(evento.defaultPrevented).toBe(true);
+  });
+
+  // Si el navegador ya se lo ha quedado, no se puede frenar y no se intenta.
+  it('un barrido que ya no se puede cancelar se deja pasar', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+
+    const evento = barrido(false);
+    expect(() =>
+      act(() => {
+        window.dispatchEvent(evento);
+      }),
+    ).not.toThrow();
+    expect(evento.defaultPrevented).toBe(false);
+  });
+
+  // Sujetar quieto medio segundo abre el menú de contexto en un teléfono, y aquí
+  // sujetar quieto es justo cómo se coge un bloque.
+  it('sujetarlo no abre el menu de contexto', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+
+    const menu = new Event('contextmenu', { cancelable: true });
+    act(() => {
+      window.dispatchEvent(menu);
+    });
+
+    expect(menu.defaultPrevented).toBe(true);
+  });
+
+  // Con el ratón no hay menú que frenar ni barrido que escuchar.
+  it('con el raton no se toca el menu de contexto', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(pulsar(), 'a'));
+
+    const menu = new Event('contextmenu', { cancelable: true });
+    act(() => {
+      window.dispatchEvent(menu);
+    });
+
+    expect(menu.defaultPrevented).toBe(false);
+  });
+
+  // Si el sistema se queda el gesto durante la espera, la espera se cancela:
+  // el bloque no se levanta solo un rato después.
+  it('si el sistema se queda el gesto mientras se sujeta, no se levanta', () => {
+    const { vista } = montar();
+    act(() => vista.result.current.start(tocar(), 'a'));
+    act(() => soltar(10, 10, 'pointercancel'));
+
+    act(() => {
+      vi.advanceTimersByTime(PULSACION_LARGA_MS);
+    });
+
+    expect(vista.result.current.drag).toBeNull();
   });
 });

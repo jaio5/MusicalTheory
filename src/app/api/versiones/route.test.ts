@@ -1,16 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MARCA_DIRECTRICES } from '@features/versions/contract';
+import { ERROR_MESSAGES, MARCA_DIRECTRICES } from '@features/versions/contract';
 import type * as AskModel from '@server/ask-model';
 
 /**
- * La ruta de las salidas: la petición más cara de las dos y la única que
- * verifica el razonamiento del modelo, no solo el resultado.
+ * La ruta de las salidas: la petición más cara de las dos.
  *
- * Lo que se prueba aquí es lo suyo: que el esquema y el catálogo dependan de lo
- * que se pida —continuar o retocar—, que tus compases los ponga el servidor y no
- * el modelo, y que una salida que declara un camino y toma otro no llegue a la
- * pantalla. Las ramas de la puerta, en `server/ai-gate.test.ts`.
+ * Lo que se prueba aquí es lo suyo: que el menú y el esquema dependan de lo que se
+ * pida —continuar o retocar—, que tus compases los ponga el servidor, y que si el
+ * modelo no da nada que valga conteste el dominio diciéndolo. Las ramas de la
+ * puerta, en `server/ai-gate.test.ts`.
  */
 
 const spendAi = vi.fn(async () => ({ kind: 'ok', account: {}, leftMonth: 10 }) as never);
@@ -27,7 +26,9 @@ vi.mock('@server/ask-model', async (original) => ({
 
 const { POST } = await import('./route');
 const { RespuestaTruncada } = await import('@server/ask-model');
-const { roleInfo } = await import('@core/music');
+const { blockChord, pitchClassFromName, roleInfo, writtenBlock } = await import('@core/music');
+const { parseVersionsRequest } = await import('@features/versions/contract');
+const { salidasDe } = await import('@features/versions/menu');
 
 let direccion = 0;
 function pedir(body: unknown): Request {
@@ -74,114 +75,68 @@ describe('lo que entra', () => {
     expect(spendAi).not.toHaveBeenCalled();
   });
 
-  it('con un solo acorde no hay por dónde tirar', async () => {
-    const { status } = await leer(
-      await POST(pedir({ ...TOCADO, kind: 'retocar', progression: [{ degree: 'i', beats: 4 }] })),
-    );
+  /**
+   * **Un acorde ya es una canción**: el dominio la sigue y la parte para
+   * retocarla, y aquí se rechazaba con «nos falta la progresión». Sin ninguno sí.
+   */
+  it('con un solo acorde se pide, y sin ninguno no', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+    for (const kind of ['retocar', 'continuar']) {
+      const { status } = await leer(
+        await POST(pedir({ ...TOCADO, kind, progression: [{ degree: 'i', beats: 4 }] })),
+      );
+      expect(status, kind).toBe(200);
+    }
 
+    const { status, body } = await leer(
+      await POST(pedir({ ...TOCADO, kind: 'retocar', progression: [] })),
+    );
     expect(status).toBe(400);
+    expect((body['error'] as { message: string }).message).toBe(ERROR_MESSAGES.invalid_request);
   });
 });
 
-describe('el esquema y el catálogo dependen de lo que se pida', () => {
-  it('al continuar solo se ofrecen los caminos que continúan', async () => {
-    askModel.mockResolvedValue({ versions: [] });
-
-    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
-
-    const { prompt, schema } = llamada();
-    const caminos = (
-      schema['properties'] as {
-        versions: { items: { properties: { path: { enum: string[] } } } };
-      }
-    ).versions.items.properties.path.enum;
-
-    expect(caminos.sort()).toEqual(['contraste', 'seguir']);
-    expect(prompt).toContain('seguir');
-    expect(prompt).not.toContain('- estirar:');
-  });
-
-  it('al retocar se ofrecen los otros tres, y una sola parte', async () => {
-    askModel.mockResolvedValue({ versions: [] });
-
-    await POST(pedir({ ...TOCADO, kind: 'retocar' }));
-
-    const { schema } = llamada();
-    const versions = (schema['properties'] as Record<string, unknown>)['versions'] as {
-      items: { properties: { path: { enum: string[] }; sections: { maxItems: number } } };
+describe('el menú y el esquema dependen de lo que se pida', () => {
+  /** El enumerado del número que elige el modelo. */
+  function opciones(): number[] {
+    const versions = (llamada().schema['properties'] as Record<string, unknown>)['versions'] as {
+      items: { properties: { opcion: { enum: number[] } } };
     };
+    return versions.items.properties.opcion.enum;
+  }
 
-    expect(versions.items.properties.path.enum.sort()).toEqual([
-      'estirar',
-      'otro-final',
-      'rearmonizar',
-    ]);
-    expect(versions.items.properties.sections.maxItems).toBe(1);
+  it('al continuar el menú son caminos que continúan, numerados como el esquema', async () => {
+    askModel.mockResolvedValue({ versions: [] });
+
+    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
+
+    const { prompt } = llamada();
+    const lineas = prompt.split('\n').filter((linea) => /^\d+\. /u.test(linea));
+    expect(lineas.length).toBeGreaterThan(0);
+    expect(opciones()).toEqual(lineas.map((_, i) => i + 1));
+    expect(lineas.every((linea) => /^\d+\. (seguir|contraste): /u.test(linea))).toBe(true);
   });
 
-  // Al retocar se pide solo el trozo que cambia, y el compás donde empieza
-  // (adr/0086): el esquema lo exige y el prompt numera tus compases.
-  it('al retocar pide desde, y le numera tus compases', async () => {
+  it('al retocar, los otros tres', async () => {
     askModel.mockResolvedValue({ versions: [] });
 
     await POST(pedir({ ...TOCADO, kind: 'retocar' }));
 
-    const { prompt, schema } = llamada();
-    const items = (
-      (schema['properties'] as Record<string, unknown>)['versions'] as {
-        items: { required: string[] };
-      }
-    ).items;
-    expect(items.required).toContain('desde');
-    expect(prompt).toContain('1: i x4 | 2: VI x4 | 3: III x4 | 4: VII x4');
-  });
-
-  it('le enseña el mapa de saltos, generado desde el dominio', async () => {
-    // Es lo que convierte «inventa algo» en «elige por dónde», y lo que impide
-    // que el prompt ofrezca un salto que el validador no sabe comprobar.
-    askModel.mockResolvedValue({ versions: [] });
-
-    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
-
-    expect(llamada().prompt).toContain('Mapa de saltos');
-    expect(llamada().prompt).toContain('i: VII VI iv III bII V');
-  });
-
-  /**
-   * **Y las cadencias con las que puede cerrar, enumeradas.** Sin ellas contestaba
-   * la tónica repetida: a temperatura cero —que es la que se le pide— siempre la
-   * misma, `I I I I`. Con la lista delante contesta una cadencia
-   * ([adr/0051](../../../../docs/adr/0051-un-cierre-se-prepara-por-detras.md)).
-   */
-  it('le enumera las cadencias con las que puede cerrar', async () => {
-    askModel.mockResolvedValue({ versions: [] });
-
-    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
-
-    // Lo tocado acaba en VII, y desde ahí se cierra con VI i.
-    expect(llamada().prompt).toContain('Tu ultimo compas es VII y ya esta puesto');
-    expect(llamada().prompt).toContain('- VI i');
-  });
-
-  /**
-   * Y decirle que su último compás ya está puesto no es un adorno: con «para
-   * cerrar desde V» contestaba `V IV` —leía «desde V» como «empieza por V»— y eso
-   * no cierra.
-   */
-  it('le dice que no empiece el cierre por su ultimo compas', async () => {
-    askModel.mockResolvedValue({ versions: [] });
-
-    await POST(pedir({ ...TOCADO, kind: 'continuar' }));
-
-    expect(llamada().prompt).toContain('sin empezarla por VII');
+    const lineas = llamada()
+      .prompt.split('\n')
+      .filter((linea) => /^\d+\. /u.test(linea));
+    expect(lineas.every((linea) => /^\d+\. (rearmonizar|estirar|otro-final): /u.test(linea))).toBe(
+      true,
+    );
+    expect(llamada().prompt).toContain('de 4 pulsos cada uno: 1:i | 2:VI | 3:III | 4:VII');
   });
 
   /**
    * **Y lo que le pides con tus palabras, delimitado y al final.**
    *
-   * Al final porque es lo último que lee y tiene que pesar más que el catálogo;
-   * delimitado porque lo escribes tú, y el prompt de sistema tiene dicho que lo de
-   * dentro de las marcas es un dato y nunca una instrucción.
+   * Al final porque es lo último que lee y tiene que pesar al elegir; delimitado
+   * porque lo escribes tú, y el prompt de sistema tiene dicho que lo de dentro de
+   * las marcas es un dato y nunca una instrucción.
    */
   it('le pasa tus directrices entre marcas y al final', async () => {
     askModel.mockResolvedValue({ versions: [] });
@@ -202,141 +157,43 @@ describe('el esquema y el catálogo dependen de lo que se pida', () => {
 
     expect(llamada().prompt).not.toContain(MARCA_DIRECTRICES);
   });
-
-  // Retocar no añade partes, así que no hay nada que cerrar y la lista no va.
-  it('retocando no le habla de cerrar', async () => {
-    askModel.mockResolvedValue({ versions: [] });
-
-    await POST(pedir({ ...TOCADO, kind: 'retocar' }));
-
-    expect(llamada().prompt).not.toContain('ya esta puesto');
-  });
 });
 
 describe('lo que sale', () => {
-  // Una cadencia de verdad. Esto era `i i` —la tónica repetida—, que es justo lo
-  // que el modelo devolvía de más y ahora el dominio rechaza: una parte de un solo
-  // grado no es una parte ([adr/0051](../../../../docs/adr/0051-un-cierre-se-prepara-por-detras.md)).
-  const CIERRE = {
-    path: 'seguir',
-    title: 'Cierre natural',
-    why: 'Cae en casa.',
-    sections: [
-      {
-        name: 'Cierre',
-        steps: [
-          { degree: 'VI', beats: 4, move: null },
-          { degree: 'i', beats: 4, move: null },
-        ],
-      },
-    ],
-  };
-
-  it('tus compases los pone el servidor, no el modelo', async () => {
-    // Pedirle que los copiara era la causa de que se descartara todo, y no había
-    // ninguna razón para pedírselos: ya los tenemos.
-    askModel.mockResolvedValue({ versions: [CIERRE] });
+  it('tus compases los pone el servidor, y la salida es la del menú', async () => {
+    askModel.mockResolvedValue({ versions: [{ opcion: 1, title: 'Cierre', why: 'Cae en casa.' }] });
 
     const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
     const salida = (body['versions'] as { sections: { name: string; yours: boolean }[] }[])[0]!;
 
     expect(status).toBe(200);
+    expect(body).not.toHaveProperty('origen');
     expect(salida.sections[0]).toMatchObject({ name: 'Lo que llevas', yours: true });
-    expect(salida.sections[1]).toMatchObject({ name: 'Cierre', yours: false });
-  });
-
-  it('una salida que declara un camino y toma otro se descarta', async () => {
-    // Dice que continúa y no añade nada: es la regla que sostiene la función.
-    askModel.mockResolvedValue({
-      versions: [
-        {
-          ...CIERRE,
-          sections: [
-            { name: 'Nada', steps: TOCADO.progression.map((p) => ({ ...p, move: null })) },
-          ],
-        },
-      ],
-    });
-
-    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
-
-    expect(status).toBe(502);
-    expect(body['error']).toMatchObject({ code: 'unparseable_response' });
-  });
-
-  it('un camino de la otra clase no vale, aunque en sí mismo sea válido', async () => {
-    askModel.mockResolvedValue({
-      versions: [
-        {
-          path: 'estirar',
-          title: 'Otro reparto',
-          why: 'Dura más.',
-          sections: [
-            {
-              name: 'Lo que llevas',
-              steps: TOCADO.progression.map((p, i) => ({
-                ...p,
-                beats: i === 0 ? 8 : 4,
-                move: null,
-              })),
-            },
-          ],
-        },
-      ],
-    });
-
-    const { status } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
-
-    expect(status).toBe(502);
+    // Cómo se llama lo que sigue lo decide el dominio con el papel; que no es tuyo, no.
+    expect(salida.sections[1]).toMatchObject({ yours: false });
   });
 
   it('los cifrados se recalculan desde los grados', async () => {
-    askModel.mockResolvedValue({ versions: [CIERRE] });
+    askModel.mockResolvedValue({ versions: [{ opcion: 1, title: 'Cierre', why: 'Cae en casa.' }] });
 
-    const { body } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
+    const peticion = { ...TOCADO, kind: 'continuar' };
+    const { body } = await leer(await POST(pedir(peticion)));
     const pasos = (body['versions'] as { steps: { symbol: string }[] }[])[0]!.steps;
+    const [elegida] = salidasDe(parseVersionsRequest(peticion)!);
+    const grados = elegida!.secciones.flatMap((seccion) => seccion.steps);
 
-    // Los cuatro tuyos y la cadencia: VI es Fa y i es La menor.
-    expect(pasos.map((p) => p.symbol)).toEqual(['Am', 'F', 'C', 'G', 'F', 'Am']);
-  });
-
-  /**
-   * El fallo que esto arregla: el modelo devolvía solo el trozo que cambiaba y se
-   * leía como la canción entera, así que no salía nada. Ahora el trozo llega con
-   * su `desde` y la canción la monta el servidor: a pantalla va entera.
-   */
-  it('al retocar, el trozo que cambia vuelve montado en la canción entera', async () => {
-    askModel.mockResolvedValue({
-      versions: [
-        {
-          path: 'rearmonizar',
-          desde: 2,
-          title: 'Otra subdominante',
-          why: 'El VI por su relativo.',
-          sections: [
-            { name: 'Lo que llevas', steps: [{ degree: 'iv', beats: 4, move: 'relativo' }] },
-          ],
-        },
-        {
-          path: 'otro-final',
-          desde: 9,
-          title: 'Fuera',
-          why: 'Empieza en un compás que no existe.',
-          sections: [{ name: 'Lo que llevas', steps: [{ degree: 'i', beats: 4, move: null }] }],
-        },
-      ],
-    });
-
-    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'retocar' })));
-    const salidas = body['versions'] as {
-      steps: { degree: string; from: string | null; move: string | null }[];
-    }[];
-
-    expect(status).toBe(200);
-    expect(salidas).toHaveLength(1);
-    expect(salidas[0]!.steps.map((p) => p.degree)).toEqual(['i', 'iv', 'III', 'VII']);
-    expect(salidas[0]!.steps.map((p) => p.from)).toEqual(['i', 'VI', 'III', 'VII']);
-    expect(salidas[0]!.steps.map((p) => p.move)).toEqual([null, 'relativo', null, null]);
+    // Los cuatro tuyos, y lo nuevo escrito desde su grado y su especie en La menor.
+    expect(pasos.slice(0, 4).map((p) => p.symbol)).toEqual(['Am', 'F', 'C', 'G']);
+    expect(pasos.map((p) => p.symbol)).toEqual(
+      grados.map(
+        (paso) =>
+          blockChord(
+            pitchClassFromName('A'),
+            'minor',
+            writtenBlock('', paso.degree, paso.beats, paso.especie ?? undefined),
+          ).symbol,
+      ),
+    );
   });
 
   it('reintenta una vez y gasta cupo una sola', async () => {
@@ -346,6 +203,56 @@ describe('lo que sale', () => {
 
     expect(askModel).toHaveBeenCalledTimes(2);
     expect(spendAi).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * **Que nunca se quede sin salida.** Si el modelo no da nada que valga en los dos
+ * intentos, contesta el dominio con su menú, y lo dice: `origen: 'dominio'` y
+ * «Sin IA» en cada título.
+ */
+describe('cuando el modelo no da nada que valga', () => {
+  it('dos respuestas que no valen: contesta el dominio, y lo dice', async () => {
+    askModel.mockResolvedValue({ versions: [{ opcion: 99, title: 'x', why: 'y' }] });
+
+    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
+    const titulos = (body['versions'] as { title: string }[]).map((v) => v.title);
+
+    expect(status).toBe(200);
+    expect(askModel).toHaveBeenCalledTimes(2);
+    expect(body['origen']).toBe('dominio');
+    expect(body['motivo']).toBe('unparseable_response');
+    expect(titulos.length).toBeGreaterThan(0);
+    expect(titulos.every((titulo) => titulo.startsWith('Sin IA · '))).toBe(true);
+  });
+
+  it('un fallo del proveedor no se reintenta, y también contesta el dominio', async () => {
+    // Cada intento es la petición más cara que hay: reintentar sobre un
+    // proveedor caído es gastar dos veces para no servir nada.
+    askModel.mockRejectedValue(new Error('sin red'));
+
+    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'retocar' })));
+
+    expect(status).toBe(200);
+    expect(body['origen']).toBe('dominio');
+    // Lo dice, para que la pantalla no pida volver a intentarlo como si fuera
+    // culpa de lo que se mandó.
+    expect(body['motivo']).toBe('model_unavailable');
+    expect(askModel).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * **Una respuesta cortada tampoco se reintenta**: la segunda llamada se cortaría
+   * por donde se cortó la primera, porque el prompt es el mismo y el tope también.
+   */
+  it('una respuesta cortada por el tope no se reintenta', async () => {
+    askModel.mockRejectedValue(new RespuestaTruncada());
+
+    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
+
+    expect(status).toBe(200);
+    expect(body['origen']).toBe('dominio');
+    expect(askModel).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -364,40 +271,42 @@ describe('lo que no llega al modelo', () => {
   });
 
   it('sin nada tocado no hay de donde salir', async () => {
-    const { status } = await leer(await POST(pedir({ ...TOCADO, progression: [] })));
+    const { status, body } = await leer(await POST(pedir({ ...TOCADO, progression: [] })));
 
     expect(status).toBe(400);
+    expect((body['error'] as { message: string }).message).toBe(ERROR_MESSAGES.invalid_request);
     expect(askModel).not.toHaveBeenCalled();
   });
 
-  it('un fallo del proveedor es un 502, y no se reintenta', async () => {
-    // Cada intento es la petición más cara que hay: reintentar sobre un
-    // proveedor caído es gastar dos veces para no servir nada.
-    askModel.mockRejectedValue(new Error('sin red'));
-
-    const { status } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
-
-    expect(status).toBe(502);
-    expect(askModel).toHaveBeenCalledTimes(1);
-  });
-
   /**
-   * **Una respuesta cortada tampoco se reintenta**, y por un motivo distinto:
-   * no es que el modelo haya fallado, es que la segunda llamada se cortaría por
-   * donde se cortó la primera. El prompt es el mismo y el tope también.
-   *
-   * Lo cubría la ruta de ideas, ya retirada (adr/0066); el cuerpo es común
-   * —`server/ai-route.ts`—, así que basta con probarlo desde una de las dos.
+   * Sin salidas, la respuesta decía «nos falta la progresión», y después una frase
+   * fija sobre el sitio. **Ahora dice por qué con las palabras del dominio**
+   * (`porQueNoHaySalidas`), con el código que la pantalla ya mira. Retocar, en
+   * cambio, sí tiene.
    */
-  it('una respuesta cortada por el tope no se reintenta', async () => {
-    askModel.mockRejectedValue(new RespuestaTruncada());
+  it('con la canción llena, continuar dice por qué no hay salida, y retocar sigue pudiendo', async () => {
+    const llena = Array.from({ length: 31 }, (_, i) => ({
+      degree: ['i', 'VI', 'III', 'VII'][i % 4],
+      beats: 4,
+    }));
 
-    const { status, body } = await leer(await POST(pedir({ ...TOCADO, kind: 'continuar' })));
+    const continuar = await leer(
+      await POST(pedir({ ...TOCADO, progression: llena, kind: 'continuar' })),
+    );
+    expect(continuar.status).toBe(400);
+    expect(continuar.body['error']).toEqual({
+      code: 'invalid_request',
+      message:
+        'Detrás de tus 31 acordes solo cabe uno más, y con uno no se llega a casa desde tu III. Prueba a retocarla.',
+    });
+    expect(askModel).not.toHaveBeenCalled();
+    expect(spendAi).not.toHaveBeenCalled();
 
-    expect(status).toBe(502);
-    // Y lo dice como lo que es: contestó, y lo que dijo no vale.
-    expect(body['error']).toMatchObject({ code: 'unparseable_response' });
-    expect(askModel).toHaveBeenCalledTimes(1);
+    askModel.mockResolvedValue({ versions: [] });
+    const retocar = await leer(
+      await POST(pedir({ ...TOCADO, progression: llena, kind: 'retocar' })),
+    );
+    expect(retocar.status).toBe(200);
   });
 });
 
@@ -462,17 +371,19 @@ describe('la tonalidad se le dice en español', () => {
 });
 
 describe('qué parte le mandan llega al prompt', () => {
-  it('un estribillo se dice que es un estribillo, y se explica qué es', async () => {
+  it('un estribillo se dice que es un estribillo, con el nombre del catálogo', async () => {
     askModel.mockResolvedValue({ versions: [] });
 
     await POST(pedir({ ...TOCADO, kind: 'continuar', role: 'estribillo' }));
 
     const { prompt } = llamada();
 
-    expect(prompt).toContain('Lo que te mandan es estribillo');
-    // La frase sale del catálogo de `ROLES` y no se escribe en la ruta: si se
+    // El nombre sale del catálogo de `ROLES` y no se escribe en la ruta: si se
     // escribiera dos veces, dentro de tres meses dirían cosas distintas.
-    expect(prompt).toContain(roleInfo('estribillo').what);
+    expect(prompt).toContain(`Parte: ${roleInfo('estribillo').name.toLowerCase()}.`);
+    // La frase que lo explica es para quien compone: el modelo sabe qué es un
+    // estribillo, y eran noventa caracteres de cada petición.
+    expect(prompt).not.toContain(roleInfo('estribillo').what);
   });
 
   it('y una idea también se dice, en vez de callarse', async () => {
@@ -483,15 +394,15 @@ describe('qué parte le mandan llega al prompt', () => {
 
     await POST(pedir({ ...TOCADO, kind: 'continuar' }));
 
-    expect(llamada().prompt).toContain('Lo que te mandan es una idea');
+    expect(llamada().prompt).toContain('Parte: una idea.');
   });
 });
 
 describe('sin modelo al que preguntar', () => {
   /**
-   * Fuera de producción contesta el dominio: rearmonizaciones de verdad, con su
-   * porqué, sacadas del catálogo en vez de inventadas. Y pasan la misma
-   * validación que las del modelo, que es lo que hace que se puedan enseñar.
+   * Fuera de producción contesta el dominio: las salidas de su menú, elegidas por
+   * número como las elegiría el modelo. Y pasan la misma validación que las del
+   * modelo, que es lo que hace que se puedan enseñar.
    */
   it('contesta el dominio, y pasa la misma validacion', async () => {
     askModel.mockImplementation(async (input: { sinClave: () => unknown }) => input.sinClave());
@@ -503,8 +414,8 @@ describe('sin modelo al que preguntar', () => {
     expect(versions.length).toBeGreaterThan(0);
   });
 
-  // Y sin un solo acorde no hay nada que rearmonizar: no se inventa una salida.
-  it('sin acordes no saca ninguna version', async () => {
+  // Con dos acordes también sale algo, y es una lista.
+  it('con dos acordes contesta una lista', async () => {
     askModel.mockImplementation(async (input: { sinClave: () => unknown }) => input.sinClave());
 
     // Dos acordes son el mínimo que la ruta acepta; el dominio no saca nada de

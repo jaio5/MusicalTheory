@@ -278,6 +278,10 @@ export function triadQuality(root: PitchClass, notes: readonly PitchClass[]): Ch
  * Nulo cuando no hay grado: lo que no cabe en la tonalidad, y lo que no es ni
  * tríada ni quinta —un `Fsus2` cambia la tercera por la segunda—. Eso es correcto
  * y no una limitación escondida: quien pregunta lo dice antes de ofrecerlo.
+ *
+ * Y lo que lleva una tríada y alguna nota que el bloque no sabe guardar —un `C6`,
+ * un `Cadd9`, un `C7b9`— entra como su tríada, **nunca como una séptima que no
+ * es**: el `C6` entraba como `CmMaj7`, y el bloque decía un acorde y sonaba otro.
  */
 export function comoBloque(
   tonic: PitchClass,
@@ -340,8 +344,30 @@ function triadaOida(chord: CapturedChord): ChordQuality | null {
   return triadQuality(chord.root, chord.notes) ?? triadInside(chord.root, chord.notes);
 }
 
-/** Si dos acordes oídos son el mismo: la misma fundamental y la misma tríada. */
-function esElMismo(a: CapturedChord, b: CapturedChord): boolean {
+/**
+ * El grado que la toma escribirá para un acorde oído, o nulo si no lo escribe.
+ *
+ * Es la lectura de cada acorde que hace `captureProgression` —la tríada oída y
+ * su grado en la tonalidad—, suelta para probarla sola: un G7 o un Cmaj7 del
+ * croma se escriben G y C, y leído con `comoBloque` saldrían con su séptima.
+ */
+export function gradoOido(
+  tonic: PitchClass,
+  mode: KeyMode,
+  root: PitchClass,
+  notes: readonly PitchClass[],
+): DegreeSymbol | null {
+  const quality = triadaOida({ root, notes, at: 0 });
+  return quality === null ? null : degreeOfChord(tonic, mode, root, quality);
+}
+
+/**
+ * Si dos acordes oídos son el mismo: la misma fundamental y la misma tríada.
+ *
+ * Se exporta porque la sesión lo necesita al apuntar: el acorde que ya sonaba al
+ * empezar entra en el compás uno, y si el croma vuelve a decirlo no es otro.
+ */
+export function mismoAcordeOido(a: CapturedChord, b: CapturedChord): boolean {
   if (a.root !== b.root) {
     return false;
   }
@@ -426,7 +452,7 @@ export function captureProgression(
   const unicos: CapturedChord[] = [];
   for (const chord of heard) {
     const ultimo = unicos.at(-1);
-    if (ultimo === undefined || !esElMismo(ultimo, chord)) {
+    if (ultimo === undefined || !mismoAcordeOido(ultimo, chord)) {
       unicos.push(chord);
       continue;
     }
@@ -458,8 +484,7 @@ export function captureProgression(
 
   for (const { chord, beats } of tramos) {
     const quality = triadaOida(chord);
-    const degree =
-      quality === null ? null : degreeOfChord(options.tonic, options.mode, chord.root, quality);
+    const degree = gradoOido(options.tonic, options.mode, chord.root, chord.notes);
 
     if (degree === null) {
       dropped += 1;

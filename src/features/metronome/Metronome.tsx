@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Chip } from '@ui/Chip';
 import { IconoParar, IconoSonar } from '@ui/icons';
 import { Field } from '@ui/Field';
+import { TextField } from '@ui/TextField';
 import { cerrarAlSalirElFoco } from '@ui/cerrar-al-salir-el-foco';
 
 import { WebAudioMetronome, type Metronome as MetronomeEngine } from '@audio/metronome';
@@ -21,7 +22,7 @@ export interface MetronomeProps {
  *
  * El tempo se puede escribir o ajustar de dos en dos.
  *
- * **En la barra van dos pastillas y nada más**: «Clic», que lo pone y lo para, y
+ * **En la barra van dos pastillas y nada más**: «Metrónomo», que lo pone y lo para, y
  * «100 bpm», que abre el resto —el tempo, el compás y la luz del pulso—. Entero
  * en la cabecera eran un círculo, un campo, «−», «+», el compás y las luces, y
  * en un teléfono partía la barra de componer en dos filas: ciento treinta y tres
@@ -141,13 +142,25 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
   }
 
   return (
-    <div className="flex items-center gap-1">
-      <button
-        type="button"
+    <div className="flex items-center gap-1" data-tour="componer-metronomo">
+      {/*
+        **Con su nombre a la vista, «Metrónomo».** Era un triángulo suelto en un
+        círculo, y en Ensayar está al lado de «Ensayar», que es otro triángulo:
+        se pulsaba uno queriendo el otro. Se llamó «Clic», y en Tocando hay otro
+        «Con clic» que hace otra cosa —si suena la claqueta durante la toma—: dos
+        mandos con la misma palabra y el mismo triángulo, uno encima del otro.
+        Éste es el aparato, y se llama como el aparato. El nombre que se oye
+        empieza por lo que se ve, que es lo que pide WCAG 2.5.3.
+
+        Es un `Chip` y no un botón escrito a mano: lo puesto lleva su piloto,
+        como cualquier pastilla marcada de la fila.
+      */}
+      <Chip
         onClick={() => void toggle()}
         disabled={enLaToma}
-        aria-pressed={running}
-        aria-label="Clic del metrónomo"
+        pressed={running}
+        tone="quiet"
+        tamano="compacto"
         title={
           enLaToma
             ? 'La toma lleva su propio clic'
@@ -155,23 +168,14 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
               ? 'Parar el metrónomo'
               : 'Poner el metrónomo'
         }
-        // **Con su nombre a la vista, «Clic».** Era un triángulo suelto en un
-        // círculo, y en Ensayar está al lado de «Ensayar», que es otro
-        // triángulo: se pulsaba uno queriendo el otro. El nombre que se oye
-        // empieza por lo que se ve, que es lo que pide WCAG 2.5.3.
-        className={`min-h-tap flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-          running
-            ? 'border-brass-bright text-brass-bright'
-            : 'border-border text-text-muted hover:border-brass-dim hover:text-text'
-        }`}
       >
         {/* El cuadrado y el triángulo son los de cualquier aparato desde hace
             cincuenta años, pero dibujados: escritos como caracteres, `■` y `▶`
             los pinta cada sistema a su manera y a su tamaño, que es lo mismo
             que ya se dijo de los emoji. */}
         {running ? <IconoParar /> : <IconoSonar />}
-        Clic
-      </button>
+        Metrónomo
+      </Chip>
 
       {/*
         El resto, **en un panel que flota por encima de todo** (`popover`).
@@ -187,7 +191,7 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
         popoverTarget={panel}
         disabled={enLaToma}
         title={enLaToma ? 'El tempo no se cambia a mitad de una toma' : undefined}
-        className="border-border text-text-muted enabled:hover:border-brass-dim enabled:hover:text-text min-h-tap flex shrink-0 cursor-pointer items-center gap-2 rounded-md border px-3 text-[13px] font-medium disabled:cursor-not-allowed disabled:opacity-60"
+        className="border-border text-text-muted enabled:hover:border-brass-dim enabled:hover:text-text min-h-tap flex shrink-0 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
         // **Empieza por lo que se ve**, «100 bpm» (WCAG 2.5.3): quien lo usa
         // con la voz dice lo que lee en el botón, y el nombre era «Tempo: 100
         // pulsos por minuto», que no contiene «100 bpm». Detrás va lo que abre.
@@ -231,9 +235,15 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
             <Chip onClick={() => change(bpm - 2)} ariaLabel="Dos pulsos menos" tone="quiet">
               −
             </Chip>
-            <label className="flex items-center gap-1">
-              <span className="sr-only">Pulsos por minuto</span>
-              <input
+            {/* `ui/TextField` y no un `<input>` a mano: el de aquí tenía su
+                propio borde, a 1,3:1 sobre el panel, y era el único campo de
+                escribir de la aplicación fuera del molde. Va en una caja de
+                cinco rem porque el campo pide su ancho por nombre —`completo`
+                o `crece`— y aquí lo que hace falta es el de tres dígitos. */}
+            <div className="w-20">
+              <TextField
+                label="Pulsos por minuto"
+                compact
                 type="number"
                 inputMode="numeric"
                 min={MIN_BPM}
@@ -244,10 +254,10 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
                 // Enter cierra lo escrito sin tener que salir del campo, que es lo
                 // que hace cualquiera al terminar de poner un tempo.
                 onKeyDown={(event) => event.key === 'Enter' && terminarDeEscribir()}
-                className="border-border bg-surface text-text focus:border-brass-dim min-h-tap w-20 rounded-md border px-2 text-center font-mono text-lg tabular-nums"
+                className="text-center font-mono tabular-nums"
               />
-              <span className="text-text-muted font-mono text-xs">bpm</span>
-            </label>
+            </div>
+            <span className="text-text-muted font-mono text-xs">bpm</span>
             <Chip onClick={() => change(bpm + 2)} ariaLabel="Dos pulsos más" tone="quiet">
               +
             </Chip>

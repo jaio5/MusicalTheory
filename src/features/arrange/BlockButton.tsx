@@ -170,8 +170,9 @@ export function BlockButton({
       type="button"
       data-bloque={blockId}
       // `min-h-tap` y no una altura fija: es lo que se pulsa, y aquí no hay
-      // excepciones ni para lo que se arrastra.
-      className={`superficie-alta min-h-tap relative flex flex-col justify-center overflow-hidden rounded-md px-3 py-2 text-left transition-[border-color,opacity,transform] duration-150 ${
+      // excepciones ni para lo que se arrastra. `select-none` porque con el dedo
+      // se coge sujetándolo, y sujetar un texto medio segundo lo selecciona.
+      className={`superficie-alta min-h-tap relative flex flex-col justify-center overflow-hidden rounded-md px-3 py-2 text-left transition-[border-color,opacity,transform] duration-150 select-none ${
         dragging
           ? 'opacity-30'
           : playing
@@ -180,7 +181,12 @@ export function BlockButton({
               ? 'border-brass-dim'
               : 'hover:border-brass-dim'
       }`}
-      style={{ width: anchoDeBloque(beats, porPulso), touchAction: 'none' }}
+      // `pan-x pan-y` y no `none`: el bloque tapa la tira que se desplaza de
+      // lado y la columna que se desplaza de arriba abajo, y con `none` un
+      // barrido que naciera en él no movía ninguna de las dos (medido a 390:
+      // 238 px de tira sin forma de verlos). El dedo arrastra tras sujetarlo
+      // —`use-block-drag`—, y entonces es el gesto quien frena el desplazamiento.
+      style={{ width: anchoDeBloque(beats, porPulso), touchAction: 'pan-x pan-y' }}
       aria-label={`${symbol}, grado ${degree}, ${info.name.toLowerCase()}, ${beats} pulsos${
         doubtful ? ', dudoso' : ''
       }`}
@@ -232,11 +238,14 @@ export function BlockButton({
       </span>
 
       {/* La franja de estirar. Solo cambia el cursor: quien la usa la encuentra
-          por el cursor, y quien no, no se entera de que está. */}
+          por el cursor, y quien no, no se entera de que está. Es la única parte
+          del bloque con `touch-action: none`: estirar es tirar de aquí al
+          instante, también con el dedo, y el navegador no puede llevarse ese
+          gesto como desplazamiento. El bloque de alrededor lo deja pasar. */}
       <span
         aria-hidden
         className="absolute inset-y-0 right-0 w-4 cursor-ew-resize"
-        style={{ width: ZONA_ESTIRAR_PX }}
+        style={{ width: ZONA_ESTIRAR_PX, touchAction: 'none' }}
       />
     </button>
   );

@@ -70,12 +70,26 @@ describe('El muñeco del profesor', () => {
 
   // Sin cuenta, el globo ofrece entrar y no un campo que acabaría en un 401.
   it('sin cuenta, dentro del globo hay un enlace para entrar y no el campo', async () => {
-    pintar(<Tutor unitId="e1-grados" />);
+    render(
+      <AccountProvider account={ANONYMOUS} accounts>
+        <Tutor unitId="e1-grados" />
+      </AccountProvider>,
+    );
 
     await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
 
     expect(screen.getByRole('link', { name: 'Entrar para preguntar' })).toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  // Y sin cuentas configuradas no manda a ningún sitio: lo dice.
+  it('sin cuentas configuradas, el globo dice que no hay a quién preguntar', async () => {
+    pintar(<Tutor unitId="e1-grados" />);
+
+    await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
+
+    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Entrar para preguntar' })).not.toBeInTheDocument();
   });
 
   it('se abre solo cuando hay algo que avisar, y con la frase entera para quien no ve', () => {
@@ -445,6 +459,24 @@ describe('la esquina por la que se abre el globo', () => {
   });
 });
 
+describe('un aviso en una pantalla de una columna', () => {
+  /**
+   * A 700 px cabía por ancho, pero la columna de la pregunta es toda la pantalla
+   * y el globo subía desde abajo justo sobre la corrección: tapaba «Era Re
+   * (D)…». Hasta `lg` se queda cerrado, como en un teléfono.
+   */
+  it('a 700 px no abre el globo', () => {
+    vi.stubGlobal('innerWidth', 700);
+
+    pintar(<Tutor aviso="Esa no era." />);
+
+    expect(screen.getByRole('button', { name: /preguntarle al profesor/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+});
+
 describe('un aviso que llega con la pantalla estrecha', () => {
   /**
    * Es el mismo motivo que el de no abrirse solo al entrar: en un teléfono el
@@ -621,5 +653,61 @@ describe('se sale del globo como de un panel', () => {
     await userEvent.click(screen.getByRole('button', { name: /^cerrar$/i }));
 
     expect(screen.getByRole('button', { name: /preguntarle al profesor/i })).toHaveFocus();
+  });
+});
+
+/**
+ * Abierto por un aviso, el globo con el formulario dentro medía 230 px y, anclado
+ * abajo, tapaba la corrección y pisaba «Siguiente» a 700 px. Con un aviso trae la
+ * frase y un botón discreto; el formulario llega al pulsarlo, con el foco dentro.
+ */
+describe('un aviso abre el globo pequeño', () => {
+  it('trae la frase y «Preguntar al profesor», sin el formulario', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(
+      <AccountProvider account={{ ...ANONYMOUS, email: 'a@b.es' }} accounts>
+        <Tutor unitId="e1-grados" aviso="Esa no era." />
+      </AccountProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Preguntar al profesor' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('pulsarlo despliega el formulario y le pasa el foco', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(
+      <AccountProvider account={{ ...ANONYMOUS, email: 'a@b.es' }} accounts>
+        <Tutor unitId="e1-grados" aviso="Esa no era." />
+      </AccountProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Preguntar al profesor' }));
+
+    expect(screen.getByRole('textbox')).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Preguntar al profesor' })).not.toBeInTheDocument();
+  });
+
+  // Sin cuentas no habría a quién preguntar: la frase va sola.
+  it('sin cuentas configuradas, el aviso va sin botón', () => {
+    pintar(<Tutor aviso="Esa no era." />);
+
+    expect(screen.getByText('Esa no era.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Preguntar al profesor' })).not.toBeInTheDocument();
+  });
+
+  // Abierto a mano, el formulario entra entero: quien lo pulsa ya sabe qué preguntar.
+  it('abierto pulsando el muñeco, el formulario viene entero', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    render(
+      <AccountProvider account={{ ...ANONYMOUS, email: 'a@b.es' }} accounts>
+        <Tutor unitId="e1-grados" />
+      </AccountProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
+
+    expect(screen.getByRole('textbox')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Preguntar al profesor' })).not.toBeInTheDocument();
   });
 });

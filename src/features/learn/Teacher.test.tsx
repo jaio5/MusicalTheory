@@ -122,6 +122,29 @@ describe('sin cuenta', () => {
     );
   });
 
+  // En latón competía con «Siguiente» en el globo del muñeco: dos acciones
+  // principales a la vez. Entrar es la secundaria.
+  it('y ese botón es el secundario, no el de latón', () => {
+    pintar(ANONYMOUS);
+
+    const entrar = screen.getByRole('link', { name: 'Entrar para preguntar' });
+    expect(entrar).toHaveClass('border-border');
+    expect(entrar.className).not.toMatch(/bg-brass/);
+  });
+
+  // Mandaba a /cuenta, donde lo único que se leía era que aquí no hay cuentas:
+  // un callejón con dos puertas. Se dice aquí mismo y no se manda a ninguna parte.
+  it('sin cuentas configuradas lo dice, y no manda a entrar', () => {
+    render(
+      <AccountProvider account={ANONYMOUS} accounts={false}>
+        <Teacher />
+      </AccountProvider>,
+    );
+
+    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Entrar para preguntar' })).not.toBeInTheDocument();
+  });
+
   it('las preguntas de ejemplo se ven pero no se pulsan', () => {
     pintar(ANONYMOUS);
 
@@ -213,6 +236,33 @@ describe('preguntar', () => {
     expect(await screen.findByText(/Porque tiene la sensible/)).toBeInTheDocument();
     expect(screen.getByText(/E → Am/)).toBeInTheDocument();
     expect(screen.getByText(/\(V i\)/)).toBeInTheDocument();
+  });
+
+  it('lo que escribe el modelo no lleva marca', async () => {
+    pintar();
+
+    await preguntar();
+
+    expect(await screen.findByText(/Porque tiene la sensible/)).toBeInTheDocument();
+    expect(screen.queryByText(/sin IA|Sin IA|Sin conexión/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Lo que no es del modelo se marca de un vistazo, y **la marca depende del
+   * motivo**: con el modelo caído no hay nada que reescribir en la pregunta.
+   */
+  it.each([
+    [{ fuente: 'glosario', motivo: 'unparseable_response' }, 'Del glosario, sin IA'],
+    [{ fuente: 'aviso', motivo: 'unparseable_response' }, 'Sin IA'],
+    [{ fuente: 'glosario', motivo: 'model_unavailable' }, 'Sin conexión con el modelo'],
+  ])('lo que no es del modelo se marca: %o', async (origen, marca) => {
+    fetchFalso.mockResolvedValue(respuesta(200, { answer: 'Lo del glosario.', ...origen }));
+    pintar();
+
+    await preguntar();
+
+    expect(await screen.findByText('Lo del glosario.')).toBeInTheDocument();
+    expect(screen.getByText(marca)).toBeInTheDocument();
   });
 
   it('una pregunta en blanco no sale', async () => {

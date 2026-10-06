@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EMPTY_PROGRESS } from '@core/music';
+import { EMPTY_PROGRESS, findUnit, UNIT_ORDER } from '@core/music';
 
 /**
  * El avance en la cuenta: leerlo y guardarlo.
@@ -110,10 +110,10 @@ describe('con cuenta', () => {
       progress: avance(['e1-grados']),
     });
 
-    await PUT(guardar(avance(['e1-repaso'])));
+    await PUT(guardar(avance(['e1-notas'])));
 
     const guardado = saveAccountProgress.mock.calls[0]![1] as { done: string[] };
-    expect([...guardado.done].sort()).toEqual(['e1-grados', 'e1-repaso']);
+    expect([...guardado.done].sort()).toEqual(['e1-grados', 'e1-notas']);
   });
 
   it('lo que llega se limpia en vez de creerse', async () => {
@@ -131,6 +131,29 @@ describe('con cuenta', () => {
     expect(status).toBe(200);
     expect(guardado.done).not.toContain('unidad-inventada');
     expect(guardado.xp).toBeLessThan(99_999);
+  });
+
+  /**
+   * El navegador no carga las lecciones para contar sus preguntas, así que su
+   * cola puede apuntar a una que el temario ya no tiene. Se suelta aquí: si se
+   * guardara, contaría como pendiente para siempre sin poder preguntarse.
+   */
+  it('lo que la cola apunta a una pregunta que ya no existe no se guarda', async () => {
+    const deTocar = UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!;
+    loadAccountProgress.mockResolvedValue({ kind: 'vacio' });
+
+    await PUT(
+      guardar({
+        ...EMPTY_PROGRESS,
+        review: [
+          { unitId: deTocar, index: 0, seenOn: '2026-07-29', hits: 0 },
+          { unitId: deTocar, index: 999, seenOn: '2026-07-29', hits: 0 },
+        ],
+      }),
+    );
+
+    const guardado = saveAccountProgress.mock.calls[0]![1] as { review: { index: number }[] };
+    expect(guardado.review.map((item) => item.index)).toEqual([0]);
   });
 
   it('si no se puede leer lo que había, no se escribe nada', async () => {

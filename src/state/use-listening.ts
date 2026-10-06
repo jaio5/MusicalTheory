@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import type { AudioInput, AudioInputState } from '@audio/audio-input';
 import type { ChordEngine } from '@audio/chord-engine';
+import { listAudioInputDevices, pistaDe, vigilarEntradas } from '@audio/entradas-de-audio';
 import type { PitchEngine } from '@audio/pitch-engine';
+
+import { useClaqueta } from './claqueta';
+import { microfonoElegido, nombreDeLaEntrada, useMicrofono } from './microfono';
 import { useSessionStore, type ListeningState, type SessionActions } from './session-store';
 
 /**
@@ -68,7 +72,10 @@ const LISTENING_BY_INPUT_STATE: Record<AudioInputState, ListeningState> = {
 };
 
 export interface ListeningControls {
-  /** Arranca la escucha, opcionalmente en una entrada concreta. */
+  /**
+   * Arranca la escucha. Sin entrada, en la elegida (`state/microfono.ts`); si la
+   * pedida no está conectada, en la del sistema, y lo dice.
+   */
   start(deviceId?: string): Promise<void>;
   stop(): Promise<void>;
 }
@@ -123,6 +130,63 @@ let arrancandoEn: number | null = null;
  * el estado en «escuchando» era el piloto encendido de un micro apagado.
  */
 let montados = 0;
+
+/**
+ * Con qué se abrió la entrada que suena, para abrir la siguiente igual.
+ *
+ * Cambiar de micro en caliente lo pide el mando de la barra, que no es quien
+ * arrancó: sin esto, una escucha abierta con la entrada de un test se cambiaría
+ * por una de verdad.
+ */
+let fabricaDeLaEntrada: ListeningDeps['createInput'];
+
+/** Si alguien eligió otro micro mientras el de ahora se estaba abriendo. */
+let cambiarAlAcabarDeAbrir = false;
+
+/**
+ * El aparato que se pidió para la entrada que suena: `undefined`, el del sistema.
+ * Elegir mientras se abre puede llegar antes de que se mire cuál pedir, y
+ * entonces lo que se abre ya es lo elegido: volver a abrirlo sería otro permiso
+ * y otro piloto para nada.
+ */
+let pedidoDeLaQueSuena: string | undefined;
+
+/** Deja de mirar si la toma ha acabado, si se estaba mirando. */
+let dejarDeEsperarLaToma: (() => void) | null = null;
+
+/** Vuelve a mirar si la toma ha acabado, para quien suelta la entrada. */
+let mirarSiAcaboLaToma: (() => void) | null = null;
+
+/**
+ * Cuántas tomas tienen la entrada sujeta, de principio a fin.
+ *
+ * La claqueta y la captura no bastan para saber si hay una toma: al parar, la
+ * toma las suelta antes de que el grabador acabe —cerrar la claqueta es
+ * asíncrono— y en «solo grabar» la captura se marca después de empezar a
+ * grabar. En esos huecos un cambio de micro abría un segundo `getUserMedia` con
+ * el grabador aún sobre la entrada vieja.
+ */
+let sujeciones = 0;
+
+/**
+ * **La toma sujeta la entrada mientras graba**, y el cambio de micro espera.
+ * Devuelve con qué soltarla, que se puede llamar más de una vez.
+ */
+export function sujetarLaEntrada(): () => void {
+  sujeciones += 1;
+  let suelta = false;
+  return () => {
+    if (suelta) {
+      return;
+    }
+    suelta = true;
+    sujeciones -= 1;
+    mirarSiAcaboLaToma?.();
+  };
+}
+
+/** Deja de mirar si se conectan o desconectan entradas. */
+let dejarDeVigilarLasEntradas: (() => void) | null = null;
 
 /** La entrada abierta, o nula si el micro está cerrado. */
 export function entradaActiva(): AudioInput | null {
@@ -209,6 +273,265 @@ function oirAcordes(motor: ChordEngine, actions: SessionActions): void {
           },
     );
   });
+}
+
+/**
+ * **Si hay una toma en marcha**, contando la cuenta: la de componer y la de
+ * ensayar marcan la claqueta, y «solo grabar» y las salidas, la captura.
+ */
+function hayToma(): boolean {
+  return sujeciones > 0 || useClaqueta.getState().enLaToma || useSessionStore.getState().capturing;
+}
+
+/** Vuelve a pedir la lista de entradas, que con permiso ya trae los nombres. */
+export async function ponerAlDiaLasEntradas(): Promise<void> {
+  useMicrofono.getState().acciones.ponerEntradas(await listAudioInputDevices());
+}
+
+/**
+ * Qué aparato pedir, sabiendo lo que hay conectado.
+ *
+ * Si el navegador ya da la lista —con permiso— y el elegido no está, se va
+ * directo al del sistema: pedir uno que no existe es un fallo de
+ * `getUserMedia` que se vería un instante. Sin permiso la lista no trae
+ * identificadores y no se sabe; entonces se prueba, y si falla se cae igual.
+ */
+async function queAparatoPedir(
+  explicito: string | undefined,
+): Promise<{ readonly pedido: string | undefined; readonly cayo: boolean }> {
+  if (explicito === undefined && microfonoElegido() === null) {
+    return { pedido: undefined, cayo: false };
+  }
+  // La lista primero: con ella, un elegido que cambió de identificador se
+  // reconoce por el nombre (`state/microfono.ts`).
+  await ponerAlDiaLasEntradas();
+  const { entradas, elegido } = useMicrofono.getState();
+  const pedido = explicito ?? elegido!;
+  if (entradas.length > 0 && !entradas.some((entrada) => entrada.id === pedido)) {
+    return { pedido: undefined, cayo: true };
+  }
+  return { pedido, cayo: false };
+}
+
+const DICE_QUE_CAYO = 'El micrófono elegido no está conectado: escucho por el del sistema.';
+
+/** Lo que se dice al quedar abierta una entrada: si cayó al del sistema, y si no. */
+function contarComoQuedo(cayo: boolean, frase: string | null): void {
+  const { acciones } = useMicrofono.getState();
+  acciones.marcarCaida(cayo);
+  if (cayo) {
+    acciones.anunciar(DICE_QUE_CAYO);
+  } else if (frase !== null) {
+    acciones.anunciar(frase);
+  }
+}
+
+/**
+ * **Elige otro micrófono, y si está escuchando, lo cambia ya.**
+ *
+ * Con el micro cerrado solo se guarda: la próxima vez se abre ése. Abierto, se
+ * cambia en caliente (`cambiarEnCaliente`) **salvo durante una toma**, que espera
+ * a que acabe. La toma graba el flujo del aparato que hay
+ * (`audio/stream-source.ts`), y un `MediaRecorder` no cambia de pista a mitad: al
+ * cerrar la vieja, el sonido grabado se acabaría ahí. Y lo transcrito tampoco
+ * saldría igual: el nivel de dos micrófonos no se parece, y el salto se leería
+ * como un ataque que nadie tocó.
+ */
+export async function cambiarDeMicro(id: string | null): Promise<void> {
+  const microfono = useMicrofono.getState();
+  microfono.acciones.elegir(id);
+  const nombre = nombreDeLaEntrada(id, useMicrofono.getState());
+
+  // Antes que mirar si hay entrada: mientras se abre todavía no la hay —se está
+  // eligiendo el aparato o descargando el motor— y el cambio se perdía.
+  if (arrancandoEn === vuelta) {
+    // Se está abriendo con lo que había elegido antes: al acabar, se cambia.
+    cambiarAlAcabarDeAbrir = true;
+    return;
+  }
+  if (entradaSonando === null) {
+    microfono.acciones.anunciar(`Micrófono: ${nombre}.`);
+    return;
+  }
+  if (hayToma()) {
+    cambiarAlAcabarLaToma();
+    return;
+  }
+  await cambiarEnCaliente(`Micrófono cambiado: ${nombre}.`);
+}
+
+/**
+ * Deja el cambio apuntado hasta que la toma acabe.
+ *
+ * La toma acaba cuando **suelta la entrada** (`sujetarLaEntrada`), después de
+ * que el grabador pare: cerrar la vieja antes le cortaría el final. Y se aplica
+ * en la vuelta siguiente del bucle de eventos, porque justo después de soltarla
+ * la toma cierra la escucha que abrió, y cambiar ésa sería abrir un aparato para
+ * nada.
+ */
+function cambiarAlAcabarLaToma(): void {
+  useMicrofono.getState().acciones.marcarPendiente(true);
+  if (dejarDeEsperarLaToma !== null) {
+    return;
+  }
+  const mirar = () => {
+    if (hayToma()) {
+      return;
+    }
+    dejarDeEsperarLaToma?.();
+    dejarDeEsperarLaToma = null;
+    mirarSiAcaboLaToma = null;
+    useMicrofono.getState().acciones.marcarPendiente(false);
+    setTimeout(() => {
+      const { elegido } = useMicrofono.getState();
+      void cambiarEnCaliente(
+        `Micrófono cambiado: ${nombreDeLaEntrada(elegido, useMicrofono.getState())}.`,
+      );
+    }, 0);
+  };
+  const claqueta = useClaqueta.subscribe(mirar);
+  const sesion = useSessionStore.subscribe(mirar);
+  mirarSiAcaboLaToma = mirar;
+  dejarDeEsperarLaToma = () => {
+    claqueta();
+    sesion();
+    mirarSiAcaboLaToma = null;
+  };
+}
+
+/**
+ * Cambia la entrada abierta por la elegida **sin parar la escucha**.
+ *
+ * Primero se abre la nueva y solo después se cierra la vieja: si la nueva no se
+ * puede abrir, se sigue oyendo por la de antes en vez de quedarse sin nada. Los
+ * motores son **los mismos** —se vuelven a arrancar sobre la nueva—, así que
+ * quien estaba apuntado a ellos (la sesión, el croma, la toma) no se entera de
+ * nada más que de un análisis en blanco.
+ *
+ * Usa la vuelta como el arranque: si se para a mitad, lo abierto aquí se suelta.
+ */
+async function cambiarEnCaliente(frase: string): Promise<void> {
+  const vieja = entradaSonando;
+  if (vieja === null || vieja.state !== 'running' || arrancandoEn === vuelta) {
+    return;
+  }
+  const mia = vuelta;
+  arrancandoEn = mia;
+  const { actions } = useSessionStore.getState();
+  try {
+    let { pedido, cayo } = await queAparatoPedir(undefined);
+    let nueva: AudioInput | null = null;
+    for (;;) {
+      if (vuelta !== mia) {
+        return;
+      }
+      const candidata = await (fabricaDeLaEntrada?.(pedido) ?? crearEntradaDeCasa(pedido));
+      if (vuelta !== mia) {
+        return;
+      }
+      await candidata.start();
+      if (vuelta !== mia) {
+        await candidata.stop();
+        return;
+      }
+      if (candidata.state === 'running') {
+        nueva = candidata;
+        break;
+      }
+      await candidata.stop();
+      if (candidata.state !== 'error' || pedido === undefined) {
+        break;
+      }
+      pedido = undefined;
+      cayo = true;
+    }
+
+    if (nueva === null) {
+      // Ni la elegida ni la del sistema: se sigue con la de antes, que funciona.
+      useMicrofono
+        .getState()
+        .acciones.anunciar('No he podido abrir ese micrófono: sigo con el de antes.');
+      return;
+    }
+
+    dejarDeMirarElEstado?.();
+    entradaSonando = nueva;
+    pedidoDeLaQueSuena = pedido;
+    const abierta = nueva;
+    dejarDeMirarElEstado = nueva.subscribe((state) => {
+      actions.setListening(LISTENING_BY_INPUT_STATE[state], abierta.error?.message ?? null);
+    });
+    for (const motor of [motorSonando, motorDeAcordes]) {
+      await motor?.start(abierta);
+    }
+    await vieja.stop();
+    contarComoQuedo(cayo, frase);
+  } catch {
+    /* v8 ignore next 3 -- si ya no es su vuelta, lo abierto lo soltó quien la cambió */
+    if (vuelta !== mia) {
+      return;
+    }
+    await soltarLoAbierto();
+    actions.setHeardChord(null);
+    actions.setPitch(null);
+    actions.setListening(
+      'error',
+      'No he podido cambiar de micrófono. Vuelve a pulsar el micro para escuchar.',
+    );
+  } finally {
+    if (arrancandoEn === mia) {
+      arrancandoEn = null;
+      cambiarSiSeEligioOtro();
+    }
+  }
+}
+
+/** Si se eligió otro mientras se abría o se cambiaba, ahora le toca a ése. */
+function cambiarSiSeEligioOtro(): void {
+  if (!cambiarAlAcabarDeAbrir) {
+    return;
+  }
+  cambiarAlAcabarDeAbrir = false;
+  const { elegido } = useMicrofono.getState();
+  if ((elegido ?? undefined) === pedidoDeLaQueSuena) {
+    return;
+  }
+  void cambiarEnCaliente(
+    `Micrófono cambiado: ${nombreDeLaEntrada(elegido, useMicrofono.getState())}.`,
+  );
+}
+
+/**
+ * Lo que pasa al conectar o desconectar algo: la lista se pone al día y, si hace
+ * falta, se cambia de entrada.
+ *
+ * - **Se ha ido la que suena**: su pista acaba y el contexto sigue leyendo
+ *   ceros, con la barra diciendo que escucha. Se cambia ya, también en una toma:
+ *   lo que esa toma grababa ya se ha cortado con la pista.
+ * - **Ha vuelto la elegida** mientras se oía por la del sistema: se vuelve a
+ *   ella, esperando a que acabe la toma si la hay.
+ */
+async function alCambiarLasEntradas(): Promise<void> {
+  await ponerAlDiaLasEntradas();
+  const entrada = entradaSonando;
+  if (entrada === null) {
+    return;
+  }
+  const { elegido, cayo, entradas } = useMicrofono.getState();
+  const murio = pistaDe(entrada)?.viva === false;
+  const volvio = cayo && elegido !== null && entradas.some(({ id }) => id === elegido);
+  const nombre = nombreDeLaEntrada(elegido, useMicrofono.getState());
+  if (murio) {
+    await cambiarEnCaliente(
+      `Se ha desconectado el micrófono; escucho por ${elegido === null ? 'el del sistema' : nombre}.`,
+    );
+  } else if (volvio) {
+    if (hayToma()) {
+      cambiarAlAcabarLaToma();
+    } else {
+      await cambiarEnCaliente(`Ha vuelto el micrófono elegido: ${nombre}.`);
+    }
+  }
 }
 
 export function useListening({
@@ -301,27 +624,59 @@ export function useListening({
         // botón tiene que contestar al dedo antes de que lleguen.
         actions.setListening('requesting');
 
-        const input = await (factories.current.createInput?.(deviceId) ??
-          crearEntradaDeCasa(deviceId));
+        const crear = factories.current.createInput;
+        let { pedido, cayo } = await queAparatoPedir(deviceId);
         if (vuelta !== mia) {
-          // Se paró mientras se descargaba: todavía no se ha pedido nada.
           return;
         }
 
-        entradaSonando = input;
-        dejarDeMirarElEstado = input.subscribe((state) => {
-          actions.setListening(LISTENING_BY_INPUT_STATE[state], input.error?.message ?? null);
-        });
+        let input: AudioInput;
+        for (;;) {
+          input = await (crear?.(pedido) ?? crearEntradaDeCasa(pedido));
+          if (vuelta !== mia) {
+            // Se paró mientras se descargaba: todavía no se ha pedido nada.
+            return;
+          }
 
-        await input.start();
+          entradaSonando = input;
+          pedidoDeLaQueSuena = pedido;
+          // **Con un aparato pedido, su fallo no se cuenta todavía**: si es que no
+          // está, se cae al del sistema, y el aviso de «no se ha encontrado» se
+          // habría leído un instante —dentro de un `role="alert"`— para nada.
+          let callado = pedido !== undefined;
+          const esta = input;
+          dejarDeMirarElEstado = input.subscribe((state) => {
+            if (callado && state === 'error') {
+              return;
+            }
+            actions.setListening(LISTENING_BY_INPUT_STATE[state], esta.error?.message ?? null);
+          });
 
-        if (vuelta !== mia) {
-          // **El permiso llegó tarde y ya no es de nadie.** Lo que lo esperaba se
-          // fue —otra pantalla, o un «parar»— y ya soltó lo abierto, pero el
-          // navegador contesta después y entrega una pista viva. Se cierra aquí,
-          // que es el único sitio que todavía la tiene.
+          await input.start();
+          callado = false;
+
+          if (vuelta !== mia) {
+            // **El permiso llegó tarde y ya no es de nadie.** Lo que lo esperaba se
+            // fue —otra pantalla, o un «parar»— y ya soltó lo abierto, pero el
+            // navegador contesta después y entrega una pista viva. Se cierra aquí,
+            // que es el único sitio que todavía la tiene.
+            await input.stop();
+            return;
+          }
+
+          if (input.state !== 'error' || pedido === undefined) {
+            break;
+          }
+          // El elegido no se ha podido abrir: se suelta y se prueba el del sistema.
+          dejarDeMirarElEstado();
+          dejarDeMirarElEstado = null;
+          entradaSonando = null;
           await input.stop();
-          return;
+          if (vuelta !== mia) {
+            return;
+          }
+          pedido = undefined;
+          cayo = true;
         }
 
         if (input.state !== 'running') {
@@ -332,6 +687,11 @@ export function useListening({
           entradaSonando = null;
           return;
         }
+
+        fabricaDeLaEntrada = crear;
+        contarComoQuedo(cayo, null);
+        // Con el permiso dado, la lista ya trae los nombres.
+        void ponerAlDiaLasEntradas();
 
         const engine = await (factories.current.createEngine?.() ?? crearMotorDeCasa());
         if (vuelta !== mia) {
@@ -376,6 +736,7 @@ export function useListening({
       } finally {
         if (arrancandoEn === mia) {
           arrancandoEn = null;
+          cambiarSiSeEligioOtro();
         }
       }
     },
@@ -388,11 +749,22 @@ export function useListening({
   // Lo que cambia respecto a antes es **cuándo**: no al irse un componente, sino
   // al irse el último. Salir del afinador no puede cerrar el micro que abrió el
   // botón de la barra, que vive en el marco y sigue ahí.
+  //
+  // Y mientras haya alguien, se vigila qué entradas hay: la lista del mando se
+  // pone al día al enchufar algo, y la escucha cambia si se va la que suena.
   useEffect(() => {
     montados += 1;
+    if (montados === 1) {
+      dejarDeVigilarLasEntradas = vigilarEntradas(() => void alCambiarLasEntradas());
+    }
     return () => {
       montados -= 1;
       if (montados === 0) {
+        dejarDeVigilarLasEntradas?.();
+        dejarDeVigilarLasEntradas = null;
+        dejarDeEsperarLaToma?.();
+        dejarDeEsperarLaToma = null;
+        useMicrofono.getState().acciones.marcarPendiente(false);
         void soltarLoAbierto();
         // Y la interfaz en reposo, como al parar: lo que se oía ya no suena.
         // Sin esto, lo siguiente que se montara leería «escuchando» de un micro

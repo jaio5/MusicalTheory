@@ -38,7 +38,11 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      className="h-auto w-full max-w-[152px] min-w-[132px]"
+      // Entre 148 y 152 px de ancho, y no desde 132: el lienzo mide 107, así que
+      // a 132 la letra de 9 salía a 11 px y la de la digitación, de 8, a 9,9:
+      // por debajo del suelo de 12 px que esta aplicación pide para todo lo que
+      // se lee, también dentro de un SVG. A 148 el más pequeño llega a 12,4.
+      className="h-auto w-full max-w-[152px] min-w-[148px]"
       role="img"
       aria-label={`${label}: ${text}`}
     >
@@ -93,7 +97,7 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
                 x={x}
                 y={TOP - 5}
                 textAnchor="middle"
-                className="fill-text-muted font-mono text-[9px]"
+                className="fill-text-muted font-mono text-[10px]"
               >
                 ×
               </text>
@@ -125,7 +129,7 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
       })}
 
       {start > 1 && (
-        <text x={4} y={TOP + CELL / 2 + 3} className="fill-text-muted font-mono text-[9px]">
+        <text x={4} y={TOP + CELL / 2 + 3} className="fill-text-muted font-mono text-[10px]">
           {start}
         </text>
       )}
@@ -134,7 +138,7 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
         x={WIDTH / 2}
         y={HEIGHT - 2}
         textAnchor="middle"
-        className="fill-text-muted font-mono text-[8px]"
+        className="fill-text-muted font-mono text-[9px]"
       >
         {text}
       </text>

@@ -162,25 +162,34 @@ export function Divisor({
       // `touch-action: none` es lo que impide que el navegador se lleve el
       // gesto como un desplazamiento en cuanto se arrastra con el dedo, y sin
       // él el divisor no se mueve en una tableta aunque todo lo demás esté bien.
+      // El aro del foco no va en esta caja, que mide un píxel: iba aquí como un
+      // cambio de color de esa línea, y una raya de 1 px que pasa de gris a
+      // latón no es un foco que se vea desde un metro. Va en la franja de agarre.
       className={`group bg-border relative shrink-0 touch-none ${
         vertical ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize'
-      } focus-visible:bg-brass-bright focus-visible:outline-none ${className}`}
+      } focus-visible:outline-none ${className}`}
     >
       {/* La franja que se agarra: invisible, centrada sobre la línea y de
           veinticuatro píxeles. Encima de lo de al lado (`z-10`), porque se come
-          el borde de las dos áreas vecinas y tiene que ganarles el puntero. */}
+          el borde de las dos áreas vecinas y tiene que ganarles el puntero.
+
+          **Y es donde se dibuja el foco**: el aro de la casa, dos píxeles de
+          latón vivo, alrededor de los veinticuatro que de verdad se cogen. Hacia
+          dentro (`-outline-offset-2`), porque la franja ya sobresale once píxeles
+          de la línea a cada lado y por fuera pisaría lo de al lado. */}
       <span
         aria-hidden="true"
-        className={`absolute z-10 ${
+        className={`group-focus-visible:outline-brass-bright absolute z-10 group-focus-visible:outline-2 group-focus-visible:-outline-offset-2 ${
           vertical ? 'inset-y-0 -left-[11.5px] w-6' : 'inset-x-0 -top-[11.5px] h-6'
         }`}
       />
       {/* Lo que se enciende al pasar por encima, y es lo que dice que esto se
           puede coger sin dibujar un asa. Tres píxeles y no la franja entera: se
-          agarra ancho, pero no se pinta una barra gorda entre dos áreas. */}
+          agarra ancho, pero no se pinta una barra gorda entre dos áreas. Con el
+          foco puesto se enciende en latón vivo, como la línea de antes. */}
       <span
         aria-hidden="true"
-        className={`group-hover:bg-brass-dim pointer-events-none absolute ${
+        className={`group-hover:bg-brass-dim group-focus-visible:bg-brass-bright pointer-events-none absolute ${
           vertical ? 'inset-y-0 -left-px w-[3px]' : 'inset-x-0 -top-px h-[3px]'
         }`}
       />

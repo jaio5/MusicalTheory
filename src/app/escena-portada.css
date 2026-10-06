@@ -15,8 +15,17 @@
 /*
  * El negro de la sala: el de los cantos del dibujo, que se funden en él. Por eso
  * el lienzo puede quedarse más pequeño que la pantalla sin que se vea dónde
- * acaba. No es `night`: el dibujo se pintó antes de la paleta nueva (adr/0070),
- * y cuando `arte/portada/build.py` la use, este valor pasa a ser el suyo.
+ * acaba.
+ *
+ * **Es el decimoséptimo color, y se queda a propósito.** No es `night` porque el
+ * dibujo se pintó antes de la paleta nueva (adr/0070) con el `negro` de
+ * `arte/portada/build.py`, y sus cuatro esquinas son ese negro —leído del PNG,
+ * tres puntos por canal más oscuro que la pared de la página—. Ponerle aquí
+ * `night` dibujaría el rectángulo del lienzo: dos negros distintos pegados se
+ * ven, y es justo lo que este valor evita. Se resuelve en el dibujo y no en esta
+ * hoja: el día que `build.py` pinte con `night`, esto pasa a ser
+ * `var(--color-night)` y el color sobra. `escena.test.ts` vigila que sea el del
+ * dibujo y que no se le sume otro.
  */
 .hero-escena,
 .escena {

@@ -29,7 +29,15 @@ const MARCO = 'portada-marco w-full';
  * la derecha. Es lo que hace que una franja de un párrafo no sea una tira estrecha
  * pegada a un lado con el resto de la pantalla vacío.
  */
-const A_DOS = 'grid gap-y-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-x-(--hueco)';
+/*
+ * `minmax(0,1fr)` también en la columna única: una rejilla sin columnas
+ * declaradas mide la suya por lo más ancho que lleva dentro, y con la letra del
+ * navegador al doble el afinador pedía 473 px en un teléfono de 390. La página
+ * entera se iba de lado. Con el cero, la columna es la pantalla y lo de dentro
+ * se las arregla.
+ */
+const A_DOS =
+  'grid grid-cols-[minmax(0,1fr)] gap-y-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-x-(--hueco)';
 
 /** El aire vertical de cada franja. Nueve secciones, un solo ritmo. */
 const FRANJA = 'py-24 sm:py-32 2xl:py-40';
@@ -40,37 +48,38 @@ const CLAIMS: readonly string[] = [
   'Sin instalar nada',
 ];
 
+/**
+ * Las cuatro pantallas, **sin numerar**. Llevaban «01 — Aprender … 04 — Afinar»
+ * encima de cada titular, y un número promete un orden que aquí no existe: no
+ * se empieza por aprender ni se acaba afinando, cada una es un sitio. El nombre
+ * es el titular de la tarjeta, con su peso, y lo que hace cada una va debajo.
+ */
 const SCREENS: ReadonlyArray<{
   href: string;
-  step: string;
   name: string;
   headline: string;
   body: string;
 }> = [
   {
     href: '/aprender',
-    step: '01',
     name: 'Aprender',
     headline: 'Un camino de diez cursos, y empiezas por donde quieras',
     body: 'Dos grados y diez cursos de unidades cortas, con su meta del día y su racha. Las preguntas se escriben en la tonalidad en la que estés, no en un C mayor de libro, y al contestar te dicen por qué, aciertes o falles. La mitad de las unidades son de tocar: la aplicación oye si la nota ha sonado limpia antes de pasar a la siguiente. Y si ya sabes teoría, eliges el curso por el que entras y no pasas por lo que ya te sabes.',
   },
   {
     href: '/profesor',
-    step: '02',
     name: 'Profesor',
     headline: 'Pregunta lo que no te atreves a preguntar',
     body: 'Un profesor al que preguntarle cualquier cosa de teoría, que contesta en tres frases y con los acordes de la tonalidad que tengas puesta. Si un ejemplo tocable ayuda, lo da en grados y se resuelve a los acordes de verdad de esa tonalidad; no hay forma de que te enseñe un acorde que ahí no existe.',
   },
   {
     href: '/componer',
-    step: '03',
     name: 'Componer',
     headline: 'Guarda la idea antes de que se te olvide',
     body: 'Eliges la tonalidad en la rueda y encadenas acordes. De cada uno ves sus notas, hasta seis formas de hacerlo a lo largo del mástil y a dónde puedes ir desde ahí, con un punto verde, ámbar o rojo según cuánto se salga. Puedes buscar un acorde por su cifrado y te dice si entra, si cabe como color o si se va fuera.',
   },
   {
     href: '/afinar',
-    step: '04',
     name: 'Afinar',
     headline: 'Ocho afinaciones y nada más en pantalla',
     body: 'Estándar, drop D, medio tono abajo, un tono abajo, drop C, DADGAD, open G y open D. El afinador compara con la afinación que elijas, no con la de siempre, así que en drop C la sexta al aire está afinada cuando lo está de verdad.',
@@ -144,7 +153,11 @@ export default function Portada() {
           siempre. Es de la sala en los dos temas (`.escenario-oscuro`): una
           franja clara encima de la noche partía el encabezado en dos. */}
       <header className="barra-portada escenario-oscuro sticky top-0 z-20 border-b border-transparent">
-        <div className={`${MARCO} flex items-center gap-4 py-3`}>
+        {/* `flex-wrap`: con la letra del navegador al doble, la marca y el
+            «Abrir» no caben en 390 y se salían por la derecha —493 px de
+            documento—; envolviendo, el botón baja a su fila y la página no
+            se desplaza de lado. A tamaño normal no cambia nada: cabe. */}
+        <div className={`${MARCO} flex flex-wrap items-center gap-x-4 gap-y-2 py-3`}>
           <span className="font-display text-text inline-flex items-center gap-2 text-lg tracking-tight">
             <span aria-hidden="true" className="bg-brass size-2 rounded-full" />
             Caos ordenado
@@ -269,11 +282,15 @@ export default function Portada() {
               Debajo del texto, en 2560, era un panel de 768 píxeles pegado a la
               izquierda con dos tercios de la franja vacíos. */}
           <div
-            className={`${MARCO} ${FRANJA} revelar grid gap-y-10 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:items-center xl:gap-x-(--hueco)`}
+            className={`${MARCO} ${FRANJA} revelar grid grid-cols-[minmax(0,1fr)] gap-y-10 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:items-center xl:gap-x-(--hueco)`}
           >
+            {/* Sin antetítulo. Las franjas llevaban un rótulo de 12 px encima del
+                titular —«Pruébalo aquí», «La rueda de quintas», «Privacidad»—,
+                que es un `.rotulo` nombrando un trozo de página, justo lo que
+                `docs/ESTILO.md` dice que no es: el titular carga con su peso y lo
+                que el rótulo decía va dentro de él o sobra. */}
             <div>
-              <p className="rotulo">Pruébalo aquí</p>
-              <h2 className="font-display text-fluid-title mt-3 tracking-tight">
+              <h2 className="font-display text-fluid-title tracking-tight">
                 Un afinador de verdad, ahora
               </h2>
               <p className="text-text-muted text-fluid-body mt-4 max-w-[60ch] leading-relaxed">
@@ -328,12 +345,10 @@ export default function Portada() {
                   key={screen.href}
                   className="border-border hover:border-brass group flex flex-col border-t pt-8 transition-colors"
                 >
-                  <p className="rotulo">
-                    <span className="text-brass">{screen.step}</span> — {screen.name}
-                  </p>
-                  <h3 className="font-display text-fluid-subtitle mt-2 max-w-[32ch] tracking-tight">
+                  <h3 className="font-display text-fluid-subtitle tracking-tight">{screen.name}</h3>
+                  <p className="text-text text-fluid-body mt-2 max-w-[32ch] font-medium">
                     {screen.headline}
-                  </h3>
+                  </p>
                   <p className="text-text-muted text-fluid-body mt-3 max-w-[60ch] leading-relaxed">
                     {screen.body}
                   </p>
@@ -360,9 +375,8 @@ export default function Portada() {
               la rueda y se iba al borde derecho, lejos del texto que la explica. */}
           <div className={`${MARCO} ${FRANJA} revelar ${A_DOS} lg:items-center`}>
             <div>
-              <p className="rotulo">La rueda de quintas</p>
-              <h2 className="font-display text-fluid-title mt-3 tracking-tight">
-                Gira sola hasta tu tonalidad
+              <h2 className="font-display text-fluid-title tracking-tight">
+                La rueda gira sola hasta tu tonalidad
               </h2>
               <p className="text-text-muted text-fluid-body mt-4 max-w-[60ch] leading-relaxed">
                 Mientras tocas, la aplicación acumula las notas que aparecen y calcula en qué
@@ -383,12 +397,9 @@ export default function Portada() {
 
         <section className="bg-surface">
           <div className={`${MARCO} ${FRANJA} revelar ${A_DOS}`}>
-            <div>
-              <p className="rotulo">Grabar lo que tocas</p>
-              <h2 className="font-display text-fluid-title mt-3 tracking-tight">
-                Dale, tócalo y escúchate
-              </h2>
-            </div>
+            <h2 className="font-display text-fluid-title tracking-tight">
+              Graba lo que tocas y escúchate
+            </h2>
             <p className="text-text-muted text-fluid-body max-w-[68ch] leading-relaxed lg:pt-7">
               Desde la pantalla de componer se graba lo que estás tocando sin salir de ella, y al
               parar te suena ahí mismo: lo primero que puedes hacer con una toma es oírla y decidir
@@ -400,12 +411,9 @@ export default function Portada() {
 
         <section id="privacidad">
           <div className={`${MARCO} ${FRANJA} revelar ${A_DOS}`}>
-            <div>
-              <p className="rotulo">Privacidad</p>
-              <h2 className="font-display text-fluid-title mt-3 tracking-tight">
-                Tu audio no sale de aquí
-              </h2>
-            </div>
+            <h2 className="font-display text-fluid-title tracking-tight">
+              Tu audio no sale de aquí
+            </h2>
             <div className="lg:pt-7">
               <p className="text-text-muted text-fluid-body max-w-[68ch] leading-relaxed">
                 El micrófono se analiza dentro del navegador, en tu ordenador. Nadie escucha lo que
@@ -448,7 +456,7 @@ export default function Portada() {
           {/* La despedida, de cartel como el titular: grande a la izquierda, y lo
               que hay que hacer abajo a la derecha. */}
           <div
-            className={`${MARCO} revelar grid gap-y-8 py-28 sm:py-36 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end lg:gap-x-(--hueco) 2xl:py-48`}
+            className={`${MARCO} revelar grid grid-cols-[minmax(0,1fr)] gap-y-8 py-28 sm:py-36 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end lg:gap-x-(--hueco) 2xl:py-48`}
           >
             <h2 className="font-display portada-cartel max-w-[18ch] tracking-[-0.02em] text-balance">
               Coge la guitarra y enciende el micro

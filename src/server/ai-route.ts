@@ -16,18 +16,21 @@
  * quede atrás.
  *
  * Lo que cambia de una ruta a otra entra por parámetro, y es poco: cómo se lee
- * la petición, cómo se escribe el prompt, qué esquema se le exige al modelo y
- * cómo se valida lo que vuelve. Nada de eso vive aquí, y no puede: los
+ * la petición, cómo se escribe el prompt, qué esquema se le exige al modelo,
+ * cómo se valida lo que vuelve y —si la ruta lo tiene— **qué contestar cuando el
+ * modelo no da nada que valga**, el `respaldo`. Con él, la ruta no devuelve los dos
+ * 502 de después de la puerta: la pregunta ya está cobrada, y una respuesta
+ * construida por el dominio, que diga que lo es, sirve más que la pantalla de
+ * error. El bucle de los intentos vive en `ai-intentos.ts`, que es lo que usa
+ * también el examen del profesor. Nada de eso vive aquí, y no puede: los
  * contratos están en `features/*​/contract.ts` y `server/` no importa de un
  * feature —la regla 5, que ESLint vigila en los dos sentidos—.
  */
 
 import { NextResponse } from 'next/server';
 
-import { MAX_MODEL_ATTEMPTS } from '@core/billing';
-
 import { abrirPuertaDeIa, frenarPorFrecuencia, type ConstructorDeError } from './ai-gate';
-import { askModel, RespuestaTruncada } from './ask-model';
+import { preguntarAlModelo, type PreguntaAlModelo } from './ai-intentos';
 import type { PuertaDeIa } from './ai-gate';
 import type { SlidingWindowRateLimiter } from './rate-limit';
 import { readJsonBody } from './request-body';
@@ -35,10 +38,12 @@ import { readJsonBody } from './request-body';
 /**
  * Lo que distingue a una ruta de otra.
  *
- * `Peticion` es lo que sale de validar el cuerpo y `Respuesta` lo que se
- * devuelve como JSON cuando todo va bien.
+ * Lo que se le pregunta al modelo y cómo se comprueba —el prompt, el esquema, el
+ * validador y el respaldo— está en `PreguntaAlModelo` (`ai-intentos.ts`), que es
+ * lo que usa también el examen del profesor. Aquí se añade lo que es de HTTP: el
+ * limitador, los errores, la puerta del cupo y cómo se lee el cuerpo.
  */
-export interface RutaDeIa<Peticion, Respuesta> {
+export interface RutaDeIa<Peticion, Respuesta> extends PreguntaAlModelo<Peticion, Respuesta> {
   /** En memoria y por instancia: cada ruta tiene el suyo. */
   readonly limiter: SlidingWindowRateLimiter;
   readonly error: ConstructorDeError;
@@ -46,28 +51,29 @@ export interface RutaDeIa<Peticion, Respuesta> {
   readonly puerta: Omit<PuertaDeIa, 'error'>;
   /** Reconstruye la petición campo a campo. Nulo si no vale. */
   readonly parse: (body: unknown) => Peticion | null;
-  readonly prompt: (peticion: Peticion) => string;
-  readonly system: string;
   /**
-   * El esquema que se le exige a la respuesta.
+   * Por qué no vale, cuando hay algo más concreto que decir que la frase de
+   * `invalid_request`. Solo se pregunta si `parse` ha dicho que no.
    *
-   * Es una función de la petición porque en dos de las tres rutas depende de
-   * ella: los grados válidos no son los mismos en mayor que en menor, y con
-   * `scale` hace falta un identificador de escala en vez de un grado.
+   * Opcional, y es para el caso en que la petición está bien formada y aun así no
+   * hay nada que pedir: treinta y un compases y «Continuar» no son «nos falta la
+   * progresión», son «ya no cabe otra parte».
    */
-  readonly schema: (peticion: Peticion) => Record<string, unknown>;
-  readonly maxTokens: number;
-  /** Qué contestar sin clave, construido desde el dominio. */
-  readonly sinClave: (peticion: Peticion) => unknown;
-  /**
-   * Comprueba contra el dominio lo que ha contestado el modelo y devuelve el
-   * cuerpo de la respuesta, o nulo si no vale y hay que reintentar.
-   *
-   * Devuelve el cuerpo entero y no los datos sueltos porque cada ruta lo envuelve
-   * distinto —`{ versions }`, la respuesta del profesor a pelo— y eso es cosa
-   * suya, no de aquí.
-   */
-  readonly validar: (payload: unknown, peticion: Peticion) => Respuesta | null;
+  readonly porQueNoVale?: (body: unknown) => string | null;
+}
+
+/**
+ * Deja rastro de que el modelo no ha dado nada que valga.
+ *
+ * Sin esto, un modelo caído no se veía en ningún registro: el respaldo contesta un
+ * 200 y desde fuera todo parece ir bien. **Solo el código, la ruta y el motivo**:
+ * ni la pregunta ni las directrices, que son texto de quien lo escribe y un
+ * registro no es sitio para él.
+ */
+function avisarDelFallo(ruta: string, codigo: number, motivo: string): void {
+  console.warn(
+    `[ia] el modelo no ha dado nada que valga: ruta=${ruta} codigo=${codigo} motivo=${motivo}`,
+  );
 }
 
 /**
@@ -95,7 +101,8 @@ export async function responderConModelo<Peticion, Respuesta>(
 
   const peticion = ruta.parse(body);
   if (peticion === null) {
-    return NextResponse.json(ruta.error('invalid_request'), { status: 400 });
+    const motivo = ruta.porQueNoVale?.(body) ?? undefined;
+    return NextResponse.json(ruta.error('invalid_request', motivo), { status: 400 });
   }
 
   const cerrada = await abrirPuertaDeIa({ ...ruta.puerta, error: ruta.error });
@@ -103,47 +110,13 @@ export async function responderConModelo<Peticion, Respuesta>(
     return cerrada;
   }
 
-  const prompt = ruta.prompt(peticion);
-
-  // Un reintento y basta. Encadenar más cuesta dinero y tiempo, y quien está
-  // delante prefiere un «no ha salido» rápido a treinta segundos de espera.
-  //
-  // Y el reintento **pide algo distinto**: el número de intento viaja hasta el
-  // modelo, que sube la temperatura en el segundo. Sin eso, con el modelo de casa
-  // la segunda llamada era la misma pregunta con la misma respuesta.
-  for (let intento = 0; intento < MAX_MODEL_ATTEMPTS; intento += 1) {
-    let payload: unknown;
-    try {
-      payload = await askModel({
-        prompt,
-        system: ruta.system,
-        schema: ruta.schema(peticion),
-        maxTokens: ruta.maxTokens,
-        sinClave: () => ruta.sinClave(peticion),
-        // **Qué intento es, y no es un adorno.** El modelo de casa va a
-        // temperatura cero, así que repetir la misma petición daba exactamente la
-        // misma respuesta: el reintento era esperar el doble para el mismo «no».
-        // Con esto, la segunda tiene de verdad otra oportunidad.
-        intento,
-      });
-    } catch (fallo) {
-      // Una respuesta cortada por el tope de tokens **no se reintenta**: el
-      // prompt y el tope son los mismos, así que la segunda llamada se cortaría
-      // por donde se cortó la primera. Y no es «el modelo no contesta»: contestó,
-      // y lo que dijo no se puede leer.
-      if (fallo instanceof RespuestaTruncada) {
-        return NextResponse.json(ruta.error('unparseable_response'), { status: 502 });
-      }
-      // 502 y no 500: el que ha fallado es el modelo, no nosotros, y la
-      // diferencia importa para quien mire los registros.
-      return NextResponse.json(ruta.error('model_unavailable'), { status: 502 });
-    }
-
-    const respuesta = ruta.validar(payload, peticion);
-    if (respuesta !== null) {
-      return NextResponse.json(respuesta);
-    }
+  const desenlace = await preguntarAlModelo(ruta, peticion);
+  if (desenlace.kind === 'error') {
+    avisarDelFallo(ruta.puerta.feature, 502, desenlace.fallo);
+    return NextResponse.json(ruta.error(desenlace.fallo), { status: 502 });
   }
-
-  return NextResponse.json(ruta.error('unparseable_response'), { status: 502 });
+  if (desenlace.kind === 'respaldo') {
+    avisarDelFallo(ruta.puerta.feature, 200, desenlace.fallo);
+  }
+  return NextResponse.json(desenlace.respuesta);
 }

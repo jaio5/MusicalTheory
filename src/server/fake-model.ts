@@ -7,9 +7,10 @@
  * y empezar a pagar por tokens.
  *
  * **Lo que devuelve sale del dominio, no de un fichero de ejemplos.** Las
- * versiones se construyen aplicando movimientos de verdad de
- * `core/music/reharmonization.ts` a la progresión que se manda, así que pasan la
- * misma verificación que pasaría una respuesta del modelo. Eso es lo que permite
+ * salidas son las del menú que se le da al modelo (`salidasPosibles`, construidas
+ * con los movimientos, el grafo y las cadencias que las juzgan, y que la ruta le
+ * pasa tal cual), así que pasan la misma verificación que pasaría una respuesta del
+ * modelo. Eso es lo que permite
  * probar la pantalla, la reproducción y «ponerla en el camino» sin gastar un
  * céntimo.
  *
@@ -19,111 +20,76 @@
  * lee «Sin IA», no un título que parezca escrito por alguien.
  */
 
+import { MAX_VERSIONS } from '@core/billing';
 import {
-  applyMove,
-  cadenciasParaCerrar,
-  findTheory,
-  MOVES,
   pitchClassFromName,
-  theoryReference,
-  type DegreeSymbol,
+  respuestaDelGlosario,
   type KeyMode,
   type NoteName,
+  type SalidaPosible,
 } from '@core/music';
 
 /** La marca que llevan todas las respuestas de aquí. Se lee en pantalla. */
 export const SIN_IA = 'Sin IA';
 
 interface Peticion {
-  readonly tonic: NoteName;
-  readonly mode: KeyMode;
-  readonly progression: readonly { readonly degree: DegreeSymbol; readonly beats: number }[];
+  /**
+   * Las salidas que vio el modelo, por su número: **el mismo menú** con el que la
+   * ruta escribió el prompt y con el que valida. El número que se contesta aquí
+   * tiene que señalar la misma salida allí, y por eso se lo da la ruta en vez de
+   * construirlo aquí: `server/` no puede abrir `features/`, que es donde se decide
+   * qué salidas entran.
+   */
+  readonly menu: readonly Pick<SalidaPosible, 'nombre' | 'que'>[];
+  /**
+   * Cuáles contesta, por su número en el menú (desde 1): las tres mejores, que
+   * escoge la ruta con `lasTresMejores`. Sin decirlo, las tres primeras.
+   */
+  readonly elegidas?: readonly number[];
+  /**
+   * El porqué de cada salida del menú, por su orden, escrito con los motivos del
+   * juez que pasan el validador; vacío si ninguno pasa. Lo pone la ruta, que es la
+   * que ve el validador. Sin él, el porqué es lo que hace cada una.
+   */
+  readonly porques?: readonly string[];
 }
 
 /**
- * Salidas construidas por el dominio, no por un modelo.
+ * Salidas elegidas por el dominio, no por un modelo.
  *
- * Una por camino, hasta tres, y **cada una se construye con las mismas piezas con
- * las que se valida**: los movimientos de `reharmonization.ts` para rearmonizar y
- * el grafo de `nextDegrees` para alargar. Por eso pasan la misma verificación que
- * pasaría una respuesta del modelo, que es lo que hace que sirvan para probar la
- * pantalla entera sin gastar un céntimo.
+ * **Las mismas que se le ofrecen al modelo**, y contestadas igual que él: el
+ * número, un título y un porqué. Por eso pasan por el mismo validador y prueban el
+ * camino de verdad.
  *
- * Lo que **no** prueban sigue siendo lo de siempre: si las salidas de un modelo de
- * verdad valen la pena. Por eso todas llevan «Sin IA» escrito en su título.
+ * **Cuáles, lo decide la ruta**: las tres mejores con variedad
+ * (`lasTresMejores`, en `features/versions/menu.ts`), que son también las que el
+ * modelo explica cuando no hay directrices. Aquí se contestan.
+ *
+ * **El porqué es el del juez** —«V I en el 8: cadencia perfecta», «vi IV, el eje
+ * del pop»—, que es lo que hace que esta salida encaje y no solo lo que hace; si
+ * no hay motivo que se sostenga, lo que hace, en grados.
+ *
+ * Lo que **no** prueban sigue siendo lo de siempre: si el criterio de un modelo de
+ * verdad vale la pena. Por eso todas llevan «Sin IA» escrito en su título.
  */
-export function versionesSinIA(peticion: Peticion): unknown {
-  const { mode, progression } = peticion;
-  const versions: unknown[] = [];
-
-  // 1. Rearmonizar: un compás de cada dos, con su movimiento declarado.
-  for (const move of MOVES) {
-    const steps = progression.map((paso, index) => {
-      const destino = index % 2 === 1 ? applyMove(mode, paso.degree, move.id) : null;
-      return destino === null || destino === paso.degree
-        ? { degree: paso.degree, beats: paso.beats, move: null }
-        : { degree: destino, beats: paso.beats, move: move.id };
-    });
-
-    // Y devuelve solo el trozo que cambia, con su `desde`, como se le pide al
-    // modelo (adr/0086): del primer compás cambiado al último.
-    const primero = steps.findIndex((paso) => paso.move !== null);
-    if (primero !== -1) {
-      const ultimo =
-        steps.length - 1 - [...steps].reverse().findIndex((paso) => paso.move !== null);
-      versions.push({
-        path: 'rearmonizar',
-        desde: primero + 1,
-        title: `${SIN_IA} · ${move.name.toLowerCase()}`,
-        why: `${move.why} La ha construido el dominio, no un modelo.`,
-        sections: [
-          { name: 'Lo que llevas', yours: false, steps: steps.slice(primero, ultimo + 1) },
-        ],
-      });
-      break;
-    }
-  }
-
-  // 2. Seguir: la mejor cadencia con la que se puede cerrar desde donde acaba.
-  const ultimo = progression[progression.length - 1]?.degree;
-  const camino = ultimo === undefined ? undefined : cadenciasParaCerrar(mode, ultimo)[0];
-  if (camino !== undefined) {
-    const cola = camino.map((degree) => ({ degree, beats: 4, move: null }));
-    versions.push({
-      path: 'seguir',
-      title: `${SIN_IA} · cerrar en la tónica`,
-      why: 'Un cierre por donde el dominio dice que se suele ir: prepara la tónica y cae en ella.',
-      sections: [
-        {
-          name: 'Lo que llevas',
-          yours: true,
-          steps: progression.map((paso) => ({ ...paso, move: null })),
-        },
-        { name: 'Cierre', yours: false, steps: cola },
-      ],
-    });
-  }
-
-  // 3. Otro reparto: el primer compás dura el doble. No toca un solo acorde, y
-  // el trozo es ese compás solo: desde el 1, y lo demás lo pone el servidor.
-  const [inicial] = progression;
-  if (inicial !== undefined) {
-    versions.push({
-      path: 'estirar',
-      desde: 1,
-      title: `${SIN_IA} · el primero, el doble`,
-      why: 'Los mismos acordes en el mismo orden, con el primero durando el doble.',
-      sections: [
-        {
-          name: 'Lo que llevas',
-          yours: false,
-          steps: [{ degree: inicial.degree, beats: Math.min(16, inicial.beats * 2), move: null }],
-        },
-      ],
-    });
-  }
-
-  return { versions: versions.slice(0, 3) };
+export function versionesSinIA(peticion: Peticion): {
+  readonly versions: readonly { opcion: number; title: string; why: string }[];
+} {
+  const { menu } = peticion;
+  const elegidas = (peticion.elegidas ?? menu.map((_, i) => i + 1))
+    .filter((numero) => menu[numero - 1] !== undefined)
+    .slice(0, MAX_VERSIONS);
+  return {
+    versions: elegidas.map((numero) => {
+      const salida = menu[numero - 1]!;
+      const porque = peticion.porques?.[numero - 1] ?? '';
+      return {
+        opcion: numero,
+        title: `${SIN_IA} · ${salida.nombre}`,
+        why: porque === '' ? salida.que : porque,
+      };
+    }),
+  };
 }
 
 /** Lo que hace falta de una pregunta al profesor para contestarla sin modelo. */
@@ -141,21 +107,25 @@ interface PreguntaSinIA {
  * no hay modelo y qué hacer, como siempre. Las dos llevan «Sin IA» delante.
  */
 export function respuestaSinIA(pregunta?: PreguntaSinIA): unknown {
-  const [entrada] = pregunta === undefined ? [] : findTheory(pregunta.question, 1);
-  if (pregunta !== undefined && entrada !== undefined) {
-    const key = { tonic: pitchClassFromName(pregunta.key.tonic), mode: pregunta.key.mode };
-    return {
-      tema: 'musica',
-      answer: `${SIN_IA}, del glosario. ${theoryReference(entrada, key)}`,
-    };
+  const glosario =
+    pregunta === undefined
+      ? null
+      : respuestaDelGlosario(pregunta.question, {
+          tonic: pitchClassFromName(pregunta.key.tonic),
+          mode: pregunta.key.mode,
+        });
+  if (glosario !== null) {
+    return { tema: 'musica', answer: `${SIN_IA}, del glosario. ${glosario}` };
   }
   return {
     // Declara el tema como cualquier respuesta, porque el validador lo exige a
     // todo el mundo. Un puerto falso que se salte una comprobación deja de servir
-    // para lo que existe: probar el camino de verdad sin pagarlo.
+    // para lo que existe: probar el camino de verdad sin pagarlo. Y por lo mismo
+    // habla de música: el validador tira lo que dice `musica` y no la nombra.
     tema: 'musica',
     answer:
       'Aquí no hay modelo conectado, así que esto no es una respuesta de verdad: es lo que ' +
-      'contesta la aplicación cuando le falta la clave. Pon ANTHROPIC_API_KEY y vuelve a preguntar.',
+      'contesta la aplicación cuando le falta la clave. Pon ANTHROPIC_API_KEY y vuelve a preguntar. ' +
+      'Mientras, contesta el glosario si nombras lo que buscas: una cadencia, un modo, un intervalo.',
   };
 }

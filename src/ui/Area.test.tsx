@@ -28,6 +28,27 @@ describe('el área del banco', () => {
     expect(screen.getByRole('region', { name: 'Acorde' })).toBeInTheDocument();
   });
 
+  /**
+   * Y sus mandos también: los 44 de la cabecera llevan el borde dentro, así que
+   * a lo que se estira le quedaban 43 —medido en componer a 1024 y 1440—. La
+   * caja de los mandos baja un píxel y pisa el borde, y los botones llegan.
+   */
+  it('sus mandos llegan a los 44 enteros, pisando el borde de la cabecera', () => {
+    render(
+      <Area titulo="Acorde" onPlegar={() => {}} medida={medida()}>
+        <p>dentro</p>
+      </Area>,
+    );
+
+    const plegar = screen.getByRole('button', { name: 'Plegar Acorde' });
+    expect(plegar).toHaveClass('self-stretch');
+    expect(plegar.parentElement).toHaveClass('-mb-px', 'self-stretch');
+    // Y el dibujo de estrechar es adorno de un botón que ya se llama.
+    const estrechar = screen.getByRole('button', { name: 'Estrechar Acorde' });
+    expect(estrechar.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(estrechar.querySelector('svg')).toHaveAttribute('focusable', 'false');
+  });
+
   it('estrecha y ensancha con flechas, no con un menos y un más', () => {
     const m = medida();
     render(

@@ -65,6 +65,9 @@ for (const freno of FRENOS) {
     viewport: { width: 1440, height: 900 },
     permissions: ['microphone'],
   });
+  // El recorrido de la primera visita sale encima en un contexto nuevo: se marca
+  // como visto, o las medidas serían las de la tarjeta y su trozo de código.
+  await ctx.addInitScript(() => localStorage.setItem('caos-ordenado:recorrido', 'visto'));
   const page = await ctx.newPage();
   const fallos = [];
   page.on('pageerror', (e) => fallos.push(e.message.slice(0, 80)));

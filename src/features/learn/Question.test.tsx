@@ -167,3 +167,34 @@ describe('la corrección se anuncia', () => {
     expect(screen.getByRole('button', { name: 'Terminar la unidad' })).toHaveFocus();
   });
 });
+
+/**
+ * Las respuestas se leen como opciones desde un metro: con borde y fondo, a 16
+ * px y 56 de alto, dos por fila. Eran pastillas `quiet` en una sola fila.
+ */
+describe('las opciones parecen opciones', () => {
+  it('cada una es un control con borde, a 16 px y con el relleno que la sube a 56', () => {
+    render(<Unidad />);
+
+    const opcion = screen.getByRole('button', { name: 'G' });
+    expect(opcion).toHaveClass('border-border-strong', 'bg-surface', 'text-base', 'py-4', 'w-full');
+    expect(opcion).not.toHaveClass('text-sm');
+    expect(opcion.parentElement).toHaveClass('grid-cols-2');
+    expect(opcion.parentElement?.className).not.toMatch(/sm:grid-cols/);
+  });
+
+  it('corregida, la acertada y la fallada conservan el fondo y cambian el borde', async () => {
+    render(<Unidad />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'F' }));
+
+    expect(screen.getByRole('button', { name: 'G' })).toHaveClass(
+      'border-tube-bright',
+      'bg-surface',
+    );
+    expect(screen.getByRole('button', { name: 'F' })).toHaveClass(
+      'border-oxblood-bright',
+      'bg-surface',
+    );
+  });
+});

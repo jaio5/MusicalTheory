@@ -4,9 +4,9 @@
  * Es lo primero que pide el [ROADMAP](../../docs/ROADMAP.md) después de la
  * guitarra, y por una razón: lo que propone la IA es el corazón de esta
  * aplicación y **es lo único que no se puede comprobar con un test normal**. Lo
- * que hay medido sale de un modelo local de ocho mil millones, donde `retocar`
- * pasa casi siempre pero copiando el ejemplo del prompt (adr/0086). Con eso no
- * se sabe si la función sirve o si el modelo es pequeño.
+ * que hay medido sale de un modelo local de ocho mil millones, que elige del
+ * menú que construye el dominio (`salidasPosibles`). Con eso no se sabe si su
+ * criterio sirve o si el modelo es pequeño.
  *
  * **No corre con los demás.** Sale a la red y cuesta dinero, así que hay que
  * pedirlo:
@@ -18,8 +18,15 @@
  * Ollama de casa, y medir un 8B local no contesta la pregunta. Para medir
  * contra la API, la clave va en el `.env`: es lo que `hasModelKey` mira.
  *
- * Usa **el mismo prompt, el mismo esquema y el mismo validador que la ruta**,
- * importados de ella. Un banco con los suyos propios mediría otro programa.
+ * Usa **el mismo prompt, el mismo esquema y el mismo validador que la ruta**:
+ * `SALIDAS` (`app/api/versiones/salidas.ts`), como el examen. Un banco con los
+ * suyos propios mediría otro programa.
+ *
+ * **Lo cubre de sobra `pnpm examen:salidas`**, que va por la ruta con sus
+ * reintentos y su respaldo, sobre el corpus entero y con directrices, y mide
+ * además si lo elegido es lo que propondría un arreglista y si el porqué es
+ * verdad. Este se queda como prueba de humo de cuatro llamadas, con el contexto
+ * que manda la pantalla —estilo, especies, papel— para no medir otra petición.
  *
  * Lo que mide, y por qué cada cosa:
  *
@@ -55,11 +62,12 @@ const INFORME = process.env['BANCO_IA_INFORME'] ?? 'banco-de-ia.txt';
  */
 const CASOS = [
   {
-    nombre: 'I-IV-V-I en mayor, continuar una estrofa',
+    nombre: 'I-IV-V-I en mayor, continuar una estrofa de rock',
     peticion: {
       key: { tonic: 'C', mode: 'major' },
       kind: 'continuar',
       role: 'estrofa',
+      estilo: 'rock',
       progression: [
         { degree: 'I', beats: 4 },
         { degree: 'IV', beats: 4 },
@@ -69,15 +77,16 @@ const CASOS = [
     },
   },
   {
-    nombre: 'I-IV-V-I en mayor, retocar',
+    nombre: 'I7-IV7-V7-I7 en mayor, retocar un blues',
     peticion: {
       key: { tonic: 'C', mode: 'major' },
       kind: 'retocar',
+      estilo: 'blues',
       progression: [
-        { degree: 'I', beats: 4 },
-        { degree: 'IV', beats: 4 },
-        { degree: 'V', beats: 4 },
-        { degree: 'I', beats: 4 },
+        { degree: 'I', beats: 4, especie: 'dominant7' },
+        { degree: 'IV', beats: 4, especie: 'dominant7' },
+        { degree: 'V', beats: 4, especie: 'dominant7' },
+        { degree: 'I', beats: 4, especie: 'dominant7' },
       ],
     },
   },
@@ -95,11 +104,12 @@ const CASOS = [
     },
   },
   {
-    nombre: 'i-VI-III-VII en menor, continuar un estribillo',
+    nombre: 'i-VI-III-VII en menor, continuar un estribillo pop',
     peticion: {
       key: { tonic: 'A', mode: 'minor' },
       kind: 'continuar',
       role: 'estribillo',
+      estilo: 'pop',
       progression: [
         { degree: 'i', beats: 4 },
         { degree: 'VI', beats: 4 },
@@ -126,15 +136,10 @@ describe.skipIf(!ENCENDIDO)('El banco de las salidas', () => {
     async () => {
       // Dinámicos: sin esto, pedir los tests normales cargaría el SDK del
       // modelo para no ejecutar nada.
-      const { parseVersionsRequest, validateVersions } =
-        await import('@features/versions/contract');
-      const { promptDeSalidas } = await import('@features/versions/prompt');
+      const { parseVersionsRequest } = await import('@features/versions/contract');
       const { askModel } = await import('@server/ask-model');
       const { configuredModel, modelProvider } = await import('@server/ai-model');
-      const { cabeceraDePrompt, versionsSchema, VERSIONS_SYSTEM_PROMPT } =
-        await import('@server/prompts');
-      const { degreesFor } = await import('@core/music');
-      const { TOKEN_BUDGETS } = await import('@core/billing');
+      const { SALIDAS } = await import('@/app/api/versiones/salidas');
 
       const proveedor = modelProvider();
       expect(
@@ -159,20 +164,17 @@ describe.skipIf(!ENCENDIDO)('El banco de las salidas', () => {
         if (peticion === null) continue;
 
         const payload = await askModel({
-          prompt: promptDeSalidas(
-            peticion,
-            cabeceraDePrompt(peticion.key, degreesFor(peticion.key.mode)),
-          ),
-          system: VERSIONS_SYSTEM_PROMPT,
-          schema: versionsSchema(peticion.key.mode, peticion.kind),
-          maxTokens: TOKEN_BUDGETS.versiones.output,
+          prompt: SALIDAS.prompt(peticion),
+          system: SALIDAS.system,
+          schema: SALIDAS.schema(peticion),
+          maxTokens: SALIDAS.maxTokens,
           sinClave: () => ({ versions: [] }),
         });
 
         const crudas = Array.isArray((payload as { versions?: unknown }).versions)
           ? ((payload as { versions: unknown[] }).versions as unknown[])
           : [];
-        const validas = validateVersions(payload, peticion);
+        const validas = SALIDAS.validar(payload, peticion)?.versions ?? [];
 
         // Una salida que devuelve los mismos grados en el mismo orden pasa el
         // contrato y no sirve para nada.

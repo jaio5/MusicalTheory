@@ -391,6 +391,40 @@ describe('Las notas de la partitura', () => {
 });
 
 describe('Los acordes sobre la partitura', () => {
+  /**
+   * El cifrado es el mando principal de la vista por defecto, y medía 29 px de
+   * alto: aquí valen los mismos 44 que en todo lo que se pulsa, también dentro
+   * de un SVG. El dibujo es el mismo; crece la zona transparente que se toca.
+   */
+  it('su zona de agarre mide los 44 px de la casa', () => {
+    const { container } = pintar();
+    const agarre = porEtiqueta(container, 'C, grado I').querySelector('rect') as SVGRectElement;
+
+    expect(Number(agarre.getAttribute('height'))).toBe(44);
+  });
+
+  // Y se lee a un metro: el cuerpo de la casa, no uno menos.
+  it('se escribe al cuerpo de la casa', () => {
+    const { container } = pintar();
+    const cifrado = porEtiqueta(container, 'C, grado I').querySelector('text') as SVGTextElement;
+
+    expect(Number(cifrado.getAttribute('font-size'))).toBe(16);
+  });
+
+  /**
+   * Un barrido de arriba abajo que nazca en un cifrado sigue siendo desplazar
+   * la hoja: solo se le quita al navegador el eje por el que el acorde se mueve.
+   * Las notas, que se mueven en los dos, se quedan con el gesto entero.
+   */
+  it('deja al navegador el desplazamiento vertical, y una nota no', () => {
+    const { container } = pintar({
+      notes: [{ id: 'n', offset: 0, start: 0, length: 1 }],
+    });
+
+    expect(porEtiqueta(container, 'C, grado I')).toHaveStyle({ touchAction: 'pan-y' });
+    expect(laNota(container)).toHaveStyle({ touchAction: 'none' });
+  });
+
   it('cada uno se puede elegir', () => {
     const { onSelectBlock, container } = pintar();
 

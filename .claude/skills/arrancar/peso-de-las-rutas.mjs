@@ -49,6 +49,7 @@ const RUTAS = [
   '/profesor',
   '/planes',
   '/registro',
+  '/cuenta',
 ];
 
 /**
@@ -57,13 +58,23 @@ const RUTAS = [
  * una función nueva, pero «el afinador se descarga el lienzo de componer» es un
  * fallo sin discusión.
  */
+// Un resumen y un contenido de la presentación de una unidad. Viajaban dentro del
+// temario a todo el que lee el avance —la cuenta, el repaso, componer— sin pintar
+// ninguna (`core/music/presentaciones.ts`), y el camino solo enseña los
+// resúmenes (`resumenes.ts`).
+const RESUMEN = 'El acorde más importante de la armonía tonal';
+const CONTENIDO = 'Quintas y octavas paralelas';
+
 const NO_DEBERIA_VIAJAR = {
-  '/afinar': ['Añadir otra parte', 'Pídeme una idea'],
-  '/planes': ['Añadir otra parte'],
-  '/registro': ['Añadir otra parte'],
+  '/afinar': ['Añadir otra parte', 'Pídeme una idea', RESUMEN, CONTENIDO],
+  '/planes': ['Añadir otra parte', RESUMEN, CONTENIDO],
+  '/registro': ['Añadir otra parte', RESUMEN, CONTENIDO],
+  '/cuenta': ['Añadir otra parte', RESUMEN, CONTENIDO],
+  '/aprender': [CONTENIDO],
+  '/aprender/repaso': [RESUMEN, CONTENIDO],
   // Componer suma al avance, pero no enseña el temario: los títulos de las
   // unidades llegan con el `import()` del primer hecho, no con la pantalla.
-  '/componer': ['Reconocer el I, el IV y el V'],
+  '/componer': ['Reconocer el I, el IV y el V', RESUMEN, CONTENIDO],
 };
 
 const kb = (bytes) => (bytes / 1024).toFixed(0).padStart(5);
@@ -73,6 +84,9 @@ console.log('ruta                  recursos    total       js    media    FCP');
 
 for (const ruta of RUTAS) {
   const contexto = await navegador.newContext({ viewport: { width: 1280, height: 800 } });
+  // El recorrido de la primera visita sale encima en un contexto nuevo: se marca
+  // como visto, o las medidas serían las de la tarjeta y su trozo de código.
+  await contexto.addInitScript(() => localStorage.setItem('caos-ordenado:recorrido', 'visto'));
   const pagina = await contexto.newPage();
 
   // Los cuerpos se guardan para poder buscar dentro; con las cabeceras no basta

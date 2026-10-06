@@ -18,10 +18,24 @@ import {
   notasDeEspecieSimple,
   simboloDeEspecieSimple,
   seventhInside,
+  seventhNotes,
   type Degree,
+  type SeventhQuality,
 } from './chords';
-import { pitchClassFromName } from './notes';
+import { CHORD_SHAPES } from './chord-symbols';
+import { pitchClassFromName, type PitchClass } from './notes';
 import { HEPTATONIC_SCALE_IDS } from './scales';
+
+/** Los sufijos de cada especie, escritos a mano para no leerlos de la tabla que se prueba. */
+const SEVENTH_SUFIJOS: Record<SeventhQuality, string> = {
+  major7: 'maj7',
+  dominant7: '7',
+  minor7: 'm7',
+  halfDiminished7: 'm7b5',
+  diminished7: 'dim7',
+  minorMajor7: 'mMaj7',
+  augmentedMajor7: 'maj7#5',
+};
 
 const C = pitchClassFromName('C');
 const A = pitchClassFromName('A');
@@ -294,6 +308,56 @@ describe('la septima que hay dentro', () => {
 });
 
 /**
+ * Una forma que no es ninguna de las siete especies no se hace pasar por otra.
+ *
+ * `seventhNotes` sacaba las notas del catálogo del buscador, que no tiene `mMaj7`
+ * ni `maj7#5`, y para esas dos caía a la tríada mayor. Como `seventhInside`
+ * compara contra esas notas, cualquier cuatro notas con la tríada mayor dentro
+ * —un `C6`, un `Cadd9`— salían `minorMajor7`.
+ */
+describe('las cuatriadas que no son ninguna septima', () => {
+  it('un C6 y un Cadd9 no son ninguna septima', () => {
+    // C6: C E G A
+    expect(seventhInside(C, [0, 4, 7, 9])).toBeNull();
+    // Cadd9: C D E G
+    expect(seventhInside(C, [0, 2, 4, 7])).toBeNull();
+  });
+
+  it('las siete especies se reconocen por sus notas, y suenan lo que dicen', () => {
+    const formas: Record<SeventhQuality, number[]> = {
+      major7: [0, 4, 7, 11],
+      dominant7: [0, 4, 7, 10],
+      minor7: [0, 3, 7, 10],
+      halfDiminished7: [0, 3, 6, 10],
+      diminished7: [0, 3, 6, 9],
+      minorMajor7: [0, 3, 7, 11],
+      augmentedMajor7: [0, 4, 8, 11],
+    };
+    for (const [especie, notas] of Object.entries(formas) as Array<[SeventhQuality, number[]]>) {
+      expect(seventhNotes(C, especie), especie).toEqual(notas);
+      expect(seventhInside(C, notas as PitchClass[]), especie).toBe(especie);
+    }
+  });
+
+  /**
+   * Dos tablas dicen las notas de una cuatríada —la que apila terceras aquí y la
+   * del buscador—, y en las especies que comparten tienen que decir lo mismo.
+   */
+  it('donde el catalogo del buscador tiene la especie, dice las mismas notas', () => {
+    let comparadas = 0;
+    for (const especie of Object.keys(SEVENTH_SUFIJOS) as SeventhQuality[]) {
+      const forma = CHORD_SHAPES[SEVENTH_SUFIJOS[especie]];
+      if (forma !== undefined) {
+        expect(seventhNotes(C, especie), especie).toEqual(forma.intervals);
+        comparadas += 1;
+      }
+    }
+    // Las cinco que el buscador conoce; `mMaj7` y `maj7#5` no están en él.
+    expect(comparadas).toBe(5);
+  });
+});
+
+/**
  * Un acorde de quinta: la fundamental y su quinta justa, y nada más.
  *
  * Hace falta para poder escribirlo: sin tercera no hay tríada, así que
@@ -331,17 +395,7 @@ describe('la especie de septima de un sufijo', () => {
     // Los sufijos escritos a mano, que es el otro lado del puente: si la tabla
     // de dentro cambia sin que cambie esto, el cifrado que alguien teclea deja
     // de entenderse y esta prueba lo dice.
-    const sufijos = {
-      major7: 'maj7',
-      dominant7: '7',
-      minor7: 'm7',
-      halfDiminished7: 'm7b5',
-      diminished7: 'dim7',
-      minorMajor7: 'mMaj7',
-      augmentedMajor7: 'maj7#5',
-    } as const;
-
-    for (const [especie, sufijo] of Object.entries(sufijos)) {
+    for (const [especie, sufijo] of Object.entries(SEVENTH_SUFIJOS)) {
       expect(seventhFromSuffix(sufijo), `${especie} no vuelve de «${sufijo}»`).toBe(especie);
       expect(esSeventhQuality(especie)).toBe(true);
     }

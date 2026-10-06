@@ -88,6 +88,12 @@ Las tres están pensadas para videollamadas y las tres estropean el análisis:
   señal con un umbral de RMS, un control de ganancia automático hace que ese
   umbral no signifique nada: el ruido de fondo acaba subiendo hasta cruzarlo.
 
+Y con `deviceId: { exact }` cuando hay un micrófono elegido
+(`state/microfono.ts`). Exacto y no preferido a propósito: con `ideal`, un
+aparato que no está se sustituye en silencio por otro, y la aplicación no podría
+decir que está escuchando por uno que no es el que elegiste. Si falla, se pide el
+del sistema y se dice (`docs/RECORDING.md`, «Qué micrófono se usa»).
+
 ## Dónde vive el cálculo
 
 **Ahora mismo, en el hilo principal, fuera del ciclo de render.** El bucle es un
@@ -186,6 +192,21 @@ cuatríada oída se escribe como su tríada, porque con una guitarra el croma ca
 siempre ve cuatro notas (el quinto armónico de la quinta es la séptima mayor), y
 el motor de acordes mira hasta 1000 Hz y no hasta 2200: por encima no hay
 fundamentales de guitarra, solo armónicos.
+
+**El acorde que ya suena al llegar el compás uno es el primero.** El croma solo
+avisa cuando el acorde cambia, así que el que se rasgueó durante la cuenta no
+volvía a decirse y no se escribía: con C G Am F empezado dos pulsos antes de
+«¡Ahora!», la toma escribía «G Am F». Ahora, al empezar a apuntar, si hay un
+acorde oído **y el nivel de entrada está por encima del suelo** (0,006, el mismo
+con el que el motor de tono deja de buscar nota), entra en el compás uno —con su
+instante desplazado lo que tarda el motor en decirlo, para que la rejilla lo
+ponga en el pulso cero y nunca antes—. El nivel es la prueba de que suena: el
+croma compara formas y no tamaños, y en silencio sostiene el último acorde. Si el
+croma vuelve a decir el mismo, no se repite; si dice otro antes del compás uno, el
+que sonaba sobra (`startCapture` con `conElQueSuena`, `state/session-store.ts`).
+Medido en Chromium con el WAV, tres pasadas en cada una de las dos pantallas que
+había entonces: de 0 a 6 tomas con el Do, y las que empezaban en «¡Ahora!» siguen en C G Am F
+sin un Do de más.
 
 **No hay tope de compases.** Una toma larga se reparte en varias partes seguidas
 —64 notas o 32 bloques cada una, cortando en una barra donde la parte de antes
@@ -387,7 +408,6 @@ tono reconoce suma en su casilla, y cada medio segundo se correlaciona el
 histograma con los veinticuatro perfiles. El motor de tono es el de
 autocorrelación, y es **monofónico**: con un acorde sonando no entrega ninguna
 nota, así que el histograma no se llena y no hay nada que correlacionar.
-
 Es decir: **rasgueando acordes, la tonalidad no se detecta nunca.** Tocando la
 escala, sale en cuatro o cinco segundos.
 
@@ -395,12 +415,10 @@ Comprobado tocándole a la aplicación dos ficheros por el micrófono falso: uno
 la progresión G–C–D–Em, doce segundos y cero detección; otro de la escala de Sol
 arriba y abajo, que la saca a los pocos compases —como Mi menor, que comparte
 armadura con Sol mayor y es una lectura correcta para un histograma sin contexto
-armónico—.
+armónico—. Por eso la interfaz dice «toca unas notas sueltas y la detecto sola» y
+no «toca unos compases».
 
-Lo que sí oye un rasgueo es el **motor de croma**, que es otro y responde a otra
-pregunta: qué acorde suena ahora, no en qué tonalidad estás. Los dos corren a la
-vez y no se hablan.
-
-Por eso la interfaz dice «toca unas notas sueltas y la detecto sola» y no «toca
-unos compases». La frase de antes era verdad solo a veces, que es la peor clase de
-verdad en una promesa.
+Lo que sí oye un rasgueo es el **motor de croma**, que responde a otra pregunta
+—qué acorde suena ahora— y corre a la vez que el de tono sin que se hablen.
+Hubo una pantalla que le sacaba la tonalidad a los acordes oídos; se quitó
+([adr/0095](./adr/0095-se-quita-componer-sencillo.md)) y esa detección ya no existe.

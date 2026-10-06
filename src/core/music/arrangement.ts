@@ -31,13 +31,13 @@ import type { KeyMode } from './keys';
 import {
   esEspecieDeBloque,
   esEspecieSimple,
+  grafiaDeLaFundamental,
   notasDeEspecieSimple,
   seventhNotes,
   seventhSymbol,
   simboloDeEspecieSimple,
   type EspecieDeBloque,
 } from './chords';
-import { accidentalForKey } from './circle-of-fifths';
 import type { PitchClass } from './notes';
 import { voiceForPlayback, type PlaybackStep, type TimedEvent } from './playback';
 import {
@@ -185,6 +185,10 @@ export function blockChord(tonic: PitchClass, mode: KeyMode, block: Block): Reso
   if (block.especie === undefined) {
     return chord;
   }
+  // La fundamental se escribe **como en la tríada del grado**, no con la
+  // alteración de la tonalidad: con ésta, el `bVII` de Do mayor era `Bb` a secas
+  // y `A#7` con séptima, el mismo acorde con dos nombres según llevara un 7.
+  const grafia = grafiaDeLaFundamental(chord.root, chord.symbol);
   // Las simples se construyen sobre la fundamental que ya trae el grado
   // resuelto: la quinta es la tríada sin tercera, la suspendida la cambia por la
   // segunda o la cuarta, y la disminuida, la aumentada y la menor son la tríada
@@ -193,13 +197,13 @@ export function blockChord(tonic: PitchClass, mode: KeyMode, block: Block): Reso
   if (esEspecieSimple(block.especie)) {
     return {
       ...chord,
-      symbol: simboloDeEspecieSimple(chord.root, block.especie, accidentalForKey(tonic, mode)),
+      symbol: simboloDeEspecieSimple(chord.root, block.especie, grafia),
       notes: notasDeEspecieSimple(chord.root, block.especie),
     };
   }
   return {
     ...chord,
-    symbol: seventhSymbol(chord.root, block.especie, accidentalForKey(tonic, mode)),
+    symbol: seventhSymbol(chord.root, block.especie, grafia),
     notes: seventhNotes(chord.root, block.especie),
   };
 }

@@ -4,31 +4,48 @@ import { accidentalForScale, SCALES, scaleNotes, noteName } from '@core/music';
 import { useAcordeElegido } from '@state/acorde-elegido';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 
-import { Fretboard } from './Fretboard';
+import { EscalaDelMastil } from './EscalaDelMastil';
+import { Fretboard, PROPORCION } from './Fretboard';
 
 /**
- * Lo que dice el mástil, en una línea, **para la cabecera del área**.
+ * Lo alto que va el dibujo en la hoja de un teléfono, en rem.
  *
- * Vivía encima del dibujo, en su propia fila. Ahí costaba 45 píxeles entre la
- * fila, su margen y el relleno del área, y esos 45 son justo los que le
+ * Dieciocho rem son 288 px: el dibujo mide 198 unidades, así que sale a 1,45
+ * aumentos, con dianas de 26 px y letras de 13 —por encima de los 12 que
+ * `docs/ESTILO.md` pone de mínimo, también dentro de un SVG—. A lo ancho son
+ * 1036 px, que no caben en ningún teléfono: se arrastran, y lo que se recorta
+ * son trastes y no letras.
+ */
+const ALTO_DE_LA_HOJA_REM = 18;
+
+/**
+ * La cabecera del área: **la escala, que se cambia aquí, y lo que dice el
+ * mástil**, en una línea.
+ *
+ * La frase vivía encima del dibujo, en su propia fila. Ahí costaba 45 píxeles
+ * entre la fila, su margen y el relleno del área, y esos 45 son justo los que le
  * faltaban al dibujo para llenar el ancho de un monitor de 1440: el tope mordía
  * y se quedaba en el 91 %. La cabecera ya estaba ahí y estaba vacía a la
- * derecha.
+ * derecha. Por lo mismo va aquí el selector de escala (`EscalaDelMastil`): en la
+ * cabecera no cuesta alto.
+ *
+ * **El selector sale en todos los anchos y la frase solo desde 1280.** El
+ * selector ya dice el nombre de la escala, así que la frase empieza donde él
+ * acaba —«de C: C · Eb · F · G · Bb»— y se lee seguida: «Pentatónica menor de
+ * C…». Por debajo de 1280 la cabecera no da para una frase y un mando, y lo
+ * truncado es contenido que no se alcanza —lo canta la sonda de medidas—.
  *
  * Va en `text-sm`, que es el tamaño que tenía cuando vivía encima del dibujo.
  * Bajarlo a `text-xs` al subirla aquí **la dejó sin leerse**, y es lo que dice
- * qué notas son y qué papel hace la escala: en la cabecera el tamaño no cuesta
- * alto, porque mide veintiocho píxeles fijos.
+ * qué notas son y qué papel hace la escala.
  *
  * El ancho máximo existe porque el sitio de los mandos no encoge: sin él, la
- * frase empujaba al botón de cerrar fuera de la cabecera. **Dieciséis rem son
- * lo que ocupan el nombre del área y los dos botones**, así que con el tamaño
- * bueno la frase entra entera desde 1280 y no llega a truncarse: un texto
- * cortado es contenido que no se alcanza, y lo canta la sonda de medidas.
- *
- * Y por debajo de 1280 no sale: la cabecera no da para una frase y un botón, y
- * lo truncado es contenido que no se alcanza —lo canta la sonda de medidas—.
- * Ahí abajo el área es una pestaña y ya lleva su nombre.
+ * frase empujaba al botón de cerrar fuera de la cabecera. **Veintiséis rem son
+ * lo que ocupan el nombre del área, el selector con sus flechas y el botón de
+ * cerrar, con un rem de holgura**: medidos, 399 px. Con eso le quedan 864 a la
+ * frase a 1280, y la más larga que sale —siete notas con alteración y un acorde
+ * elegido, «de F#: F# · G# · A# · B · C# · D# · E# · Rellenas, las notas de
+ * C#7sus4…»— mide 810: entra entera.
  */
 export function RotulosDelMastil() {
   const activeKey = useSessionStore(selectActiveKey);
@@ -37,31 +54,43 @@ export function RotulosDelMastil() {
   const delCamino = useSessionStore((state) => state.path.at(-1) ?? null);
   const elegido = delMontaje ?? delCamino;
 
+  // Sin tonalidad el mástil no dibuja ninguna escala, y un selector que no
+  // cambia nada a la vista es peor que no tenerlo: lo que hay que hacer primero
+  // es elegir la tonalidad, y el panel lo dice.
   if (activeKey === null) return null;
 
+  const alteracion = accidentalForScale(activeKey.tonic, scaleId);
+
   return (
-    <p className="hidden max-w-[calc(100vw-16rem)] truncate text-sm xl:block">
-      {SCALES[scaleId].name} de{' '}
-      {noteName(activeKey.tonic, accidentalForScale(activeKey.tonic, scaleId))}:{' '}
-      <span className="text-text font-mono">
-        {scaleNotes(activeKey.tonic, scaleId)
-          .map((pitchClass) => noteName(pitchClass, accidentalForScale(activeKey.tonic, scaleId)))
-          .join(' · ')}
-      </span>
-      {/* Con un acorde elegido, lo que dice el mástil ya no es la escala: es qué
-          notas de la escala caen de pie sobre ese acorde. Se dice, porque el
-          relleno solo no lo explica. */}
-      <span className="text-text-muted">
-        {elegido === null
-          ? ` · ${SCALES[scaleId].character}`
-          : ` · Rellenas, las notas de ${elegido.symbol}: caen de pie. Las huecas entran de paso.`}
-      </span>
-    </p>
+    <div className="flex min-w-0 items-stretch gap-2 self-stretch">
+      <EscalaDelMastil />
+      <p className="hidden max-w-[calc(100vw-26rem)] self-center truncate text-sm xl:block">
+        de {noteName(activeKey.tonic, alteracion)}:{' '}
+        <span className="text-text font-mono">
+          {scaleNotes(activeKey.tonic, scaleId)
+            .map((pitchClass) => noteName(pitchClass, alteracion))
+            .join(' · ')}
+        </span>
+        {/* Con un acorde elegido, lo que dice el mástil ya no es la escala: es qué
+            notas de la escala caen de pie sobre ese acorde. Se dice, porque el
+            relleno solo no lo explica. */}
+        <span className="text-text-muted">
+          {elegido === null
+            ? ` · ${SCALES[scaleId].character}`
+            : ` · Rellenas, las notas de ${elegido.symbol}: caen de pie. Las huecas entran de paso.`}
+        </span>
+      </p>
+    </div>
   );
 }
 
-/** Escala que se propone según el modo detectado, si no se ha elegido otra. */
-export function FretboardPanel() {
+/**
+ * Escala que se propone según el modo detectado, si no se ha elegido otra.
+ *
+ * Con `hoja`, el dibujo va a tamaño de lectura y se arrastra de lado: es como
+ * se pinta en un teléfono, donde llenar el ancho lo dejaba en 102 px de alto.
+ */
+export function FretboardPanel({ hoja = false }: { readonly hoja?: boolean } = {}) {
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
   /**
@@ -131,12 +160,7 @@ export function FretboardPanel() {
               Ahora el dibujo se mide su caja y reparte los trastes por ella
               ([adr/0039](../../../docs/adr/0039-el-mastil-se-estira-a-lo-ancho.md)).
 
-              Las rem del alto son lo que hay que dejarle a todo lo demás: la
-              barra de navegación (61), la de herramientas —57, u 85 cuando se
-              parte en dos filas por debajo de 1280—, el suelo al que baja el
-              arreglo mientras cede (128) más los 44 de la tira de un área
-              plegada, la barra de abajo (61) y la cabecera de esta área (37).
-              Medido, no estimado.
+              Las rem del tope se cuentan más abajo, donde está el tope.
 
               En estrecho no: ahí el área es una pestaña, el alto lo pone el
               dibujo con su proporción natural y `aspect-[712/198]` la escribe
@@ -150,15 +174,48 @@ export function FretboardPanel() {
               1920×1080, con el arreglo en su suelo al lado. Con `max-h` el
               dibujo mide exactamente lo mismo y esos píxeles vuelven a la
               canción ([adr/0046](../../../docs/adr/0046-el-mastil-solo-ocupa-lo-que-dibuja.md)). */}
-          <div className="aspect-[712/198] w-full shrink-0 lg:max-h-[calc(100dvh-26rem)] xl:max-h-[calc(100dvh-24.25rem)]">
-            <Fretboard
-              tonic={activeKey.tonic}
-              accidental={accidentalForScale(activeKey.tonic, scaleId)}
-              scaleId={scaleId}
-              soundingMidi={soundingMidi}
-              chordNotes={elegido?.notes}
-            />
-          </div>
+          {/* **Las rem del tope son lo que hay que dejarle a todo lo demás**:
+              la barra de navegación (61), la de la cabecera (57), la de abajo
+              (61), la cabecera de esta área (44), la de «a dónde ir» o su tira
+              (44) y el suelo del arreglo: 224 por debajo de 1280 y 176 por
+              encima (`ComposeScreen`). Medido: 491 y 443, que son 31 y 28 rem.
+              Antes descontaba 26 y 24,25 sin contar el suelo entero ni el cajón
+              de abajo, y con las cinco áreas abiertas el arreglo se quedaba en
+              128 px a 1440×900.
+
+              **Y tiene suelo, catorce rem**: en una ventana baja la resta deja
+              al mástil en 104 px (1024×600, todo abierto) y sus letras en 5,8.
+              Con 224 px las notas pasan de los 12 de la casa; el que cede ahí es
+              el arreglo (`ComposeScreen`, por debajo de 700 de alto). */}
+          {hoja ? (
+            <div className="hay-mas-al-lado -mx-3 overflow-x-auto px-3">
+              <div
+                className="shrink-0"
+                style={{
+                  height: `${ALTO_DE_LA_HOJA_REM}rem`,
+                  width: `${Math.round(PROPORCION * ALTO_DE_LA_HOJA_REM * 100) / 100}rem`,
+                }}
+              >
+                <Fretboard
+                  tonic={activeKey.tonic}
+                  accidental={accidentalForScale(activeKey.tonic, scaleId)}
+                  scaleId={scaleId}
+                  soundingMidi={soundingMidi}
+                  chordNotes={elegido?.notes}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="aspect-[712/198] w-full shrink-0 lg:max-h-[max(14rem,calc(100dvh-31rem))] xl:max-h-[max(14rem,calc(100dvh-28rem))]">
+              <Fretboard
+                tonic={activeKey.tonic}
+                accidental={accidentalForScale(activeKey.tonic, scaleId)}
+                scaleId={scaleId}
+                soundingMidi={soundingMidi}
+                chordNotes={elegido?.notes}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

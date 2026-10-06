@@ -2,6 +2,8 @@
 
 > **Matizado por [ADR 0084](./0084-lo-que-trabaja-no-se-apaga-y-el-foco-se-mueve-a-mano.md):** los tres paneles **se cierran al salir el foco** (`ui/cerrar-al-salir-el-foco.ts`) y **no son `<dialog>` modales**; antes el tabulador salía por detrás y seguía por los controles tapados. Y las tiras traen el foco a la vista con `ui/use-traer-a-la-vista.ts`.
 
+> **Ampliado por [ADR 0102](./0102-lo-que-se-lee-a-un-metro-se-ve-y-lo-que-se-pulsa-se-sujeta.md):** fuera de la barra compacta hay un cuarto `popover`, la hoja del mástil en un teléfono (bajo `lg`).
+
 Fecha: 2026-10-01 · Estado: aceptada · Matiza la regla de `screens/coherencia`
 de que lo que abre un trozo de pantalla es siempre `ui/Disclosure`
 

@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AudioInput, AudioInputError, AudioInputState } from '@audio/audio-input';
 import type { PitchEngine, PitchSample } from '@audio/pitch-engine';
@@ -12,6 +12,7 @@ import { midiToFrequency } from '@core/music';
 
 import type * as PanelDeUi from '@ui/Panel';
 
+import { useMicrofono } from '@state/microfono';
 import { Tuner } from './Tuner';
 
 /**
@@ -223,7 +224,30 @@ describe('Afinador', () => {
       at: 0,
     });
 
+    // Y es lo segundo más grande de la pantalla, pegado a la nota: lo que hay
+    // que hacer iba a 18 px bajo una letra de 160 y caía bajo el pliegue.
+    const consejo = await screen.findByText('Suena alta: afloja');
+    expect(consejo).toHaveClass('text-3xl', 'font-semibold');
+  });
+
+  // Quedaban «Sin señal» y «+36 cents · Suena alta: afloja» a la vez, y lo
+  // segundo era de hace un rato: sin señal, la instrucción y los cents se vacían.
+  it('sin señal, no queda una instrucción vieja debajo del aviso', async () => {
+    renderTuner();
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    engine.emit({
+      frequency: midiToFrequency(45) * Math.pow(2, 20 / 1200),
+      clarity: 0.99,
+      rms: 0.2,
+      at: 0,
+    });
     expect(await screen.findByText('Suena alta: afloja')).toBeInTheDocument();
+
+    engine.emit(null);
+
+    expect(await screen.findByText(/sin señal/i)).toBeInTheDocument();
+    expect(screen.queryByText('Suena alta: afloja')).not.toBeInTheDocument();
+    expect(screen.queryByText(/cents ·/)).not.toBeInTheDocument();
   });
 
   it('avisa cuando la señal no llega limpia', async () => {
@@ -458,6 +482,20 @@ describe('el foco al abrir y cerrar el micro', () => {
     expect(await screen.findByRole('button', { name: /escuchar la guitarra/i })).toHaveFocus();
   });
 
+  // Traer «Dejar de escuchar» a la vista empujaba la nota fuera de la pantalla
+  // por arriba en una ventana de 600 px: el foco pasa sin desplazar nada.
+  it('y lo hace sin desplazar la pantalla', async () => {
+    const enfocar = vi.spyOn(HTMLElement.prototype, 'focus');
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
+    screen.getByRole('button', { name: /escuchar la guitarra/i }).focus();
+
+    await userEvent.keyboard('{Enter}');
+    await screen.findByRole('button', { name: /dejar de escuchar/i });
+
+    expect(enfocar).toHaveBeenLastCalledWith({ preventScroll: true });
+    enfocar.mockRestore();
+  });
+
   // Si el permiso se deniega, el botón sigue en su sitio y con el foco: no se
   // mueve a ningún otro.
   it('si se deniega, el foco sigue donde estaba', async () => {
@@ -513,11 +551,15 @@ describe('a cuántos semitonos está la cuerda', () => {
   });
 });
 
-describe('selector de entrada', () => {
+/**
+ * **El micrófono se elige en la barra, y el afinador abre ése.** Tenía su propio
+ * desplegable, con un estado suyo que no sabía nadie más: componer abría el del
+ * sistema, y al recargar se olvidaba. Ahora hay una sola elección.
+ */
+describe('el micrófono del afinador', () => {
   const DEVICES = [
     { deviceId: 'default', kind: 'audioinput', label: 'Micro del portátil', groupId: 'a' },
     { deviceId: 'scarlett', kind: 'audioinput', label: 'Focusrite Scarlett', groupId: 'b' },
-    { deviceId: 'cam', kind: 'videoinput', label: 'Cámara', groupId: 'c' },
   ] as MediaDeviceInfo[];
 
   beforeEach(() => {
@@ -527,39 +569,12 @@ describe('selector de entrada', () => {
     });
   });
 
-  it('deja elegir entre las entradas de audio, sin colar la cámara', async () => {
-    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
-    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-
-    const selector = await screen.findByLabelText(/micrófono/i);
-    expect(selector).toBeInTheDocument();
-    // Con el rótulo a la vista: «La del sistema» solo no dice de qué es la lista.
-    expect(screen.getByText('Micrófono')).not.toHaveClass('sr-only');
-    expect(screen.getByRole('option', { name: 'Focusrite Scarlett' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Cámara' })).not.toBeInTheDocument();
+  afterEach(() => {
+    useMicrofono.setState({ elegido: null, cargado: false, cayo: false });
   });
 
-  // Una entrada sin nombre se dice, en vez de dejar una opción en blanco.
-  it('una entrada sin nombre se dice igual', async () => {
-    Object.defineProperty(globalThis, 'navigator', {
-      configurable: true,
-      value: {
-        mediaDevices: {
-          enumerateDevices: async () => [
-            ...DEVICES,
-            { deviceId: 'rara', kind: 'audioinput', label: '', groupId: 'd' },
-          ],
-        },
-      },
-    });
-    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
-    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-
-    expect(await screen.findByRole('option', { name: 'Entrada sin nombre' })).toBeInTheDocument();
-  });
-
-  // Y volver a «la del sistema» vuelve a abrir sin pedir ninguna en concreto.
-  it('volver a la del sistema no pide ninguna en concreto', async () => {
+  it('abre el elegido para toda la aplicación, y no tiene un selector suyo', async () => {
+    useMicrofono.setState({ elegido: 'scarlett', cargado: true });
     const opened: Array<string | undefined> = [];
     render(
       <Tuner
@@ -572,30 +587,9 @@ describe('selector de entrada', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-    await userEvent.selectOptions(await screen.findByLabelText(/micrófono/i), 'scarlett');
-    await userEvent.selectOptions(
-      await screen.findByLabelText(/micrófono/i),
-      screen.getByRole('option', { name: 'La del sistema' }),
-    );
+    await screen.findByRole('button', { name: /dejar de escuchar/i });
 
-    expect(opened).toEqual([undefined, 'scarlett', undefined]);
-  });
-
-  it('reabre la escucha en la entrada elegida', async () => {
-    const opened: Array<string | undefined> = [];
-    render(
-      <Tuner
-        createInput={(deviceId) => {
-          opened.push(deviceId);
-          return new FakeInput();
-        }}
-        createEngine={() => new FakeEngine()}
-      />,
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-    await userEvent.selectOptions(await screen.findByLabelText(/micrófono/i), 'scarlett');
-
-    expect(opened).toEqual([undefined, 'scarlett']);
+    expect(opened).toEqual(['scarlett']);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties, type KeyboardEvent } from 'react';
 
 import { cheapestPlanWith, unitAccess, type PlanId, type UnitAccess } from '@core/billing';
 import { IconoCandado, IconoGrieta, IconoLlave, IconoTeoria, IconoTocar } from '@ui/icons';
@@ -12,6 +12,7 @@ import {
   courseCompletion,
   isUnitCracked,
   nextUnit,
+  resumenDe,
   type Progress,
   type Unit,
 } from '@core/music';
@@ -83,8 +84,44 @@ export function LearnPath({
   // sola a la vez: la nueva sustituye a la anterior en vez de apilarse.
   const [explicada, setExplicada] = useState<string | null>(null);
 
+  /*
+    **El camino se tabula una vez y se recorre con las flechas** (`docs/ESTILO.md`,
+    como la rueda de quintas). Cada nodo era una parada del tabulador —cuarenta y
+    una, treinta y nueve de ellas cerradas— y pasar de largo del camino con el
+    teclado era un viaje. La parada es el nodo que toca: el activo, el de
+    «aquí» o el primero; desde ahí, arriba y abajo van de nodo en nodo, también
+    entre cursos, e Inicio y Fin a los extremos. El último que recibió el foco se
+    queda con la parada, para que salir y volver no mande al principio.
+  */
+  const [enfocada, setEnfocada] = useState<string | null>(null);
+  const parada = enfocada ?? active ?? siguiente ?? COURSES[0]!.units[0]!.id;
+
+  function conLasFlechas(evento: KeyboardEvent<HTMLDivElement>): void {
+    const paso =
+      evento.key === 'ArrowDown' || evento.key === 'ArrowRight'
+        ? 1
+        : evento.key === 'ArrowUp' || evento.key === 'ArrowLeft'
+          ? -1
+          : evento.key === 'Home'
+            ? -Infinity
+            : evento.key === 'End'
+              ? Infinity
+              : null;
+    if (paso === null) {
+      return;
+    }
+    const nodos = [...evento.currentTarget.querySelectorAll<HTMLButtonElement>('[data-nodo]')];
+    const desde = nodos.findIndex((nodo) => nodo === document.activeElement);
+    if (desde === -1) {
+      return;
+    }
+    evento.preventDefault();
+    const hasta = Math.min(nodos.length - 1, Math.max(0, desde + paso));
+    nodos[hasta]!.focus();
+  }
+
   return (
-    <div className="@container min-h-0 grow overflow-y-auto">
+    <div className="@container min-h-0 grow overflow-y-auto" onKeyDown={conLasFlechas}>
       {/* El camino es **uno y vertical**. Llegó a partirse en dos columnas para
           llenar el ancho de un portátil y dejó de ser un camino: dos rutas
           paralelas no se recorren, se comparan.
@@ -225,8 +262,10 @@ export function LearnPath({
                               here={siguiente === unit.id}
                               active={active === unit.id}
                               explained={explicada === unit.id}
+                              parada={parada === unit.id}
                               onPick={onPick}
                               onExplain={setExplicada}
+                              onFocus={setEnfocada}
                             />
                           </li>
                         );
@@ -326,8 +365,10 @@ function UnitNode({
   here,
   active,
   explained,
+  parada,
   onPick,
   onExplain,
+  onFocus,
 }: {
   readonly unit: Unit;
   readonly access: UnitAccess;
@@ -336,8 +377,11 @@ function UnitNode({
   readonly active: boolean;
   /** Si se acaba de tocar y toca decir qué la abre. */
   readonly explained: boolean;
+  /** Si es la parada del tabulador: una sola en todo el camino. */
+  readonly parada: boolean;
   readonly onPick: (unitId: string) => void;
   readonly onExplain: (unitId: string) => void;
+  readonly onFocus: (unitId: string) => void;
 }) {
   const entrable = access === 'abierta' || access === 'hecha';
 
@@ -376,18 +420,25 @@ function UnitNode({
         : 'border-border bg-surface text-text-muted';
 
   const idAviso = `${unit.id}-aviso`;
+  const idResumen = `${unit.id}-resumen`;
+  const describe = [explained ? idAviso : null, here ? idResumen : null].filter(
+    (id) => id !== null,
+  );
 
   return (
     <div>
       <div className="flex items-center gap-2">
         {/* **`aria-disabled` y no `disabled`.** Un nodo cerrado no hacía nada al
             pulsarlo, y en táctil, sin `title`, quien lo tocaba no tenía forma de
-            saber por qué. Con `aria-disabled` sigue en el orden del tabulador y
-            recibe el toque, y lo que hace es decir debajo qué lo abre. */}
+            saber por qué. Con `aria-disabled` se puede enfocar —con las
+            flechas— y recibe el toque, y lo que hace es decir debajo qué lo abre. */}
         <button
           type="button"
+          data-nodo
+          tabIndex={parada ? 0 : -1}
+          onFocus={() => onFocus(unit.id)}
           aria-disabled={!entrable}
-          aria-describedby={explained ? idAviso : undefined}
+          aria-describedby={describe.length > 0 ? describe.join(' ') : undefined}
           onClick={() => (entrable ? onPick(unit.id) : onExplain(unit.id))}
           aria-current={active}
           aria-label={`${unit.title}${COMO_SE_LEE[access]}${cracked ? ', para repasar' : ''}`}
@@ -427,6 +478,18 @@ function UnitNode({
             {unit.kind === 'play' && <span>· con la guitarra</span>}
             {cracked && <span className="text-oxblood-bright">· para repasar</span>}
           </p>
+          {/* **De qué va, solo en la de «aquí».** Es la que se va a pulsar, y
+              saber de antemano qué trae es lo que convence de entrar. En todas
+              serían cuarenta párrafos y el camino dejaría de leerse como un
+              camino. Dos líneas como mucho: más alto que el nodo, la fila se
+              separa del tramo que baja a la siguiente; el resumen entero está
+              en la presentación de la unidad y, para el lector, en la
+              descripción del nodo. */}
+          {here && (
+            <p id={idResumen} className="text-text-muted mt-1 line-clamp-2 max-w-prose text-xs">
+              {resumenDe(unit.id)}
+            </p>
+          )}
         </div>
       </div>
 

@@ -47,7 +47,9 @@ export function BloqueFantasma({
       <span aria-hidden="true" className="text-brass-bright/70 font-mono text-sm">
         {symbol}
       </span>
-      <span aria-hidden="true" className="text-text-muted font-mono text-[10px]">
+      {/* El grado a doce, el suelo de la casa: el bloque de verdad lo lleva
+          igual, y a diez se leía como letra pequeña de un contrato. */}
+      <span aria-hidden="true" className="text-text-muted font-mono text-xs">
         {degree}
       </span>
     </button>

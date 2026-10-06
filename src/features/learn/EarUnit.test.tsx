@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { pitchClassFromName, type EarUnit as EarUnitDef } from '@core/music';
+import { WebAudioProgressionPlayer } from '@audio/progression-player';
+import {
+  earExercises,
+  pitchClassFromName,
+  presentacionDe,
+  programaDe,
+  type EarUnit as EarUnitDef,
+} from '@core/music';
 import { useSessionStore } from '@state/session-store';
 
 import { EarUnit } from './EarUnit';
@@ -19,6 +26,15 @@ const GRADOS: EarUnitDef = {
   ear: 'degree',
   xp: 25,
 };
+
+/**
+ * Pinta la unidad y pasa la presentación, que es lo que hace quien llega: las
+ * pruebas de aquí son de la prueba.
+ */
+async function pintar(unit: EarUnitDef, props: Partial<Parameters<typeof EarUnit>[0]> = {}) {
+  render(<EarUnit unit={unit} onDone={() => {}} {...props} />);
+  await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+}
 
 const CALIDAD: EarUnitDef = { ...GRADOS, id: 'e2-repaso', ear: 'quality' };
 
@@ -38,8 +54,8 @@ describe('sin tonalidad', () => {
    * sobre esta caja y se abre sola, así que un aviso que dijera «está en la
    * rueda de aquí arriba» quedaba detrás de la rueda que lo tapaba.
    */
-  it('no se puede preguntar, y se ofrecen tonalidades con las que empezar', () => {
-    render(<EarUnit unit={GRADOS} onDone={() => {}} />);
+  it('no se puede preguntar, y se ofrecen tonalidades con las que empezar', async () => {
+    await pintar(GRADOS);
 
     expect(screen.getByText('Falta la tonalidad')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'C mayor' })).toBeInTheDocument();
@@ -52,15 +68,15 @@ describe('una unidad de oído', () => {
    * Sonar sin que nadie lo pida es meter ruido en una pantalla en la que se
    * acaba de entrar. El primer sonido lo pide quien está delante.
    */
-  it('no suena sola al entrar', () => {
+  it('no suena sola al entrar', async () => {
     conTonalidad();
-    render(<EarUnit unit={CALIDAD} onDone={() => {}} />);
+    await pintar(CALIDAD);
     expect(screen.getByRole('button', { name: 'Escuchar' })).toBeInTheDocument();
   });
 
-  it('pregunta con los acordes de tu tonalidad', () => {
+  it('pregunta con los acordes de tu tonalidad', async () => {
     conTonalidad();
-    render(<EarUnit unit={GRADOS} onDone={() => {}} />);
+    await pintar(GRADOS);
 
     // En Sol mayor el V es Re, no Sol.
     expect(screen.getByRole('button', { name: /D \(V\)/ })).toBeInTheDocument();
@@ -69,9 +85,9 @@ describe('una unidad de oído', () => {
 
   // Un acorde suelto no tiene grado, así que la tónica suena antes y se dice:
   // no es parte de la pregunta, es el suelo desde el que se mide.
-  it('las de calidad no llevan referencia', () => {
+  it('las de calidad no llevan referencia', async () => {
     conTonalidad();
-    render(<EarUnit unit={CALIDAD} onDone={() => {}} />);
+    await pintar(CALIDAD);
     expect(screen.queryByText(/Primero suena/)).not.toBeInTheDocument();
   });
 
@@ -82,7 +98,7 @@ describe('una unidad de oído', () => {
    */
   it('se puede escuchar las veces que haga falta, también tras contestar', async () => {
     conTonalidad();
-    render(<EarUnit unit={CALIDAD} onDone={() => {}} />);
+    await pintar(CALIDAD);
 
     await userEvent.click(screen.getByRole('button', { name: 'Escuchar' }));
     expect(screen.getByRole('button', { name: /Escuchar otra vez/ })).toBeEnabled();
@@ -94,10 +110,12 @@ describe('una unidad de oído', () => {
   it('al terminar avisa de si se acertó todo', async () => {
     conTonalidad();
     const done = vi.fn();
-    render(<EarUnit unit={CALIDAD} onDone={done} />);
+    await pintar(CALIDAD, { onDone: done });
 
-    // Tres preguntas: alegre, triste, menor.
-    for (const buena of ['Alegre', 'Triste', 'Menor']) {
+    // Las buenas se sacan del mismo catálogo que escribe las preguntas: cuántas
+    // son y cómo se llaman es cosa de `core/music/ear.ts`, no de esta pantalla.
+    for (const ejercicio of earExercises(CALIDAD.ear, G, 'major')) {
+      const buena = ejercicio.choices.find((opcion) => opcion.correct)!.text;
       await userEvent.click(screen.getByRole('button', { name: buena }));
       await userEvent.click(screen.getByRole('button', { name: /Siguiente|Terminar/ }));
     }
@@ -108,7 +126,7 @@ describe('una unidad de oído', () => {
     conTonalidad();
     const done = vi.fn();
     const miss = vi.fn();
-    render(<EarUnit unit={CALIDAD} onDone={done} onMiss={miss} />);
+    await pintar(CALIDAD, { onDone: done, onMiss: miss });
 
     await userEvent.click(screen.getByRole('button', { name: 'Triste' }));
     expect(miss).toHaveBeenCalledWith(0);
@@ -125,7 +143,7 @@ describe('contestar dos veces', () => {
   it('la segunda pulsacion no cambia lo contestado', async () => {
     conTonalidad();
     const miss = vi.fn();
-    render(<EarUnit unit={CALIDAD} onDone={vi.fn()} onMiss={miss} />);
+    await pintar(CALIDAD, { onDone: vi.fn(), onMiss: miss });
 
     await userEvent.click(screen.getByRole('button', { name: 'Triste' }));
     await userEvent.click(screen.getByRole('button', { name: 'Alegre' }));
@@ -143,7 +161,7 @@ describe('el aviso del profesor al fallar', () => {
    */
   it('sale al fallar, y se va al cerrarlo', async () => {
     conTonalidad();
-    render(<EarUnit unit={CALIDAD} onDone={vi.fn()} />);
+    await pintar(CALIDAD, { onDone: vi.fn() });
 
     await userEvent.click(screen.getByRole('button', { name: 'Triste' }));
 
@@ -173,9 +191,9 @@ describe('cuatríadas y funciones', () => {
    * en las doce tonalidades menores salía «Ammaj7». La referencia de esta
    * pregunta es la tríada, así que tiene que decir «Am» y nada más.
    */
-  it('la referencia de las septimas se escribe bien en menor', () => {
+  it('la referencia de las septimas se escribe bien en menor', async () => {
     enLaMenor();
-    render(<EarUnit unit={SEPTIMAS} onDone={() => {}} />);
+    await pintar(SEPTIMAS);
 
     const referencia = screen.getByText(/Primero suena/);
     expect(referencia).toHaveTextContent('Am');
@@ -184,12 +202,97 @@ describe('cuatríadas y funciones', () => {
 
   // La pregunta es qué **hace** el acorde, no cuál es: las tres opciones son los
   // tres papeles y ninguna nombra un cifrado.
-  it('las de funcion preguntan por el papel, no por el acorde', () => {
+  it('las de funcion preguntan por el papel, no por el acorde', async () => {
     enLaMenor();
-    render(<EarUnit unit={FUNCIONES} onDone={() => {}} />);
+    await pintar(FUNCIONES);
 
     expect(screen.getByRole('button', { name: /Reposa/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Sale de casa/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tensa/ })).toBeInTheDocument();
+  });
+});
+
+/**
+ * La de oído también se presenta antes, pero no tiene teoría escrita: lo que
+ * enseña se aprende oyendo, así que de la presentación se pasa a la prueba.
+ */
+describe('los momentos de una unidad de oído', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it('empieza por la presentación, sin nada que oír todavía', () => {
+    conTonalidad();
+    render(<EarUnit unit={GRADOS} onDone={() => {}} />);
+
+    const { resumen, contenidos } = presentacionDe(GRADOS.id);
+    expect(screen.getByText(resumen)).toBeInTheDocument();
+    expect(screen.getByText(contenidos[0]!)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Escuchar' })).not.toBeInTheDocument();
+  });
+
+  it('son dos momentos, y empezar lleva directo a la prueba con el foco en su título', async () => {
+    conTonalidad();
+    await pintar(GRADOS);
+
+    expect(
+      within(screen.getByRole('list', { name: 'Momentos de la unidad' })).getAllByRole('listitem'),
+    ).toHaveLength(2);
+    expect(screen.getByRole('heading', { name: 'Compruébalo de oído' })).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Repasar la teoría' })).not.toBeInTheDocument();
+  });
+
+  // Sin teoría no hay a qué saltar: el atajo de las de teoría aquí no sale.
+  it('no ofrece ir directo a las preguntas, porque empezar ya es eso', async () => {
+    conTonalidad();
+    const { unmount } = render(<EarUnit unit={GRADOS} onDone={() => {}} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    unmount();
+
+    render(<EarUnit unit={GRADOS} onDone={() => {}} />);
+
+    expect(screen.queryByRole('button', { name: /directo/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * El dictado de intervalos: la única clase que suena con notas sueltas. Lo que
+ * suena lo decide el dominio con sus alturas exactas (`programaDe`): una sexta
+ * reducida a su clase de altura sonaría tercera.
+ */
+describe('una unidad de intervalos', () => {
+  const INTERVALOS: EarUnitDef = { ...GRADOS, id: 'e2-oido-intervalos', ear: 'interval' };
+
+  it('suena lo que el dominio programa, con sus alturas', async () => {
+    conTonalidad();
+    const tocar = vi
+      .spyOn(WebAudioProgressionPlayer.prototype, 'play')
+      .mockResolvedValue(undefined);
+    await pintar(INTERVALOS);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Escuchar' }));
+
+    const primero = earExercises('interval', G, 'major')[0]!;
+    expect(tocar).toHaveBeenCalledWith(
+      programaDe(primero, G, 'major', useSessionStore.getState().bpm),
+    );
+  });
+
+  it('pregunta con las opciones del catálogo, y la siguiente suena al pasar', async () => {
+    conTonalidad();
+    const tocar = vi
+      .spyOn(WebAudioProgressionPlayer.prototype, 'play')
+      .mockResolvedValue(undefined);
+    const [primero, segundo] = earExercises('interval', G, 'major');
+    await pintar(INTERVALOS);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: primero!.choices.find((c) => c.correct)!.text }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+
+    expect(tocar).toHaveBeenLastCalledWith(
+      programaDe(segundo!, G, 'major', useSessionStore.getState().bpm),
+    );
   });
 });

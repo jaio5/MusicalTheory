@@ -141,7 +141,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           en los rem de partida del navegador, y con la letra al 200 % la barra
           seguía creyendo que cabía: a 390 px el micro y el tema se salían por la
           derecha. Medida en la caja, la marca se calla cuando de verdad no cabe. */}
-      <header className="border-border bg-surface/80 @container flex shrink-0 items-center gap-2 border-b px-3 py-2 backdrop-blur-md sm:gap-3 md:px-4">
+      {/* **Y envuelve antes que recortar.** El marco recorta y no desplaza, así
+          que lo que no cabía en la barra dejaba de existir: con la letra del
+          navegador al doble, a 1280 el micro, su mando y el tema se salían por
+          la derecha. Con `flex-wrap`, lo que no cabe baja a una segunda fila y
+          sigue pudiéndose pulsar. A tamaño normal no envuelve nada: la barra
+          está medida para caber, y es lo que cuentan los números de abajo. */}
+      <header className="border-border bg-surface/80 group/barra @container flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 backdrop-blur-md sm:gap-3 md:px-4 md:max-lg:gap-2">
         {/* **La marca lleva al profesor delante**, a 32 px —un píxel de pantalla
             por cada uno del dibujo—: es lo que une cada pantalla con la sala de la
             portada, y la válvula es más reconocible de reojo que dos palabras. El
@@ -154,14 +160,43 @@ export function AppShell({ children }: { children: ReactNode }) {
             sube la navegación entera. En los dos, con la cuenta configurada, la
             barra pedía 44 px más de los que había y se llevaba el botón de la
             cuenta por la derecha —el marco recorta y no desplaza—. Ahí queda el
-            muñeco solo, y el nombre sigue siendo el del enlace para quien no ve. */}
+            muñeco solo, y el nombre sigue siendo el del enlace para quien no ve.
+
+            **Y un tercero, mientras el micro está abierto**: la pastilla de la
+            lectura pide hasta 222 px —«pidiendo permiso»—, y con ella y el
+            nombre la barra no cabe por debajo de 67 rem, que a 1024 son 66 px de
+            más. Medido a 390 durante una toma, la pastilla se metía 21 px debajo
+            del botón del tema, y con el de la cuenta, 44. Lo dice la propia
+            pastilla, que lleva `data-lectura`: la barra pregunta si la tiene
+            dentro, y no hay un segundo sitio que sepa cuándo se enseña.
+
+            **Por debajo de 20,75 rem se va también el muñeco**, solo mientras hay
+            pastilla. Desde que el micro lleva al lado su mando de elegir cuál
+            (`ElegirMicro`), la barra pide 44 px más, y a 320 no los hay: el
+            muñeco, el micro con su mando, la pastilla más corta, el tema y la
+            cuenta suman 330 para 296. Se quita el enlace entero, no se esconde:
+            un enlace invisible que recibe el foco es peor que ninguno. Mientras
+            se toca no se va a la portada.
+
+            Sin pastilla, el nombre se calla ya por debajo de 22,5 rem y no de
+            21: con el mando, a 375 px la barra se pasaba por tres.
+
+            **Y a 390 se aprieta en vez de callarse.** Es el ancho de teléfono
+            más común, y con la cuenta configurada la barra se pasaba: 167 de
+            marca + 4 de margen + 8 de hueco + 200 de los cuatro botones redondos
+            con sus huecos = 379 para 366 de caja. Sin base de datos el botón
+            de la cuenta no se pinta y no se ve; se cuenta igual. Por debajo de
+            `sm` la marca va sin margen, con 6 entre el muñeco y el nombre y la
+            letra a 14 px —158—, y los huecos de la derecha a 6: 158 + 8 + 194 =
+            360, y quedan seis. De ahí los 22,5 rem: es lo que necesita esa
+            cuenta, y por debajo se calla el nombre. */}
         <Link
           href="/"
-          className="group text-text hover:text-brass-bright min-h-tap mr-1 inline-flex shrink-0 items-center gap-2 whitespace-nowrap transition-colors"
+          className="group text-text hover:text-brass-bright min-h-tap inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-colors sm:mr-1 sm:gap-2 md:max-lg:mr-0 @max-[20.75rem]:group-has-data-lectura/barra:hidden"
           title="Volver a la portada"
         >
-          <Mascota decorativa className="size-8 shrink-0 drop-shadow-none" />
-          <span className="titular text-[0.9375rem] sm:text-base md:max-lg:sr-only @max-[21rem]:sr-only">
+          <Mascota decorativa className="size-8 shrink-0 filter-none" />
+          <span className="titular text-sm sm:text-base md:max-lg:sr-only @max-[67rem]:group-has-data-lectura/barra:sr-only @max-[22.5rem]:sr-only">
             Caos ordenado
           </span>
         </Link>
@@ -178,7 +213,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             zoom al 200%, que en píxeles CSS son 640.
 
             No hacía falta inventar nada: la barra de abajo ya es la navegación
-            de lo estrecho. Solo estaba cediéndole el sitio demasiado pronto. */}
+            de lo estrecho. Solo estaba cediéndole el sitio demasiado pronto.
+
+            **Y hasta 1023 cada pantalla se aprieta un poco** —relleno de 8 px y
+            no de 12, y 6 entre el icono y el nombre—: con el mando del micro, a
+            768 la barra pedía 49 px más de los que había y la pastilla de la
+            lectura se metía debajo del tema. Son 40 px entre las cuatro, y los
+            huecos de la barra a 8 ponen el resto. */}
         <nav aria-label="Pantallas" className="hidden items-center gap-1 md:flex">
           {SCREENS.map((screen) => (
             <Link
@@ -189,7 +230,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               // La pantalla en la que estás lleva su piloto encendido, como una
               // pastilla marcada: el mismo «esto es lo que hay ahora» en toda la
               // aplicación, y no un fondo de latón que se confundía con un botón.
-              className={`min-h-tap inline-flex items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-150 ${
+              className={`min-h-tap inline-flex items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-150 md:max-lg:gap-1.5 md:max-lg:px-2 ${
                 isHere(pathname, screen.href)
                   ? 'bg-surface-raised text-brass-bright piloto'
                   : 'text-text-muted hover:bg-surface-raised hover:text-text'
@@ -202,8 +243,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         {/* Reconocer acordes solo donde sirve: en componer. Y anunciar la nota
-            donde nadie más lo hace: el afinador ya la dice con su consejo. */}
-        <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+            donde nadie más lo hace: el afinador ya la dice con su consejo.
+
+            Entre 768 y 1023 los huecos de aquí bajan a 8 px: con las cuatro
+            pantallas arriba y la cuenta configurada, a 768 un acorde de seis
+            letras pisaba el tema por un píxel. */}
+        <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-3 md:max-lg:gap-2">
           <MicButton chords={pathname === '/componer'} anuncia={pathname !== '/afinar'} />
           <ThemeToggle />
           <AccountMenu />

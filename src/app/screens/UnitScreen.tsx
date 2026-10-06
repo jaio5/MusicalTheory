@@ -10,6 +10,7 @@ import {
   EarUnit,
   LearnPanel,
   TheoryUnit,
+  UnidadPorMomentos,
   UnitDone,
   useProgress,
   type Celebration,
@@ -82,9 +83,9 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
     return (
       <Marco titulo={found.unit.title}>
         <p className="text-text-muted max-w-prose text-sm">
-          Es del Grado Profesional. Los cuatro cursos del Elemental son gratis y lo seguirán siendo;
-          los seis del Profesional —funciones, cuatríadas, prestados, sustituciones, modos y
-          cadencias— van con plan.
+          Es del Grado Profesional. Los cuatro cursos del Elemental —el lenguaje musical— son gratis
+          y lo seguirán siendo; los seis del Profesional —la armonía: funciones y cadencias,
+          inversiones, séptimas, modulación, cromatismo y modos— van con plan.
         </p>
         <div className="mt-4 max-w-prose">
           <PlanLock
@@ -182,37 +183,56 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
         )}
       </BarraDeTonalidad>
 
+      {/* **Y se ve que está apagado.** Con `inert` a secas la tarjeta de la
+          presentación seguía entera y a todo color bajo el panel, con su
+          «Empezar» pidiendo que lo pulsaran: parecía viva y no respondía.
+          La variante `inert:` la atenúa mientras dure —la misma que usa
+          componer—, que es lo que dice «ahora no» sin una palabra, y sin una
+          clase que cambie al hidratar. */}
       <div
-        className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto"
+        className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto inert:opacity-50 inert:saturate-50"
         inert={tapadoPorLaRueda}
       >
+        {/* `key`: otra unidad es otra unidad, aunque la pantalla siga montada al
+            ir de una a otra. Sin ella se heredaban el momento y la pregunta en
+            la que iba la anterior. */}
         {found.unit.kind === 'theory' ? (
           <TheoryUnit
+            key={unitId}
             unit={found.unit}
+            yaHecha={acceso === 'hecha'}
             onDone={(flawless) => complete(unitId, flawless)}
             {...(repasa ? { onMiss: (index: number) => miss(unitId, index) } : {})}
           />
         ) : found.unit.kind === 'ear' ? (
           <EarUnit
+            key={unitId}
             unit={found.unit}
             onDone={(flawless) => complete(unitId, flawless)}
             {...(repasa ? { onMiss: (index: number) => miss(unitId, index) } : {})}
           />
         ) : (
-          <div className="p-4">
-            {/* Las notas que costaron entran en la cola igual que una pregunta
-                fallada. Terminar la escala sigue siendo terminarla —aquí no se
-                suspende— pero lo que salió regular vuelve. */}
-            <LearnPanel
-              scaleId={found.unit.scaleId}
-              onDone={(stumbled) => {
-                if (repasa) {
-                  for (const index of stumbled) {
-                    miss(unitId, index);
-                  }
-                }
-                complete(unitId, stumbled.length === 0);
-              }}
+          <div key={unitId} className="p-4">
+            {/* La de tocar también se presenta antes: «tócala» sin saber qué
+                escala ni para qué es pedir a ciegas, y el micro se abre en cuanto
+                se empieza. Las notas que costaron entran en la cola igual que
+                una pregunta fallada. Terminar la escala sigue siendo terminarla
+                —aquí no se suspende— pero lo que salió regular vuelve. */}
+            <UnidadPorMomentos
+              unit={found.unit}
+              prueba={
+                <LearnPanel
+                  scaleId={found.unit.scaleId}
+                  onDone={(stumbled) => {
+                    if (repasa) {
+                      for (const index of stumbled) {
+                        miss(unitId, index);
+                      }
+                    }
+                    complete(unitId, stumbled.length === 0);
+                  }}
+                />
+              }
             />
           </div>
         )}

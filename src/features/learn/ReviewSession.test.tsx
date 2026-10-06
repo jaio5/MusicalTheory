@@ -46,7 +46,7 @@ function pintar(progress: Progress) {
   return { onHit, onMiss, onDone, onLeave };
 }
 
-/** La primera pregunta de «Qué es un grado», fallada hoy. */
+/** La primera pregunta de «Los grados y su cifrado», fallada hoy. */
 function conUnFallo(index = 0): Progress {
   return missQuestion(EMPTY_PROGRESS, 'e1-grados', index, HOY);
 }
@@ -213,6 +213,14 @@ describe('el repaso de una unidad de tocar', () => {
     pintar(conNotaAtragantada(2));
 
     expect(screen.getByText(/Subiendo/)).toBeInTheDocument();
+  });
+
+  it('la nota se escribe con la letra de su grado: la séptima de Fa# mayor es E#', () => {
+    fijarTonalidad('F#');
+    pintar(conNotaAtragantada(6));
+
+    expect(screen.getByText('E#')).toBeInTheDocument();
+    expect(screen.queryByText('F')).not.toBeInTheDocument();
   });
 
   it('sostener la nota afinada cuenta como acertada', async () => {

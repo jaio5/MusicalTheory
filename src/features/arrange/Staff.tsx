@@ -93,14 +93,20 @@ const PASO = 6;
 const BASE = 82;
 
 /**
- * Lo que mide de alto la zona de agarre de un cifrado.
+ * Lo que mide de alto la zona de agarre de un cifrado: **los 44 px de todo lo
+ * que se pulsa**, también dentro de un SVG.
  *
- * Empieza en 4 y la primera línea del pentagrama está en 34, así que veintiocho
- * lo deja dos unidades por encima de ella. Con los 22 de antes, el rectángulo
- * medía 23 píxeles en pantalla: por debajo de los 24 que pide la norma para algo
- * que se pulsa y se arrastra.
+ * Empieza en 4 y la primera línea del pentagrama está en 34 unidades de la
+ * banda, pero la banda va encima del aire que se reserva para las notas agudas
+ * —`respiro`, que con el techo del modelo son 36 o más—, así que la primera
+ * línea cae en pantalla a 70 o más y los 44 no la tocan. Lo que sí pisan son las
+ * 22 unidades de aire más altas, donde solo caen las notas de dos y tres líneas
+ * adicionales: una nota ya escrita ahí se dibuja después y se coge antes que el
+ * cifrado; lo que se pierde es escribir una nueva pulsando en ese aire bajo un
+ * cifrado. Con 28 medía 29 px en pantalla y era el mando principal de la vista
+ * por defecto.
  */
-const ALTO_DEL_AGARRE = 28;
+const ALTO_DEL_AGARRE = 44;
 
 /**
  * Lo que baja el segundo corchete por la plica.
@@ -906,8 +912,14 @@ export const Staff = memo(function Staff({
                       data-bloque={block.id}
                       aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
                       aria-pressed={elegido}
-                      style={{ touchAction: 'none' }}
-                      className={`focus-visible:outline-brass-bright cursor-grab focus-visible:outline-2 ${
+                      // `pan-y` y no `none`: el cifrado se mueve de lado —por
+                      // compases— y eso lo deja hacer; un barrido de arriba abajo
+                      // que nazca en él sigue siendo desplazar la columna, que es
+                      // lo que un dedo quiere decir casi siempre sobre una hoja.
+                      // Si el navegador se lo queda, llega `pointercancel` y el
+                      // gesto se suelta.
+                      style={{ touchAction: 'pan-y' }}
+                      className={`focus-visible:outline-brass-bright cursor-grab select-none focus-visible:outline-2 ${
                         elegido ? 'text-brass-bright' : ''
                       }`}
                       onPointerDown={(event) => moverAcorde(event, block.id)}
@@ -925,12 +937,14 @@ export const Staff = memo(function Staff({
                     >
                       {/* El cifrado, con peso: en esta vista **es** el acorde, no su
                       etiqueta, y a catorce píxeles al 85 % se leía como un pie de
-                      foto al lado de un pentagrama que ocupa cinco veces más. */}
+                      foto al lado de un pentagrama que ocupa cinco veces más.
+                      Dieciséis, el cuerpo de la casa: a un metro los quince se
+                      quedaban cortos. */}
                       <text
                         x={x}
                         y={17}
                         transform={bajada(inicio.s)}
-                        fontSize={15}
+                        fontSize={16}
                         fontWeight={600}
                         fontFamily="ui-monospace, monospace"
                         fill="currentColor"
@@ -951,22 +965,15 @@ export const Staff = memo(function Staff({
                           strokeWidth={elegido ? 2 : 1}
                         />
                       ))}
-                      {/* La zona de agarre del cifrado.
-                        **Baja hasta dos unidades antes de la primera línea.**
-                        Medía 22 de alto —23 píxeles en pantalla— y es lo que se
-                        pulsa para elegir un acorde y lo que se arrastra para
-                        moverlo: por debajo del mínimo de la norma, que son 24.
+                      {/* La zona de agarre del cifrado: `ALTO_DEL_AGARRE`, los
+                        44 px de la casa. Es lo que se pulsa para elegir un acorde
+                        y lo que se arrastra para moverlo, y medía 29 en pantalla.
 
-                        Crece hacia abajo y no hacia arriba porque **arriba está
-                        el aire reservado para las notas agudas** —de eso va el
-                        `respiro`— y comérselo sería robarle el clic a escribir
-                        una nota. Hacia abajo hay ocho unidades hasta la línea de
-                        arriba del pentagrama, y se dejan dos.
-
-                        Más no se puede: el cifrado está acorralado por el aire
-                        de las notas, por el pentagrama y, a los lados, por el
-                        cifrado siguiente. Para manejar bloques con el dedo está
-                        la vista de bloques, donde miden 145 por 62. */}
+                        Crece hacia abajo y no hacia arriba porque arriba no hay
+                        nada: la banda de cifrados es el borde del cuadro. Hacia
+                        abajo está el aire de las notas agudas, y lo que se cede
+                        está contado en `ALTO_DEL_AGARRE`. A los lados sigue
+                        acorralado por el cifrado siguiente. */}
                       <rect
                         x={x - 2}
                         y={4}
@@ -1110,6 +1117,10 @@ export const Staff = memo(function Staff({
                 data-nota={note.id}
                 aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}${dudosa ? ', dudosa' : ''}`}
                 className="focus-visible:outline-brass-bright cursor-grab rounded-sm focus-visible:outline-2"
+                // Aquí sí `none`: una nota se mueve en las dos direcciones
+                // —de pulso y de altura— y no hay eje que cederle al
+                // navegador. Es una cabeza con su plica en una hoja que por
+                // lo demás se desplaza, no una tira tapada de notas.
                 style={{ touchAction: 'none' }}
                 onPointerDown={(event) => cogerNota(event, note)}
                 onClick={(event) => {

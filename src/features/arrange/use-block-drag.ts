@@ -25,8 +25,36 @@ import { colocar } from './arrastrar';
  * Un bloque también se pulsa para oírlo, y un dedo nunca pulsa completamente
  * quieto. Sin umbral, la mitad de las pulsaciones acaban siendo arrastres de dos
  * píxeles que no mueven nada pero se comen el `click`.
+ *
+ * ## Con el dedo, el arrastre empieza con una pulsación larga
+ *
+ * Con el ratón, mover es arrastrar: no hay otra cosa que un ratón pueda querer
+ * decir al moverse con el botón pulsado. Con el dedo, mover es **desplazar**: la
+ * tira de bloques se sale por la derecha en un teléfono y la columna entera se
+ * sube y se baja barriendo, y los bloques tapan casi toda la tira. Medido a 390:
+ * con ocho acordes sobraban 238 px y un barrido sobre la tira la dejaba en
+ * `scrollLeft` 0 mientras cambiaba el orden de los acordes; un barrido vertical
+ * que nacía en un bloque no movía la columna, con 548 px por debajo.
+ *
+ * Así que con el dedo el bloque se **sujeta** primero —`PULSACION_LARGA_MS`
+ * quieto— y entonces se mueve. Antes de eso, el navegador se queda el gesto y
+ * desplaza, que es lo que el bloque declara con `touch-action: pan-x pan-y`; y en
+ * cuanto el bloque está sujeto se le dice al navegador que **no** desplace
+ * (`touchmove` con `preventDefault`), que es lo único que un `pointermove` no
+ * puede decirle. Es el mismo trato que da cualquier lista que se reordena en un
+ * teléfono, y lo que hace que el pulgar pueda barrer por encima de la canción
+ * sin descolocarla.
  */
 const UMBRAL_PX = 4;
+
+/**
+ * Cuánto hay que sujetar un bloque con el dedo para cogerlo.
+ *
+ * Trescientos milisegundos: por debajo de los quinientos en que el navegador
+ * táctil abre el menú de contexto, y por encima de lo que dura un toque para
+ * oírlo. Exportado para que quien pruebe el gesto no lo copie.
+ */
+export const PULSACION_LARGA_MS = 300;
 
 /** Dónde caería el bloque si se soltara ahora. */
 export interface DropTarget {
@@ -146,25 +174,48 @@ export function useBlockDrag(
 
       const inicioX = event.clientX;
       const inicioY = event.clientY;
+      const conElDedo = event.pointerType === 'touch';
+      /** Con el ratón se coge al instante; con el dedo, tras sujetarlo. */
+      let cogido = !conElDedo;
       let arrancado = false;
+      /** Si el bloque llegó a moverse: sujetarlo y soltarlo sin más no lo cambia de sitio. */
+      let movido = false;
       let hueco: DropTarget | null = null;
+      let temporizador: ReturnType<typeof setTimeout> | null = null;
+
+      const arrancar = (x: number, y: number) => {
+        arrancado = true;
+        punteroRef.current = { x, y };
+        colocar(fantasmaRef.current, x, y);
+        medidasRef.current = medir();
+        hueco = huecoEn(medidasRef.current, x, y);
+        setDrag({ blockId, target: hueco });
+      };
 
       const mover = (e: PointerEvent) => {
-        if (!arrancado && Math.hypot(e.clientX - inicioX, e.clientY - inicioY) < UMBRAL_PX) {
+        const lejos = Math.hypot(e.clientX - inicioX, e.clientY - inicioY) >= UMBRAL_PX;
+        if (!cogido) {
+          // El dedo se ha ido antes de sujetar el bloque: es un desplazamiento,
+          // y es del navegador. Se deja de escuchar sin tocar nada.
+          if (lejos) {
+            quitar();
+          }
+          return;
+        }
+        if (!arrancado && !lejos) {
           return;
         }
         // Mientras se arrastra no se selecciona texto ni se desplaza la página.
         e.preventDefault();
-        punteroRef.current = { x: e.clientX, y: e.clientY };
-        colocar(fantasmaRef.current, e.clientX, e.clientY);
-
+        if (lejos) {
+          movido = true;
+        }
         if (!arrancado) {
-          arrancado = true;
-          medidasRef.current = medir();
-          hueco = huecoEn(medidasRef.current, e.clientX, e.clientY);
-          setDrag({ blockId, target: hueco });
+          arrancar(e.clientX, e.clientY);
           return;
         }
+        punteroRef.current = { x: e.clientX, y: e.clientY };
+        colocar(fantasmaRef.current, e.clientX, e.clientY);
         const ahora = huecoEn(medidasRef.current, e.clientX, e.clientY);
         if (!mismoHueco(hueco, ahora)) {
           hueco = ahora;
@@ -172,16 +223,34 @@ export function useBlockDrag(
         }
       };
 
+      // Un `pointermove` no puede impedir que el navegador desplace: eso solo lo
+      // dice un `touchmove` que no sea pasivo. Se le dice en cuanto el bloque
+      // está cogido; antes, el barrido es suyo.
+      const frenarDesplazamiento = (e: TouchEvent) => {
+        if (cogido && e.cancelable) {
+          e.preventDefault();
+        }
+      };
+      // Sujetar quieto medio segundo abre el menú de contexto en un teléfono, y
+      // aquí sujetar quieto es justo cómo se coge un bloque.
+      const sinMenu = (e: Event) => e.preventDefault();
+
       const quitar = () => {
+        if (temporizador !== null) {
+          clearTimeout(temporizador);
+          temporizador = null;
+        }
         window.removeEventListener('pointermove', mover);
         window.removeEventListener('pointerup', soltar);
         window.removeEventListener('pointercancel', soltar);
+        window.removeEventListener('touchmove', frenarDesplazamiento);
+        window.removeEventListener('contextmenu', sinMenu);
         cancelarRef.current = null;
       };
 
       const soltar = (e: PointerEvent) => {
         quitar();
-        if (arrancado) {
+        if (arrancado && movido) {
           const destino = huecoEn(medidasRef.current, e.clientX, e.clientY);
           if (destino !== null) {
             onDrop(blockId, destino.partId, destino.index);
@@ -190,6 +259,18 @@ export function useBlockDrag(
         setDrag(null);
       };
 
+      if (conElDedo) {
+        temporizador = setTimeout(() => {
+          temporizador = null;
+          cogido = true;
+          // Cogido, el bloque se levanta ya —se apaga en su sitio y el fantasma
+          // sale bajo el dedo—: es lo que dice que la pulsación larga ha
+          // funcionado y que ahora moverse es moverlo.
+          arrancar(inicioX, inicioY);
+        }, PULSACION_LARGA_MS);
+        window.addEventListener('touchmove', frenarDesplazamiento, { passive: false });
+        window.addEventListener('contextmenu', sinMenu);
+      }
       window.addEventListener('pointermove', mover, { passive: false });
       window.addEventListener('pointerup', soltar);
       // `pointercancel` llega cuando el sistema se queda el gesto —el navegador

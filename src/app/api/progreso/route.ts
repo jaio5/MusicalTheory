@@ -16,7 +16,7 @@
 import { NextResponse } from 'next/server';
 
 import { can, cheapestPlanWith, needsPlanMessage } from '@core/billing';
-import { EMPTY_PROGRESS, mergeProgress, parseProgress } from '@core/music';
+import { EMPTY_PROGRESS, mergeProgress, parseProgress, posicionesDeLaUnidad } from '@core/music';
 import { currentSession } from '@server/entitlements';
 import { readJsonBody } from '@server/request-body';
 import { loadAccountProgress, saveAccountProgress } from '@server/progress-repo';
@@ -103,7 +103,10 @@ export async function PUT(request: Request): Promise<NextResponse> {
   // lo que se lee de la base de datos. Cualquiera puede abrir la consola y
   // mandar un avance con los diez cursos hechos; lo que no puede es mandar una
   // unidad que no existe, un XP que no cuadre con lo hecho o una racha sin fecha.
-  const entrante = parseProgress(record['progress']);
+  // Y con las posiciones contadas, como lo leído de la cuenta: el navegador no
+  // carga las lecciones para contarlas, así que lo que su cola apunte a una
+  // pregunta que ya no existe se suelta aquí.
+  const entrante = parseProgress(record['progress'], posicionesDeLaUnidad);
 
   if (guardado.kind === 'error') {
     // Sin poder leer lo que había, no se escribe: escribir sería sustituir el

@@ -198,6 +198,9 @@ const medido = { cuando: new Date().toISOString(), casos: [] };
 for (const tam of TAMANOS) {
   for (const esc of ESCENARIOS) {
     const ctx = await nav.newContext({ viewport: { width: tam.ancho, height: tam.alto } });
+    // El recorrido de la primera visita sale encima en un contexto nuevo: se marca
+    // como visto, o las medidas serían las de la tarjeta y su trozo de código.
+    await ctx.addInitScript(() => localStorage.setItem('caos-ordenado:recorrido', 'visto'));
     const page = await ctx.newPage();
     const fallos = [];
     page.on('pageerror', (e) => fallos.push(e.message));

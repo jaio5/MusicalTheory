@@ -64,6 +64,39 @@ describe('Panel de aprender', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(11);
   });
 
+  /**
+   * Con la letra de su grado, como la lección de al lado: con los doce nombres,
+   * Fa# mayor decía F donde la escala tiene E#, y la letra F salía dos veces.
+   */
+  it('escribe las notas con la letra de su grado: E# en Fa# mayor', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('F#'), mode: 'major' });
+    render(<LearnPanel createTone={() => tone} scaleId="major" />);
+
+    expect(await screen.findByText(/mayor de F#, subiendo y bajando/i)).toBeInTheDocument();
+    const notas = screen.getAllByRole('listitem').map((nota) => nota.textContent);
+    expect(notas.slice(0, 8)).toEqual(['F#', 'G#', 'A#', 'B', 'C#', 'D#', 'E#', 'F#']);
+    expect(notas).not.toContain('F');
+
+    await userEvent.click(screen.getByRole('button', { name: /^empezar$/i }));
+    expect(await screen.findByText(/toca F#/i)).toBeInTheDocument();
+    // Las seis primeras, sostenidas, y la que pide entonces es la séptima.
+    let at = 0;
+    for (const midi of [42, 44, 46, 47, 49, 51]) {
+      await play(midi, at);
+      await play(midi, at + HOLD_MS + 100);
+      at += HOLD_MS * 2;
+    }
+    expect(await screen.findByText(/toca E#/i)).toBeInTheDocument();
+  });
+
+  it('en Sol# menor armónica, la sensible es F##', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('G#'), mode: 'minor' });
+    render(<LearnPanel createTone={() => tone} scaleId="harmonicMinor" />);
+
+    expect(await screen.findByText(/menor armónica de G#/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')[6]).toHaveTextContent(/^F##$/);
+  });
+
   it('deja oír la nota que toca', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
     renderPanel();

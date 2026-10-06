@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { WebAudioReferenceTone, type ReferenceTone } from '@audio/reference-tone';
-import { accidentalForScale, midiToFrequency, SCALES, noteName, type ScaleId } from '@core/music';
+import { midiToFrequency, SCALES, type ScaleId } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
 import { Button } from '@ui/Button';
@@ -120,7 +120,6 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
   }, []);
 
   const step = exercise?.steps[progress.index] ?? null;
-  const accidental = activeKey === null ? 'sharp' : accidentalForScale(activeKey.tonic, scaleId);
 
   async function playReference() {
     /* v8 ignore next 3 -- el boton de oir la nota solo se pinta con una nota delante */
@@ -170,8 +169,8 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
       }
     >
       <p className="text-text-muted mt-2 text-sm">
-        {SCALES[scaleId].name} de {noteName(activeKey.tonic, accidental)}, subiendo y bajando. Cada
-        nota cuenta cuando suena limpia y la sostienes un momento.
+        {SCALES[scaleId].name} de {exercise.steps[0]!.name}, subiendo y bajando. Cada nota cuenta
+        cuando suena limpia y la sostienes un momento.
       </p>
 
       <ol className="mt-6 flex flex-wrap gap-2" aria-label="Notas del ejercicio">
@@ -191,7 +190,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
                     : 'border-border text-text-muted'
               }`}
             >
-              {noteName(item.pitchClass, accidental)}
+              {item.name}
               {item.descending && <span aria-hidden="true"> ↓</span>}
             </li>
           );
@@ -222,7 +221,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
         ) : (
           <span className="text-text">
             {/* v8 ignore start -- si hay escala que tocar hay paso: el «hecho» se pinta en la rama de arriba */}
-            Toca {noteName(step?.pitchClass ?? activeKey.tonic, accidental)}
+            Toca {step?.name}
             {/* v8 ignore stop */}
             {progress.heldSince !== null && <span className="text-tube-bright"> · sostenla</span>}
           </span>

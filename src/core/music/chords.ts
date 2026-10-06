@@ -1,9 +1,7 @@
 /**
- * Tríadas diatónicas: los acordes que salen de armonizar una escala de siete
- * notas apilando terceras de la propia escala.
- *
- * Solo tríadas. Las cuatríadas no entran todavía porque el modo componer las
- * pide como color, no como estructura, y aún no hay interfaz que las muestre.
+ * Los acordes que salen de armonizar una escala de siete notas apilando terceras
+ * de la propia escala —tríadas y cuatríadas—, y las especies sueltas que un
+ * bloque sabe guardar encima de su grado.
  */
 
 import {
@@ -13,7 +11,6 @@ import {
   type NoteName,
   type PitchClass,
 } from './notes';
-import { CHORD_SHAPES } from './chord-symbols';
 import { scaleNotes, type HeptatonicScaleId } from './scales';
 
 export type ChordQuality = 'major' | 'minor' | 'diminished' | 'augmented';
@@ -88,6 +85,24 @@ export function chordSymbol(
   accidental: Accidental = 'sharp',
 ): string {
   return `${noteName(root, accidental)}${QUALITY_SUFFIX[quality]}`;
+}
+
+/**
+ * Con qué alteración está escrita la fundamental de un cifrado ya hecho.
+ *
+ * Existe para que **lo que se escribe encima de un grado use la grafía del
+ * grado**. `resolveDegree` ya decide cómo se escribe cada fundamental —un grado
+ * que se llama «b» algo va con bemol, valga lo que valga la armadura—, y la
+ * cuatríada o la especie de ese grado tienen que decir la misma nota. Volver a
+ * decidirlo con `accidentalForKey` daba el `bVII` de Do mayor como `Bb` en la
+ * tríada y `A#7` en la cuatríada. Preguntándoselo al cifrado de la tríada no hay
+ * una segunda regla que pueda contradecir a la primera.
+ *
+ * Una fundamental natural se escribe igual con las dos, así que da lo mismo cuál
+ * salga.
+ */
+export function grafiaDeLaFundamental(root: PitchClass, symbol: string): Accidental {
+  return symbol.startsWith(noteName(root, 'flat')) ? 'flat' : 'sharp';
 }
 
 export function romanNumeral(degree: Degree, quality: ChordQuality): string {
@@ -238,15 +253,6 @@ export function seventhFromSuffix(suffix: string): SeventhQuality | null {
   return encontrada?.[0] ?? null;
 }
 
-/**
- * Las notas de una cuatríada suelta, que es lo que suena cuando alguien escribe
- * un cifrado en vez de coger un grado de la escala.
- *
- * Los intervalos **salen del catálogo de cifrados**, no de una tabla nueva: ese
- * catálogo es el que ya usa el buscador, y dos listas de lo mismo acaban
- * diciendo cosas distintas. Si una especie no estuviera allí, se cae a la tríada
- * mayor, que suena mal pero no revienta.
- */
 /**
  * Si un valor cualquiera es una de las especies que este proyecto sabe guardar.
  *
@@ -409,9 +415,24 @@ export function seventhInside(
   return null;
 }
 
+/**
+ * Las notas de una cuatríada suelta, que es lo que suena cuando alguien escribe
+ * un cifrado en vez de coger un grado de la escala.
+ *
+ * Los intervalos salen de `SEVENTHS`, la tabla que apila las terceras, y no del
+ * catálogo de cifrados del buscador. **Antes era al revés, y mentía**: el catálogo
+ * no tiene `mMaj7` ni `maj7#5`, así que esas dos caían a la tríada mayor. Un
+ * `CmMaj7` sonaba como un `C`, y como `seventhInside` compara contra estas notas,
+ * cualquier cuatríada con la tríada mayor dentro —un `C6`, un `Cadd9`— se
+ * reconocía como `CmMaj7`. `SEVENTHS` va por especie, así que el compilador no deja
+ * que falte ninguna; que el catálogo diga lo mismo en las que comparten lo vigila
+ * un test.
+ */
 export function seventhNotes(root: PitchClass, quality: SeventhQuality): PitchClass[] {
-  const intervals = CHORD_SHAPES[SEVENTH_SUFFIX[quality]]?.intervals ?? [0, 4, 7];
-  return intervals.map((paso) => normalizePitchClass(root + paso));
+  const forma = SEVENTHS[quality];
+  return [0, forma.third, forma.fifth, forma.seventh].map((paso) =>
+    normalizePitchClass(root + paso),
+  );
 }
 
 /** Cómo se escribe cada especie en números romanos. */
@@ -437,32 +458,37 @@ export interface SeventhChord {
 /**
  * Las cuatríadas que salen de apilar terceras, por sus intervalos.
  *
- * Una lista y no una escalera de `if`, igual que `TRIADS`: así las dos se leen
- * igual, y el caso de «esto no es una cuatríada» se escribe una sola vez.
+ * Una tabla y no una escalera de `if`, igual que `TRIADS`: así las dos se leen
+ * igual, y el caso de «esto no es una cuatríada» se escribe una sola vez. **Va
+ * por especie** y no como lista porque de aquí salen también las notas de cada
+ * una (`seventhNotes`), y así no puede faltar ninguna sin que lo diga el
+ * compilador. Ningún par de especies comparte intervalos, así que el orden no
+ * cuenta al buscar.
  */
-const SEVENTHS: ReadonlyArray<{
-  readonly third: number;
-  readonly fifth: number;
-  readonly seventh: number;
-  readonly quality: SeventhQuality;
-}> = [
-  { third: 4, fifth: 7, seventh: 11, quality: 'major7' },
-  { third: 4, fifth: 7, seventh: 10, quality: 'dominant7' },
-  { third: 3, fifth: 7, seventh: 10, quality: 'minor7' },
-  { third: 3, fifth: 6, seventh: 10, quality: 'halfDiminished7' },
-  { third: 3, fifth: 6, seventh: 9, quality: 'diminished7' },
-  { third: 3, fifth: 7, seventh: 11, quality: 'minorMajor7' },
-  { third: 4, fifth: 8, seventh: 11, quality: 'augmentedMajor7' },
-];
+const SEVENTHS: Readonly<
+  Record<
+    SeventhQuality,
+    { readonly third: number; readonly fifth: number; readonly seventh: number }
+  >
+> = {
+  major7: { third: 4, fifth: 7, seventh: 11 },
+  dominant7: { third: 4, fifth: 7, seventh: 10 },
+  minor7: { third: 3, fifth: 7, seventh: 10 },
+  halfDiminished7: { third: 3, fifth: 6, seventh: 10 },
+  diminished7: { third: 3, fifth: 6, seventh: 9 },
+  minorMajor7: { third: 3, fifth: 7, seventh: 11 },
+  augmentedMajor7: { third: 4, fifth: 8, seventh: 11 },
+};
 
 function seventhQualityFromIntervals(
   third: number,
   fifth: number,
   seventh: number,
 ): SeventhQuality {
-  const cuatriada = SEVENTHS.find(
-    (candidate) =>
-      candidate.third === third && candidate.fifth === fifth && candidate.seventh === seventh,
+  const cuatriada = (
+    Object.entries(SEVENTHS) as Array<[SeventhQuality, (typeof SEVENTHS)[SeventhQuality]]>
+  ).find(
+    ([, forma]) => forma.third === third && forma.fifth === fifth && forma.seventh === seventh,
   );
   /* v8 ignore next 5 -- mismo motivo que las triadas: las siete escalas apilan cuatriadas conocidas */
   if (cuatriada === undefined) {
@@ -470,7 +496,7 @@ function seventhQualityFromIntervals(
       `Los intervalos ${third}, ${fifth} y ${seventh} no forman una cuatríada por terceras.`,
     );
   }
-  return cuatriada.quality;
+  return cuatriada[0];
 }
 
 export function seventhSymbol(

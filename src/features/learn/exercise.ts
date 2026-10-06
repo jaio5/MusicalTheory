@@ -6,7 +6,14 @@
  * milisegundo real.
  */
 
-import { midiToPitchClass, normalizePitchClass, SCALES } from '@core/music';
+import {
+  midiToPitchClass,
+  normalizePitchClass,
+  SCALES,
+  scaleTonic,
+  spellScaleOf,
+  spelledName,
+} from '@core/music';
 import type { PitchClass, PitchReading, ScaleId } from '@core/music';
 
 /**
@@ -30,6 +37,13 @@ export interface ExerciseStep {
   readonly index: number;
   readonly midi: number;
   readonly pitchClass: PitchClass;
+  /**
+   * Cómo se escribe: con la letra de su grado en la escala que se toca. En Fa#
+   * mayor la séptima es E#, y con los doce nombres de `noteName` salía F: la
+   * letra de la tónica repetida, y lo contrario de lo que dice la lección. Para
+   * validar no cuenta: el micro compara alturas, no nombres.
+   */
+  readonly name: string;
   /** Si es la vuelta, para poder dibujar la ida y la vuelta distintas. */
   readonly descending: boolean;
 }
@@ -100,13 +114,21 @@ function lowestMidiFor(pitchClass: PitchClass): number {
  */
 export function createExercise(tonic: PitchClass, scaleId: ScaleId): Exercise {
   const root = lowestMidiFor(tonic);
-  const ascending = [...SCALES[scaleId].intervals.map((interval) => root + interval), root + 12];
+  const names = spellScaleOf(scaleTonic(tonic, scaleId), scaleId).map(spelledName);
+  const ascending = [
+    ...SCALES[scaleId].intervals.map((interval, degree) => ({
+      midi: root + interval,
+      name: names[degree]!,
+    })),
+    { midi: root + 12, name: names[0]! },
+  ];
   const descending = [...ascending].reverse().slice(1);
 
-  const steps = [...ascending, ...descending].map((midi, index) => ({
+  const steps = [...ascending, ...descending].map(({ midi, name }, index) => ({
     index,
     midi,
     pitchClass: midiToPitchClass(midi),
+    name,
     descending: index >= ascending.length,
   }));
 

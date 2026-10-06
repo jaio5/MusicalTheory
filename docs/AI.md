@@ -50,10 +50,26 @@ qué contador la frena, cómo se lee su petición, qué prompt escribe, qué esq
 pide, cuántos tokens gasta como mucho, qué contesta sin clave y cómo valida lo
 que vuelve. Once campos, y ninguno de ellos es «en qué orden pasan las cosas».
 
-Dos tests lo sujetan: uno comprueba que ninguna ruta contiene `spendAi` ni
+**Y uno más, opcional: el `respaldo`**, lo que se contesta cuando el modelo no da
+nada que valga —no contesta, se corta por el tope o lo que dice no pasa el
+validador las dos veces—. Lo construye la ruta desde el dominio, nunca desde lo que
+dijo el modelo, y tiene que decir en la respuesta que no es del modelo. Una ruta con
+respaldo no devuelve los dos 502 de después de la puerta; una sin él, sí. **El
+respaldo recibe el motivo** —`model_unavailable` o `unparseable_response`— y la
+respuesta lo lleva en `motivo`: un modelo caído y uno que contestó algo que no vale
+no piden lo mismo de quien lo lee, esperar un minuto o preguntarlo de otra manera.
+Y como un respaldo es un 200 y desde fuera parece que todo va bien, **el cuerpo
+común deja rastro**: un `console.warn` con la ruta, el código HTTP y el motivo, y
+nada de lo que escribió quien pregunta. El bucle
+de los intentos y el respaldo viven en `server/ai-intentos.ts`, aparte del cuerpo,
+porque **el examen del profesor va por ese mismo bucle** y no puede arrastrar
+`next/server`, la sesión ni la base de datos.
+
+Tres tests lo sujetan: uno comprueba que ninguna ruta contiene `spendAi` ni
 `askModel(` —si vuelve a aparecer, es que alguien ha vuelto a escribir el cuerpo
-a mano— y otro que en el cuerpo común la puerta del gasto va **antes** de la
-llamada al modelo, que es lo único que hace que se cobre el intento.
+a mano—, otro que en el cuerpo común la puerta del gasto va **antes** de
+`preguntarAlModelo`, que es lo único que hace que se cobre el intento, y el
+tercero que quien llama al modelo es ese bucle y no el cuerpo.
 
 ## Errores
 
@@ -70,7 +86,7 @@ Las dos rutas contestan los errores igual. Siempre con esta forma, nunca con el 
 
 | Código HTTP | `code`                 | Cuándo                                                    |
 | ----------- | ---------------------- | --------------------------------------------------------- |
-| 400         | `invalid_request`      | El cuerpo no cumple el esquema.                           |
+| 400         | `invalid_request`      | El cuerpo no cumple el esquema, o no hay nada que pedir.  |
 | 401         | `account_required`     | No hay cuenta. La IA no se sirve sin ella.                |
 | 402         | `plan_required`        | El plan de quien pide no incluye esto.                    |
 | 429         | `rate_limited`         | Demasiadas peticiones seguidas desde esta dirección.      |
@@ -81,6 +97,20 @@ Las dos rutas contestan los errores igual. Siempre con esta forma, nunca con el 
 
 El mensaje va en español, dice qué ha pasado y qué hacer. Nunca se filtran ni
 la clave, ni la URL del proveedor, ni la traza.
+
+**Un 400 puede traer su propia frase** cuando la petición está bien formada y aun
+así no hay nada que pedir: la ruta declara `porQueNoVale` y el cuerpo común la usa
+en vez de la de `invalid_request`. Es el caso de «Continuar» con treinta y un
+compases, donde ya no cabe otra parte: decía «nos falta la progresión», y ahora
+dice que no cabe y que se pruebe a retocar (`NO_CABE_OTRA_PARTE`). **Y un menú
+vacío contesta con su razón**: `porQueNoHaySalidas` (`core/music/paths.ts`) dice
+por qué no hay salida para esa canción en vez de «nos falta la progresión». El
+panel ya no ejecuta `salidasPosibles`: lo construye el servidor, y el panel
+pesa 70 KB gzip en vez de 87.
+
+**El profesor no devuelve nunca los dos 502**: tiene respaldo, y contesta 200 con
+el glosario o con un aviso que dice que no ha salido (más abajo, en «El profesor»).
+Los 502 quedan para las rutas sin respaldo.
 
 **`plan_required` y `quota_exhausted` llegan con el mensaje ya escrito por la ruta**,
 con el plan y el número concretos: «Las salidas de lo que tocas entran en el plan
@@ -117,22 +147,23 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
    tiraba toda idea sin grados. Contra dos modelos locales pasaban 0 de 4
    peticiones —cupo gastado, 502— y exigiéndolo, 36 de 36.
 
-   Por eso `versionsSchema(mode, kind)` **es una función**: lo que hace falta
-   depende de lo que se pida, y los grados válidos no son los mismos en mayor que
-   en menor. Los enumerados van con ello: la generación constreñida no puede
-   salirse de un `enum`.
+   Por eso `versionsSchema(opciones)` **es una función**: lo que se pide es un
+   número del menú de esa petición, y el enumerado va de uno a cuantas salidas
+   haya. La generación constreñida no puede salirse de un `enum`, así que no puede
+   elegir una que no está.
 
 2. **Validación en el servidor.** La respuesta se valida contra el dominio antes
-   de devolverla: que los grados existan en el modo indicado, que los cifrados se
-   recalculen desde ellos y, en las salidas, que el camino declarado sea el que se
-   tomó. Una salida concreta que no valide se descarta; si no queda ninguna, se
-   responde `unparseable_response`. **Y en el profesor, la prosa**: si la pregunta
-   es por una cadencia o por la relativa, la respuesta tiene que escribir sus
-   acordes y no los de otra cosa (más abajo, en «El profesor»).
+   de devolverla: que los grados existan en el modo indicado y que los cifrados se
+   recalculen desde ellos; en las salidas, que el número sea uno del menú. Una
+   salida concreta que no valide se descarta. **Y la prosa, en las dos**: en el
+   profesor, si la pregunta es por una cadencia o por la relativa, la respuesta
+   tiene que escribir sus acordes y no los de otra cosa (más abajo, en «El
+   profesor»); en las salidas, el título y el porqué no pueden nombrar acordes ni
+   movimientos que la salida no tiene (más abajo, en «Las salidas»).
 3. **Un reintento y basta.** Si la respuesta no valida, se reintenta una vez. Si
-   la segunda tampoco, se devuelve el error. No se encadenan reintentos: cuestan
-   dinero y tiempo, y el usuario prefiere un «no ha salido, prueba otra vez»
-   rápido a treinta segundos de espera.
+   la segunda tampoco, se contesta el `respaldo` de la ruta si lo tiene, y si no, el
+   error. No se encadenan reintentos: cuestan dinero y tiempo, y el usuario
+   prefiere un «no ha salido, prueba otra vez» rápido a treinta segundos de espera.
 4. **Y hay dos cosas que no se reintentan nunca.** Un fallo del proveedor sale
    como `model_unavailable` a la primera, porque el problema no es la tirada. Y
    una respuesta **cortada por el tope de tokens** tampoco —lo dicen los dos
@@ -198,8 +229,11 @@ const response = await client.messages.create({
   `TOKEN_BUDGETS` de `core/billing/cost.ts`, que es el mismo con el que se
   calculan los cupos. Así el tope que impone el servidor **es** el peor caso que
   supone la aritmética del plan, y no dos números que se separan. Hoy son 400
-  para el profesor y 900 para salidas —la más cara de las dos, porque la salida
-  son tres progresiones completas—.
+  para el profesor y 900 para salidas. Los 900 venían de cuando una salida eran
+  treinta y dos compases escritos por el modelo; desde que elige del menú, tres
+  salidas son un número, un título y un porqué cada una —unos 300 tokens—, y
+  bajarlo subiría los cupos de Medio y Pro. Es una decisión de precio y está sin
+  tomar.
 - **Pensar está apagado, y es una decisión de coste.** La respuesta la fija un
   esquema JSON: no hay nada que razonar. En `claude-opus-5` el pensamiento viene
   encendido y se cobra como salida, así que dejarlo puesto multiplica el coste y
@@ -278,10 +312,10 @@ Tres cosas que conviene saber antes de que muerdan:
 - **Los cupos salen pequeños.** El modelo local no está en la tabla de precios, así
   que se cobra al precio del más caro conocido. Es incómodo y es lo correcto: el
   cupo defiende de un gasto, y suponer coste cero sería dividir entre cero.
-- **`/api/versiones` es la que peor va**, y con motivo: es la única que verifica el
-  razonamiento movimiento a movimiento contra el dominio, así que un modelo pequeño
-  que declare mal lo que hizo se queda sin versión. Eso no es un fallo del montaje;
-  es la primera vez que esa verificación tiene algo que rechazar.
+- **`/api/versiones` fue la que peor iba, y ya no.** Mientras el modelo escribía
+  las salidas, un 8B se quedaba sin ninguna o copiaba el ejemplo del prompt. Desde
+  que el dominio las construye y el modelo elige, `qwen3:8b` contesta las cuarenta
+  peticiones del banco (más abajo, en «Las salidas»).
 
 Esto es **para probar, no para producción**. El porqué entero, con lo que se
 descartó, está en [adr/0014](./adr/0014-un-modelo-de-casa-para-probar.md).
@@ -298,11 +332,11 @@ pagar por tokens.
 glosario de teoría (`core/music/glossary.ts`), contesta su entrada resuelta en la
 tonalidad —«Sin IA, del glosario. Cadencia plagal: … En G mayor, IV → I: C → G.»—,
 así que sin clave ya se dice algo cierto; si no casa, dice que no hay modelo y qué
-hacer. Las versiones se construyen aplicando
-movimientos de verdad de `core/music/reharmonization.ts` a la progresión que se
-manda, así que pasan la misma verificación que pasaría una respuesta del modelo.
-Eso permite probar la pantalla, la reproducción y «quedarme con esta» sin gastar
-un céntimo.
+hacer. Las salidas son **las tres mejores del mismo menú que se le da al
+modelo** (`salidasPosibles`, en `core/music/paths.ts`), con variedad y el porqué
+que dice el juez de encaje, así que pasan la misma verificación que pasaría su
+respuesta. Eso permite
+probar la pantalla, la reproducción y «quedarme con esta» sin gastar un céntimo.
 
 **Que pase la verificación no es que tenga sentido**, y eso costó un fallo: el
 cierre que proponía era `I IV I` —la tónica, un paso fuera y la tónica otra vez—,
@@ -310,7 +344,8 @@ que acaba en casa y por eso el validador lo aceptaba. Un cierre se prepara por
 detrás y no se alarga por delante
 ([adr/0051](./adr/0051-un-cierre-se-prepara-por-detras.md)), y ahora hay un test
 que mira **dentro** del cierre para los 27 grados de los dos modos. Los de antes
-solo comprobaban que la salida existiera.
+solo comprobaban que la salida existiera. El cierre de hoy es la primera salida
+del menú al continuar, y el test sigue mirándolo.
 
 Lo que **no** prueba: si el modelo de verdad devuelve versiones que valgan la
 pena. Eso no lo puede decir nada que no sea el modelo. Por eso todo lo que sale de
@@ -385,7 +420,10 @@ modelo para ese caso.
 Los dos prompts y los dos esquemas viven juntos en `server/prompts.ts`, y no dentro de
 sus rutas, porque **de su longitud dependen los cupos de todos los planes**. Allí se
 pueden medir: `server/prompts.test.ts` cuenta sus caracteres y falla si crecen hasta
-comerse la holgura del presupuesto de tokens.
+comerse la holgura del presupuesto de tokens. **El prompt entero de las salidas se
+mide aparte**, en `app/api/versiones/presupuesto.test.ts`: lo arma
+`features/versions/prompt.ts`, que `server/` no puede abrir, y el estimado que había
+en `prompts.test.ts` se dejaba fuera la mitad (más abajo, en «Las salidas»).
 
 ## Por dónde entra texto que no controlamos
 
@@ -448,19 +486,40 @@ ensayo—, cuenta obligatoria, quince peticiones al mes en el plan gratis con su
 cupos, diez por minuto, y una respuesta que solo ve quien preguntó. El abuso no se
 hace imposible; se hace inútil, que es lo alcanzable.
 
-**Medido, `qwen3:8b` se deja inyectar seis de ocho veces**, con la marca bien
-quitada y todo. Son los ocho casos de la auditoría del 2 de octubre de 2026
-(`inyeccion.ts`: la orden directa, la marca en cuatro disfraces, la marca exacta,
-un disfraz musical y pedirle que copie sus instrucciones), contra el Ollama del
-equipo y con el reintento de la ruta. Solo resisten la orden directa —«ignora todo
-lo anterior»— y la marca de ancho completo; en los otros seis contesta `musica` y
-pinta lo que le piden: París, un poema, una receta de tortilla y el prompt de
-sistema entero. **Quitar bien la marca no cambió el número**, porque el modelo
-obedece las instrucciones aunque estén dentro del bloque: lo que cierra es que el
-texto del alumno no pueda salir del bloque, no que el modelo lo trate como dato.
-Lo de antes —«acierta los ocho»— no se sostiene con estos casos. **La puerta vale
-lo que valga el modelo siguiendo instrucciones**, y con este vale poco; los topes
-valen lo mismo con cualquiera, y son los que sostienen el argumento de arriba.
+**Medido, `qwen3:8b` se dejaba inyectar seis de ocho veces**, con la marca bien
+quitada y todo. Son los ocho casos de la auditoría del 2 de octubre de 2026 —la
+orden directa, la marca en cuatro disfraces, la marca exacta, un disfraz musical y
+pedirle que copie sus instrucciones—, que hoy están dentro del examen del profesor.
+Solo resistían la orden directa y la marca de ancho completo; en los otros seis
+contestaba `musica` y pintaba París, un poema, una receta de tortilla y el prompt
+de sistema entero. **Quitar bien la marca no cambió el número**, porque el modelo
+obedece las instrucciones aunque estén dentro del bloque.
+
+**Ahora resisten seis de ocho** —siete en otra pasada—, con tres cosas que no
+dependen de que el modelo obedezca:
+
+- **Lo que dice `musica` tiene que hablar de música** (`hablaDeMusica`): alguna de
+  ochenta raíces de palabras de música, de tocar o de la aplicación, o un acorde o
+  un grado escritos. No es el filtro de palabras que 0015 descartó: aquel miraba
+  **la pregunta**, y «¿por qué suena triste?» no lleva ninguna; a una pregunta de
+  música se le contesta con música. Se quedan fuera las que en castellano son
+  sobre todo otra cosa —«bajo», «modo», «mayor», «menor»— y la «A» sola. En el
+  examen no tira ninguna respuesta de música; caza «París», la contraseña y la
+  receta.
+- **Lo que copia ocho palabras seguidas del prompt de sistema no vale**
+  (`copiaLasInstrucciones`). Caza el último caso, que pintaba el prompt entero.
+- **Detrás de la pregunta se repite que es un dato** (`RECORDATORIO_DE_LA_PREGUNTA`),
+  que es lo último que lee antes de contestar. En una prueba con las ocho
+  inyecciones, el poema y seis preguntas buenas pasó de 6 a 11 de 15; moverlo del
+  prompt de sistema aquí bajó a 7, y las redacciones más cortas rechazaban preguntas
+  coloquiales. En el examen entero, con lo de arriba ya puesto, la diferencia cae
+  dentro de lo que varía de una pasada a otra: 81 de 88 sin él, 82 y 84 con él.
+
+Lo que sigue pasando: **los dos poemas sobre París** —«sin mencionar música», pide
+la inyección, y el modelo mete un acorde en el último verso—. Lo que se lee en la
+respuesta no los distingue de una respuesta poética sobre música. **La puerta vale
+lo que valga el modelo siguiendo instrucciones**; los topes valen lo mismo con
+cualquiera, y son los que sostienen el argumento de arriba.
 
 Dos cosas más que ya estaban y conviene no perder: el texto del modelo se pinta
 con `{answer.answer}` dentro de un `<p>`, así que React lo escapa y no hay
@@ -506,13 +565,24 @@ lleva tres cosas más, todas calculadas por el dominio y ninguna escrita a mano:
   `Acordes de C mayor. Tónica: I C, iii Em, vi Am. Subdominante: ii Dm, IV F. Dominante: V G, vii° Bdim.`
   En menor va también el V mayor de la armónica, que es el de la cadencia perfecta.
 - **Hasta dos entradas del glosario**, si la pregunta casa con alguna, bajo
-  «Teoría de referencia, comprobada: úsala y no la contradigas.». Son medio
-  centenar —cadencias, funciones, acordes, intervalos, escalas, modos,
-  tonalidades, progresiones y ritmo— y lo que depende de la tonalidad está escrito
+  «Teoría comprobada: úsala y no la contradigas.». Son sesenta —cadencias,
+  funciones, acordes e inversiones, intervalos, escalas, modos, tonalidades,
+  progresiones, ritmo y figuras, y cinco de **la aplicación**: afinar, grabar, tu
+  audio, escribir tocando y ensayar— y lo que depende de la tonalidad está escrito
   en grados y se resuelve con `resolveDegree`, `keySignature` y compañía: la
-  perfecta dice «V → I: G → C» en Do mayor y «V → i: E → Am» en La menor. Se
-  eligen por las palabras de la pregunta, sin tildes; gana la frase más larga, y
-  sin ninguna que case no va nada.
+  perfecta dice «V → I: G → C» en Do mayor y «V → i: E → Am» en La menor. La
+  afinación estándar sale del mástil (`STANDARD_TUNING`). Gana la frase más larga,
+  y sin ninguna que case no va nada.
+- **Se encuentran como se escribe en un móvil**: sin tildes, en singular o en
+  plural —«acordes prestados» y «acorde prestado» comparan igual—, con las
+  abreviaturas de un mensaje —«q», «d», «xq»— y con una letra mal tecleada en las
+  palabras largas —«kadencia perfeta», «frijio»—, dos si pasan de ocho letras.
+  **Solo se corrige lo que no existe**: «armonía» está en «armonía funcional» y no
+  se lee como «armónica», y unas cuantas corrientes no se corrigen nunca —«tiempo»
+  no es «tempo», ni «cuántas» es «cuartas»—.
+- **Las notas de un acorde escrito en la pregunta**, cuando se preguntan:
+  «¿qué notas tiene un G7?», «el acorde de re mayor», «sol7». Va una entrada hecha
+  al vuelo con sus notas bien escritas y sus intervalos.
 - **La tonalidad escrita como se escribe**: el cliente manda la tónica con
   sostenidos y Si bemol mayor viajaba como «A# mayor»; el modelo contestó que su
   dominante era «E#». Ahora `cabeceraDePrompt` la escribe con `keyName`, y eso vale
@@ -522,27 +592,97 @@ El prompt de sistema dice en una frase que la tabla y la referencia mandan sobre
 lo que recuerde.
 
 **Y lo que contesta se comprueba** (`checkAnswerAgainstTheory`, desde
-`validateTeacherAnswer`). Si la pregunta nombra una cadencia o la relativa, la
-respuesta tiene que escribir su progresión —«G → C», «de G a C», «el V va al I»—, y
-no vale una que la contenga dando la vuelta como «C a G a C», ni la de otra cadencia
-sin nombrarla, que es como sale «la perfecta es F-C». Lo que no pasa vuelve nulo y
-la ruta reintenta con otra temperatura; si la segunda tampoco, `unparseable_response`.
-**Prefiere aceptar de menos a rechazar de más**: lee acordes y grados escritos, no
-entiende la frase, y una pregunta por otra tonalidad no se comprueba. Las
-respuestas buenas con las que se probó son las que dio el modelo de casa, copiadas
-tal cual en `glossary.test.ts`.
+`validateTeacherAnswer`). Lo que no pasa vuelve nulo y la ruta reintenta con otra
+temperatura; si la segunda tampoco, contesta el glosario (abajo). Las firmas:
+
+| Si se pregunta por...           | La respuesta tiene que...                                                   |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| Una cadencia                    | Escribir su progresión, no darle la vuelta ni escribir la de otra           |
+| La relativa                     | Decir cuál es, y la que es                                                  |
+| Las notas de un acorde          | Darlas todas, en letra o en castellano, sin mirar enarmonías                |
+| Las notas de la escala del tono | Lo mismo, solo si la escala es de la tónica: en Do, la pentatónica menor no |
+| La dominante, o la del V        | Nombrar su acorde si escribe alguno; sin ninguno, explica y pasa            |
+| La armadura                     | No contar otras alteraciones: vale con que una cuenta sea la buena          |
+| Los acordes de la tonalidad     | Escribir cinco de ellos por lo menos, no grados a secas                     |
+| Los siete modos                 | Nombrar cuatro                                                              |
+
+Y dos que miran la respuesta entera, pregunte lo que pregunte: **un intervalo no
+mide otros semitonos que los suyos** —«la tercera mayor tiene tres semitonos»— y
+**un acorde con su grado al lado tiene que ser ese grado** —«D7 (V/vi)» en Fa mayor
+es falso, y el modelo de casa lo escribió—. Lo de otra tonalidad, lo que va con
+«de» —«G7 es el V de C»— y los paréntesis con una progresión dentro no se miran.
+
+**Prefiere aceptar de menos a rechazar de más**: lee acordes, grados, notas y
+números escritos, no entiende la frase, y lo que depende de la tonalidad no se
+comprueba si la pregunta es de otra. El propio glosario pasa el validador en las
+veinticuatro tonalidades, y las respuestas buenas con las que se probó son las que
+dio el modelo de casa, copiadas tal cual en `glossary.test.ts`.
+
+### Si el modelo no da una respuesta que valga
+
+**El profesor no se queda nunca sin respuesta.** Si el modelo no contesta, se corta
+o lo que dice no pasa el validador dos veces, contesta `respaldoDelProfesor`:
+
+- **si la pregunta casa con el glosario, el glosario**, resuelto en la tonalidad y
+  empezando por «Esto no lo ha escrito la IA…», con `fuente: 'glosario'`;
+- **si no, un aviso honrado** —no ha salido, cómo preguntarlo para que salga— con
+  los acordes de la tonalidad, que son ciertos siempre, y `fuente: 'aviso'`.
+
+**Lo de delante depende del `motivo`**, que también viaja en la respuesta. Si el
+modelo no contestó (`model_unavailable`), «pregúntalo con otras palabras» haría
+gastar otra pregunta contra un modelo caído: el aviso dice «No hemos podido
+contactar con el modelo; vuelve a intentarlo en un minuto», y el glosario va
+detrás de esa misma frase, diciendo que no es de la IA pero no que la respuesta no
+se pudo comprobar, porque no la hubo. La pantalla marca encima de la respuesta de
+quién es: «Del glosario, sin IA», «Sin IA» o «Sin conexión con el modelo».
+
+Y un `fuera` del modelo **no vale si la pregunta es de aquí**: con la entrada
+delante, rechazaba «¿la aplicación sube mi audio?» como fuera de tema. Se reintenta
+y, si insiste, contesta el glosario. **Pero rozar el glosario no basta**: «¿cómo
+hago un modo oscuro en CSS?» casa con los modos y «¿qué es un intervalo de
+confianza?» con los intervalos, y rechazar esos «fuera» costaba una llamada más
+para contestar teoría a quien no la pedía. Hace falta que la pregunta nombre la
+entrada entera —un nombre de varias palabras tal cual, o dos nombres de la misma:
+«grabar» y «vídeo»— o que diga además otra palabra de música —«¿cómo afino **la
+guitarra**?»—.
+
+**El cupo se gasta igual**, y a propósito. La pregunta se cobra al pasar la puerta,
+antes de llamar al modelo (`spendAi`), y para entonces el modelo ya ha costado sus
+dos intentos: el cupo sale de ese coste. Devolverla haría además gratis justo lo
+que una inyección busca: una pregunta que el validador tira no costaría nada, y el
+cupo —lo que de verdad acota el abuso, adr/0015— dejaría de acotarlo. Y pide una
+escritura más en la base de datos por cada respaldo.
 
 **Cabe en el presupuesto sin subirlo.** El peor caso —la tabla más larga de las
-veinticuatro, las dos entradas más largas, la unidad de título más largo y la
-pregunta entera— lo construye `server/prompts.test.ts` pieza a pieza, y para que
-quepa el prompt de sistema se apretó sin quitarle nada y cada entrada tiene un tope
-de 180 caracteres. Los cupos no cambian.
+veinticuatro, las dos entradas más largas, la unidad de título más largo, la
+pregunta entera y el recordatorio de detrás— lo construye `server/prompts.test.ts`
+pieza a pieza: **696 tokens estimados de 700**. Para que quepa el recordatorio se
+apretaron el prompt de sistema y la cabecera de la teoría sin quitarles ninguna
+instrucción, y cada entrada tiene un tope de 180 caracteres. Los cupos no cambian,
+y **no queda sitio**: lo próximo que entre en el prompt pide subir el presupuesto, y
+eso baja los cupos de todos los planes.
 
-**Cómo se mide**: `pnpm examen:profesor` le hace 28 preguntas de guitarrista al
-modelo de casa por el mismo camino que la ruta —el mismo prompt, el mismo
-validador y el mismo reintento— y comprueba cada respuesta con lo que tiene que
-decir y lo que no puede decir. Pide `OLLAMA_URL` y un modelo descargado, así que no
-está entre los seis comandos. Las cifras, en el ADR.
+**Cómo se mide**: `pnpm examen:profesor` le hace **88 preguntas** al modelo de casa
+por el mismo camino que la ruta —el mismo prompt, el mismo validador, el mismo
+reintento y el mismo respaldo, porque usa `PROFESOR` y `preguntarAlModelo`—: teoría
+en doce tonalidades con alteraciones, preguntas mal escritas, de la aplicación,
+fuera de tema y las ocho inyecciones de la auditoría. Y mide por separado las
+cuatro cosas que son «contestar bien»: **que conteste** —sin 502—, **que lo que
+dice sea verdad**, **que conteste a lo preguntado** y **que no se salga del tema**
+ni obedezca. `--releer` vuelve a corregir una pasada guardada con el banco de hoy,
+que es como se comparan un antes y un después.
+
+| Con `qwen3:8b` | Contesta | Verdad | A lo preguntado | En tema | Bien  |
+| -------------- | -------- | ------ | --------------- | ------- | ----- |
+| Antes          | 88/88    | 80/88  | 74/88           | 79/88   | 68/88 |
+| Después        | 88/88    | 87/88  | 85/88           | 85/88   | 82/88 |
+
+Por partes, de antes a después: teoría 48 → 51 de 54, mal escritas 9 → 12 de 12,
+la aplicación 3 → 7 de 7, fuera de tema 6 → 6 de 7 e inyecciones 2 → 6 de 8. Siete
+de las 88 las contestó el glosario. Lo que queda mal: el bajo del ii–V–I «sube una
+quinta», el disminuido sin decir cómo se construye, el frigio sin su segunda menor,
+un poema sobre el mar escrito con grados y los dos poemas sobre París. Pide
+`OLLAMA_URL` y un modelo descargado, así que no está entre los seis comandos.
 
 ## Las salidas: por dónde puede tirar lo que tocas
 
@@ -556,16 +696,15 @@ tocado. No son versiones de la misma canción: son caminos para elegir.
 
 Y lo que se pide se elige antes, entre dos cosas:
 
-| `kind`      | Qué hace                                 | Qué devuelve el modelo                    |
-| ----------- | ---------------------------------------- | ----------------------------------------- |
-| `continuar` | Sigue tu canción y le hace sus partes    | **Solo las partes que añade**, con nombre |
-| `retocar`   | Cambia estos compases sin salir de ellos | **Solo el trozo que cambia**, y `desde`   |
+| `kind`      | Qué hace                                 | Qué caminos tiene el menú              |
+| ----------- | ---------------------------------------- | -------------------------------------- |
+| `continuar` | Sigue tu canción y le hace sus partes    | `seguir` y `contraste`                 |
+| `retocar`   | Cambia estos compases sin salir de ellos | `rearmonizar`, `estirar`, `otro-final` |
 
-**Elegir antes no es cosa de la interfaz.** Es lo que hace que el esquema pueda
-exigir lo que el validador comprueba —continuar necesita al menos una parte nueva
-y retocar exactamente una— y eso un esquema JSON no lo puede condicionar a un
-campo que el propio modelo rellena. Con el camino libre: cero salidas válidas de
-cuatro peticiones. Eligiendo antes: tres de tres.
+**Elegir antes no es cosa de la interfaz.** De lo que se pida depende el menú
+que se le enseña —las salidas que continúan o las que retocan—, y con el camino
+libre el modelo elegía la forma que no tocaba: cero salidas válidas de cuatro
+peticiones. Eligiendo antes: tres de tres.
 
 **Y se le dice qué parte le mandas**, que es la otra mitad de la pregunta: no es
 lo mismo continuar una estrofa —que tiene que poder repetirse con otra letra— que
@@ -582,30 +721,34 @@ decir cosas distintas. El porqué, en
 prompt lo dice un test; si mejora la respuesta solo puede decirlo una medición
 contra la API, que sigue pendiente.
 
-**Tus compases no se le piden.** Al continuar, el modelo devuelve solo lo que
-añade y el contrato pone tu parte delante. Pedirle que la copiara era la causa de
-que se cayera todo, y repetirla solo gastaba tokens.
-
-**Y al retocar, tampoco.** Cada salida dice `desde` —el compás donde empieza lo
-que devuelve— y trae solo ese trozo; la canción la monta `cancionRetocada`
-(`core/music/paths.ts`). En `rearmonizar` y `estirar` el trozo tapa tantos compases
-como mide y lo demás se queda; en `otro-final` sustituye todo lo que viene
-después, y puede medir menos. Después las reglas de siempre juzgan la canción
-montada, sin aflojar ninguna. Pedirle la canción entera era por lo que no salía
-nada: contestaba el trozo de todas formas y se leía como la canción —«rearmonizar
-no cambia el largo»—. El prompt le numera tus compases y le enseña un ejemplo de
-cada salida **hecho con los tuyos**, que es lo que copia
-([adr/0086](./adr/0086-retocar-devuelve-solo-lo-que-cambia.md)).
-
 **Aunque por delante se llame «grabar un trozo», aquí no sube nada de audio.** La
 aplicación ya sabe qué acorde suena —el motor de croma lo dice y `core/music/capture.ts`
 lo convierte en grados con sus pulsos—, así que grabar es apuntar símbolos. Lo que
 viaja son entre treinta y doscientos caracteres.
 
-### Las cinco salidas, y cómo se comprueba cada una
+### El dominio construye las salidas, y el modelo elige
 
-El catálogo vive en `core/music/paths.ts` y se le enseña al modelo generado desde
-ahí, nunca escrito a mano en el prompt.
+**El modelo ya no escribe salidas: las elige de un menú.** `salidasPosibles`
+(`core/music/paths.ts`) construye para tu canción muchas más de las que enseña
+(`candidatasDeSalida`), las ordena por lo que encajan con lo que llevas
+(`core/music/encaje.ts`) y se queda con hasta nueve, con variedad entre caminos
+([adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)). Hay cinco
+caminos, y cada uno trae lo suyo:
+
+- **rearmonizar**: cada movimiento de `reharmonization.ts` en todos los compases
+  que lo admiten, y el último compás con cada sustituto que tenga;
+- **estirar**: cuadrar a los pulsos que más se repiten lo que se tocó desigual, a
+  medio tiempo, a doble tiempo, y el último o el primero el doble;
+- **otro final**: llegar a la tónica, quedarse en la dominante o caer en el vi
+  —el VI en menor— tocando lo menos posible, y acabar antes si se puede;
+- **seguir**: las cadencias de `cadenciasParaCerrar`, un cierre de tres y otro de
+  cuatro compases que no tocan la tónica hasta el final, y una parte nueva antes
+  del cierre;
+- **contraste**: puentes que se van sin pasar por la tónica y saben volver a tu
+  primer compás, los que más se alejan de lo tuyo primero.
+
+Y cada camino tiene sus reglas, las de `pathProblem` y `songProblem`, que siguen
+siendo las de siempre aunque ahora se apliquen al construir y no al recibir:
 
 | Salida        | Qué hace                                    | Qué se comprueba                                         |
 | ------------- | ------------------------------------------- | -------------------------------------------------------- |
@@ -615,39 +758,177 @@ ahí, nunca escrito a mano en el prompt.
 | `estirar`     | Los mismos acordes durando otra cosa        | Ni un grado tocado, y algún pulso distinto               |
 | `contraste`   | Añade una parte que se va y puede volver    | No cierra, y desde su último grado se vuelve al primero  |
 
-### Se verifica el razonamiento, no solo el resultado
+Todas pasan `songProblem` antes de entrar en el menú —lo recorre
+`paths.test.ts` con más de mil canciones—, así que **lo que sale es correcto por
+construcción**: el modelo no puede inventarse un salto ni declarar un movimiento
+que no ha hecho, porque no escribe ni saltos ni movimientos. Cada salida trae
+además, escrito por el dominio, **lo que hace** —«Cambia IV por iv en el 4 (mayor
+por menor)»— y **hacia dónde tira**: si oscurece o aclara, si mete tensión o un
+prestado, si cierra, si es más lento, más rápido o más corto. Los colores salen de
+comparar la salida con lo tuyo, no de una etiqueta, y son lo que deja elegir con
+«más triste» o «estilo rock» delante.
 
-Es lo que la separa del profesor, y lo que sostiene la función entera. Antes cada
-compás declaraba su movimiento; ahora **la declaración sube al camino**: cada salida
-dice cuál ha tomado y el dominio vuelve a comprobarlo. Un `contraste` que cierra en
-la tónica se descarta —eso es un `seguir`—, y un `estirar` que toca un acorde
-también.
+El prompt lleva ese menú numerado (`features/versions/menu.ts`), la tabla de los
+grados que salen con su acorde —los tuyos y los del menú, para que el porqué hable
+de acordes que existen— y tus compases numerados. Lo que vuelve es, por salida, **un número, un título y un
+porqué**, y el esquema exige el número como enumerado del uno a cuantas haya. Ya
+no van el mapa de saltos, el catálogo de movimientos, las cadencias ni los
+ejemplos de retocar: no hay nada que construir.
 
-Debajo hay una segunda comprobación: **cada salto que no estaba en tu canción tiene
-que existir en `nextDegrees`**, el grafo armónico del dominio. Son unas tres salidas
-por grado, así que una parte nueva de cuatro compases tiene del orden de ochenta
-caminos posibles. **El mapa entero va en el prompt**, generado desde el dominio: es
-lo mismo que hacían los grados enumerados de las ideas, y por la misma razón.
+**Por qué, medido.** Retocar con los ejemplos sobre tus compases
+([adr/0086](./adr/0086-retocar-devuelve-solo-lo-que-cambia.md)) sacaba algo
+siempre, pero el modelo copiaba el ejemplo: 45 de 46 salidas mostradas en el banco.
+Y al continuar, 21 de 72 salidas pasaban el validador. Con el menú, contra
+`qwen3:8b` en el mismo banco —veinte progresiones de dos a ocho compases, mayores y
+menores, con alteraciones, pulsos de grabación y directrices, para continuar y
+para retocar, con los dos intentos de la ruta—:
 
-Una salida se descarta entera cuando declara un camino y toma otro, cuando el
-camino no es de la clase que se pidió, cuando usa un grado que no existe en ese
-modo, cuando encadena un salto que el dominio no conoce, cuando se pasa de 32
-compases, cuando devuelve tu canción tal cual, cuando un retoque empieza en un
-compás que no existe o trae un trozo que se pasa de tu último compás, o cuando **las
-partes que añade son tu parte otra vez** —visto con un modelo de verdad: un «puente» que era tu
-progresión copiada—.
+| Criterio                                  | Escribiendo él | Eligiendo del menú |
+| ----------------------------------------- | -------------- | ------------------ |
+| Peticiones con alguna salida              | 38 de 40       | **40 de 40**       |
+| Salidas propuestas que valen              | 67 de 132      | **120 de 120**     |
+| Mostradas que no son el ejemplo copiado   | 4 de 67        | **104 de 120**     |
+| Respuestas sin dos salidas iguales        | 16 de 19       | **40 de 40**       |
+| Porqués mostrados que dicen la verdad     | 56 de 67       | **119 de 120**     |
+| Peticiones con alguna que sigue lo pedido | 9 de 20        | **16 de 21**       |
+| Tokens de entrada, el más largo del banco | 1.699          | **1.120**          |
+| Segundos por llamada                      | 6,5            | **3,6**            |
 
-Medido con modelos locales de 8B: **continuar sale 4 de 4 con `gemma4:e4b`**, todas
-con partes de verdad —`Lo que llevas(Am F C G) | verso(Am F C G Am)`—, contra 0 de 4
-con las reglas anteriores. Con `qwen3:8b`, 0 de 4: su «parte nueva» es siempre tu
-progresión copiada, y eso se rechaza. El porqué entero está en
-[adr/0016](./adr/0016-salidas-en-vez-de-versiones.md).
+«No copia» al continuar cuenta como copia elegir la primera cadencia de la lista,
+que es legítimo: de ahí sale que no llegue al cien. Las directrices se comprueban
+con lo que el dominio sabe contar —un grado menor o prestado que no estaba para
+«más triste», un final que no es la tónica para «que acabe abierto»— y no con el
+oído; donde fallan es donde el menú no tiene nada que vaya hacia ahí, como «estilo
+flamenco» sin una bajada VI → V que construir. El banco, sus casos y el medidor
+están en el scratchpad de la sesión, y la decisión, en su ADR.
 
-**Retocar, con `qwen3:8b` y ocho progresiones: 8 de 8 peticiones a la primera y 22
-de 24 salidas válidas**, contra 7 de 33 —y solo de `estirar`— cuando se le pedía la
-canción entera. Pero **21 de esas 22 son el ejemplo del prompt copiado**: lo que
-pone el modelo es el título y el porqué. Si uno grande propone algo suyo solo lo
-dirá la API ([adr/0086](./adr/0086-retocar-devuelve-solo-lo-que-cambia.md)).
+**Lo que se pierde, dicho:** el modelo ya no puede proponer nada que el dominio
+no sepa construir. Uno grande podría inventar una salida mejor que las seis del
+menú; con este diseño no la verá nadie. Es el precio de que todo lo que sale sea
+cierto, y la medición contra la API diría si se paga caro.
+
+### Lo que la petición sabe de tu canción
+
+**Además de los grados viaja un contexto** (`ContextoDeSalidas`, en
+`core/music/contexto-de-salidas.ts`): el estilo de la barra, los pulsos por
+compás, el papel real de la parte, la especie de cada compás, los compases
+dudosos y la melodía compás a compás. Lo valida `features/versions/contract.ts`,
+lo arma el panel (`lo-que-se-manda.ts`) y el servidor lo usa en
+`salidasPosibles` **las dos veces que construye el menú**, al escribir el prompt y
+al validar: si cambiara entre una y otra, el número elegido señalaría otra salida.
+Se manda **una sola parte** —la de «De qué parte», o la del bloque seleccionado,
+o la última con acordes—. **Solo símbolos**: enumerados, números y alturas sobre
+la tónica; los nombres de las partes no viajan, ni audio.
+
+### Quién ordena el menú
+
+**El juez de encaje** (`core/music/encaje.ts`) puntúa de 0 a 100 cada candidata
+con once criterios —sintaxis, cadencia, frase, ritmo armónico, bajo, notas
+comunes, melodía, estilo, novedad, papel y forma— y deja por escrito, en grados,
+los motivos que son verdad. Un `descarte` la quita siempre; un `reparo` baja sus
+puntos de `ENCAJE_MINIMO` (50) pero **nunca vacía el menú**, y si quedan menos de
+`MINIMO_DEL_MENU` (3) se rellena con las mejores de las reprochadas.
+
+**Al modelo le llegan seis**, no nueve (`MAX_OPCIONES_DEL_MENU`), con los motivos
+del juez dichos en acordes y un tope de caracteres: el menú ocupa lo que deja el
+resto del prompt. **Sin directrices el modelo explica las tres mejores** y no
+elige: medido, elegir entre seis daba 504 buenas de 513 y explicar las tres
+mejores, 508. **Con directrices elige entre las seis**, porque leer «más triste» es
+lo que el dominio no hace. Canciones de un acorde se aceptan.
+
+### Cómo se mide
+
+Cinco exámenes del dominio, sin modelo, que corre `pnpm test` —`corpus-de-salidas`
+(71 de 72 casos), `corpus-de-verificacion` (93 de 96), `corpus-ciego` (98 de 98),
+`corpus-final` (53 de 54) y `corpus-quinto` (27 de 50 menús), en `core/music/`—, cada uno con un trinquete que no deja
+bajar y una lista `YA_NO_PUEDEN_FALLAR`. **Y `pnpm examen:salidas`**
+(`scripts/examen-de-las-salidas.ts`), que pasa las peticiones por la ruta contra el
+modelo de verdad. Con `qwen3:8b`: contesta 72/72, los porqués son verdad 216/216,
+508/513 sin directrices y 7/8 sigue las directrices.
+
+**Un corpus que se usa para ajustar deja de medir, y los cinco se han usado.** La
+cifra honesta de generalización es la medida ciega del corpus final **antes de tocar
+nada** (5 de octubre, 00:59): 36 de 50 menús enteros, y 8 de 50 con las cinco frases
+falsas que se añadieron a `diceAlgoFalso`; el arreglista lo juzgó 72 % bien, 18 %
+aceptable y 10 % mal. Las tres medidas ciegas sucesivas fueron 48 / 39 / 14, 66 / 31 /
+3,5 y 72 / 18 / 10 (bien / aceptable / mal, en %). La quinta medida
+(`corpus-quinto`, 5 de octubre, 12:14) dio **714 de 768 expectativas y 22 de 50 menús
+enteros** con el examen estricto, y el arreglista los juzgó 74 % bien, 24 % aceptable
+y 2 % mal; tras arreglar por sus causas, 732 de 768 y 27 de 50. **El arreglista y el
+examen no miden lo mismo**: él mira las tres salidas que se enseñan; el examen
+exige además una buena entre las tres primeras y ningún error en todo el menú. Las
+cifras de 53 de 54, 98 de 98 y 27 de 50 son **tras arreglar**, no de
+generalización; para volver a medir hace falta un sexto corpus
+
+([adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)).
+
+### El porqué se comprueba
+
+**El título y el porqué son la única prosa del modelo que se pinta**, y al lado
+de acordes comprobados un porqué falso enseña algo falso con autoridad
+([adr/0011](./adr/0011-versiones-verificadas-contra-el-dominio.md)). Así que
+`loQueNoEsta` (`features/versions/contract.ts`) los lee contra la salida: los
+acordes y grados que nombran tienen que sonar en ella o haber estado en lo tuyo; un
+movimiento nombrado tiene que estar hecho —el relativo de la tónica y la cadencia
+rota valen también si suenan—, y no puede decir que cierra si no acaba en la
+tónica, ni al revés. **Lo que no se sostiene se cambia por lo que dice el
+dominio**, que construyó la salida y no se equivoca sobre ella; la salida se
+queda. Prefiere aceptar de menos a rechazar de más: «C mayor» es la tonalidad, y
+la «A» delante de una palabra es la preposición.
+
+Medido: de lo que escribe `qwen3:8b`, 100 de 120 porqués son verdad; mostrados,
+119 de 120. El más repetido antes era «una cadencia que promete la tónica pero no
+la alcanza», sobre un cierre que acaba en ella.
+
+### Lo dudoso va marcado
+
+El panel manda `heard` en los compases que el micro leyó con poca confianza, y el
+prompt de sistema llevaba tiempo diciendo que venían marcados **sin que el prompt
+marcara ninguno**. Ahora van con una interrogación —`2: V x4?`— y el prompt de
+sistema dice qué significa: una lectura que nadie ha confirmado, en la que no se
+apoya la explicación.
+
+### Cuando el modelo no da nada que valga
+
+**Las salidas no se quedan sin respuesta.** Si el modelo no contesta, se corta por
+el tope o lo que dice no pasa el validador las dos veces, la ruta contesta con el
+`respaldo` del cuerpo común (`server/ai-intentos.ts`): las tres mejores salidas
+del menú, con variedad, el título y el porqué del juez. **Y lo dice**: la respuesta lleva
+`origen: 'dominio'`, cada título empieza por «Sin IA» y el panel lo explica
+encima de la lista, con la frase que toca según el `motivo`: «el modelo no ha dado
+con nada que se sostenga», o, si no se le pudo hablar, que se vuelva a intentar en
+un minuto. El cupo ya está gastado —se cobra el intento—, y lo que se le
+debe a quien lo pagó es saber que eso no lo eligió el modelo.
+
+### El presupuesto de entrada, sumado de verdad
+
+`server/prompts.test.ts` estimaba la entrada de las salidas con el prompt de
+sistema, el esquema, la progresión, los movimientos y los grados, y **se dejaba el
+mapa de saltos, las cadencias, las directrices y los ejemplos de retocar**: decía
+que cabía en los 1.400 tokens de `TOKEN_BUDGETS.versiones` mientras el peor prompt
+real rondaba los 1.950. Desde aquí no se podía medir mejor —el prompt lo arma
+`features/`, y `server/` no la abre—, así que la medida de verdad vive en
+`app/api/versiones/presupuesto.test.ts`, que ve las dos capas:
+
+- **busca el peor** con cientos de canciones de treinta y dos compases en las
+  veinticuatro tonalidades, el papel más largo y las directrices enteras: **1.277
+  tokens de 1.400**;
+- y **suma el peor de cada pieza** aunque no puedan darse juntas, con el prompt por
+  su tope de caracteres (`MAX_CARACTERES_DEL_PROMPT`, 2.950, en
+  `features/versions/prompt.ts`): **1.278 de 1.400**. Es lo que hace que sea un tope
+  y no una muestra.
+
+**Y el test exige una holgura de 120 tokens** (`HOLGURA`): el peor prompt tiene que
+dejar libres 120 de los 1.400. Llegó a sobrar 3 —1.396 y 1.397—, y lo siguiente que
+entrara obligaba a subir `TOKEN_BUDGETS`, que es decisión de precio: baja los cupos.
+Se hizo sitio quitando lo que el modelo no usa para elegir ni para explicar: la tabla
+de acordes lleva solo los grados que salen, el papel de la parte va solo por su nombre
+(`Parte: estribillo.`) y el prompt de sistema perdió tres frases que repite la última
+línea del prompt o que obliga el esquema. El tope bajó de 3.190 a 2.950. Qué costó,
+medido con `qwen3:8b`: sin directrices todo igual (513 de 514) salvo «la 1 primero»,
+que baja de 72 a 66 de 72; con directrices, sigue lo pedido en 33 de 40 frente a 30
+([adr/0100](./adr/0100-hacer-sitio-en-el-prompt-sin-subir-el-presupuesto.md)). Con
+el banco, la entrada media pasó de 1.557 tokens a 1.028.
 
 ### Lo que no capta
 

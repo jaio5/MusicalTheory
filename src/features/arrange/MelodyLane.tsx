@@ -326,11 +326,13 @@ export const MelodyLane = memo(function MelodyLane({
                 }`}
                 style={{ top: fila * ALTO_FILA, height: ALTO_FILA }}
               >
+                {/* Doce píxeles y no diez: es el suelo de esta interfaz, y la
+                    nota de cada fila es lo que se mira para saber dónde escribir. */}
                 <span
-                  className={`absolute left-1 font-mono text-[10px] leading-none ${
+                  className={`absolute left-1 font-mono text-xs leading-none ${
                     offset === 0 ? 'text-brass-bright' : 'text-text-muted'
                   }`}
-                  style={{ top: (ALTO_FILA - 10) / 2 }}
+                  style={{ top: (ALTO_FILA - 12) / 2 }}
                 >
                   {enEscala ? nombre : ''}
                 </span>
@@ -377,6 +379,10 @@ export const MelodyLane = memo(function MelodyLane({
                 // ancho: cogerla así era apuntar a un palillo.
                 // El aro hacia dentro, por lo mismo que las filas: la rejilla
                 // recorta lo que sale de ella.
+                // `touch-action: none` solo en la nota, no en la rejilla: se
+                // mueve en las dos direcciones —de pulso y de fila— y no hay eje
+                // que cederle al navegador. Las filas vacías, que son casi toda
+                // la rejilla, dejan desplazar la tira y la columna.
                 className="absolute rounded-sm focus-visible:-outline-offset-2"
                 style={{
                   left: note.start * porPulso,

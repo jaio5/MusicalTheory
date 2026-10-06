@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 
 import { validateTeacherAnswer } from '@features/learn/teacher-contract';
 import { validateVersions, type VersionsRequest } from '@features/versions/contract';
+import { lasTresMejores, salidasDe } from '@features/versions/menu';
 
 import { respuestaSinIA, SIN_IA, versionesSinIA } from '@server/fake-model';
 
@@ -25,64 +26,36 @@ const EN_DO: VersionsRequest = {
   ],
 };
 
+/** Lo que contesta el modelo que no piensa, ya validado contra el contrato. */
+function sinIA(request: VersionsRequest) {
+  return validateVersions(
+    versionesSinIA({
+      menu: salidasDe(request),
+      elegidas: lasTresMejores(salidasDe(request), request.progression).map((i) => i + 1),
+    }),
+    request,
+  );
+}
+
 describe('las versiones sin IA', () => {
   /**
-   * La razón de ser de este fichero: lo que devuelve se construye aplicando
-   * movimientos de verdad del dominio, así que **pasa la misma verificación** que
-   * pasaría una respuesta del modelo. Eso es lo que permite probar la pantalla,
-   * la reproducción y «ponerla en el camino» sin gastar un céntimo.
+   * La razón de ser de este fichero: lo que devuelve son salidas del mismo menú
+   * que se le da al modelo, elegidas por número igual que él, así que **pasa la
+   * misma verificación**. Eso es lo que permite probar la pantalla, la
+   * reproducción y «ponerla en el camino» sin gastar un céntimo.
    */
-  it('pasan la verificación de verdad', () => {
-    const versiones = validateVersions(
-      versionesSinIA({
-        tonic: EN_DO.key.tonic,
-        mode: EN_DO.key.mode,
-        progression: EN_DO.progression,
-      }),
-      EN_DO,
-    );
+  it('pasan la verificación de verdad, y son de más de un camino', () => {
+    for (const kind of ['retocar', 'continuar'] as const) {
+      const versiones = sinIA({ ...EN_DO, kind });
 
-    expect(versiones.length).toBeGreaterThan(0);
-    // Ya no todas tienen el mismo largo ni declaran movimientos: desde que hay
-    // salidas, una puede alargar o repartir los pulsos de otra manera. Lo que sí
-    // tienen todas es un camino declarado que el dominio ha vuelto a comprobar.
-    for (const version of versiones) {
-      expect(version.steps.length).toBeGreaterThan(0);
-      expect(version.path).toBeTruthy();
+      expect(versiones.length, kind).toBeGreaterThan(1);
+      expect(new Set(versiones.map((v) => v.path)).size, kind).toBeGreaterThan(1);
     }
-    // Y entre ellas hay más de una clase de salida, que es lo que esto viene a
-    // enseñar: sin clave se puede probar la pantalla entera, no solo un caso.
-    expect(new Set(versiones.map((v) => v.path)).size).toBeGreaterThan(1);
   });
 
   it('dicen que no son de un modelo, para que no engañen en pantalla', () => {
-    const versiones = validateVersions(
-      versionesSinIA({
-        tonic: EN_DO.key.tonic,
-        mode: EN_DO.key.mode,
-        progression: EN_DO.progression,
-      }),
-      EN_DO,
-    );
-
-    for (const version of versiones) {
+    for (const version of sinIA(EN_DO)) {
       expect(version.title).toContain(SIN_IA);
-    }
-  });
-
-  it('no cambian todos los compases: eso ya no sería la misma canción', () => {
-    const versiones = validateVersions(
-      versionesSinIA({
-        tonic: EN_DO.key.tonic,
-        mode: EN_DO.key.mode,
-        progression: EN_DO.progression,
-      }),
-      EN_DO,
-    );
-
-    for (const version of versiones) {
-      const iguales = version.steps.filter((paso) => paso.move === null).length;
-      expect(iguales).toBeGreaterThan(0);
     }
   });
 
@@ -98,41 +71,10 @@ describe('las versiones sin IA', () => {
       ],
     };
 
-    const versiones = validateVersions(
-      versionesSinIA({ tonic: 'A', mode: 'minor', progression: enLa.progression }),
-      enLa,
-    );
-
-    expect(versiones.length).toBeGreaterThan(0);
+    expect(sinIA(enLa).length).toBeGreaterThan(0);
   });
 
-  /**
-   * Devuelven solo el trozo que cambia, con su `desde`, como se le pide al modelo
-   * (adr/0086): así lo que se prueba sin clave es el montaje de verdad, y no un
-   * atajo que solo existe aquí.
-   */
-  it('devuelven solo el trozo que cambia, y montado pasa la misma verificación', () => {
-    const crudas = versionesSinIA({
-      tonic: EN_DO.key.tonic,
-      mode: EN_DO.key.mode,
-      progression: EN_DO.progression,
-    }) as { versions: { path: string; desde?: number; sections: { steps: unknown[] }[] }[] };
-    const versiones = validateVersions(crudas, EN_DO);
-    const retoques = crudas.versions.filter((v) => v.path !== 'seguir');
-
-    expect(retoques.map((v) => v.path)).toEqual(['rearmonizar', 'estirar']);
-    for (const retoque of retoques) {
-      expect(retoque.sections[0]!.steps.length).toBeLessThan(EN_DO.progression.length);
-    }
-    expect(versiones.map((v) => v.path)).toEqual(['rearmonizar', 'estirar']);
-    for (const version of versiones) {
-      expect(version.steps).toHaveLength(EN_DO.progression.length);
-    }
-  });
-
-  it('una progresión a la que no se le puede hacer nada devuelve una lista vacía', () => {
-    // Sin versiones válidas, la ruta contesta lo mismo que si el modelo no
-    // hubiera dado nada aprovechable: no se inventa nada.
+  it('una progresión con poco que hacer da lo que haya, sin inventar', () => {
     const rara: VersionsRequest = {
       kind: 'retocar',
       key: { tonic: 'C', mode: 'major' },
@@ -142,12 +84,7 @@ describe('las versiones sin IA', () => {
       ],
     };
 
-    const versiones = validateVersions(
-      versionesSinIA({ tonic: 'C', mode: 'major', progression: rara.progression }),
-      rara,
-    );
-
-    expect(Array.isArray(versiones)).toBe(true);
+    expect(Array.isArray(sinIA(rara))).toBe(true);
   });
 });
 

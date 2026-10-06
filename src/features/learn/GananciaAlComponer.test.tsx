@@ -27,6 +27,15 @@ function ganancia(extra: Partial<ComposeGain> = {}): ComposeGain {
 }
 
 describe('el aviso de componer', () => {
+  // La sombra es la de la casa, no un `shadow-lg` de Tailwind.
+  it('flota con la sombra alta de la casa', () => {
+    render(<GananciaAlComponer gain={ganancia()} onDismiss={() => {}} />);
+
+    expect(screen.getByText('Canción guardada').closest('div')).toHaveClass(
+      'shadow-[var(--sombra-alta)]',
+    );
+  });
+
   it('dice qué ha contado y cuánto ha sumado', () => {
     render(<GananciaAlComponer gain={ganancia()} onDismiss={() => {}} />);
 

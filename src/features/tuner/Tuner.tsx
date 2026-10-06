@@ -6,16 +6,11 @@ import { noteName, type PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
 import { IconoMicro } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
-import { Field } from '@ui/Field';
 import { Panel } from '@ui/Panel';
 import { useSessionStore, type ListeningState } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
 
-import { useEffect, useRef, useState } from 'react';
-
-// De su propio módulo y no de `web-audio-input`: listar los micrófonos no abre
-// nada, y desde allí se traía la entrada entera a `/afinar` y a la portada.
-import { listAudioInputDevices } from '@audio/entradas-de-audio';
+import { useEffect, useRef } from 'react';
 
 import { LevelMeter } from './LevelMeter';
 import { TuningMeter } from './TuningMeter';
@@ -34,7 +29,7 @@ export function Tuner(deps: TunerProps = {}) {
   /*
     **Aquí solo lo que cambia cuando se pulsa algo.** La lectura, la claridad y
     el nivel llegan veinte veces por segundo, y leídas aquí repintaban el panel
-    entero —el botón de parar, la lista de micrófonos, la región viva— para
+    entero —el botón de parar, la región viva— para
     mover una aguja. Las lee `Listening`, que es quien las enseña, y la región
     viva lee su frase ya hecha: una cadena igual no repinta nada.
   */
@@ -42,26 +37,13 @@ export function Tuner(deps: TunerProps = {}) {
   const message = useSessionStore((state) => state.message);
   const { start, stop } = useListening(deps);
 
-  const [devices, setDevices] = useState<readonly MediaDeviceInfo[]>([]);
-  const [deviceId, setDeviceId] = useState<string>('');
-
-  // Los nombres de las entradas solo llegan con el permiso ya concedido, así
-  // que la lista se pide cuando ya estamos escuchando.
-  useEffect(() => {
-    if (listening !== 'listening') {
-      return;
-    }
-    let cancelled = false;
-    void listAudioInputDevices().then((found) => {
-      /* v8 ignore next 3 -- la lista llega antes de que nadie cierre la pantalla; la bandera es por si no */
-      if (!cancelled) {
-        setDevices(found);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [listening]);
+  /*
+    **El micrófono no se elige aquí.** Había un desplegable propio, con su
+    `useState`: lo elegido en el afinador no lo sabía nadie más —componer y la
+    toma abrían el del sistema— y al recargar se olvidaba. Ahora la elección es
+    una (`state/microfono.ts`), se cambia con el mando de la barra, que está
+    encima de esta pantalla, y `start()` sin nada abre la elegida.
+  */
 
   /**
    * Si hay que devolver el foco cuando se acabe de abrir o de cerrar el micro.
@@ -79,22 +61,22 @@ export function Tuner(deps: TunerProps = {}) {
     }
     devolverElFoco.current = false;
     // Solo si se ha perdido: si el permiso se denegó, el botón sigue con él.
+    // Sin desplazar: traer «Dejar de escuchar» a la vista empujaba la nota
+    // fuera de la pantalla por arriba en una ventana de 600 px de alto, justo al
+    // empezar a escuchar.
     if (document.activeElement === document.body) {
-      document.querySelector<HTMLElement>('[data-mando-del-afinador]')?.focus();
+      document
+        .querySelector<HTMLElement>('[data-mando-del-afinador]')
+        ?.focus({ preventScroll: true });
     }
   }, [listening]);
-
-  async function switchDevice(next: string) {
-    setDeviceId(next);
-    await stop();
-    await start(next === '' ? undefined : next);
-  }
 
   /**
    * Escuchando, lo que se mira va primero y lo demás se aparta.
    *
    * Estaba al revés: el botón de parar y el desplegable de entrada iban arriba, y
-   * la nota y la aguja salían debajo de los dos. Se afina **a un metro y con las
+   * la nota y la aguja salían debajo de los dos. (El desplegable ya no está: el
+   * micro se elige en la barra, para todas las pantallas.) Se afina **a un metro y con las
    * dos manos ocupadas** —lo dice la guía de estilo de este proyecto— y lo que se
    * mira así es una nota y una aguja, no un `<select>`.
    *
@@ -118,21 +100,6 @@ export function Tuner(deps: TunerProps = {}) {
             >
               Dejar de escuchar
             </Button>
-            {devices.length > 1 && (
-              <Field
-                // A la vista: «La del sistema» solo no dice de qué es la lista.
-                label="Micrófono"
-                value={deviceId}
-                onChange={(event) => void switchDevice(event.target.value)}
-              >
-                <option value="">La del sistema</option>
-                {devices.map((device) => (
-                  <option key={device.deviceId} value={device.deviceId}>
-                    {device.label === '' ? 'Entrada sin nombre' : device.label}
-                  </option>
-                ))}
-              </Field>
-            )}
           </div>
         </>
       ) : (
@@ -354,19 +321,31 @@ function NotaYAguja({
         </span>
       </p>
 
-      {/* La aguja pegada a la nota, y el consejo debajo. Son las tres cosas que
-          se leen de reojo mientras se gira la clavija; el resto son datos que se
-          miran parados. */}
+      {/* **La instrucción es lo segundo más grande de la pantalla**, pegada a la
+          nota, y la aguja debajo. Iba a 18 px en gris bajo una letra de 160, y
+          en una ventana de 700 × 600 caía bajo el pliegue: lo que hay que hacer
+          —aflojar o tensar— era lo más pequeño de lo que se mira de reojo
+          mientras se gira la clavija. El dato —los cents— se queda abajo, para
+          mirarlo parado.
+
+          **Y sin señal, no se dice nada.** Al irse la señal quedaban «Sin señal»
+          y «+36 cents · Suena alta: afloja» a la vez, y la segunda era de hace
+          un rato: la nota se queda apagada, y la instrucción y los cents se
+          vacían hasta que vuelva a sonar algo. */}
+      <p
+        className={`mt-2 text-3xl font-semibold sm:text-4xl ${
+          status === 'afinada' ? 'text-tube-bright' : 'text-text'
+        }`}
+      >
+        {vacia || !hasSignal ? NBSP : tuningAdvice(status)}
+      </p>
+
       <div className="mt-5 flex w-full justify-center">
         <TuningMeter cents={vacia ? 0 : reading.cents} status={status} />
       </div>
 
-      <p className={`mt-4 text-lg ${status === 'afinada' ? 'text-tube-bright' : 'text-text'}`}>
-        {vacia ? NBSP : tuningAdvice(status)}
-      </p>
-
-      <p className="text-text-muted mt-4 text-sm">
-        {vacia
+      <p className="text-text-muted mt-4 font-mono text-sm">
+        {vacia || !hasSignal
           ? NBSP
           : `${reading.cents > 0 ? '+' : ''}${reading.cents.toFixed(1)} cents · ${reading.frequency.toFixed(1)} Hz`}
       </p>

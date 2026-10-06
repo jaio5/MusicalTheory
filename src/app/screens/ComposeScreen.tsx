@@ -226,8 +226,66 @@ const ESPACIOS = [
  * Los espacios y el metrónomo eran pastillas grises de la misma altura una
  * detrás de otra, y se leían como una sola fila de mandos iguales.
  */
-function Separador() {
-  return <span aria-hidden="true" data-separador className="bg-border w-px self-stretch" />;
+function Separador({ className = '' }: { readonly className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-separador
+      className={`bg-border w-px self-stretch ${className}`}
+    />
+  );
+}
+
+/**
+ * La hoja del mástil en un teléfono: un `popover` que se abre solo al montarse
+ * y que, al cerrarse por su cuenta —Escape, un toque fuera—, lo dice.
+ *
+ * Se abre desde el código y no con `popoverTarget` porque quien lo abre es la
+ * pastilla «Mástil» de dentro de «Más», que ya tiene su trabajo: cambiar el
+ * reparto. Lo que se ve sale del reparto, igual que en el banco, y por eso
+ * cerrar la hoja es cerrar el área. **El foco entra con ella** (adr/0084): el
+ * navegador no lo mueve a un `popover` abierto por código, y sin eso el
+ * tabulador seguía por la fila de abajo, tapada.
+ */
+function HojaDelMastil({
+  onCerrar,
+  children,
+}: {
+  readonly onCerrar: () => void;
+  readonly children: React.ReactNode;
+}) {
+  const id = useId();
+  useEffect(() => {
+    const hoja = document.getElementById(id) as HTMLElement;
+    // La API falta en jsdom; los navegadores a los que va esto la traen.
+    // Y solo si no está ya abierta: en desarrollo React monta los efectos dos
+    // veces (`reactStrictMode`), y abrir un `popover` abierto lanza
+    // `InvalidStateError`, que acababa en la página de avería. Cerrarla en la
+    // limpieza no vale: dispararía `toggle` y la hoja se cerraría sola al montar.
+    if (typeof hoja.showPopover === 'function' && !hoja.matches(':popover-open')) {
+      hoja.showPopover();
+    }
+    hoja.querySelector<HTMLElement>('button, select, input')?.focus();
+  }, [id]);
+
+  return (
+    <div
+      id={id}
+      popover="auto"
+      onBlur={cerrarAlSalirElFoco}
+      onToggle={(evento) => {
+        if (evento.newState === 'closed') {
+          onCerrar();
+        }
+      }}
+      data-hoja-del-mastil
+      // Sin clase de `display`: una pisaría el `display: none` con el que el
+      // navegador guarda un `popover` cerrado y la hoja saldría siempre.
+      className="superficie-alta text-text backdrop:bg-night/50 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100vw-1rem)] p-0"
+    >
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -507,6 +565,8 @@ export function ComposeScreen() {
   const bandeja = (enPanel: boolean) => (
     <section
       aria-label="Qué se ve abajo"
+      // El recorrido la señala en el banco; en un teléfono señala «Más».
+      data-tour={enPanel ? undefined : 'componer-bandeja'}
       className={
         enPanel ? 'flex flex-col' : 'border-border flex shrink-0 flex-col border-t max-lg:hidden'
       }
@@ -536,6 +596,27 @@ export function ComposeScreen() {
         ))}
       </div>
     </section>
+  );
+
+  /** Los mandos de la cabecera del editor de abajo: sus rótulos y cerrar. */
+  const mandosDelEditor = (cual: Editor) => (
+    <>
+      {cual.rotulos !== undefined && (
+        <Suspense fallback={null}>
+          <cual.rotulos />
+        </Suspense>
+      )}
+      <button
+        type="button"
+        onClick={() => accionesDelBanco.abrirAbajo(null)}
+        aria-label={`Cerrar ${cual.name}`}
+        title="Cerrar"
+        // Del tamaño del de plegar, y por lo mismo: era veinte por doce.
+        className="text-text-muted hover:text-oxblood-bright inline-flex min-w-11 cursor-pointer items-center justify-center self-stretch"
+      >
+        <IconoCerrar />
+      </button>
+    </>
   );
 
   const medidas = {
@@ -586,7 +667,8 @@ export function ComposeScreen() {
             para trabajar. Ahora todo lo que se elige va aquí, en el orden en que
             se usa, y lo que no cabe se alcanza arrastrando, con la pista de
             `hay-mas-al-lado` que dice que sigue —que solo se pinta por debajo de
-            40rem, así que puede ir puesta siempre—.
+            64rem, y sin desplazamiento sus tapas pisan las sombras, así que puede
+            ir puesta siempre—.
 
             **Ocupa lo que deja el título**, con `accionesCrecen`: midiendo lo
             que mide su contenido, una fila de seiscientos píxeles en un hueco de
@@ -594,9 +676,19 @@ export function ComposeScreen() {
           */}
             {/* Lo que recibe el foco se trae entero: a 390, «Tempo» enseñaba 13
                 de sus 82 píxeles y quien va con teclado no sabía qué tenía. */}
+            {/*
+              **Entre `sm` y `lg`, dos filas y nada que arrastrar.** Es la franja
+              de la tableta: hay ancho para los cinco espacios y pestañas en una
+              fila, y para el clic, el tempo, la tonalidad y «Más» en otra, pero
+              no para las dos juntas. Desplazándose, la fila se cortaba contra el
+              título sin más pista que una letra partida —«Componer ▌nsayar»— y
+              había que adivinar que seguía. El salto lo pone un hijo de ancho
+              completo que solo existe en esa franja; en un teléfono se vuelve a
+              desplazar, que es donde no hay sitio ni para una de las dos.
+            */}
             <div
               onFocus={traerALaVista}
-              className="hay-mas-al-lado flex min-w-0 items-center gap-2 max-lg:w-full max-lg:overflow-x-auto lg:ml-auto lg:flex-wrap max-lg:[&>*]:shrink-0"
+              className="hay-mas-al-lado flex min-w-0 items-center gap-2 max-lg:w-full max-sm:overflow-x-auto sm:max-lg:flex-wrap lg:ml-auto lg:flex-wrap max-lg:[&>*]:shrink-0"
             >
               {/* Los espacios de trabajo antes que el metrónomo: son lo que cambia
                 la pantalla entera, y lo que cambia más cosas va primero. */}
@@ -618,6 +710,7 @@ export function ComposeScreen() {
                 className="flex gap-1"
                 role="group"
                 aria-label="Espacio de trabajo"
+                data-tour="componer-espacios"
                 onPointerOver={() => precargar('lienzo', 'ensayo')}
                 onFocus={() => precargar('lienzo', 'ensayo')}
               >
@@ -633,40 +726,57 @@ export function ComposeScreen() {
                     tamano="compacto"
                     ariaLabel={candidato.name}
                     atajo={candidato.atajo}
+                    className="max-sm:px-2"
                   >
-                    <candidato.Icono />
-                    {/* En un teléfono, solo el icono: la fila se desplaza, y con los
-                      tres rótulos las pestañas de detrás quedaban siempre fuera. */}
-                    <span className="hidden sm:inline">{candidato.name}</span>
+                    {/*
+                      **En un teléfono, el nombre y no el icono.** Iban solo los
+                      iconos para que las pestañas de detrás asomaran, y lo que
+                      asomaba eran tres dibujos que nadie sabía nombrar —el de en
+                      medio es el mismo que «Componer» en la barra de abajo—. Son
+                      el concepto central de la pantalla (adr/0034), y con menos
+                      relleno los tres nombres caben al lado del título; lo que
+                      va detrás se alcanza arrastrando, como antes.
+                    */}
+                    <span className="max-sm:hidden">
+                      <candidato.Icono />
+                    </span>
+                    {candidato.name}
                   </Chip>
                 ))}
                 {!hayBanco && activeKey !== null && (
                   <>
                     <Separador />
-                    {(
-                      [
-                        ['camino', 'A dónde ir'],
-                        ['acorde', 'Acorde'],
-                      ] as const
-                    ).map(([id, nombre]) => (
-                      <Chip
-                        key={id}
-                        onClick={() => setAreaMovil(id)}
-                        pressed={areaMovil === id}
-                        tone="quiet"
-                        tamano="compacto"
-                      >
-                        {nombre}
-                      </Chip>
-                    ))}
+                    {/* En su propia caja para que el recorrido las señale juntas. */}
+                    <span className="flex gap-1" data-tour="componer-pestanas">
+                      {(
+                        [
+                          ['camino', 'A dónde ir'],
+                          ['acorde', 'Acorde'],
+                        ] as const
+                      ).map(([id, nombre]) => (
+                        <Chip
+                          key={id}
+                          onClick={() => setAreaMovil(id)}
+                          pressed={areaMovil === id}
+                          tone="quiet"
+                          tamano="compacto"
+                        >
+                          {nombre}
+                        </Chip>
+                      ))}
+                    </span>
                   </>
                 )}
               </span>
 
+              {/* El salto de fila de la franja de la tableta: un hijo de ancho
+                completo que no mide nada y solo existe entre `sm` y `lg`. */}
+              <span aria-hidden="true" data-salto className="hidden basis-full sm:max-lg:block" />
               {/* **Una raya entre los espacios y el metrónomo.** Tenían la misma
                 pinta —pastillas grises de la misma altura— y «− 100 +» se leía
-                como otro espacio de trabajo más. */}
-              <Separador />
+                como otro espacio de trabajo más. En dos filas no hace falta: la
+                fila ya separa. */}
+              <Separador className="sm:max-lg:hidden" />
               <Metronome />
 
               {/*
@@ -684,7 +794,8 @@ export function ComposeScreen() {
                   <button
                     type="button"
                     popoverTarget={idTonalidad}
-                    className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center gap-1 rounded-md border px-3 text-[13px] font-medium"
+                    data-tour="componer-tonalidad"
+                    className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center gap-1 rounded-md border px-3 text-sm font-medium"
                   >
                     <IconoAfinar />
                     <span className="text-brass-bright">
@@ -725,9 +836,10 @@ export function ComposeScreen() {
               <button
                 type="button"
                 popoverTarget={idBandeja}
+                data-tour="componer-bandeja"
                 onPointerOver={precargarLaBandeja}
                 onFocus={precargarLaBandeja}
-                className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-[13px] font-medium lg:hidden"
+                className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-sm font-medium lg:hidden"
               >
                 Más
               </button>
@@ -756,6 +868,7 @@ export function ComposeScreen() {
                 <button
                   type="button"
                   onClick={() => accionesDelBanco.devolverElReparto()}
+                  data-tour="componer-restablecer"
                   className="text-text-muted hover:text-brass-bright min-h-tap inline-flex cursor-pointer items-center px-2 text-xs max-lg:hidden"
                   title={`Devolver las áreas a como venían en este espacio · ${ATAJOS.devolver}`}
                   aria-keyshortcuts={ATAJOS.devolver}
@@ -781,7 +894,10 @@ export function ComposeScreen() {
           una pastilla de la fila de arriba (más arriba se cuenta), y esta fila
           de cuarenta y cinco píxeles se devuelve a la canción. */}
       {activeKey === null && (
-        <div className="border-border bg-surface shrink-0 border-b px-3 lg:hidden">
+        <div
+          className="border-border bg-surface shrink-0 border-b px-3 lg:hidden"
+          data-tour="componer-tonalidad"
+        >
           <BarraDeTonalidad onAbrirse={setTonalidadAbierta}>
             {/*
               Las cuatro de salida, dentro del panel.
@@ -801,8 +917,15 @@ export function ComposeScreen() {
           debajo de otra y en una ventana baja no caben, así que quien se
           desplaza es esta caja. En el banco cada área se apaña con su hueco, que
           es de lo que va un banco de trabajo. */}
+      {/* **Y lo tapado se ve tapado.** `inert` quita el foco y la voz, pero no
+          cambia nada a la vista: los cuatro atajos de tonalidad y el micro
+          seguían a todo color detrás de la rueda, como si se pudieran pulsar.
+          Atenuados y desaturados dicen lo que son —lo de después— sin apagarse
+          del todo, que es lo que haría pensar que hay un fallo. Va con la
+          variante `inert:` y no con un ternario: la clase es la misma con y sin
+          velo, y la primera pintura no cambia al hidratar (adr/0083). */}
       <div
-        className="flex min-h-0 grow flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
+        className="flex min-h-0 grow flex-col overflow-y-auto inert:opacity-50 inert:saturate-50 lg:flex-row lg:overflow-hidden"
         inert={tapadoPorLaRueda}
       >
         <Area
@@ -887,12 +1010,12 @@ export function ComposeScreen() {
             // eso no se desplaza y por eso necesita suelo: lo que no le quepa
             // al lienzo se recorta y deja su barra sin alcanzar.
             //
-            // Con el mástil delante la cuenta cambia: lo que decide el tamaño
-            // de las notas es el alto, y el alto sale de aquí. Cediéndole
-            // cuarenta y ocho píxeles, las notas del mástil pasan de 22 a 32 de
-            // separación en una ventana baja. Lo que el arreglo pierde de alto
-            // no se pierde: se alcanza desplazándolo, que es la diferencia
-            // entre ceder y cortar.
+            // Con el mástil delante, lo que no le quepa al arreglo se alcanza
+            // desplazándolo, que es la diferencia entre ceder y cortar. **Pero
+            // ya no cede por debajo de su suelo**: cedía hasta ocho rem y, con
+            // las cinco áreas abiertas, la canción se quedaba en 128 px de 900
+            // —un 14 %— debajo de un cajón de «a dónde ir» de 384. El que cede
+            // ahora es ese cajón, que se desplaza por dentro y no esconde nada.
             scroll={cediendoAlMastil}
             sinCabecera={!hayBanco}
             cabeceraSoloEnElBanco
@@ -913,10 +1036,19 @@ export function ComposeScreen() {
             // necesita para no cortarse nada son 220 px por debajo de 1280 —la
             // barra se parte en más filas cuanto más estrecho— y 170 por
             // encima. Van catorce y once rem, que es lo medido redondeado hacia
-            // arriba.
-            className={`min-h-[26rem] grow ${
-              cediendoAlMastil ? 'lg:min-h-32' : 'lg:min-h-56 xl:min-h-44'
-            } ${areaMovil === 'arreglo' ? '' : 'max-lg:hidden'}`}
+            // arriba, **también con el mástil abierto**: el tope del mástil
+            // (`FretboardPanel`) descuenta este suelo, así que no compiten.
+            //
+            // **Salvo en una ventana baja**, por debajo de 700 px de alto: ahí
+            // no caben los dos —a 1024×600 con todo abierto quedan 421 px— y el
+            // mástil, si cede él, se queda en 104 px con letras de 5,8, que no se
+            // leen. Cede el arreglo hasta seis rem —lo justo para que «A dónde
+            // ir» conserve su cabecera de 44, que si no queda fuera de alcance—:
+            // de todos modos solo enseñaba su barra, y su canción se alcanza
+            // desplazando. 96 + 44 + 277 del mástil son los 417 de los 421.
+            className={`min-h-[26rem] grow lg:min-h-56 xl:min-h-44 lg:[@media(max-height:699px)]:min-h-24 ${
+              areaMovil === 'arreglo' ? '' : 'max-lg:hidden'
+            }`}
           >
             {activeKey === null ? (
               // `my-auto` en el hijo y no `justify-center` aquí, que es la regla
@@ -1021,11 +1153,20 @@ export function ComposeScreen() {
                 Y apilada ocupa lo que le dejen: es la única área a la vista, así
                 que quedarse en trece rem dejaba media pantalla en negro debajo de
                 una sola propuesta.
+
+                **Y con el área de abajo abierta, sin suelo.** Los tramos se
+                midieron con ella cerrada; abierta, el suelo de este cajón ganaba
+                al del arreglo —ambos son `min-height` y el flex no sabe cuál
+                importa— y la canción se quedaba en 128 px a 1440×900 y en 156 a
+                1024×600. Lo que el cajón pierde se alcanza desplazándolo; lo que
+                el arreglo perdía era la canción.
               */
               className={
                 caminoPlegado
                   ? ''
-                  : 'border-border shrink basis-52 border-t max-lg:grow [@media(max-height:659px)_and_(min-width:1100px)]:min-h-64 [@media(min-height:1040px)]:min-h-[30rem] [@media(min-height:660px)_and_(max-height:779px)]:min-h-56 [@media(min-height:780px)_and_(max-height:899px)]:min-h-72 [@media(min-height:900px)_and_(max-height:1039px)]:min-h-96'
+                  : abajo !== null
+                    ? 'border-border min-h-11 shrink basis-52 border-t max-lg:grow'
+                    : 'border-border shrink basis-52 border-t max-lg:grow [@media(max-height:659px)_and_(min-width:1100px)]:min-h-64 [@media(min-height:1040px)]:min-h-[30rem] [@media(min-height:660px)_and_(max-height:779px)]:min-h-56 [@media(min-height:780px)_and_(max-height:899px)]:min-h-72 [@media(min-height:900px)_and_(max-height:1039px)]:min-h-96'
               }
             >
               {/* Lo que cabe en un bloque entra en la canción, al final de la
@@ -1119,10 +1260,40 @@ export function ComposeScreen() {
         Envolviendo los dos, sale por encima del que esté arriba sin que nadie
         tenga que adivinar cuánto miden. Sigue sin empujar nada: flota.
       */}
-      <div className="relative flex min-h-0 shrink-0 flex-col" inert={tapadoPorLaRueda}>
+      <div
+        className="relative flex min-h-0 shrink-0 flex-col inert:opacity-50 inert:saturate-50"
+        inert={tapadoPorLaRueda}
+      >
         <GananciaAlComponer gain={composeGain} onDismiss={dismissComposeGain} />
 
-        {editor !== null && (
+        {/*
+          **En un teléfono el mástil es una hoja, no una franja.** Abajo, en su
+          área, le tocaba el ancho de la pantalla y su proporción lo dejaba en
+          102 px de alto a 390: dianas de 9 px y letras de 6, que es un dibujo
+          que no se lee. Como hoja flota encima de todo —el mismo `popover` que
+          ya usa «Más», por lo mismo: se abre desde la fila que se desplaza
+          (adr/0065)— y dentro el dibujo va a tamaño de lectura y se arrastra de
+          lado. Lo demás de la bandeja sigue abajo: es texto, y el texto se lee
+          en una franja.
+        */}
+        {editor !== null && editor.aSuProporcion === true && !hayBanco ? (
+          <HojaDelMastil onCerrar={() => accionesDelBanco.abrirAbajo(null)}>
+            <Area
+              titulo={editor.name}
+              icono={<editor.Icono />}
+              scroll={false}
+              className="min-h-0"
+              mandos={mandosDelEditor(editor)}
+            >
+              <div className="flex min-h-0 grow flex-col px-3 pb-2">
+                <Suspense fallback={<Abriendo que={editor.name.toLowerCase()} />}>
+                  <FretboardPanel hoja />
+                </Suspense>
+              </div>
+            </Area>
+          </HojaDelMastil>
+        ) : null}
+        {editor !== null && (editor.aSuProporcion !== true || hayBanco) && (
           <Area
             titulo={editor.name}
             icono={<editor.Icono />}
@@ -1158,25 +1329,7 @@ export function ComposeScreen() {
                 ? 'border-border flex min-h-0 shrink flex-col border-t max-lg:max-h-[60vh]'
                 : 'border-border max-h-[60vh] shrink-0 border-t lg:h-[var(--banco-alto)] lg:max-h-[42vh]'
             }
-            mandos={
-              <>
-                {editor.rotulos !== undefined && (
-                  <Suspense fallback={null}>
-                    <editor.rotulos />
-                  </Suspense>
-                )}
-                <button
-                  type="button"
-                  onClick={() => accionesDelBanco.abrirAbajo(null)}
-                  aria-label={`Cerrar ${editor.name}`}
-                  title="Cerrar"
-                  // Del tamaño del de plegar, y por lo mismo: era veinte por doce.
-                  className="text-text-muted hover:text-oxblood-bright inline-flex min-w-11 cursor-pointer items-center justify-center self-stretch"
-                >
-                  <IconoCerrar />
-                </button>
-              </>
-            }
+            mandos={mandosDelEditor(editor)}
           >
             {/* El relleno del área, y **parte del reparto**: como bloque suelto se
               quedaba con su alto natural dentro de una caja más baja, y lo que

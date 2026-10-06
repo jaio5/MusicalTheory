@@ -36,7 +36,9 @@ describe('Panel del mástil', () => {
 
     render(<ElMastilEntero />);
 
-    expect(await screen.findByText(/pentatónica menor de A/i)).toBeInTheDocument();
+    // El nombre lo dice el selector de la cabecera, y la frase sigue detrás de él.
+    expect(await screen.findByRole('combobox', { name: 'Escala' })).toHaveValue('minorPentatonic');
+    expect(screen.getByText(/^de A:/)).toBeInTheDocument();
     // La pentatónica menor de A: A, C, D, E, G.
     expect(screen.getByText('A · C · D · E · G')).toBeInTheDocument();
   });
@@ -46,8 +48,8 @@ describe('Panel del mástil', () => {
 
     render(<ElMastilEntero />);
 
-    // La escala se elige en la barra de herramientas, no dentro del panel: el
-    // mástil solo pinta la que esté puesta.
+    // Elegida fuera del mástil —en la tonalidad—, el mástil pinta la que esté
+    // puesta: es la misma escala para toda la aplicación.
     await act(async () => {
       useSessionStore.getState().actions.setScale('blues');
     });
@@ -153,7 +155,7 @@ describe('qué acorde marca el mástil', () => {
     // estaba en su suelo. Con `max-h` el dibujo mide **exactamente lo mismo** y
     // esos píxeles vuelven a la canción.
     expect(hueco!.className).not.toContain('lg:aspect-auto');
-    expect(hueco!.className).toContain('lg:max-h-[calc(100dvh-26rem)]');
+    expect(hueco!.className).toContain('lg:max-h-[max(14rem,calc(100dvh-31rem))]');
     expect(container.querySelector('svg')).toHaveClass('h-full', 'w-full');
   });
 

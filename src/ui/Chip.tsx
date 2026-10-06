@@ -27,9 +27,15 @@ import type { ReactNode } from 'react';
  * `aria-pressed`, porque un lector de pantalla no ve la luz.
  *
  * `quiet` va sin borde hasta que se pasa por encima: es lo secundario de una fila,
- * y seis contornos iguales en fila se leen como una rejilla, no como opciones. `acierto` y `fallo` son los dos colores que
+ * y seis contornos iguales en fila se leen como una rejilla, no como opciones.
+ * **Las respuestas de una pregunta no son eso**: fueron `quiet` y salían como el
+ * texto más gris y pequeño de la pantalla, sin borde ni fondo hasta pasar el
+ * ratón, que a un metro y con el dedo no se pasa. Para ellas está `opcion`: el
+ * borde fuerte de un control, fondo de superficie y la letra de leer, que es lo
+ * que dice «esto se elige». `acierto` y `fallo` son los dos colores que
  * necesita una respuesta ya contestada, y están aquí y no sueltos en la pregunta
- * porque son la misma pieza en otro estado, no otra pieza.
+ * porque son la misma pieza en otro estado, no otra pieza; llevan el mismo fondo
+ * que `opcion`, que es de donde vienen.
  *
  * **La letra es la sans, no la monoespaciada.** Lo era, y con eso las respuestas
  * de una pregunta, las pestañas del taller y los botones del metrónomo se leían
@@ -44,18 +50,24 @@ const TONOS = {
     'border-border bg-surface text-text enabled:hover:border-brass-dim enabled:hover:bg-surface-raised',
   quiet:
     'border-transparent text-text-muted enabled:hover:border-border enabled:hover:bg-surface-raised enabled:hover:text-text',
-  acierto: 'border-tube-bright text-tube-bright',
-  fallo: 'border-oxblood-bright text-oxblood-bright',
+  opcion:
+    'border-border-strong bg-surface text-text enabled:hover:border-brass-dim enabled:hover:bg-surface-raised',
+  acierto: 'border-tube-bright bg-surface text-tube-bright',
+  fallo: 'border-oxblood-bright bg-surface text-oxblood-bright',
 } as const;
 
 export type ChipTone = keyof typeof TONOS;
-export type ChipSize = 'normal' | 'compacto';
+export type ChipSize = 'normal' | 'compacto' | 'grande';
 
 // 14 y 13 px, y el relleno de los lados que cuadra con cada uno. El alto no
-// entra: es `min-h-tap` en los dos.
+// entra: es `min-h-tap` en los dos. `grande` es la respuesta de una pregunta:
+// la letra de leer y un relleno que la sube a 58 px, porque es lo único que hay
+// que pulsar en su pantalla y se pulsa desde un metro. Va aquí y no en un
+// `text-base` de `className`, que perdía contra el `text-sm` de la pieza.
 const TAMANOS: Record<ChipSize, string> = {
   normal: 'px-3.5 text-sm',
   compacto: 'px-3 text-[13px]',
+  grande: 'px-3 py-4 text-base',
 };
 
 export function Chip({
@@ -75,7 +87,10 @@ export function Chip({
   /** Si es una opción que queda marcada. Sin esto es un botón de acción. */
   readonly pressed?: boolean;
   readonly disabled?: boolean;
-  /** `quiet` para lo secundario de una fila; `acierto`/`fallo` para lo corregido. */
+  /**
+   * `quiet` para lo secundario de una fila; `opcion` para una respuesta entre
+   * varias; `acierto`/`fallo` para lo corregido.
+   */
   readonly tone?: ChipTone;
   readonly title?: string;
   /**
@@ -91,8 +106,9 @@ export function Chip({
   readonly className?: string;
   readonly ariaLabel?: string;
   /**
-   * `compacto` para una fila apretada: una letra menos, el mismo alto de dedo.
-   * Es lo que hace que nadie tenga que pasar `text-xs` en `className`.
+   * `compacto` para una fila apretada: una letra menos, el mismo alto de dedo;
+   * `grande` para una respuesta, a 16 px y más alta. Es lo que hace que nadie
+   * tenga que pasar `text-xs` ni `text-base` en `className`.
    */
   readonly tamano?: ChipSize;
 }) {

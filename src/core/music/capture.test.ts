@@ -5,11 +5,15 @@ import {
   comoBloque,
   RETARDO_DEL_ACORDE_MS,
   capturedDegrees,
+  gradoOido,
+  mismoAcordeOido,
   triadInside,
   triadQuality,
   type CapturedChord,
 } from './capture';
-import { DUDOSO } from './arrangement';
+import { blockChord, DUDOSO, writtenBlock } from './arrangement';
+import { CHORD_SHAPES } from './chord-symbols';
+import { esSeventhQuality } from './chords';
 import { PARECIDO_MINIMO } from './chord-matching';
 import { normalizePitchClass, pitchClassFromName, type PitchClass } from './notes';
 
@@ -192,7 +196,7 @@ describe('captureProgression', () => {
     // El primer colapso no lo pilla, porque entre los dos Do hay un acorde con
     // otra inversión que el motor lee distinto pero cae en el mismo grado.
     const heard = [mayor(C, 0), mayor(C, 4 * PULSO), mayor(G, 8 * PULSO)];
-    // Se separan con un acorde de otro tipo para que `esElMismo` no los junte.
+    // Se separan con un acorde de otro tipo para que `mismoAcordeOido` no los junte.
     heard.splice(1, 0, { ...mayor(C, 2 * PULSO), notes: [E, G, C] });
 
     const capture = captureProgression(heard, { ...EN_DO, endedAt: 12 * PULSO });
@@ -471,6 +475,80 @@ describe('un acorde, como bloque', () => {
   });
 });
 
+/**
+ * Lo que no es una cuatríada que el bloque sepa guardar no se hace pasar por otra.
+ *
+ * `seventhNotes` caía a la tríada mayor en las especies que el catálogo del
+ * buscador no tiene, y `seventhInside` acababa diciendo `minorMajor7` de
+ * cualquier cuatro notas con la tríada mayor dentro: un `C6` o un `Cadd9` se
+ * escribían **CmMaj7**, y sonaban como un `C`. Ahora un `C6` entra como su grado
+ * a secas —el bloque no sabe guardar la sexta, y el buscador enseña `C` antes de
+ * pulsar—, y cada cuatríada de verdad, con su especie.
+ */
+describe('un acorde como bloque, con su nombre o su especie', () => {
+  const casos: ReadonlyArray<[string, number[], ReturnType<typeof comoBloque>, string]> = [
+    ['C6', [0, 4, 7, 9], { degree: 'I' }, 'C'],
+    ['Cadd9', [0, 2, 4, 7], { degree: 'I' }, 'C'],
+    ['Csus2', [0, 2, 7], { degree: 'I', especie: 'sus2' }, 'Csus2'],
+    ['Csus4', [0, 5, 7], { degree: 'I', especie: 'sus4' }, 'Csus4'],
+    ['C5', [0, 7], { degree: 'I', especie: 'quinta' }, 'C5'],
+    ['C7', [0, 4, 7, 10], { degree: 'I', especie: 'dominant7' }, 'C7'],
+    ['Cmaj7', [0, 4, 7, 11], { degree: 'I', especie: 'major7' }, 'Cmaj7'],
+    ['Cm7', [0, 3, 7, 10], { degree: 'I', especie: 'minor7' }, 'Cm7'],
+    ['Cm7b5', [0, 3, 6, 10], { degree: 'I', especie: 'halfDiminished7' }, 'Cm7b5'],
+    ['Cdim7', [0, 3, 6, 9], { degree: 'I', especie: 'diminished7' }, 'Cdim7'],
+    ['CmMaj7', [0, 3, 7, 11], { degree: 'I', especie: 'minorMajor7' }, 'CmMaj7'],
+  ];
+
+  it.each(casos)('%s en Do mayor', (_escrito, notas, esperado, cifrado) => {
+    const puesto = comoBloque(C, 'major', C, notas as PitchClass[]);
+
+    expect(puesto).toEqual(esperado);
+    expect(
+      blockChord(C, 'major', writtenBlock('x', puesto!.degree, 4, puesto!.especie)).symbol,
+    ).toBe(cifrado);
+  });
+
+  /**
+   * Y lo que el fallo rompía, en todo el catálogo. **Un bloque no inventa
+   * notas**: puede quedarse corto —un `C6` pierde la sexta, un `C7b9` la
+   * novena—, pero lo que suena es parte de lo que se escribió. Y **una séptima
+   * guardada suena entera**: el `C6` que se guardaba como `CmMaj7` sonaba un `C`,
+   * así que el cifrado decía una cosa y el altavoz otra.
+   */
+  it('en las 24 tonalidades, el bloque suena lo que se escribio o una parte', () => {
+    let puestos = 0;
+    for (const modo of ['major', 'minor'] as const) {
+      for (let tonica = 0; tonica < 12; tonica += 1) {
+        for (let fundamental = 0; fundamental < 12; fundamental += 1) {
+          for (const forma of Object.values(CHORD_SHAPES)) {
+            const notas = forma.intervals.map((paso) => normalizePitchClass(fundamental + paso));
+            const puesto = comoBloque(tonica as PitchClass, modo, fundamental as PitchClass, notas);
+            if (puesto === null) {
+              continue;
+            }
+            const suena = blockChord(
+              tonica as PitchClass,
+              modo,
+              writtenBlock('x', puesto.degree, 4, puesto.especie),
+            ).notes;
+            const donde = `${fundamental}${forma.suffix} en ${tonica} ${modo}`;
+            for (const nota of suena) {
+              expect(notas, donde).toContain(nota);
+            }
+            if (puesto.especie !== undefined && esSeventhQuality(puesto.especie)) {
+              expect(new Set(suena), donde).toEqual(new Set(notas));
+            }
+            puestos += 1;
+          }
+        }
+      }
+    }
+    // Que haya mirado de verdad: entra mucho más de la mitad del catálogo.
+    expect(puestos).toBeGreaterThan(24 * 12 * 10);
+  });
+});
+
 describe('las alternativas que trae el motor', () => {
   /**
    * El croma manda alternativas con las notas que oyó, y no todas son tríadas:
@@ -691,5 +769,52 @@ describe('las cuatriadas que pone la guitarra', () => {
     );
     expect(steps).toEqual([]);
     expect(dropped).toBe(2);
+  });
+});
+
+/**
+ * Lo que se enseña en directo tiene que ser lo que se escribirá: la misma
+ * lectura que `captureProgression`, y no la de `comoBloque`, que conserva la
+ * séptima que el croma ve en casi cualquier rasgueo.
+ */
+describe('el grado oído', () => {
+  const C = 0 as PitchClass;
+  const notas = (...pcs: number[]) => pcs as PitchClass[];
+
+  it('una séptima oída es el grado de su tríada, como al escribirla', () => {
+    // G7 y Cmaj7: lo que el croma lee de un G y un C rasgueados.
+    expect(gradoOido(C, 'major', 7 as PitchClass, notas(7, 11, 2, 5))).toBe('V');
+    expect(gradoOido(C, 'major', C, notas(0, 4, 7, 11))).toBe('I');
+    expect(gradoOido(C, 'major', 9 as PitchClass, notas(9, 0, 4))).toBe('vi');
+  });
+
+  it('coincide con lo que escribe la toma', () => {
+    const oido = { root: 7 as PitchClass, notes: notas(7, 11, 2, 5), at: 0 };
+    const escrito = captureProgression([oido], {
+      tonic: C,
+      mode: 'major',
+      bpm: 100,
+      endedAt: 2400,
+    });
+    expect(capturedDegrees(escrito)).toEqual([gradoOido(C, 'major', oido.root, oido.notes)]);
+  });
+
+  it('lo que no tiene tríada, o no cabe en la tonalidad, no se escribe', () => {
+    expect(gradoOido(C, 'major', C, notas(0, 7))).toBeNull();
+    // Un Fa sostenido mayor no es de Do mayor.
+    expect(gradoOido(C, 'major', 6 as PitchClass, notas(6, 10, 1))).toBeNull();
+  });
+});
+
+describe('el mismo acorde oído', () => {
+  const oido = (root: number, ...notes: number[]): CapturedChord => ({
+    root: root as PitchClass,
+    notes: notes as PitchClass[],
+    at: 0,
+  });
+
+  it('C y Cmaj7 son el mismo; C y Am no', () => {
+    expect(mismoAcordeOido(oido(0, 0, 4, 7), oido(0, 0, 4, 7, 11))).toBe(true);
+    expect(mismoAcordeOido(oido(0, 0, 4, 7), oido(9, 9, 0, 4))).toBe(false);
   });
 });

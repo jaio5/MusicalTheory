@@ -58,7 +58,9 @@ de nvm y los navegadores descargados en la caché:
 import { chromium } from '/home/javie/.nvm/versions/node/v24.15.0/lib/node_modules/playwright/index.mjs';
 ```
 
-Se ejecuta con `node fichero.mjs`. Engancha siempre `pageerror` y `console` de
+Se ejecuta con `node fichero.mjs`. **El toque se sintetiza con CDP**
+(`Input.dispatchTouchEvent`), no con el ratón, y en Chromium: Safari/iOS no está
+probado. Por debajo de `lg` el mástil es una hoja: se abre desde «Más» → «Mástil». Engancha siempre `pageerror` y `console` de
 tipo `error`: **la mitad de los fallos de esta aplicación no se ven en la
 captura**, solo en la consola.
 
@@ -113,6 +115,11 @@ playwright-cli close
 
 ## Trampas que ya han mordido
 
+- **El recorrido de la primera visita sale en cada contexto nuevo** y tapa la
+  pantalla con un `<dialog>` modal. Antes de navegar:
+  `await ctx.addInitScript(() => localStorage.setItem('caos-ordenado:recorrido', 'visto'))`.
+  Los `.mjs` de aquí ya lo hacen; uno nuevo tiene que hacerlo también, o medirá la
+  tarjeta y su trozo de código.
 - **`fullPage: true` no sirve.** La aplicación vive en un `h-dvh` con scroll
   interno: lo que está fuera no sale en la captura aunque pidas la página entera.
   Usa `scrollIntoViewIfNeeded` o mide con `getBoundingClientRect`.
@@ -258,28 +265,40 @@ una función nueva; «el afinador se descarga _Añadir otra parte_» es un fallo
 discusión. Por eso el guion lleva escritas unas cuantas cadenas que solo existen en
 una pantalla y avisa si aparecen en otra.
 
-Referencia, medida el 2 de octubre de 2026 contra el servidor de producción, con
+Referencia, medida el 4 de octubre de 2026 contra el servidor de producción, con
 la escena de píxel en la portada
-([adr/0069](../../../docs/adr/0069-la-portada-es-una-escena-de-pixel.md)) y las
-tres letras servidas desde aquí ([adr/0070](../../../docs/adr/0070-la-sala-encendida.md)):
+([adr/0069](../../../docs/adr/0069-la-portada-es-una-escena-de-pixel.md)), las
+tres letras servidas desde aquí ([adr/0070](../../../docs/adr/0070-la-sala-encendida.md))
+y las presentaciones de las unidades fuera del temario
+([adr/0096](../../../docs/adr/0096-el-temario-sigue-al-conservatorio.md)):
 
 | Ruta                 | JS     | Media | Total  |
 | -------------------- | ------ | ----- | ------ |
-| `/planes`            | 168 KB | 78 KB | 277 KB |
-| `/registro`          | 170 KB | 61 KB | 258 KB |
-| `/afinar`            | 171 KB | 78 KB | 277 KB |
-| `/profesor`          | 175 KB | 61 KB | 268 KB |
-| `/` (portada)        | 179 KB | 88 KB | 300 KB |
-| `/aprender`          | 182 KB | 78 KB | 294 KB |
-| `/aprender/repaso`   | 195 KB | 78 KB | 303 KB |
-| `/aprender/[unidad]` | 199 KB | 78 KB | 307 KB |
-| `/componer`          | 227 KB | 78 KB | 339 KB |
+| `/planes`            | 186 KB | 78 KB | 298 KB |
+| `/afinar`            | 187 KB | 78 KB | 296 KB |
+| `/registro`          | 188 KB | 61 KB | 280 KB |
+| `/profesor`          | 192 KB | 61 KB | 285 KB |
+| `/` (portada)        | 194 KB | 88 KB | 317 KB |
+| `/cuenta`            | 197 KB | 61 KB | 289 KB |
+| `/aprender`          | 203 KB | 78 KB | 319 KB |
+| `/aprender/repaso`   | 236 KB | 78 KB | 347 KB |
+| `/aprender/[unidad]` | 243 KB | 61 KB | 336 KB |
+| `/componer`          | 245 KB | 78 KB | 361 KB |
+
+**Las presentaciones de las unidades viajaban con el temario**, y el temario lo
+lee todo el que lee el avance: `/cuenta` y `/aprender/repaso` se llevaban 3 o
+4 KB de texto comprimido que no pintan, y el `import()` con el que componer suma al avance
+también. Ahora viven en `core/music/presentaciones.ts`, y el resumen —lo único
+que enseña el camino— en `resumenes.ts`: con los dos en un fichero, `/aprender`
+se llevaba todos los contenidos aunque use solo el resumen, porque el
+empaquetador no parte un módulo por lo que se usa de él. El guion lo vigila con
+una frase de cada uno en `NO_DEBERIA_VIAJAR`.
 
 **La media ya no es solo de la portada: son las letras** (`app/fuentes.ts`). La
 de títulos y la del cuerpo se precargan en todas las rutas —27 y 34 KB—, y la
-monoespaciada, 18, solo se pide donde se pinta algo con ella: por eso `/profesor`
-y `/registro` se quedan en 61. La portada suma a eso los 9 KB de su escena. Con
-el vídeo eran 527 KB de media solo en la portada.
+monoespaciada, 18, solo se pide donde se pinta algo con ella: por eso `/profesor`,
+`/registro`, `/cuenta` y la unidad se quedan en 61. La portada suma a eso los
+9 KB de su escena. Con el vídeo eran 527 KB de media solo en la portada.
 
 Antes de arreglarlo eran **287 KB en todas**, la misma cifra clavada, que es la
 señal de que no hay división ninguna.

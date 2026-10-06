@@ -274,3 +274,26 @@ describe('Arrastrar y dar por bueno', () => {
     expect(onCambio).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * El foco se tiene que ver desde un metro. Iba en la línea de un píxel, que
+ * pasaba de gris a latón: una raya de 1 px no es un foco. Ahora el aro de la
+ * casa rodea la franja de veinticuatro que de verdad se coge, y la raya de tres
+ * se enciende con él.
+ */
+describe('el foco del divisor', () => {
+  it('dibuja el aro sobre la franja de agarre y enciende el asa, no la línea', () => {
+    pintar();
+    const divisor = screen.getByRole('separator');
+    const [franja, asa] = [...divisor.querySelectorAll('span')];
+
+    expect(divisor).toHaveClass('focus-visible:outline-none');
+    expect(divisor).not.toHaveClass('focus-visible:bg-brass-bright');
+    expect(franja).toHaveClass(
+      'group-focus-visible:outline-2',
+      'group-focus-visible:outline-brass-bright',
+      'group-focus-visible:-outline-offset-2',
+    );
+    expect(asa).toHaveClass('group-focus-visible:bg-brass-bright');
+  });
+});

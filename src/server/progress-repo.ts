@@ -9,7 +9,7 @@
 
 import { eq } from 'drizzle-orm';
 
-import { parseProgress, type Progress } from '@core/music';
+import { parseProgress, posicionesDeLaUnidad, type Progress } from '@core/music';
 
 import { db } from './db/client';
 import { progress as progressTable } from './db/schema';
@@ -40,9 +40,11 @@ export async function loadAccountProgress(userId: string): Promise<LoadResult> {
       .where(eq(progressTable.userId, userId))
       .limit(1);
 
+    // Con las posiciones contadas: lo que la cola apunte a una pregunta que su
+    // lección ya no tiene se suelta aquí, y el navegador lo recibe limpio.
     return row === undefined
       ? { kind: 'vacio' }
-      : { kind: 'ok', progress: parseProgress(row.data) };
+      : { kind: 'ok', progress: parseProgress(row.data, posicionesDeLaUnidad) };
   } catch {
     return { kind: 'error' };
   }

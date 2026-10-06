@@ -184,11 +184,25 @@ export function Disclosure({
           // encima se dice con el tono y no solo con el borde.
           //
           // El tope es **la pantalla menos lo que hay encima y debajo**, y por eso
-          // son dos: en un teléfono hay más marco que en un escritorio.
+          // son tres: en un teléfono hay más marco que en un escritorio.
           //
           //   estrecho  61 cabecera + 181 la de pantalla + 44 esta barra
           //             + 65 navegación abajo = 351 → 22rem
-          //   a partir de `md`  61 + 85 + 44, y la navegación sube arriba = 12rem
+          //   desde `sm`  61 + 117 + 44 + 65 = 287 → 18.5rem (296), nueve de margen
+          //   desde `md`  61 + 117 + 44, y la navegación sube arriba = 222 → 14rem
+          //   desde `lg`  61 + 85 + 44 = 12rem: la cabecera vuelve a una fila
+          //
+          // **El escalón de `md` cuenta las dos filas de componer**, que llegan
+          // hasta `lg` (`sm:max-lg:flex-wrap`): con 12rem el panel acababa 30 px
+          // por debajo de la ventana entre 768 y 1023.
+          //
+          // **El escalón de `sm` existe porque el de abajo mide con más marco del
+          // que hay de 640 para arriba**: a 700×600 el panel se quedaba en 248 px
+          // con 373 libres hasta la navegación, y los cuatro atajos de salida
+          // salían cortados por el borde de abajo. Los 117 son la cabecera de
+          // componer con sus mandos en dos filas, que es lo más alto que hay en
+          // ese tramo: el panel empieza en el píxel 222 ahí y en el 162 en la
+          // unidad, medido a 639, 640×400, 700×600 y 767.
           //
           // **Los 181 son con la barra de herramientas envuelta en dos filas**, que
           // es lo que pasa por debajo de 390 px **con la sesión abierta**: ahí cabe
@@ -233,7 +247,7 @@ export function Disclosure({
           // del borde de abajo, y por eso por debajo de 500 px de alto **el marco
           // deja desplazar** su `<main>` y pliega la navegación de abajo a solo
           // iconos (`app/AppShell.tsx`): lo que no cabe se alcanza bajando.
-          className="border-border motion-safe:animate-desplegar absolute inset-x-0 top-full z-30 max-h-[max(9rem,calc(100dvh-22rem))] overflow-y-auto border-b shadow-[var(--sombra-alta)] md:max-h-[max(9rem,calc(100dvh-12rem))]"
+          className="border-border motion-safe:animate-desplegar absolute inset-x-0 top-full z-30 max-h-[max(9rem,calc(100dvh-22rem))] overflow-y-auto border-b shadow-[var(--sombra-alta)] sm:max-h-[max(9rem,calc(100dvh-18.5rem))] md:max-h-[max(9rem,calc(100dvh-14rem))] lg:max-h-[max(9rem,calc(100dvh-12rem))]"
           style={PISTA_DE_QUE_SIGUE}
         >
           {children}

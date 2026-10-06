@@ -28,6 +28,7 @@ import {
   soundOf,
   resolveDegree,
   PAPELES_DE_TOMA,
+  HARMONIC_ROLES,
   type DegreeSymbol,
   type EspecieDeBloque,
   type PapelDeLaToma,
@@ -109,6 +110,23 @@ const UMBRAL_ARRASTRE = 4;
  * las lee. `oculto` deja la pantalla como estaba, que es lo que quiere quien solo
  * está buscando acordes.
  */
+/** Lo que se dice al pulsar «Escuchar» o «MIDI» con la canción en blanco. */
+const SIN_NADA_QUE_OIR =
+  'Todavía no hay nada que escuchar: pon el primer acorde desde «Para empezar».';
+const SIN_NADA_QUE_GUARDAR =
+  'Todavía no hay nada que guardar: pon el primer acorde desde «Para empezar».';
+
+/**
+ * La leyenda de los papeles armónicos, con las palabras de «A dónde ir»:
+ * reposo, salida y tensión, que son las de `HARMONIC_ROLES` en una palabra.
+ */
+const LEYENDA_DE_PAPELES: ReadonlyArray<readonly [string, string]> = [
+  [HARMONIC_ROLES.tonic.short, 'reposo'],
+  [HARMONIC_ROLES.subdominant.short, 'salida'],
+  [HARMONIC_ROLES.dominant.short, 'tensión'],
+  [HARMONIC_ROLES.approach.short, 'de paso'],
+];
+
 const PUNTEOS: ReadonlyArray<{ id: Punteo; name: string }> = [
   { id: 'partitura', name: 'Partitura' },
   { id: 'bloques', name: 'Bloques' },
@@ -1021,7 +1039,7 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
    */
   function descargarMidi(): void {
     const primera = arrangement.parts[0];
-    /* v8 ignore next 3 -- el botón está apagado sin tonalidad y sin nada escrito */
+    /* v8 ignore next 3 -- sin tonalidad no se pinta el lienzo, y sin nada escrito el boton avisa en vez de llegar aqui */
     if (activeKey === null || primera === undefined) {
       return;
     }
@@ -1158,11 +1176,17 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
       */}
       <div
         onFocus={traerALaVista}
+        data-tour="componer-barra-del-lienzo"
         className="border-border hay-mas-al-lado flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2 sm:flex-wrap sm:overflow-x-visible [&>*]:shrink-0 sm:[&>*]:shrink"
       >
+        {/* **Un botón no nace apagado** (`docs/ESTILO.md`): con la canción en
+            blanco, el único latón relleno de la pantalla era éste y estaba
+            gris. Ahora va en `quiet` mientras no hay nada que oír, se pulsa
+            siempre, y lo que falta se dice con el aviso de debajo. El latón
+            vuelve con el primer acorde, que es cuando escuchar es la acción. */}
         <Button
-          onClick={() => player.toggle(null)}
-          disabled={pulsos === 0}
+          onClick={() => (pulsos === 0 ? setAviso(SIN_NADA_QUE_OIR) : player.toggle(null))}
+          variant={pulsos === 0 ? 'quiet' : 'primary'}
           className="px-4 py-1.5 text-sm"
         >
           {player.playing && player.playingPartId === null ? 'Parar' : 'Escuchar la canción'}
@@ -1175,8 +1199,7 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
           entera, una para oírla y otra para llevársela. */}
         <Button
           variant="quiet"
-          onClick={descargarMidi}
-          disabled={pulsos === 0}
+          onClick={() => (pulsos === 0 ? setAviso(SIN_NADA_QUE_GUARDAR) : descargarMidi())}
           title="Guardar la canción como fichero MIDI"
           className="px-3 py-1.5 text-sm"
         >
@@ -1197,7 +1220,12 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
               cuanto la barra se partía en dos filas esta segunda salía pegada al
               otro borde, y su primer botón saltaba de x=269 a x=135 según hubiera
               canción o no: la misma barra en dos sitios. */}
-        <span className="flex gap-1 sm:flex-wrap">
+        {/* **Y desde `sm`, sin caja**: con `contents` cada mando es un hijo de
+            la barra y las filas se llenan de corrido. Como grupo, el grupo
+            entero saltaba a la segunda fila en cuanto no cabía detrás de
+            «Escuchar» y «MIDI», y dentro volvía a partirse: tres filas a 700 y
+            «Deshacer» solo en la última. */}
+        <span className="flex gap-1 sm:contents">
           {/* Cómo se lleva el punteo se elige también antes de escribir, porque
               decide dónde se escribe. Las figuras y «Deshacer», en cambio, no
               se enseñan hasta que hay canción: sin partes no hay nota que medir
@@ -1380,12 +1408,30 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
           className="min-h-0 shrink-0 grow lg:shrink lg:overflow-y-auto"
           onKeyDown={teclaEnPunteo}
           role="presentation"
+          data-tour="componer-cancion"
         >
+          {/* **Con las letras de los bloques, su leyenda.** Cada bloque lleva
+              debajo una T, una S o una D, y lo que significan solo estaba
+              dentro de «A dónde ir», que en Escribir viene plegada. Las mismas
+              palabras que allí, para que sea una sola leyenda en dos sitios. */}
+          {punteo === 'bloques' && arrangement.parts.length > 0 && (
+            <p className="text-text-muted flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pt-2 text-xs">
+              {LEYENDA_DE_PAPELES.map(([letra, palabra]) => (
+                <span key={letra} className="flex items-center gap-1">
+                  <span className="border-border rounded-sm border px-1 font-mono">{letra}</span>
+                  {palabra}
+                </span>
+              ))}
+            </p>
+          )}
           {arrangement.parts.length === 0 ? (
+            // «De «Para empezar»» y no «de la lista»: la lista está a la
+            // derecha en el banco y debajo en un teléfono, y el rótulo es lo
+            // que se encuentra en los dos sitios.
             <Vacio icono={<IconoCanciones />} titulo="La canción está en blanco">
-              Pulsa un acorde de la lista y con él se crea la primera parte. Después se arrastra
-              para moverlo, se estira por los bordes para que dure más y se pulsa Escuchar para
-              oírla entera.
+              Pulsa un acorde de «Para empezar» y con él se crea la primera parte. Después se
+              arrastra para moverlo, se estira por los bordes para que dure más y se pulsa Escuchar
+              para oírla entera.
             </Vacio>
           ) : (
             arrangement.parts.map((part) => (
@@ -1465,6 +1511,7 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
             región con nombre. axe lo marcaba como complementario anidado. */}
         <section
           aria-label="Qué poner ahora"
+          data-tour="componer-que-poner"
           className="border-border shrink-0 border-t p-3 lg:w-72 lg:overflow-y-auto lg:border-t-0 lg:border-l"
         >
           {/*
@@ -1603,8 +1650,12 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
             Pulsa uno, o arrástralo hasta la parte donde lo quieras.
           </p>
           <ul aria-label="Acordes que pueden seguir" className="mt-3 flex flex-col gap-2">
-            {sugerencias.map((sugerencia) => {
+            {sugerencias.map((sugerencia, indice) => {
               const chord = resolveDegree(tonic, mode, sugerencia.degree);
+              // **Con la canción en blanco, el primero lleva el acento.** El
+              // vacío dice «pulsa un acorde de Para empezar» y la lista era
+              // seis cajas iguales: ninguna decía «empieza por aquí».
+              const primeroDeTodos = indice === 0 && arrangement.parts.length === 0;
               return (
                 <li key={sugerencia.degree}>
                   <button
@@ -1627,7 +1678,9 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
                     // que ya usa la lista de «a dónde ir».
                     aria-label={`${chord.symbol}, ${sugerencia.degree}. ${sugerencia.why}`}
                     style={{ touchAction: 'none' }}
-                    className="border-border hover:border-brass-dim hover:bg-surface-raised min-h-tap flex w-full cursor-grab items-baseline gap-3 rounded-md border px-3 py-2 text-left"
+                    className={`hover:border-brass-dim hover:bg-surface-raised min-h-tap flex w-full cursor-grab items-baseline gap-3 rounded-md border px-3 py-2 text-left ${
+                      primeroDeTodos ? 'border-brass-dim bg-surface-raised' : 'border-border'
+                    }`}
                   >
                     <span className="text-brass-bright font-mono text-base">{chord.symbol}</span>
                     <span className="text-text-muted font-mono text-xs">{sugerencia.degree}</span>

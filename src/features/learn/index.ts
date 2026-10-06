@@ -10,6 +10,8 @@ export * from './StartPicker';
 export * from './Teacher';
 export * from './EarUnit';
 export * from './TheoryUnit';
+export * from './PresentacionDeUnidad';
+export * from './UnidadPorMomentos';
 export * from './Tutor';
 export * from './UnitDone';
 export * from './exercise';

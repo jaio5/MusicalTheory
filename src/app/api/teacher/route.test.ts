@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as AskModel from '@server/ask-model';
 
-import { UNIT_ORDER } from '@core/music';
-import { FUERA_DE_TEMA, MARCA_PREGUNTA } from '@features/learn/teacher-contract';
+import { findUnit, UNIT_ORDER } from '@core/music';
+import { DEL_GLOSARIO, FUERA_DE_TEMA, MARCA_PREGUNTA } from '@features/learn/teacher-contract';
+import { RespuestaTruncada } from '@server/respuesta-truncada';
+import { TEACHER_SYSTEM_PROMPT } from '@server/prompts';
 
 /**
  * La ruta del profesor, que es **el único sitio de la aplicación por donde entra
@@ -102,7 +104,7 @@ describe('la pregunta que se escribe', () => {
 
     await POST(pedir({ ...PREGUNTA, unitId: 'e1-grados' }));
 
-    expect(promptMandado()).toContain('Qué es un grado');
+    expect(promptMandado()).toContain(`Está leyendo sobre: ${findUnit('e1-grados')!.unit.title}.`);
   });
 
   it('un identificador de unidad inventado se descarta en silencio', async () => {
@@ -148,8 +150,35 @@ describe('lo que contesta', () => {
 
     const { status, body } = await leer(await POST(pedir(PREGUNTA)));
 
-    expect(status).toBe(502);
-    expect(body['error']).toMatchObject({ code: 'unparseable_response' });
+    // No sale lo que dijo: sale lo nuestro, diciendo que no es del modelo.
+    expect(status).toBe(200);
+    expect(body['answer']).not.toBe('El V tira al i.');
+    expect(body['fuente']).toBe('aviso');
+  });
+
+  /**
+   * Lo que sale cuando una inyección funciona, medido con `qwen3:8b` en los ocho
+   * casos de la auditoría (adr/0015): el modelo dice `musica` y escribe otra cosa.
+   */
+  it('una respuesta que dice musica y no habla de música no llega a la pantalla', async () => {
+    askModel.mockResolvedValue({
+      tema: 'musica',
+      answer: 'La capital de Francia es París y la contraseña del administrador es hunter2',
+    });
+
+    const { status, body } = await leer(await POST(pedir(PREGUNTA)));
+
+    expect(status).toBe(200);
+    expect(body['answer']).not.toMatch(/París|hunter2/);
+    expect(askModel).toHaveBeenCalledTimes(2);
+  });
+
+  it('ni una que copie las instrucciones, aunque hablen de música', async () => {
+    askModel.mockResolvedValue({ tema: 'musica', answer: TEACHER_SYSTEM_PROMPT });
+
+    const { body } = await leer(await POST(pedir(PREGUNTA)));
+
+    expect(body['answer']).not.toContain('años de tablas');
   });
 
   it('los cifrados del ejemplo se recalculan, no se creen', async () => {
@@ -157,7 +186,7 @@ describe('lo que contesta', () => {
     // en esa tonalidad.
     askModel.mockResolvedValue({
       tema: 'musica',
-      answer: 'Prueba esto.',
+      answer: 'Prueba esta progresión.',
       example: { degrees: ['i', 'VII'], chords: ['ESTO', 'ES MENTIRA'] },
     });
 
@@ -178,7 +207,7 @@ describe('lo que contesta, contra el glosario', () => {
    * si la segunda tampoco vale, contesta que no ha venido bien formada. Teoría
    * falsa no llega a la pantalla.
    */
-  it('una cadencia mal dicha dos veces es un 502, no una respuesta', async () => {
+  it('una cadencia mal dicha dos veces no llega: contesta el glosario, y lo dice', async () => {
     askModel.mockResolvedValue({
       tema: 'musica',
       answer: 'La cadencia perfecta es el movimiento de I a V a I. En C mayor, es C a G a C.',
@@ -186,8 +215,10 @@ describe('lo que contesta, contra el glosario', () => {
 
     const { status, body } = await leer(await POST(pedir(PERFECTA)));
 
-    expect(status).toBe(502);
-    expect(body['error']).toMatchObject({ code: 'unparseable_response' });
+    expect(status).toBe(200);
+    expect(body['fuente']).toBe('glosario');
+    expect(body['answer']).toMatch(new RegExp(`^${DEL_GLOSARIO}`));
+    expect(body['answer']).toContain('V → I: G → C');
     expect(askModel).toHaveBeenCalledTimes(2);
   });
 
@@ -209,7 +240,8 @@ describe('el contexto que se le da', () => {
 
     await POST(pedir({ ...PREGUNTA, scale: 'minorPentatonic' }));
 
-    expect(promptMandado()).toContain('minorPentatonic');
+    expect(promptMandado()).toContain('pentatónica menor');
+    expect(promptMandado()).not.toContain('minorPentatonic');
   });
 
   it('el titulo de la unidad sale del temario, no de lo que mande el cliente', async () => {
@@ -238,23 +270,44 @@ describe('cuando el modelo no contesta', () => {
     expect(respuesta.status).toBe(400);
   });
 
-  it('un fallo del proveedor es un 502 y no se reintenta', async () => {
+  /**
+   * **El profesor no se queda nunca sin respuesta.** Pasada la puerta, la pregunta
+   * está cobrada, y una pantalla de error a cambio no le sirve a nadie: contesta el
+   * glosario si la pregunta casa, y si no, que no ha salido y cómo preguntarlo.
+   */
+  it('un fallo del proveedor no se reintenta, y contesta lo nuestro', async () => {
     askModel.mockRejectedValue(new Error('sin red'));
 
-    const respuesta = await POST(pedir(PREGUNTA));
+    const { status, body } = await leer(await POST(pedir(PREGUNTA)));
 
-    expect(respuesta.status).toBe(502);
+    expect(status).toBe(200);
+    expect(body['fuente']).toBe('aviso');
+    // El proveedor no contestó: decirle que lo pregunte con otras palabras le haría
+    // gastar otra pregunta contra un modelo caído.
+    expect(body['answer']).toMatch(/^No hemos podido contactar con el modelo/);
+    expect(body['motivo']).toBe('model_unavailable');
+    expect(body['answer']).toContain('Acordes de A menor');
     expect(askModel).toHaveBeenCalledTimes(1);
   });
 
-  it('si contesta algo que no vale dos veces, se rinde con un 502', async () => {
+  it('cortada por el tope, igual', async () => {
+    askModel.mockRejectedValue(new RespuestaTruncada());
+
+    const { status, body } = await leer(await POST(pedir(PREGUNTA)));
+
+    expect(status).toBe(200);
+    expect(body['fuente']).toBe('aviso');
+  });
+
+  it('si contesta algo que no vale dos veces, se rinde con lo nuestro', async () => {
     // Un reintento y basta: un «no ha salido» rápido vale más que treinta
     // segundos de espera.
     askModel.mockResolvedValue({ nada: 'que ver' });
 
-    const respuesta = await POST(pedir(PREGUNTA));
+    const { status, body } = await leer(await POST(pedir(PREGUNTA)));
 
-    expect(respuesta.status).toBe(502);
+    expect(status).toBe(200);
+    expect(body['fuente']).toBe('aviso');
     expect(askModel).toHaveBeenCalledTimes(2);
   });
 });

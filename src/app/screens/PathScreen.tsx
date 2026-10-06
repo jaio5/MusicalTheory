@@ -4,9 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { can, cheapestPlanWith, nextAllowedUnit } from '@core/billing';
-import { dueReview, findUnit } from '@core/music';
+import { BADGES, dueReview, findUnit } from '@core/music';
 import { Badges, DailyGoal, LearnPath, StartPicker, Tutor, useProgress } from '@features/learn';
 import { useAccount } from '@state/account';
+import { volverAVerElRecorrido } from '@state/recorrido';
+import { Button } from '@ui/Button';
+import { Disclosure } from '@ui/Disclosure';
 import { PlanLock } from '@ui/PlanLock';
 import { IconoTeoria, IconoTocar } from '@ui/icons';
 import { WorkHeader } from '@ui/Screen';
@@ -55,7 +58,10 @@ export function PathScreen() {
             píxel: desde lejos, una pared. Con el tono se ve de un vistazo que a un
             lado está lo que se consulta y al otro lo que se recorre, que es lo que
             este proyecto ya dice de la profundidad. */}
-        <div className="border-border lg:bg-surface flex flex-col lg:col-start-1 lg:row-start-1 lg:border-r">
+        <div
+          className="border-border lg:bg-surface flex flex-col lg:col-start-1 lg:row-start-1 lg:border-r"
+          data-tour="aprender-hoy"
+        >
           <DailyGoal
             progress={progress}
             day={day}
@@ -106,6 +112,31 @@ export function PathScreen() {
                 )}
               </div>
             )}
+
+            {/*
+              **El recorrido se vuelve a ver desde aquí**, y no desde la barra ni
+              desde la cuenta. La barra es de las pantallas y del micro; la cuenta,
+              sin cuentas configuradas, ni siquiera tiene botón que lleve a ella.
+              Aprender es la pantalla por la que se empieza y la que está en la
+              navegación con cualquier ancho, y esta columna se ve sin desplazar
+              nada: debajo del botón de seguir, que es donde se mira al llegar.
+
+              Lleva `data-recorrido` para que el foco vuelva aquí al acabar
+              aunque la pantalla se haya vuelto a pintar mientras tanto.
+
+              **Con forma de botón**, el secundario de la casa: era una frase gris
+              que solo se subrayaba al pasar el ratón, y a un metro una frase
+              gris no se pulsa porque no parece que se pueda.
+            */}
+            <Button
+              variant="quiet"
+              tamano="compacto"
+              onClick={volverAVerElRecorrido}
+              data-recorrido="volver"
+              className="self-start"
+            >
+              Ver otra vez el recorrido por la aplicación
+            </Button>
           </div>
         </div>
 
@@ -124,7 +155,10 @@ export function PathScreen() {
           que se mira de un vistazo, abajo las medallas, que son las que se
           desplazan— y el camino ocupa las dos a su derecha.
         */}
-        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:pb-[calc(10dvh+4rem)]">
+        <div
+          className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:pb-[calc(10dvh+4rem)]"
+          data-tour="aprender-camino"
+        >
           <LearnPath
             progress={progress}
             plan={account.plan}
@@ -142,13 +176,35 @@ export function PathScreen() {
             sola, y sin nada enfocable dentro —las medallas no se pulsan— quien
             usa el teclado no tenía cómo bajar por ella (axe:
             `scrollable-region-focusable`). */}
+        {/* **Y apiladas van plegadas.** En un teléfono eran quince renglones
+            —recién llegado, quince vacíos con su cómo— al final de la columna:
+            un muro de 435 px después del último curso. Plegadas dicen cuántas
+            llevas en una línea, y se abren para quien busca cuál probar. En ancho
+            tienen su media columna y van abiertas, como siempre; son dos copias
+            y una está oculta, porque qué ancho hay no se sabe hasta pintar. */}
         <div
           role="region"
           aria-label="Medallas"
           tabIndex={0}
           className="border-border lg:bg-surface lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:border-r"
         >
-          <Badges progress={progress} />
+          <div className="px-3 py-1 lg:hidden">
+            <Disclosure
+              summary={
+                <>
+                  Medallas:{' '}
+                  <span className="text-brass-bright">
+                    {new Set(progress.badges).size} de {BADGES.length}
+                  </span>
+                </>
+              }
+            >
+              <Badges progress={progress} sinRotulo />
+            </Disclosure>
+          </div>
+          <div className="hidden lg:block">
+            <Badges progress={progress} />
+          </div>
         </div>
       </div>
 

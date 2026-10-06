@@ -5,8 +5,26 @@ import {
   pitchClassFromName,
   theoryReference,
 } from '@core/music';
-import { MARCA_PREGUNTA, topicOf, type TeacherRequest } from '@features/learn/teacher-contract';
-import { CABECERA_DE_TEORIA, cabeceraDePrompt, lineaDeEscala, lineaDeTema } from '@server/prompts';
+import { TOKEN_BUDGETS } from '@core/billing';
+import {
+  MARCA_PREGUNTA,
+  respaldoDelProfesor,
+  topicOf,
+  validateTeacherAnswer,
+  type TeacherAnswer,
+  type TeacherRequest,
+} from '@features/learn/teacher-contract';
+import type { PreguntaAlModelo } from '@server/ai-intentos';
+import { respuestaSinIA } from '@server/fake-model';
+import {
+  ANSWER_SCHEMA,
+  CABECERA_DE_TEORIA,
+  cabeceraDePrompt,
+  lineaDeEscala,
+  lineaDeTema,
+  RECORDATORIO_DE_LA_PREGUNTA,
+  TEACHER_SYSTEM_PROMPT,
+} from '@server/prompts';
 
 /**
  * El prompt del profesor, fuera de la ruta.
@@ -48,5 +66,30 @@ export function promptDelProfesor(request: TeacherRequest): string {
   // dice que lo de dentro de las marcas es un dato. La marca ya se le ha quitado a la pregunta al
   // validarla, así que nadie puede cerrar el bloque antes de tiempo.
   lines.push(`${MARCA_PREGUNTA}\n${request.question}\n${MARCA_PREGUNTA}`);
+  // Y detrás, que es un dato: es lo último que lee antes de contestar.
+  lines.push(RECORDATORIO_DE_LA_PREGUNTA);
   return lines.join('\n');
 }
+
+/**
+ * Lo que el profesor le pregunta al modelo y cómo comprueba lo que vuelve.
+ *
+ * Aquí y no en `route.ts` por lo mismo que el prompt: el examen del profesor lo usa
+ * tal cual, y la ruta lo extiende con lo que es de HTTP —el limitador, la puerta y
+ * cómo se lee el cuerpo—.
+ *
+ * `max_tokens` sale de `TOKEN_BUDGETS`, en el dominio, y no de un número escrito
+ * aquí. Es el mismo número con el que se calculan los cupos, así que el peor caso
+ * que supone la aritmética **es** el tope que impone el servidor.
+ */
+export const PROFESOR: PreguntaAlModelo<TeacherRequest, TeacherAnswer> = {
+  prompt: promptDelProfesor,
+  system: TEACHER_SYSTEM_PROMPT,
+  schema: () => ANSWER_SCHEMA,
+  maxTokens: TOKEN_BUDGETS.profesor.output,
+  sinClave: respuestaSinIA,
+  // Con las instrucciones, para tirar la respuesta que las copie: viven aquí, en
+  // el servidor, y el contrato no puede abrirlas.
+  validar: (payload, peticion) => validateTeacherAnswer(payload, peticion, TEACHER_SYSTEM_PROMPT),
+  respaldo: respaldoDelProfesor,
+};

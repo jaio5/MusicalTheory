@@ -291,22 +291,25 @@ describe('el reintento también se paga', () => {
    * caso que no es el peor caso.
    *
    * Esto miraba las rutas una a una, porque el bucle estaba copiado en cada
-   * una. Ahora hay uno solo —`server/ai-route.ts`— y las rutas no pueden
-   * separarse de él ni aunque quieran: la garantía dejó de ser que tres ficheros
-   * digan lo mismo y pasó a ser que solo haya un sitio donde decirlo.
+   * una. Ahora hay uno solo —`server/ai-intentos.ts`, que salió de
+   * `ai-route.ts` para que el examen del profesor lo use sin arrastrar
+   * `next/server`— y ni las rutas ni el cuerpo común pueden separarse de él: la
+   * garantía es que solo haya un sitio donde decirlo.
    */
-  it('el cuerpo común reintenta lo que dice la constante, y nadie más reintenta', () => {
-    const comun = readFileSync(
-      fileURLToPath(new URL('../../server/ai-route.ts', import.meta.url)),
-      'utf8',
+  it('el bucle de los intentos reintenta lo que dice la constante, y nadie más reintenta', () => {
+    const leer = (fichero: string) =>
+      readFileSync(fileURLToPath(new URL(fichero, import.meta.url)), 'utf8');
+
+    expect(leer('../../server/ai-intentos.ts'), 'el bucle no usa la constante').toContain(
+      'intento < MAX_MODEL_ATTEMPTS',
     );
-    expect(comun, 'el cuerpo común no usa la constante').toContain('intento < MAX_MODEL_ATTEMPTS');
+    expect(
+      leer('../../server/ai-route.ts'),
+      'el cuerpo común se escribe su reintento',
+    ).not.toContain('MAX_MODEL_ATTEMPTS');
 
     for (const ruta of ['teacher', 'versiones']) {
-      const codigo = readFileSync(
-        fileURLToPath(new URL(`../../app/api/${ruta}/route.ts`, import.meta.url)),
-        'utf8',
-      );
+      const codigo = leer(`../../app/api/${ruta}/route.ts`);
       expect(codigo, `${ruta} se escribe su propio reintento`).not.toContain('MAX_MODEL_ATTEMPTS');
     }
   });

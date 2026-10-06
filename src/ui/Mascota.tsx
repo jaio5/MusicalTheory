@@ -68,7 +68,9 @@ export function Mascota({
     <svg
       viewBox={`0 0 ${LADO_MASCOTA} ${LADO_MASCOTA}`}
       shapeRendering="crispEdges"
-      className={`drop-shadow-lg ${className}`}
+      // La sombra es de la sala (`.sombra-pixel`), no la de Tailwind: era el
+      // único relieve con un negro de fuera de la paleta.
+      className={`sombra-pixel ${className}`}
       {...(decorativa
         ? { 'aria-hidden': true, focusable: false }
         : { role: 'img', 'aria-label': 'El profesor' })}

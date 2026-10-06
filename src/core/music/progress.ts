@@ -23,6 +23,7 @@ import {
   UNIT_ORDER,
   type Course,
   type GradeId,
+  type Unit,
   type UnitKind,
 } from './curriculum';
 import { daysBetween, isDay } from './days';
@@ -829,11 +830,13 @@ function asCount(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
 }
 
-function asReviewQueue(value: unknown): ReviewQueue {
+/** Cuántos sitios tiene una unidad a los que la cola de repaso puede apuntar. */
+export type ContarPosiciones = (unit: Unit) => number;
+
+function asReviewQueue(value: unknown, posiciones?: ContarPosiciones): ReviewQueue {
   if (!Array.isArray(value)) {
     return EMPTY_REVIEW;
   }
-  const known = new Set(UNIT_ORDER);
   return value.flatMap((raw): ReviewItem[] => {
     if (typeof raw !== 'object' || raw === null) {
       return [];
@@ -843,15 +846,21 @@ function asReviewQueue(value: unknown): ReviewQueue {
     const index = item['index'];
     // Una pregunta de una unidad retirada no se puede volver a generar, así que
     // no se puede repasar: se suelta en vez de quedarse como deuda eterna.
-    if (typeof unitId !== 'string' || !known.has(unitId)) {
+    const unit = typeof unitId === 'string' ? findUnit(unitId)?.unit : undefined;
+    if (unit === undefined) {
       return [];
     }
     if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) {
       return [];
     }
+    // Y por lo mismo, una posición que su lección ya no tiene, cuando quien lee
+    // sabe contarlas (`posiciones.ts`).
+    if (posiciones !== undefined && index >= posiciones(unit)) {
+      return [];
+    }
     return [
       {
-        unitId,
+        unitId: unit.id,
         index,
         seenOn: isDay(item['seenOn']) ? item['seenOn'] : '1970-01-01',
         hits: Math.min(asCount(item['hits']), MASTERED_HITS - 1),
@@ -873,8 +882,16 @@ function asReviewQueue(value: unknown): ReviewQueue {
  * Guardarlo y leerlo por separado permite que las dos cosas se contradigan, y
  * entonces la barra de avance dice una cosa y la lista de unidades otra. El XP
  * del día sí se lee, porque no hay de dónde recalcularlo.
+ *
+ * `posiciones`, si llega, suelta además lo de la cola de repaso que apunta a una
+ * pregunta que su lección ya no tiene. **Es opcional por el peso**: contarlas
+ * obliga a generar las lecciones, y eso metía el texto del temario entero en
+ * cada pantalla que lee el avance —el camino, la cuenta— sin enseñar ni una
+ * pregunta. Lo pasa el servidor, que no viaja al navegador; y como quien tiene
+ * cola de repaso tiene plan y cuenta, su navegador recibe la cola ya limpia en
+ * cuanto sincroniza.
  */
-export function parseProgress(raw: unknown): Progress {
+export function parseProgress(raw: unknown, posiciones?: ContarPosiciones): Progress {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return EMPTY_PROGRESS;
   }
@@ -907,7 +924,7 @@ export function parseProgress(raw: unknown): Progress {
     // puede editar, y un número mayor que el tope dejaría `composeRoomOn` sin
     // sentido en vez de simplemente a cero.
     composeToday: lastDay === null ? 0 : Math.min(MAX_COMPOSE_XP, asCount(record['composeToday'])),
-    review: asReviewQueue(record['review']),
+    review: asReviewQueue(record['review'], posiciones),
     startCourse: asCourseId(record['startCourse']),
     startCourseAt: asInstante(record['startCourseAt']),
   };

@@ -124,6 +124,63 @@ describe('montar', () => {
   });
 
   /**
+   * **El vacío señala la lista y la lista señala su primera entrada.** Decía
+   * «pulsa un acorde de la lista» con la lista a la derecha o debajo según el
+   * ancho, y las seis cajas eran iguales: ninguna decía «empieza por aquí».
+   */
+  it('con la cancion en blanco, el vacio nombra «Para empezar» y el primero lleva el acento', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+
+    expect(screen.getByText(/Pulsa un acorde de «Para empezar»/)).toBeInTheDocument();
+    expect(propuestas()[0]).toHaveClass('border-brass-dim');
+    expect(propuestas()[1]).not.toHaveClass('border-brass-dim');
+
+    await userEvent.click(propuestas()[0]!);
+
+    // Con algo escrito ya no hay primero que señalar.
+    expect(propuestas()[0]).not.toHaveClass('border-brass-dim');
+  });
+
+  /**
+   * **«Escuchar» no nace apagado** (`docs/ESTILO.md`). Era el único latón
+   * relleno de la pantalla, y gris: con la canción en blanco va en `quiet`, se
+   * pulsa y dice qué falta; el latón vuelve con el primer acorde.
+   */
+  it('«Escuchar» va en quiet y avisa mientras no hay nada, y se enciende con el primer acorde', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    const escuchar = screen.getByRole('button', { name: 'Escuchar la canción' });
+    expect(escuchar).toBeEnabled();
+    expect(escuchar).not.toHaveClass('bg-brass');
+
+    await userEvent.click(escuchar);
+    expect(screen.getByText(/nada que escuchar/)).toBeInTheDocument();
+
+    await userEvent.click(propuestas()[0]!);
+    expect(screen.getByRole('button', { name: 'Escuchar la canción' })).toHaveClass('bg-brass');
+  });
+
+  /**
+   * **Las letras de los bloques llevan su leyenda al lado.** T, S y D solo se
+   * traducían dentro de «A dónde ir», que en Escribir viene plegada.
+   */
+  it('en bloques, la leyenda de los papeles va encima de las partes', async () => {
+    conTonalidad();
+    render(<ArrangeCanvas />);
+    await enBloques();
+    expect(screen.queryByText('reposo')).not.toBeInTheDocument();
+
+    await userEvent.click(propuestas()[0]!);
+
+    expect(screen.getByText('reposo')).toBeInTheDocument();
+    expect(screen.getByText('salida')).toBeInTheDocument();
+    expect(screen.getByText('tensión')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Partitura' }));
+    expect(screen.queryByText('reposo')).not.toBeInTheDocument();
+  });
+
+  /**
    * El hueco del final dice que la canción sigue.
    *
    * Con una sola parte quedaban quinientos píxeles de negro debajo del
@@ -2248,11 +2305,16 @@ describe('Escribir una nota pulsando el pentagrama', () => {
  * vivía dentro y no salía, y se compone para llevárselo a un secuenciador.
  */
 describe('descargar la cancion en MIDI', () => {
-  it('esta apagado mientras no haya nada escrito', () => {
+  // Un botón no nace apagado: sin nada escrito se pulsa, y dice qué falta.
+  it('sin nada escrito no se apaga: avisa de que falta el primer acorde', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
+    const midi = screen.getByRole('button', { name: 'MIDI' });
+    expect(midi).toBeEnabled();
 
-    expect(screen.getByRole('button', { name: 'MIDI' })).toBeDisabled();
+    await userEvent.click(midi);
+
+    expect(screen.getByText(/nada que guardar/)).toBeInTheDocument();
   });
 
   it('descarga lo mismo que suena, con el nombre de la parte', async () => {

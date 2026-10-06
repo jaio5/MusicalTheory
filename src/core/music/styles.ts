@@ -8,7 +8,19 @@
 
 import type { ScaleId } from './scales';
 
-export type StyleId = 'rock' | 'blues' | 'metal' | 'pop' | 'folk' | 'jazz';
+export type StyleId =
+  | 'rock'
+  | 'blues'
+  | 'metal'
+  | 'pop'
+  | 'folk'
+  | 'jazz'
+  | 'funk'
+  | 'country'
+  | 'reggae'
+  | 'bolero'
+  | 'flamenco'
+  | 'cine';
 
 /**
  * Familias en las que se agrupan los acordes que se pueden sugerir. El peso de
@@ -198,6 +210,168 @@ export const STYLES: Readonly<Record<StyleId, StyleDefinition>> = {
       added: 0.4,
     },
   },
+  // Los seis de aquí abajo llegaron porque sin ellos las salidas se juzgaban con el
+  // estilo más cercano —un funk como blues, un bolero como jazz, una andaluza como
+  // nada— y fallaban justo en lo que hace que cada uno sea él.
+  funk: {
+    id: 'funk',
+    name: 'Funk',
+    summary: 'Un acorde con séptima que no se mueve, y el ritmo hace el resto.',
+    scales: ['dorian', 'mixolydian', 'minorPentatonic', 'blues'],
+    tips: [
+      'I7 durante compases y compases: la armonía va lenta para que el ritmo corra.',
+      'El vamp de dos, I7 – IV7, o im7 – IV7 en menor: el IV mayor es el dórico.',
+      'La dominante no tiene por qué resolver. Se queda, se suspende, vuelve.',
+      'Novenas, 7sus4 y el 7#9: color encima del mismo acorde, no acordes nuevos.',
+    ],
+    // Las cuatríadas de la escala pesan menos que el I7 y el IV7, que en
+    // `suggestions.ts` llevan su peso propio: el Imaj7 no es la casa del funk.
+    weights: {
+      ...NONE,
+      seventh: 0.85,
+      diatonic: 0.8,
+      altered: 0.7,
+      suspended: 0.65,
+      added: 0.6,
+      borrowed: 0.6,
+      secondaryDominant: 0.3,
+      power: 0.3,
+      tritoneSub: 0.2,
+    },
+  },
+  country: {
+    id: 'country',
+    name: 'Country',
+    summary: 'I, IV y V con su séptima, y el II7 que empuja hacia el V.',
+    scales: ['majorPentatonic', 'major', 'mixolydian'],
+    tips: [
+      'I – IV – V y vuelta, con el V7 de siempre: lo que importa es dónde cae cada uno.',
+      'El II7 —la dominante del V— antes del V7 es la firma del country.',
+      'IV – I cierra suave, y el I7 que se va al IV abre el cambio.',
+      'Poco préstamo: el bVII y el iv de vez en cuando, nunca de base.',
+    ],
+    weights: {
+      ...NONE,
+      diatonic: 1,
+      secondaryDominant: 0.75,
+      seventh: 0.7,
+      added: 0.6,
+      suspended: 0.5,
+      borrowed: 0.3,
+      power: 0.3,
+    },
+  },
+  reggae: {
+    id: 'reggae',
+    name: 'Reggae',
+    summary: 'Dos acordes en vaivén, a contratiempo y sin prisa.',
+    scales: ['major', 'naturalMinor', 'minorPentatonic', 'dorian'],
+    tips: [
+      'I – IV o I – V, una y otra vez: el vaivén es la canción, no un relleno.',
+      'En menor, i – iv o i – VII. El VII cierra sin sensible y es lo de casa.',
+      'El acorde suena en el contratiempo: la guitarra calla en el pulso y pica entre medias.',
+      'Los acordes cambian cada compás o cada medio compás, nunca más deprisa.',
+    ],
+    weights: {
+      ...NONE,
+      diatonic: 1,
+      seventh: 0.6,
+      borrowed: 0.45,
+      added: 0.4,
+      suspended: 0.4,
+      secondaryDominant: 0.2,
+    },
+  },
+  bolero: {
+    id: 'bolero',
+    name: 'Bolero',
+    summary: 'Dominantes que se encadenan, y el menor armónico de fondo.',
+    scales: ['harmonicMinor', 'major', 'naturalMinor'],
+    tips: [
+      'Cada grado admite su dominante delante, y una lleva a otra: V/ii – ii – V – I.',
+      'La tónica con séptima, I7, se va al IV: en menor, la V/iv que lleva al iv.',
+      'El menor armónico manda: V7 – i con la sensible, nunca el VII que cierra sin ella.',
+      'El bII7 baja medio tono a la tónica, y el bII sin séptima va al V: el napolitano.',
+    ],
+    weights: {
+      ...NONE,
+      seventh: 1,
+      secondaryDominant: 1,
+      diatonic: 0.7,
+      diminished: 0.7,
+      tritoneSub: 0.6,
+      altered: 0.6,
+      added: 0.6,
+      borrowed: 0.45,
+      // El napolitano delante del V7, el bII – V7 – i del bolero en menor.
+      neapolitan: 0.4,
+      suspended: 0.2,
+    },
+  },
+  flamenco: {
+    id: 'flamenco',
+    name: 'Flamenco',
+    summary: 'La bajada andaluza y el V mayor, que es reposo y no tensión.',
+    scales: ['phrygian', 'harmonicMinor', 'naturalMinor'],
+    tips: [
+      'i – VII – VI – V: la cadencia andaluza baja por grados y se para en el V.',
+      'El V mayor es el centro del modo de Mi: llegar a él es llegar, no quedarse a medias.',
+      'VI – V es el semitono frigio: el bII y el I del V. Y el bII sobre la tónica, igual.',
+      'La sensible solo vive en el V mayor: un vii° o una dominante de paso suenan a otro sitio.',
+    ],
+    weights: {
+      ...NONE,
+      diatonic: 1,
+      neapolitan: 0.8,
+      borrowed: 0.6,
+      altered: 0.6,
+      seventh: 0.5,
+      added: 0.5,
+      power: 0.3,
+      suspended: 0.3,
+      secondaryDominant: 0.25,
+      diminished: 0.2,
+    },
+  },
+  cine: {
+    id: 'cine',
+    name: 'Cine',
+    summary: 'El menor prestado, mediantes que dan un salto y un pedal debajo.',
+    scales: ['naturalMinor', 'major', 'dorian', 'phrygian'],
+    tips: [
+      'bVI – bVII – I: la subida épica, prestada del menor, sin pasar por el V.',
+      'El iv sobre el I nubla la casa; IV – iv – I es la despedida.',
+      'Mediantes que saltan a una tercera: I – bIII, I – bVI, I – III. Comparten una nota y cambian el mundo.',
+      'Un bajo que se queda —un pedal— y los acordes encima: el modo lo pone el color, no la cadencia.',
+    ],
+    weights: {
+      ...NONE,
+      borrowed: 1,
+      diatonic: 0.9,
+      seventh: 0.6,
+      added: 0.6,
+      suspended: 0.55,
+      power: 0.5,
+      altered: 0.3,
+      neapolitan: 0.3,
+      diminished: 0.2,
+      secondaryDominant: 0.15,
+    },
+  },
 };
 
 export const STYLE_IDS: readonly StyleId[] = Object.keys(STYLES) as StyleId[];
+
+/**
+ * Los estilos en tres grupos, para el selector: con doce, una lista suelta ya no se
+ * lee de un vistazo. **Por el idioma armónico y no por la historia**, que es lo que
+ * cambia lo que propone la aplicación: el riff y las dominantes sin resolver, la
+ * canción de tres o cuatro acordes, y la armonía que vive del color —secundarias,
+ * préstamos, el modo—. Cada estilo está en uno, y en uno solo (lo vigila su test).
+ */
+export const STYLE_GROUPS: readonly { readonly name: string; readonly ids: readonly StyleId[] }[] =
+  [
+    { name: 'De riff', ids: ['rock', 'metal', 'blues', 'funk'] },
+    { name: 'De canción', ids: ['pop', 'folk', 'country', 'reggae'] },
+    { name: 'De armonía', ids: ['jazz', 'bolero', 'flamenco', 'cine'] },
+  ];

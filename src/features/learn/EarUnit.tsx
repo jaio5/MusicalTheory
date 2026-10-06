@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import {
   EAR_KINDS,
   earExercises,
-  scheduleProgression,
+  programaDe,
   sonidoDe,
   type EarUnit as EarUnitDef,
 } from '@core/music';
@@ -16,9 +16,14 @@ import { Button } from '@ui/Button';
 import { Question } from './Question';
 import { SinTonalidad } from './SinTonalidad';
 import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
+import { UnidadPorMomentos } from './UnidadPorMomentos';
 
 /**
  * Una unidad de oído: suena algo y hay que decir qué era.
+ *
+ * Primero la presentación —qué se va a oír y qué hay que decir— y luego la prueba
+ * (`UnidadPorMomentos`). No hay teoría escrita en medio: lo que enseña se
+ * aprende oyendo, y la explicación de cada respuesta sale al contestarla.
  *
  * Es la tercera manera de preguntar, y la que le faltaba al camino. `theory` se
  * contesta leyendo y `play` con la guitarra; las dos dan por hecho que ya sabes
@@ -88,42 +93,44 @@ export function EarUnit({
       }
       playerRef.current ??= new WebAudioProgressionPlayer();
 
-      // `sonidoDe` y no `resolveDegree`: un paso puede llevar séptima, y con el
-      // grado a secas la unidad de cuatríadas sonaba dos veces la misma tríada.
-      const pasos = cual.degrees.map((step) => {
-        const { root, notes } = sonidoDe(step, activeKey.tonic, activeKey.mode);
-        return { root, notes, beats: cual.beats };
-      });
-
+      // `programaDe` y no construir los pasos aquí con el grado a secas: un paso
+      // puede llevar séptima —con `resolveDegree` la unidad de cuatríadas sonaba
+      // dos veces la misma tríada— o ser notas sueltas, y en un intervalo la
+      // octava importa: una sexta que bajara a su clase de altura sonaría tercera.
+      // Lo que suena lo decide el dominio, con las alturas exactas.
+      //
       // Sin estado de «sonando». El reproductor avisa cuando acaba, pero si el
       // navegador no deja abrir el audio ese aviso no llega nunca y el botón se
       // queda diciendo «Sonando…» para siempre. Aquí lo único que hace falta es
       // poder volver a pulsarlo, y eso no necesita saber si suena.
-      void playerRef.current.play(scheduleProgression(pasos, bpm));
+      void playerRef.current.play(programaDe(cual, activeKey.tonic, activeKey.mode, bpm));
     },
     [activeKey, bpm, ejercicios],
   );
 
+  /*
+    La prueba se escribe aquí y no en un componente aparte porque es la única que
+    hay y comparte con la unidad todo su estado: la pregunta en la que se está, si
+    ya se oyó y el reproductor. Separada, iría con nueve propiedades a cuestas.
+  */
+  let prueba: ReactNode;
   if (activeKey === null) {
-    return <SinTonalidad para="Lo que vas a oír son sus acordes: elige una para empezar." />;
-  }
+    prueba = <SinTonalidad para="Lo que vas a oír son sus acordes: elige una para empezar." />;
+    /* v8 ignore start -- las clases de oido del catalogo traen sus preguntas */
+  } else if (ejercicio === undefined) {
+    prueba = <p className="text-text-muted text-sm">Esta unidad no tiene nada que oír.</p>;
+    /* v8 ignore stop */
+  } else {
+    const last = at >= ejercicios.length - 1;
+    const referencia = ejercicio.degrees
+      .slice(0, ejercicio.reference)
+      .map((step) => sonidoDe(step, activeKey.tonic, activeKey.mode).symbol);
 
-  /* v8 ignore next 3 -- las seis clases de oido del catalogo traen sus preguntas */
-  if (ejercicio === undefined) {
-    return <p className="text-text-muted p-4 text-sm">Esta unidad no tiene nada que oír.</p>;
-  }
+    prueba = (
+      <div className="max-w-prose">
+        <p className="text-text text-base leading-relaxed">{EAR_KINDS[unit.ear].lead}</p>
 
-  const last = at >= ejercicios.length - 1;
-  const referencia = ejercicio.degrees
-    .slice(0, ejercicio.reference)
-    .map((step) => sonidoDe(step, activeKey.tonic, activeKey.mode).symbol);
-
-  return (
-    <div className={`min-h-0 grow overflow-y-auto p-4 ${HUECO_DEL_TUTOR}`}>
-      <p className="text-text max-w-prose text-base leading-relaxed">{EAR_KINDS[unit.ear].lead}</p>
-
-      <div className="border-border mt-6 max-w-prose border-t pt-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           {/*
             No suena solo al entrar, y el botón no se gasta.
 
@@ -177,6 +184,12 @@ export function EarUnit({
           />
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className={`min-h-0 grow overflow-y-auto p-4 ${HUECO_DEL_TUTOR}`}>
+      <UnidadPorMomentos unit={unit} prueba={prueba} />
 
       <Tutor unitId={unit.id} aviso={aviso} onAvisoVisto={() => setAviso(null)} />
     </div>

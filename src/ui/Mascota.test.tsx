@@ -31,6 +31,9 @@ describe('El profesor', () => {
     // 64 y no 56: dos píxeles de pantalla por cada uno del dibujo. Con un
     // múltiplo que no es entero, unas filas salen dobles y otras sencillas.
     expect(svg).toHaveClass('size-16');
+    // La sombra es de la sala: `drop-shadow-lg` era un negro de fuera de la paleta.
+    expect(svg).toHaveClass('sombra-pixel');
+    expect(svg).not.toHaveClass('drop-shadow-lg');
   });
 
   it('respeta el tamaño que le pidan', () => {

@@ -55,8 +55,9 @@ import {
   leerMontaje,
 } from './arrangement';
 import { MAX_LEAD_NOTES, type LeadNote } from './melody';
-import { pitchClassFromName } from './notes';
-import type { DegreeSymbol } from './progressions';
+import type { EspecieDeBloque } from './chords';
+import { pitchClassFromName, type PitchClass } from './notes';
+import { degreesFor, type DegreeSymbol } from './progressions';
 import { MAX_BARS, parseSong, type Song } from './song';
 
 function bloque(id: string, degree: Block['degree'], beats = 4): Block {
@@ -1191,6 +1192,65 @@ describe('un bloque sin tercera', () => {
   it('sin especie, un bloque es exactamente lo que era', () => {
     expect(writtenBlock('a', 'I', 4)).not.toHaveProperty('especie');
     expect(blockChord(0, 'major', writtenBlock('a', 'I', 4)).notes).toEqual([0, 4, 7]);
+  });
+});
+
+/**
+ * La fundamental de un bloque con especie se escribe como la de su tríada.
+ *
+ * La tríada sale de `resolveDegree`, que sabe que un grado «b» va con bemol; la
+ * especie se escribía con la alteración de la tonalidad, y en Do mayor el `bVII`
+ * era `Bb` a secas y `A#7` con séptima —y `D#7` el `bIII`, y `G#maj7` el `bVI`—.
+ */
+describe('la grafia de un bloque con especie', () => {
+  const ESPECIES: readonly EspecieDeBloque[] = [
+    'major7',
+    'dominant7',
+    'minor7',
+    'halfDiminished7',
+    'diminished7',
+    'minorMajor7',
+    'augmentedMajor7',
+    'quinta',
+    'sus2',
+    'sus4',
+    'dim',
+    'aug',
+    'menor',
+  ];
+  /** La letra y la alteración del principio de un cifrado. */
+  const fundamental = (simbolo: string) => /^[A-G][#b]?/.exec(simbolo)?.[0];
+
+  it('en Do mayor, los grados bemoles se escriben con bemol tambien con septima', () => {
+    expect(blockChord(0, 'major', writtenBlock('a', 'bVII', 4)).symbol).toBe('Bb');
+    expect(blockChord(0, 'major', writtenBlock('a', 'bVII', 4, 'dominant7')).symbol).toBe('Bb7');
+    expect(blockChord(0, 'major', writtenBlock('a', 'bIII', 4, 'dominant7')).symbol).toBe('Eb7');
+    expect(blockChord(0, 'major', writtenBlock('a', 'bVI', 4, 'major7')).symbol).toBe('Abmaj7');
+    expect(blockChord(0, 'major', writtenBlock('a', 'bVII', 4, 'quinta')).symbol).toBe('Bb5');
+  });
+
+  it('en las 24 tonalidades, cada especie de cada grado lleva la fundamental de su triada', () => {
+    let comparados = 0;
+    for (const modo of ['major', 'minor'] as const) {
+      for (let tonica = 0; tonica < 12; tonica += 1) {
+        const tonic = tonica as PitchClass;
+        for (const grado of degreesFor(modo)) {
+          const triada = fundamental(blockChord(tonic, modo, writtenBlock('t', grado, 4)).symbol);
+          for (const especie of ESPECIES) {
+            const conEspecie = blockChord(tonic, modo, writtenBlock('e', grado, 4, especie));
+            expect(fundamental(conEspecie.symbol), `${grado} ${especie} en ${tonica} ${modo}`).toBe(
+              triada,
+            );
+            comparados += 1;
+          }
+        }
+      }
+    }
+    // Que el bucle haya mirado algo: los grados de los dos modos por doce
+    // tónicas por trece especies.
+    expect(comparados).toBe(
+      12 * ESPECIES.length * (degreesFor('major').length + degreesFor('minor').length),
+    );
   });
 });
 

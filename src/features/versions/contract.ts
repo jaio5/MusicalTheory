@@ -5,43 +5,57 @@
  * validar y el cliente para pedir y entender— y es TypeScript puro, así que se
  * prueba sin levantar nada. Es la misma forma que tiene `learn/teacher-contract.ts`.
  *
- * **Lo que se valida va más allá de los grados.** Se comprueba que existan y se
- * recalculan los cifrados, y además se comprueba **el razonamiento**: cada versión declara qué movimiento ha aplicado
- * a cada compás, y `isMove` vuelve a aplicarlo para ver si es verdad. Una versión
- * que dice «sustitución tritonal» y no lo es se cae entera, porque el porqué es
- * la mitad de lo que se está vendiendo: sin él son cuatro acordes distintos.
+ * **Las salidas las construye el dominio y el modelo elige.** El menú sale de
+ * `salidasPosibles`, válido por construcción, y lo que vuelve del modelo es un
+ * número, un título y un porqué. Lo que se comprueba aquí es lo que pone él: que
+ * el número exista y que **la prosa no mienta** —`loQueNoEsta`—, porque el porqué
+ * es la mitad de lo que se está vendiendo y uno falso enseña algo falso.
  *
  * Nada de audio. Lo que viaja son grados, un número de pulsos y una
- * tonalidad.
+ * tonalidad, y con ellos **el contexto** —la especie de cada compás, si se oyó con
+ * duda, las notas del punteo que suenan encima, el estilo y el compás—: símbolos
+ * todos, enumerados y números, nunca texto libre (adr/0015).
  */
 
 import { MAX_DIRECTRICES_LENGTH, MAX_VERSION_DEGREES, MAX_VERSIONS } from '@core/billing';
 import {
-  cancionRetocada,
+  BEATS_PER_BAR,
+  blockChord,
   DEFAULT_ROLE,
   degreesFor,
   cuerpoConTonalidad,
+  esEspecieDeBloque,
+  formaDeBlues,
   isSectionRole,
-  kindOfPath,
-  moveById,
-  songProblem,
-  pathById,
   pitchClassFromName,
+  porQueNoHaySalidas,
   resolveProgression,
+  roleOfDegreeSymbol,
+  salidasPosibles,
+  SIN_SALIDA,
+  STYLE_IDS,
+  writtenBlock,
   type DegreeSymbol,
+  type EspecieDeBloque,
   type KeyMode,
   type MoveId,
+  type NotaDelCompas,
   type NoteName,
   type PathId,
-  type PitchClass,
-  type ProposedSection,
   type PathKind,
-  type ProposedStep,
+  type PitchClass,
+  type SalidaPosible,
   type SectionRole,
+  type StyleId,
+  gruposPorPulsos,
+  hablaDeUnSitio,
+  loQueNoEsVerdad,
 } from '@core/music';
 import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
 import { sinMarca } from '@core/marca';
 import { isRecord } from '@core/parse';
+
+import { contextoDe, salidasDe } from './menu';
 
 /**
  * Los dos topes de tamaño de esta petición.
@@ -101,7 +115,31 @@ export interface VersionStep {
    * que hay que decir.
    */
   readonly heard?: boolean;
+  /**
+   * Con qué especie suena: una séptima, una quinta, una suspendida…
+   *
+   * Sin ella un blues en `I7 IV7 V7` llegaba como `I IV V` y un riff de quintas
+   * como tríadas, y la salida volvía con tríadas encima de lo tuyo. Ausente es la
+   * tríada del grado, como en un bloque (`Block.especie`).
+   */
+  readonly especie?: EspecieDeBloque;
+  /**
+   * Las notas del punteo que suenan durante este compás, cada una una vez.
+   *
+   * **Van con su compás y no en una lista aparte**: dos listas que hay que tener
+   * alineadas son dos maneras de desalinearlas, que es lo mismo que decidió la
+   * especie de un bloque. Ausente cuando no hay punteo encima.
+   */
+  readonly notas?: readonly NotaDelCompas[];
 }
+
+/**
+ * Cuántas notas del punteo viajan por compás, como mucho.
+ *
+ * Doce, porque son las doce alturas: cada nota va una vez con su marca de pulso
+ * fuerte, y una que suena dos veces no dice nada nuevo sobre si el acorde encaja.
+ */
+export const MAX_NOTAS_POR_COMPAS = 12;
 
 export interface VersionsRequest {
   readonly key: { readonly tonic: NoteName; readonly mode: KeyMode };
@@ -139,16 +177,49 @@ export interface VersionsRequest {
    * se ha decidido. **Y `idea` también se le dice**, no se calla: saber que esto
    * aún no tiene sitio en ninguna canción es información, y es la que le permite
    * proponer sitios distintos en vez de continuar por lo obvio.
+   *
+   * **Es el de la parte que se manda**, no uno elegido aparte: el panel lo lee de
+   * la parte y lo escribe en ella (`setPartRole`).
    */
   readonly role?: SectionRole;
+  /**
+   * El estilo de la barra. Sin él, el bVII valía lo mismo en un jazz que en un
+   * rock. Uno que no se reconoce no viaja.
+   */
+  readonly estilo?: StyleId;
+  /** Pulsos de un compás de verdad (3 en un vals). Solo los de `BEATS_PER_BAR`. */
+  readonly pulsosPorCompas?: number;
 }
 
 /** Un compás de una salida: qué grado va ahora y de dónde sale. */
 export interface VersionStepOut {
   readonly degree: DegreeSymbol;
+  /**
+   * La especie con la que suena. Ausente es la tríada del grado.
+   *
+   * Lo tuyo que no cambia de grado vuelve con la suya: un `G7` que se queda no
+   * vuelve como `G`, y quedarse con la salida no le quita la séptima.
+   */
+  readonly especie?: EspecieDeBloque;
   readonly beats: number;
-  /** El cifrado, **recalculado** aquí y no creído al modelo. */
+  /** El cifrado, con su especie, **recalculado** aquí y no creído al modelo. */
   readonly symbol: string;
+  /**
+   * El cifrado que había en ese compás, si es tuyo.
+   *
+   * Hace falta además de `from` porque **un compás puede cambiar sin cambiar de
+   * grado**: el `I` que pasa a `Imaj7` sigue siendo el `I`, y sin esto la pantalla
+   * lo daba por igual.
+   */
+  readonly fromSymbol?: string;
+  /**
+   * Lo que duraba ese compás, si es tuyo.
+   *
+   * Por lo mismo que `fromSymbol`: **un compás puede cambiar sin cambiar de grado ni
+   * de especie**. El V de un ii–V partido es el mismo V con la mitad de pulsos, y sin
+   * esto la pantalla decía que se quedaba como estaba.
+   */
+  readonly fromBeats?: number;
   /**
    * El grado que había en ese compás, o **nulo si el compás es nuevo**.
    *
@@ -246,16 +317,38 @@ function leerDirectrices(crudo: unknown): string | null {
   return limpias === '' ? null : limpias.slice(0, MAX_DIRECTRICES_LENGTH);
 }
 
+/** Lo que sale de leer el cuerpo: la petición, o nulo y, si lo hay, por qué. */
+type Leido =
+  | { readonly peticion: VersionsRequest }
+  | { readonly peticion: null; readonly motivo: string | null };
+
+const NO_VALE: Leido = { peticion: null, motivo: null };
+
 export function parseVersionsRequest(body: unknown): VersionsRequest | null {
+  return leerPeticion(body).peticion;
+}
+
+/**
+ * Por qué no vale un cuerpo, cuando hay algo más concreto que «nos falta la
+ * progresión»: que no haya ninguna salida, dicho por el dominio. Nulo si no lo
+ * hay, o si vale. La ruta lo contesta con `invalid_request`, que es el código que
+ * ya mira la pantalla, y la frase es esta.
+ */
+export function porQueNoValeLaPeticion(body: unknown): string | null {
+  const leido = leerPeticion(body);
+  return leido.peticion === null ? leido.motivo : null;
+}
+
+function leerPeticion(body: unknown): Leido {
   const leido = cuerpoConTonalidad(body);
   if (leido === null) {
-    return null;
+    return NO_VALE;
   }
   const { campos, tonic, mode } = leido;
 
   const raw = campos['progression'];
   if (!Array.isArray(raw)) {
-    return null;
+    return NO_VALE;
   }
   const validDegrees = degreesFor(mode) as readonly string[];
 
@@ -268,25 +361,31 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
     if (typeof degree !== 'string' || !validDegrees.includes(degree)) {
       continue;
     }
+    const especie = step['especie'];
+    const notas = leerNotas(step['notas']);
     progression.push({
       degree: degree as DegreeSymbol,
       beats: asBeats(step['beats']),
       // Solo se apunta lo que hay que decir: la ausencia de la marca es «esto lo
       // escribió una persona», que es el caso normal.
       ...(step['heard'] === true ? { heard: true } : {}),
+      ...(esEspecieDeBloque(especie) ? { especie } : {}),
+      ...(notas.length > 0 ? { notas } : {}),
     });
   }
 
-  // Con un solo acorde no hay nada que rearmonizar: la versión sería el mismo
-  // acorde otra vez, y eso es gastar una petición para no decir nada.
-  if (progression.length < 2) {
-    return null;
+  // **Un acorde ya es una canción**: se puede seguir —cerrarlo, llevarlo a otra
+  // parte— y se puede retocar partiéndolo por sus compases o por su mitad. El
+  // dominio da salidas para él, y aquí se rechazaba con «nos falta la progresión».
+  // Sin ninguno sí falta.
+  if (progression.length === 0) {
+    return NO_VALE;
   }
 
   // Sin clase no hay petición: es lo que decide qué esquema se le manda.
   const kind = campos['kind'];
   if (kind !== 'continuar' && kind !== 'retocar') {
-    return null;
+    return NO_VALE;
   }
 
   // Un papel que no se reconoce se lee como idea, que es lo que era antes de que
@@ -295,228 +394,664 @@ export function parseVersionsRequest(body: unknown): VersionsRequest | null {
   const role = isSectionRole(crudo) ? crudo : DEFAULT_ROLE;
 
   const request: {
-    key: { tonic: NoteName; mode: KeyMode };
-    progression: VersionStep[];
-    kind: PathKind;
-    role: SectionRole;
-    directrices?: string;
+    -readonly [K in keyof VersionsRequest]: VersionsRequest[K];
   } = { key: { tonic, mode }, progression, kind, role };
+
+  // El contexto que vale para toda la canción. Lo que no se reconoce no viaja, y
+  // la salida se juzga sin ello en vez de con algo inventado.
+  const estilo = campos['estilo'];
+  if ((STYLE_IDS as readonly unknown[]).includes(estilo)) {
+    request.estilo = estilo as StyleId;
+  }
+  const pulsos = campos['pulsosPorCompas'];
+  if (BEATS_PER_BAR.includes(pulsos as number)) {
+    request.pulsosPorCompas = pulsos as number;
+  }
 
   const directrices = leerDirectrices(campos['directrices']);
   if (directrices !== null) {
     request.directrices = directrices;
   }
 
-  return request;
-}
-
-interface SeccionCruda {
-  readonly name: string;
-  readonly yours: boolean;
-  readonly steps: readonly unknown[];
-}
-
-/**
- * Las partes que trae una salida.
- *
- * Siempre `sections`, también cuando es una sola: estuvo aceptando `steps` para
- * las que retocan y `sections` para las que continúan, y el modelo elegía la que
- * no tocaba —se descartaban todas—.
- *
- * **Y nunca trae la yours.** Cuando se continúa, lo que vuelve son solo las partes
- * añadidas; tus compases los pone el contrato, porque ya los tiene. Pedírselos
- * era la causa de que se cayera todo: «tu parte no es la que tocaste», 3 de 3.
- */
-function leerSecciones(raw: Record<string, unknown>): SeccionCruda[] | null {
-  const sections = raw['sections'];
-  if (!Array.isArray(sections)) {
-    return null;
+  // Sin ninguna salida posible no hay nada que pedir, y el modelo solo podría elegir
+  // entre nada. **Y se dice por qué, con las palabras del dominio**
+  // (`porQueNoHaySalidas`): la canción llena el tope, con un acorde más no se llega
+  // a casa, o todo lo que se construye lo descarta el juez, y lo dice. Antes era una
+  // frase fija sobre el sitio que no explicaba el tercer caso.
+  //
+  // **Con el contexto**, y va después de leerlo a propósito: es el mismo menú que se
+  // construirá al escribir el prompt y al validar, y si aquí se mirara otro, se
+  // podría aceptar una petición sin nada que ofrecer.
+  const contexto = contextoDe(request);
+  if (salidasPosibles(mode, kind, progression, contexto).length === 0) {
+    /* v8 ignore next -- nulo solo si hay salidas, y aquí no las hay: el `SIN_SALIDA` no se ve nunca */
+    const motivo = porQueNoHaySalidas(mode, kind, progression, contexto) ?? SIN_SALIDA;
+    return { peticion: null, motivo };
   }
 
-  const salida: SeccionCruda[] = [];
-  for (const seccion of sections) {
-    if (!isRecord(seccion)) {
-      return null;
-    }
-    const name = seccion['name'];
-    const steps = seccion['steps'];
-    if (typeof name !== 'string' || !Array.isArray(steps)) {
-      return null;
-    }
-    salida.push({ name, yours: false, steps });
-  }
-  return salida;
+  return { peticion: request };
 }
 
 /**
- * La canción entera, con lo tuyo puesto por nosotros y no por el modelo.
+ * Las notas del punteo de un compás, validadas una a una.
  *
- * **Al continuar**, tu parte va delante: el modelo devuelve solo las que añade.
- * Así no hay forma de que llegue cambiada, y el validador la comprueba igual: la
- * regla sigue escrita.
- *
- * **Al retocar**, el modelo devuelve solo el trozo que cambia y `desde`, el
- * compás donde empieza, y `cancionRetocada` lo pone en su sitio. Es la misma
- * lección dos veces: lo que ya tenemos no se le pide, porque copiarlo es una
- * ocasión más de equivocarse —y se equivocaba: devolvía el trozo igualmente, y
- * se leía como la canción entera—. Lo que no se pueda montar —`desde` que no
- * existe, un trozo que se pasa del final, más de una parte— es nulo, y la salida
- * se cae como cualquier otra que no cuadre.
- *
- * Después las reglas no cambian: `songProblem` juzga la canción montada.
+ * Cada una es una altura de 0 a 11 sobre la tónica y si cae en pulso fuerte; lo
+ * que no sea eso se cae sin tumbar el compás. Una altura repetida se junta en una,
+ * fuerte si lo era alguna de las dos, y por eso no pasan nunca de doce.
  */
-function montarLaCancion(
-  path: PathId,
-  original: readonly VersionStep[],
-  desde: unknown,
-  propuesta: readonly ProposedSection[],
-): ProposedSection[] | null {
-  if (kindOfPath(path) === 'continuar') {
-    return [{ name: 'Lo que llevas', yours: true, steps: [...original] }, ...propuesta];
+function leerNotas(crudas: unknown): NotaDelCompas[] {
+  if (!Array.isArray(crudas)) {
+    return [];
   }
-  const [unica] = propuesta;
-  if (unica === undefined || propuesta.length !== 1 || typeof desde !== 'number') {
+  const notas: NotaDelCompas[] = [];
+  for (const cruda of crudas) {
+    if (!isRecord(cruda)) {
+      continue;
+    }
+    const nota = cruda['nota'];
+    if (typeof nota !== 'number' || !Number.isInteger(nota) || nota < 0 || nota > 11) {
+      continue;
+    }
+    // Como `heard`: solo un `true` de verdad marca el pulso fuerte.
+    const fuerte = cruda['fuerte'] === true;
+    const ya = notas.findIndex((otra) => otra.nota === nota);
+    if (ya === -1) {
+      notas.push({ nota, fuerte });
+    } else if (fuerte) {
+      notas[ya] = { nota, fuerte };
+    }
+  }
+  return notas.slice(0, MAX_NOTAS_POR_COMPAS);
+}
+
+/**
+ * Lo que dicen el título y el porqué que la salida no tiene, o nulo si no dicen
+ * nada falso.
+ *
+ * **Son la única prosa del modelo que llega a la pantalla**, y los acordes de al
+ * lado están comprobados: un porqué que habla de un Fm que no suena, o de una
+ * sustitución tritonal donde no la hay, enseña algo falso con la autoridad de lo
+ * que sí se comprobó (adr/0011). Medido con `qwen3:8b`, el caso más común era
+ * otro: «una cadencia que promete la tónica pero no la alcanza» sobre un cierre
+ * que acaba en ella.
+ *
+ * Lee lo que se puede leer sin entender la frase —acordes escritos, grados,
+ * nombres de movimiento y si dice que cierra— y **prefiere aceptar de menos a
+ * rechazar de más**, como el del profesor: la tonalidad escrita («C mayor») no es
+ * un acorde, la «A» delante de una palabra es la preposición, y lo que había en
+ * tu canción se puede nombrar aunque la salida lo haya cambiado.
+ */
+export function loQueNoEsta(
+  texto: string,
+  version: Version,
+  request: VersionsRequest,
+): string | null {
+  const { mode } = request.key;
+  const tonica = pitchClassFromName(request.key.tonic);
+  // Lo tuyo también se puede nombrar: «el IV pasa a iv» dice lo que había, y es
+  // verdad aunque el IV ya no suene.
+  const tuyos = request.progression.map((paso) => paso.degree);
+  // Cada acorde con su especie y como tríada: un `G7` es también un `G`, y decir
+  // «el G» de un compás que suena `G7` es verdad.
+  const simbolos = new Set([
+    ...version.steps.map((paso) => paso.symbol),
+    ...request.progression.map((paso) => cifrado(tonica, mode, paso.degree, paso.especie)),
+    ...resolveProgression(tonica, mode, [
+      ...version.steps.map((paso) => paso.degree),
+      ...tuyos,
+    ]).map((c) => c.symbol),
+  ]);
+  const grados = new Set<string>([...version.steps.map((paso) => paso.degree), ...tuyos]);
+  // Los nombres de músico de las secundarias que suenan: el II7 del country es el
+  // V/V, y nombrarlo así es verdad (`gradoDicho`, la misma tabla).
+  for (const [secundaria, alias] of ALIAS_DE_SECUNDARIAS[mode]) {
+    if (grados.has(secundaria)) {
+      grados.add(alias);
+    }
+  }
+
+  for (const encontrado of texto.matchAll(ACORDE_ESCRITO)) {
+    const simbolo = encontrado[1]!;
+    const despues = texto.slice(encontrado.index + simbolo.length);
+    const esLaTonalidad = /^\s+(mayor|menor)/u.test(despues);
+    // «A medio tiempo», «A la vuelta»: una «A» seguida de una palabra en minúscula
+    // es la preposición. Un acorde de La así escrito se deja pasar, que es aceptar
+    // de menos.
+    const esLaPreposicion = simbolo === 'A' && /^\s+\p{Ll}/u.test(despues);
+    // Con séptima es el mismo acorde: un G7 vale donde suena un G. Y escrito
+    // entero también, que un `Cmaj7` sin su 7 no es ningún cifrado.
+    if (
+      !esLaTonalidad &&
+      !esLaPreposicion &&
+      !simbolos.has(simbolo) &&
+      !simbolos.has(simbolo.replace(/7$/u, ''))
+    ) {
+      return `nombra ${simbolo}`;
+    }
+  }
+  for (const encontrado of texto.matchAll(GRADO_ESCRITO)) {
+    // «Sustituto tritonal del V»: el V es lo que se sustituye, y por eso no suena.
+    // Que haya de verdad un sustituto lo mira la palabra, en los movimientos.
+    const loSustituido = /tritonal del?\s+$/u.test(texto.slice(0, encontrado.index));
+    if (!loSustituido && !grados.has(encontrado[1]!)) {
+      return `nombra el grado ${encontrado[1]!}`;
+    }
+  }
+
+  // **Cada frase, en el sitio que nombra** (`loQueNoEsVerdad`): el compás N en el
+  // compás N, el enlace donde dice, el papel y la forma de los que habla. Con los
+  // acordes vueltos a sus grados, que es lo que se lee allí.
+  const enGrados = aGrados(texto, version, request);
+  const contexto = contextoDe(request);
+  const falso = loQueNoEsVerdad(enGrados, {
+    mode,
+    kind: request.kind,
+    pulsosPorCompas: contexto.pulsosPorCompas ?? 4,
+    tuyos: request.progression,
+    cancion: version.steps,
+    // El papel viaja siempre: el de la petición, o el de una idea (`contextoDe`).
+    papel: request.role ?? DEFAULT_ROLE,
+    ...(contexto.dudosos === undefined ? {} : { dudosos: contexto.dudosos }),
+    ...(contexto.estilo === undefined ? {} : { estilo: contexto.estilo }),
+    ...(request.kind === 'continuar'
+      ? {
+          partesNuevas: version.sections
+            .filter((seccion) => !seccion.yours)
+            .map((seccion) => seccion.name),
+        }
+      : {}),
+  });
+  if (falso !== null) {
+    return falso;
+  }
+
+  const llano = texto.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const movimientos = new Set(version.steps.map((paso) => paso.move));
+  for (const { patron, valen, tambien } of MOVIMIENTOS_ESCRITOS) {
+    if (
+      patron.test(llano) &&
+      !valen.some((move) => movimientos.has(move)) &&
+      !tambien(version.steps, mode, tonica)
+    ) {
+      return `habla de ${valen[0]!} y no lo hay`;
+    }
+  }
+
+  // Si cierra o no, de la canción entera: lo que habla de un enlace o de un compás
+  // ya se ha comprobado allí, y su «resuelve en la tónica» es de ese sitio.
+  if (hablaDeUnSitio(enGrados, mode)) {
     return null;
   }
-  const retoque = cancionRetocada(path, original, desde, unica.steps);
-  return 'pasos' in retoque ? [{ ...unica, steps: retoque.pasos }] : null;
+  const cierra = version.steps[version.steps.length - 1]!.degree === (mode === 'major' ? 'I' : 'i');
+  if (cierra && NIEGA_EL_CIERRE.test(llano)) {
+    return 'dice que no cierra, y cierra';
+  }
+  if (!cierra && AFIRMA_EL_CIERRE.test(llano)) {
+    return 'dice que cierra, y no cierra';
+  }
+  return null;
+}
+
+/**
+ * Las secundarias con su nombre de músico: el II7 es el V/V. En mayor también el
+ * III, el VI y el VII, que como grados en mayúscula no existen; en menor esos son
+ * los suyos. La misma tabla que `gradoDicho` en `core/music/lo-que-dice.ts`.
+ */
+const ALIAS_DE_SECUNDARIAS: Readonly<Record<KeyMode, readonly (readonly [string, string])[]>> = {
+  major: [
+    ['V/V', 'II'],
+    ['V/vi', 'III'],
+    ['V/ii', 'VI'],
+    ['V/iii', 'VII'],
+  ],
+  minor: [['V/V', 'II']],
+};
+
+/**
+ * El texto con cada acorde escrito cambiado por su grado: `G7 C` vuelve a ser `V7
+ * I`, que es como lo lee `loQueNoEsVerdad`. Un cifrado que no suena en la canción se
+ * queda como está —ya lo ha cazado `nombra X`—, y la «A» de «A medio tiempo» y la
+ * tonalidad escrita no son acordes.
+ */
+function aGrados(texto: string, version: Version, request: VersionsRequest): string {
+  const { mode } = request.key;
+  const tonica = pitchClassFromName(request.key.tonic);
+  const grado = new Map<string, DegreeSymbol>();
+  const anota = (degree: DegreeSymbol, especie: EspecieDeBloque | undefined) => {
+    const conEspecie = cifrado(tonica, mode, degree, especie);
+    const triada = cifrado(tonica, mode, degree, undefined);
+    for (const simbolo of [conEspecie, triada]) {
+      if (!grado.has(simbolo)) {
+        grado.set(simbolo, degree);
+      }
+    }
+  };
+  version.steps.forEach((paso) => anota(paso.degree, paso.especie));
+  request.progression.forEach((paso) => anota(paso.degree, paso.especie));
+  return texto.replace(ACORDE_ESCRITO, (simbolo: string, _: string, donde: number) => {
+    const despues = texto.slice(donde + simbolo.length);
+    const noEsUnAcorde =
+      /^\s+(mayor|menor)/u.test(despues) ||
+      (simbolo === 'A' &&
+        /^\s+\p{Ll}/u.test(despues) &&
+        // «El A del 1» es el acorde: detrás de un artículo no hay preposición.
+        !/\b(?:el|del|al|tu|su|de|por|y|en)\s+$/iu.test(texto.slice(0, donde)));
+    const suyo = grado.get(simbolo) ?? grado.get(simbolo.replace(/7$/u, ''));
+    return noEsUnAcorde || suyo === undefined
+      ? simbolo
+      : `${suyo}${simbolo.endsWith('7') && !simbolo.endsWith('maj7') ? '7' : ''}`;
+  });
+}
+
+/** Un acorde escrito: `C`, `F#m`, `Bb`, `Bdim`, `G7`. Solo en mayúscula. */
+const ACORDE_ESCRITO =
+  /(?<![\p{L}#\d/])([A-G](?:#|b)?(?:maj7|m7|m|dim|aug|sus2|sus4|7|5)?)(?![\p{L}#\d])/gu;
+
+/** Un grado escrito: `IV`, `bVII`, `vii°`, `V/vi`. */
+const GRADO_ESCRITO =
+  /(?<![\p{L}/#\d])(b?(?:VII|VI|IV|III|II|V|I|vii|vi|iv|iii|ii|v|i)°?(?:\/(?:ii|iii|iv|vi|V))?)(?![\p{L}\d°/])/gu;
+
+/** Las notas de un compás de la salida, con su especie, en semitonos sobre la tónica. */
+function notasDe(paso: VersionStepOut, mode: KeyMode, tonica: PitchClass): Set<number> {
+  const acorde = blockChord(tonica, mode, writtenBlock('', paso.degree, 1, paso.especie));
+  return new Set(acorde.notes.map((nota) => (nota - tonica + 12) % 12));
+}
+
+/** La fundamental de un grado, en semitonos sobre la tónica. */
+function fundamental(degree: DegreeSymbol, mode: KeyMode, tonica: PitchClass): number {
+  return (blockChord(tonica, mode, writtenBlock('', degree, 1)).root - tonica + 12) % 12;
+}
+
+/** Las escalas de los dos modos, en semitonos sobre la tónica. */
+const DEL_MAYOR = new Set([0, 2, 4, 5, 7, 9, 11]);
+const DEL_MENOR = new Set([0, 2, 3, 5, 7, 8, 10]);
+/** Lo propio del menor lleva también la sensible: el V mayor de una cadencia no es prestado. */
+const PROPIO_DEL_MENOR = new Set([...DEL_MENOR, 11]);
+
+/**
+ * Si el acorde de ese compás es prestado del modo paralelo: **todas sus notas** son
+ * del otro modo y alguna no es del suyo. Un bVII o un iv en mayor lo son; un V/vi
+ * no, porque su sensible no es de ninguno de los dos.
+ */
+function esPrestado(paso: VersionStepOut, mode: KeyMode, tonica: PitchClass): boolean {
+  const propias = mode === 'major' ? DEL_MAYOR : PROPIO_DEL_MENOR;
+  const ajenas = mode === 'major' ? DEL_MENOR : DEL_MAYOR;
+  const notas = [...notasDe(paso, mode, tonica)];
+  return notas.some((nota) => !propias.has(nota)) && notas.every((nota) => ajenas.has(nota));
+}
+
+/**
+ * Si ese compás es un sustituto tritonal del siguiente: un acorde mayor o de
+ * séptima de dominante **medio tono por encima** de adonde va —el bII7 que va al I—.
+ *
+ * Y con algo que lo distinga de un acorde de la tonalidad que baja medio tono por
+ * casualidad: la séptima de dominante, o una fundamental de fuera de la escala. El
+ * IV que va al iii no es ningún sustituto.
+ */
+function esTritonal(
+  pasos: readonly VersionStepOut[],
+  i: number,
+  mode: KeyMode,
+  tonica: PitchClass,
+): boolean {
+  const siguiente = pasos[i + 1];
+  if (siguiente === undefined) {
+    return false;
+  }
+  const paso = pasos[i]!;
+  const raiz = fundamental(paso.degree, mode, tonica);
+  const notas = notasDe(paso, mode, tonica);
+  const escala = mode === 'major' ? DEL_MAYOR : PROPIO_DEL_MENOR;
+  return (
+    raiz === (fundamental(siguiente.degree, mode, tonica) + 1) % 12 &&
+    notas.has((raiz + 4) % 12) &&
+    !notas.has((raiz + 11) % 12) &&
+    (paso.especie === 'dominant7' || !escala.has(raiz))
+  );
+}
+
+/**
+ * Si en el compás `i` empieza un coro de blues con el cambio rápido: la tónica, el
+ * cuarto grado en su compás 2 y la tónica otra vez, los dos primeros del mismo
+ * largo, y detrás la forma del blues (`formaDeBlues`, la misma vara que el juez y
+ * que quien construye los coros).
+ *
+ * **En cualquier coro, no solo al principio de la salida.** Se miraban los tres
+ * primeros compases, y al continuar un blues el cambio rápido va en el compás 2 del
+ * coro **nuevo** (`coros`, en `paths.ts`): «Otro coro con cambio rápido» y su frase
+ * se daban por mentira, con el cambio ahí. Y con la forma, porque el cambio rápido
+ * solo existe en el 2 de un blues: `I IV I V` en cuatro compases no lo lleva.
+ */
+function empiezaConCambioRapido(
+  pasos: readonly VersionStepOut[],
+  i: number,
+  mode: KeyMode,
+): boolean {
+  const tonica = mode === 'major' ? 'I' : 'i';
+  const cuarto = mode === 'major' ? 'IV' : 'iv';
+  const [uno, dos, tres] = pasos.slice(i, i + 3);
+  return (
+    tres !== undefined &&
+    uno!.degree === tonica &&
+    dos!.degree === cuarto &&
+    tres.degree === tonica &&
+    uno!.beats === dos!.beats &&
+    formaDeBlues(mode, (compas) => pasos[i + compas]?.degree)
+  );
+}
+
+/**
+ * Cómo se nombra cada movimiento, cuáles valen para que nombrarlo sea verdad, y
+ * qué más lo hace verdad sin el movimiento.
+ *
+ * **Lo que mira es lo que suena, no solo lo que se declaró.** El generador construye
+ * grados prestados, dominantes secundarias y sustitutos tritonales sin pasar por un
+ * movimiento de `reharmonization.ts`, y con el movimiento como única prueba
+ * «prestado del menor» sobre un bVII se daba por mentira (lo midió el examen contra
+ * `qwen3:8b`). Así que cada palabra vale también si el acorde **es** eso en la
+ * canción: un grado prestado, un V/x, un bII7 que va al I, un grado que cambia de
+ * tercera sobre la misma fundamental.
+ *
+ * Y la teoría suelta, como antes: **el relativo** de la tónica —el vi, o el III en
+ * menor— se puede nombrar si suena, y **la cadencia rota** es un V que va al vi —al
+ * VI en menor—, se haya llegado ahí por el movimiento o por un final nuevo.
+ */
+const MOVIMIENTOS_ESCRITOS: readonly {
+  readonly patron: RegExp;
+  readonly valen: readonly MoveId[];
+  readonly tambien: (
+    pasos: readonly VersionStepOut[],
+    mode: KeyMode,
+    tonica: PitchClass,
+  ) => boolean;
+}[] = [
+  {
+    patron: /relativ/u,
+    valen: ['relativo', 'interrumpida'],
+    tambien: (pasos, mode) =>
+      pasos.some((paso) => paso.degree === (mode === 'major' ? 'vi' : 'III')),
+  },
+  {
+    patron: /triton/u,
+    valen: ['tritono'],
+    tambien: (pasos, mode, tonica) => pasos.some((_, i) => esTritonal(pasos, i, mode, tonica)),
+  },
+  {
+    patron: /prestad|prestamo|modo paralelo/u,
+    valen: ['prestamo'],
+    tambien: (pasos, mode, tonica) => pasos.some((paso) => esPrestado(paso, mode, tonica)),
+  },
+  {
+    patron: /secundari/u,
+    valen: ['dominante'],
+    tambien: (pasos) => pasos.some((paso) => paso.degree.includes('/')),
+  },
+  {
+    patron: /interrumpid|cadencia rota|deceptiv/u,
+    valen: ['interrumpida'],
+    tambien: (pasos, mode) =>
+      pasos.some(
+        (paso, i) =>
+          i > 0 && pasos[i - 1]!.degree === 'V' && paso.degree === (mode === 'major' ? 'vi' : 'VI'),
+      ),
+  },
+  {
+    // «Misma función»: otro acorde a una tercera que hace el mismo papel —el iv
+    // por el ii° en menor, el vii° por el V—. Vale si algo tuyo cambió de grado
+    // sin cambiar de papel, lo haya hecho el movimiento o el generador.
+    patron: /misma funci/u,
+    valen: ['funcion'],
+    tambien: (pasos) =>
+      pasos.some(
+        (paso) =>
+          paso.from !== null &&
+          paso.from !== paso.degree &&
+          roleOfDegreeSymbol(paso.from) === roleOfDegreeSymbol(paso.degree),
+      ),
+  },
+  {
+    patron: /mayor por menor|menor por mayor|intercambi/u,
+    valen: ['intercambio'],
+    // Lo tuyo que cambia de tercera sin mover la fundamental, lo haya hecho el
+    // movimiento o el generador.
+    tambien: (pasos, mode, tonica) =>
+      pasos.some((paso) => {
+        if (paso.from === null || paso.from === paso.degree) {
+          return false;
+        }
+        const raiz = fundamental(paso.degree, mode, tonica);
+        const menor = (degree: DegreeSymbol) =>
+          notasDe({ ...paso, degree, especie: undefined }, mode, tonica).has((raiz + 3) % 12);
+        return (
+          fundamental(paso.from, mode, tonica) === raiz && menor(paso.from) !== menor(paso.degree)
+        );
+      }),
+  },
+
+  {
+    // La predominante: lo tuyo que pasa a ser una subdominante de la escala justo
+    // delante de la dominante, lo haya hecho el movimiento o el generador.
+    patron: /predominante/u,
+    valen: ['predominante'],
+    tambien: (pasos) =>
+      pasos.some(
+        (paso, i) =>
+          paso.from !== null &&
+          paso.from !== paso.degree &&
+          ['ii', 'IV', 'ii°', 'iv'].includes(paso.degree) &&
+          ['V', 'v'].includes(pasos[i + 1]?.degree ?? ''),
+      ),
+  },
+  {
+    // «Sin el cambio rápido» dice que no está, y eso no hay que comprobarlo: lo dicen
+    // los coros de blues que no lo llevan.
+    patron: /(?<!\bsin (?:el )?)cambio rapido/u,
+    valen: ['cambio-rapido'],
+    tambien: (pasos, mode) => pasos.some((_, i) => empiezaConCambioRapido(pasos, i, mode)),
+  },
+  {
+    // El semitono frigio: un acorde mayor medio tono por encima del siguiente, que
+    // baja a él. Lo cumplen el bII que va al I y el VI que va al V de una andaluza.
+    patron: /semitono frigio|cadencia frigia|frigio mayor/u,
+    valen: ['frigio'],
+    tambien: (pasos, mode, tonica) =>
+      pasos.some((paso, i) => {
+        const siguiente = pasos[i + 1];
+        if (siguiente === undefined) {
+          return false;
+        }
+        const raiz = fundamental(paso.degree, mode, tonica);
+        return (
+          raiz === (fundamental(siguiente.degree, mode, tonica) + 1) % 12 &&
+          notasDe(paso, mode, tonica).has((raiz + 4) % 12)
+        );
+      }),
+  },
+  {
+    // Partir una dominante en su ii y ella solo lo hace el movimiento: sin él, hablar
+    // de partir es contar algo que no se ha hecho.
+    patron: /partir la dominante|se parte en dos|dos mitades|primera mitad pasa/u,
+    valen: ['ii-v'],
+    tambien: () => false,
+  },
+];
+
+const NIEGA_EL_CIERRE =
+  /no (la |lo )?(alcanza|resuelve|cierra|llega)|sin (cerrar|resolver)|queda abiert|deja abiert|suspendid/u;
+
+const AFIRMA_EL_CIERRE =
+  /(cierr[ao]|resuelve|aterriza|vuelve|cae|llega) (en|a) (la )?tonica|vuelve a casa/u;
+
+/**
+ * El cifrado de un grado con su especie: `G7`, `C5`, `Dsus4`.
+ *
+ * Por `blockChord`, que es el único sitio que sabe escribir una especie encima de
+ * un grado: con `resolveProgression` a secas salían tríadas.
+ */
+function cifrado(
+  tonica: PitchClass,
+  mode: KeyMode,
+  degree: DegreeSymbol,
+  especie: EspecieDeBloque | undefined,
+): string {
+  return blockChord(tonica, mode, writtenBlock('', degree, 1, especie)).symbol;
+}
+
+/**
+ * La especie con la que vuelve un compás de una salida.
+ *
+ * Lo que dice el menú manda: una especie es esa especie y `null` es la tríada.
+ * **Si no dice nada y el compás es tuyo sin cambiar de grado, la tuya**: el
+ * generador puede no haberla copiado, y quedarse con la salida no puede quitarle
+ * la séptima a lo que no ha tocado.
+ */
+function especieDe(
+  paso: { readonly degree: DegreeSymbol; readonly especie?: EspecieDeBloque | null },
+  original: VersionStep | undefined,
+): EspecieDeBloque | undefined {
+  if (paso.especie !== undefined) {
+    return paso.especie ?? undefined;
+  }
+  return original?.degree === paso.degree ? original.especie : undefined;
+}
+
+/** Una salida del menú, ya con sus cifrados recalculados y lo que había en cada compás. */
+function versionDe(
+  salida: SalidaPosible,
+  request: VersionsRequest,
+  title: string,
+  why: string,
+): Version {
+  const { mode } = request.key;
+  const tonica = pitchClassFromName(request.key.tonic);
+  const original = request.progression;
+
+  // Lo que había en cada compás, por posición; o por pulsos si la salida parte una
+  // dominante en su ii y ella (`gruposPorPulsos`): por posición, todo lo de detrás
+  // del partido decía venir del compás de al lado.
+  const todos = salida.secciones.flatMap((seccion) => seccion.steps);
+  const grupos =
+    salida.path === 'rearmonizar' && todos.length !== original.length
+      ? gruposPorPulsos(original, todos)
+      : null;
+  const deDonde: (VersionStep | undefined)[] =
+    grupos === null
+      ? todos.map((_, i) => original[i])
+      : grupos.flatMap((grupo, i) => grupo.map(() => original[i]));
+  let cursor = 0;
+  const sections: VersionSection[] = salida.secciones.map((seccion) => ({
+    name: seccion.name,
+    yours: seccion.yours,
+    steps: seccion.steps.map((step) => {
+      const antes = deDonde[cursor];
+      cursor += 1;
+      const especie = especieDe(step, antes);
+      return {
+        degree: step.degree,
+        ...(especie === undefined ? {} : { especie }),
+        beats: step.beats,
+        symbol: cifrado(tonica, mode, step.degree, especie),
+        from: antes?.degree ?? null,
+        ...(antes === undefined
+          ? {}
+          : {
+              fromSymbol: cifrado(tonica, mode, antes.degree, antes.especie),
+              fromBeats: antes.beats,
+            }),
+        move: step.move,
+      };
+    }),
+  }));
+
+  const sinTexto: Version = {
+    title: '',
+    why: '',
+    path: salida.path,
+    sections,
+    steps: sections.flatMap((seccion) => seccion.steps),
+  };
+  return {
+    ...sinTexto,
+    // Lo que diga algo que la salida no tiene se cambia por lo que dice el dominio,
+    // que la construyó y no puede equivocarse sobre ella. No se tira la salida: los
+    // acordes son buenos, lo que sobra es la frase.
+    title: loQueNoEsta(title, sinTexto, request) === null ? title : salida.nombre,
+    why: loQueNoEsta(why, sinTexto, request) === null ? why : salida.que,
+  };
+}
+
+/**
+ * Si un texto sobre una salida del menú pasa `loQueNoEsta`, tal y como lo leería
+ * el validador.
+ *
+ * Lo usan el prompt, para no enseñarle al modelo como porqué un motivo del juez
+ * que luego se taparía, y el respaldo sin IA, para escribir el suyo con los que
+ * pasan. **Un motivo puede ser verdad y no pasar**: «Vuelve a tu principio por V
+ * I: la dominante resuelve en la tónica» cuenta la vuelta de un puente que acaba
+ * en V, y aquí «resuelve en la tónica» se lee como que cierra. Se prefiere
+ * callarlo a aflojar el validador, que es lo que caza al modelo cuando dice que
+ * cierra lo que se queda abierto.
+ */
+export function seSostiene(
+  texto: string,
+  salida: SalidaPosible,
+  request: VersionsRequest,
+): boolean {
+  return loQueNoEsta(texto, versionDe(salida, request, '', ''), request) === null;
 }
 
 /**
  * Valida lo que devuelve el modelo contra el dominio.
  *
- * **La declaración subió del compás al camino**, y esa es toda la diferencia con
- * lo que había. Antes cada compás cambiado declaraba su movimiento y `isMove` lo
- * volvía a aplicar; eso funcionaba porque una versión era la misma canción con
- * otros acordes. Ahora una salida puede alargar, acortar o repartir de otra
- * manera, así que lo que se declara es **cuál de las cinco salidas ha tomado**, y
- * `isValidPath` lo comprueba contra el dominio: que un `seguir` mantenga de
- * verdad tus compases y cierre, que un `estirar` no toque un solo acorde, que un
- * `contraste` sepa volver al principio.
+ * **El modelo ya no escribe salidas: las elige.** El menú lo construye
+ * `salidasPosibles` y va numerado en el prompt; lo que vuelve es un número, un
+ * título y un porqué. Las salidas son válidas por construcción —salen de los
+ * movimientos, el grafo y las cadencias que antes las juzgaban, y pasan
+ * `songProblem` antes de entrar en el menú—, así que lo que queda por comprobar
+ * aquí es lo que el modelo sí pone:
  *
- * Debajo, la comprobación nueva: **cada salto que no estaba en tu canción tiene
- * que existir en `nextDegrees`**, el grafo armónico que ya estaba escrito. Y la
- * vieja sigue viva donde tiene sentido: una salida `rearmonizar` declara su
- * movimiento compás a compás, exactamente como antes.
+ * - **que el número exista**, y que no repita uno ya elegido;
+ * - **que el título y el porqué no mientan** (`loQueNoEsta`): si nombran un acorde
+ *   o un movimiento que no está, se cambian por los del dominio.
  *
- * Los cifrados no se creen: se recalculan desde los grados.
+ * Los cifrados no se creen: se recalculan desde los grados, como siempre.
  */
 export function validateVersions(payload: unknown, request: VersionsRequest): Version[] {
   if (!isRecord(payload) || !Array.isArray(payload['versions'])) {
     return [];
   }
-
-  const { mode } = request.key;
-  const tonic: PitchClass = pitchClassFromName(request.key.tonic);
-  const validDegrees = degreesFor(mode) as readonly string[];
-  const original = request.progression;
-
+  const posibles = salidasDe(request);
+  const elegidas = new Set<number>();
   const versions: Version[] = [];
 
   for (const raw of payload['versions'].slice(0, MAX_VERSIONS)) {
     if (!isRecord(raw)) {
       continue;
     }
-    const title = raw['title'];
-    const why = raw['why'];
-    if (typeof title !== 'string' || title === '' || typeof why !== 'string' || why === '') {
+    const { opcion, title, why } = raw;
+    if (
+      typeof opcion !== 'number' ||
+      !Number.isInteger(opcion) ||
+      posibles[opcion - 1] === undefined ||
+      elegidas.has(opcion) ||
+      typeof title !== 'string' ||
+      title.trim() === '' ||
+      typeof why !== 'string' ||
+      why.trim() === ''
+    ) {
       continue;
     }
-
-    // Una salida que no dice cuál es no se puede comprobar, así que no vale.
-    const path = pathById(raw['path']);
-    // Y de la clase que se pidió: una salida que retoca cuando se pedía continuar
-    // no es lo que se ha pedido, aunque en sí misma sea válida.
-    if (path === null || kindOfPath(path.id) !== request.kind) {
-      continue;
-    }
-
-    // Siempre por partes, aunque sea una sola: dos formas distintas eran dos
-    // sitios donde el modelo podía equivocarse, y se equivocaba en todos.
-    const crudas = leerSecciones(raw);
-    if (crudas === null) {
-      continue;
-    }
-
-    const propuesta: ProposedSection[] = [];
-    let rota = false;
-    for (const cruda of crudas) {
-      const pasos: ProposedStep[] = [];
-      for (const step of cruda.steps) {
-        if (!isRecord(step)) {
-          rota = true;
-          break;
-        }
-        const degree = step['degree'];
-        const beats = step['beats'];
-        if (
-          typeof degree !== 'string' ||
-          !validDegrees.includes(degree) ||
-          typeof beats !== 'number'
-        ) {
-          rota = true;
-          break;
-        }
-        // Se reconstruye tal cual lo dijo: los pulsos no se redondean ni el
-        // movimiento se normaliza, porque quien juzga es el dominio y taparle lo
-        // que ha dicho es dejar pasar lo que se quería atrapar.
-        pasos.push({ degree: degree as DegreeSymbol, beats, move: step['move'] });
-      }
-      if (rota) {
-        break;
-      }
-      propuesta.push({ name: cruda.name, yours: cruda.yours, steps: pasos });
-    }
-    if (rota) {
-      continue;
-    }
-
-    const conLaTuya = montarLaCancion(path.id, original, raw['desde'], propuesta);
-    if (conLaTuya === null || songProblem(mode, path.id, original, conLaTuya) !== null) {
-      continue;
-    }
-
-    const planos = conLaTuya.flatMap((seccion) => seccion.steps);
-    const symbols = resolveProgression(
-      tonic,
-      mode,
-      planos.map((step) => step.degree),
-    ).map((chord) => chord.symbol);
-
-    let cursor = 0;
-    const sections: VersionSection[] = conLaTuya.map((seccion) => ({
-      name: seccion.name.trim(),
-      yours: seccion.yours,
-      steps: seccion.steps.map((step) => {
-        const index = cursor;
-        cursor += 1;
-        return {
-          degree: step.degree,
-          beats: step.beats,
-          symbol: symbols[index]!,
-          from: original[index]?.degree ?? null,
-          // **El movimiento solo significa algo en una rearmonización**, que es la
-          // única salida que sustituye acordes; en las otras lo que cambia es la
-          // forma. Y el esquema obliga a que el campo venga en todos los compases,
-          // así que el modelo lo rellena igualmente: se ha visto un `estirar` —que
-          // no toca un solo acorde— declarando «interrumpida» en los cuatro.
-          // Pintarlo sería enseñar una explicación falsa de un compás que no ha
-          // cambiado. No se descarta la salida por eso: el campo es un artefacto
-          // de haberlo hecho obligatorio, y su camino sí se ha comprobado.
-          move: path.id === 'rearmonizar' ? (moveById(step.move)?.id ?? null) : null,
-        };
-      }),
-    }));
-
-    versions.push({
-      // Recortados y no descartados: un porqué de más es prosa de sobra, no una
-      // salida mala, y tirar la progresión por eso sería tirar lo que sí vale.
-      title: title.slice(0, MAX_VERSION_TITLE_LENGTH),
-      why: why.slice(0, MAX_VERSION_WHY_LENGTH),
-      path: path.id,
-      sections,
-      steps: sections.flatMap((seccion) => seccion.steps),
-    });
+    elegidas.add(opcion);
+    versions.push(
+      versionDe(
+        posibles[opcion - 1]!,
+        request,
+        // Recortados y no descartados: un porqué de más es prosa de sobra, no una
+        // salida mala.
+        title.trim().slice(0, MAX_VERSION_TITLE_LENGTH),
+        why.trim().slice(0, MAX_VERSION_WHY_LENGTH),
+      ),
+    );
   }
 
   return versions;

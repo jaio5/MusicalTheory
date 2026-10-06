@@ -11,6 +11,7 @@ import {
   earExercises,
   findUnit,
   pitchClassFromName,
+  presentacionDe,
   UNIT_ORDER,
   type EarUnit as EarUnitDef,
 } from '@core/music';
@@ -56,11 +57,24 @@ function pintar(unitId: string, account: Account = ANONYMOUS) {
   );
 }
 
+/**
+ * Pasa de la presentación a las preguntas, por la teoría si la hay: lo que hace
+ * quien llega a una unidad.
+ */
+async function hastaLasPreguntas(): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+  const aPrueba = screen.queryByRole('button', { name: 'Ponerlo a prueba' });
+  if (aPrueba !== null) {
+    await userEvent.click(aPrueba);
+  }
+}
+
 /** La primera unidad del temario: la única abierta sin haber hecho nada. */
 const PRIMERA = UNIT_ORDER[0]!;
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   empujar.mockReset();
 });
 
@@ -79,7 +93,7 @@ describe('cuando no se puede entrar', () => {
     pintar(profesional);
 
     expect(screen.getAllByText(/Grado Profesional/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Elemental son gratis/)).toBeInTheDocument();
+    expect(screen.getByText(/Elemental —el lenguaje musical— son gratis/)).toBeInTheDocument();
   });
 
   it('una que el temario aun no ha abierto no ofrece pagar: se abre terminando la anterior', () => {
@@ -159,6 +173,33 @@ describe('la unidad abierta', () => {
   });
 });
 
+/**
+ * Todas las unidades empiezan por su presentación, también las de oído: la del
+ * dictado de intervalos es la única que suena con notas sueltas y no se puede
+ * quedar fuera.
+ */
+describe('la presentación', () => {
+  it('el dictado de intervalos se presenta antes de sonar', async () => {
+    const DICTADO = 'e2-oido-intervalos';
+    localStorage.setItem(
+      'caos-ordenado:aprender',
+      JSON.stringify({ ...EMPTY_PROGRESS, done: UNIT_ORDER.slice(0, UNIT_ORDER.indexOf(DICTADO)) }),
+    );
+    useSessionStore.getState().actions.reset();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    pintar(DICTADO, PRO);
+
+    expect(screen.getByText(presentacionDe(DICTADO).resumen)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Escuchar' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+
+    expect(screen.getByRole('heading', { name: 'Compruébalo de oído' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Escuchar' })).toBeInTheDocument();
+  });
+});
+
 describe('el avance de quien mira', () => {
   it('con la anterior hecha, la siguiente se abre', () => {
     localStorage.setItem(
@@ -181,6 +222,7 @@ describe('contestar la unidad entera', () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
 
     pintar(PRIMERA);
+    await hastaLasPreguntas();
 
     // Se contesta lo primero que haya: acertar o fallar no cambia que la unidad
     // termine —fallar no bloquea— y lo que se prueba aquí es el final.
@@ -224,7 +266,7 @@ describe('una unidad de tocar', () => {
    */
   const DE_TOCAR = UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!;
 
-  it('se abre con su mástil, no con preguntas', () => {
+  it('se presenta antes, y luego se abre con su mástil, no con preguntas', async () => {
     // La primera de tocar va después de la primera de teoría, así que hay que
     // haberla hecho para que esté abierta.
     const antes = UNIT_ORDER.slice(0, UNIT_ORDER.indexOf(DE_TOCAR));
@@ -237,6 +279,14 @@ describe('una unidad de tocar', () => {
 
     pintar(DE_TOCAR, PRO);
 
+    // Primero de qué va: la escala no se pide a ciegas.
+    expect(screen.getByText(presentacionDe(DE_TOCAR).resumen)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Aprender' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+
+    expect(screen.getByRole('heading', { name: 'Tócala' })).toHaveFocus();
+    expect(screen.getByRole('region', { name: 'Aprender' })).toBeInTheDocument();
     expect(screen.getByText(/XP$/)).toBeInTheDocument();
     expect(screen.getByText(/Tonalidad:/)).toBeInTheDocument();
     // Sin preguntas: lo que hay es el mástil esperando a que suene algo.
@@ -300,6 +350,7 @@ describe('lo que se falla', () => {
   it('con plan, una pregunta de teoria vuelve a la cola', async () => {
     abrir(PRIMERA);
     pintar(PRIMERA, PRO);
+    await hastaLasPreguntas();
 
     expect(await hastaFallarUna(), 'no se llegó a fallar ninguna').toBe(true);
 
@@ -324,6 +375,7 @@ describe('lo que se falla', () => {
       (opcion) => !opcion.correct,
     )!;
     pintar(DE_OIDO, PRO);
+    await hastaLasPreguntas();
 
     await userEvent.click(screen.getByRole('button', { name: mala.text }));
 
@@ -338,6 +390,7 @@ describe('lo que se falla', () => {
     abrir(DE_OIDO);
     const ejercicios = earExercises(unidad.ear, pitchClassFromName('C'), 'major');
     pintar(DE_OIDO, PRO);
+    await hastaLasPreguntas();
 
     for (const ejercicio of ejercicios) {
       const buena = ejercicio.choices.find((opcion) => opcion.correct)!;
@@ -357,6 +410,7 @@ describe('lo que se falla', () => {
       (opcion) => !opcion.correct,
     )!;
     pintar(DE_OIDO);
+    await hastaLasPreguntas();
 
     await userEvent.click(screen.getByRole('button', { name: mala.text }));
 
@@ -371,6 +425,7 @@ describe('lo que se falla', () => {
   it('terminada la ultima, Seguir lleva al camino', async () => {
     abrir(PRIMERA, { done: UNIT_ORDER.filter((id) => id !== PRIMERA) });
     pintar(PRIMERA, PRO);
+    await hastaLasPreguntas();
     for (let vuelta = 0; vuelta < 20; vuelta += 1) {
       const seguir = screen.queryByRole('button', { name: /Siguiente|Terminar la unidad/ });
       if (seguir !== null) {
@@ -408,13 +463,13 @@ describe('lo que se falla', () => {
  */
 describe('lo que dice la barra de tonalidad', () => {
   it('sin tonalidad, pide elegirla', () => {
-    render(<UnitScreen unitId="e1-grados" />);
+    render(<UnitScreen unitId={PRIMERA} />);
     expect(screen.getByText(/Elige una tonalidad y la unidad se escribe/)).toBeInTheDocument();
   });
 
   it('con tonalidad, cuenta que se puede cambiar', () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('G'), mode: 'major' });
-    render(<UnitScreen unitId="e1-grados" />);
+    render(<UnitScreen unitId={PRIMERA} />);
     expect(screen.getByText(/Las preguntas se escriben con los acordes/)).toBeInTheDocument();
   });
 });
@@ -432,6 +487,20 @@ describe('lo que tapa la rueda', () => {
     pintar(PRIMERA);
 
     expect(contenido()).toHaveAttribute('inert');
+  });
+
+  // Inerte y a todo color parecía viva: «Empezar» se veía entero bajo el panel y
+  // no respondía. Lo tapado se atenúa con la variante `inert:` de la casa.
+  it('y se ve apagada mientras la rueda la tapa, y vuelve al cerrarla', async () => {
+    pintar(PRIMERA);
+    expect(contenido()).toHaveClass('inert:opacity-50');
+    expect(contenido()).toHaveAttribute('inert');
+
+    const detalles = document.querySelector('details')!;
+    detalles.open = false;
+    detalles.dispatchEvent(new Event('toggle'));
+
+    await waitFor(() => expect(contenido()).not.toHaveAttribute('inert'));
   });
 
   it('al cerrarla, la unidad vuelve a responder', () => {

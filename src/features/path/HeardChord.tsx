@@ -147,7 +147,9 @@ export function HeardChord({
                   // repetir: se toca un acorde y se pulsa.
                   apuntarHecho('oido');
                 }}
-                className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 ml-auto rounded-sm border px-2 py-1 text-xs font-medium"
+                // `min-h-tap`: se pulsa con la guitarra colgada y medía lo que
+                // su letra, veintidós píxeles.
+                className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 min-h-tap ml-auto rounded-md border px-3 py-1 text-xs font-medium"
               >
                 {bloque !== null && onPoner !== undefined ? 'Meterlo en la canción' : 'Probarlo'}
               </button>

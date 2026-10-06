@@ -77,6 +77,16 @@ beforeEach(() => {
 });
 
 describe('Escribir en la rejilla del punteo', () => {
+  // La nota de cada fila es lo que se mira para saber dónde escribir, y a diez
+  // píxeles estaba por debajo del suelo de esta interfaz, que son doce.
+  it('el nombre de cada fila se lee al suelo de la casa', () => {
+    pintar();
+    const nombre = screen.getAllByRole('button', { name: /^Escribir C en/ })[0]!.firstElementChild;
+
+    expect(nombre).toHaveClass('text-xs');
+    expect(nombre).not.toHaveClass('text-[10px]');
+  });
+
   // Las filas llevan el nombre de su nota, que es lo que se lee al escribir.
   it('cada fila dice que nota escribe', () => {
     pintar();

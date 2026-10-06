@@ -132,27 +132,32 @@ export function TeacherScreen() {
         la rueda es para quien quiere otra.
       */}
       <Section title="La pregunta">
-        {accounts ? (
-          <Teacher />
-        ) : (
-          /*
+        {/* En una caja con nombre para el recorrido de la primera visita: el
+            apartado es de `ui/` y no lleva atributos de fuera. */}
+        <div data-tour="profesor-pregunta">
+          {accounts ? (
+            <Teacher />
+          ) : (
+            /*
             **Sin cuentas, el profesor no está, y se dice.** Prometía «quince
             preguntas al mes» y mandaba a entrar en `/cuenta`, donde lo único que
             se leía era que aquí no hay cuentas: un callejón con dos puertas. El
             profesor necesita saber de quién es el gasto, y en esta copia no hay de
             quién.
           */
-          <div className="flex max-w-prose flex-col items-start gap-3">
-            <p className="text-text-muted text-sm">
-              Esta copia de la aplicación no tiene cuentas configuradas, y el profesor necesita una:
-              cada pregunta es una llamada a un modelo que se paga, y hay que saber de quién es el
-              gasto. Lo que pasa en tu navegador —el camino, componer, afinar— funciona igual.
-            </p>
-            <Link href="/aprender" className={estiloBoton('primary')}>
-              Seguir aprendiendo
-            </Link>
-          </div>
-        )}
+            <div className="flex max-w-prose flex-col items-start gap-3">
+              <p className="text-text-muted text-sm">
+                Esta copia de la aplicación no tiene cuentas configuradas, y el profesor necesita
+                una: cada pregunta es una llamada a un modelo que se paga, y hay que saber de quién
+                es el gasto. Lo que pasa en tu navegador —el camino, componer, afinar— funciona
+                igual.
+              </p>
+              <Link href="/aprender" className={estiloBoton('primary')}>
+                Seguir aprendiendo
+              </Link>
+            </div>
+          )}
+        </div>
       </Section>
     </Screen>
   );

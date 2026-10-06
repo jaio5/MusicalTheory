@@ -6,6 +6,8 @@ import { useListening, type ListeningDeps } from '@state/use-listening';
 import { mientrasTrabaja } from '@ui/Button';
 import { IconoMicro, IconoMicroMudo } from '@ui/icons';
 
+import { ElegirMicro } from './ElegirMicro';
+
 export type MicButtonProps = ListeningDeps & {
   /**
    * Si la pastilla se anuncia. **No** donde otra pieza ya dice lo mismo con más
@@ -91,51 +93,80 @@ export function MicButton({ anuncia = true, ...deps }: MicButtonProps = {}) {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <button
-        type="button"
-        // Mientras el navegador pide permiso no hace caso, **pero no se apaga**:
-        // apagado con el foco dentro, el foco caía al `<body>` justo después de
-        // pulsarlo con Intro, y quien no ve la pantalla perdía el sitio.
-        {...mientrasTrabaja(busy, () => void (isListening ? stop() : start()))}
-        aria-pressed={isListening}
-        aria-label={isListening ? 'Dejar de escuchar la guitarra' : 'Escuchar la guitarra'}
-        title={isListening ? 'Dejar de escuchar' : 'Escuchar la guitarra'}
-        className={`size-tap relative flex shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-[background-color,border-color,transform] duration-150 active:scale-95 aria-disabled:cursor-progress aria-disabled:opacity-50 aria-disabled:active:scale-100 ${
-          isListening
-            ? 'border-tube-bright bg-tube/25 text-tube-bright'
-            : 'border-border bg-surface text-text-muted not-aria-disabled:hover:border-brass not-aria-disabled:hover:text-brass-bright'
-        }`}
-      >
-        <span data-senal className="flex">
-          {isListening ? <IconoMicro /> : <IconoMicroMudo />}
-        </span>
-        {isListening && (
-          <span
-            aria-hidden="true"
-            className="border-tube-bright absolute inset-0 animate-ping rounded-full border opacity-30"
-          />
-        )}
-      </button>
+      {/* El botón y el mando de cuál, **pegados**: son el mismo aparato, como el
+          micro y su flecha en cualquier videollamada. Sin hueco entre los dos
+          porque cada uno ya mide sus 44 px y el sitio de la barra es caro. */}
+      <div className="flex shrink-0 items-center">
+        <button
+          type="button"
+          // Mientras el navegador pide permiso no hace caso, **pero no se apaga**:
+          // apagado con el foco dentro, el foco caía al `<body>` justo después de
+          // pulsarlo con Intro, y quien no ve la pantalla perdía el sitio.
+          {...mientrasTrabaja(busy, () => void (isListening ? stop() : start()))}
+          aria-pressed={isListening}
+          aria-label={isListening ? 'Dejar de escuchar la guitarra' : 'Escuchar la guitarra'}
+          title={isListening ? 'Dejar de escuchar' : 'Escuchar la guitarra'}
+          className={`size-tap relative flex shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-[background-color,border-color,transform] duration-150 active:scale-95 aria-disabled:cursor-progress aria-disabled:opacity-50 aria-disabled:active:scale-100 ${
+            isListening
+              ? 'border-tube-bright bg-tube/25 text-tube-bright'
+              : 'border-border bg-surface text-text-muted not-aria-disabled:hover:border-brass not-aria-disabled:hover:text-brass-bright'
+          }`}
+        >
+          <span data-senal className="flex">
+            {isListening ? <IconoMicro /> : <IconoMicroMudo />}
+          </span>
+          {isListening && (
+            <span
+              aria-hidden="true"
+              className="border-tube-bright absolute inset-0 animate-ping rounded-full border opacity-30"
+            />
+          )}
+        </button>
+        <ElegirMicro />
+      </div>
 
       {/* Vive dentro de un `aria-live` para que quien no ve la pantalla se entere
           de la nota igual que quien la ve: es la respuesta a haber tocado. Se
           apaga con `off` y no desmontándola, para que al volver a hablar la
           región ya estuviera ahí: una que nace con el texto dentro no se lee. */}
       <span aria-live={habla ? 'polite' : 'off'} className="flex min-w-0 items-center gap-2">
+        {/* `data-lectura` es lo que mira la barra para callar el nombre de la
+            marca mientras hay pastilla (`AppShell`): sin eso, a 390 la pastilla
+            se metía debajo del botón del tema. */}
         {(isListening || busy) && (
           <span
+            data-lectura
             className={`border-border bg-surface-raised inline-flex items-center gap-2 rounded-full border px-3 py-1 ${
               hasSignal ? '' : 'opacity-70'
             }`}
           >
+            {/* **Con sitio guardado**, para que cambiar de acorde no mueva la barra:
+                la pastilla va pegada a la derecha, y de «C» a «Bbmaj7» crecía y
+                empujaba el botón del micro a un lado y a otro a cada cambio. Seis
+                caracteres es el cifrado más largo que se oye a menudo (`Bbmaj7`),
+                y en monoespaciada seis caracteres miden lo mismo siempre. */}
             <span
-              className={`font-mono text-base tabular-nums ${
+              className={`inline-block min-w-[6ch] font-mono text-base tabular-nums ${
                 hayNota || acorde !== null ? 'text-brass-bright' : 'text-text-muted'
               }`}
             >
               {hayNota ? nota : (acorde ?? '—')}
             </span>
-            <span className="text-text-muted font-mono text-xs whitespace-nowrap tabular-nums">
+            {/* **El rótulo se calla donde no cabe**: por debajo de 26 rem de
+                barra —medidos en la barra, para que la letra grande también
+                cuente— y entre 768 y 1023, donde sube la navegación entera. Con
+                la cuenta configurada y el mando de elegir micro al lado, la
+                pastilla entera pide 410 px de barra, y a 390 pisaba el tema 36.
+                Callado y no quitado: sigue en la región viva, así que quien no
+                ve la pantalla oye «esperando» igual. «pidiendo permiso» es el
+                más largo y se calla antes, hasta 30 rem. */}
+            {/* Lo mismo el rótulo: «esperando», «acorde» y «+12¢» guardan el sitio
+                del más largo de los tres. */}
+            <span
+              className={`text-text-muted inline-block min-w-[9ch] font-mono text-xs whitespace-nowrap tabular-nums md:max-lg:sr-only @max-[26rem]:sr-only ${
+                busy ? '@max-[30rem]:sr-only' : ''
+              }`}
+            >
               {hayNota
                 ? cents
                 : acorde !== null

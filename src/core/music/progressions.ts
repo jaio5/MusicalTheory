@@ -451,6 +451,217 @@ export function nextDegrees(mode: KeyMode, from: DegreeSymbol): DegreeMove[] {
   return [...moves].sort((a, b) => b.weight - a.weight);
 }
 
+/*
+  **Dos grafos, y no uno.** El de arriba es el de siempre y lo comparten tres
+  piezas: el reanálisis de lo grabado (`audio/offline-chords.ts`), que lo usa como
+  probabilidad de que un acorde siga a otro; las propuestas del lienzo, que enseñan
+  sus seis primeros saltos; y las salidas de componer. Las salidas necesitaban más
+  saltos —con el grafo de siempre como única fuente, en 338 salidas construidas no
+  salió ni una dominante secundaria— y al añadírselos al compartido **cambiaban las
+  otras dos sin que nadie lo midiera**: en Do, un Mi mayor detrás del I dejaba de
+  costar en el reconocimiento, y el lienzo proponía iii y ii detrás del V antes que
+  lo de siempre. Así que lo que es de las salidas se escribe aquí, aparte, y
+  `saltosDeSalidas` lo suma al de siempre. El reconocimiento y el lienzo siguen
+  viendo exactamente el grafo de antes; lo fija `progressions.test.ts`.
+*/
+
+/** Los saltos que conocen las salidas además de los de siempre. */
+const MAS_SALTOS_DE_LAS_SALIDAS: Readonly<
+  Record<KeyMode, Partial<Record<DegreeSymbol, readonly DegreeMove[]>>>
+> = {
+  major: {
+    I: [
+      { to: 'bVI', weight: 0.3, why: 'Oscurece de golpe: la escalera bVI–bVII–I empieza aquí.' },
+      {
+        to: 'V/vi',
+        weight: 0.3,
+        why: 'El III mayor: la relativa llega con sensible. El giro del pop de los sesenta.',
+      },
+      { to: 'V/ii', weight: 0.25, why: 'El VI mayor: arranca el turnaround hacia el ii.' },
+      { to: 'V/V', weight: 0.2, why: 'El II mayor: aprieta hacia la dominante desde casa.' },
+      { to: 'bIII', weight: 0.25, why: 'Sube al bIII prestado: el riff I–bIII–IV del rock.' },
+      /*
+        La plagal menor sin el IV delante: `I iv I iv` es la música de cine heroica, y
+        el grafo solo llegaba al iv desde el IV. Una canción que lo tocaba así no podía
+        retocarse en su compás 2 —`I IV bVI bVII` con el iv en lugar del IV— porque el
+        salto no existía.
+      */
+      { to: 'iv', weight: 0.25, why: 'Nubla la subdominante desde casa: I–iv–I, la plagal menor.' },
+    ],
+    ii: [
+      {
+        to: 'bII',
+        weight: 0.3,
+        why: 'El sustituto tritonal del V: ii–bII7–I, y el bajo baja por semitonos.',
+      },
+    ],
+    iii: [{ to: 'V/ii', weight: 0.3, why: 'Cadena de quintas: iii–VI7–ii, el turnaround largo.' }],
+    IV: [
+      {
+        to: 'ii',
+        weight: 0.35,
+        why: 'Baja una tercera y se queda en la antesala de la dominante.',
+      },
+      {
+        to: 'V/vi',
+        weight: 0.25,
+        why: 'El bajo baja medio tono y la relativa llega con sensible: IV–III7–vi.',
+      },
+      {
+        to: 'bIII',
+        weight: 0.2,
+        why: 'Baja un tono al bIII prestado: I–IV–bIII–bVI, la del grunge.',
+      },
+      {
+        to: 'vii°',
+        weight: 0.2,
+        why: 'Sube por la escala hasta el vii°, que hace de dominante sin fundamental: IV–vii°–I.',
+      },
+    ],
+    V: [
+      { to: 'iii', weight: 0.3, why: 'Sube por la escala sin resolver: el IV–V–iii–vi del pop.' },
+      { to: 'ii', weight: 0.2, why: 'Vuelve a la antesala y alarga el giro antes de cerrar.' },
+      {
+        to: 'V/vi',
+        weight: 0.15,
+        why: 'Cae en el III7 en vez de en casa: así arranca el puente del rhythm changes, una cadena de dominantes.',
+      },
+    ],
+    vi: [
+      { to: 'iii', weight: 0.35, why: 'Baja por la escala, como el canon: vi–iii–IV.' },
+      { to: 'V/V', weight: 0.2, why: 'vi–II7–V: la dominante de la dominante en medio del bucle.' },
+      {
+        to: 'V/iii',
+        weight: 0.2,
+        why: 'vi–VII7–iii: la dominante del iii, el giro de la balada en menor.',
+      },
+    ],
+    /*
+      Lo que el III hace en menor —caer por quintas al VI— y aquí no estaba: la
+      escalera `bIII bVI bVII I` de la música de cine y del rock épico no se podía
+      recorrer, y una canción que vivía de los préstamos no tenía cómo seguir en
+      ellos.
+    */
+    bIII: [
+      {
+        to: 'bVI',
+        weight: 0.45,
+        why: 'Cae por quintas sin salir de lo prestado: bIII–bVI–bVII–I, la escalera épica.',
+      },
+    ],
+    bVI: [
+      {
+        to: 'V',
+        weight: 0.35,
+        why: 'Baja medio tono a la dominante: bVI–V–I, el préstamo que aprieta.',
+      },
+    ],
+    /*
+      Las dominantes secundarias van a lo suyo **o a la siguiente de la cadena**, y a
+      cada una se llega desde los grados de los que se llega de verdad —el I al III7
+      y al VI7, el IV al III7, el iii al VI7, el vi al II7 y al VII7— **con pesos de
+      0,3 o menos**. Y a casi todo grado se llega desde alguno: el bIII, el vii° y el
+      VII7 no tenían quien fuera a ellos, y una canción que empezaba por uno no podía
+      tener un puente que volviera a su principio. El II7 del menor sigue sin entrada
+      a propósito: desde la tónica menor llenaba de II7 lo que sigue a una andaluza,
+      que vive de la bajada por semitono del VI al V.
+    */
+    'V/ii': [
+      {
+        to: 'V/V',
+        weight: 0.3,
+        why: 'Cadena de dominantes: cada una prepara la siguiente, como en el rhythm changes.',
+      },
+    ],
+    'V/iii': [
+      { to: 'V/vi', weight: 0.3, why: 'Cadena de dominantes: VII7–III7, una quinta más abajo.' },
+    ],
+    'V/vi': [
+      {
+        to: 'V/ii',
+        weight: 0.3,
+        why: 'Cadena de dominantes: III7–VI7, el puente del rhythm changes.',
+      },
+      { to: 'IV', weight: 0.3, why: 'Cadencia rota de la relativa: promete el vi y da el IV.' },
+    ],
+  },
+  minor: {
+    i: [
+      {
+        to: 'v',
+        weight: 0.4,
+        why: 'El vaivén eólico: la dominante sin sensible, que no pide resolver.',
+      },
+      {
+        to: 'V/iv',
+        weight: 0.3,
+        why: 'El I mayor del blues y del bolero: la tercera sube y tira al iv.',
+      },
+      { to: 'ii°', weight: 0.2, why: 'Arranca el ii°–V–i, la cadencia del menor de siempre.' },
+    ],
+    bII: [
+      {
+        to: 'V',
+        weight: 0.45,
+        why: 'El napolitano prepara la dominante: bII–V–i, la cadencia de manual.',
+      },
+    ],
+    v: [{ to: 'VI', weight: 0.35, why: 'Sigue bajando por la escala eólica sin resolver.' }],
+    /*
+      El V7 iv7 del blues menor, que el mayor tiene desde siempre (`V → IV`): los
+      ocho primeros de un blues en menor no se podían completar con su forma de
+      Chicago, `V iv i i`.
+    */
+    V: [{ to: 'iv', weight: 0.3, why: 'El blues menor: la dominante baja a la subdominante.' }],
+    VI: [
+      /*
+        La andaluza, que no estaba: `i VII VI V` es la plantilla `andalusian` de esta
+        misma tabla y su último salto no existía. Una toma que la tocaba no podía
+        seguirse ni retocarse sin que el grafo dijera «ese salto no lo conozco».
+      */
+      { to: 'V', weight: 0.6, why: 'La andaluza: baja medio tono a la dominante mayor.' },
+      { to: 'ii°', weight: 0.3, why: 'VI–ii°–V–i: el camino largo hacia la dominante del menor.' },
+      /*
+        El IV–ii del mayor en su versión menor, que faltaba: `VI iv V i` es la manera
+        de llegar a la dominante del menor sin la tríada disminuida, y sin este salto
+        el único camino del VI al V largo pasaba por la ii°.
+      */
+      {
+        to: 'iv',
+        weight: 0.35,
+        why: 'Baja una tercera a la subdominante: VI–iv–V–i, sin la tríada disminuida.',
+      },
+    ],
+  },
+};
+
+/*
+  Lo que el grafo de siempre da y las salidas no construyen. El II7 no va a casa:
+  `V/V → I` «saltándose la dominante» no es un giro de ningún estilo de los que hay
+  aquí —el II7 lleva el Fa# de Do, que tira al Sol, y cae en el Do como una promesa
+  rota—, y las salidas lo construían con un «Resuelve en la I» detrás. En el lienzo
+  y en el reconocimiento se queda: allí es una probabilidad, no una propuesta con
+  su porqué.
+*/
+const SALTOS_QUE_LAS_SALIDAS_NO_DAN: Readonly<
+  Record<KeyMode, Partial<Record<DegreeSymbol, readonly DegreeSymbol[]>>>
+> = {
+  major: { 'V/V': ['I'] },
+  minor: {},
+};
+
+/**
+ * A dónde puede ir una salida de componer desde un grado, de más a menos
+ * frecuente: el grafo de siempre con lo que solo es de las salidas.
+ */
+export function saltosDeSalidas(mode: KeyMode, from: DegreeSymbol): DegreeMove[] {
+  const quitados = SALTOS_QUE_LAS_SALIDAS_NO_DAN[mode][from] ?? [];
+  return [
+    ...nextDegrees(mode, from).filter((move) => !quitados.includes(move.to)),
+    ...(MAS_SALTOS_DE_LAS_SALIDAS[mode][from] ?? []),
+  ].sort((a, b) => b.weight - a.weight);
+}
+
 /**
  * El mismo grado, dicho en el otro modo.
  *
@@ -570,6 +781,11 @@ const DE_LA_ESCALA: Readonly<Record<KeyMode, readonly DegreeSymbol[]>> = {
   major: ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'],
   minor: ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'],
 };
+
+/** Los siete grados de la escala del modo, sin prestados ni dominantes secundarias. */
+export function gradosDeLaEscala(mode: KeyMode): readonly DegreeSymbol[] {
+  return DE_LA_ESCALA[mode];
+}
 
 export function degreesFor(mode: KeyMode): DegreeSymbol[] {
   return mode === 'major'

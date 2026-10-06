@@ -112,17 +112,39 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
 - **`pnpm docker:ia` está escrito y sin levantar.** El adaptador sí se probó
   contra un Ollama de verdad; el camino de compose, nunca, porque en este equipo
   Docker Desktop no tiene encendida la integración con WSL.
-- **Retocar sale, pero copiando.** Desde que el modelo devuelve solo el trozo que
-  cambia, `qwen3:8b` saca 22 de 24 salidas válidas con ocho progresiones, y 21 son
-  el ejemplo del prompt tal cual: un acorde por su relativo, el primero al doble,
-  un final de un compás ([adr/0086](./adr/0086-retocar-devuelve-solo-lo-que-cambia.md)).
-  Lo que falta saber es si un modelo grande propone algo suyo.
-- **El presupuesto de entrada de las salidas se queda corto, y ya se quedaba.** El
-  estimado de `server/prompts.test.ts` no cuenta el mapa de saltos, las cadencias
-  ni las directrices: con ellos, el peor prompt pasa de los 1.400 tokens de
-  `TOKEN_BUDGETS.versiones` —unos 1.680 al continuar, 1.950 al retocar, a 3,2
-  caracteres por token—. Subirlo baja los cupos de Medio y Pro, así que es una
-  decisión de precio, con su ADR.
+- **Retocar y continuar ya dan salidas válidas, y encajan con lo que llevas.** El
+  dominio las construye y un juez las ordena
+  ([adr/0089](./adr/0089-las-salidas-las-construye-el-dominio-y-el-modelo-elige.md),
+  [adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)). Con
+  `qwen3:8b`: contesta 72/72, 216/216 porqués verdaderos, 508/513 sin directrices.
+  Lo que falta saber, contra la API, es si un modelo grande aporta algo más que el
+  menú. **Y lo que sigue fallando:**
+  - **`pnpm banco:ia` es redundante con `pnpm examen:salidas`**, que mide lo mismo
+    contra el modelo de verdad y con más casos. Cuando se pase contra la API,
+    conviene quedarse con uno.
+  - **Un sexto corpus para volver a medir**: los cinco se han usado para arreglar
+    causas (hoy pasan 71/72, 93/96, 98/98, 53/54 y 27/50 _después_ de arreglar), así
+    que ya no miden. La última cifra honesta es la del quinto antes de tocar nada:
+    22 de 50 menús enteros con el examen estricto
+    ([adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)). Lo que
+    falta en el quinto son casi todo gustos del arreglista: el V/V sin preparar arriba
+    del menú, el iii en un pop con suspendidos, un menú de dos compases que estira.
+  - **El estribillo (MC02, de `corpus-final`)**: un pop `I V vi IV` con punteo y
+    papel de estribillo, donde el arreglista espera que la primera salida siga y
+    cierre en la tónica. Es el único menú de `corpus-final` que no pasa (53 de 54).
+  - **«La 1 primero» sin directrices**: baja de 72/72 a 66/72 desde que el prompt de
+    sistema no dice que el menú va de más a menos encaje
+    ([adr/0100](./adr/0100-hacer-sitio-en-el-prompt-sin-subir-el-presupuesto.md)).
+    Devolver la frase lo arreglaba y perdía lo ganado con las directrices.
+  - **¿Contestar desde el dominio, sin llamar al modelo, las salidas sin
+    directrices?** Sin ellas el modelo solo explica las tres mejores y el respaldo ya
+    las construye (`lasTresMejores`). Lo propone la auditoría de prompts; es decisión
+    abierta, no hecha.
+  - **Medir contra la API**, y no solo con `qwen3:8b`.
+- **`TOKEN_BUDGETS.versiones.output` está en 900 y bastan unos 300.** Bajarlo sube
+  los cupos de Medio y Pro: decisión de precio, no de código.
+- **El presupuesto del profesor está lleno: 696 de 700 tokens.** No cabe otra frase
+  en el prompt sin subirlo, y subirlo baja los cupos.
 - **Los bloques fantasma no tienen quien los llene.** `state/propuesta.ts` y su
   tira siguen funcionando, pero quien proponía era el panel de ideas, retirado. Si
   el copiloto en línea vuelve, tiene que volver con otra fuente: una salida
@@ -179,6 +201,12 @@ la manera normal de componer aquí.
   parte se reordenan arrastrando el cifrado; para llevárselo al estribillo hay que
   pasar a la vista de bloques, que es donde se ven las dos partes a la vez.
 
+- **Una entrada para tocar, sin banco.** Hubo una pantalla sencilla y se quitó
+  ([adr/0095](./adr/0095-se-quita-componer-sencillo.md)): lo que abruma de
+  `/componer` lo atiende el recorrido
+  ([adr/0094](./adr/0094-el-recorrido-de-la-primera-visita.md)). Si vuelve, que sea
+  el espacio `Tocando` más claro y no una segunda pantalla.
+
 ## 4. Que componer sea un banco de trabajo, y no dos caras
 
 Hecho lo gordo. `/componer` es una pantalla de áreas que se pliegan y se
@@ -199,7 +227,7 @@ Lo que queda, en el orden en que se hace:
   canción, y la columna del acorde, el mástil, las salidas y «añadir parte» siguen
   a la canción y no al camino. Y lo que la aplicación propone **se puede escribir
   entero**: medido, de los catorce acordes de la lista no quedaba fuera ninguno
-  en los seis estilos, desde que un bloque sabe que no lleva tercera
+  en los seis estilos de entonces, desde que un bloque sabe que no lleva tercera
   ([adr/0035](./adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
 
   Lo que queda del camino es lo que no es ni tríada ni quinta —un `Fsus2` cambia
@@ -219,29 +247,25 @@ Lo que queda, en el orden en que se hace:
 
 ## 5. Que aprender y componer sean lo mismo
 
-- **Tres cursos siguen cojos, y los tres por el mismo motivo.** El temario está en
-  34 unidades —15 de teoría, 10 de tocar, 9 de oído— y los cursos a los que les
-  falta un tipo bajaron de seis a tres
-  ([adr/0044](./adr/0044-un-ejercicio-de-oido-se-contesta-de-oido.md)). Los que
-  quedan **no están sin escribir: están bloqueados**.
-  - `profesional-2` (Cuatríadas) y `profesional-4` (Sustituciones) pedirían una
-    unidad de **tocar acordes**. Una unidad de tocar valida una escala con el motor
-    de tono, que es monofónico; validar acordes es el croma, y el croma falla hoy
-    con una guitarra de verdad. **Esto se desbloquea arreglando el motor**, que es
-    lo primero de esta misma lista.
-  - `elemental-4` (Qué escala tocar) pediría oído sobre escalas, y un ejercicio de
-    oído aquí es una progresión de acordes: no sabe hacer sonar una melodía. Eso
-    es otra máquina.
+- **Faltan unidades de tocar acordes y de oído sobre escalas, y están bloqueadas.**
+  El temario tiene 41 unidades —22 de teoría, 9 de tocar y 10 de oído— y sigue
+  ordenado como el conservatorio
+  ([adr/0096](./adr/0096-el-temario-sigue-al-conservatorio.md)). Los cursos de
+  Armonía de 2º a 5º del Profesional no tienen unidad de tocar:
+  - Tocar acordes valida con el croma, y el croma falla hoy con una guitarra de
+    verdad. **Esto se desbloquea arreglando el motor**, que es lo primero de esta
+    misma lista.
+  - El oído sobre escalas pide hacer sonar una melodía, y un ejercicio de oído
+    sabe hacer sonar acordes y, desde el dictado de intervalos, dos notas. Una
+    escala entera es otra máquina.
 - **No hay nada de ritmo, de lectura ni de acordes en el mástil**, y la aplicación
   los da por sabidos: componer ofrece siete figuras y un compás de 1 a 6, «Ensayar»
   te **puntúa** contra el metrónomo, la vista por defecto del arreglo es una
   partitura con clave y armadura, y el panel de acordes enseña seis posiciones con
-  su cejilla. Las diez unidades de tocar son **escalas, todas**: se terminan los
+  su cejilla. Las nueve unidades de tocar son **escalas, todas**: se terminan los
   diez cursos sin que nadie te haya pedido tocar un Do y pasar a un Sol a tiempo.
-  Falta también el intervalo, que es el ladrillo de debajo, y meterlo cambia lo que
-  `ear.ts` decidió por escrito —aquí se pregunta por acordes, no por notas
-  sueltas—, así que pide su ADR.
-- **Las siete unidades de oído no se han probado con oídos ajenos**
+  El ritmo y la lectura se explican con palabras y se preguntan con palabras.
+- **Las diez unidades de oído no se han probado con oídos ajenos**
   ([adr/0022](./adr/0022-aprender-de-oido.md)). Los ejercicios suenan con
   osciladores, no con una guitarra, y no se sabe si distinguir un `IVmaj7` de un
   `V7` con ese timbre es más fácil o más difícil que con el instrumento de verdad.
@@ -249,6 +273,15 @@ Lo que queda, en el orden en que se hace:
   tríada y preguntaba por una nota que nunca llegaba a oírse. Arreglado, con la
   regla que lo habría cazado el primer día
   ([adr/0044](./adr/0044-un-ejercicio-de-oido-se-contesta-de-oido.md)).
+- **El repaso de lo fallado enseña las preguntas de oído sin sonido**
+  ([adr/0022](./adr/0022-aprender-de-oido.md)), y con el dictado de intervalos
+  se nota más: la pregunta pide oír dos notas y en el repaso no suenan. Y leer
+  una nota en un pentagrama **dibujado dentro de la unidad** sería el siguiente
+  paso: hoy la lectura se pregunta con palabras.
+- **Una cola de repaso vieja guardada en el navegador, sin sesión, enseña
+  posiciones muertas** de lecciones que cambiaron
+  (`core/music/posiciones.ts`). El servidor las suelta al guardar, así que quien
+  tiene plan las ve hasta volver a entrar con su cuenta.
 - **No se puede practicar el oído sin avanzar en el camino.** Una pantalla de
   entrenamiento suelto se descartó para no duplicar la meta diaria y la racha; si
   se hace, lo que tiene que compartir con el camino es exactamente esa racha.
@@ -300,6 +333,21 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
 - **Medir la inyección del profesor contra la API.** Con `qwen3:8b` resisten dos de
   ocho disfraces, y contra el modelo de pago no se ha pasado: son los mismos ocho
   casos de [adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md), «Corrección».
+- **Lo que dejó la tanda de interfaz**
+  ([adr/0102](./adr/0102-lo-que-se-lee-a-un-metro-se-ve-y-lo-que-se-pulsa-se-sujeta.md)):
+  - **El muñeco del profesor a 390 sigue tapando el final de una línea**: no cabe a
+    48 px por el píxel entero de la mascota.
+  - **Con las cinco áreas abiertas a 1024×600 el Arreglo se queda en 96 px**: el
+    mástil tiene suelo de 14 rem para que sus notas no bajen de 12 px, y lo que
+    cede es el Arreglo, que de todos modos solo enseñaba su barra. Hace falta una
+    ventana de más de 700 px de alto para tener los dos holgados.
+  - **La columna de tonalidad bajo la bandeja a 1024×600** pide una pista vertical
+    de que se desplaza.
+  - **Esconder «Componer» del `WorkHeader` por debajo de `sm`.**
+  - **Safari/iOS sin probar el toque**: todo se sintetizó en Chromium. Y con cuenta
+    y micro, sin medir.
+  - **La escala por defecto, «pentatónica menor», enseña Mib y Sib** a quien aprende
+    las notas. Es una decisión de producto pendiente.
 - **Regenerar la escena y la mascota con la paleta del
   [adr/0070](./adr/0070-la-sala-encendida.md)**: `arte/portada/build.py` y
   `arte/mascota/build.py`.

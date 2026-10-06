@@ -46,6 +46,27 @@ Si se deniega, el mensaje dice qué ha pasado y qué hacer: «Has denegado el
 micrófono. Puedes darle permiso otra vez desde el icono de la barra de
 direcciones.» Denegarlo no rompe nada: se puede seguir componiendo sin grabar.
 
+## Qué micrófono se usa
+
+**Uno, elegido para toda la aplicación** con el mando que va pegado al botón del
+micro, en la barra de arriba de todas las pantallas (`features/workspace/ElegirMicro`).
+La elección vive en `state/microfono.ts`, se guarda con las preferencias —el
+identificador y el nombre— y la usa quien abre el micro (`state/use-listening.ts`).
+La toma de componer, también «Solo grabar», **graba de ese mismo micro**: no abre
+otro, le pide prestado el flujo al que ya escucha (`audio/stream-source.ts`).
+
+- **Sin permiso, la lista no tiene nombres**: el navegador los deja en blanco, y
+  el mando lo dice. Salen en cuanto se da.
+- **Si el elegido no está** —desenchufado, o de otro equipo—, se escucha por el
+  del sistema y se dice: en el mando, con una marca, y en su lista. Si vuelve a
+  enchufarse, se vuelve a él.
+- **El identificador cambia** si el permiso es «solo esta vez»: el navegador da
+  otro en cada página. Por eso se guarda también el nombre, y con él se le
+  reconoce.
+- **Cambiar con el micro abierto lo cambia en caliente**, con los mismos motores.
+  **Durante una toma, el cambio espera a que acabe**: un `MediaRecorder` no cambia
+  de pista a mitad, y cerrar la vieja cortaría lo grabado. El mando lo dice.
+
 ## Las mejoras de llamada van apagadas
 
 `getUserMedia` pide `echoCancellation`, `noiseSuppression` y `autoGainControl` en

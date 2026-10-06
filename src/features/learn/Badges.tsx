@@ -17,7 +17,14 @@ import { BADGES, type Progress } from '@core/music';
  *
  * Va en la columna que ya existía y se quedaba vacía a media altura.
  */
-export function Badges({ progress }: { readonly progress: Progress }) {
+export function Badges({
+  progress,
+  sinRotulo = false,
+}: {
+  readonly progress: Progress;
+  /** Dentro de un desplegable cuyo resumen ya dice cuántas: el rótulo sobraría. */
+  readonly sinRotulo?: boolean;
+}) {
   const ganadas = new Set(progress.badges);
 
   return (
@@ -25,15 +32,17 @@ export function Badges({ progress }: { readonly progress: Progress }) {
     // la que se desplaza y necesita la parada del tabulador. Dos regiones
     // anidadas con el mismo nombre se anunciaban dos veces.
     <div className="px-3 py-3">
-      <h2 className="rotulo">
-        Medallas · {ganadas.size} de {BADGES.length}
-      </h2>
+      {!sinRotulo && (
+        <h2 className="rotulo">
+          Medallas · {ganadas.size} de {BADGES.length}
+        </h2>
+      )}
 
       {/* En rejilla de dos donde cabe: diez medallas en una sola columna son un
           muro de texto de trescientos píxeles de alto, y lo que se hace con ellas
           es recorrerlas buscando cuál probar. En dos columnas se recorren de un
           vistazo y la columna deja de parecer una lista de la compra. */}
-      <ul className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+      <ul className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         {BADGES.map((badge) => {
           const tenida = ganadas.has(badge.id);
           return (

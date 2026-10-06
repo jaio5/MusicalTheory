@@ -264,7 +264,9 @@ export function CurrentChord({
             <span className="font-display text-brass-bright text-4xl leading-none">
               {current.symbol}
             </span>
-            <span className="text-text-muted font-mono text-xs">{current.label}</span>
+            {/* La etiqueta en la sans: «lo que suena», «dominante» son palabras,
+                no datos que se alineen en columna. Las notas de al lado sí. */}
+            <span className="text-text-muted text-xs">{current.label}</span>
             <span className="text-text-muted ml-auto font-mono text-xs">
               {current.notes.map((note) => noteName(note, accidental)).join(' · ')}
             </span>
@@ -335,7 +337,7 @@ export function CurrentChord({
                     }`}
                   >
                     <span className="font-mono text-sm">{chord.symbol}</span>
-                    <span className="font-mono text-[10px] opacity-70" aria-hidden="true">
+                    <span className="text-xs opacity-70" aria-hidden="true">
                       {chord.label}
                     </span>
                   </button>
@@ -581,7 +583,7 @@ export function NextChords({
                     ? `Poner ${option.symbol} en la canción`
                     : `Probar ${option.symbol}. No entra en la canción: el montaje guarda grados, y este acorde no tiene uno.`
                 }
-                className="hover:bg-surface-raised focus-visible:bg-surface-raised block w-full cursor-pointer rounded-md px-3 py-2 text-left transition-colors"
+                className="hover:bg-surface-raised focus-visible:bg-surface-raised min-h-tap block w-full cursor-pointer rounded-md px-3 py-2 text-left transition-colors"
               >
                 {/*
                   Dos renglones, no uno.
@@ -602,7 +604,7 @@ export function NextChords({
                       grabas: es lo único que da tiempo a mirar tocando. */}
                   <Marca tono={safetyTone(option.notes, inKey)} senal />
                   <span className="text-text font-mono text-base">{option.symbol}</span>
-                  <span className="text-text-muted font-mono text-xs">{option.label}</span>
+                  <span className="text-text-muted text-xs">{option.label}</span>
                   <RoleBadge role={option.role} />
                 </span>
 

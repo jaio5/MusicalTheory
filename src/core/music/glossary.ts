@@ -25,7 +25,7 @@ import { diatonicTriads, TRIADS } from './chords';
 import { keySignature, relativeMajor, relativeMinor, accidentalForKey } from './circle-of-fifths';
 import { HARMONIC_ROLES, roleOfDegreeSymbol, substitutionOfDegree } from './harmonic-function';
 import { keyName, type KeyMode } from './keys';
-import { noteName, normalizePitchClass, type PitchClass } from './notes';
+import { midiToPitchClass, noteName, normalizePitchClass, type PitchClass } from './notes';
 import {
   degreeOfChord,
   gradoDeLaFundamental,
@@ -34,7 +34,9 @@ import {
   type DegreeSymbol,
 } from './progressions';
 import { SCALES } from './scales';
+import { keyTonic, parseSpelledName, spellAt, spelledName } from './spelling';
 import { MAX_BPM, MIN_BPM } from './tempo';
+import { STANDARD_TUNING } from '../instrument/guitar';
 
 /** La tonalidad en la que se resuelve una entrada. */
 export interface TheoryKey {
@@ -55,7 +57,17 @@ export type TheorySignature =
       readonly exact?: Readonly<Record<KeyMode, readonly DegreeSymbol[]>>;
       readonly endsOn?: Readonly<Record<KeyMode, readonly DegreeSymbol[]>>;
     }
-  | { readonly kind: 'relative' };
+  | { readonly kind: 'relative' }
+  /** Si se preguntan sus notas, tienen que estar todas: las de `notesOf`. */
+  | { readonly kind: 'notes' }
+  /** Un acorde que hay que nombrar, por su grado: la dominante, la del V. */
+  | { readonly kind: 'chord'; readonly degree: DegreeSymbol }
+  /** Cuántas alteraciones lleva, y de cuáles. */
+  | { readonly kind: 'key-signature' }
+  /** Los acordes de la tonalidad, escritos. */
+  | { readonly kind: 'key-chords' }
+  /** Los modos, por su nombre. */
+  | { readonly kind: 'modes' };
 
 export interface GlossaryEntry {
   readonly id: string;
@@ -82,6 +94,12 @@ export interface GlossaryEntry {
   /** Lo que es en esta tonalidad, calculado. */
   readonly inKey?: (key: TheoryKey) => string;
   readonly signature?: TheorySignature;
+  /**
+   * Las notas, para comprobar que una respuesta que las da las da todas. Nulo
+   * cuando en esa tonalidad no se sabe de cuáles se habla: la pentatónica menor
+   * en Do mayor puede ser la de Do o la de su relativa.
+   */
+  readonly notesOf?: (key: TheoryKey) => readonly PitchClass[] | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,7 +135,10 @@ const LETTER_STEP: Readonly<Record<number, number>> = {
  * La altura de una nota escrita, con las alteraciones que lleve.
  *
  * Propia y no `pitchClassFromName` porque aquí salen nombres que aquel no conoce:
- * el séptimo grado de F# mayor es **E#**, y el locrio de F# empieza en él.
+ * el séptimo grado de F# mayor es **E#**, y el locrio de F# empieza en él. Y
+ * tampoco `parseSpelledName`, que es estricto a propósito: esto lee lo que escribe
+ * el modelo, que puede venir en minúscula, y ante la duda tiene que dar una
+ * altura y no una excepción.
  */
 function pitchOfSpelled(name: string): PitchClass {
   const letter = LETTERS.indexOf(name[0]?.toUpperCase() as (typeof LETTERS)[number]);
@@ -128,41 +149,74 @@ function pitchOfSpelled(name: string): PitchClass {
   return normalizePitchClass(natural + sharps - flats);
 }
 
-/** El nombre de la fundamental de un cifrado: `Bb` de `Bbm7`. */
+/**
+ * El nombre de la fundamental de un cifrado: `Bb` de `Bbm7`, y `F##` de `F##7`.
+ *
+ * Con las alteraciones repetidas, porque los acordes se escriben por la letra
+ * del grado y la fundamental puede llevar dos. Ninguna especie empieza por `b`,
+ * así que no se come la de nadie.
+ */
 function rootName(symbol: string): string {
   /* v8 ignore next -- todo cifrado del dominio empieza por su fundamental */
-  return /^[A-G][#b]?/.exec(symbol)?.[0] ?? symbol;
+  return /^[A-G](?:#+|b+)?/.exec(symbol)?.[0] ?? symbol;
 }
 
 /**
  * Las notas que quedan a esos semitonos y esas letras de la fundamental.
  *
  * Con alteraciones dobles cuando hacen falta, que es lo correcto y lo raro: la
- * menor armónica de G# lleva un F##.
+ * menor armónica de G# lleva un F##. Lo escribe `spelling.ts`, que es quien
+ * escribe también las lecciones: aquí había una copia de la misma regla, y lo que
+ * se lee en una unidad y lo que contesta el profesor tienen que salir iguales.
  */
 function spell(root: string, semitones: readonly number[], steps: readonly number[]): string[] {
-  const letter = LETTERS.indexOf(root[0] as (typeof LETTERS)[number]);
-  const pitch = pitchOfSpelled(root);
+  const from = parseSpelledName(root);
   return semitones.map((semitone, index) => {
     /* v8 ignore start -- quien llama pasa tantas letras como semitonos */
     const step = steps[index] ?? 0;
-    const target = normalizePitchClass(pitch + semitone);
-    const natural = NATURAL_PITCH[(letter + step) % 7] ?? 0;
     /* v8 ignore stop */
-    const diff = ((target - natural + 18) % 12) - 6;
-    const accidental = diff > 0 ? '#'.repeat(diff) : 'b'.repeat(-diff);
-    return `${LETTERS[(letter + step) % 7]}${accidental}`;
+    return spelledName(spellAt(from, step, semitone));
   });
 }
 
-/** Las notas de un cifrado, bien escritas: «G B D F». */
+/** Lo que importa de un cifrado leído: dónde suena la fundamental y sus intervalos. */
+interface SpelledChord {
+  readonly root: PitchClass;
+  readonly intervals: readonly number[];
+}
+
+/**
+ * Un cifrado leído con la fundamental escrita por su letra: `E#dim`, `Cb`, `F##7`.
+ *
+ * `parseChordSymbol` solo conoce los doce nombres, y el glosario escribe cada
+ * fundamental con la letra de su grado —el vii° de Fa# mayor es `E#dim`—: si el
+ * validador no los leyera, rechazaría la respuesta que copia la referencia. Así
+ * que la especie se lee sobre una C y la altura sale de la letra.
+ */
+function readChord(symbol: string): SpelledChord | null {
+  const root = rootName(symbol);
+  const parsed = parseChordSymbol(`C${symbol.slice(root.length)}`);
+  /*
+    Nulo con una especie fuera del catálogo, que hoy no llega: los cifrados del
+    dominio son todos de él, y el patrón de la respuesta solo deja pasar especies
+    que lo son. Se devuelve en vez de lanzar porque esto lee lo que escribe el
+    modelo, y una excepción ahí deja la pregunta sin respuesta.
+  */
+  /* v8 ignore next 3 -- ver arriba: ninguno de los dos llamantes pasa una especie desconocida */
+  if (parsed === null) {
+    return null;
+  }
+  return { root: pitchOfSpelled(root), intervals: parsed.shape.intervals };
+}
+
+/** Las notas de un cifrado, bien escritas: «G B D F», «E# G# B». */
 function chordNotes(symbol: string): string {
-  const parsed = parseChordSymbol(symbol);
+  const parsed = readChord(symbol);
   /* v8 ignore next 3 -- aquí solo llegan cifrados que ha escrito el propio dominio */
   if (parsed === null) {
     return symbol;
   }
-  const intervals = parsed.shape.intervals;
+  const intervals = parsed.intervals;
   return spell(
     rootName(symbol),
     intervals,
@@ -190,9 +244,37 @@ function tonicName(tonic: PitchClass, mode: KeyMode): string {
 // Lo que se calcula de una tonalidad.
 // ---------------------------------------------------------------------------
 
-/** El acorde de un grado, como lo escribe el dominio. */
+/** Los siete números romanos, en orden: el índice es el grado menos uno. */
+const NUMERALES = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'] as const;
+
+/**
+ * Cuántas letras hay de la tónica a la fundamental de un grado: la del número
+ * romano, con bemol o sin él, y en una secundaria la de su destino más cuatro
+ * —el V/vi de Do es A, cinco letras por encima de la E del vi—.
+ */
+function degreeLetterSteps(degree: DegreeSymbol): number {
+  const [own, target] = degree.split('/') as [string, string | undefined];
+  const steps = (roman: string) =>
+    NUMERALES.indexOf(roman.replace(/^b|°$/g, '').toUpperCase() as (typeof NUMERALES)[number]);
+  return target === undefined ? steps(own) : steps(target) + 4;
+}
+
+/**
+ * El acorde de un grado, con la fundamental escrita por la letra del grado.
+ *
+ * La especie y la altura las pone `resolveDegree`, y la letra el grado: en Fa#
+ * mayor el vii° es `E#dim` y no `Fdim`, que es lo que dicen las lecciones y lo que
+ * sale al escribir sus notas, E# G# B. Lo prestado igual: el bVII de Db es `Cb`.
+ * `resolveDegree` sigue con sus doce nombres porque lo usa componer.
+ */
 function chord(key: TheoryKey, degree: DegreeSymbol): string {
-  return resolveDegree(key.tonic, key.mode, degree).symbol;
+  const resolved = resolveDegree(key.tonic, key.mode, degree);
+  const root = spellAt(
+    keyTonic(key.tonic, key.mode),
+    degreeLetterSteps(degree),
+    resolved.root - key.tonic,
+  );
+  return `${spelledName(root)}${resolved.symbol.replace(/^[A-G][#b]?/, '')}`;
 }
 
 /** El mismo grado con una especie de cuatríada encima: `G7`, `Bm7b5`. */
@@ -302,6 +384,23 @@ function majorLabel(key: TheoryKey): string {
   return key.mode === 'major'
     ? keyName(key.tonic, 'major')
     : `su relativa, ${keyName(relativeMajor(key.tonic), 'major')}`;
+}
+
+/**
+ * Las alturas de una escala sobre la tónica de la tonalidad, **solo si es suya**.
+ *
+ * «¿Qué notas tiene la escala mayor?» en La menor puede ser la de La o la de su
+ * relativa, y comprobarla contra una de las dos rechazaría la otra. Así que solo se
+ * comprueba la que no tiene duda: la mayor en mayor, las menores en menor.
+ */
+function alturasSiEsDelModo(
+  modo: KeyMode,
+  intervalos: readonly number[],
+): (key: TheoryKey) => readonly PitchClass[] | null {
+  return (key) =>
+    key.mode === modo
+      ? intervalos.map((intervalo) => normalizePitchClass(key.tonic + intervalo))
+      : null;
 }
 
 /** Las cinco de una pentatónica, sacadas de su escala de siete ya escrita. */
@@ -415,8 +514,24 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   },
   {
     id: 'cadencia-perfecta',
+    /*
+      Perfecta **e imperfecta**, en una entrada: las dos son V → I y se diferencian
+      en cómo van colocados los acordes, no en cuáles son. Separadas, la
+      imperfecta no la encontraba nadie —«¿qué es una cadencia imperfecta?» caía
+      en la entrada general, que no la nombra— y una entrada más con los mismos
+      acordes habría pedido a la respuesta las mismas comprobaciones dos veces.
+      «Auténtica» es como la llaman los libros en inglés —y algunos de aquí, para
+      las dos—, y sigue en el título y entre sus nombres.
+    */
     title: 'Cadencia perfecta o auténtica',
-    names: ['cadencia perfecta', 'cadencia autentica', 'perfecta', 'autentica'],
+    names: [
+      'cadencia perfecta',
+      'cadencia autentica',
+      'cadencia imperfecta',
+      'perfecta',
+      'autentica',
+      'imperfecta',
+    ],
     aliases: [
       'v i',
       'v a i',
@@ -426,9 +541,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       'dominante a la tonica',
       'dominante a tonica',
     ],
-    definition: 'La dominante resolviendo en la tónica: el cierre más rotundo.',
+    definition: 'V → I en estado fundamental y con la tónica arriba; si no, imperfecta.',
     inKey: (key) =>
-      `En ${keyName(key.tonic, key.mode)}, ${progression(key, CADENCE_PERFECT[key.mode])}, o ${withSuffix(key, 'V', '7')} → ${home(key)} con séptima${key.mode === 'minor' ? ', con el V mayor de la armónica' : ''}.`,
+      `En ${keyName(key.tonic, key.mode)}, ${progression(key, CADENCE_PERFECT[key.mode])}, o ${withSuffix(key, 'V', '7')} → ${home(key)}${key.mode === 'minor' ? ', con el V mayor de la armónica' : ''}.`,
     signature: { kind: 'cadence', exact: CADENCE_PERFECT },
   },
   {
@@ -511,6 +626,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     title: 'Dominante',
     names: ['dominante', 'acorde de dominante', 'funcion de dominante', 'quinto grado'],
     definition: `El V. ${HARMONIC_ROLES.dominant.what}`,
+    signature: { kind: 'chord', degree: 'V' },
     inKey: (key) =>
       key.mode === 'major'
         ? `En ${keyName(key.tonic, 'major')}: ${chord(key, 'V')} (V), ${withSuffix(key, 'V', '7')} con séptima; ${chord(key, 'vii°')} (vii°) hace su papel.`
@@ -540,8 +656,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     names: ['sustitucion tritonal', 'sustitucion de tritono', 'tritonal', 'sustituto tritonal'],
     definition:
       'Cambia el V7 por la séptima a un tritono: comparten tercera y séptima, y el bajo baja por semitonos.',
+    /*
+      El sustituto se nombra por la nota a un tritono de la dominante, con bemol,
+      y no por la letra del bII: en Db mayor sería en rigor un Ebb7 y se escribe D7,
+      que es como lo cifra todo el mundo y como lo escribe la lección de
+      sustituciones. Por eso aquí la fundamental es la de `resolveDegree`.
+    */
     inKey: (key) =>
-      `En ${keyName(key.tonic, key.mode)}: ${withSuffix(key, 'bII', '7')} → ${home(key)} en vez de ${withSuffix(key, 'V', '7')} → ${home(key)}.`,
+      `En ${keyName(key.tonic, key.mode)}: ${rootName(resolveDegree(key.tonic, key.mode, 'bII').symbol)}7 → ${home(key)} en vez de ${withSuffix(key, 'V', '7')} → ${home(key)}.`,
   },
 
   // --- Acordes -------------------------------------------------------------
@@ -673,6 +795,44 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
   },
 
+  {
+    id: 'inversion',
+    title: 'Inversión',
+    names: [
+      'inversion',
+      'acorde invertido',
+      'primera inversion',
+      'segunda inversion',
+      'estado fundamental',
+    ],
+    aliases: ['acorde con barra', 'nota en el bajo'],
+    definition:
+      'El acorde con otra nota que la fundamental en el bajo: la tercera en primera inversión, la quinta en segunda. Se escribe con barra.',
+    inKey: (key) => {
+      const tonic = home(key);
+      const [, third, fifth] = chordNotes(tonic).split(' ');
+      return `En ${keyName(key.tonic, key.mode)}: ${tonic}/${third} y ${tonic}/${fifth}.`;
+    },
+  },
+  {
+    id: 'acordes-de-la-tonalidad',
+    title: 'Acordes de la tonalidad',
+    names: [
+      'acordes de la tonalidad',
+      'acordes de esta tonalidad',
+      'acordes de la escala',
+      'acordes diatonicos',
+      'acordes tiene',
+      'acordes van bien',
+    ],
+    definition: 'Uno por grado de la escala.',
+    inKey: (key) =>
+      `En ${keyName(key.tonic, key.mode)}: ${scaleDegrees(key.mode)
+        .map((degree) => `${degree} ${chord(key, degree)}`)
+        .join(', ')}${key.mode === 'minor' ? ', con el V de la armónica' : ''}.`,
+    signature: { kind: 'key-chords' },
+  },
+
   // --- Intervalos ----------------------------------------------------------
   {
     id: 'intervalos',
@@ -734,6 +894,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     title: 'Escala mayor',
     names: ['escala mayor', 'escalas mayores', 'modo jonico', 'jonico', 'escala jonica'],
     definition: `Siete notas a ${semitones(MAJOR)} semitonos de la tónica: ${steps(MAJOR)} (T tono, S semitono). Es el modo jónico.`,
+    signature: { kind: 'notes' },
+    notesOf: alturasSiEsDelModo('major', MAJOR),
     inKey: (key) => `En ${majorLabel(key)}: ${scaleOn(parentMajor(key), 'major', MAJOR)}.`,
   },
   {
@@ -741,16 +903,21 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     title: 'Menor natural',
     names: ['menor natural', 'escala menor natural', 'escala menor', 'modo eolico', 'eolico'],
     definition: `${semitones(NATURAL_MINOR)} semitonos. ${SCALES.naturalMinor.character} Es el modo eólico.`,
+    signature: { kind: 'notes' },
+    notesOf: alturasSiEsDelModo('minor', NATURAL_MINOR),
     inKey: (key) => `En ${minorLabel(key)}: ${scaleOn(minorTonic(key), 'minor', NATURAL_MINOR)}.`,
   },
   {
     id: 'menor-armonica',
     title: 'Menor armónica',
     names: ['menor armonica', 'escala menor armonica', 'armonica'],
+    aliases: ['v mayor', 'dominante mayor'],
     definition: `La natural con la séptima subida (${semitones(HARMONIC_MINOR)}): da sensible y dominante mayor.`,
+    signature: { kind: 'notes' },
+    notesOf: alturasSiEsDelModo('minor', HARMONIC_MINOR),
     inKey: (key) => {
       const minor = minorTonic(key);
-      return `En ${minorLabel(key)}: ${scaleOn(minor, 'minor', HARMONIC_MINOR)}; da ${resolveDegree(minor, 'minor', 'V').symbol} (V) y no ${resolveDegree(minor, 'minor', 'v').symbol}.`;
+      return `En ${minorLabel(key)}: ${scaleOn(minor, 'minor', HARMONIC_MINOR)}; da ${chord({ tonic: minor, mode: 'minor' }, 'V')} (V) y no ${chord({ tonic: minor, mode: 'minor' }, 'v')}.`;
     },
   },
   {
@@ -758,6 +925,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     title: 'Menor melódica',
     names: ['menor melodica', 'escala menor melodica', 'melodica'],
     definition: `La natural con la sexta y la séptima subidas al subir (${semitones(MELODIC_MINOR)}); al bajar se suele tocar como la natural.`,
+    signature: { kind: 'notes' },
+    notesOf: alturasSiEsDelModo('minor', MELODIC_MINOR),
     inKey: (key) => `En ${minorLabel(key)}: ${scaleOn(minorTonic(key), 'minor', MELODIC_MINOR)}.`,
   },
   {
@@ -765,6 +934,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     title: 'Pentatónica menor',
     names: ['pentatonica menor', 'escala pentatonica menor', 'pentatonica'],
     definition: `La menor natural sin la 2.ª ni la 6.ª (${semitones(SCALES.minorPentatonic.intervals)}). ${SCALES.minorPentatonic.character.split('.')[0]}.`,
+    signature: { kind: 'notes' },
+    notesOf: alturasSiEsDelModo('minor', SCALES.minorPentatonic.intervals),
     inKey: (key) => {
       const notes = heptatonic(tonicName(minorTonic(key), 'minor'), NATURAL_MINOR);
       return `En ${minorLabel(key)}: ${pick(notes, [0, 2, 3, 4, 6])}${key.mode === 'major' ? `, las de la pentatónica mayor de ${tonicName(key.tonic, 'major')}` : ''}.`;
@@ -775,6 +946,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     title: 'Pentatónica mayor',
     names: ['pentatonica mayor', 'escala pentatonica mayor'],
     definition: `La mayor sin la 4.ª ni la 7.ª (${semitones(SCALES.majorPentatonic.intervals)}). Difícil sonar mal.`,
+    signature: { kind: 'notes' },
+    notesOf: alturasSiEsDelModo('major', SCALES.majorPentatonic.intervals),
     inKey: (key) => {
       const notes = heptatonic(tonicName(parentMajor(key), 'major'), MAJOR);
       return `En ${majorLabel(key)}: ${pick(notes, [0, 1, 2, 4, 5])}.`;
@@ -786,6 +959,9 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     names: ['escala de blues', 'escala blues', 'blue note', 'nota de blues'],
     aliases: ['quinta bemol'],
     definition: `${SCALES.blues.character.slice(0, -1)}: ${semitones(SCALES.blues.intervals)}.`,
+    signature: { kind: 'notes' },
+    notesOf: (key) =>
+      SCALES.blues.intervals.map((intervalo) => normalizePitchClass(key.tonic + intervalo)),
     inKey: (key) => {
       const tonic = tonicName(key.tonic, key.mode);
       const minor = heptatonic(tonic, NATURAL_MINOR);
@@ -800,6 +976,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     title: 'Los siete modos',
     names: ['modos', 'modo', 'modos griegos', 'siete modos', 'modos de la escala mayor'],
     definition: 'La escala mayor empezando en cada uno de sus siete grados.',
+    signature: { kind: 'modes' },
     inKey: (key) => {
       const notes = heptatonic(tonicName(parentMajor(key), 'major'), MAJOR);
       return `En ${keyName(parentMajor(key), 'major')}: ${MODES.map((mode, index) => `${notes[index]} ${mode.name}`).join(', ')}.`;
@@ -827,7 +1004,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       'Una mayor y una menor con las mismas notas y la misma armadura; la menor, tres semitonos por debajo.',
     inKey: (key) => {
       const relative = relativeOf(key);
-      const symbol = resolveDegree(relative.tonic, relative.mode, TONIC[relative.mode]).symbol;
+      const symbol = home(relative);
       return `La relativa ${relative.mode === 'major' ? 'mayor' : 'menor'} de ${keyName(key.tonic, key.mode)} es ${keyName(relative.tonic, relative.mode)} (${symbol}).`;
     },
     signature: { kind: 'relative' },
@@ -836,6 +1013,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     id: 'armadura',
     title: 'Armadura',
     names: ['armadura', 'armadura de clave', 'alteraciones', 'sostenidos', 'bemoles'],
+    signature: { kind: 'key-signature' },
     definition:
       'Las alteraciones fijas de la tonalidad. Los sostenidos entran en el orden F C G D A E B, y los bemoles al revés.',
     inKey: (key) => {
@@ -857,8 +1035,14 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       'Las doce tonalidades a quintas: cada paso suma un sostenido o un bemol, y las vecinas comparten seis notas.',
     inKey: (key) => {
-      const [up, down] = [7, 5].map((step) => normalizePitchClass(key.tonic + step));
-      return `Vecinas de ${keyName(key.tonic, key.mode)}: ${keyName(up as PitchClass, key.mode)} y ${keyName(down as PitchClass, key.mode)}.`;
+      // Con la alteración de esta tonalidad: la quinta de arriba de F# es C#, y
+      // `keyName` la llamaba «Db mayor».
+      const accidental = accidentalForKey(key.tonic, key.mode);
+      const [up, down] = [7, 5].map((step) =>
+        noteName(normalizePitchClass(key.tonic + step), accidental),
+      );
+      const modo = key.mode === 'major' ? 'mayor' : 'menor';
+      return `Vecinas de ${keyName(key.tonic, key.mode)}: ${up} ${modo} y ${down} ${modo}.`;
     },
   },
   {
@@ -898,13 +1082,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     id: 'dominante-secundaria',
     title: 'Dominante secundaria',
-    names: [
-      'dominante secundaria',
-      'dominantes secundarias',
-      'dominante de la dominante',
-      'quinto del quinto',
-    ],
-    aliases: ['v v', 'v de v', 'v del v'],
+    names: ['dominante secundaria', 'dominantes secundarias'],
     definition:
       'Un acorde mayor, a menudo con séptima, que hace de V de un grado que no es la tónica: V/x.',
     inKey: (key) => {
@@ -918,6 +1096,16 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     },
   },
   {
+    id: 'dominante-de-la-dominante',
+    title: 'Dominante de la dominante (V/V)',
+    names: ['dominante de la dominante', 'quinto del quinto'],
+    aliases: ['v v', 'v de v', 'v del v', 'v7 v'],
+    definition: 'El V del V: un acorde mayor, casi siempre con séptima, que lleva a la dominante.',
+    inKey: (key) =>
+      `En ${keyName(key.tonic, key.mode)}: ${withSuffix(key, 'V/V', '7')} → ${withSuffix(key, 'V', '7')} → ${home(key)}.`,
+    signature: { kind: 'chord', degree: 'V/V' },
+  },
+  {
     id: 'prestado',
     title: 'Acorde prestado',
     names: [
@@ -929,13 +1117,16 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       'mixtura modal',
       'prestamo',
     ],
+    aliases: ['bvii', 'biii', 'bvi', 'iv menor'],
     definition: 'Uno que viene del modo paralelo, el de la misma tónica: en mayor, los del menor.',
     inKey: (key) => {
       if (key.mode === 'major') {
         const borrowed: readonly DegreeSymbol[] = ['iv', 'bIII', 'bVI', 'bVII'];
         return `En ${keyName(key.tonic, 'major')}: ${borrowed.map((degree) => `${chord(key, degree)} (${degree})`).join(', ')}.`;
       }
-      return `En ${keyName(key.tonic, 'minor')}, sobre todo el V mayor, ${chord(key, 'V')}, que es el de ${keyName(key.tonic, 'major')}.`;
+      // El paralelo se nombra con la misma tónica: `keyName` llamaba «Db mayor»
+      // al de C# menor, y su V no es G# sino Ab.
+      return `En ${keyName(key.tonic, 'minor')}, sobre todo el V mayor, ${chord(key, 'V')}, que es el de ${tonicName(key.tonic, 'minor')} mayor.`;
     },
   },
   {
@@ -953,7 +1144,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     inKey: (key) => {
       const [up, down] = [7, 5].map((step) => normalizePitchClass(key.tonic + step));
       const viaV = (tonic: PitchClass) =>
-        `${keyName(tonic, key.mode)} por ${rootName(resolveDegree(tonic, key.mode, 'V').symbol)}7`;
+        `${keyName(tonic, key.mode)} por ${rootName(chord({ tonic, mode: key.mode }, 'V'))}7`;
       return `Desde ${keyName(key.tonic, key.mode)}: a ${viaV(up as PitchClass)}, o a ${viaV(down as PitchClass)}.`;
     },
   },
@@ -994,11 +1185,71 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition: `La velocidad del pulso, en pulsos por minuto (BPM): 60 es uno por segundo y 120, dos. El metrónomo de aquí va de ${MIN_BPM} a ${MAX_BPM}.`,
   },
   {
+    id: 'figuras',
+    title: 'Figuras',
+    names: ['figura', 'negra', 'blanca', 'redonda', 'corchea', 'semicorchea', 'figuras musicales'],
+    definition:
+      'Lo que dura una nota. En 4/4 la negra es un pulso; la blanca, dos; la redonda, cuatro; la corchea, medio, y la semicorchea, un cuarto.',
+  },
+  {
     id: 'sincopa',
     title: 'Síncopa',
     names: ['sincopa', 'sincopado', 'contratiempo', 'a contratiempo'],
     definition:
       'Acentuar una parte débil alargándola sobre la fuerte, para que el golpe llegue antes de tiempo. A contratiempo es tocar solo en las débiles.',
+  },
+
+  // --- La aplicación -------------------------------------------------------
+  // Lo que se pregunta de la aplicación también es del profesor: el prompt de
+  // sistema lo cuenta como `musica`. Sin esto el modelo no sabía nada de ella y o
+  // lo rechazaba como fuera de tema o se lo inventaba —«sí, puedes grabar
+  // vídeo»—. Lo que dice cada una está en CLAUDE.md y en su ADR.
+  {
+    id: 'afinar',
+    title: 'Afinar',
+    names: ['afinar', 'afino', 'afinador', 'afinacion', 'afinacion estandar', 'afinar la guitarra'],
+    definition: `En Afinar, toca una cuerda al aire: dice qué nota oye y cuántos cents le sobran o le faltan. La estándar, de la sexta a la primera: ${STANDARD_TUNING.map(
+      (cuerda) => noteName(midiToPitchClass(cuerda.midi)),
+    ).join(' ')}.`,
+  },
+  {
+    id: 'grabar',
+    title: 'Grabar',
+    names: ['grabar', 'grabo', 'grabarme', 'grabacion', 'video', 'grabar video'],
+    definition:
+      'En Componer, el papel «Solo grabar» guarda el sonido de lo que tocas y te lo descargas. No graba vídeo, y el audio no sale de tu equipo.',
+  },
+  {
+    id: 'tu-audio',
+    title: 'Tu audio',
+    names: ['sube mi audio', 'sube el audio', 'subir el audio', 'mi audio', 'privacidad'],
+    definition:
+      'El micro se escucha en tu navegador y el audio no sale de tu equipo: a la IA solo viajan símbolos, como la tonalidad, los grados y tu pregunta.',
+  },
+  {
+    id: 'escribir-tocando',
+    title: 'Escribir tocando',
+    names: [
+      'escriba los acordes',
+      'escribir los acordes',
+      'reconoce los acordes',
+      'reconocer los acordes',
+      'detecta los acordes',
+      'detectar los acordes',
+      'reconoce',
+      'reconocer',
+      'detecta',
+      'detectar',
+    ],
+    definition:
+      'En Componer, en Tocando, eliges rítmica o punteo y el micro escribe lo que suena. Duda con las inversiones, y una nota sola se lee como su acorde mayor.',
+  },
+  {
+    id: 'ensayar',
+    title: 'Ensayar',
+    names: ['ensayar', 'ensayo', 'ensaya'],
+    definition:
+      'En Componer, Ensayar toca lo que has escrito contra el metrónomo y te puntúa cómo lo sigues.',
   },
 ];
 
@@ -1039,14 +1290,179 @@ export function normalizeForSearch(text: string): string {
     .trim();
 }
 
-/** Si el texto normalizado dice esa frase, en singular o en plural. */
-function findPhrase(normalized: string, phrase: string): { start: number; end: number } | null {
-  const match = new RegExp(`(?:^| )(${phrase}(?:s|es)?)(?= |$)`).exec(normalized);
-  if (match === null) {
-    return null;
+/**
+ * Lo que se escribe abreviado en un mensaje, por lo que es: «q es», «d esta», «xq».
+ *
+ * Sin esto, «el círculo d quintas» no era el círculo de quintas. Van las que se
+ * escriben de verdad en un móvil y ninguna que pueda ser otra palabra.
+ */
+const ABREVIATURAS: Readonly<Record<string, string>> = {
+  q: 'que',
+  k: 'que',
+  ke: 'que',
+  xq: 'por que',
+  pq: 'por que',
+  porq: 'por que',
+  d: 'de',
+  tb: 'tambien',
+  tmb: 'tambien',
+};
+
+/**
+ * La raíz con la que se comparan singular y plural: «acordes» y «acorde», «menores»
+ * y «menor», «compases» y «compás».
+ *
+ * No es gramática, es una regla que da **lo mismo a las dos formas**, que es lo
+ * único que hace falta para compararlas: se quitan la `s` final, una `e` detrás de
+ * consonante y otra `s`. «compás» se queda en «compa» igual que «compases». Las
+ * palabras de cuatro letras o menos no se tocan: «tres», «dos» y «mas» no son
+ * plurales de nada.
+ */
+function raiz(palabra: string): string {
+  if (palabra.length <= 4) {
+    return palabra;
   }
-  const start = match.index + match[0].length - (match[1] as string).length;
-  return { start, end: start + (match[1] as string).length };
+  return palabra
+    .replace(/s$/, '')
+    .replace(/([^aeiou])e$/, '$1')
+    .replace(/s$/, '');
+}
+
+/** Las palabras de un texto, ya normalizadas, sin abreviaturas y en su raíz. */
+function palabras(texto: string): string[] {
+  return normalizeForSearch(texto)
+    .split(' ')
+    .filter(Boolean)
+    .flatMap((palabra) => (ABREVIATURAS[palabra] ?? palabra).split(' '))
+    .map(raiz);
+}
+
+/**
+ * Cuántas letras hay que cambiar, quitar, poner o dar la vuelta para ir de una
+ * palabra a otra. Con el cambio de orden de dos letras seguidas, que es la falta
+ * más corriente al teclear: «cadnecia».
+ */
+function distancia(a: string, b: string): number {
+  const filas = Array.from({ length: a.length + 1 }, (_, i) =>
+    Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  );
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      /* v8 ignore start -- los índices son de la propia tabla */
+      const fila = filas[i] as number[];
+      const anterior = filas[i - 1] as number[];
+      const coste = a[i - 1] === b[j - 1] ? 0 : 1;
+      fila[j] = Math.min(
+        (anterior[j] ?? 0) + 1,
+        (fila[j - 1] ?? 0) + 1,
+        (anterior[j - 1] ?? 0) + coste,
+      );
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        fila[j] = Math.min(fila[j] ?? 0, ((filas[i - 2] as number[])[j - 2] ?? 0) + 1);
+      }
+      /* v8 ignore stop */
+    }
+  }
+  /* v8 ignore next -- la tabla tiene esa celda */
+  return (filas[a.length] as number[])[b.length] ?? 0;
+}
+
+/**
+ * Las palabras que no se corrigen nunca, aunque se parezcan a una del glosario.
+ *
+ * Son corrientes y están a una letra de un nombre: corregir «tiempo» a «tempo»
+ * metía el tempo en «¿qué tiempo hará mañana?», y la pregunta parecía de música.
+ */
+const NO_SE_CORRIGEN: ReadonlySet<string> = new Set(
+  [
+    'tiempo',
+    'cuerda',
+    'cancion',
+    'sonido',
+    'musica',
+    'guitarra',
+    'tocando',
+    'tonalidad',
+    // «¿cuántas negras…?» no es «cuartas», ni «el cuarto grado» la cuarta justa.
+    'cuanto',
+    'cuanta',
+    'cuantos',
+    'cuantas',
+    'cuando',
+    'segundo',
+    'tercero',
+    'cuarto',
+    'quinto',
+    'sexto',
+    'septimo',
+  ].map(raiz),
+);
+
+/** Todas las palabras de todos los nombres: lo que está bien escrito no se corrige. */
+let conocidas: ReadonlySet<string> | null = null;
+function palabrasConocidas(): ReadonlySet<string> {
+  conocidas ??= new Set([
+    ...NO_SE_CORRIGEN,
+    ...GLOSSARY.flatMap((entry) => [...entry.names, ...(entry.aliases ?? [])].flatMap(palabras)),
+  ]);
+  return conocidas;
+}
+
+/**
+ * Si una palabra de la pregunta es la del nombre, o la del nombre mal tecleada.
+ *
+ * **Solo se corrige lo que no existe**: si la palabra ya es de algún nombre, se
+ * compara tal cual. Sin eso, «armonía» —que está en «armonía funcional»— se leía
+ * como «armónica», que está a una letra. Y solo palabras largas, a una letra de
+ * distancia —a dos si pasan de ocho—: en las cortas, una letra es otra palabra.
+ */
+function casa(dePregunta: string, delNombre: string, corregir: boolean): boolean {
+  if (dePregunta === delNombre) {
+    return true;
+  }
+  if (!corregir || delNombre.length < 6 || dePregunta.length < 5) {
+    return false;
+  }
+  if (palabrasConocidas().has(dePregunta)) {
+    return false;
+  }
+  return distancia(dePregunta, delNombre) <= (delNombre.length >= 9 ? 2 : 1);
+}
+
+/**
+ * Las palabras de un nombre, calculadas una vez: son siempre los mismos
+ * cuatrocientos, y se miran contra cada pregunta.
+ */
+const palabrasDeNombres = new Map<string, readonly string[]>();
+function palabrasDeLaFrase(frase: string): readonly string[] {
+  let hechas = palabrasDeNombres.get(frase);
+  if (hechas === undefined) {
+    hechas = palabras(frase);
+    palabrasDeNombres.set(frase, hechas);
+  }
+  return hechas;
+}
+
+/**
+ * Dónde dice el texto esa frase, en palabras: de cuál a cuál. Nulo si no la dice.
+ *
+ * Compara palabra a palabra y en su raíz, así que vale en singular y en plural, con
+ * las abreviaturas de un mensaje y —en la pregunta— con faltas de una letra.
+ */
+function findPhrase(
+  texto: readonly string[],
+  frase: string,
+  corregir: boolean,
+): { start: number; end: number } | null {
+  const buscada = palabrasDeLaFrase(frase);
+  for (let start = 0; start + buscada.length <= texto.length; start += 1) {
+    if (
+      buscada.every((palabra, indice) => casa(texto[start + indice] as string, palabra, corregir))
+    ) {
+      return { start, end: start + buscada.length };
+    }
+  }
+  return null;
 }
 
 /**
@@ -1060,6 +1476,11 @@ function findPhrase(normalized: string, phrase: string): { start: number; end: n
  * Como mucho dos, porque cada entrada son tokens de todas las preguntas. Sin
  * ninguna que case no se añade nada: una referencia que no viene a cuento es ruido
  * que el modelo intenta usar.
+ *
+ * **Y si la pregunta pide las notas de un acorde escrito** —«¿qué notas tiene un
+ * G7?», «el acorde de re mayor»—, va primero una entrada hecha para él, con sus
+ * notas calculadas (`notasDelAcordeDeLaPregunta`): ningún nombre del glosario la
+ * habría encontrado, y es lo que más fácil se dice mal.
  */
 export function findTheory(question: string, limit = 2): GlossaryEntry[] {
   return rankTheory(question, limit).map((found) => found.entry);
@@ -1070,16 +1491,16 @@ function rankTheory(
   question: string,
   limit = 2,
 ): Array<{ readonly entry: GlossaryEntry; readonly byName: boolean }> {
-  const normalized = normalizeForSearch(question);
+  const texto = palabras(question);
   const matches = GLOSSARY.flatMap((entry) =>
     [
       ...entry.names.map((phrase) => ({ phrase, byName: true })),
       ...(entry.aliases ?? []).map((phrase) => ({ phrase, byName: false })),
     ].flatMap(({ phrase, byName }) => {
-      const span = findPhrase(normalized, phrase);
-      return span === null ? [] : [{ entry, byName, ...span, words: phrase.split(' ').length }];
+      const span = findPhrase(texto, phrase, true);
+      return span === null ? [] : [{ entry, byName, ...span, largo: phrase.length }];
     }),
-  ).sort((a, b) => b.end - b.start - (a.end - a.start) || a.start - b.start);
+  ).sort((a, b) => b.largo - a.largo || a.start - b.start);
 
   const taken: Array<{ start: number; end: number }> = [];
   const score = new Map<GlossaryEntry, { words: number; first: number; byName: boolean }>();
@@ -1090,16 +1511,19 @@ function rankTheory(
     taken.push(match);
     const previous = score.get(match.entry);
     score.set(match.entry, {
-      words: (previous?.words ?? 0) + match.words,
+      words: (previous?.words ?? 0) + match.end - match.start,
       first: Math.min(previous?.first ?? match.start, match.start),
       byName: (previous?.byName ?? false) || match.byName,
     });
   }
 
-  return [...score]
-    .sort(([, a], [, b]) => b.words - a.words || a.first - b.first)
-    .slice(0, limit)
-    .map(([entry, { byName }]) => ({ entry, byName }));
+  const delAcorde = entradaDelAcorde(question);
+  return [
+    ...(delAcorde === null ? [] : [{ entry: delAcorde, byName: true }]),
+    ...[...score]
+      .sort(([, a], [, b]) => b.words - a.words || a.first - b.first)
+      .map(([entry, { byName }]) => ({ entry, byName })),
+  ].slice(0, limit);
 }
 
 /**
@@ -1151,6 +1575,8 @@ interface Token {
   readonly degree: DegreeSymbol | null;
   /** El grado escrito en romanos, sin especie ni mayúsculas: «V», «BVII», «V/V». */
   readonly roman: string | null;
+  /** La fundamental de un acorde escrito, si el lector de cifrados lo conoce. */
+  readonly root: PitchClass | null;
 }
 
 const CHORD_SUFFIX = '(maj7|m7b5|dim7|dim|aug|sus2|sus4|m7|m|7|5|°7|°|ø|\\+)?';
@@ -1234,16 +1660,12 @@ function romanKey(degree: string): string {
 /**
  * El grado de un acorde escrito, en esta tonalidad.
  *
- * Nulo si el lector de cifrados no lo conoce: el patrón deja pasar `E#`, `Cb` o
- * `Fb7`, que se escriben con letra y alteración pero no son de los doce nombres
- * del dominio. No es de la tonalidad, y no casa con ningún grado.
+ * Se lee por su altura, como las notas: `E#dim` es el vii° de Fa# mayor, que es
+ * como lo escribe el glosario, y `Fdim` también, que suena igual. Nulo si el
+ * acorde no es de la tonalidad.
  */
-function degreeOfSymbol(symbol: string, key: TheoryKey): DegreeSymbol | null {
-  const parsed = parseChordSymbol(symbol);
-  if (parsed === null) {
-    return null;
-  }
-  const intervals = parsed.shape.intervals;
+function degreeOfSymbol(parsed: SpelledChord, key: TheoryKey): DegreeSymbol | null {
+  const intervals = parsed.intervals;
   const triad = TRIADS.find(
     (candidate) => intervals.includes(candidate.third) && intervals.includes(candidate.fifth),
   );
@@ -1253,7 +1675,17 @@ function degreeOfSymbol(symbol: string, key: TheoryKey): DegreeSymbol | null {
 }
 
 function chordToken(start: number, end: number, symbol: string, key: TheoryKey): Token {
-  return { start, end, kind: 'chord', degree: degreeOfSymbol(symbol, key), roman: null };
+  const parsed = readChord(symbol);
+  return {
+    start,
+    end,
+    kind: 'chord',
+    /* v8 ignore start -- el patrón de cifrados solo deja pasar especies del catálogo, y la fundamental se lee por su letra: siempre se entiende */
+    degree: parsed === null ? null : degreeOfSymbol(parsed, key),
+    root: parsed?.root ?? null,
+    /* v8 ignore stop */
+    roman: null,
+  };
 }
 
 /**
@@ -1286,6 +1718,7 @@ function readTokens(text: string, key: TheoryKey): Token[] {
       end: match.index + match[0].length,
       kind: 'roman',
       degree: null,
+      root: null,
       roman: `${flat === 'b' ? 'B' : ''}${(numeral as string).toUpperCase()}${secondary === undefined ? '' : `/${secondary.toUpperCase()}`}`,
     });
   }
@@ -1495,9 +1928,14 @@ function saysItEndsOn(text: string, tokens: readonly Token[], degrees: readonly 
   );
 }
 
-/** Si el texto, normalizado, nombra la entrada por alguno de sus nombres. */
-function names(normalized: string, entry: GlossaryEntry): boolean {
-  return entry.names.some((name) => findPhrase(normalized, name) !== null);
+/**
+ * Si la respuesta nombra la entrada por alguno de sus nombres.
+ *
+ * Sin corregir faltas: en la pregunta una falta es de quien teclea con prisa, y en
+ * la respuesta del modelo una palabra parecida es otra palabra.
+ */
+function names(texto: readonly string[], entry: GlossaryEntry): boolean {
+  return entry.names.some((name) => findPhrase(texto, name, false) !== null);
 }
 
 /**
@@ -1576,60 +2014,622 @@ function asksAboutAnotherKey(question: string, key: TheoryKey): boolean {
  * perfecta?» la respuesta habla de ella aunque empiece por «es cuando…», y con
  * «¿por qué el V va al I?» no tiene por qué hablar de ninguna. Entonces:
  *
- * 1. tiene que escribir su progresión —«G → C», «V → I»— y no otra que la
- *    contenga dando la vuelta, como «C a G a C»;
- * 2. y no puede escribir la de otra cadencia sin nombrarla, que es como sale
- *    «la perfecta es F-C»: la plagal con el nombre de la perfecta.
+ * 1. una cadencia tiene que escribir su progresión —«G → C», «V → I»— y no otra
+ *    que la contenga dando la vuelta, como «C a G a C», ni la de otra cadencia
+ *    sin nombrarla, que es como sale «la perfecta es F-C»;
+ * 2. la relativa tiene que decir cuál es, y la que es;
+ * 3. si se preguntan las notas de un acorde o de una escala, tienen que estar
+ *    todas;
+ * 4. la dominante y la del V tienen que nombrar su acorde;
+ * 5. la armadura no puede contar otras alteraciones que las suyas;
+ * 6. los acordes de la tonalidad tienen que estar escritos, y los modos, nombrados.
  *
- * Lo que no hace: entender la frase. Lee acordes y grados escritos, y por eso
- * **acepta de menos antes que rechazar de más** —un rechazo es una pregunta sin
- * respuesta, y la ruta solo reintenta una vez—.
+ * Y dos que miran la respuesta entera, se haya preguntado lo que se haya
+ * preguntado: **un intervalo no puede medir otros semitonos que los suyos**, y **un
+ * acorde con su grado al lado tiene que ser ese grado** —«D7 (V/vi)» en Fa mayor
+ * es falso, el V/vi es A7—.
+ *
+ * Lo que no hace: entender la frase. Lee acordes, grados, notas y números
+ * escritos, y por eso **acepta de menos antes que rechazar de más** —un rechazo es
+ * una pregunta sin respuesta del modelo, y la ruta solo reintenta una vez—. Cuando
+ * la pregunta es de otra tonalidad no comprueba nada que dependa de ella.
  */
 export function checkAnswerAgainstTheory(
   question: string,
   answer: string,
   key: TheoryKey,
 ): string | null {
-  if (asksAboutAnotherKey(question, key)) {
-    return null;
-  }
-  const normalized = normalizeForSearch(answer);
+  const otra = asksAboutAnotherKey(question, key);
+  const texto = palabras(answer);
+  const rank = rankTheory(question);
+  const lectura = { question, answer, key, texto, rank, otra };
+
+  return (
+    comprobarIntervalos(answer) ??
+    comprobarNotas(lectura) ??
+    comprobarModos(lectura) ??
+    (otra
+      ? null
+      : (comprobarFirmasDeLaTonalidad(lectura) ??
+        comprobarEtiquetas(answer, key) ??
+        comprobarLaDominanteDicha(answer, key)))
+  );
+}
+
+/** Lo que se lee de una pregunta y su respuesta, una vez, para todas las comprobaciones. */
+interface Lectura {
+  readonly question: string;
+  readonly answer: string;
+  readonly key: TheoryKey;
+  /** La respuesta en palabras, para buscar nombres. */
+  readonly texto: readonly string[];
+  readonly rank: ReadonlyArray<{ readonly entry: GlossaryEntry; readonly byName: boolean }>;
+  /** Si la pregunta es de otra tonalidad que la puesta. */
+  readonly otra: boolean;
+}
+
+/** Las firmas que dependen de la tonalidad: cadencias, relativa, dominante, armadura, acordes. */
+function comprobarFirmasDeLaTonalidad({ answer, key, texto, rank }: Lectura): string | null {
   const cadences = GLOSSARY.filter((entry) => entry.signature?.kind === 'cadence');
   let chains: Token[][] | null = null;
 
-  for (const { entry, byName } of rankTheory(question)) {
+  for (const { entry, byName } of rank) {
     const signature = entry.signature;
     // Por su nombre en la pregunta, la respuesta habla de ella aunque no la
     // nombre. Por un alias —«¿por qué el V va al I?»— no tiene por qué: puede
     // contestar con la sensible sin escribir ninguna cadencia.
-    if (signature === undefined || !(byName || names(normalized, entry))) {
+    if (signature === undefined) {
       continue;
     }
-    if (signature.kind === 'relative') {
-      const fallo = checkRelative(answer, key);
-      if (fallo !== null) {
-        return fallo;
-      }
+    // Las cadencias y la relativa, también si solo las nombra la respuesta. El
+    // acorde que hay que nombrar, la armadura y los acordes de la tonalidad, solo
+    // si se pregunta por ellos: «prepara la dominante» en una respuesta sobre la
+    // subdominante no obliga a decir cuál es.
+    const soloPreguntada =
+      signature.kind === 'chord' ||
+      signature.kind === 'key-signature' ||
+      signature.kind === 'key-chords';
+    if (!(byName || (!soloPreguntada && names(texto, entry)))) {
       continue;
     }
-
-    chains ??= readChains(answer, key);
-    const arrives =
-      signature.endsOn !== undefined &&
-      saysItEndsOn(answer, chains.flat(), signature.endsOn[key.mode]);
-    if (!arrives && !chains.some((chain) => chainMatches(chain, signature, key.mode))) {
-      return `habla de «${entry.title}» sin escribir su progresión`;
-    }
-    for (const other of cadences) {
-      const theirs = other.signature as Extract<TheorySignature, { kind: 'cadence' }>;
-      if (
-        other !== entry &&
-        !names(normalized, other) &&
-        chains.some((chain) => chainMatches(chain, theirs, key.mode))
-      ) {
-        return `escribe la progresión de «${other.title}» llamándola «${entry.title}»`;
+    let fallo: string | null = null;
+    switch (signature.kind) {
+      case 'relative':
+        fallo = checkRelative(answer, key);
+        break;
+      case 'chord':
+        fallo = nombraElAcorde(answer, key, entry, signature.degree);
+        break;
+      case 'key-signature':
+        fallo = cuentaLaArmadura(answer, key);
+        break;
+      case 'key-chords':
+        fallo = escribeLosAcordes(answer, key);
+        break;
+      case 'cadence': {
+        chains ??= readChains(answer, key);
+        const arrives =
+          signature.endsOn !== undefined &&
+          saysItEndsOn(answer, chains.flat(), signature.endsOn[key.mode]);
+        if (!arrives && !chains.some((chain) => chainMatches(chain, signature, key.mode))) {
+          return `habla de «${entry.title}» sin escribir su progresión`;
+        }
+        for (const other of cadences) {
+          const theirs = other.signature as Extract<TheorySignature, { kind: 'cadence' }>;
+          if (
+            other !== entry &&
+            !names(texto, other) &&
+            chains.some((chain) => chainMatches(chain, theirs, key.mode))
+          ) {
+            return `escribe la progresión de «${other.title}» llamándola «${entry.title}»`;
+          }
+        }
+        break;
       }
+      // Las notas y los modos no dependen de la tonalidad, y se miran aparte.
+      default:
+        break;
+    }
+    if (fallo !== null) {
+      return fallo;
     }
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Las notas que se preguntan.
+// ---------------------------------------------------------------------------
+
+/** Si la pregunta pide notas: «¿qué notas tiene…?», «¿cómo se forma…?». */
+function pideNotas(question: string): boolean {
+  return /(?:^| )(?:nota|notas|forma|formado|forman|compone|componen|lleva)(?= |$)/u.test(
+    normalizeForSearch(question),
+  );
+}
+
+/** Las especies de acorde que se escriben bien con una letra por intervalo. */
+const ESPECIES_QUE_SE_DELETREAN: ReadonlySet<string> = new Set([
+  '',
+  'm',
+  '5',
+  'sus2',
+  'sus4',
+  '7',
+  'maj7',
+  'm7',
+  'm7b5',
+  'dim',
+  'aug',
+]);
+
+/** Una nota en castellano donde no puede ser otra palabra: delante de mayor, de menor o al final. */
+const NOTA_QUE_ACABA = '(?=\\s+(?:mayor|menor)\\b|\\s*[?!.,;:)]|\\s*$)';
+const ACORDE_EN_CASTELLANO = new RegExp(
+  `acordes?\\s+(?:de\\s+)?${SPANISH_NOTE}(\\s+(?:mayor|menor))?${NOTA_QUE_ACABA}`,
+  'giu',
+);
+const CIFRADO_EN_CASTELLANO = new RegExp(
+  `(?<![\\p{L}])(do|re|mi|fa|sol|la|si)(#|b)?(m7b5|maj7|m7|7|dim|aug|sus2|sus4)(?![\\p{L}\\p{N}])`,
+  'giu',
+);
+
+/**
+ * El acorde por el que pregunta, como cifrado: «G7», «D» de «el acorde de re
+ * mayor», «Am» de «el acorde de A menor». Nulo si no hay ninguno.
+ *
+ * «A menor» a secas es la tonalidad y no el acorde; detrás de «acorde de» es el
+ * acorde. Y una nota en castellano solo cuenta donde no puede ser una palabra:
+ * «el acorde de mi canción» no es el de Mi.
+ */
+function acordeDeLaPregunta(question: string): string | null {
+  const encontrados: Array<{ readonly index: number; readonly symbol: string }> = [];
+  for (const match of question.matchAll(CHORD_TOKEN)) {
+    const end = match.index + match[0].length;
+    const tonalidad = /^\s+(mayor|menor)\b/u.exec(question.slice(end));
+    if (tonalidad === null) {
+      encontrados.push({ index: match.index, symbol: match[0] });
+    } else if (/acordes?\s+(?:de\s+)?$/iu.test(question.slice(0, match.index))) {
+      encontrados.push({
+        index: match.index,
+        symbol: `${match[1] as string}${tonalidad[1] === 'menor' ? 'm' : ''}`,
+      });
+    }
+  }
+  for (const match of question.matchAll(ACORDE_EN_CASTELLANO)) {
+    const [, note, accidental, especie] = match;
+    encontrados.push({
+      index: match.index,
+      symbol: `${spanishToLetter(note as string, accidental)}${especie?.trim() === 'menor' ? 'm' : ''}`,
+    });
+  }
+  for (const match of question.matchAll(CIFRADO_EN_CASTELLANO)) {
+    const [, note, accidental, especie] = match;
+    encontrados.push({
+      index: match.index,
+      symbol: `${spanishToLetter(note as string, accidental)}${especie as string}`,
+    });
+  }
+  const [primero] = encontrados.sort((a, b) => a.index - b.index);
+  return primero?.symbol ?? null;
+}
+
+/**
+ * La entrada de un acorde escrito en la pregunta, con sus notas: «Notas de G7: G B
+ * D F (fundamental, 3.ª mayor, 5.ª justa, 7.ª menor).»
+ *
+ * Se hace al vuelo porque no hay un nombre que la encuentre: son doce
+ * fundamentales por cada especie. Solo si se preguntan sus notas, y solo para las
+ * especies que se deletrean bien —con la novena o el disminuido con séptima, la
+ * letra de cada intervalo no sale de contar semitonos—.
+ */
+function entradaDelAcorde(question: string): GlossaryEntry | null {
+  if (!pideNotas(question)) {
+    return null;
+  }
+  const symbol = acordeDeLaPregunta(question);
+  const parsed = symbol === null ? null : parseChordSymbol(symbol);
+  if (parsed === null || !ESPECIES_QUE_SE_DELETREAN.has(parsed.shape.suffix)) {
+    return null;
+  }
+  const intervalos = parsed.shape.intervals
+    .map((intervalo) => (intervalo === 0 ? 'fundamental' : INTERVAL_NAMES[intervalo]))
+    .join(', ');
+  return {
+    id: `notas-de-${parsed.symbol}`,
+    title: `Notas de ${parsed.symbol}`,
+    names: [],
+    definition: `${chordNotes(parsed.symbol)} (${intervalos}).`,
+    signature: { kind: 'notes' },
+    notesOf: () => parsed.notes,
+  };
+}
+
+const NOTA_EN_LETRA = /(?<![\p{L}\p{N}#])([A-G])([#b]{0,2})(?!(?!m|maj|dim|aug|sus)\p{Ll})/gu;
+const NOTA_EN_CASTELLANO = new RegExp(
+  `(?<![\\p{L}])(do|re|mi|fa|sol|la|si)(#|b|\\s+sostenido|\\s+bemol)?(?![\\p{L}#])`,
+  'giu',
+);
+
+/**
+ * Las alturas que nombra un texto: en letra —también la fundamental de un cifrado,
+ * «G» de «G7»— y en castellano.
+ *
+ * Con holgura, porque es para ver si **faltan**: «la» como artículo cuenta como La,
+ * y eso hace la comprobación más blanda, nunca más dura.
+ */
+function alturasDichas(answer: string): Set<PitchClass> {
+  const dichas = new Set<PitchClass>();
+  for (const match of answer.matchAll(NOTA_EN_LETRA)) {
+    dichas.add(pitchOfSpelled(`${match[1] as string}${match[2] as string}`));
+  }
+  for (const match of answer.matchAll(NOTA_EN_CASTELLANO)) {
+    dichas.add(pitchOfSpelled(spanishToLetter(match[1] as string, match[2])));
+  }
+  return dichas;
+}
+
+/**
+ * Si se preguntan las notas de un acorde o de una escala, tienen que estar todas.
+ *
+ * Cuenta alturas y no nombres: «Ab» por «G#» pasa, que suena igual y el lector no
+ * sabría decidir cuál es la buena en cada tonalidad. Lo de **más** no se mira: una
+ * respuesta puede nombrar la tónica a la que resuelve.
+ */
+function comprobarNotas({ question, answer, key, rank, otra }: Lectura): string | null {
+  if (!pideNotas(question)) {
+    return null;
+  }
+  for (const { entry, byName } of rank) {
+    // Las de un acorde no dependen de la tonalidad; las de una escala, sí.
+    const delAcorde = entry.names.length === 0;
+    if (entry.notesOf === undefined || !byName || (otra && !delAcorde)) {
+      continue;
+    }
+    const notas = entry.notesOf(key);
+    if (notas === null) {
+      continue;
+    }
+    const dichas = alturasDichas(answer);
+    if (!notas.every((nota) => dichas.has(nota))) {
+      return `no da todas las notas de «${entry.title}»`;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Los modos, por su nombre.
+// ---------------------------------------------------------------------------
+
+/**
+ * «¿Qué diferencia hay entre los siete modos?» se contesta nombrándolos, y el
+ * modelo de casa contestó una vaguedad sin nombrar ninguno. Cuatro de siete basta:
+ * pedir los siete rechazaría una respuesta que agrupe los mayores y los menores.
+ * Solo cuando se pregunta por los modos en plural y no por uno de ellos.
+ */
+function comprobarModos({ question, answer, rank }: Lectura): string | null {
+  const porLosModos = rank.some(({ entry, byName }) => byName && entry.signature?.kind === 'modes');
+  const porUno = rank.some(({ entry }) => entry.id.startsWith('modo-'));
+  if (!porLosModos || porUno || !/(?:^| )modos(?= |$)/u.test(normalizeForSearch(question))) {
+    return null;
+  }
+  const dichos = new Set(normalizeForSearch(answer).split(' '));
+  const nombrados = MODES.filter((mode) => dichos.has(normalizeForSearch(mode.name))).length;
+  return nombrados >= 4 ? null : 'habla de los modos sin nombrarlos';
+}
+
+// ---------------------------------------------------------------------------
+// Los intervalos, por sus semitonos.
+// ---------------------------------------------------------------------------
+
+/** Los semitonos de cada intervalo como se escribe, ya normalizado. */
+const SEMITONOS_DE: Readonly<Record<string, number>> = {
+  'segunda menor': 1,
+  'segunda mayor': 2,
+  'segunda aumentada': 3,
+  'tercera menor': 3,
+  'tercera mayor': 4,
+  'cuarta justa': 5,
+  'cuarta aumentada': 6,
+  'quinta disminuida': 6,
+  tritono: 6,
+  'quinta justa': 7,
+  'quinta aumentada': 8,
+  'sexta menor': 8,
+  'sexta mayor': 9,
+  'septima menor': 10,
+  'septima mayor': 11,
+  octava: 12,
+};
+
+const NUMEROS: Readonly<Record<string, number>> = {
+  un: 1,
+  uno: 1,
+  una: 1,
+  dos: 2,
+  tres: 3,
+  cuatro: 4,
+  cinco: 5,
+  seis: 6,
+  siete: 7,
+  ocho: 8,
+  nueve: 9,
+  diez: 10,
+  once: 11,
+  doce: 12,
+};
+
+const NUMERO = `(\\d+|${Object.keys(NUMEROS).join('|')})`;
+
+/** «una tercera mayor tiene 4 semitonos», «la quinta justa son siete semitonos». */
+const MEDIDA_DE_UN_INTERVALO = new RegExp(
+  `(?:^| )(${Object.keys(SEMITONOS_DE).join('|')})(?: (?:tiene|son|mide|es de|equivale a|abarca|de|con))? ${NUMERO} semitonos?(?= |$)`,
+  'gu',
+);
+
+function numero(texto: string): number {
+  return NUMEROS[texto] ?? Number(texto);
+}
+
+/**
+ * Un intervalo no puede medir otros semitonos que los suyos.
+ *
+ * Solo lee la medida dicha justo detrás del nombre —«la tercera mayor tiene tres
+ * semitonos»—, que es la forma de decirla y la de equivocarse. Lo que va separado
+ * no se lee: «la tercera mayor, de C a E, son cuatro» pasa sin mirarse.
+ */
+function comprobarIntervalos(answer: string): string | null {
+  for (const match of normalizeForSearch(answer).matchAll(MEDIDA_DE_UN_INTERVALO)) {
+    const [, nombre, cuantos] = match;
+    const son = SEMITONOS_DE[nombre as string];
+    if (numero(cuantos as string) !== son) {
+      return `dice que la ${nombre as string} mide ${cuantos as string} semitonos, y son ${son as number}`;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// La armadura, contada.
+// ---------------------------------------------------------------------------
+
+const CUENTA_DE_ALTERACIONES = new RegExp(
+  `(?:^| )${NUMERO} (sostenidos?|bemol(?:es)?)(?= |$)`,
+  'gu',
+);
+const SIN_ALTERACIONES =
+  /(?:^| )(?:no lleva|no tiene|sin|ningun|ninguna|cero) (?:alteraciones|alteracion|sostenidos?|bemol(?:es)?)(?= |$)/u;
+
+/**
+ * La armadura no puede contar otras alteraciones que las suyas: «Mi mayor tiene 1
+ * sostenido» es falso, son cuatro.
+ *
+ * Vale con que una cuenta sea la buena —«ningún sostenido; lleva un bemol»—, y
+ * solo rechaza si todas las que dice son otras.
+ */
+function cuentaLaArmadura(answer: string, key: TheoryKey): string | null {
+  const signature = keySignature(key.tonic, key.mode);
+  const cuantas = signature.letters.length;
+  const tipo = signature.accidental === 'sharp' ? 'sostenido' : 'bemol';
+  const texto = normalizeForSearch(answer);
+  if (cuantas === 0 && SIN_ALTERACIONES.test(texto)) {
+    return null;
+  }
+  const cuentas = [...texto.matchAll(CUENTA_DE_ALTERACIONES)].map((match) => ({
+    cuantas: numero(match[1] as string),
+    tipo: (match[2] as string).startsWith('sostenido') ? 'sostenido' : 'bemol',
+  }));
+  const buena = cuentas.some(
+    (cuenta) =>
+      (cuenta.cuantas === cuantas && (cuantas === 0 || cuenta.tipo === tipo)) ||
+      (cuenta.cuantas === 0 && cuenta.tipo !== tipo),
+  );
+  if (cuentas.length === 0 || buena) {
+    return null;
+  }
+  return `cuenta mal la armadura de ${keyName(key.tonic, key.mode)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Los acordes que hay que nombrar.
+// ---------------------------------------------------------------------------
+
+/** La fundamental de un grado en la tonalidad. */
+function rootOf(key: TheoryKey, degree: DegreeSymbol): PitchClass {
+  return resolveDegree(key.tonic, key.mode, degree).root;
+}
+
+/**
+ * La dominante o la del V, preguntadas, tienen que nombrar su acorde.
+ *
+ * Con cualquier especie: el V con séptima sigue siendo el V, y en menor el v sin
+ * sensible tiene la misma fundamental. **Una respuesta sin un solo acorde pasa**
+ * —«el acorde del quinto grado, que tensa»—, porque explica sin equivocarse; la
+ * que escribe acordes y ninguno es el suyo, no: «la dominante de la dominante es
+ * el V/V, que en F mayor es C7» nombra el grado y da el acorde de otro.
+ */
+function nombraElAcorde(
+  answer: string,
+  key: TheoryKey,
+  entry: GlossaryEntry,
+  degree: DegreeSymbol,
+): string | null {
+  const root = rootOf(key, degree);
+  const acordes = readTokens(answer, key).filter((token) => token.kind === 'chord');
+  return acordes.length === 0 || acordes.some((token) => token.root === root)
+    ? null
+    : `habla de «${entry.title}» sin decir cuál es`;
+}
+
+/**
+ * «La dominante de Bb mayor es Eb» es falso, y se lee: «la dominante», quizá «de
+ * esta tonalidad», «es» y un acorde. «Su dominante» no, que puede ser la de otro
+ * acorde; y «la dominante de la dominante» es otra cosa, con su firma. Solo en
+ * letra: «la dominante es la que tensa» leería la nota La.
+ */
+const LA_DOMINANTE_ES = new RegExp(
+  `(?:^|[^\\p{L}])(?<!de\\s+)[Ll]a\\s+dominante(?!\\s+de\\s+la\\s+dominante)(?:\\s+de\\s+[^,.;:]{1,25}?)?\\s+(?:es|ser[aá]|ser[ií]a)\\s+(?:el\\s+|un\\s+)?(?:acorde\\s+(?:de\\s+)?)?([A-G][#b]?)(?![\\p{L}#])`,
+  'gu',
+);
+
+function comprobarLaDominanteDicha(answer: string, key: TheoryKey): string | null {
+  const root = rootOf(key, 'V');
+  for (const match of answer.matchAll(LA_DOMINANTE_ES)) {
+    const dicha = match[1] as string;
+    if (pitchOfSpelled(dicha) !== root && !nombraOtraTonalidad(match[0], key)) {
+      return `dice que la dominante es ${dicha}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Los acordes de la tonalidad, preguntados, tienen que estar escritos: cinco de
+ * los suyos por lo menos. Grados a secas —«i, ii°, III…»— no le dicen a nadie qué
+ * tocar, y es lo que contestó el modelo de casa.
+ */
+function escribeLosAcordes(answer: string, key: TheoryKey): string | null {
+  const suyos = new Set(scaleDegrees(key.mode));
+  const escritos = new Set(
+    readTokens(answer, key)
+      .filter((token) => token.kind === 'chord' && token.degree !== null && suyos.has(token.degree))
+      .map((token) => token.degree),
+  );
+  return escritos.size >= 5 ? null : 'no escribe los acordes de la tonalidad';
+}
+
+// ---------------------------------------------------------------------------
+// Un acorde con su grado al lado.
+// ---------------------------------------------------------------------------
+
+/**
+ * Las fundamentales que puede tener un grado escrito en romanos, en la tonalidad.
+ *
+ * Más de una en menor: el VI y el VII son los de la natural o, subidos, los de la
+ * melódica y la armónica —«G#dim (vii°)» en La menor es la sensible y está bien—.
+ * Un bemol delante baja el de la mayor, que es como se escriben los prestados. Y
+ * «V/vi» es el V del vi: la fundamental del vi, una quinta más arriba.
+ */
+function raicesDelGrado(roman: string, key: TheoryKey): PitchClass[] {
+  const [principal, destino] = roman.split('/') as [string, string | undefined];
+  const bemol = principal.startsWith('B');
+  const indice = NUMERALES.indexOf(principal.replace(/^B/, '') as (typeof NUMERALES)[number]);
+  /* v8 ignore next 3 -- el lector de romanos solo deja pasar los siete numerales */
+  if (indice === -1) {
+    return [];
+  }
+  const sobreLaMayor = (MAJOR[indice] as number) - (bemol ? 1 : 0);
+  if (destino !== undefined) {
+    return raicesDelGrado(destino, key).map((raiz) => normalizePitchClass(raiz + sobreLaMayor));
+  }
+  if (bemol || key.mode === 'major') {
+    return [normalizePitchClass(key.tonic + sobreLaMayor)];
+  }
+  const natural = normalizePitchClass(key.tonic + (NATURAL_MINOR[indice] as number));
+  return indice >= 5 ? [natural, normalizePitchClass(natural + 1)] : [natural];
+}
+
+/** La frase en la que está una posición del texto, hasta ella: desde el último punto. */
+function fraseDe(texto: string, hasta: number): string {
+  const antes = texto.slice(0, hasta);
+  return antes.slice(Math.max(antes.lastIndexOf('.'), antes.lastIndexOf('\n')) + 1);
+}
+
+/** «A menor», «Do mayor», «F# mayor»: una tonalidad escrita en una respuesta. */
+const TONALIDAD_ESCRITA = new RegExp(
+  `(?<![\\p{L}\\p{N}#])(?:([A-G][#b]?)|${SPANISH_NOTE})\\s+(mayor|menor)\\b`,
+  'gu',
+);
+
+/**
+ * Si un trozo de respuesta habla de otra tonalidad que la puesta.
+ *
+ * «En su relativa, A menor: … da E (V)» en Do mayor está bien: el V es el de La
+ * menor. Comprobarlo contra Do sería rechazar lo que dice el propio glosario. Solo
+ * cuenta la tonalidad con «mayor» o «menor» detrás, que es como se escribe: «de G a
+ * C» son dos acordes.
+ */
+function nombraOtraTonalidad(fragmento: string, key: TheoryKey): boolean {
+  return [...fragmento.matchAll(TONALIDAD_ESCRITA)].some((match) => {
+    const nota = noteOfMatch(match, 1);
+    const modo = match[4] === 'mayor' ? 'major' : 'minor';
+    return pitchOfSpelled(nota) !== key.tonic || modo !== key.mode;
+  });
+}
+
+/**
+ * Cómo se pega un grado a un acorde para decir que es ese: «G (V)», «el V (G)»,
+ * «A7, que es el V/V», «el V/V, que en F mayor es C7», «el V es G». Lo que va
+ * entre los dos, exacto.
+ */
+const ETIQUETA =
+  /^(?:\s*\(\s*|\s*,?\s+que(?:\s+en\s+[^,.;:()]{1,15})?\s+es\s+(?:el\s+|un\s+)?|\s+(?:es|ser[ií]a)\s+(?:el\s+|un\s+)?|\s*=\s*)$/u;
+
+/**
+ * Un acorde con su grado al lado tiene que ser ese grado.
+ *
+ * «D7 (V/vi)» en Fa mayor es falso —el V/vi de Fa es A7— y el modelo de casa lo
+ * escribió así, dentro de una respuesta que el resto del validador dejaba pasar.
+ * Compara solo fundamentales, que es lo que dice el grado; la especie la dice el
+ * acorde. Entre paréntesis, solo si dentro va **una** pieza: «V → I (G → C)» es la
+ * progresión dicha dos veces, y se lee entera en `readChains`. Y un grado seguido
+ * de «de» es de otra tonalidad: «G7 es el V de C» en Fa mayor está bien.
+ */
+function comprobarEtiquetas(answer: string, key: TheoryKey): string | null {
+  const tokens = readTokens(answer, key);
+  for (const [index, primero] of tokens.entries()) {
+    const segundo = tokens[index + 1];
+    if (segundo === undefined || segundo.kind === primero.kind) {
+      continue;
+    }
+    const hueco = answer.slice(primero.end, segundo.start);
+    if (!ETIQUETA.test(hueco)) {
+      continue;
+    }
+    if (hueco.includes('(') && !/^\s*\)/u.test(answer.slice(segundo.end))) {
+      continue;
+    }
+    // Un acorde en mitad de una lista de notas no es el que lleva la etiqueta:
+    // en «Cmaj7 = C E G B (I)» el I es del Cmaj7, no de la B.
+    const anterior = tokens[index - 1];
+    if (
+      primero.kind === 'chord' &&
+      anterior?.kind === 'chord' &&
+      /^[\s,]*$/u.test(answer.slice(anterior.end, primero.start))
+    ) {
+      continue;
+    }
+    const [acorde, grado] = primero.kind === 'chord' ? [primero, segundo] : [segundo, primero];
+    if (
+      /^\s+(?:de|del)\s/u.test(answer.slice(grado.end)) ||
+      acorde.root === null ||
+      nombraOtraTonalidad(fraseDe(answer, segundo.start), key)
+    ) {
+      continue;
+    }
+    if (!raicesDelGrado(grado.roman as string, key).includes(acorde.root)) {
+      return `llama ${answer.slice(grado.start, grado.end)} a ${answer.slice(acorde.start, acorde.end)}`;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Contestar con el glosario.
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que dice el glosario de la pregunta, resuelto en la tonalidad. Nulo si no
+ * casa con nada.
+ *
+ * Es lo que contesta la aplicación cuando no hay modelo, y cuando el modelo no ha
+ * dado nada que pase el validador: son las mismas entradas que van en el prompt,
+ * así que dicen lo mismo que se le dio al modelo para contestar.
+ */
+export function respuestaDelGlosario(question: string, key: TheoryKey): string | null {
+  const entradas = findTheory(question);
+  return entradas.length === 0
+    ? null
+    : entradas.map((entry) => theoryReference(entry, key)).join(' ');
 }

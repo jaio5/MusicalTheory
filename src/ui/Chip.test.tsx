@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Chip } from './Chip';
 
 describe('la pastilla', () => {
-  it('normal: 14 px; compacto: 13 px, los dos con alto y ancho de dedo', () => {
+  it('normal: 14 px; compacto: 13 px; grande: 16 y más alto, todos con alto y ancho de dedo', () => {
     const { rerender } = render(<Chip onClick={() => {}}>Do</Chip>);
     expect(screen.getByRole('button')).toHaveClass('text-sm', 'px-3.5', 'min-h-tap', 'min-w-tap');
 
@@ -17,6 +17,14 @@ describe('la pastilla', () => {
       </Chip>,
     );
     expect(screen.getByRole('button')).toHaveClass('text-[13px]', 'px-3', 'min-h-tap');
+    expect(screen.getByRole('button')).not.toHaveClass('text-sm');
+
+    rerender(
+      <Chip onClick={() => {}} tamano="grande">
+        Do
+      </Chip>,
+    );
+    expect(screen.getByRole('button')).toHaveClass('text-base', 'py-4', 'min-h-tap');
     expect(screen.getByRole('button')).not.toHaveClass('text-sm');
   });
 
@@ -58,5 +66,30 @@ describe('la pastilla', () => {
     expect(screen.getByRole('button', { name: 'Sol' })).toHaveClass('border-tube-bright');
     expect(screen.getByRole('button', { name: 'La' })).toHaveClass('disabled:opacity-40');
     expect(screen.getByRole('button', { name: 'Re' })).toHaveAttribute('title', '· J');
+  });
+
+  /**
+   * Las respuestas de una pregunta eran `quiet`: lo más gris y pequeño de la
+   * pantalla, sin borde ni fondo hasta pasar el ratón. `opcion` las pinta como
+   * lo que son, un control que se elige, y lo corregido conserva ese fondo.
+   */
+  it('una opción lleva borde de control y fondo, y lo corregido también', () => {
+    render(
+      <>
+        <Chip onClick={() => {}} tone="opcion">
+          Do
+        </Chip>
+        <Chip onClick={() => {}} tone="acierto" disabled>
+          Re
+        </Chip>
+      </>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Do' })).toHaveClass(
+      'border-border-strong',
+      'bg-surface',
+      'text-text',
+    );
+    expect(screen.getByRole('button', { name: 'Re' })).toHaveClass('bg-surface');
   });
 });

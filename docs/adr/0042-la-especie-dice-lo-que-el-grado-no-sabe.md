@@ -1,5 +1,7 @@
 # ADR 0042 — La especie dice lo que el grado no sabe
 
+> **Ampliado por [ADR 0090](./0090-los-cifrados-salen-de-una-tabla-por-especie.md):** la especie de lo que no es séptima vuelve como su tríada, no como `CmMaj7`.
+
 Fecha: 2026-09-23 · Estado: aceptada · Amplía: [ADR 0035](./0035-un-bloque-sabe-que-no-lleva-tercera.md)
 
 ## Contexto

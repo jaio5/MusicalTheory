@@ -2,10 +2,11 @@
 import '@testing-library/jest-dom/vitest';
 
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS } from '@core/billing';
 import { AccountProvider } from '@state/account';
+import { CLAVE_RECORRIDO } from '@state/recorrido';
 
 import Marco from './layout';
 
@@ -39,6 +40,11 @@ function pintar(pagina: React.ReactElement) {
 }
 
 describe('el marco de las pantallas de trabajo', () => {
+  // Lo de aquí es el marco; el recorrido de la primera visita va en su propio test.
+  beforeEach(() => {
+    localStorage.setItem(CLAVE_RECORRIDO, 'visto');
+  });
+
   it('pone la barra alrededor de la página', () => {
     render(pintar(<h1>Afinar</h1>));
 
@@ -54,5 +60,21 @@ describe('el marco de las pantallas de trabajo', () => {
 
     expect(screen.getByRole('heading', { name: 'Aprender' })).toBeInTheDocument();
     expect(screen.getByRole('banner'), 'el marco se ha vuelto a montar').toBe(barra);
+  });
+});
+
+/**
+ * El recorrido de la primera visita lo pone el marco, al lado de la barra: así
+ * sale en cualquier pantalla de trabajo y no se desmonta al navegar.
+ */
+describe('la primera visita', () => {
+  it('pone el recorrido encima de la pantalla', async () => {
+    localStorage.clear();
+    render(pintar(<h1>Afinar</h1>));
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Bienvenido a Caos ordenado' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Pantallas' })).toBeInTheDocument();
   });
 });

@@ -70,3 +70,20 @@ describe('juzgar un acorde contra la tonalidad', () => {
     expect(judge('C').fit).toBe(0);
   });
 });
+
+describe('los estilos que llegaron después, al juzgar', () => {
+  const A = pitchClassFromName('A');
+  const enLaMenor = (symbol: string, styleId: string) =>
+    judgeChord(parseChordSymbol(symbol)!, { tonic: A, mode: 'minor', styleId } as never);
+
+  it('en flamenco, el Mi mayor y su novena bemol son el centro, no un error', () => {
+    expect(enLaMenor('E', 'flamenco')).toMatchObject({ verdict: 'colour', label: 'V' });
+    expect(enLaMenor('E7b9', 'flamenco')).toMatchObject({ verdict: 'colour', label: 'V7b9' });
+    expect(enLaMenor('Bb', 'flamenco')).toMatchObject({ verdict: 'colour', label: 'bII' });
+  });
+
+  it('en reggae, lo alterado y el napolitano se van fuera', () => {
+    expect(enLaMenor('E7b9', 'reggae').verdict).toBe('outside');
+    expect(enLaMenor('Bb', 'reggae').verdict).toBe('outside');
+  });
+});

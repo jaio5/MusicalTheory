@@ -4,7 +4,7 @@ import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
-import { EMPTY_PROGRESS, REVIEW_XP, UNIT_ORDER } from '@core/music';
+import { EMPTY_PROGRESS, findUnit, REVIEW_XP, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
 import { loadProgress, today } from '@state/learn-progress';
 
@@ -32,6 +32,13 @@ vi.mock('next-auth/react', () => ({
 }));
 
 const PRIMERA = UNIT_ORDER[0]!;
+
+/**
+ * Una unidad a la que la cola de repaso siempre puede apuntar: la primera de
+ * tocar, con un paso por nota. Lo guardado se vuelve a leer al cargar, y una
+ * posición que su lección no tiene se suelta.
+ */
+const CON_PASOS = UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!;
 
 const CON_SINCRONIA: Account = {
   email: 'javier@example.com',
@@ -142,7 +149,7 @@ describe('fallar y acertar', () => {
     // con la siguiente unidad terminada.
     const { result } = montar();
 
-    act(() => result.current.miss(PRIMERA, 0));
+    act(() => result.current.miss(CON_PASOS, 0));
 
     expect(result.current.progress.review.length).toBeGreaterThan(0);
     expect(loadProgress().review.length).toBeGreaterThan(0);
@@ -151,9 +158,9 @@ describe('fallar y acertar', () => {
 
   it('un acierto en repaso tambien se guarda', () => {
     const { result } = montar();
-    act(() => result.current.miss(PRIMERA, 0));
+    act(() => result.current.miss(CON_PASOS, 0));
 
-    act(() => result.current.hit(PRIMERA, 0));
+    act(() => result.current.hit(CON_PASOS, 0));
 
     expect(loadProgress().review).toEqual(result.current.progress.review);
   });
@@ -332,8 +339,8 @@ describe('los actualizadores son puros', () => {
     const { result } = montar();
 
     act(() => {
-      result.current.miss(PRIMERA, 0);
-      result.current.miss(PRIMERA, 1);
+      result.current.miss(CON_PASOS, 0);
+      result.current.miss(CON_PASOS, 1);
     });
 
     expect(result.current.progress.review).toHaveLength(2);

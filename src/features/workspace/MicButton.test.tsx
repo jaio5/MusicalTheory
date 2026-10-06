@@ -89,7 +89,7 @@ describe('el boton de escuchar', () => {
   it('parado, invita a escuchar y lo dice con palabras', () => {
     pintar();
 
-    const boton = screen.getByRole('button');
+    const boton = screen.getByRole('button', { name: /escuchar la guitarra/i });
     expect(boton).toHaveAccessibleName('Escuchar la guitarra');
     expect(boton).toHaveAttribute('aria-pressed', 'false');
   });
@@ -97,23 +97,36 @@ describe('el boton de escuchar', () => {
   it('al pulsarlo escucha, y el nombre cambia a lo contrario', async () => {
     pintar();
 
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole('button')).toHaveAccessibleName('Dejar de escuchar la guitarra'),
+      expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toHaveAccessibleName(
+        'Dejar de escuchar la guitarra',
+      ),
     );
-    expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('y al volver a pulsarlo, para', async () => {
     pintar();
 
-    await userEvent.click(screen.getByRole('button'));
-    await waitFor(() => expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true'));
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'false'),
+      expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toHaveAttribute(
+        'aria-pressed',
+        'false',
+      ),
     );
   });
 
@@ -140,7 +153,7 @@ describe('el boton de escuchar', () => {
     });
 
     pintar();
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     expect(await screen.findByText('A2')).toBeInTheDocument();
     expect(screen.getByText('-7¢')).toBeInTheDocument();
@@ -153,7 +166,7 @@ describe('el boton de escuchar', () => {
     });
 
     pintar();
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     expect(await screen.findByText('+12¢')).toBeInTheDocument();
   });
@@ -182,7 +195,7 @@ describe('el boton de escuchar', () => {
     });
 
     pintar();
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     expect(await screen.findByText('Am')).toBeInTheDocument();
     expect(screen.getByText('acorde')).toBeInTheDocument();
@@ -198,7 +211,7 @@ describe('el boton de escuchar', () => {
     });
 
     pintar();
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     expect(await screen.findByText('G3')).toBeInTheDocument();
     expect(screen.getByText('+3¢')).toBeInTheDocument();
@@ -212,6 +225,54 @@ describe('el boton de escuchar', () => {
     pintar();
 
     expect(screen.getByRole('alert')).toHaveTextContent(/denegado/);
+  });
+});
+
+/**
+ * La pastilla en una barra estrecha.
+ *
+ * A 390, durante una toma, la pastilla se metía debajo del botón del tema. Lo que
+ * cabe se mide en un navegador (la sonda del skill `arrancar`); aquí se fija lo
+ * que lo hace caber, que jsdom no sabe medir: la marca que mira la barra y el
+ * rótulo que se calla sin dejar de leerse.
+ */
+describe('la pastilla en una barra estrecha', () => {
+  it('se deja ver desde la barra, para que el nombre de la marca le haga sitio', async () => {
+    pintar();
+    expect(document.querySelector('[data-lectura]')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    expect(await screen.findByText('esperando')).toBeInTheDocument();
+    expect(screen.getByText('esperando').closest('[data-lectura]')).not.toBeNull();
+  });
+
+  it('el rotulo se calla donde se calla la marca, pero se sigue leyendo', async () => {
+    pintar();
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    const rotulo = await screen.findByText('esperando');
+    expect(rotulo).toHaveClass('md:max-lg:sr-only', '@max-[26rem]:sr-only');
+    // Dentro de la región viva: callado a la vista, no al oído.
+    expect(rotulo.closest('[aria-live]')).not.toBeNull();
+    // Solo «pidiendo permiso» se calla antes, que es el largo.
+    expect(rotulo).not.toHaveClass('@max-[30rem]:sr-only');
+  });
+});
+
+/**
+ * **Cambiar de acorde no mueve la barra.** La pastilla va pegada a la derecha y
+ * crecía de «C» a «Bbmaj7»: el botón del micro se iba diez píxeles a un lado y
+ * volvía a cada cambio (medido en una toma, en el navegador). Lo que lo impide
+ * es el sitio guardado, que jsdom no sabe medir: aquí se fija la regla.
+ */
+describe('la pastilla no se mueve al cambiar lo que dice', () => {
+  it('la lectura y el rótulo guardan el sitio del más largo', async () => {
+    pintar();
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    expect(await screen.findByText('esperando')).toHaveClass('min-w-[9ch]');
+    expect(screen.getByText('—')).toHaveClass('min-w-[6ch]', 'font-mono');
   });
 });
 
@@ -232,9 +293,11 @@ describe('mientras se pide el micro', () => {
       <MicButton createInput={() => new EntradaLenta()} createEngine={() => new MotorCallado()} />,
     );
 
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     expect(await screen.findByText('pidiendo permiso')).toBeInTheDocument();
+    // Es el rótulo más largo, y en una barra estrecha se calla antes que los otros.
+    expect(screen.getByText('pidiendo permiso')).toHaveClass('@max-[30rem]:sr-only');
   });
 
   /**
@@ -252,7 +315,7 @@ describe('mientras se pide el micro', () => {
     }
     const entrada = new EntradaLenta();
     render(<MicButton createInput={() => entrada} createEngine={() => new MotorCallado()} />);
-    const boton = screen.getByRole('button');
+    const boton = screen.getByRole('button', { name: /escuchar la guitarra/i });
 
     boton.focus();
     await userEvent.keyboard('{Enter}');

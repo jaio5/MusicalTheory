@@ -16,6 +16,8 @@ import {
   DEFAULT_BPM,
   describePitch,
   detectKey,
+  mismoAcordeOido,
+  RETARDO_DEL_ACORDE_MS,
   type CapturedChord,
   type KeyCandidate,
   type KeyMode,
@@ -103,6 +105,32 @@ const NOTE_HISTORY_LIMIT = 24;
  */
 export const NOTE_REPEAT_MS = 250;
 
+/**
+ * Por debajo de este nivel no suena nada: es el mismo suelo con el que el motor
+ * de tono deja de buscar nota y con el que la toma mide hasta dónde llegó el
+ * último acorde (`apuntar-lo-tocado.ts`).
+ *
+ * Aquí dice si el acorde que se está oyendo **se está oyendo de verdad**. El
+ * croma no lo sabe: compara la forma del croma suavizado y no su tamaño, así que
+ * en silencio la media se apaga a la mitad en cada análisis sin cambiar de forma,
+ * y el acorde se queda «oído» hasta que el ruido de la sala la deforma —en un
+ * silencio digital, cerca de dos minutos—.
+ */
+export const NIVEL_QUE_SUENA = 0.006;
+
+/** Cómo se empieza a apuntar. */
+export interface OpcionesDeCaptura {
+  /**
+   * Si el acorde que **ya está sonando** al empezar entra como el primero.
+   *
+   * Lo pide la toma con cuenta: quien rasguea durante la cuenta ya tiene el
+   * acorde puesto al llegar el compás uno, y el croma solo avisa cuando el acorde
+   * cambia, así que sin esto el primero no se apuntaba nunca. No lo piden los
+   * botones que apuntan sin cuenta: ahí no hay compás uno en el que ponerlo.
+   */
+  readonly conElQueSuena?: boolean;
+}
+
 export interface PlayedNote {
   readonly pitchClass: PitchClass;
   readonly midi: number;
@@ -156,7 +184,7 @@ export interface SessionActions {
    * Apuntar y no grabar: lo que se guarda son símbolos y milisegundos, nunca
    * sonido. El instante entra por parámetro, como en todo lo demás.
    */
-  startCapture(at: number): void;
+  startCapture(at: number, opciones?: OpcionesDeCaptura): void;
   /** Deja de apuntar. Lo apuntado se queda para poder usarlo. */
   stopCapture(at: number): void;
   /** Tira lo apuntado. */
@@ -234,6 +262,11 @@ export interface SessionState {
   readonly captureStartedAt: number;
   readonly captureEndedAt: number;
   /**
+   * Si el primero de `captured` no lo dijo el croma durante la toma, sino que ya
+   * sonaba al empezar (`conElQueSuena`). Es lo que deja no apuntarlo dos veces.
+   */
+  readonly primeroYaSonaba: boolean;
+  /**
    * Las acciones viven en un objeto propio que no se reemplaza nunca, para que
    * suscribirse a ellas no provoque renders. Es el equivalente a inyectar un
    * servicio: lo que cambia son los datos, no la forma de tocarlos.
@@ -267,7 +300,61 @@ const EMPTY = {
   captured: [],
   captureStartedAt: 0,
   captureEndedAt: 0,
+  primeroYaSonaba: false,
 } as const satisfies Omit<SessionState, 'actions'>;
+
+/** Un acorde oído, dicho como se apunta: símbolos y su instante, nunca sonido. */
+function comoApuntado(oido: HeardChord, at: number): CapturedChord {
+  return {
+    root: oido.root,
+    notes: oido.notes,
+    at,
+    // La confianza y los candidatos viajan con el acorde. Se quedaban aquí, y sin
+    // ellos lo apuntado no sabe de qué dudó.
+    score: oido.score,
+    margin: oido.margin,
+    alternatives: oido.alternatives.map((otra) => ({ root: otra.root, notes: otra.notes })),
+  };
+}
+
+/**
+ * Lo apuntado después de que el croma diga un acorde.
+ *
+ * Casi siempre, añadirlo al final. **Lo que cambia es el que ya sonaba al
+ * empezar**, que está apuntado en el compás uno sin que el croma lo haya dicho
+ * en la toma, y mientras sea el único:
+ *
+ * - si el croma dice **otro antes de ese instante**, el que sonaba ya no es el
+ *   del compás uno: se cambió antes de llegar, y sobra;
+ * - si dice **el mismo**, no es un acorde nuevo sino el mismo que vuelve tras un
+ *   hueco —el croma avisa al cambiar, y del silencio al acorde también es
+ *   cambiar—: no se repite. Se queda, eso sí, con la peor duda de las dos, como
+ *   hace `captureProgression` con los repetidos.
+ */
+function apuntarOtro(state: SessionState, oido: HeardChord): Partial<SessionState> {
+  const nuevo = comoApuntado(oido, oido.at);
+  if (!state.primeroYaSonaba || state.captured.length !== 1) {
+    return { captured: [...state.captured, nuevo] };
+  }
+  // Con la marca puesta y uno solo, ese uno es el que ya sonaba: la marca nace con
+  // él en `startCapture` y se borra con todo lo que vacía la lista.
+  const primero = state.captured[0]!;
+  if (nuevo.at <= primero.at) {
+    return { captured: [nuevo], primeroYaSonaba: false };
+  }
+  if (mismoAcordeOido(primero, nuevo)) {
+    return {
+      captured: [
+        {
+          ...primero,
+          score: Math.min(primero.score!, nuevo.score!),
+          margin: Math.min(primero.margin!, nuevo.margin!),
+        },
+      ],
+    };
+  }
+  return { captured: [...state.captured, nuevo] };
+}
 
 /**
  * Guarda la configuración cada vez que cambia. Es lo único que sale del estado
@@ -386,36 +473,50 @@ export const useSessionStore = create<SessionState>()((set) => ({
         // instante. El silencio no se apunta: lo que mide cuánto dura un acorde
         // es cuándo empieza el siguiente, y un hueco de nulos no aporta nada
         // que `captureProgression` no sepa deducir.
-        captured:
-          state.capturing && heardChord !== null
-            ? [
-                ...state.captured,
-                {
-                  root: heardChord.root,
-                  notes: heardChord.notes,
-                  at: heardChord.at,
-                  // La confianza y los candidatos viajan con el acorde. Se
-                  // quedaban aquí, y sin ellos lo apuntado no sabe de qué dudó.
-                  score: heardChord.score,
-                  margin: heardChord.margin,
-                  alternatives: heardChord.alternatives.map((otra) => ({
-                    root: otra.root,
-                    notes: otra.notes,
-                  })),
-                },
-              ]
-            : state.captured,
+        ...(state.capturing && heardChord !== null ? apuntarOtro(state, heardChord) : {}),
       })),
     pushChord: (chord) => set((state) => ({ path: [...state.path, chord] })),
     trimPath: (index) => set((state) => ({ path: state.path.slice(0, index + 1) })),
     clearPath: () => set({ path: [] }),
     setCurrentDegree: (currentDegree) => set({ currentDegree }),
     setTempo: (bpm, beatsPerBar) => set({ bpm: clampBpm(bpm), beatsPerBar }),
-    startCapture: (at) =>
-      set({ capturing: true, captured: [], captureStartedAt: at, captureEndedAt: 0 }),
+    /**
+     * **Con `conElQueSuena`, el acorde que ya suena entra como el primero**, y
+     * entra en el compás uno —`at`—, nunca antes.
+     *
+     * El croma solo avisa cuando el acorde cambia, así que el que se rasgueó
+     * durante la cuenta, y sigue sonando al llegar el compás uno, no volvía a
+     * decirse y no se apuntaba nunca: medido con un WAV de C G Am F empezado dos
+     * pulsos antes, salía «G Am F».
+     *
+     * Su instante es el compás uno **más lo que tarda el motor en decir un
+     * acorde**, que es lo que la rejilla le descuenta a todos: así cae en el pulso
+     * cero de la cuenta, sin depender de que la rejilla recorte lo que llega
+     * antes, y lo que el croma diga después queda detrás de él.
+     *
+     * Se apunta solo si **se está oyendo de verdad**: un acorde dicho y un nivel
+     * por encima del suelo (`NIVEL_QUE_SUENA`). El nivel es lo fresco que tiene la
+     * sesión —llega veinte veces por segundo—, y el acorde dicho no lo es: en
+     * silencio el croma lo sostiene.
+     */
+    startCapture: (at, { conElQueSuena = false } = {}) =>
+      set((state) => {
+        const yaSuena =
+          conElQueSuena && state.heardChord !== null && state.level >= NIVEL_QUE_SUENA
+            ? state.heardChord
+            : null;
+        return {
+          capturing: true,
+          captured: yaSuena === null ? [] : [comoApuntado(yaSuena, at + RETARDO_DEL_ACORDE_MS)],
+          primeroYaSonaba: yaSuena !== null,
+          captureStartedAt: at,
+          captureEndedAt: 0,
+        };
+      }),
     stopCapture: (at) => set({ capturing: false, captureEndedAt: at }),
-    clearCapture: () => set({ captured: [], captureStartedAt: 0, captureEndedAt: 0 }),
-    replaceCapture: (chords) => set({ captured: [...chords] }),
+    clearCapture: () =>
+      set({ captured: [], captureStartedAt: 0, captureEndedAt: 0, primeroYaSonaba: false }),
+    replaceCapture: (chords) => set({ captured: [...chords], primeroYaSonaba: false }),
     clearHistory: () =>
       set({
         noteHistory: [],

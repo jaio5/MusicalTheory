@@ -531,6 +531,19 @@
     filter: blur(28px);
   }
 
+  /*
+   * La sombra de una pieza de píxel: el muñeco del profesor.
+   *
+   * Era `drop-shadow-lg`, que es el negro de Tailwind con su alfa: el único
+   * relieve de la aplicación que no salía de la sala. Es una sombra propia, algo
+   * más larga que `--sombra-suave` (0 1px 2px) porque el muñeco flota sobre la
+   * columna y con esa caída no se despegaba; en el negro de la noche, y como
+   * filtro porque un `box-shadow` sobre un SVG sombrea su caja y no el dibujo.
+   */
+  .sombra-pixel {
+    filter: drop-shadow(0 3px 4px color-mix(in srgb, var(--color-night) 45%, transparent));
+  }
+
   /* El aro de lo que está seleccionado en el camino. */
   .halo-latón {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brass-bright) 15%, transparent);
@@ -575,10 +588,14 @@
    * El color de la tapa es el del fondo de detrás, y se puede cambiar con
    * `--tira-fondo` donde la tira no esté sobre el fondo de la página.
    *
-   * Solo por debajo de 640: de ahí para arriba estas tiras se envuelven o caben
-   * enteras, y una sombra sin nada que esconder es suciedad.
+   * Hasta 1024 y no hasta 640, que es donde estaba: la fila de mandos de
+   * componer sigue desplazándose hasta `lg`, y entre 640 y 1023 se cortaba
+   * contra el borde sin ninguna pista —medido a 700: 250 px de más y nada que
+   * lo dijera—. Y no mancha a la tira que ya cabe: sin desplazamiento, las dos
+   * tapas quedan justo encima de las dos sombras y no se ve nada. Por eso el
+   * corte es solo ahorro, no lo que decide si se pinta.
    */
-  @media (width < 40rem) {
+  @media (width < 64rem) {
     .hay-mas-al-lado {
       background:
         linear-gradient(to right, var(--tira-fondo, var(--color-background)) 55%, transparent) 0 0 /

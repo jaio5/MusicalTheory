@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { BrowserMicInput } from '@media/browser-mic-input';
 import type { MicInput } from '@media/mic-input';
+
+import { microfonoElegido, useMicrofono } from './microfono';
 import type { Recording, SessionRecorder } from '@media/session-recorder';
 import { StreamRecorder } from '@media/stream-recorder';
 
@@ -19,6 +21,7 @@ import {
   motorDeTonoActivo,
   useListening,
   type ListeningDeps,
+  sujetarLaEntrada,
 } from './use-listening';
 import { useSessionStore } from './session-store';
 
@@ -164,6 +167,7 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
   const [pulso, setPulso] = useState<number | null>(null);
 
   const micRef = useRef<MicInput | null>(null);
+  const soltarRef = useRef<(() => void) | null>(null);
   const grabadorRef = useRef<SessionRecorder | null>(null);
   const metronomoRef = useRef<Metronome | null>(null);
   /** Cómo cortar la cuenta atrás si se para en mitad. Nulo si no está contando. */
@@ -296,10 +300,16 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       // agudo y corto, como en cualquier grabación hecha con claqueta.
       // Sin cuenta cuando no se va a escribir nada: no hay rejilla que cuadrar, así
       // que contar sería esperar por esperar.
+      // La entrada queda sujeta hasta que el grabador pare: elegir otro micro a
+      // mitad espera a que acabe (`use-listening.ts`, `sujetarLaEntrada`).
+      soltarRef.current?.();
+      soltarRef.current = sujetarLaEntrada();
       const cuentaAtras = conCuenta
         ? await contarAntesDeApuntar()
         : ({ fase: 'contada', empiezaEn: performance.now() } as const);
       if (cuentaAtras.fase === 'cortada') {
+        soltarRef.current?.();
+        soltarRef.current = null;
         await escucha.stop();
         setFase('quieto');
         return;
@@ -317,7 +327,11 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       if (flujo === null) {
         const mic = fabricas.current.createMic?.() ?? new BrowserMicInput();
         micRef.current = mic;
-        await mic.start();
+        // El micro elegido en la barra, también por este camino: abrir el del
+        // sistema aquí grabaría de otro aparato que el que se está oyendo. Salvo
+        // si el elegido no está y se oye por el del sistema: pedirlo fallaría.
+        const elegido = useMicrofono.getState().cayo ? null : microfonoElegido();
+        await mic.start(elegido === null ? {} : { deviceId: elegido });
         if (mic.state === 'running' && mic.stream !== null) {
           flujo = mic.stream;
         } else {
@@ -372,7 +386,11 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
           });
         }) ?? null;
 
-      acciones.startCapture(empiezaEn);
+      // **Y el acorde que ya suena entra como el primero, en el compás uno.** Quien
+      // rasguea durante la cuenta ya lo tiene puesto al llegar, y el croma solo
+      // avisa cuando cambia: sin esto el primero no se escribía nunca. Sin cuenta
+      // no hay compás uno donde ponerlo (`OpcionesDeCaptura`).
+      acciones.startCapture(empiezaEn, { conElQueSuena: conCuenta });
       setFase('tocando');
     },
     [acciones, contarAntesDeApuntar, escucha],
@@ -415,6 +433,8 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
     // compartir el micro: ahora graba sobre el flujo de la entrada de análisis,
     // y cerrarla antes le cortaba la toma por el final.
     const recording = grabador === null ? null : await grabador.stop();
+    soltarRef.current?.();
+    soltarRef.current = null;
 
     await escucha.stop();
     await mic?.stop();
@@ -440,6 +460,8 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       dejarDeOirRef.current?.();
       dejarDeOirRef.current = null;
       useClaqueta.getState().acciones.marcarToma(false);
+      soltarRef.current?.();
+      soltarRef.current = null;
       grabadorRef.current = null;
       micRef.current = null;
       metronomoRef.current = null;

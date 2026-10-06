@@ -6,11 +6,23 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS, type Account } from '@core/billing';
-import { EMPTY_PROGRESS, pitchClassFromName, UNIT_ORDER } from '@core/music';
+import {
+  EMPTY_PROGRESS,
+  findUnit,
+  pitchClassFromName,
+  posicionesDeLaUnidad,
+  UNIT_ORDER,
+} from '@core/music';
 import { AccountProvider } from '@state/account';
 import { useSessionStore } from '@state/session-store';
 
 import { ReviewScreen } from './ReviewScreen';
+
+/** La primera unidad de teoría cuya lección ya genera preguntas. */
+const DE_TEORIA = UNIT_ORDER.find((id) => {
+  const unit = findUnit(id)?.unit;
+  return unit?.kind === 'theory' && posicionesDeLaUnidad(unit) > 0;
+})!;
 
 const empujar = vi.fn();
 
@@ -83,8 +95,11 @@ describe('sin plan', () => {
     const cola = (cuantas: number) =>
       JSON.stringify({
         done: [],
+        // De una unidad de tocar, que tiene un paso por nota: cuántas preguntas
+        // tiene una lección lo decide su texto, y una posición que no tiene se
+        // suelta al leer.
         review: Array.from({ length: cuantas }, (_, indice) => ({
-          unitId: 'e1-grados',
+          unitId: UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!,
           index: indice,
           seenOn: '1970-01-01',
           hits: 0,
@@ -166,11 +181,14 @@ describe('la cola de lo que fallaste', () => {
       'caos-ordenado:aprender',
       JSON.stringify({
         ...EMPTY_PROGRESS,
-        review: [{ unitId: UNIT_ORDER[0]!, index: 0, dueOn: dia, streak: 0 }],
+        // De teoría y con preguntas: una posición que su lección no tiene se
+        // suelta al leer, y el repaso saldría vacío sin preguntar nada.
+        review: [{ unitId: DE_TEORIA, index: 0, seenOn: dia, hits: 0 }],
       }),
     );
 
     pintar(CON_PLAN);
+    expect(screen.queryByText('No hay nada que repasar.')).not.toBeInTheDocument();
 
     for (let vuelta = 0; vuelta < 20; vuelta += 1) {
       const seguir = screen.queryByRole('button', { name: /Siguiente|Terminar el repaso/ });

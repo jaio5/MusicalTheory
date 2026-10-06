@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Metronome as MetronomeEngine, MetronomeOptions } from '@audio/metronome';
@@ -56,8 +57,8 @@ function renderMetronome() {
 describe('con una toma sonando', () => {
   it('se calla, y no deja ponerlo ni cambiar el tempo', async () => {
     const { engine } = renderMetronome();
-    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
-    await screen.findByRole('button', { name: /^clic del metrónomo/i });
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
+    await screen.findByRole('button', { name: /^metrónomo/i });
     expect(engine.running).toBe(true);
 
     act(() => {
@@ -65,7 +66,7 @@ describe('con una toma sonando', () => {
     });
 
     expect(engine.running).toBe(false);
-    const clic = screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i });
+    const clic = screen.getByRole('button', { hidden: true, name: /^metrónomo/i });
     expect(clic).toBeDisabled();
     expect(clic).toHaveAttribute('aria-pressed', 'false');
     expect(clic).toHaveAttribute('title', 'La toma lleva su propio clic');
@@ -84,9 +85,7 @@ describe('con una toma sonando', () => {
     act(() => {
       useClaqueta.getState().acciones.marcarToma(true);
     });
-    expect(
-      screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }),
-    ).toBeDisabled();
+    expect(screen.getByRole('button', { hidden: true, name: /^metrónomo/i })).toBeDisabled();
   });
 });
 
@@ -94,11 +93,11 @@ describe('Metrónomo', () => {
   it('arranca y para con el mismo botón', async () => {
     const { engine } = renderMetronome();
 
-    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
-    expect(await screen.findByRole('button', { name: /^clic del metrónomo/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
+    expect(await screen.findByRole('button', { name: /^metrónomo/i })).toBeInTheDocument();
     expect(engine.running).toBe(true);
 
-    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
     expect(engine.running).toBe(false);
   });
 
@@ -111,8 +110,8 @@ describe('Metrónomo', () => {
     fireEvent.change(screen.getByRole('combobox', { hidden: true, name: /compás/i }), {
       target: { value: '3' },
     });
-    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
-    await screen.findByRole('button', { name: /^clic del metrónomo/i });
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
+    await screen.findByRole('button', { name: /^metrónomo/i });
 
     expect(engine.options?.bpm).toBe(132);
     expect(engine.options?.beatsPerBar).toBe(3);
@@ -121,8 +120,8 @@ describe('Metrónomo', () => {
   it('cambia la velocidad sin cortar el pulso', async () => {
     const { engine } = renderMetronome();
 
-    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
-    await screen.findByRole('button', { name: /^clic del metrónomo/i });
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
+    await screen.findByRole('button', { name: /^metrónomo/i });
     fireEvent.click(screen.getByRole('button', { hidden: true, name: /dos pulsos más/i }));
 
     expect(engine.bpmChanges.at(-1)).toBe(102);
@@ -211,7 +210,7 @@ describe('Metrónomo', () => {
   it('se calla al salir de la pantalla', () => {
     const { engine, view } = renderMetronome();
 
-    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
     view.unmount();
 
     expect(engine.disposed).toBe(true);
@@ -236,8 +235,8 @@ describe('Los ajustes de dos en dos', () => {
 describe('Cambiar de compás mientras suena', () => {
   it('vuelve a arrancar con el compás nuevo, sin tener que pararlo', async () => {
     const { engine } = renderMetronome();
-    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
-    await screen.findByRole('button', { name: /^clic del metrónomo/i });
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
+    await screen.findByRole('button', { name: /^metrónomo/i });
 
     fireEvent.change(screen.getByRole('combobox', { hidden: true, name: /compás/i }), {
       target: { value: '3' },
@@ -267,7 +266,7 @@ describe('La luz del pulso', () => {
 
     expect(screen.getByText('Metrónomo parado')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }));
+    fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
 
     expect(await screen.findByText(/Metrónomo a \d+ pulsos por minuto/)).toBeInTheDocument();
   });
@@ -281,9 +280,7 @@ describe('los puntos del compás', () => {
    */
   it('el uno se distingue del resto, y parado no se enciende ninguno', async () => {
     const { engine, view } = renderMetronome();
-    await fireEvent.click(
-      screen.getByRole('button', { hidden: true, name: /^clic del metrónomo/i }),
-    );
+    await fireEvent.click(screen.getByRole('button', { hidden: true, name: /^metrónomo/i }));
 
     act(() => engine.options?.onBeat?.(0));
     expect(view.container.querySelectorAll('.bg-brass-bright')).toHaveLength(1);
@@ -306,14 +303,41 @@ describe('los puntos del compás', () => {
 });
 
 /**
- * En la barra van dos pastillas: «Clic» y el tempo, que abre el resto. Entero,
- * en un teléfono partía la barra de componer en dos filas.
+ * En la barra van dos pastillas: «Metrónomo» y el tempo, que abre el resto.
+ * Entero, en un teléfono partía la barra de componer en dos filas.
  */
 describe('En la barra', () => {
-  it('el clic dice su nombre a la vista, y no es solo un triangulo', () => {
+  /**
+   * Se llamó «Clic», y en Tocando hay un «Con clic» que decide otra cosa —si
+   * suena la claqueta durante la toma—: dos mandos con la misma palabra y el
+   * mismo triángulo. Éste se llama como el aparato.
+   */
+  it('el metronomo dice su nombre a la vista, y no es solo un triangulo', () => {
     renderMetronome();
 
-    expect(screen.getByRole('button', { name: 'Clic del metrónomo' })).toHaveTextContent('Clic');
+    const boton = screen.getByRole('button', { name: 'Metrónomo' });
+    expect(boton).toHaveTextContent('Metrónomo');
+    expect(boton).not.toHaveTextContent(/clic/i);
+  });
+
+  // Lo puesto lleva su piloto, como cualquier pastilla marcada de la fila.
+  it('puesto, se marca como una pastilla puesta', async () => {
+    renderMetronome();
+    const boton = screen.getByRole('button', { name: 'Metrónomo' });
+
+    await userEvent.click(boton);
+
+    expect(boton).toHaveAttribute('aria-pressed', 'true');
+    expect(boton).toHaveClass('piloto');
+  });
+
+  // El campo del tempo es el de la casa: tenía su propio borde, a 1,3:1.
+  it('el tempo se escribe en un campo de la casa, de tres digitos', () => {
+    renderMetronome();
+    const campo = screen.getByRole('spinbutton', { hidden: true, name: /pulsos por minuto/i });
+
+    expect(campo).toHaveClass('border-border-strong', 'min-h-tap');
+    expect(campo.closest('.w-20')).not.toBeNull();
   });
 
   it('el tempo abre el panel donde se cambia, y el compas va dentro', () => {
@@ -342,7 +366,7 @@ describe('El panel del tempo', () => {
     Object.assign(panel, { hidePopover: cerrar });
 
     fireEvent.blur(screen.getByRole('button', { hidden: true, name: 'Dos pulsos más' }), {
-      relatedTarget: screen.getByRole('button', { name: 'Clic del metrónomo' }),
+      relatedTarget: screen.getByRole('button', { name: 'Metrónomo' }),
     });
 
     expect(cerrar).toHaveBeenCalled();

@@ -20,6 +20,25 @@ import {
   type TeacherErrorCode,
 } from './teacher-contract';
 
+/**
+ * De quién es una respuesta que no ha escrito el modelo, en dos palabras.
+ *
+ * La frase entera ya viene en la respuesta —el servidor la escribe para que la lea
+ * cualquiera—, pero va dentro del párrafo y no se ve de un vistazo. Esto es la
+ * marca, como el «Sin IA» de las salidas. **Y depende del motivo**: con el modelo
+ * caído no hay nada que reescribir en la pregunta, y la marca no puede sonar a
+ * «lo has preguntado mal».
+ */
+function deQuienEs(answer: TeacherAnswer): string | null {
+  if (answer.fuente === undefined) {
+    return null;
+  }
+  if (answer.motivo === 'model_unavailable') {
+    return 'Sin conexión con el modelo';
+  }
+  return answer.fuente === 'glosario' ? 'Del glosario, sin IA' : 'Sin IA';
+}
+
 /** Preguntas para empezar, para quien no sabe ni cómo se llama lo que no sabe. */
 const OPENERS: readonly string[] = [
   '¿Por qué el V tira tanto hacia el I?',
@@ -52,7 +71,7 @@ export interface TeacherProps {
  * no sale del equipo, y esta pantalla no lo toca.
  */
 export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
-  const { account, signedIn, refresh } = useAccount();
+  const { account, accounts, signedIn, refresh } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
   const scaleId = useSessionStore((state) => state.scaleId);
   const [question, setQuestion] = useState('');
@@ -144,14 +163,32 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
   if (!signedIn) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-text-muted text-xs">
-          El profesor pide cuenta: es lo que permite contar el gasto por persona y no por navegador.
-        </p>
-        <div>
-          <Link href="/cuenta" className={estiloBoton('primary', 'px-4 text-sm')}>
-            Entrar para preguntar
-          </Link>
-        </div>
+        {/*
+          **Entrar no es la acción de esta pantalla, y sin cuentas no es ninguna.**
+          Iba en latón, y en el globo del muñeco salía al lado de «Siguiente»,
+          también en latón: dos acciones principales compitiendo, y la segunda
+          llevaba a una pantalla que, en una copia sin cuentas, solo decía que no
+          las hay. La salida de aquí es la secundaria —`quiet`—, y si no hay
+          cuentas configuradas se dice aquí mismo y no hay a dónde mandar.
+        */}
+        {accounts ? (
+          <>
+            <p className="text-text-muted text-xs">
+              El profesor pide cuenta: es lo que permite contar el gasto por persona y no por
+              navegador.
+            </p>
+            <div>
+              <Link href="/cuenta" className={estiloBoton('quiet', 'px-4 text-sm')}>
+                Entrar para preguntar
+              </Link>
+            </div>
+          </>
+        ) : (
+          <p className="text-text-muted text-xs">
+            Esta copia no tiene cuentas configuradas, y sin cuenta el profesor no puede contestar:
+            cada pregunta es una llamada a un modelo que se paga.
+          </p>
+        )}
 
         {/* Lo que se podrá preguntar, como vista previa y no como botones: son
             lo único que dice qué clase de cosas se le pueden preguntar, pero
@@ -161,7 +198,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
             {OPENERS.map((opener) => (
               <li
                 key={opener}
-                className="border-border text-text-muted rounded-md border px-3 py-2 text-[13px]"
+                className="border-border text-text-muted rounded-md border px-3 py-2 text-sm"
               >
                 {opener}
               </li>
@@ -270,6 +307,9 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
 
       {answer !== null && (
         <div className="border-border border-l-2 pl-3">
+          {deQuienEs(answer) !== null && (
+            <p className="text-text-muted mb-1 text-xs">{deQuienEs(answer)}</p>
+          )}
           <p className="text-text text-sm">{answer.answer}</p>
           {answer.example !== undefined && (
             <p className="text-text-muted mt-1 text-xs">

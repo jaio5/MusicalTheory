@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { midiToOctave, noteName } from '@core/music';
+import { midiToOctave } from '@core/music';
 import { useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 
@@ -78,7 +78,8 @@ export function PlayNote({
     });
   }, [step, resultado, onAnswered]);
 
-  const nombre = noteName(step.pitchClass);
+  // Con la letra de su grado, como la escribió la unidad: en Fa# mayor, E# y no F.
+  const nombre = step.name;
   const ultima = position >= total;
 
   return (

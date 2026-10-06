@@ -1,5 +1,9 @@
 # ADR 0086 — Retocar devuelve solo lo que cambia
 
+> **Sustituido en parte por [ADR 0089](./0089-las-salidas-las-construye-el-dominio-y-el-modelo-elige.md):** el modelo ya no devuelve un trozo con `desde`; elige entre salidas que construye el dominio. El diagnóstico y las medidas de abajo siguen siendo ciertos.
+
+> **Ampliado por [ADR 0097](./0097-las-salidas-se-juzgan-por-lo-que-encajan.md):** retocar entra en el mismo juez de encaje, y aplicar una salida cambia solo su parte.
+
 Fecha: 2026-10-02 · Estado: aceptada · Amplía
 [ADR 0016](./0016-salidas-en-vez-de-versiones.md), que pedía la canción entera, y
 sigue la línea de [ADR 0011](./0011-versiones-verificadas-contra-el-dominio.md):

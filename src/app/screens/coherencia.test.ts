@@ -220,13 +220,17 @@ describe('Los desplegables', () => {
    * que se desplaza** es un `popover` del navegador, porque el panel de un
    * `Disclosure` se ancla dentro de la fila y ella misma lo recorta
    * ([adr/0065](../../../docs/adr/0065-lo-que-se-abre-desde-una-fila-que-se-desplaza-es-un-popover.md)).
-   * Hoy esa fila es la barra compacta de componer. Un `popover` en otro sitio es
-   * un `Disclosure` que se ha saltado la regla.
+   * Hoy esa fila es la barra compacta de componer. La otra excepción es la lista
+   * de micrófonos, que se abre de un botón de 44 px en la barra de arriba: el panel
+   * de un `Disclosure` mediría lo que ese botón, y el desenfoque de la barra lo
+   * dejaría debajo de la rueda que se abre sola en componer. Un `popover` en otro
+   * sitio es un `Disclosure` que se ha saltado la regla.
    */
-  it('el popover solo vive en la fila que se desplaza', () => {
+  it('el popover solo vive donde un Disclosure no cabe', () => {
     const DONDE_VALE = new Set([
       'src/app/screens/ComposeScreen.tsx',
       'src/features/metronome/Metronome.tsx',
+      'src/features/workspace/ElegirMicro.tsx',
     ]);
     const fuera = FICHEROS.filter(({ codigo }) => /\bpopover=/.test(codigo))
       .map(({ ruta }) => ruta)
@@ -244,14 +248,35 @@ describe('Los desplegables', () => {
    * llegaba a los 44 px** que esta aplicación exige en todo lo que se pulsa, y
    * nadie lo vio porque no había un sitio donde mirarlo.
    *
-   * Se busca la cadena de clases y no `<input`, porque hay entradas que no son
-   * campos de formulario —un buscador dentro de una barra de herramientas, una
-   * casilla— y forzarlas a este molde las estropearía.
+   * Se busca la etiqueta —`<input`, `<textarea`— y no una cadena de clases.
+   * Se buscaba la cadena, y cuatro campos la esquivaron sin proponérselo: el de
+   * compases de una parte con `bg-surface`, el buscador de acordes sin
+   * `rounded-md` y a treinta píxeles de alto, el de directrices de las salidas.
+   * Los tres llevaban el borde de separar cajas, a 1,5:1 sobre el fondo, en una
+   * aplicación donde los controles llevan `border-strong` por el 3:1 de WCAG
+   * 1.4.11. Lo que no es un campo de escribir —una casilla, un deslizador— se
+   * libra por su `type`, no por su fichero.
    */
   it('el de escribir algo es siempre ui/TextField', () => {
-    const sueltos = FICHEROS.filter(({ ruta }) => !ruta.endsWith('ui/TextField.tsx'))
-      .filter(({ codigo }) => codigo.includes('border-border bg-background text-text rounded-md'))
-      .map(({ ruta }) => ruta);
+    const SE_LIBRAN = /^(?:checkbox|radio|range|file|hidden|color)$/;
+    // Sin excepciones: el último `<input>` a mano, el del metrónomo, ya pasó
+    // por `ui/TextField`. Uno nuevo falla aquí.
+    const YA_ESTABAN = new Set<string>();
+    const sueltos: string[] = [];
+
+    for (const { ruta, codigo } of FICHEROS) {
+      if (ruta.endsWith('ui/TextField.tsx') || YA_ESTABAN.has(ruta)) {
+        continue;
+      }
+      // Un espacio detrás de la etiqueta y no `\b`: un `<input>` nombrado en un
+      // comentario de JSX no es un campo.
+      for (const [, etiqueta] of codigo.matchAll(/<(?:input|textarea)\s([^>]*)>/g)) {
+        const tipo = /\btype="([^"]*)"/.exec(etiqueta!)?.[1] ?? 'text';
+        if (!SE_LIBRAN.test(tipo)) {
+          sueltos.push(`${ruta}: ${tipo}`);
+        }
+      }
+    }
 
     expect(sueltos).toEqual([]);
   });
@@ -446,7 +471,6 @@ describe('En toda la interfaz', () => {
     const YA_ESTABAN = new Set([
       'src/app/screens/ComposeScreen.tsx',
       'src/features/learn/Tutor.tsx',
-      'src/features/path/ChordSearch.tsx',
       'src/ui/Area.tsx',
     ]);
     const pendientes: string[] = [];
