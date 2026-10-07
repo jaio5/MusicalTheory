@@ -22,12 +22,14 @@ const createUser = vi.fn();
 const setName = vi.fn();
 const changePassword = vi.fn();
 const deleteAccount = vi.fn();
+const olvidarCuenta = vi.fn();
 
 vi.mock('@server/auth', () => ({ authAvailable: () => authAvailable() }));
 vi.mock('@server/entitlements', () => ({
   currentSession: () => currentSession(),
   currentAccount: async () => ({ email: 'a@b.c', name: 'Javi', plan: 'gratis' }),
 }));
+vi.mock('@server/metricas', () => ({ olvidarCuenta: (...a: unknown[]) => olvidarCuenta(...a) }));
 vi.mock('@server/users', () => ({
   createUser: (...a: unknown[]) => createUser(...a),
   setName: (...a: unknown[]) => setName(...a),
@@ -53,14 +55,14 @@ async function leer(res: Response) {
   return { status: res.status, body: (await res.json()) as Record<string, unknown> };
 }
 
-const NUEVA = { email: 'a@b.c', password: 'unaContrasenaLarga', name: 'Javi' };
+const NUEVA = { email: 'a@b.c', password: 'unaContrasenaLarga', name: 'Javi', mayorDe14: true };
 
 beforeEach(() => {
   authAvailable.mockReset();
   authAvailable.mockReturnValue(true);
   currentSession.mockReset();
   currentSession.mockResolvedValue(SESION);
-  for (const m of [createUser, setName, changePassword, deleteAccount]) {
+  for (const m of [createUser, setName, changePassword, deleteAccount, olvidarCuenta]) {
     m.mockReset();
   }
 });
@@ -124,6 +126,17 @@ describe('registrarse', () => {
     expect(status).toBe(201);
     expect(body['email']).toBe('a@b.c');
     expect(body).not.toHaveProperty('token');
+    // La declaración de edad pasa tal cual: quien decide si vale es `createUser`.
+    expect(createUser.mock.calls[0]![0]).toMatchObject({ mayorDe14: true });
+  });
+
+  it('por debajo de catorce no se crea, y se dice que sin cuenta funciona igual', async () => {
+    createUser.mockResolvedValue({ kind: 'menor' });
+
+    const { status, body } = await leer(await POST(pedir('POST', { ...NUEVA, mayorDe14: false })));
+
+    expect(status).toBe(400);
+    expect((body['error'] as { message: string }).message).toMatch(/14 años.*funciona igual/);
   });
 
   it('cada motivo de rechazo tiene su código, y ninguno es un 500', async () => {
@@ -140,6 +153,16 @@ describe('registrarse', () => {
 
       expect((await leer(await POST(pedir('POST', NUEVA)))).status, kind).toBe(codigo);
     }
+  });
+
+  it('la contraseña fuera de medida dice los dos extremos, no solo el mínimo', async () => {
+    // Por encima del máximo salta el mismo código que por debajo; si el mensaje
+    // dijera «al menos 8», quien pegó un texto enorme no sabría qué corregir.
+    createUser.mockResolvedValue({ kind: 'contrasena-corta' });
+
+    const { body } = await leer(await POST(pedir('POST', NUEVA)));
+
+    expect((body['error'] as { message: string }).message).toMatch(/entre 8 y 1024 caracteres/);
   });
 
   it('registrarse tiene su propio límite, más estrecho que el resto', async () => {
@@ -316,6 +339,8 @@ describe('borrar la cuenta', () => {
     const { status } = await leer(await DELETE(pedir('DELETE', { password: 'la buena' })));
 
     expect(status).toBe(200);
+    // Y se lleva lo que quedaba de ella en la analítica, que no cuelga de `users`.
+    expect(olvidarCuenta).toHaveBeenCalledWith('u1');
   });
 
   it('sin base de datos se dice que aqui no se puede, no que haya fallado algo', async () => {

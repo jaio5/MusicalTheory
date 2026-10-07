@@ -23,13 +23,14 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "docker:up": "bash scripts/docker-arriba.sh",
-    "docker:db": "docker compose up -d db",
+    "docker:db": "bash scripts/docker-arriba.sh --db",
     "docker:ia-sola": "docker compose up -d ollama ia-modelo",
     "docker:ia": "bash scripts/docker-arriba.sh --ia",
     "docker:down": "docker compose --profile '*' down",
     "usuarios:prueba": "node --env-file=.env scripts/usuarios-de-prueba.ts",
     "examen:profesor": "node --env-file=.env --import ./scripts/alias-de-src.ts scripts/examen-del-profesor.ts",
     "examen:salidas": "node --env-file=.env --import ./scripts/alias-de-src.ts scripts/examen-de-las-salidas.ts",
+    "medir:tomas": "node --import ./scripts/alias-de-src.ts scripts/medir-tomas.ts",
     "banco:ia": "BANCO_IA=1 node --env-file=.env ./node_modules/vitest/vitest.mjs run src/app/banco-de-ia.test.ts"
   },
   "license": "UNLICENSED",
@@ -52,17 +53,17 @@
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitest/coverage-v8": "^4.1.10",
-    "drizzle-kit": "^0.31.10",
+    "@vitest/coverage-v8": "^4.1.11",
+    "drizzle-kit": "^0.31.11",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^16.2.12",
+    "eslint-config-next": "^16.3.8",
     "fake-indexeddb": "^6.2.5",
-    "jsdom": "^30.0.0",
+    "jsdom": "^30.1.2",
     "postcss": "^8.5.23",
     "prettier": "^3.9.6",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

@@ -45,13 +45,22 @@ export interface Account {
 }
 
 /**
- * El modelo que se supone cuando el servidor no dice cuál hay.
+ * El modelo que contesta si nadie dice otro, y el que se supone cuando el
+ * servidor no dice cuál hay.
  *
- * El mismo que el de las rutas por defecto. Que sea el más caro es lo prudente:
- * los cupos que enseñe la pantalla serán los más pequeños posibles, y nunca
- * prometerá más de lo que el servidor va a dar.
+ * **Sonnet 5.5** (adr/0103). Fue Opus 5, y con él Básico daba 73 preguntas al
+ * mes: unas dos al día, escaso para estudiar. Sonnet 5.5 cuesta la mitad por
+ * pregunta y su pensamiento se apaga (`between_tools`), así que no hay que
+ * pagarle una reserva para pensar; Opus 5.5, que es más barato que Opus 5 por
+ * token, no se puede apagar y por pregunta sale casi seis veces más caro. La
+ * respuesta va atada a un esquema y se valida contra el dominio: lo que se paga
+ * de más con Opus no se nota en lo que llega.
+ *
+ * Que la pantalla y el servidor supongan el mismo es lo que importa: el servidor
+ * manda el suyo en la cuenta (`aiModel`), y este solo se usa mientras no ha
+ * llegado.
  */
-export const DEFAULT_AI_MODEL = 'claude-opus-5';
+export const DEFAULT_AI_MODEL = 'claude-sonnet-5-5';
 
 export const ANONYMOUS: Account = {
   email: null,

@@ -20,8 +20,10 @@ function ElMastilEntero() {
   );
 }
 
+/** En La menor y con la pentatónica elegida a mano, que es donde se escribieron. */
 function enLa() {
   useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+  useSessionStore.getState().actions.setScale('minorPentatonic');
 }
 
 function elSelector() {

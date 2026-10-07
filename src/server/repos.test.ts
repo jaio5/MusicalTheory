@@ -46,7 +46,7 @@ beforeEach(async () => {
 
 /** Una cuenta de verdad, porque las claves foráneas se comprueban. */
 async function cuenta(email = 'a@b.c'): Promise<string> {
-  const result = await users.createUser({ email, password: 'unaContrasenaLarga' });
+  const result = await users.createUser({ mayorDe14: true, email, password: 'unaContrasenaLarga' });
   if (result.kind !== 'ok') {
     throw new Error(result.kind);
   }

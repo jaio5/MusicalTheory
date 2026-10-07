@@ -6,12 +6,13 @@
  * momento; el día que sea Stripe contestará «ir-a-pagar» con una dirección, y
  * esta ruta no cambia ni una línea.
  *
- * Bajarse de plan se pide igual, con `plan: 'gratis'`.
+ * Bajarse de plan se pide igual, con `plan: 'gratis'`. Y se paga al mes o al año
+ * con `periodo` (adr/0106); sin él, al mes.
  */
 
 import { NextResponse } from 'next/server';
 
-import { planOf, PLANS } from '@core/billing';
+import { PERIODOS, planOf, PLANS } from '@core/billing';
 import { authAvailable } from '@server/auth';
 import { billing } from '@server/billing';
 import { currentSession } from '@server/entitlements';
@@ -95,6 +96,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  // Sin periodo es al mes, que es lo que se pedía antes de que hubiera anual. Uno
+  // que no es ninguno de los dos se rechaza, por lo mismo que un plan que no
+  // existe: cobrar al mes a quien pidió otra cosa sería peor que decir que no.
+  const periodo = PERIODOS.find((candidato) => candidato === (pedido['periodo'] ?? 'mensual'));
+  if (periodo === undefined) {
+    return NextResponse.json(
+      { error: { code: 'periodo-desconocido', message: 'Se paga al mes o al año.' } },
+      { status: 400 },
+    );
+  }
+
   if (plan.id === session.account.plan) {
     return NextResponse.json({ kind: 'listo', plan: plan.id });
   }
@@ -109,6 +121,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           userId: session.userId,
           email: session.account.email ?? '',
           plan: plan.id,
+          periodo,
         });
 
   if (result === null || result.kind === 'error') {

@@ -183,11 +183,27 @@ export function AccountScreen() {
               empezar y las preguntas que fallaste. Identificadores y números.
             </li>
             <li>Cuántas veces has usado la IA hoy, para descontarlo del cupo de tu plan.</li>
+            <li>Tus canciones guardadas: grados, tempo y nombres de sección.</li>
+            <li>
+              Los días en que entras, con un seudónimo de tu cuenta y no con ella, para saber si la
+              aplicación sirve. Se borran a los trece meses, o al borrar la cuenta.
+            </li>
             <li>
               <strong className="text-text">Ni una muestra de audio.</strong> Eso no sale de tu
               equipo, y las cuentas no han cambiado eso.
             </li>
           </ul>
+          <p className="text-text-muted mt-3 max-w-prose text-sm">
+            El detalle, con a quién se manda lo que preguntas a la IA, en la{' '}
+            <Link href="/privacidad" className="enlace">
+              política de privacidad
+            </Link>{' '}
+            y el{' '}
+            <Link href="/aviso-legal" className="enlace">
+              aviso legal
+            </Link>
+            .
+          </p>
         </Section>
 
         <Section title="Borrar la cuenta">

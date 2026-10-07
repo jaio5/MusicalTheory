@@ -320,7 +320,7 @@ export function TocarParaEscribir({
         {tocando ? (
           <p className="rotulo">{PAPELES_DE_TOMA[papel].name}</p>
         ) : (
-          <div className="flex flex-col items-center gap-2" data-tour="componer-papel">
+          <div className="flex flex-col items-center gap-2">
             {/* El rótulo se ve y el grupo lo lleva de nombre: el lector lo oye una
                 vez, al entrar en el grupo. */}
             <p className="rotulo mb-1 text-center" aria-hidden="true">
@@ -349,10 +349,9 @@ export function TocarParaEscribir({
             tocando cuando se descubre que con auriculares sobra. Quitarlo no para
             el pulso: la rejilla sigue sabiendo dónde cae cada compás. Solo
             grabar no lleva clic, así que ahí no se enseña. */}
-        {/* El clic y el botón, juntos en una caja para que el recorrido los
-            señale a la vez: se explican con la misma frase. Mide lo mismo que
-            sueltos, con el mismo hueco entre ellos. */}
-        <div className="flex flex-col items-center gap-4" data-tour="componer-tocar">
+        {/* El clic y el botón, juntos en una caja: se explican con la misma
+            frase. Mide lo mismo que sueltos, con el mismo hueco entre ellos. */}
+        <div className="flex flex-col items-center gap-4">
           {!soloGrabar && (
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Chip

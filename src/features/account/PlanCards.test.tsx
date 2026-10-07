@@ -4,7 +4,14 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { monthlyAiRequests, PAID_PLANS, PLANS, priceLabel, type Account } from '@core/billing';
+import {
+  MESES_GRATIS_AL_AÑO,
+  monthlyAiRequests,
+  PAID_PLANS,
+  PLANS,
+  priceLabel,
+  type Account,
+} from '@core/billing';
 import { AccountProvider } from '@state/account';
 
 import { ETIQUETAS, PlanCards } from './PlanCards';
@@ -41,11 +48,11 @@ function tarjeta(name: string): HTMLElement {
 
 describe('Las tarjetas de los planes', () => {
   // El gratis no es una opción que se elija: es lo que tienes. Ponerlo aquí haría
-  // que la decisión pareciera de cuatro cuando es de tres.
-  it('enseña los tres de pago y no el gratis', () => {
+  // que la decisión pareciera de tres cuando es de dos (adr/0104).
+  it('enseña los dos de pago y no el gratis', () => {
     pintar(ANONIMO);
 
-    expect(screen.getAllByRole('article')).toHaveLength(3);
+    expect(screen.getAllByRole('article')).toHaveLength(2);
     for (const plan of PAID_PLANS) {
       expect(screen.getByRole('heading', { name: plan.name })).toBeInTheDocument();
     }
@@ -63,6 +70,10 @@ describe('Las tarjetas de los planes', () => {
     for (const plan of PAID_PLANS) {
       const texto = tarjeta(plan.name).textContent ?? '';
       expect(texto).toContain(priceLabel(plan.id));
+      // Y el anual, con sus meses gratis (adr/0106).
+      expect(texto).toContain(
+        `o ${priceLabel(plan.id, 'anual')}: ${MESES_GRATIS_AL_AÑO} meses gratis`,
+      );
       expect(texto).toContain(
         `${monthlyAiRequests(plan.id, ANONIMO.aiModel)} preguntas al profesor al mes`,
       );
@@ -76,7 +87,6 @@ describe('Las tarjetas de los planes', () => {
 
     expect(tarjeta('Básico').textContent).not.toContain('una salida gasta');
     expect(tarjeta('Medio').textContent).toContain('una salida gasta 3');
-    expect(tarjeta('Pro').textContent).toContain('una salida gasta 3');
   });
 
   it('un modelo más barato enseña un cupo más grande', () => {
@@ -93,11 +103,11 @@ describe('Las tarjetas de los planes', () => {
    * forma de que mienta es escribirla dos veces.
    */
   /**
-   * La misma lista, en el mismo orden, en las tres: cada plan ponía lo suyo
+   * La misma lista, en el mismo orden, en todas: cada plan ponía lo suyo
    * delante y la misma prestación caía en filas distintas, así que no se podían
    * comparar.
    */
-  it('las tres tarjetas llevan las mismas filas en el mismo orden', () => {
+  it('las tarjetas llevan las mismas filas en el mismo orden', () => {
     pintar(ANONIMO);
 
     const filas = (nombre: string) =>
@@ -108,7 +118,6 @@ describe('Las tarjetas de los planes', () => {
 
     expect(filas('Básico')).toEqual(ETIQUETAS.map(({ label }) => label));
     expect(filas('Medio')).toEqual(filas('Básico'));
-    expect(filas('Pro')).toEqual(filas('Básico'));
   });
 
   // El lector de pantalla no oye una raya ni un tachado: lo que no entra se dice.
@@ -134,10 +143,13 @@ describe('Las tarjetas de los planes', () => {
         .map((marca) => marca.closest('li')?.textContent ?? '');
 
     expect(nuevos('Básico').length).toBeGreaterThan(0);
-    // Medio añade las salidas y Pro el profesor que sabe por dónde vas (adr/0066).
-    expect(nuevos('Medio')).toEqual(['✓Incluye: Salidas de lo que tocasnuevo']);
-    expect(nuevos('Pro')).toEqual(['✓Incluye: Un profesor que sabe por dónde vasnuevo']);
-    for (const nombre of ['Básico', 'Medio', 'Pro']) {
+    // Medio añade las salidas (adr/0066) y el profesor que sabe por dónde vas,
+    // que traía Pro antes de fundirse en él (adr/0104).
+    expect(nuevos('Medio')).toEqual([
+      '✓Incluye: Salidas de lo que tocasnuevo',
+      '✓Incluye: Un profesor que sabe por dónde vasnuevo',
+    ]);
+    for (const nombre of ['Básico', 'Medio']) {
       for (const fila of nuevos(nombre)) {
         expect(fila).toMatch(/^✓/);
       }
@@ -169,10 +181,11 @@ describe('Las tarjetas de los planes', () => {
 
     expect(within(tarjeta('Medio')).getByText('Es el que tienes')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Elegir Medio' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Elegir Pro' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Elegir Básico' })).toBeInTheDocument();
   });
 
-  // Los planes se llamaron Estudiante y Conservatorio antes de ser tres.
+  // Los planes se llamaron Estudiante y Conservatorio antes de ser tres, y Pro se
+  // fundió en Medio: quien lo tenga guardado ve Medio como el suyo.
   it('reconoce el nombre viejo del plan que tienes guardado', () => {
     pintar({
       email: 'javier@example.com',
@@ -184,6 +197,12 @@ describe('Las tarjetas de los planes', () => {
     });
 
     expect(within(tarjeta('Básico')).getByText('Es el que tienes')).toBeInTheDocument();
+  });
+
+  it('quien tenía Pro tiene Medio', () => {
+    pintar({ ...EN_MEDIO, plan: 'pro' as Account['plan'] });
+
+    expect(within(tarjeta('Medio')).getByText('Es el que tienes')).toBeInTheDocument();
   });
 
   it('no se inventa planes: son los del catálogo', () => {
@@ -208,8 +227,8 @@ describe('Las tarjetas de los planes', () => {
   });
 
   /**
-   * Tres botones de latón iguales decían que las tres pesan lo mismo. El
-   * recomendado va encendido y lleno; los otros dos, en contorno.
+   * Botones de latón iguales decían que las opciones pesan lo mismo. El
+   * recomendado va encendido y lleno; el otro, en contorno.
    */
   it('el recomendado se ve: tarjeta encendida y el único botón lleno', () => {
     pintar(ANONIMO);
@@ -217,15 +236,15 @@ describe('Las tarjetas de los planes', () => {
     expect(tarjeta('Medio')).toHaveClass('superficie-viva');
     expect(tarjeta('Básico')).toHaveClass('superficie');
     expect(screen.getByRole('link', { name: 'Elegir Medio' })).toHaveClass('bg-brass');
-    expect(screen.getByRole('link', { name: 'Elegir Pro' })).not.toHaveClass('bg-brass');
-    expect(screen.getByRole('link', { name: 'Elegir Pro' })).toHaveClass('border');
+    expect(screen.getByRole('link', { name: 'Elegir Básico' })).not.toHaveClass('bg-brass');
+    expect(screen.getByRole('link', { name: 'Elegir Básico' })).toHaveClass('border');
   });
 
   // Quien ya paga ya eligió: encendida va la suya, y solo la suya.
   it('con un plan de pago, la encendida es la tuya y no la recomendada', () => {
-    pintar({ ...EN_MEDIO, plan: 'pro' });
+    pintar({ ...EN_MEDIO, plan: 'basico' });
 
-    expect(tarjeta('Pro')).toHaveClass('superficie-viva');
+    expect(tarjeta('Básico')).toHaveClass('superficie-viva');
     expect(tarjeta('Medio')).not.toHaveClass('superficie-viva');
   });
 
@@ -233,7 +252,7 @@ describe('Las tarjetas de los planes', () => {
   it('enseña guardar canciones y las salidas, que son lo que distingue a dos planes', () => {
     render(<PlanCards />);
 
-    expect(screen.getAllByText('Guardar tus canciones en la cuenta')).toHaveLength(3);
-    expect(screen.getAllByText('Salidas de lo que tocas')).toHaveLength(3);
+    expect(screen.getAllByText('Guardar tus canciones en la cuenta')).toHaveLength(2);
+    expect(screen.getAllByText('Salidas de lo que tocas')).toHaveLength(2);
   });
 });

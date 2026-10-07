@@ -1,7 +1,7 @@
 'use client';
 
 import { SCALES, scaleNoteNames } from '@core/music';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, selectEscala, useSessionStore } from '@state/session-store';
 
 /**
  * Las notas de la escala que hay puesta, debajo del selector que la elige.
@@ -21,7 +21,7 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
  */
 export function NotasDeLaEscala() {
   const activeKey = useSessionStore(selectActiveKey);
-  const scaleId = useSessionStore((state) => state.scaleId);
+  const scaleId = useSessionStore(selectEscala);
 
   if (activeKey === null) {
     return null;

@@ -139,6 +139,20 @@ describe('registrarse', () => {
     >;
 
     expect(enviado).not.toHaveProperty('name');
+    // Y sin haber declarado la edad, viaja que no: el servidor no la crea.
+    expect(enviado['mayorDe14']).toBe(false);
+  });
+
+  it('la edad declarada viaja tal cual', async () => {
+    fetchFalso.mockResolvedValue(respuesta(201, {}));
+
+    await registerAccount('a@b.c', 'contrasenaLarga', undefined, true);
+
+    const enviado = JSON.parse((fetchFalso.mock.calls[0]![1] as { body: string }).body) as Record<
+      string,
+      unknown
+    >;
+    expect(enviado['mayorDe14']).toBe(true);
   });
 
   it('usa la frase que ha escrito el servidor, no una genérica', async () => {
@@ -299,9 +313,24 @@ describe('el portal de la pasarela', () => {
 
 describe('cambiar de plan', () => {
   it('con el cobrador de hoy, el plan cambia y ya', async () => {
-    fetchFalso.mockResolvedValue(respuesta(200, { kind: 'listo', plan: 'pro' }));
+    fetchFalso.mockResolvedValue(respuesta(200, { kind: 'listo', plan: 'medio' }));
 
-    expect(await changePlan('pro')).toEqual({ kind: 'listo', plan: 'pro' });
+    expect(await changePlan('medio')).toEqual({ kind: 'listo', plan: 'medio' });
+  });
+
+  it('manda el periodo: al mes si no se dice, al año si se pide', async () => {
+    fetchFalso.mockResolvedValue(respuesta(200, { kind: 'listo', plan: 'basico' }));
+
+    await changePlan('basico');
+    await changePlan('basico', 'anual');
+
+    const cuerpos = fetchFalso.mock.calls.map(
+      (c) => JSON.parse((c[1] as RequestInit).body as string) as unknown,
+    );
+    expect(cuerpos).toEqual([
+      { plan: 'basico', periodo: 'mensual' },
+      { plan: 'basico', periodo: 'anual' },
+    ]);
   });
 
   it('contempla el «vete a pagar a otro sitio» que hoy no llega nunca', async () => {
@@ -309,29 +338,29 @@ describe('cambiar de plan', () => {
     // líneas y evita tocar esto entonces.
     fetchFalso.mockResolvedValue(respuesta(200, { kind: 'ir-a-pagar', url: 'https://pago' }));
 
-    expect(await changePlan('pro')).toEqual({ kind: 'ir-a-pagar', url: 'https://pago' });
+    expect(await changePlan('medio')).toEqual({ kind: 'ir-a-pagar', url: 'https://pago' });
   });
 
   it('un plan que el servidor no reconoce se lee como el de siempre', async () => {
     // Nunca deja la pantalla sin plan: `planOf` traduce lo que no encaje.
     fetchFalso.mockResolvedValue(respuesta(200, { kind: 'listo', plan: 'inventado' }));
 
-    expect((await changePlan('pro')).kind).toBe('listo');
+    expect((await changePlan('medio')).kind).toBe('listo');
   });
 
   it('usa la frase del servidor cuando se niega', async () => {
     fetchFalso.mockResolvedValue(respuesta(403, { error: { message: 'Hace falta una cuenta.' } }));
 
-    const result = await changePlan('pro');
+    const result = await changePlan('medio');
 
     expect(result).toEqual({ kind: 'error', message: 'Hace falta una cuenta.' });
   });
 
   it('y una de respaldo cuando no se explica, o no hay red', async () => {
     fetchFalso.mockResolvedValue(new Response('', { status: 500 }));
-    expect((await changePlan('pro')).kind).toBe('error');
+    expect((await changePlan('medio')).kind).toBe('error');
 
     fetchFalso.mockRejectedValue(new Error('sin red'));
-    expect((await changePlan('pro')).kind).toBe('error');
+    expect((await changePlan('medio')).kind).toBe('error');
   });
 });

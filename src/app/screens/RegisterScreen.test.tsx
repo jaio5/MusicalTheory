@@ -120,6 +120,7 @@ describe('Crear la cuenta', () => {
     const usuario = userEvent.setup();
     await usuario.type(screen.getByLabelText(/Correo/), 'javier@example.com');
     await usuario.type(screen.getByLabelText(/Contraseña/), 'ContrasenaLarga123');
+    await usuario.click(screen.getByRole('button', { name: 'Sí, 14 o más' }));
     await usuario.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
 
     await waitFor(() =>

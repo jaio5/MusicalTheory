@@ -2,10 +2,12 @@
  * Deja la base de datos con cuatro cuentas de prueba y nada más.
  *
  * **Borra todas las cuentas.** No es un `TRUNCATE` de la base entera: se vacía
- * `users`, y las demás tablas se van solas porque todas cuelgan de ella con
+ * `users`, y lo de cada cuenta se va solo porque cuelga de ella con
  * `onDelete: 'cascade'` —el avance, el gasto de IA, los vales de contraseña y
- * las canciones—. Lo que no cuelga de una cuenta, como los topes por dirección
- * IP, se queda: no es de nadie.
+ * las canciones—. Lo que no cuelga de una cuenta se queda: los topes por
+ * dirección, que no son de nadie, y las métricas, que guardan un seudónimo y no
+ * la cuenta (adr/0110). Los seudónimos de las cuentas borradas aquí quedan
+ * huérfanos; no estorban, porque nadie los vuelve a producir.
  *
  * La contraseña se cifra con `server/password.ts`, el mismo código que usa la
  * aplicación al registrarte. Escribir aquí un hash a mano daría cuentas que

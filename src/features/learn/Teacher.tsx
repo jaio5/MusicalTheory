@@ -5,7 +5,7 @@ import { useRef, useState } from 'react';
 
 import { noteName } from '@core/music';
 import { useAccount } from '@state/account';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, selectEscala, useSessionStore } from '@state/session-store';
 import { Button, estiloBoton } from '@ui/Button';
 import { Chip } from '@ui/Chip';
 import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
@@ -73,7 +73,7 @@ export interface TeacherProps {
 export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
   const { account, accounts, signedIn, refresh } = useAccount();
   const activeKey = useSessionStore(selectActiveKey);
-  const scaleId = useSessionStore((state) => state.scaleId);
+  const scaleId = useSessionStore(selectEscala);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<TeacherAnswer | null>(null);
   // Con su código, no solo la frase: es lo que decide si debajo hay algo que

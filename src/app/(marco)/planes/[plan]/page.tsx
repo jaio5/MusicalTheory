@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { PAID_PLANS, planOf, priceLabel } from '@core/billing';
-import { Checkout, ElPlanEntreLosTres } from '@features/account';
+import { Checkout, ElPlanEntreLosDePago } from '@features/account';
 import { billing } from '@server/billing';
 import { Screen } from '@ui/Screen';
 
@@ -11,7 +11,7 @@ import { Screen } from '@ui/Screen';
  *
  * Solo existe para los planes **de pago**: `/planes/gratis` no es una compra, es lo
  * que tienes, y ofrecer una ventana de pago para el plan gratis sería una pantalla
- * que no puede terminar en nada. Un identificador que no sea uno de los tres da 404,
+ * que no puede terminar en nada. Un identificador que no sea uno de pago da 404,
  * que es la verdad: esa dirección no existe.
  */
 export async function generateMetadata({
@@ -30,7 +30,7 @@ export async function generateMetadata({
   };
 }
 
-/** Las tres direcciones se conocen de antemano, así que se generan las tres. */
+/** Las direcciones se conocen de antemano, así que se generan todas. */
 export function generateStaticParams(): Array<{ plan: string }> {
   return PAID_PLANS.map((plan) => ({ plan: plan.id }));
 }
@@ -48,7 +48,7 @@ export default async function PlanConcreto({ params }: { params: Promise<{ plan:
   // columna centrada y la vuelta como un enlace de doce píxeles al final, y era
   // la única de las nueve que no se parecía a las demás (adr/0060). Es de
   // `lectura`: un plan se lee y se confirma. **Lo que se compara va al lado**
-  // (`aside`), los tres planes con el que miras encendido: sin eso, a 1920 la
+  // (`aside`), los planes de pago con el que miras encendido: sin eso, a 1920 la
   // pantalla usaba el 40 % del ancho, y para dudar entre dos había que volver a
   // la lista y perder el que se había elegido.
   return (
@@ -56,7 +56,7 @@ export default async function PlanConcreto({ params }: { params: Promise<{ plan:
       title={`Plan ${plan.name}`}
       back={{ href: '/planes', label: 'Planes' }}
       ancho="lectura"
-      aside={<ElPlanEntreLosTres plan={plan} />}
+      aside={<ElPlanEntreLosDePago plan={plan} />}
     >
       {/* Si se cobra de verdad lo decide el cobrador que haya puesto, y se
             pregunta aquí porque `server/` solo lo abre `app/`. */}

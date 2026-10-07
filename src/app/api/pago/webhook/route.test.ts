@@ -28,6 +28,7 @@ const vincularSuscripcion =
     (userId: string, pago: unknown, o?: unknown) => Promise<{ kind: string; guardada?: string }>
   >();
 const planDeSuscripcion = vi.fn<(id: string, plan: string, o: unknown) => Promise<string>>();
+const marcarImpago = vi.fn<(id: string, desde: Date) => Promise<string>>();
 
 vi.mock('@server/billing/stripe-signature', () => ({
   verifyStripeSignature: (...a: unknown[]) => verifyStripeSignature(...a),
@@ -36,10 +37,12 @@ vi.mock('@server/users', () => ({
   vincularSuscripcion: (u: string, p: unknown, o?: unknown) =>
     o === undefined ? vincularSuscripcion(u, p) : vincularSuscripcion(u, p, o),
   planDeSuscripcion: (id: string, plan: string, o: unknown) => planDeSuscripcion(id, plan, o),
+  marcarImpago: (id: string, desde: Date) => marcarImpago(id, desde),
   setPlan: vi.fn(),
 }));
 
 const { POST } = await import('./route');
+const { DIAS_DE_GRACIA } = await import('@core/billing');
 
 function aviso(cuerpo: unknown, firma: string | null = 't=1,v1=loquesea'): Request {
   return new Request('http://x/api/pago/webhook', {
@@ -75,7 +78,7 @@ function sesion(cambios: Record<string, unknown> = {}) {
 }
 
 /** La suscripción que llega con `customer.subscription.*`, recortada. */
-function suscripcion(status: string, price = 'price_pro') {
+function suscripcion(status: string, price = 'price_medio') {
   return {
     id: 'sub_1',
     object: 'subscription',
@@ -120,9 +123,12 @@ beforeEach(() => {
   vincularSuscripcion.mockResolvedValue({ kind: 'ok' });
   planDeSuscripcion.mockReset();
   planDeSuscripcion.mockResolvedValue('ok');
+  marcarImpago.mockReset();
+  marcarImpago.mockResolvedValue('ok');
   process.env['STRIPE_PRICE_BASICO'] = 'price_basico';
   process.env['STRIPE_PRICE_MEDIO'] = 'price_medio';
-  process.env['STRIPE_PRICE_PRO'] = 'price_pro';
+  process.env['STRIPE_PRICE_BASICO_ANUAL'] = 'price_basico_anual';
+  process.env['STRIPE_PRICE_MEDIO_ANUAL'] = 'price_medio_anual';
   enStripe = {};
   fetchFalso.mockReset();
   fetchFalso.mockImplementation(async (url, init) => {
@@ -142,7 +148,12 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  for (const k of ['STRIPE_PRICE_BASICO', 'STRIPE_PRICE_MEDIO', 'STRIPE_PRICE_PRO']) {
+  for (const k of [
+    'STRIPE_PRICE_BASICO',
+    'STRIPE_PRICE_MEDIO',
+    'STRIPE_PRICE_BASICO_ANUAL',
+    'STRIPE_PRICE_MEDIO_ANUAL',
+  ]) {
     delete process.env[k];
   }
 });
@@ -263,6 +274,7 @@ describe('se ha pagado', () => {
     for (const roto of [
       sesion({ client_reference_id: null, metadata: {} }),
       sesion({ metadata: { userId: 'u1', plan: 'raro' } }),
+      sesion({ metadata: { userId: 'u1', plan: 'gratis' } }),
       sesion({ subscription: null }),
       sesion({ customer: '' }),
     ]) {
@@ -317,12 +329,26 @@ describe('antes de vincular, cómo está la suscripción ahora', () => {
   });
 
   it('el plan es el del precio que cobra hoy, no el de los metadatos de entonces', async () => {
-    enStripe['sub_1'] = { status: 200, body: suscripcion('active', 'price_pro') };
+    enStripe['sub_1'] = { status: 200, body: suscripcion('active', 'price_basico_anual') };
 
     await POST(aviso(PAGADO));
 
     expect(vincularSuscripcion).toHaveBeenCalledWith('u1', {
-      plan: 'pro',
+      plan: 'basico',
+      customerId: 'cus_1',
+      subscriptionId: 'sub_1',
+    });
+  });
+
+  // Una sesión abierta antes de fundir Pro en Medio (adr/0104) dice `pro` en los
+  // metadatos; si el precio no dice nada, manda eso, y tiene que dar Medio.
+  it('una sesión vieja que dice Pro da Medio', async () => {
+    enStripe['sub_1'] = { status: 200, body: suscripcion('active', 'price_otro') };
+
+    await POST(aviso(evento('checkout.session.completed', sesion({ metadata: { plan: 'pro' } }))));
+
+    expect(vincularSuscripcion).toHaveBeenCalledWith('u1', {
+      plan: 'medio',
       customerId: 'cus_1',
       subscriptionId: 'sub_1',
     });
@@ -420,15 +446,25 @@ describe('la cuenta ya tenía otra suscripción', () => {
   });
 });
 
+/** Lo que dirá Stripe de `sub_1` cuando se le pregunte. */
+function enStripeEsta(status: string, price = 'price_medio'): void {
+  enStripe['sub_1'] = { status: 200, body: suscripcion(status, price) };
+}
+
 describe('cambia la suscripción', () => {
   it('activa con otro precio: el plan de ese precio, que es lo que se cobra', async () => {
     // Pasa al confirmar en el portal el cambio de plan que manda `start`.
-    await POST(aviso(evento('customer.subscription.updated', suscripcion('active', 'price_pro'))));
+    // Pasar de mensual a anual también llega así, y el plan es el mismo.
+    enStripeEsta('active', 'price_basico_anual');
+    await POST(
+      aviso(evento('customer.subscription.updated', suscripcion('active', 'price_basico_anual'))),
+    );
 
-    expect(planDeSuscripcion).toHaveBeenCalledWith('sub_1', 'pro', { soltar: false });
+    expect(planDeSuscripcion).toHaveBeenCalledWith('sub_1', 'basico', { soltar: false });
   });
 
   it('activa pero sin elementos, o un aviso sin objeto, no cambia nada', async () => {
+    enStripe['sub_1'] = { status: 200, body: { ...suscripcion('active'), items: undefined } };
     const sinElementos = { ...suscripcion('active'), items: undefined };
     expect((await POST(aviso(evento('customer.subscription.updated', sinElementos)))).status).toBe(
       200,
@@ -439,6 +475,7 @@ describe('cambia la suscripción', () => {
   });
 
   it('un precio que no es de ningún plan no cambia nada', async () => {
+    enStripeEsta('active', 'price_otro');
     const res = await POST(
       aviso(evento('customer.subscription.updated', suscripcion('active', 'price_otro'))),
     );
@@ -448,30 +485,99 @@ describe('cambia la suscripción', () => {
   });
 
   /**
-   * **`past_due` no corta**: el cobro ha fallado y Stripe lo reintenta, y su guía
-   * pide avisar, no quitar el acceso. **`unpaid` sí**: los reintentos se agotaron.
+   * **`past_due` no corta en el momento, pero tiene plazo** (adr/0114): el cobro
+   * ha fallado y Stripe lo reintenta, y su guía pide avisar, no quitar el acceso.
+   * Lo que no puede es conservar el plan **para siempre**, que es lo que hacía
+   * si Stripe no estaba configurado para acabar en `unpaid`: ahora empieza el
+   * plazo de gracia. **`unpaid` sí corta**: los reintentos se agotaron.
    */
-  it('con el cobro reintentándose no se toca; sin pagar, se baja a gratis', async () => {
-    await POST(aviso(evento('customer.subscription.updated', suscripcion('past_due'))));
+  it('con el cobro reintentándose empieza la gracia; sin pagar, se baja a gratis', async () => {
+    enStripeEsta('past_due');
+    const res = await POST(aviso(evento('customer.subscription.updated', suscripcion('past_due'))));
+    expect(await res.json()).toEqual({ ok: true, gracia: DIAS_DE_GRACIA });
+    expect(marcarImpago).toHaveBeenCalledWith('sub_1', expect.any(Date));
     expect(planDeSuscripcion).not.toHaveBeenCalled();
 
+    enStripeEsta('unpaid');
     await POST(aviso(evento('customer.subscription.updated', suscripcion('unpaid'))));
     // Sin soltarla: si se paga, vuelve a `active` y tiene que encontrar a su dueño.
     expect(planDeSuscripcion).toHaveBeenCalledWith('sub_1', 'gratis', { soltar: false });
   });
 
+  it('si no se puede marcar la gracia, que Stripe lo repita; sin dueño, se ignora', async () => {
+    enStripeEsta('past_due');
+    marcarImpago.mockResolvedValueOnce('error');
+    expect(
+      (await POST(aviso(evento('customer.subscription.updated', suscripcion('past_due'))))).status,
+    ).toBe(500);
+
+    marcarImpago.mockResolvedValueOnce('no-existe');
+    expect(
+      await (
+        await POST(aviso(evento('customer.subscription.updated', suscripcion('past_due'))))
+      ).json(),
+    ).toEqual({ ignorado: 'esa cuenta ya no está' });
+  });
+
+  it('incompleta todavía no toca nada: llegará otro aviso', async () => {
+    enStripeEsta('incomplete');
+    const res = await POST(
+      aviso(evento('customer.subscription.updated', suscripcion('incomplete'))),
+    );
+
+    expect(await res.json()).toEqual({ ignorado: 'estado incomplete' });
+    expect(planDeSuscripcion).not.toHaveBeenCalled();
+    expect(marcarImpago).not.toHaveBeenCalled();
+  });
+
   it('cancelada en un cambio también baja, y se suelta', async () => {
+    enStripeEsta('canceled');
     await POST(aviso(evento('customer.subscription.updated', suscripcion('canceled'))));
 
     expect(planDeSuscripcion).toHaveBeenCalledWith('sub_1', 'gratis', { soltar: true });
   });
 
-  it('sin identificador se acepta y se ignora', async () => {
+  it('sin identificador se acepta y se ignora, sin preguntar a Stripe', async () => {
     const res = await POST(
       aviso(evento('customer.subscription.updated', { object: 'subscription' })),
     );
 
     expect(res.status).toBe(200);
+    expect(planDeSuscripcion).not.toHaveBeenCalled();
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  /**
+   * **El ataque de la auditoría** (adr/0114): Stripe reintenta durante días lo que
+   * no se contestó 2xx, y sin orden. Un `updated(active)` cuya primera entrega
+   * falló llegaba **después** del `updated(unpaid)` y, fiándose del estado del
+   * aviso, devolvía el plan a quien había dejado de pagar. Ahora manda lo que
+   * diga Stripe hoy.
+   */
+  it('un active viejo que llega tras el unpaid no devuelve el plan', async () => {
+    enStripeEsta('unpaid');
+
+    await POST(aviso(evento('customer.subscription.updated', suscripcion('unpaid'))));
+    await POST(aviso(evento('customer.subscription.updated', suscripcion('active'))));
+
+    expect(planDeSuscripcion.mock.calls.map(([, plan]) => plan)).toEqual(['gratis', 'gratis']);
+    expect(peticiones()).toEqual(['GET sub_1', 'GET sub_1']);
+  });
+
+  it('y al revés: un unpaid viejo tras volver a pagar no quita el plan', async () => {
+    enStripeEsta('active');
+
+    await POST(aviso(evento('customer.subscription.updated', suscripcion('unpaid'))));
+
+    expect(planDeSuscripcion).toHaveBeenCalledWith('sub_1', 'medio', { soltar: false });
+  });
+
+  it('sin poder preguntar a Stripe no se decide nada: 500, y lo repite', async () => {
+    enStripe['sub_1'] = { status: 503, body: { error: 'caído' } };
+
+    const res = await POST(aviso(evento('customer.subscription.updated', suscripcion('active'))));
+
+    expect(res.status).toBe(500);
     expect(planDeSuscripcion).not.toHaveBeenCalled();
   });
 });
@@ -483,9 +589,18 @@ describe('se acaba la suscripción', () => {
    * de pago se quedaba para siempre. Ahora se busca por la suscripción guardada.
    */
   it('baja a gratis a quien la tenía, sin mirar metadatos', async () => {
+    enStripeEsta('canceled');
     const sinMetadatos = { ...suscripcion('canceled'), metadata: {} };
 
     await POST(aviso(evento('customer.subscription.deleted', sinMetadatos)));
+
+    expect(planDeSuscripcion).toHaveBeenCalledWith('sub_1', 'gratis', { soltar: true });
+  });
+
+  it('y si Stripe ya no la tiene, también', async () => {
+    enStripe['sub_1'] = { status: 404, body: { error: { code: 'resource_missing' } } };
+
+    await POST(aviso(evento('customer.subscription.deleted', suscripcion('canceled'))));
 
     expect(planDeSuscripcion).toHaveBeenCalledWith('sub_1', 'gratis', { soltar: true });
   });
@@ -510,6 +625,7 @@ describe('qué se le contesta a Stripe', () => {
     expect((await POST(aviso(PAGADO))).status).toBe(500);
 
     planDeSuscripcion.mockResolvedValue('error');
+    enStripeEsta('canceled');
     const baja = evento('customer.subscription.deleted', suscripcion('canceled'));
     expect((await POST(aviso(baja))).status).toBe(500);
   });

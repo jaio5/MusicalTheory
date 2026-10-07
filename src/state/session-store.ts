@@ -32,6 +32,7 @@ import type { TuningId } from '@core/instrument';
 
 import {
   DEFAULT_PREFERENCES,
+  escalaDeLaTonalidad,
   loadPreferences,
   savePreferences,
   type WorkspacePreferences,
@@ -162,6 +163,7 @@ export interface SessionActions {
   pinKey(key: SessionKey): void;
   /** Vuelve a hacer caso a lo que se detecta. */
   followDetection(): void;
+  /** Elige una escala a mano. La de la tonalidad deja de seguirla. */
   setScale(scaleId: ScaleId): void;
   setStyle(styleId: StyleId): void;
   setTuning(tuningId: TuningId): void;
@@ -223,7 +225,11 @@ export interface SessionState {
   readonly keyComputedAt: number;
   /** Tonalidad elegida a mano, o null si manda la detección. */
   readonly pinnedKey: SessionKey | null;
-  readonly scaleId: ScaleId;
+  /**
+   * La escala elegida a mano, o nula si sigue a la tonalidad. **No se lee a
+   * pelo**: la que suena la da `selectEscala`, que resuelve la nula.
+   */
+  readonly scaleId: ScaleId | null;
   readonly styleId: StyleId;
   /** La afinación con la que se compara lo que suena. */
   readonly tuningId: TuningId;
@@ -286,7 +292,7 @@ const EMPTY = {
   keyCandidates: [],
   keyComputedAt: 0,
   pinnedKey: null,
-  scaleId: 'minorPentatonic',
+  scaleId: DEFAULT_PREFERENCES.scaleId,
   styleId: DEFAULT_PREFERENCES.styleId,
   tuningId: DEFAULT_PREFERENCES.tuningId,
   noteHistory: [],
@@ -585,3 +591,31 @@ export const selectActiveKey = (state: SessionState): SessionKey | null => {
   const key = state.pinnedKey ?? state.keyCandidates[0] ?? null;
   return key === null ? null : CANONICAL_KEYS[`${key.tonic}-${key.mode}`];
 };
+
+/**
+ * La escala que manda: la elegida a mano, y si no hay ninguna, **la de la
+ * tonalidad** —mayor en mayor, menor natural en menor—.
+ *
+ * Es un selector y no un campo porque la tonalidad puede cambiar sola, con la
+ * detección, y una escala copiada en el estado se quedaría en la de antes.
+ * Devuelve un texto, así que suscribirse no repinta mientras no cambie.
+ */
+export const selectEscala = (state: SessionState): ScaleId =>
+  state.scaleId ?? escalaDeLaTonalidad(selectActiveKey(state)?.mode ?? null);
+
+/**
+ * La tonalidad con la que se aprende si no hay ninguna: **Do mayor**.
+ *
+ * La primera unidad, «Las notas y sus alteraciones», empezaba pidiendo elegir
+ * tonalidad en una rueda de veinticuatro, a quien venía precisamente a aprender
+ * qué es una nota. Las preguntas se escriben con los acordes de la tonalidad que
+ * haya, pero eso es el ejemplo, no el tema: Do mayor es la que no lleva
+ * alteraciones y la de cualquier libro, y **no se fija**, así que componer sigue
+ * pidiendo la de tu canción. Quien quiera otra la cambia en la barra
+ * ([adr/0109](../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)).
+ */
+export const TONALIDAD_DE_PARTIDA: SessionKey = CANONICAL_KEYS['0-major'];
+
+/** La que manda al aprender: la tuya, y si no hay, la de partida. */
+export const selectTonalidadParaAprender = (state: SessionState): SessionKey =>
+  selectActiveKey(state) ?? TONALIDAD_DE_PARTIDA;

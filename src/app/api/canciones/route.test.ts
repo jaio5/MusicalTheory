@@ -15,8 +15,12 @@ const listSongs = vi.fn();
 const createSong = vi.fn();
 const updateSong = vi.fn();
 const removeSong = vi.fn();
+const contarEnElServidor = vi.fn();
 
 vi.mock('@server/entitlements', () => ({ currentSession: () => currentSession() }));
+vi.mock('@server/metricas', () => ({
+  contarEnElServidor: (...a: unknown[]) => contarEnElServidor(...a),
+}));
 vi.mock('@server/songs-repo', () => ({
   isSongId: (v: unknown) => typeof v === 'string' && v !== '',
   listSongs: (...a: unknown[]) => listSongs(...a),
@@ -55,7 +59,7 @@ async function leer(res: Response) {
 beforeEach(() => {
   currentSession.mockReset();
   currentSession.mockResolvedValue(SESION);
-  for (const m of [listSongs, createSong, updateSong, removeSong]) {
+  for (const m of [listSongs, createSong, updateSong, removeSong, contarEnElServidor]) {
     m.mockReset();
   }
 });
@@ -111,6 +115,8 @@ describe('lo que dice el repositorio se traduce a códigos distintos', () => {
 
     expect(status).toBe(200);
     expect(body['song']).toMatchObject({ id: 7 });
+    // Y se cuenta, con la cuenta de la sesión: es lo que dice si alguien vuelve.
+    expect(contarEnElServidor).toHaveBeenCalledWith(expect.any(Request), 'cancion-guardada', 'u1');
   });
 
   it('una canción que no existe es 404', async () => {
@@ -128,6 +134,8 @@ describe('lo que dice el repositorio se traduce a códigos distintos', () => {
 
     expect(status).toBe(409);
     expect((body['error'] as { message: string }).message).toMatch(/\d+/);
+    // Lo que no se guardó no se cuenta.
+    expect(contarEnElServidor).not.toHaveBeenCalled();
   });
 
   it('si la base de datos falla, 502', async () => {
@@ -213,5 +221,39 @@ describe('cambiar una guardada', () => {
 
     expect(respuesta.status).toBe(400);
     expect(updateSong).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Un bucle de guardados con la sesión de alguien.
+ *
+ * Antes no tenía tope: cada petición era una escritura de hasta 128 KB y todas
+ * pasaban. Aquí sin base de datos, así que cuenta el contador en memoria; el de
+ * Postgres es el mismo `limitRequest` que prueba `rate-limit-db` (adr/0116).
+ */
+describe('el tope por cuenta', () => {
+  it('crear y escribir encima comparten tope, y el que se pasa recibe un 429', async () => {
+    currentSession.mockResolvedValue({ userId: 'bucle', account: { plan: 'basico' } });
+    createSong.mockResolvedValue({ kind: 'ok', song: { id: 's1' } });
+    updateSong.mockResolvedValue({ kind: 'ok', song: { id: 's1' } });
+
+    const estados: number[] = [];
+    for (let i = 0; i < 15; i += 1) {
+      estados.push((await POST(pedir('POST', CANCION))).status);
+      estados.push((await PUT(pedir('PUT', { ...CANCION, id: 's1' }))).status);
+    }
+    const frenada = await POST(pedir('POST', CANCION));
+
+    expect(estados.every((estado) => estado === 200)).toBe(true);
+    expect(frenada.status).toBe(429);
+    expect(frenada.headers.get('Retry-After')).not.toBeNull();
+    expect(createSong).toHaveBeenCalledTimes(15);
+  });
+
+  it('el tope es de esa cuenta: otra sigue guardando', async () => {
+    currentSession.mockResolvedValue({ userId: 'otra', account: { plan: 'basico' } });
+    createSong.mockResolvedValue({ kind: 'ok', song: { id: 's2' } });
+
+    expect((await POST(pedir('POST', CANCION))).status).toBe(200);
   });
 });

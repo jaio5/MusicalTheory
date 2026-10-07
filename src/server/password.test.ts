@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { scryptSync } from 'node:crypto';
 
 import {
+  contrasenaDeMedida,
   HASH_DE_NADIE,
   hashPassword,
+  MAX_PASSWORD_LENGTH,
   igualarCoste,
   necesitaRecifrar,
   verifyPassword,
@@ -159,5 +161,27 @@ describe('igualar el coste de una comprobación fallida', () => {
     ]) {
       expect(await igualarCoste(roto), roto).toBe(5);
     }
+  });
+});
+
+/**
+ * **El tope de largo** (adr/0113). Sin él, lo que acotaba una contraseña era lo
+ * que dejara pasar el cuerpo de la petición, y la entrada no tenía el tope de las
+ * demás rutas: una de 10 MB llegaba entera a `scrypt`.
+ */
+describe('lo más larga que puede ser', () => {
+  it('mil veinticuatro caracteres', () => {
+    expect(MAX_PASSWORD_LENGTH).toBe(1024);
+    expect(contrasenaDeMedida('x'.repeat(1024), 8)).toBe(true);
+    expect(contrasenaDeMedida('x'.repeat(1025), 8)).toBe(false);
+    expect(contrasenaDeMedida('corta', 8)).toBe(false);
+    expect(contrasenaDeMedida(12345678, 8)).toBe(false);
+  });
+
+  it('una más larga no se comprueba: aunque lo guardado fuera suyo, dice que no', async () => {
+    const larga = 'x'.repeat(MAX_PASSWORD_LENGTH + 1);
+    const guardada = await hashPassword(larga);
+
+    expect(await verifyPassword(larga, guardada)).toBe(false);
   });
 });

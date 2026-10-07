@@ -18,6 +18,7 @@ import {
   type NoteName,
 } from '@core/music';
 
+import { recortarALetras, tokensEnElPeorCaso } from '@core/marca';
 import type { VersionsRequest, VersionStep } from '@features/versions/contract';
 import { COLORES, MAX_OPCIONES_DEL_MENU } from '@features/versions/menu';
 import {
@@ -233,6 +234,58 @@ describe('el presupuesto de entrada de las salidas', () => {
 
     console.log(
       `tope del prompt de salidas: ${peor} tokens de ${TOKEN_BUDGETS.versiones.input}; sobran ${TOKEN_BUDGETS.versiones.input - peor}`,
+    );
+    expect(peor).toBeLessThanOrEqual(CABE);
+  });
+
+  /**
+   * **Y con las directrices en el peor alfabeto.** Veinticinco caracteres chinos
+   * cuestan lo que 240 letras (`tokensEnElPeorCaso`) y miden 25: contadas por lo que
+   * miden, el menú se comía los 215 que parecían sobrar y el prompt se pasaba en 67
+   * tokens (adr/0115). Aquí cuentan lo que cuestan, y el resto a 3,2 por token.
+   */
+  it('con las directrices en chino, yi o emoji tampoco se pasa', { timeout: 60_000 }, () => {
+    /** La entrada de una petición, con las directrices a lo que cuestan y lo demás a 3,2. */
+    const enElPeorAlfabeto = (request: VersionsRequest): number => {
+      const prompt = promptDeSalidas(request, [lineaDeTonalidad(request.key)]);
+      const opciones = prompt.split('\n').filter((linea) => /^\d+\. /u.test(linea)).length;
+      const resto =
+        VERSIONS_SYSTEM_PROMPT +
+        JSON.stringify(versionsSchema(opciones)) +
+        prompt.replace(request.directrices!, '');
+      return Math.ceil(resto.length / CHARS_PER_TOKEN + tokensEnElPeorCaso(request.directrices!));
+    };
+    let peor = 0;
+    for (const caracter of ['和', 'ꀀ', '🎸']) {
+      const directrices = recortarALetras(
+        caracter.repeat(MAX_DIRECTRICES_LENGTH),
+        MAX_DIRECTRICES_LENGTH,
+      );
+      for (const mode of ['major', 'minor'] as const) {
+        for (const kind of ['continuar', 'retocar'] as const) {
+          // Las canciones que más llenan el menú, como en la primera prueba.
+          const largas = canciones(mode, 60)
+            .map((progression): VersionsRequest => ({
+              key: { tonic: 'C', mode },
+              kind,
+              progression: kind === 'continuar' ? progression.slice(0, 26) : progression,
+              role: PAPEL.id,
+              estilo: ESTILO,
+              pulsosPorCompas: 6,
+              directrices,
+            }))
+            .map((request) => ({ request, largo: enElPeorAlfabeto(request) }))
+            .sort((a, b) => b.largo - a.largo)
+            .slice(0, 3);
+          for (const { largo } of largas) {
+            peor = Math.max(peor, largo);
+          }
+        }
+      }
+    }
+
+    console.log(
+      `peor prompt de salidas en otro alfabeto: ${peor} tokens de ${TOKEN_BUDGETS.versiones.input}`,
     );
     expect(peor).toBeLessThanOrEqual(CABE);
   });

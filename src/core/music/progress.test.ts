@@ -10,6 +10,8 @@ import {
   DAILY_GOAL_XP,
   EMPTY_PROGRESS,
   MAX_COMPOSE_XP,
+  MAX_XP_DEL_DIA,
+  PRIMER_DIA,
   REVIEW_XP,
   completeUnit,
   practiceCompose,
@@ -527,6 +529,10 @@ describe('interpretar el avance guardado', () => {
 
   it('descarta medallas que no existen y ordena las que sí', () => {
     const progress = parseProgress({
+      done: [PRIMERA],
+      lastDay: '2026-07-29',
+      streak: 1,
+      bestStreak: 7,
       badges: ['racha-siete', 'medalla-inventada', 'primer-paso'],
     });
 
@@ -1263,8 +1269,16 @@ describe('lo guardado con el temario de antes', () => {
 
     expect(leido.done).toEqual(HECHAS_ANTES.filter((id) => !RETIRADAS.includes(id)));
     expect(leido.xp).toBe(leido.done.reduce((total, id) => total + findUnit(id)!.unit.xp, 0));
-    // Las medallas no se recalculan: lo que se ganó, se ganó.
-    expect(leido.badges).toEqual(['primer-paso', 'cinco-escalas', 'elemental-superado']);
+    // Lo que se ganó, se ganó: el Elemental ya no está cerrado con el temario de
+    // ahora y su medalla se queda. Y se suman las que lo hecho demuestra.
+    expect(leido.badges).toEqual([
+      'primer-paso',
+      'primera-escala',
+      'cinco-escalas',
+      'curso-completo',
+      'elemental-superado',
+      'racha-siete',
+    ]);
   });
 
   it('de la cola solo queda lo que se puede volver a preguntar', () => {
@@ -1317,4 +1331,134 @@ describe('lo guardado con el temario de antes', () => {
 
     expect(despues.badges).toEqual(expect.arrayContaining([...leido.badges]));
   });
+});
+
+/**
+ * Lo que alguien manda desde la consola para tener un avance imposible.
+ *
+ * La auditoría lo subió tal cual y se guardó: racha y XP del día de `1e308`, un
+ * último día `9999-99-99` que ganaba todas las fusiones siguientes y las quince
+ * medallas sin haber hecho nada. Lo que se prueba es que **nada de eso sobrevive a
+ * leerlo con el día del servidor**, y que lo legítimo de dos aparatos sí
+ * (adr/0116).
+ */
+describe('un avance inventado, leído con el día del servidor', () => {
+  const HOY = '2026-10-07';
+  const INVENTADO = {
+    done: [],
+    streak: 1e308,
+    bestStreak: 1e308,
+    lastDay: '9999-99-99',
+    xpToday: 1e308,
+    composeToday: 1e308,
+    badges: BADGES.map((badge) => badge.id),
+    review: [{ unitId: DE_TOCAR, index: 0, seenOn: '9999-12-31', hits: 0 }],
+    startCourse: 'profesional-6',
+    startCourseAt: '9999-12-31T00:00:00.000Z',
+  };
+
+  it('no se queda nada imposible', () => {
+    const leido = parseProgress(INVENTADO, undefined, HOY);
+
+    expect(leido.lastDay).toBeNull();
+    expect(leido.streak).toBe(0);
+    expect(leido.bestStreak).toBeLessThanOrEqual(80);
+    expect(leido.xpToday).toBe(0);
+    expect(leido.badges).toEqual([]);
+    expect(leido.review[0]?.seenOn).toBe('1970-01-01');
+    expect(leido.startCourseAt).toBeNull();
+  });
+
+  it('una fecha bien formada pero del futuro tampoco vale', () => {
+    const leido = parseProgress({ ...INVENTADO, lastDay: '9999-12-31' }, undefined, HOY);
+
+    expect(leido.lastDay).toBeNull();
+  });
+
+  it('mañana sí vale: en UTC+14 ya es mañana', () => {
+    const leido = parseProgress({ ...INVENTADO, lastDay: '2026-10-08' }, undefined, HOY);
+
+    expect(leido.lastDay).toBe('2026-10-08');
+    // La racha no pasa de los días que lleva existiendo la aplicación.
+    expect(leido.streak).toBe(daysBetweenPrimerDia('2026-10-08'));
+    expect(leido.bestStreak).toBe(leido.streak);
+    expect(leido.xpToday).toBe(MAX_XP_DEL_DIA);
+    expect(leido.composeToday).toBe(MAX_COMPOSE_XP);
+    // Las que no dejan rastro se creen, porque ha practicado; las que se sacan del
+    // avance, no: no ha hecho ninguna unidad.
+    expect(leido.badges).toContain('primera-cancion');
+    expect(leido.badges).toContain('racha-siete');
+    expect(leido.badges).not.toContain('primer-paso');
+    expect(leido.badges).not.toContain('sin-fallar');
+    expect(leido.badges).not.toContain('profesional-superado');
+  });
+
+  it('sin el día del servidor se mira la forma de la fecha, no lo lejos que cae', () => {
+    // El navegador no tiene un reloj del que fiarse y lo suyo es suyo: lo recorta
+    // el servidor al subirlo.
+    expect(parseProgress({ lastDay: '9999-12-31', streak: 3 }).lastDay).toBe('9999-12-31');
+    expect(parseProgress({ lastDay: '9999-99-99', streak: 3 }).lastDay).toBeNull();
+  });
+
+  it('un valor envenenado ya guardado se arregla en la siguiente fusión', () => {
+    // Lo guardado pasa por `parseProgress` al leerse, y entonces el `9999` deja de
+    // ganar: manda el día de verdad del aparato que sube.
+    const guardado = parseProgress({ ...INVENTADO, lastDay: '9999-12-31' }, undefined, HOY);
+    const deVerdad = completeUnit(EMPTY_PROGRESS, UNIT_ORDER[0]!, HOY);
+
+    const junto = mergeProgress(guardado, deVerdad);
+
+    expect(junto.lastDay).toBe(HOY);
+    expect(junto.streak).toBe(1);
+    expect(junto.xpToday).toBe(deVerdad.xpToday);
+    expect(junto.startCourse).toBe('profesional-6');
+  });
+
+  it('lo legítimo de dos aparatos no se pierde', () => {
+    let uno = EMPTY_PROGRESS;
+    for (let i = 0; i < 8; i += 1) {
+      uno = completeUnit(uno, UNIT_ORDER[i]!, `2026-09-${String(20 + i).padStart(2, '0')}`);
+    }
+    uno = practiceCompose(uno, '2026-09-27', 'cancion');
+    const otro = practiceReview(completeUnit(EMPTY_PROGRESS, 'e2-calidades', HOY), HOY, {
+      cleared: true,
+    });
+
+    const subido = parseProgress(JSON.parse(JSON.stringify(otro)), undefined, HOY);
+    const guardado = parseProgress(JSON.parse(JSON.stringify(uno)), undefined, HOY);
+    const junto = mergeProgress(guardado, subido);
+
+    expect(subido).toEqual(otro);
+    expect(guardado).toEqual(uno);
+    expect(junto.done).toHaveLength(9);
+    expect(junto.bestStreak).toBe(8);
+    expect(junto.badges).toEqual(
+      expect.arrayContaining(['racha-siete', 'primera-cancion', 'repaso-al-dia']),
+    );
+  });
+
+  it('las medallas que lo hecho demuestra llegan solas, sin que nadie las mande', () => {
+    // Todo el temario hecho es un avance posible —se puede subir, y es su avance—,
+    // y entonces los dos grados están cerrados digan lo que digan las medallas.
+    const leido = parseProgress({ done: UNIT_ORDER, lastDay: HOY, streak: 1 }, undefined, HOY);
+
+    expect(leido.badges).toEqual(
+      expect.arrayContaining(['curso-completo', 'elemental-superado', 'profesional-superado']),
+    );
+  });
+
+  it('repasar sin parar no pasa del techo del día', () => {
+    let progress = EMPTY_PROGRESS;
+    for (let i = 0; i < 2 * (MAX_XP_DEL_DIA / REVIEW_XP); i += 1) {
+      progress = practiceReview(progress, HOY);
+    }
+
+    expect(progress.xpToday).toBe(MAX_XP_DEL_DIA);
+  });
+
+  function daysBetweenPrimerDia(hasta: string): number {
+    return (
+      (Date.parse(`${hasta}T12:00:00Z`) - Date.parse(`${PRIMER_DIA}T12:00:00Z`)) / 86_400_000 + 1
+    );
+  }
 });

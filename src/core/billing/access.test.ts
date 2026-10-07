@@ -24,7 +24,7 @@ const ELEMENTAL_ENTERO = COURSES.filter((course) => course.grade === 'elemental'
 
 describe('isGradeIncluded', () => {
   it('regala el Elemental en los tres planes', () => {
-    for (const plan of ['gratis', 'basico', 'pro']) {
+    for (const plan of ['gratis', 'basico', 'medio']) {
       expect(isGradeIncluded(plan, 'elemental')).toBe(true);
     }
   });
@@ -43,7 +43,7 @@ describe('isUnitIncluded', () => {
   });
 
   it('una unidad que no existe no está incluida en ningún plan', () => {
-    expect(isUnitIncluded('pro', 'no-existe')).toBe(false);
+    expect(isUnitIncluded('medio', 'no-existe')).toBe(false);
   });
 
   // El temario se reordenó y hubo unidades que cambiaron de curso conservando su
@@ -62,7 +62,7 @@ describe('isUnitIncluded', () => {
   it('coincide con isCourseIncluded para el curso de esa unidad', () => {
     const found = findUnit('p6-cadencias')!;
     expect(isCourseIncluded('gratis', found.course)).toBe(false);
-    expect(isCourseIncluded('pro', found.course)).toBe(true);
+    expect(isCourseIncluded('medio', found.course)).toBe(true);
   });
 });
 
@@ -113,6 +113,6 @@ describe('nextAllowedUnit', () => {
 
   it('devuelve nulo cuando está todo hecho', () => {
     const todo = tras(COURSES.flatMap((course) => course.units.map((unit) => unit.id)));
-    expect(nextAllowedUnit(todo, 'pro')).toBeNull();
+    expect(nextAllowedUnit(todo, 'medio')).toBeNull();
   });
 });

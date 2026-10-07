@@ -240,17 +240,24 @@ describe('una ritmica con el clic sonando encima', () => {
   }
 
   /**
-   * Cada cambio cae en su pulso, también el de mitad de compás. **Lo que no
-   * aguanta es el La menor**: el croma de esa postura se lee Esus4 y luego C6, y
-   * el C6 lleva un Do mayor dentro. Se queda pegado al Do de antes, marcado como
-   * dudoso —empata con Am7—, que es lo que se corrige pulsándolo.
+   * Cada cambio cae en su pulso, también el de mitad de compás, **y el La menor
+   * se lee La menor**. Antes se leía Esus4 y luego C6 y se quedaba pegado al Do de
+   * antes: el séptimo armónico del La grave, un Sol, no se descontaba, y el empate
+   * entre `Am7` y `C6` —las mismas cuatro notas— lo ganaba el Do por salir antes
+   * en el bucle. Ahora el armónico se mide en su serie y el empate lo decide el
+   * bajo ([adr/0107](../../docs/adr/0107-los-armonicos-se-miden-en-su-serie.md)).
    */
-  it('los cambios caen en su pulso; el La menor se lee como Do', () => {
-    expect(tomaDeRitmica()).toEqual(['I/8', 'IV/2', 'V/2', 'I/4']);
+  it('los cambios caen en su pulso, y el La menor se lee La menor', () => {
+    expect(tomaDeRitmica()).toEqual(['I/4', 'vi/4', 'IV/2', 'V/2', 'I/4']);
   }, 30_000);
 
-  /** **Por qué el motor mira hasta 1000 Hz.** Hasta 2200 no reconoce casi nada. */
-  it('mirando hasta 2200 Hz, los armonicos lo tapan todo', () => {
-    expect(tomaDeRitmica(2200).length).toBeLessThanOrEqual(1);
+  /**
+   * **Mirando hasta 2200 Hz, con el descuento de antes, los armónicos lo tapaban
+   * todo** y no salía ni un acorde: por eso el motor mira hasta mil. Con el
+   * descuento por la serie esta toma ya sale entera; el techo se queda por lo
+   * medido en diferido, que es donde mirar arriba sigue costando aciertos.
+   */
+  it('mirando hasta 2200 Hz, el descuento por la serie aguanta', () => {
+    expect(tomaDeRitmica(2200)).toEqual(['I/4', 'vi/4', 'IV/2', 'V/2', 'I/4']);
   }, 30_000);
 });

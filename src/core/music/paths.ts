@@ -169,7 +169,7 @@ export function pathById(id: unknown): Path | null {
  *
  * El mismo tope que tiene lo que se manda, y no es casualidad: así el peor caso
  * de la respuesta no crece respecto a lo que ya presupuestaba `core/billing`, y
- * los cupos de Medio y Pro siguen valiendo. Una salida que doblara el largo
+ * los cupos de pago siguen valiendo. Una salida que doblara el largo
  * doblaría la factura.
  */
 export const MAX_PATH_STEPS = 32;
@@ -491,7 +491,7 @@ export interface ProposedSection {
  *
  * Cuatro. El dominio permite doce en una canción guardada (`song.ts`), pero esto
  * es otra cosa: son partes que hay que leer de un vistazo con la guitarra puesta,
- * y son tokens de salida —de los que salen los cupos de Medio y Pro—. Con cuatro
+ * y son tokens de salida —de los que salen los cupos de pago—. Con cuatro
  * caben entrada, tu parte, un contraste y un cierre, que es una canción entera.
  */
 export const MAX_PATH_SECTIONS = 4;

@@ -33,7 +33,7 @@ const G = pitchClassFromName('G');
 const CON_PLAN: Account = {
   email: 'javier@example.com',
   name: null,
-  plan: 'pro',
+  plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 30,
   aiLeftMonth: 30,
@@ -877,6 +877,31 @@ describe('escuchar una versión', () => {
 
     expect(player.stopped).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Escuchar' })).toBeInTheDocument();
+  });
+
+  /**
+   * **Dos salidas con el mismo título y el mismo camino.** El título lo escribe el
+   * modelo, y con él de clave React pisaba una con la otra y «Escuchar» encendía las
+   * dos a la vez (adr/0115). La que suena es la que se pulsa, y nada más.
+   */
+  it('dos salidas con el mismo título se pintan las dos, y suena solo la que se pulsa', async () => {
+    const player = reproductor();
+    const errores = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const gemela: Version = { ...UNA, why: 'Otra forma de decirlo.' };
+    const fetchVersions = vi.fn().mockResolvedValue(respondWith({ versions: [UNA, gemela] }));
+    render(conCuenta(<VersionsPanel fetchVersions={fetchVersions} createPlayer={() => player} />));
+    componiendo(['I', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
+    await screen.findByText('Otra forma de decirlo.');
+
+    expect(screen.getAllByText('Más oscura')).toHaveLength(2);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Escuchar' })[1]!);
+
+    expect(screen.getAllByRole('button', { name: 'Parar' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Escuchar' })).toHaveLength(1);
+    const avisos = errores.mock.calls.map((llamada) => String(llamada[0]));
+    expect(avisos.filter((aviso) => aviso.includes('same key'))).toEqual([]);
+    errores.mockRestore();
   });
 
   it('el compás que suena se enciende, y se apaga al terminar', async () => {

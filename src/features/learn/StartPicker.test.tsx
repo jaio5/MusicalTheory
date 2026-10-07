@@ -76,7 +76,7 @@ describe('Elegir por dónde empezar', () => {
   });
 
   it('con plan se pueden elegir todos', () => {
-    pintar(EMPTY_PROGRESS, 'pro');
+    pintar(EMPTY_PROGRESS, 'medio');
 
     for (const course of COURSES) {
       expect(screen.getByRole('option', { name: new RegExp(course.title) })).toBeEnabled();

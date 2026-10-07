@@ -25,7 +25,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * bloque, el avance de una barra— y no hay número que valga para eso. Un estilo
  * inyectado puede afear la página; no puede ejecutar nada.
  */
-function politica(numero: string): string {
+function politica(numero: string, porHttps: boolean): string {
   /*
     `eval` solo mientras se desarrolla, y con una razón concreta.
 
@@ -54,9 +54,35 @@ function politica(numero: string): string {
     "form-action 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    // Que el navegador suba a https lo que se le haya colado en http.
-    'upgrade-insecure-requests',
+    // Que el navegador suba a https lo que se le haya colado en http. **Solo si
+    // la página llegó por https**: servida por http desde otra dirección —el
+    // Docker de casa abierto en el móvil, `http://192.168.1.20:3000`— pedía cada
+    // guion y cada hoja por https a un servidor que no lo habla, y la portada se
+    // quedaba sin dieciocho recursos con `ERR_SSL_PROTOCOL_ERROR`. En
+    // `localhost` no se notaba porque el navegador lo exime.
+    ...(porHttps ? ['upgrade-insecure-requests'] : []),
   ].join('; ');
+}
+
+/**
+ * Si quien mira la página la recibió por https.
+ *
+ * Tres maneras de saberlo, y vale cualquiera: la propia petición, la cabecera
+ * que pone el proxy que hace el TLS —Caddy y Vercel la ponen solos; nginx, con
+ * `proxy_set_header X-Forwarded-Proto $scheme`— y `APP_URL`, que dice cuál es la
+ * dirección pública. La cabecera la puede escribir cualquiera, y da igual: lo
+ * único que consigue quien mienta es romperse su propia página.
+ */
+export function llegaPorHttps(request: NextRequest): boolean {
+  if (request.nextUrl.protocol === 'https:') {
+    return true;
+  }
+  // Con varios proxies en fila la cabecera trae una lista, y manda el primero:
+  // es el que habló con el navegador.
+  if (/^\s*https\s*(,|$)/i.test(request.headers.get('x-forwarded-proto') ?? '')) {
+    return true;
+  }
+  return /^\s*https:/i.test(process.env['APP_URL'] ?? '');
 }
 
 /**
@@ -76,7 +102,7 @@ export function proxy(request: NextRequest) {
 
   const respuesta = NextResponse.next({ request: { headers: entrada } });
 
-  respuesta.headers.set('Content-Security-Policy', politica(numero));
+  respuesta.headers.set('Content-Security-Policy', politica(numero, llegaPorHttps(request)));
   // El navegador no adivina el tipo de un fichero: si el servidor dice que es
   // texto, es texto, aunque parezca un guion.
   respuesta.headers.set('X-Content-Type-Options', 'nosniff');

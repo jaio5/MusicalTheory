@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ERROR_MESSAGES, MARCA_DIRECTRICES } from '@features/versions/contract';
+import { ERROR_MESSAGES } from '@features/versions/contract';
 import type * as AskModel from '@server/ask-model';
 
 /**
@@ -15,7 +15,13 @@ import type * as AskModel from '@server/ask-model';
 const spendAi = vi.fn(async () => ({ kind: 'ok', account: {}, leftMonth: 10 }) as never);
 const askModel = vi.fn();
 
-vi.mock('@server/entitlements', () => ({ spendAi: () => spendAi() }));
+// Una cuenta nueva en cada petición: el límite por minuto es de la cuenta
+// (adr/0114), y aquí no es lo que se prueba.
+let siempreLaMisma: string | null = null;
+vi.mock('@server/entitlements', () => ({
+  spendAi: () => spendAi(),
+  currentSession: async () => ({ userId: siempreLaMisma ?? crypto.randomUUID(), account: {} }),
+}));
 vi.mock('@server/ask-model', async (original) => ({
   // El módulo entero se sustituye, así que **la clase se trae de verdad**: es la
   // que `ai-route` compara con `instanceof`, y una copia no sería la misma.
@@ -144,8 +150,8 @@ describe('el menú y el esquema dependen de lo que se pida', () => {
     await POST(pedir({ ...TOCADO, kind: 'continuar', directrices: 'a rock lento' }));
 
     const { prompt } = llamada();
-    expect(prompt).toContain(`${MARCA_DIRECTRICES}\na rock lento\n${MARCA_DIRECTRICES}`);
-    expect(prompt.trimEnd().endsWith(MARCA_DIRECTRICES)).toBe(true);
+    // Con la clave de cada petición, la misma en las dos (adr/0115).
+    expect(prompt).toMatch(/(###DIRECTRICES-[0-9a-f]{6}###)\na rock lento\n\1$/u);
   });
 
   // Sin escribir nada, la marca no aparece: un bloque vacío es una línea que el
@@ -155,7 +161,7 @@ describe('el menú y el esquema dependen de lo que se pida', () => {
 
     await POST(pedir({ ...TOCADO, kind: 'continuar' }));
 
-    expect(llamada().prompt).not.toContain(MARCA_DIRECTRICES);
+    expect(llamada().prompt).not.toContain('###DIRECTRICES');
   });
 });
 
@@ -312,8 +318,9 @@ describe('lo que no llega al modelo', () => {
 
 describe('pulsar el boton veinte veces seguidas', () => {
   it('se frena, y se dice cuanto hay que esperar', async () => {
-    // El límite es por dirección, así que todas desde la misma. Defiende del
-    // botón repetido, no de un abuso de verdad.
+    // El límite es por cuenta (adr/0114), así que todas desde la misma. Defiende
+    // del botón repetido; del abuso, el cupo y el techo de gasto.
+    siempreLaMisma = 'la-de-siempre';
     askModel.mockResolvedValue({ versions: [] });
     const desdeLaMisma = () =>
       new Request('http://x/api/versiones', {
@@ -327,6 +334,7 @@ describe('pulsar el boton veinte veces seguidas', () => {
       ultima = await POST(desdeLaMisma());
     }
 
+    siempreLaMisma = null;
     expect(ultima.status).toBe(429);
     expect(ultima.headers.get('Retry-After')).not.toBeNull();
   });

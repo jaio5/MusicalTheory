@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { daysBetween, isDay } from './days';
+import { daysBetween, diaSiguiente, isDay } from './days';
 
 describe('isDay', () => {
   it('acepta solo AAAA-MM-DD', () => {
@@ -11,6 +11,24 @@ describe('isDay', () => {
     expect(isDay('')).toBe(false);
     expect(isDay(null)).toBe(false);
     expect(isDay(20260825)).toBe(false);
+  });
+
+  // La forma no basta: `9999-99-99` la tiene, y subida una vez ganaba la fusión
+  // del avance para siempre (adr/0116).
+  it('y solo un día que exista', () => {
+    expect(isDay('9999-99-99')).toBe(false);
+    expect(isDay('2026-02-30')).toBe(false);
+    expect(isDay('2026-13-01')).toBe(false);
+    expect(isDay('2028-02-29')).toBe(true);
+    expect(isDay('2027-02-29')).toBe(false);
+  });
+});
+
+describe('diaSiguiente', () => {
+  it('cruza el mes, el año y el bisiesto', () => {
+    expect(diaSiguiente('2026-08-25')).toBe('2026-08-26');
+    expect(diaSiguiente('2026-12-31')).toBe('2027-01-01');
+    expect(diaSiguiente('2028-02-28')).toBe('2028-02-29');
   });
 });
 

@@ -35,7 +35,7 @@ import {
 } from '@core/music';
 import { descargarBytes, TIPO_MIDI } from '@media/descargar';
 import { apuntarLoTocado } from '@state/apuntar-lo-tocado';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, selectEscala, useSessionStore } from '@state/session-store';
 import { selectCanUndo, useArrangementStore } from '@state/arrangement-store';
 import { useAtajosDeLaPropuesta } from '@state/atajos-de-la-propuesta';
 import { usePropuestaStore } from '@state/propuesta';
@@ -179,7 +179,7 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
   const activeKey = useSessionStore(selectActiveKey);
   const bpm = useSessionStore((state) => state.bpm);
   const beatsPerBar = useSessionStore((state) => state.beatsPerBar);
-  const scaleId = useSessionStore((state) => state.scaleId);
+  const scaleId = useSessionStore(selectEscala);
   /**
    * Si hay algo que traer: acordes **o** punteo.
    *
@@ -1176,7 +1176,6 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
       */}
       <div
         onFocus={traerALaVista}
-        data-tour="componer-barra-del-lienzo"
         className="border-border hay-mas-al-lado flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-2 sm:flex-wrap sm:overflow-x-visible [&>*]:shrink-0 sm:[&>*]:shrink"
       >
         {/* **Un botón no nace apagado** (`docs/ESTILO.md`): con la canción en
@@ -1408,7 +1407,6 @@ export const ArrangeCanvas = memo(function ArrangeCanvas() {
           className="min-h-0 shrink-0 grow lg:shrink lg:overflow-y-auto"
           onKeyDown={teclaEnPunteo}
           role="presentation"
-          data-tour="componer-cancion"
         >
           {/* **Con las letras de los bloques, su leyenda.** Cada bloque lleva
               debajo una T, una S o una D, y lo que significan solo estaba

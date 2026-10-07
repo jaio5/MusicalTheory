@@ -5,7 +5,6 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { pitchClassFromName } from '@core/music';
 import { useSessionStore } from '@state/session-store';
 
 import { PresentacionDeUnidad } from './PresentacionDeUnidad';
@@ -21,7 +20,6 @@ function pintar(props: Partial<Parameters<typeof PresentacionDeUnidad>[0]> = {})
       titulo="Las notas"
       presentacion={PRESENTACION}
       queViene="Luego te pregunto justo esto."
-      hayTonalidad
       encabezado={null}
       onEmpezar={() => {}}
       {...props}
@@ -82,21 +80,10 @@ describe('la presentación de una unidad', () => {
   });
 
   /**
-   * Sin tonalidad se ofrece aquí mismo, a un toque: decir «elígela arriba» sería
-   * señalar en vez de ofrecer. Y elegir una la pone de verdad.
+   * No pide tonalidad: lo de después se escribe en Do mayor si no hay ninguna, y
+   * preguntar por ella antes de saber de qué va la unidad era pedir a ciegas.
    */
-  it('sin tonalidad ofrece cuatro, y elegir una la pone', async () => {
-    pintar({ hayTonalidad: false });
-
-    await userEvent.click(screen.getByRole('button', { name: 'G mayor' }));
-
-    expect(useSessionStore.getState().pinnedKey).toEqual({
-      tonic: pitchClassFromName('G'),
-      mode: 'major',
-    });
-  });
-
-  it('con tonalidad no ofrece ninguna', () => {
+  it('no ofrece tonalidades: la unidad no la pide', () => {
     pintar();
 
     expect(screen.queryByRole('button', { name: 'C mayor' })).not.toBeInTheDocument();

@@ -7,7 +7,7 @@ import {
 } from '@core/music';
 import { TOKEN_BUDGETS } from '@core/billing';
 import {
-  MARCA_PREGUNTA,
+  preguntaEntreMarcas,
   respaldoDelProfesor,
   topicOf,
   validateTeacherAnswer,
@@ -40,7 +40,11 @@ import {
  * entonces el modelo tenía los símbolos de grado y lo demás lo sacaba de memoria
  * (`core/music/glossary.ts`, adr/0076).
  */
-export function promptDelProfesor(request: TeacherRequest): string {
+export function promptDelProfesor(
+  request: TeacherRequest,
+  /** De dónde sale la clave de la marca: al azar, salvo en las pruebas. */
+  clave?: () => string,
+): string {
   const key = { tonic: pitchClassFromName(request.key.tonic), mode: request.key.mode };
   const lines = cabeceraDePrompt(request.key, degreesFor(request.key.mode));
   lines.push(keyChordTable(key));
@@ -63,9 +67,10 @@ export function promptDelProfesor(request: TeacherRequest): string {
 
   // La pregunta va marcada y al final: es uno de los dos textos libres que entran
   // al modelo —el otro son las directrices de una salida— y el prompt de sistema
-  // dice que lo de dentro de las marcas es un dato. La marca ya se le ha quitado a la pregunta al
-  // validarla, así que nadie puede cerrar el bloque antes de tiempo.
-  lines.push(`${MARCA_PREGUNTA}\n${request.question}\n${MARCA_PREGUNTA}`);
+  // dice que lo de dentro de las marcas es un dato. **La marca lleva una clave
+  // nueva en cada petición**, que quien escribe no ve y no puede escribir para
+  // cerrar el bloque antes de tiempo (adr/0115).
+  lines.push(preguntaEntreMarcas(request.question, clave));
   // Y detrás, que es un dato: es lo último que lee antes de contestar.
   lines.push(RECORDATORIO_DE_LA_PREGUNTA);
   return lines.join('\n');
@@ -83,7 +88,7 @@ export function promptDelProfesor(request: TeacherRequest): string {
  * que supone la aritmética **es** el tope que impone el servidor.
  */
 export const PROFESOR: PreguntaAlModelo<TeacherRequest, TeacherAnswer> = {
-  prompt: promptDelProfesor,
+  prompt: (peticion) => promptDelProfesor(peticion),
   system: TEACHER_SYSTEM_PROMPT,
   schema: () => ANSWER_SCHEMA,
   maxTokens: TOKEN_BUDGETS.profesor.output,

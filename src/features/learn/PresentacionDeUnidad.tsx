@@ -4,7 +4,6 @@ import { useId, type Ref } from 'react';
 
 import type { Presentacion } from '@core/music';
 import { Button } from '@ui/Button';
-import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
 
 /**
  * Lo primero que se ve de una unidad: de qué va y qué va a entrar.
@@ -16,19 +15,16 @@ import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
  * (`core/music/presentaciones.ts`), así que leerla es saber de antemano qué se va a
  * poner a prueba.
  *
- * **Se ve aunque no haya tonalidad.** Lo que dice no depende de ella —es texto
- * fijo del temario—, y obligar a elegir una antes de saber de qué va la unidad
- * es pedir una decisión a ciegas. Lo que sí se escribe con sus acordes es lo de
- * después, así que sin tonalidad la presentación **ofrece** cuatro a un toque,
- * aquí mismo: decir «elígela arriba» sería señalar en vez de ofrecer. «Empezar»
- * sigue pulsándose —un botón no nace apagado por lo que falta— y el paso
- * siguiente lo vuelve a pedir con su estado vacío.
+ * **No pide tonalidad.** Lo que dice es texto fijo del temario, y lo de después
+ * se escribe con los acordes de la tuya o, si no hay, de Do mayor: obligar a
+ * elegir una antes de saber de qué va la unidad era pedir una decisión a ciegas
+ * a quien venía a aprender qué es una nota
+ * ([adr/0109](../../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)).
  */
 export function PresentacionDeUnidad({
   titulo,
   presentacion,
   queViene,
-  hayTonalidad,
   encabezado,
   onEmpezar,
   atajo,
@@ -37,7 +33,6 @@ export function PresentacionDeUnidad({
   readonly presentacion: Presentacion;
   /** Qué pasa después de leer esto, en una frase: cómo se pone a prueba. */
   readonly queViene: string;
-  readonly hayTonalidad: boolean;
   /** El título, para que quien la monta pueda llevarle el foco. */
   readonly encabezado: Ref<HTMLHeadingElement>;
   readonly onEmpezar: () => void;
@@ -69,14 +64,6 @@ export function PresentacionDeUnidad({
         ))}
       </ul>
       <p className="text-text-muted mt-4 text-sm">{queViene}</p>
-
-      {!hayTonalidad && (
-        <div className="mt-5">
-          <CuatroTonalidades>
-            Lo que viene se escribe con los acordes de una tonalidad. Elige una:
-          </CuatroTonalidades>
-        </div>
-      )}
 
       <div className="mt-5 flex flex-wrap gap-2">
         <Button onClick={onEmpezar}>Empezar</Button>

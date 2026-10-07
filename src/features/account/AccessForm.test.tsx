@@ -311,6 +311,7 @@ describe('crear la cuenta', () => {
 
     await userEvent.type(screen.getByLabelText(/Correo/), 'a@b.c');
     await userEvent.type(screen.getByLabelText(/Contraseña/), 'unaContrasenaLarga');
+    await userEvent.click(screen.getByRole('button', { name: 'Sí, 14 o más' }));
     await userEvent.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
 
     await waitFor(() => expect(registerAccount).toHaveBeenCalled());
@@ -323,9 +324,53 @@ describe('crear la cuenta', () => {
     await userEvent.type(screen.getByLabelText(/Cómo te llamas/), 'Javi');
     await userEvent.type(screen.getByLabelText(/Correo/), 'a@b.c');
     await userEvent.type(screen.getByLabelText(/Contraseña/), 'unaContrasenaLarga');
+    await userEvent.click(screen.getByRole('button', { name: 'Sí, 14 o más' }));
     await userEvent.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
 
     await waitFor(() => expect(registerAccount.mock.calls[0]![2]).toBe('Javi'));
+  });
+
+  it('la edad declarada viaja, y sin ella no se manda nada', async () => {
+    pintar({ inicial: 'crear' });
+
+    await userEvent.type(screen.getByLabelText(/Correo/), 'a@b.c');
+    await userEvent.type(screen.getByLabelText(/Contraseña/), 'unaContrasenaLarga');
+    await userEvent.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
+
+    // Sin elegir: se dice, y nadie llama al servidor.
+    expect(screen.getByText('Falta decir si tienes 14 años o más.')).toBeInTheDocument();
+    expect(registerAccount).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sí, 14 o más' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
+
+    await waitFor(() => expect(registerAccount.mock.calls[0]![3]).toBe(true));
+  });
+
+  it('por debajo de catorce no hay cuenta, y se dice que sin ella funciona igual', async () => {
+    pintar({ inicial: 'crear' });
+
+    await userEvent.type(screen.getByLabelText(/Correo/), 'a@b.c');
+    await userEvent.type(screen.getByLabelText(/Contraseña/), 'unaContrasenaLarga');
+    await userEvent.click(screen.getByRole('button', { name: 'Tengo menos' }));
+
+    expect(screen.getByText(/hace falta tener 14 años.*funciona igual/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Crear la cuenta' }));
+    expect(registerAccount).not.toHaveBeenCalled();
+  });
+
+  it('al entrar no se pregunta la edad: ya se dijo al crearla', () => {
+    pintar();
+    expect(screen.queryByRole('group', { name: /14 años/ })).not.toBeInTheDocument();
+  });
+
+  it('lleva a la política de privacidad', () => {
+    pintar({ inicial: 'crear' });
+    expect(screen.getByRole('link', { name: 'política de privacidad' })).toHaveAttribute(
+      'href',
+      '/privacidad',
+    );
   });
 });
 

@@ -48,20 +48,23 @@ describe('Panel de aprender', () => {
     render(<LearnPanel createTone={() => tone} />);
   }
 
-  it('pide una tonalidad antes de poder practicar', () => {
+  /**
+   * Sin tonalidad no se pide: se practica en Do mayor, la de partida. Antes salía
+   * una frase pidiendo elegirla, a quien venía a tocar su primera escala.
+   */
+  it('sin tonalidad practica en Do mayor, sin pedirla', () => {
     renderPanel();
-    expect(screen.getByText(/elige una tonalidad o toca unas notas sueltas/i)).toBeInTheDocument();
+    expect(screen.getByText(/mayor de C, subiendo y bajando/i)).toBeInTheDocument();
   });
 
+  /** Sin escala elegida, la de la tonalidad: la menor natural en una menor. */
   it('propone la escala de la tonalidad activa', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
     renderPanel();
 
-    expect(
-      await screen.findByText(/pentatónica menor de A, subiendo y bajando/i),
-    ).toBeInTheDocument();
-    // Cinco notas más la octava subiendo, cinco bajando.
-    expect(screen.getAllByRole('listitem')).toHaveLength(11);
+    expect(await screen.findByText(/menor natural de A, subiendo y bajando/i)).toBeInTheDocument();
+    // Siete notas más la octava subiendo, siete bajando.
+    expect(screen.getAllByRole('listitem')).toHaveLength(15);
   });
 
   /**
@@ -121,7 +124,7 @@ describe('Panel de aprender', () => {
 
     // Sostenerla sí.
     await play(45, HOLD_MS + 100);
-    expect(await screen.findByText(/toca C/i)).toBeInTheDocument();
+    expect(await screen.findByText(/toca B/i)).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
   });
 
@@ -141,8 +144,8 @@ describe('Panel de aprender', () => {
     renderPanel();
     await userEvent.click(screen.getByRole('button', { name: /^empezar$/i }));
 
-    // La pentatónica menor de A: A, C, D, E, G, A, y de vuelta.
-    const sequence = [45, 48, 50, 52, 55, 57, 55, 52, 50, 48, 45];
+    // La menor natural de A: A, B, C, D, E, F, G, A, y de vuelta.
+    const sequence = [45, 47, 48, 50, 52, 53, 55, 57, 55, 53, 52, 50, 48, 47, 45];
     let clock = 0;
     for (const midi of sequence) {
       await play(midi, clock);
@@ -223,7 +226,7 @@ describe('Panel de aprender', () => {
 
     await play(45, 0);
     await play(45, HOLD_MS + 100);
-    expect(await screen.findByText(/toca C/i)).toBeInTheDocument();
+    expect(await screen.findByText(/toca B/i)).toBeInTheDocument();
 
     await act(async () => {
       actions.setScale('blues');

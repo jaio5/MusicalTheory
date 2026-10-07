@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AudioInput, AudioInputState } from '@audio/audio-input';
 import type { ChordEngine } from '@audio/chord-engine';
@@ -14,6 +14,10 @@ import { useSessionStore } from './session-store';
 import { useMicrofono } from './microfono';
 import { entradaActiva, useListening } from './use-listening';
 import { useTocarYApuntar, type TocarDeps } from './use-tocar-y-apuntar';
+
+// Lo que se cuenta de una toma es que ha arrancado, y nada de lo que suena.
+const contar = vi.fn();
+vi.mock('./metricas', () => ({ contar: (...a: unknown[]) => contar(...a) }));
 
 /**
  * Irse de la pantalla a mitad de una toma.
@@ -122,6 +126,7 @@ describe('irse a mitad de una toma', () => {
     await act(() => toma.result.current.empezar(false));
     expect(toma.result.current.fase).toBe('tocando');
     expect(useSessionStore.getState().capturing).toBe(true);
+    expect(contar).toHaveBeenCalledWith('toma-grabada');
 
     toma.unmount();
     await act(() => Promise.resolve());

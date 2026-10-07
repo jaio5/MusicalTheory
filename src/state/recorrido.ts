@@ -2,10 +2,8 @@
 
 import { useSyncExternalStore } from 'react';
 
-import type { EspacioDeTrabajo } from './workspace';
-
 /**
- * Si ya has visto el recorrido de la primera visita, y por dónde ibas si no.
+ * Qué tramos del recorrido de la primera visita has visto, y por dónde ibas.
  *
  * Vive en su propia clave y no dentro de `workspace.ts` por lo mismo que el sitio
  * del profesor: es una sola cosa, se lee antes de pintar el recorrido y no tiene
@@ -16,27 +14,19 @@ import type { EspacioDeTrabajo } from './workspace';
  * persona**, sin cuenta. Quien entra desde otro aparato lo vuelve a ver una vez,
  * que es lo honrado: no sabemos si en ese aparato ya se lo enseñaron.
  *
- * **Se guarda el paso, no solo si se ha visto.** Recargar a mitad —o cerrar la
- * pestaña— no te devuelve al principio ni te lo quita: sigues donde lo dejaste.
- * Y se guarda lo que el recorrido ha tocado para enseñarse, porque eso tiene
- * que deshacerse al acabar aunque haya habido una recarga en medio.
+ * **Se guarda por tramos**: la bienvenida y uno por pantalla, que sale al llegar
+ * a ella ([adr/0108](../../docs/adr/0108-el-recorrido-sale-por-pantallas.md)). Y
+ * el paso dentro del tramo, para que recargar a mitad no lo empiece de cero.
+ * Los nombres de los tramos son texto aquí y no el tipo de `features/tour`: el
+ * estado no importa de un feature.
  */
-
-/** Lo que el recorrido cambia para poder enseñar componer, y deshace al acabar. */
-export interface LoQuePuso {
-  /** Si puso Do mayor porque no había tonalidad. */
-  readonly tonalidad: boolean;
-  /** En qué espacio de componer estabas antes de que lo cambiara, si lo cambió. */
-  readonly espacio: EspacioDeTrabajo | null;
-}
 
 export interface RecorridoEnCurso {
   readonly visto: false;
-  /** El paso por el que va, por su nombre: el número cambia con el ancho. */
+  /** Los tramos ya vistos, por su nombre. */
+  readonly vistos: readonly string[];
+  /** El paso por el que va dentro del tramo abierto, o nulo si por el primero. */
   readonly paso: string | null;
-  /** Dónde estabas al empezar, para devolverte allí al acabar. */
-  readonly origen: string | null;
-  readonly puso: LoQuePuso;
 }
 
 export type EstadoDelRecorrido = { readonly visto: true } | RecorridoEnCurso;
@@ -46,16 +36,7 @@ export const CLAVE_RECORRIDO = 'caos-ordenado:recorrido';
 const VISTO: EstadoDelRecorrido = { visto: true };
 
 /** Lo que hay sin nada guardado: la primera visita, sin empezar. */
-export const SIN_EMPEZAR: RecorridoEnCurso = {
-  visto: false,
-  paso: null,
-  origen: null,
-  puso: { tonalidad: false, espacio: null },
-};
-
-function esEspacio(valor: unknown): valor is EspacioDeTrabajo {
-  return valor === 'tocando' || valor === 'escribir' || valor === 'ensayar';
-}
+export const SIN_EMPEZAR: RecorridoEnCurso = { visto: false, vistos: [], paso: null };
 
 function texto(valor: unknown): string | null {
   return typeof valor === 'string' && valor !== '' && valor.length <= 200 ? valor : null;
@@ -67,6 +48,9 @@ function texto(valor: unknown): string | null {
  * Lo que no se entienda cuenta como **visto**, no como pendiente: un recorrido
  * que sale en cada carga porque una versión vieja guardó otra cosa es peor que
  * uno que no sale. Quien lo quiera tiene el botón de volver a verlo.
+ *
+ * El de la versión de antes —un objeto con su `paso`, sin `vistos`— se lee como
+ * sin empezar: era uno de veintiún pasos a medias, y el nuevo es otro recorrido.
  */
 export function leerRecorrido(crudo: string | null): EstadoDelRecorrido {
   if (crudo === null) {
@@ -81,16 +65,11 @@ export function leerRecorrido(crudo: string | null): EstadoDelRecorrido {
       return VISTO;
     }
     const registro = valor as Record<string, unknown>;
-    const puso = registro['puso'];
-    const lo = typeof puso === 'object' && puso !== null ? (puso as Record<string, unknown>) : {};
+    const vistos = Array.isArray(registro['vistos']) ? registro['vistos'] : [];
     return {
       visto: false,
+      vistos: vistos.map(texto).filter((tramo) => tramo !== null),
       paso: texto(registro['paso']),
-      origen: texto(registro['origen']),
-      puso: {
-        tonalidad: lo['tonalidad'] === true,
-        espacio: esEspacio(lo['espacio']) ? lo['espacio'] : null,
-      },
     };
   } catch {
     return VISTO;
@@ -150,19 +129,37 @@ function escribir(valor: string): void {
   }
 }
 
-/** Apunta por dónde va, y lo que ha tocado para enseñarse. */
+/** Apunta por dónde va. */
 export function guardarPasoDelRecorrido(en: Omit<RecorridoEnCurso, 'visto'>): void {
   escribir(JSON.stringify(en));
 }
 
-/** Terminado, saltado o cerrado: las tres cuentan como visto. */
+/** Saltado: no se enseña nada más, en ninguna pantalla. */
 export function marcarRecorridoVisto(): void {
   escribir('visto');
 }
 
+/**
+ * Un tramo visto: terminado o cerrado. Con todos vistos, el recorrido entero.
+ * `todos` son los nombres de los tramos, que los sabe quien los define.
+ */
+export function marcarTramoVisto(tramo: string, todos: readonly string[]): void {
+  const actual = estadoDelRecorrido();
+  /* v8 ignore next 3 -- solo se cierra un tramo que se está enseñando, y entonces no está visto */
+  if (actual.visto) {
+    return;
+  }
+  const vistos = actual.vistos.includes(tramo) ? actual.vistos : [...actual.vistos, tramo];
+  if (todos.every((uno) => vistos.includes(uno))) {
+    marcarRecorridoVisto();
+    return;
+  }
+  guardarPasoDelRecorrido({ vistos, paso: null });
+}
+
 /** Lo vuelve a poner en marcha desde el principio. */
 export function volverAVerElRecorrido(): void {
-  escribir(JSON.stringify(SIN_EMPEZAR));
+  escribir(JSON.stringify({ vistos: [], paso: null }));
 }
 
 export function useRecorrido(): EstadoDelRecorrido {

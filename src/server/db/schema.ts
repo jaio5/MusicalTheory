@@ -1,13 +1,13 @@
 /**
- * Las seis tablas. No hay más.
+ * Las once tablas. No hay más.
  *
  * Antes de esto la aplicación no tenía base de datos, y sigue sin necesitarla
  * para casi nada: el afinador, la rueda, el mástil, el metrónomo y la grabación
  * no guardan una fila. La base de datos existe para lo que no puede vivir en el
  * navegador: saber quién eres, qué plan tienes, cuántas llamadas al modelo
- * llevas hoy, las canciones que has guardado, cuántas peticiones seguidas lleva
- * una dirección —desde que puede haber más de un servidor— y los vales para
- * recuperar una contraseña olvidada.
+ * llevas hoy —y cuánto se ha gastado entre todos—, las canciones que has
+ * guardado, cuántas peticiones seguidas lleva una dirección —desde que puede
+ * haber más de un servidor— y los vales para recuperar una contraseña olvidada.
  *
  * **Nada de audio, aquí tampoco.** Lo que se guarda del progreso son
  * identificadores de unidad, números y fechas; lo que se guarda de una canción
@@ -15,6 +15,7 @@
  */
 
 import {
+  bigint,
   date,
   index,
   integer,
@@ -72,6 +73,24 @@ export const users = pgTable('users', {
    */
   stripeCustomerId: text('stripe_customer_id'),
   stripeSubscriptionId: text('stripe_subscription_id').unique(),
+  /**
+   * Cuándo declaró tener catorce años o más, que es lo que pide la LOPDGDD
+   * (art. 7) para consentir por uno mismo. Nulo en las cuentas de antes de que
+   * se preguntara: no se inventa una declaración que nadie hizo
+   * ([adr/0111](../../../docs/adr/0111-la-edad-se-declara-y-el-titular-se-configura.md)).
+   */
+  mayorDe14En: timestamp('mayor_de_14_en', { withTimezone: true }),
+  /**
+   * Desde cuándo Stripe dice `past_due` —el cobro ha fallado y lo está
+   * reintentando—, o nulo si va al corriente.
+   *
+   * Es el plazo de gracia: mientras dura se conserva el plan, y pasado
+   * `DIAS_DE_GRACIA` se lee como gratis aunque `plan` siga diciendo otro. Antes
+   * `past_due` conservaba el plan **sin plazo**, y dependía de que Stripe
+   * estuviera configurado para acabar en `unpaid`
+   * ([adr/0114](../../../docs/adr/0114-el-gasto-de-la-ia-tiene-techo-y-la-cuenta-se-cierra-en-orden.md)).
+   */
+  impagadaDesde: timestamp('impagada_desde', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -133,6 +152,51 @@ export const aiUsage = pgTable(
     dayCount: integer('day_count').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.userId, table.month] })],
+);
+
+/**
+ * Lo que se ha gastado en el modelo **entre todos**, en micro-dólares, este mes y
+ * hoy, y la parte de eso que es del plan gratis.
+ *
+ * Es el techo que faltaba: el cupo de cada cuenta acota a cada una, y nada
+ * acotaba la suma. Con quince preguntas gratis por cuenta y registrarse sin
+ * confirmar el correo, cien direcciones gastaban unos 650 $ por hora.
+ *
+ * **Una fila por mes, con el día y la parte gratis dentro**, por lo mismo que
+ * `ai_usage`: los cuatro topes se comprueban en el `where` de una sola sentencia,
+ * y con varias filas habría una rendija entre ellas
+ * ([adr/0114](../../../docs/adr/0114-el-gasto-de-la-ia-tiene-techo-y-la-cuenta-se-cierra-en-orden.md)).
+ *
+ * `bigint`: un mes de 3.000 $ son 3.000 millones de micro-dólares, y eso ya no
+ * cabe en un `integer`.
+ */
+export const aiGasto = pgTable('ai_gasto', {
+  /** `AAAA-MM`, en UTC como el cupo. */
+  mes: text('mes').primaryKey(),
+  micros: bigint('micros', { mode: 'number' }).notNull().default(0),
+  /** `AAAA-MM-DD` del último día con gasto. */
+  dia: date('dia').notNull(),
+  diaMicros: bigint('dia_micros', { mode: 'number' }).notNull().default(0),
+  gratisMicros: bigint('gratis_micros', { mode: 'number' }).notNull().default(0),
+  gratisDiaMicros: bigint('gratis_dia_micros', { mode: 'number' }).notNull().default(0),
+});
+
+/**
+ * Lo que había gastado este mes una cuenta que se borró, **por la huella de su
+ * correo**: un HMAC con `AUTH_SECRET`, nunca el correo.
+ *
+ * Sin esto, borrar la cuenta y volver con el mismo correo devolvía el cupo
+ * entero. Se suma al volver, y las filas de meses pasados se borran: el cupo es
+ * del mes y pasado el mes no protegen nada.
+ */
+export const aiUsoHeredado = pgTable(
+  'ai_uso_heredado',
+  {
+    huella: text('huella').notNull(),
+    month: text('month').notNull(),
+    count: integer('count').notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.huella, table.month] })],
 );
 
 /**
@@ -225,4 +289,55 @@ export const songs = pgTable(
   // Se lista siempre lo de una cuenta y por fecha. Sin este índice, cada lista
   // recorre las canciones de todo el mundo para quedarse con las de uno.
   (table) => [index('songs_user_updated_idx').on(table.userId, table.updatedAt)],
+);
+
+/**
+ * Lo que se cuenta de cómo se usa la aplicación, **sumado y sin nadie dentro**.
+ *
+ * Una fila por día, evento y ruta con cuántas veces pasó, y no una fila por
+ * evento: así no hay nada que relacionar con nadie, ni siquiera con un
+ * seudónimo. Es la mitad de la analítica que no necesita permiso
+ * ([adr/0110](../../../docs/adr/0110-contar-sin-seguir.md)).
+ */
+export const metricasConteo = pgTable(
+  'metricas_conteo',
+  {
+    dia: date('dia').notNull(),
+    /** Uno de `CountedEvent` en `core/analytics.ts`. */
+    evento: text('evento').notNull(),
+    /** Uno de `KNOWN_ROUTES`, o vacío si el evento no va de una ruta. */
+    ruta: text('ruta').notNull().default(''),
+    cuenta: integer('cuenta').notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.dia, table.evento, table.ruta] })],
+);
+
+/**
+ * Quién ha vuelto, con un seudónimo y no con la persona.
+ *
+ * `visitante` es un HMAC —con `AUTH_SECRET`— del identificador de la cuenta o del
+ * que guarda un navegador que ha dicho que sí; nunca el identificador, ni un
+ * correo, ni una dirección IP. Sin el secreto no se puede volver de él a nadie.
+ *
+ * `primerDia` vive aquí y no se deduce de `metricasDias` porque los días se borran
+ * a los trece meses, y sin él quien lleva un año viniendo parecería nuevo.
+ */
+export const metricasVisitantes = pgTable('metricas_visitantes', {
+  visitante: text('visitante').primaryKey(),
+  primerDia: date('primer_dia').notNull(),
+  ultimoDia: date('ultimo_dia').notNull(),
+});
+
+/** Los días en que estuvo cada visitante. Uno por día, aunque entre veinte veces. */
+export const metricasDias = pgTable(
+  'metricas_dias',
+  {
+    visitante: text('visitante').notNull(),
+    dia: date('dia').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.visitante, table.dia] }),
+    // La retención se lee por fechas, y la poda borra por fechas.
+    index('metricas_dias_dia_idx').on(table.dia),
+  ],
 );

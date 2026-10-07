@@ -31,16 +31,29 @@ describe('Panel del mástil', () => {
     expect(screen.getByText(/toca unas notas sueltas o elige una tonalidad/i)).toBeInTheDocument();
   });
 
+  /**
+   * Sin escala elegida, **la de la tonalidad**: la menor natural en La menor. Era
+   * la pentatónica menor para todo el mundo, y en Do mayor enseñaba Mib y Sib a
+   * quien aprendía las notas de Do (adr/0109).
+   */
   it('enseña la escala de la tonalidad fijada', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
 
     render(<ElMastilEntero />);
 
     // El nombre lo dice el selector de la cabecera, y la frase sigue detrás de él.
-    expect(await screen.findByRole('combobox', { name: 'Escala' })).toHaveValue('minorPentatonic');
+    expect(await screen.findByRole('combobox', { name: 'Escala' })).toHaveValue('naturalMinor');
     expect(screen.getByText(/^de A:/)).toBeInTheDocument();
-    // La pentatónica menor de A: A, C, D, E, G.
-    expect(screen.getByText('A · C · D · E · G')).toBeInTheDocument();
+    expect(screen.getByText('A · B · C · D · E · F · G')).toBeInTheDocument();
+  });
+
+  it('y en Do mayor, la mayor: ni un bemol', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    render(<ElMastilEntero />);
+
+    expect(await screen.findByRole('combobox', { name: 'Escala' })).toHaveValue('major');
+    expect(screen.getByText('C · D · E · F · G · A · B')).toBeInTheDocument();
   });
 
   it('cambia de escala al elegir otra', async () => {
@@ -63,7 +76,7 @@ describe('Panel del mástil', () => {
     render(<FretboardPanel />);
 
     expect(
-      await screen.findByRole('img', { name: /mástil de 12 trastes.*pentatónica menor.*A/i }),
+      await screen.findByRole('img', { name: /mástil de 12 trastes.*menor natural.*A/i }),
     ).toBeInTheDocument();
   });
 

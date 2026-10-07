@@ -10,11 +10,10 @@ import {
   type EarUnit as EarUnitDef,
 } from '@core/music';
 import { WebAudioProgressionPlayer, type ProgressionPlayer } from '@audio/progression-player';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectTonalidadParaAprender, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 
 import { Question } from './Question';
-import { SinTonalidad } from './SinTonalidad';
 import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
 import { UnidadPorMomentos } from './UnidadPorMomentos';
 
@@ -53,11 +52,12 @@ export function EarUnit({
   /** Se avisa de cada pregunta fallada, con su posición dentro de la unidad. */
   readonly onMiss?: (index: number) => void;
 }) {
-  const activeKey = useSessionStore(selectActiveKey);
+  // Sin tonalidad elegida, la de partida: la unidad no espera a que se elija.
+  const activeKey = useSessionStore(selectTonalidadParaAprender);
   const bpm = useSessionStore((state) => state.bpm);
 
   const ejercicios = useMemo(
-    () => (activeKey === null ? [] : earExercises(unit.ear, activeKey.tonic, activeKey.mode)),
+    () => earExercises(unit.ear, activeKey.tonic, activeKey.mode),
     [activeKey, unit.ear],
   );
 
@@ -87,8 +87,8 @@ export function EarUnit({
   const escuchar = useCallback(
     (indice: number) => {
       const cual = ejercicios[indice];
-      /* v8 ignore next 3 -- sin tonalidad la unidad enseña la rueda, y el indice va dentro de la lista */
-      if (activeKey === null || cual === undefined) {
+      /* v8 ignore next 3 -- el indice siempre va dentro de la lista */
+      if (cual === undefined) {
         return;
       }
       playerRef.current ??= new WebAudioProgressionPlayer();
@@ -114,10 +114,8 @@ export function EarUnit({
     ya se oyó y el reproductor. Separada, iría con nueve propiedades a cuestas.
   */
   let prueba: ReactNode;
-  if (activeKey === null) {
-    prueba = <SinTonalidad para="Lo que vas a oír son sus acordes: elige una para empezar." />;
-    /* v8 ignore start -- las clases de oido del catalogo traen sus preguntas */
-  } else if (ejercicio === undefined) {
+  /* v8 ignore start -- las clases de oido del catalogo traen sus preguntas */
+  if (ejercicio === undefined) {
     prueba = <p className="text-text-muted text-sm">Esta unidad no tiene nada que oír.</p>;
     /* v8 ignore stop */
   } else {

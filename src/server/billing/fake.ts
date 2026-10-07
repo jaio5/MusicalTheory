@@ -14,7 +14,7 @@
  * `CobroCerrado`, abajo, que no deja subir de plan (`billing()` en `index.ts`).
  */
 
-import type { PlanId } from '@core/billing';
+import type { Periodo, PlanId } from '@core/billing';
 
 import { setPlan } from '../users';
 
@@ -31,6 +31,7 @@ export const FakeBilling: Billing = {
     userId: string;
     email: string;
     plan: PlanId;
+    periodo: Periodo;
   }): Promise<StartResult> {
     // Aquí «no existe» y «no se ha podido» son lo mismo: quien llama está
     // mirando una pantalla y hay que decirle que no se ha podido.
@@ -72,6 +73,7 @@ export const CobroCerrado: Billing = {
     userId: string;
     email: string;
     plan: PlanId;
+    periodo: Periodo;
   }): Promise<StartResult> {
     if (plan === 'gratis') {
       return (await this.cancel({ userId })).ok

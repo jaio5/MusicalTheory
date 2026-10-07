@@ -33,7 +33,7 @@ beforeEach(async () => {
 const CONTRASENA = 'unaContrasenaLarga';
 
 async function crear(email = 'a@b.c', name = 'Javi') {
-  const result = await users.createUser({ email, password: CONTRASENA, name });
+  const result = await users.createUser({ mayorDe14: true, email, password: CONTRASENA, name });
   if (result.kind !== 'ok') {
     throw new Error(`no se ha podido crear: ${result.kind}`);
   }
@@ -54,7 +54,7 @@ describe('crear una cuenta', () => {
     // de verdad es el índice único, y esto comprueba que está.
     await crear();
 
-    const otra = await users.createUser({ email: 'a@b.c', password: CONTRASENA });
+    const otra = await users.createUser({ mayorDe14: true, email: 'a@b.c', password: CONTRASENA });
 
     expect(otra.kind).toBe('ya-existe');
   });
@@ -62,21 +62,59 @@ describe('crear una cuenta', () => {
   it('el correo se normaliza, así que las mayúsculas no crean otra cuenta', async () => {
     await crear('a@b.c');
 
-    expect((await users.createUser({ email: '  A@B.C ', password: CONTRASENA })).kind).toBe(
-      'ya-existe',
-    );
+    expect(
+      (await users.createUser({ mayorDe14: true, email: '  A@B.C ', password: CONTRASENA })).kind,
+    ).toBe('ya-existe');
   });
 
   it('un correo que no lo es no llega a la base de datos', async () => {
-    expect((await users.createUser({ email: 'esto no', password: CONTRASENA })).kind).toBe(
-      'correo-invalido',
-    );
+    expect(
+      (await users.createUser({ mayorDe14: true, email: 'esto no', password: CONTRASENA })).kind,
+    ).toBe('correo-invalido');
+  });
+
+  it('sin declarar catorce años o más no se crea, y antes de mirar nada más', async () => {
+    // LOPDGDD art. 7. Lo que vale es `true`: un «sí» o un 1 en el cuerpo no es
+    // haberlo declarado.
+    for (const mayorDe14 of [undefined, false, 'si', 1]) {
+      expect(
+        (await users.createUser({ mayorDe14, email: 'esto no', password: 'corta' })).kind,
+        String(mayorDe14),
+      ).toBe('menor');
+    }
+    expect(await users.findUserWithPassword('a@b.c')).toBeNull();
+  });
+
+  it('la declaración se guarda con su fecha', async () => {
+    const user = await crear();
+    const { db } = await import('./db/client');
+    const { users: tabla } = await import('./db/schema');
+    const { eq } = await import('drizzle-orm');
+    const [fila] = await db()!.select().from(tabla).where(eq(tabla.id, user.id));
+
+    expect(fila?.mayorDe14En).toBeInstanceOf(Date);
   });
 
   it('una contraseña corta tampoco', async () => {
-    expect((await users.createUser({ email: 'a@b.c', password: 'corta' })).kind).toBe(
-      'contrasena-corta',
-    );
+    expect(
+      (await users.createUser({ mayorDe14: true, email: 'a@b.c', password: 'corta' })).kind,
+    ).toBe('contrasena-corta');
+  });
+
+  /**
+   * **Ni una enorme** (adr/0113). No había tope, y una de 10 MB en ligaduras —que
+   * NFKC triplica— llegaba entera a `scrypt`. Mil caracteres sobran para cualquier
+   * gestor de contraseñas.
+   */
+  it('una contraseña de más de mil caracteres tampoco, y una de mil sí', async () => {
+    expect(
+      (await users.createUser({ mayorDe14: true, email: 'a@b.c', password: 'x'.repeat(1025) }))
+        .kind,
+    ).toBe('contrasena-corta');
+    expect(
+      (await users.createUser({ mayorDe14: true, email: 'a@b.c', password: 'x'.repeat(1024) }))
+        .kind,
+    ).toBe('ok');
   });
 
   it('la contraseña no se guarda en claro', async () => {
@@ -127,6 +165,19 @@ describe('cambiar lo tuyo', () => {
     expect((await users.changePassword(user.id, CONTRASENA, 'otraLargaTambien')).kind).toBe('ok');
   });
 
+  it('la nueva tampoco puede pasar de mil caracteres, ni la de antes comprobarse', async () => {
+    const user = await crear();
+
+    expect((await users.changePassword(user.id, CONTRASENA, 'x'.repeat(1025))).kind).toBe(
+      'contrasena-corta',
+    );
+    // La de ahora, enorme, no puede ser la buena: se dice que no sin derivar nada.
+    expect((await users.changePassword(user.id, 'x'.repeat(2048), 'otraLargaTambien')).kind).toBe(
+      'no-coincide',
+    );
+    expect(await users.deleteAccount(user.id, 'x'.repeat(2048))).toBe('no-coincide');
+  });
+
   it('y con la nueva se entra, con la vieja ya no', async () => {
     const user = await crear();
     await users.changePassword(user.id, CONTRASENA, 'otraLargaTambien');
@@ -154,12 +205,12 @@ describe('el plan', () => {
   it('se cambia y se lee', async () => {
     const user = await crear();
 
-    expect(await users.setPlan(user.id, 'pro')).toBe('ok');
-    expect((await users.findUserById(user.id))?.plan).toBe('pro');
+    expect(await users.setPlan(user.id, 'basico')).toBe('ok');
+    expect((await users.findUserById(user.id))?.plan).toBe('basico');
   });
 
   it('una cuenta que no existe no se puede cambiar', async () => {
-    expect(await users.setPlan('00000000-0000-0000-0000-000000000000', 'pro')).toBe('no-existe');
+    expect(await users.setPlan('00000000-0000-0000-0000-000000000000', 'basico')).toBe('no-existe');
   });
 });
 
@@ -195,13 +246,13 @@ describe('la suscripción de Stripe', () => {
       subscriptionId: 'sub_1',
     });
 
-    expect(await users.planDeSuscripcion('sub_1', 'pro', { soltar: false })).toBe('ok');
-    expect((await users.findUserById(user.id))?.plan).toBe('pro');
+    expect(await users.planDeSuscripcion('sub_1', 'basico', { soltar: false })).toBe('ok');
+    expect((await users.findUserById(user.id))?.plan).toBe('basico');
 
     // La baja la suelta: un aviso viejo de esa misma suscripción que llegue tarde
     // ya no encuentra a nadie, y no puede devolverle el plan de pago.
     expect(await users.planDeSuscripcion('sub_1', 'gratis', { soltar: true })).toBe('ok');
-    expect(await users.planDeSuscripcion('sub_1', 'pro', { soltar: false })).toBe('no-existe');
+    expect(await users.planDeSuscripcion('sub_1', 'basico', { soltar: false })).toBe('no-existe');
     expect((await users.findUserById(user.id))?.plan).toBe('gratis');
     // El cliente se queda: volver a pagar usa el mismo.
     expect(await users.suscripcionDe(user.id)).toEqual({
@@ -213,7 +264,7 @@ describe('la suscripción de Stripe', () => {
   it('soltarla desde aquí deja gratis y sin suscripción', async () => {
     const user = await crear();
     await users.vincularSuscripcion(user.id, {
-      plan: 'pro',
+      plan: 'basico',
       customerId: 'cus_1',
       subscriptionId: 'sub_1',
     });
@@ -235,7 +286,11 @@ describe('la suscripción de Stripe', () => {
     await users.vincularSuscripcion(user.id, pago);
 
     expect(
-      await users.vincularSuscripcion(user.id, { ...pago, plan: 'pro', subscriptionId: 'sub_2' }),
+      await users.vincularSuscripcion(user.id, {
+        ...pago,
+        plan: 'basico',
+        subscriptionId: 'sub_2',
+      }),
     ).toEqual({ kind: 'otra', guardada: 'sub_1' });
 
     expect((await users.findUserById(user.id))?.plan).toBe('medio');
@@ -247,17 +302,17 @@ describe('la suscripción de Stripe', () => {
     const pago = { plan: 'medio' as const, customerId: 'cus_1', subscriptionId: 'sub_1' };
     await users.vincularSuscripcion(user.id, pago);
 
-    expect(await users.vincularSuscripcion(user.id, { ...pago, plan: 'pro' })).toEqual({
+    expect(await users.vincularSuscripcion(user.id, { ...pago, plan: 'basico' })).toEqual({
       kind: 'ok',
     });
-    expect((await users.findUserById(user.id))?.plan).toBe('pro');
+    expect((await users.findUserById(user.id))?.plan).toBe('basico');
   });
 
   it('con `reemplaza`, la nueva ocupa el sitio de esa y de ninguna otra', async () => {
     const user = await crear();
     const pago = { plan: 'medio' as const, customerId: 'cus_1', subscriptionId: 'sub_1' };
     await users.vincularSuscripcion(user.id, pago);
-    const nueva = { ...pago, plan: 'pro' as const, subscriptionId: 'sub_2' };
+    const nueva = { ...pago, plan: 'basico' as const, subscriptionId: 'sub_2' };
 
     expect(await users.vincularSuscripcion(user.id, nueva, { reemplaza: 'sub_otra' })).toEqual({
       kind: 'otra',
@@ -270,7 +325,7 @@ describe('la suscripción de Stripe', () => {
       customerId: 'cus_1',
       subscriptionId: 'sub_2',
     });
-    expect((await users.findUserById(user.id))?.plan).toBe('pro');
+    expect((await users.findUserById(user.id))?.plan).toBe('basico');
   });
 
   /**
@@ -377,7 +432,7 @@ describe('sin base de datos', () => {
 
     try {
       expect(
-        (await users.createUser({ email: 'a@b.c', password: CONTRASENA })).kind,
+        (await users.createUser({ mayorDe14: true, email: 'a@b.c', password: CONTRASENA })).kind,
         'createUser',
       ).toBe('sin-base-de-datos');
       expect(await users.findUserById('x'), 'findUserById').toBeNull();
@@ -385,7 +440,7 @@ describe('sin base de datos', () => {
       // porque lo que le importa al webhook es distinguir «esa cuenta ya no
       // está» —no reintentes— de «no se ha podido» —reintenta—. Sin base de
       // datos no hay cuentas, así que nadie ha podido pagar y el caso no se da.
-      expect(await users.setPlan('x', 'pro'), 'setPlan').toBe('error');
+      expect(await users.setPlan('x', 'basico'), 'setPlan').toBe('error');
       expect(await users.suscripcionDe('x'), 'suscripcionDe').toBeNull();
       expect(await users.soltarSuscripcion('x'), 'soltarSuscripcion').toBe('error');
       expect(await users.deleteAccount('x', CONTRASENA), 'deleteAccount').toBe('sin-base-de-datos');
@@ -424,11 +479,13 @@ describe('con la base rota', () => {
 
   it('nadie entra, nadie se crea y nada se cambia', async () => {
     await conLaTablaEscondida(async () => {
-      expect((await users.createUser({ email: 'a@b.c', password: CONTRASENA })).kind).toBe('error');
+      expect(
+        (await users.createUser({ mayorDe14: true, email: 'a@b.c', password: CONTRASENA })).kind,
+      ).toBe('error');
       expect(await users.findUserById('u1')).toBeNull();
       expect(await users.findUserWithPassword('a@b.c')).toBeNull();
       expect(await users.setName('u1', 'Otro')).toBeNull();
-      expect(await users.setPlan('u1', 'pro')).toBe('error');
+      expect(await users.setPlan('u1', 'basico')).toBe('error');
       expect((await users.changePassword('u1', CONTRASENA, CONTRASENA)).kind).toBe('error');
       expect(await users.deleteAccount('u1', CONTRASENA)).toBe('error');
       expect(await users.suscripcionDe('u1')).toBeNull();
@@ -462,7 +519,11 @@ describe('cambiar lo tuyo cuando la cuenta ya no está', () => {
   });
 
   it('y una actual que no es ni una cadena no cuela', async () => {
-    const creada = await users.createUser({ email: 'a@b.c', password: CONTRASENA });
+    const creada = await users.createUser({
+      mayorDe14: true,
+      email: 'a@b.c',
+      password: CONTRASENA,
+    });
     const id = creada.kind === 'ok' ? creada.user.id : '';
 
     expect((await users.changePassword(id, 42, CONTRASENA)).kind).toBe('no-coincide');
@@ -479,7 +540,11 @@ describe('lo que llega de fuera sin forma', () => {
   });
 
   it('borrar con algo que no es una contraseña no borra nada', async () => {
-    const creada = await users.createUser({ email: 'a@b.c', password: CONTRASENA });
+    const creada = await users.createUser({
+      mayorDe14: true,
+      email: 'a@b.c',
+      password: CONTRASENA,
+    });
     const id = creada.kind === 'ok' ? creada.user.id : '';
 
     expect(await users.deleteAccount(id, 42)).toBe('no-coincide');
@@ -495,6 +560,6 @@ describe('lo que llega de fuera sin forma', () => {
   it('cambiarle el plan a una cuenta que no existe se distingue de un fallo', async () => {
     // Lo que le importa al webhook es distinguir «esa cuenta ya no está» —no
     // reintentes— de «no se ha podido» —reintenta—.
-    expect(await users.setPlan('00000000-0000-4000-8000-000000000000', 'pro')).toBe('no-existe');
+    expect(await users.setPlan('00000000-0000-4000-8000-000000000000', 'basico')).toBe('no-existe');
   });
 });

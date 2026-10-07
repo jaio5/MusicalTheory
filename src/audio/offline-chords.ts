@@ -39,7 +39,7 @@ import {
   type PitchClass,
 } from '@core/music';
 
-import { chromaFromSpectrum } from './chroma';
+import { ACORDES_HASTA_HZ, leerEspectro } from './chroma';
 import { spectrumDb } from './fft';
 
 export interface AnalysisOptions {
@@ -252,8 +252,13 @@ export function chordsOfRecording(
 
     block.set(samples.subarray(from, from + fftSize));
     spectrumDb(block, spectrum);
-    const chroma = chromaFromSpectrum(spectrum, { sampleRate, fftSize });
-    const reading = readChord(chroma, { accidental, minScore });
+    // El mismo techo que en vivo: por encima de mil solo hay armónicos.
+    const { croma, bajo } = leerEspectro(spectrum, {
+      sampleRate,
+      fftSize,
+      maxHz: ACORDES_HASTA_HZ,
+    });
+    const reading = readChord(croma, { accidental, minScore, bajo });
     const match = reading?.best ?? null;
 
     frames.push({

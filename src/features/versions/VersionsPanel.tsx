@@ -190,7 +190,7 @@ export function VersionsPanel({
     if (activeKey === null) {
       return;
     }
-    if (sonando?.title === version.title) {
+    if (sonando?.version === version) {
       parar();
       setSonando(null);
       return;
@@ -209,12 +209,12 @@ export function VersionsPanel({
       bpm,
     );
 
-    setSonando({ title: version.title, step: null });
+    setSonando({ version, step: null });
     await player().play(pasos, (step) => {
       if (step === null) {
         setSonando(null);
       } else {
-        setSonando({ title: version.title, step });
+        setSonando({ version, step });
       }
     });
   }
@@ -231,8 +231,17 @@ export function VersionsPanel({
    * se sostenga» manda a pedirlo otra vez contra lo mismo.
    */
   const [delDominio, setDelDominio] = useState<'sin-contacto' | 'no-se-sostiene' | null>(null);
-  /** Qué versión suena y por qué compás va, para encenderlo en pantalla. */
-  const [sonando, setSonando] = useState<{ title: string; step: number | null } | null>(null);
+  /**
+   * Qué versión suena y por qué compás va, para encenderlo en pantalla.
+   *
+   * **La versión misma, y no su título**: el título lo escribe el modelo, y dos
+   * salidas con el mismo se encendían a la vez y se paraban la una a la otra
+   * (adr/0115). El objeto es uno por salida y cambia con cada respuesta.
+   */
+  const [sonando, setSonando] = useState<{
+    version: Version;
+    step: number | null;
+  } | null>(null);
   const [error, setError] = useState<{ code: VersionsErrorCode | null; message: string } | null>(
     null,
   );
@@ -711,7 +720,7 @@ export function VersionsPanel({
           Una línea y no un cuadro grande: son una o dos frases, y un cuadro
           grande pide un guion que luego no se lee. Lo escrito a mano llega
           delimitado al prompt y el modelo tiene dicho que es un dato
-          (`MARCA_DIRECTRICES`). */}
+          (`directricesEntreMarcas`). */}
       <div className="mt-3">
         {/* `ui/TextField` y no un `<input>` a mano: con el borde de separar
             cajas —1,5:1— un campo vacío no se veía dónde se escribe. */}
@@ -791,11 +800,13 @@ export function VersionsPanel({
 
       {versions.length > 0 && (
         <ul className="mt-6 space-y-4">
-          {versions.map((version) => (
+          {/* Por su sitio en la lista, y no por el título: lo escribe el modelo y
+              puede repetirse, y dos hermanos con la misma clave se pisan. */}
+          {versions.map((version, indice) => (
             <Salida
-              key={`${version.path}-${version.title}`}
+              key={indice}
               version={version}
-              suena={sonando?.title === version.title}
+              suena={sonando?.version === version}
               compas={sonando?.step ?? null}
               onEscuchar={() => void escuchar(version)}
               onQuedarse={() => use(version)}

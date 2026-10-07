@@ -62,6 +62,21 @@ describe('La ventana de usuario', () => {
     }
   });
 
+  // Lo que se guarda, con el detalle a un clic: la política y el aviso legal.
+  it('en la privacidad, lo que se cuenta de ti y dónde está el detalle', () => {
+    pintar(DENTRO);
+
+    expect(screen.getByText(/con un seudónimo de tu cuenta/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'política de privacidad' })).toHaveAttribute(
+      'href',
+      '/privacidad',
+    );
+    expect(screen.getByRole('link', { name: 'aviso legal' })).toHaveAttribute(
+      'href',
+      '/aviso-legal',
+    );
+  });
+
   // Sin sesión esto no son los ajustes de nadie: lo único que se puede hacer es
   // entrar, y se ofrece eso en vez de cuatro secciones vacías.
   it('sin haber entrado ofrece entrar y no la ficha', () => {

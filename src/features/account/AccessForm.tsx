@@ -69,6 +69,9 @@ export function AccessForm({
   const [name, setName] = useState('');
   const [intentado, setIntentado] = useState(false);
   const [veContrasena, setVeContrasena] = useState(false);
+  // Sin nada elegido al empezar: una casilla ya marcada no es una declaración
+  // de nadie (adr/0111).
+  const [edad, setEdad] = useState<'sin-decir' | 'si' | 'no'>('sin-decir');
   const { error, setError, working, enviar } = useEnvio();
   const campoCorreo = useRef<HTMLInputElement>(null);
   const campoContrasena = useRef<HTMLInputElement>(null);
@@ -129,10 +132,14 @@ export function AccessForm({
       campoContrasena.current?.focus();
       return;
     }
+    // Lo dice el aviso de debajo de la pregunta, que es una región viva.
+    if (nuevo && edad !== 'si') {
+      return;
+    }
 
     await enviar(async () => {
       const result = nuevo
-        ? await registerAccount(email, password, name === '' ? undefined : name)
+        ? await registerAccount(email, password, name === '' ? undefined : name, true)
         : await signInWithPassword(email, password);
 
       if (!result.ok) {
@@ -216,6 +223,38 @@ export function AccessForm({
         Mostrar la contraseña
       </button>
 
+      {/*
+        **La edad se declara, y por debajo de catorce no hay cuenta** (LOPDGDD
+        art. 7, adr/0111). No se pide la fecha de nacimiento: no hace falta para
+        nada más, y guardar un dato para comprobar otro es guardar de más. Por
+        debajo no se ofrece pedir permiso a los padres —no hay cómo comprobarlo—,
+        y se dice lo que sí se puede: usarla sin cuenta, que es la aplicación
+        entera menos lo que va con una.
+      */}
+      {nuevo && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-text-muted text-sm font-medium">¿Tienes 14 años o más?</p>
+          <Segmentado
+            etiqueta="¿Tienes 14 años o más?"
+            opciones={[
+              { valor: 'si', texto: 'Sí, 14 o más' },
+              { valor: 'no', texto: 'Tengo menos' },
+            ]}
+            valor={edad}
+            onCambiar={setEdad}
+          />
+          <Aviso
+            mensaje={
+              edad === 'no'
+                ? 'Para crear una cuenta hace falta tener 14 años. Sin cuenta la aplicación funciona igual, y tu avance se guarda en este navegador.'
+                : intentado && edad === 'sin-decir'
+                  ? 'Falta decir si tienes 14 años o más.'
+                  : null
+            }
+          />
+        </div>
+      )}
+
       <Aviso mensaje={error} />
 
       <div>
@@ -236,7 +275,11 @@ export function AccessForm({
 
       <p className="text-text-muted text-xs">
         La contraseña se guarda cifrada y nunca en claro. Lo único que se guarda de lo que toques
-        son las unidades que superas. Nada de audio.
+        son las unidades que superas. Nada de audio. Lo demás, en la{' '}
+        <Link href="/privacidad" className="enlace">
+          política de privacidad
+        </Link>
+        .
       </p>
     </Formulario>
   );

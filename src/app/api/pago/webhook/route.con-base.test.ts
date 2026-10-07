@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DIAS_DE_GRACIA } from '@core/billing';
 import { levantarBaseDePrueba, type BaseDePrueba } from '@server/db/para-tests';
 import type * as Users from '@server/users';
 
@@ -95,7 +96,8 @@ beforeEach(async () => {
   process.env['STRIPE_SECRET_KEY'] = 'sk_test_loquesea';
   process.env['STRIPE_PRICE_BASICO'] = 'price_basico';
   process.env['STRIPE_PRICE_MEDIO'] = 'price_medio';
-  process.env['STRIPE_PRICE_PRO'] = 'price_pro';
+  process.env['STRIPE_PRICE_BASICO_ANUAL'] = 'price_basico_anual';
+  process.env['STRIPE_PRICE_MEDIO_ANUAL'] = 'price_medio_anual';
   enStripe = new Map();
   fetchFalso.mockReset();
   fetchFalso.mockImplementation(async (url, init) => {
@@ -121,14 +123,19 @@ afterEach(() => {
     'STRIPE_SECRET_KEY',
     'STRIPE_PRICE_BASICO',
     'STRIPE_PRICE_MEDIO',
-    'STRIPE_PRICE_PRO',
+    'STRIPE_PRICE_BASICO_ANUAL',
+    'STRIPE_PRICE_MEDIO_ANUAL',
   ]) {
     delete process.env[k];
   }
 });
 
 async function cuenta(): Promise<string> {
-  const creada = await users.createUser({ email: 'a@b.c', password: 'unaContrasenaLarga' });
+  const creada = await users.createUser({
+    mayorDe14: true,
+    email: 'a@b.c',
+    password: 'unaContrasenaLarga',
+  });
   if (creada.kind !== 'ok') {
     throw new Error(creada.kind);
   }
@@ -196,6 +203,57 @@ describe('un pago reintentado después de la baja', () => {
 
     expect((await users.suscripcionDe(userId))?.subscriptionId).toBe('sub_2');
     expect(enStripe.get('sub_2')).toBe('active');
+    expect((await users.findUserById(userId))?.plan).toBe('medio');
+  });
+});
+
+/**
+ * **Los dos ataques al estado de la suscripción** (adr/0114), con la base de
+ * verdad.
+ */
+describe('lo que diga Stripe hoy, y no el aviso', () => {
+  it('un updated(active) viejo que llega tras el unpaid no devuelve el plan', async () => {
+    const userId = await cuenta();
+    enStripe.set('sub_1', 'active');
+    await POST(pagado(userId, 'sub_1'));
+
+    // El cobro falla del todo y la suscripción queda `unpaid`.
+    enStripe.set('sub_1', 'unpaid');
+    await POST(aviso('customer.subscription.updated', suscripcion('sub_1', 'unpaid')));
+    expect((await users.findUserById(userId))?.plan).toBe('gratis');
+
+    // Llega tarde un `updated(active)` de antes: su primera entrega dio 500.
+    const tarde = await POST(
+      aviso('customer.subscription.updated', suscripcion('sub_1', 'active')),
+    );
+
+    expect(tarde.status).toBe(200);
+    expect((await users.findUserById(userId))?.plan).toBe('gratis');
+  });
+
+  /**
+   * **`past_due` tenía el plan sin plazo**: dependía de que Stripe estuviera
+   * configurado para acabar en `unpaid`. Ahora son `DIAS_DE_GRACIA`, contados
+   * desde el primer aviso: los siguientes no los vuelven a dar.
+   */
+  it('past_due conserva el plan solo durante el plazo de gracia', async () => {
+    const userId = await cuenta();
+    enStripe.set('sub_1', 'active');
+    await POST(pagado(userId, 'sub_1'));
+
+    enStripe.set('sub_1', 'past_due');
+    await POST(aviso('customer.subscription.updated', suscripcion('sub_1', 'past_due')));
+    expect((await users.findUserById(userId))?.plan).toBe('medio');
+
+    // Ocho días después: otro aviso de `past_due` no reinicia el plazo.
+    const haceOcho = new Date(Date.now() - (DIAS_DE_GRACIA + 1) * 86_400_000).toISOString();
+    await base.ejecutar(`update users set impagada_desde = '${haceOcho}' where id = '${userId}'`);
+    await POST(aviso('customer.subscription.updated', suscripcion('sub_1', 'past_due')));
+    expect((await users.findUserById(userId))?.plan).toBe('gratis');
+
+    // Y en cuanto Stripe cobra, el plan vuelve.
+    enStripe.set('sub_1', 'active');
+    await POST(aviso('customer.subscription.updated', suscripcion('sub_1', 'active')));
     expect((await users.findUserById(userId))?.plan).toBe('medio');
   });
 });

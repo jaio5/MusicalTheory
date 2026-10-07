@@ -9,7 +9,7 @@
  *
  * **Esto es lo único que separa cambiar el plan de alguien que ha pagado de
  * cambiárselo a cualquiera que sepa la dirección del webhook.** Un webhook sin
- * comprobar es un formulario público para darse el plan Pro, y por eso todo lo
+ * comprobar es un formulario público para darse un plan de pago, y por eso todo lo
  * de este fichero es puro y está probado a fondo.
  *
  * Stripe manda la firma en una cabecera con esta forma:

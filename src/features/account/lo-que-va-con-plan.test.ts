@@ -25,11 +25,15 @@ describe('lo que va con un plan', () => {
 
   it('lo que suma un plan se cuenta desde el de debajo', () => {
     const [basico, medio] = PAID_PLANS;
-    expect(loQueSuma(medio!.id, basico!.id)).toEqual(['Salidas de lo que tocas']);
+    expect(loQueSuma(medio!.id, basico!.id)).toEqual([
+      'Salidas de lo que tocas',
+      'Un profesor que sabe por dónde vas',
+    ]);
   });
 
-  it('Pro lo trae todo', () => {
-    expect(loQueNoTrae('pro')).toEqual([]);
+  // Desde que Pro se fundió en Medio (adr/0104), el de arriba es Medio.
+  it('Medio lo trae todo', () => {
+    expect(loQueNoTrae('medio')).toEqual([]);
   });
 });
 

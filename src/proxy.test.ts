@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 import nextConfig from '../next.config';
 
-import { proxy } from './proxy';
+import { llegaPorHttps, proxy } from './proxy';
 
 /**
  * Las cabeceras de seguridad, comprobadas donde se escriben.
@@ -113,5 +113,57 @@ describe('en desarrollo', () => {
     expect(respuestaDe().get('Content-Security-Policy')).not.toContain("'unsafe-eval'");
 
     poner(antes ?? 'test');
+  });
+});
+
+/**
+ * `upgrade-insecure-requests`, solo por https.
+ *
+ * Puesta siempre, rompía la aplicación servida por http desde otra dirección
+ * —el Docker de casa abierto desde el móvil—: el navegador pedía por https los
+ * guiones y las hojas a un servidor que no lo habla, y la portada perdía
+ * dieciocho recursos con `ERR_SSL_PROTOCOL_ERROR`. En `localhost` no se ve,
+ * porque el navegador lo exime, y por eso hace falta este test.
+ */
+describe('subir a https lo que se cuele en http', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const csp = (url: string, cabeceras: Record<string, string> = {}) =>
+    proxy(new NextRequest(url, { headers: cabeceras })).headers.get('Content-Security-Policy') ??
+    '';
+
+  it('se pide cuando la pagina llega por https', () => {
+    expect(csp('https://ejemplo.test/')).toContain('upgrade-insecure-requests');
+  });
+
+  it('no se pide servida por http desde la red de casa', () => {
+    vi.stubEnv('APP_URL', '');
+
+    expect(csp('http://192.168.1.20:3000/')).not.toContain('upgrade-insecure-requests');
+  });
+
+  it('detras de un proxy que hace el tls lo dice su cabecera, y manda el primero', () => {
+    vi.stubEnv('APP_URL', '');
+    const peticion = (proto: string) =>
+      new NextRequest('http://app:3000/', { headers: { 'x-forwarded-proto': proto } });
+
+    expect(llegaPorHttps(peticion('https'))).toBe(true);
+    expect(llegaPorHttps(peticion('HTTPS, http'))).toBe(true);
+    expect(llegaPorHttps(peticion('http, https'))).toBe(false);
+    expect(llegaPorHttps(peticion('httpsx'))).toBe(false);
+  });
+
+  it('y si la direccion publica es https, tambien', () => {
+    vi.stubEnv('APP_URL', 'https://caos.example');
+
+    expect(llegaPorHttps(new NextRequest('http://app:3000/'))).toBe(true);
+  });
+
+  it('sin APP_URL ni cabecera, por http no', () => {
+    vi.stubEnv('APP_URL', undefined);
+
+    expect(llegaPorHttps(new NextRequest('http://app:3000/'))).toBe(false);
   });
 });

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { MARCA_PREGUNTA, type TeacherRequest } from '@features/learn/teacher-contract';
+import { type TeacherRequest } from '@features/learn/teacher-contract';
 import { CABECERA_DE_TEORIA, RECORDATORIO_DE_LA_PREGUNTA } from '@server/prompts';
 
 import { promptDelProfesor } from './prompt';
+
+/** La marca con la clave fija que se le da en estas pruebas. */
+const MARCA_PREGUNTA = '###PREGUNTA-c1a7e0###';
 
 /**
  * Lo que se le dice al profesor, sin la ruta delante.
@@ -14,7 +17,7 @@ import { promptDelProfesor } from './prompt';
  */
 
 function pregunta(question: string, key: TeacherRequest['key'] = { tonic: 'C', mode: 'major' }) {
-  return promptDelProfesor({ key, question });
+  return promptDelProfesor({ key, question }, () => 'c1a7e0');
 }
 
 describe('el prompt del profesor', () => {

@@ -6,6 +6,7 @@ import {
   can,
   dailyAiRequests,
   gastoDeUnaSalida,
+  MESES_GRATIS_AL_AÑO,
   monthlyAiRequests,
   PAID_PLANS,
   planOf,
@@ -18,11 +19,12 @@ import { useAccount } from '@state/account';
 import { estiloBoton } from '@ui/Button';
 
 /**
- * Los tres planes de pago, uno al lado del otro.
+ * Los planes de pago, uno al lado del otro: dos desde que Pro se fundió en Medio
+ * (adr/0104).
  *
  * Solo los de pago: el plan gratis no es una opción que se elija, es lo que
- * tienes, y ponerlo aquí como una cuarta columna haría que la decisión pareciera
- * de cuatro cuando es de tres. Lo que hay sin pagar se cuenta aparte, en prosa.
+ * tienes, y ponerlo aquí como otra columna haría que la decisión pareciera de
+ * tres cuando es de dos. Lo que hay sin pagar se cuenta aparte, en prosa.
  *
  * Lo que enseña cada tarjeta sale de la tabla de permisos, no de una lista escrita
  * a mano: si mañana Medio deja de incluir el repaso, esto lo dice sin que nadie se
@@ -30,19 +32,19 @@ import { estiloBoton } from '@ui/Button';
  * tenerla, y la forma de que mienta es escribirla dos veces.
  *
  * Y no se paga desde aquí: cada tarjeta lleva a su ventana. Un botón que cobra
- * dentro de una lista de tres se pulsa por error.
+ * dentro de una lista se pulsa por error.
  */
 
 /**
  * Cómo se llama cada permiso en la pantalla, y en qué orden se leen.
  *
- * **La misma lista, en el mismo orden, en las tres tarjetas**, con ✓ o — en cada
+ * **La misma lista, en el mismo orden, en todas las tarjetas**, con ✓ o — en cada
  * fila. Cada plan ponía lo suyo delante y lo que no tenía se iba al final, así
  * que la misma prestación caía en una fila distinta según la tarjeta y para
  * compararlas había que leerlas enteras una por una. Con la fila fija, comparar es
  * mirar en horizontal.
  *
- * **De lo que todos tienen a lo que solo tiene Pro**: los ✓ se agrupan arriba y
+ * **De lo que todos tienen a lo que solo tiene Medio**: los ✓ se agrupan arriba y
  * los — abajo, así que ninguna tarjeta empieza por lo que no tiene —Básico llegó
  * a abrir con tres líneas tachadas— y cada plan se lee como lo que añade al
  * anterior.
@@ -50,8 +52,8 @@ import { estiloBoton } from '@ui/Button';
  * Y están todas. Faltaron un tiempo **guardar tus canciones** y **las salidas de
  * lo que tocas**, que son justo lo que prometen dos de los reclamos: una tarjeta
  * que no enseña su propia razón de ser no se entiende. Las salidas van antes que
- * el profesor que sabe por dónde vas porque entran un plan antes, en Medio
- * (adr/0066).
+ * el profesor que sabe por dónde vas porque entraron antes, en Medio
+ * (adr/0066); el profesor llegó con la fusión de Pro (adr/0104).
  */
 export const ETIQUETAS: ReadonlyArray<{ capability: Capability; label: string }> = [
   { capability: 'profesor', label: 'Preguntar al profesor' },
@@ -84,7 +86,7 @@ export function PlanCards() {
   return (
     // El `pt-3` es el sitio del sello del recomendado, que monta sobre el borde
     // de arriba de su tarjeta y se saldría de la lista sin él.
-    <ul className="grid gap-4 pt-3 md:grid-cols-3">
+    <ul className="grid gap-4 pt-3 md:grid-cols-2">
       {PAID_PLANS.map((plan, i) => (
         <li key={plan.id}>
           <PlanCard
@@ -106,7 +108,7 @@ export function PlanCards() {
 }
 
 /**
- * «4,99 € al mes» partido en la cifra y lo demás.
+ * «4,99 € al mes» partido en la cifra y lo demás, y lo mismo con «al año».
  *
  * La monoespaciada es para lo que se compara en columna, y en un precio eso es
  * la cifra: «al mes» es una frase y va en la de leer
@@ -115,7 +117,7 @@ export function PlanCards() {
  * precio, y partirla allí sería tener dos.
  */
 function partirPrecio(precio: string): { cifra: string; resto: string } {
-  const cifra = precio.replace(/ al mes$/, '');
+  const cifra = precio.replace(/ al (mes|año)$/, '');
   return { cifra, resto: precio.slice(cifra.length) };
 }
 
@@ -139,6 +141,7 @@ function PlanCard({
   readonly model: string;
 }) {
   const { cifra, resto } = partirPrecio(priceLabel(plan.id));
+  const anual = partirPrecio(priceLabel(plan.id, 'anual'));
 
   return (
     <article
@@ -169,6 +172,12 @@ function PlanCard({
           <span className="font-mono">{cifra}</span>
           {resto}
         </p>
+        {/* El anual debajo y en pequeño: es la misma compra pagada de otra
+            manera, no otro plan, y se elige en la ventana de pago (adr/0106). */}
+        <p className="text-text-muted text-sm">
+          o <span className="font-mono">{anual.cifra}</span>
+          {anual.resto}: {MESES_GRATIS_AL_AÑO} meses gratis
+        </p>
         <p className="text-text-muted mt-2 text-sm">{plan.claim}</p>
       </header>
 
@@ -189,7 +198,7 @@ function PlanCard({
               </span>
               {/* El símbolo no se lee, así que lo dice el texto: el tachado y la
                   raya los ve quien mira, y el lector de pantalla leía la
-                  capacidad igual en las tres tarjetas. */}
+                  capacidad igual en todas las tarjetas. */}
               <span>
                 <span className="sr-only">{incluido ? 'Incluye: ' : 'No incluye: '}</span>
                 {label}
@@ -217,7 +226,7 @@ function PlanCard({
         </li>
       </ul>
 
-      {/* `mt-auto`: empuja el pie hasta abajo para que los tres botones queden a
+      {/* `mt-auto`: empuja el pie hasta abajo para que los botones queden a
           la misma altura aunque una tarjeta tenga menos que contar. */}
       <div className="mt-auto pt-4">
         {current ? (
@@ -229,8 +238,8 @@ function PlanCard({
                 Es donde entra la IA que propone mientras compones.
               </p>
             )}
-            {/* Uno lleno y dos en contorno. Tres botones de latón iguales decían
-                que las tres opciones pesan lo mismo, y la pantalla recomienda una. */}
+            {/* Uno lleno y el otro en contorno. Botones de latón iguales decían
+                que las opciones pesan lo mismo, y la pantalla recomienda una. */}
             <Link
               href={`/planes/${plan.id}`}
               className={estiloBoton(recomendado ? 'primary' : 'quiet', 'w-full')}

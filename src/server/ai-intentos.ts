@@ -12,7 +12,7 @@
  * uno.
  */
 
-import { MAX_MODEL_ATTEMPTS } from '@core/billing';
+import { MAX_MODEL_ATTEMPTS, type UsoDelModelo } from '@core/billing';
 
 import { askModel, RespuestaTruncada } from './ask-model';
 
@@ -73,6 +73,11 @@ export type Desenlace<Respuesta> =
 export interface OpcionesDeLaPregunta {
   /** Lo que dijo el modelo en cada intento, antes de validarlo. Para el examen. */
   readonly alIntentar?: (payload: unknown) => void;
+  /**
+   * Lo que ha gastado cada llamada a la API (`askModel`), para el techo de gasto.
+   * Nulo es una llamada sin respuesta, que se cuenta como el peor caso.
+   */
+  readonly alUsar?: (uso: UsoDelModelo | null) => void;
 }
 
 /** El respaldo si hay y contesta algo; si no, el error tal cual. */
@@ -83,6 +88,16 @@ function sinModelo<Peticion, Respuesta>(
 ): Desenlace<Respuesta> {
   const respuesta = ruta.respaldo?.(peticion, fallo) ?? null;
   return respuesta === null ? { kind: 'error', fallo } : { kind: 'respaldo', respuesta, fallo };
+}
+
+/**
+ * Si el fallo es de los que se pasan solos: la API ha contestado que está
+ * saturada (429) o que ha fallado por su lado (5xx). No ha generado nada y no
+ * cobra, así que reintentarlo cuesta lo que suponen los cupos.
+ */
+function esPasajero(fallo: unknown): boolean {
+  const estado = (fallo as { status?: unknown } | null)?.status;
+  return typeof estado === 'number' && (estado === 429 || estado >= 500);
 }
 
 /**
@@ -115,20 +130,26 @@ export async function preguntarAlModelo<Peticion, Respuesta>(
         // temperatura cero, así que repetir la misma petición daba exactamente la
         // misma respuesta: el reintento era esperar el doble para el mismo «no».
         intento,
+        ...(opciones.alUsar === undefined ? {} : { alUsar: opciones.alUsar }),
       });
     } catch (fallo) {
       // Una respuesta cortada por el tope de tokens **no se reintenta**: el
       // prompt y el tope son los mismos, así que la segunda llamada se cortaría
       // por donde se cortó la primera. Y no es «el modelo no contesta»: contestó,
-      // y lo que dijo no se puede leer.
-      //
-      // Lo otro es 502 y no 500: el que ha fallado es el modelo, no nosotros, y
-      // la diferencia importa para quien mire los registros.
-      return sinModelo(
-        ruta,
-        peticion,
-        fallo instanceof RespuestaTruncada ? 'unparseable_response' : 'model_unavailable',
-      );
+      // y lo que dijo no se puede leer. Una negativa tampoco: diría lo mismo.
+      if (fallo instanceof RespuestaTruncada) {
+        return sinModelo(ruta, peticion, 'unparseable_response');
+      }
+      // **Un 429 o un 5xx de la API sí, dentro de los mismos dos intentos.** Era
+      // el SDK quien los reintentaba por su cuenta, y esas llamadas no las contaba
+      // nadie (adr/0114): ahora el reintento es éste, y cuesta lo que suponen los
+      // cupos. Lo demás —sin red, un tiempo agotado, una negativa— no: sobre un
+      // proveedor caído, reintentar es gastar dos veces para no servir nada. 502
+      // y no 500 si no sale: el que ha fallado es el modelo.
+      if (!esPasajero(fallo) || intento + 1 >= MAX_MODEL_ATTEMPTS) {
+        return sinModelo(ruta, peticion, 'model_unavailable');
+      }
+      continue;
     }
 
     opciones.alIntentar?.(payload);

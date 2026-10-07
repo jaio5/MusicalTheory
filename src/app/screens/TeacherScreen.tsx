@@ -80,9 +80,9 @@ export function TeacherScreen() {
 
       {/* El cupo es de todos los planes, así que aquí no hay candado que enseñar
           salvo el del profesor que sabe por dónde vas, que es lo que distingue a
-          Pro. Sin cuentas, ni ese: un plan que no se puede contratar no se ofrece. */}
+          Medio. Sin cuentas, ni ese: un plan que no se puede contratar no se ofrece. */}
       {accounts && !can(account.plan, 'profesor-con-progreso') && (
-        <Section title="Con el plan Pro">
+        <Section title="Con el plan Medio">
           {/* Aquí no es compacto: es el contenido entero de un apartado, y su
               enlace es lo único que se puede hacer en él. Compacto es para una
               fila estrecha metida dentro de otra cosa, como la del camino. */}
@@ -122,9 +122,9 @@ export function TeacherScreen() {
         falta cambiarla.
 
         **Desde `lg`, la conversación y lo que la acompaña van lado a lado** —la
-        tonalidad, el plan Pro y el cupo, en la columna de `aside`—. Antes la
+        tonalidad, el plan Medio y el cupo, en la columna de `aside`—. Antes la
         tonalidad iba al lado y el plan y el cupo debajo, todo en una caja de 1024
-        px: a 1920 la pantalla usaba la mitad del ancho y el plan Pro quedaba bajo
+        px: a 1920 la pantalla usaba la mitad del ancho y el plan Medio quedaba bajo
         el pliegue.
 
         Tampoco hace falta abrirla para empezar: sin tonalidad, el formulario
@@ -132,11 +132,23 @@ export function TeacherScreen() {
         la rueda es para quien quiere otra.
       */}
       <Section title="La pregunta">
-        {/* En una caja con nombre para el recorrido de la primera visita: el
-            apartado es de `ui/` y no lleva atributos de fuera. */}
-        <div data-tour="profesor-pregunta">
+        <div>
           {accounts ? (
-            <Teacher />
+            <>
+              {/* **Se dice que es una IA, y aquí, donde se pregunta** (AI Act,
+                  art. 50.1): quien escribe tiene que saber que le contesta una
+                  máquina antes de escribir, no enterarse en la política de
+                  privacidad. El muñeco es un profesor dibujado, y sin esto se
+                  puede leer como una persona al otro lado. */}
+              <p className="text-text-muted mb-3 max-w-prose text-sm">
+                Hablas con una IA, no con una persona: puede equivocarse.{' '}
+                <Link href="/privacidad" className="enlace">
+                  Qué se le manda
+                </Link>
+                .
+              </p>
+              <Teacher />
+            </>
           ) : (
             /*
             **Sin cuentas, el profesor no está, y se dice.** Prometía «quince

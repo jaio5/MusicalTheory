@@ -20,6 +20,7 @@ import { sql } from 'drizzle-orm';
 import { db } from './db/client';
 import { rateLimits } from './db/schema';
 import {
+  acotarClave,
   DEFAULT_RATE_LIMIT,
   requesterKey,
   type RateLimitOptions,
@@ -151,7 +152,11 @@ export async function limitRequest(input: {
   readonly options?: RateLimitOptions;
 }): Promise<RateLimitResult> {
   const options = input.options ?? DEFAULT_RATE_LIMIT;
-  const compartido = await checkRateLimit(input.key, new Date(input.now), options);
+  // **Acotada antes de nada**, en los dos contadores: una clave de megas reventaba
+  // el índice de `rate_limits.key`, caía al de memoria y se quedaba allí guardada
+  // (`acotarClave`, adr/0113).
+  const key = acotarClave(input.key);
+  const compartido = await checkRateLimit(key, new Date(input.now), options);
 
   if (compartido !== null) {
     vistas += 1;
@@ -162,7 +167,7 @@ export async function limitRequest(input: {
   }
 
   input.memoria.prune(input.now);
-  return input.memoria.check(input.key, input.now);
+  return input.memoria.check(key, input.now);
 }
 
 /**

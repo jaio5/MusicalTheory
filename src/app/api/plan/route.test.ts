@@ -88,7 +88,7 @@ describe('quién puede cambiar de plan', () => {
   });
 
   it('el usuario sale de la sesión, no del cuerpo', async () => {
-    // Si saliera del cuerpo, cualquiera le pondría el plan Pro a otra persona
+    // Si saliera del cuerpo, cualquiera le pondría el plan Medio a otra persona
     // —o se lo quitaría—.
     await POST(pedir({ plan: 'medio', userId: 'otro' }));
 
@@ -112,6 +112,40 @@ describe('qué plan se pide', () => {
     const { status } = await leer(await POST(pedir({})));
 
     expect(status).toBe(400);
+  });
+
+  // Pro se fundió en Medio (adr/0104): ya no se vende, aunque una cuenta que lo
+  // tenga guardado siga resolviendo como Medio.
+  it('Pro ya no se vende', async () => {
+    const { status } = await leer(await POST(pedir({ plan: 'pro' })));
+
+    expect(status).toBe(400);
+  });
+});
+
+describe('cada cuánto se paga', () => {
+  it('sin decirlo, al mes', async () => {
+    await POST(pedir({ plan: 'medio' }));
+
+    expect(COBRADOR_FALSO.start).toHaveBeenCalledWith(
+      expect.objectContaining({ plan: 'medio', periodo: 'mensual' }),
+    );
+  });
+
+  it('al año, si se pide', async () => {
+    await POST(pedir({ plan: 'basico', periodo: 'anual' }));
+
+    expect(COBRADOR_FALSO.start).toHaveBeenCalledWith(
+      expect.objectContaining({ plan: 'basico', periodo: 'anual' }),
+    );
+  });
+
+  it('un periodo que no es ninguno de los dos no se cobra', async () => {
+    const { status, body } = await leer(await POST(pedir({ plan: 'medio', periodo: 'semanal' })));
+
+    expect(status).toBe(400);
+    expect((body['error'] as { code: string }).code).toBe('periodo-desconocido');
+    expect(COBRADOR_FALSO.start).not.toHaveBeenCalled();
   });
 });
 
@@ -170,7 +204,7 @@ describe('el portal de la pasarela', () => {
 describe('cuando el cobrador falla', () => {
   it('cancelar sin exito no baja el plan a medias', async () => {
     // Desde un plan de pago: pedir el que ya se tiene no llega al cobrador.
-    currentSession.mockResolvedValue({ userId: 'u1', account: { plan: 'pro' } });
+    currentSession.mockResolvedValue({ userId: 'u1', account: { plan: 'medio' } });
     COBRADOR_FALSO.cancel.mockResolvedValue({ ok: false });
 
     const { status, body } = await leer(await POST(pedir({ plan: 'gratis' })));
@@ -184,7 +218,7 @@ describe('cuando el cobrador falla', () => {
     // siempre la misma frase.
     COBRADOR_FALSO.start.mockResolvedValue({ kind: 'error', reason: 'card_declined' });
 
-    const { status, body } = await leer(await POST(pedir({ plan: 'pro' })));
+    const { status, body } = await leer(await POST(pedir({ plan: 'medio' })));
 
     expect(status).toBe(502);
     expect(JSON.stringify(body)).not.toContain('card_declined');
@@ -194,7 +228,7 @@ describe('cuando el cobrador falla', () => {
     // Hoy no llega nunca, pero es la forma que tendra con Stripe.
     COBRADOR_FALSO.start.mockResolvedValue({ kind: 'ir-a-pagar', url: 'https://pago' });
 
-    const { status, body } = await leer(await POST(pedir({ plan: 'pro' })));
+    const { status, body } = await leer(await POST(pedir({ plan: 'medio' })));
 
     expect(status).toBe(200);
     expect(body).toEqual({ kind: 'ir-a-pagar', url: 'https://pago' });

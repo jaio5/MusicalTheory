@@ -142,7 +142,7 @@ export function Metronome({ createMetronome }: MetronomeProps = {}) {
   }
 
   return (
-    <div className="flex items-center gap-1" data-tour="componer-metronomo">
+    <div className="flex items-center gap-1">
       {/*
         **Con su nombre a la vista, «Metrónomo».** Era un triángulo suelto en un
         círculo, y en Ensayar está al lado de «Ensayar», que es otro triángulo:

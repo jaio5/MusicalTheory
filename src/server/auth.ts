@@ -17,15 +17,22 @@
  * cambia nada de lo que hay aquí.
  */
 
+import { secretoDeSesion } from './secreto';
 import NextAuth, { CredentialsSignin, type DefaultSession } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 
-import { HASH_DE_NADIE, igualarCoste, necesitaRecifrar, verifyPassword } from './password';
+import {
+  HASH_DE_NADIE,
+  igualarCoste,
+  MAX_PASSWORD_LENGTH,
+  necesitaRecifrar,
+  verifyPassword,
+} from './password';
 import { findUserWithPassword, recifrarContrasena } from './users';
 import { hasDatabase } from './db/client';
 import { DEMASIADOS_INTENTOS } from '@core/auth-errors';
 
-import { requesterKey, SlidingWindowRateLimiter } from './rate-limit';
+import { huellaDeCorreo, requesterKey, SlidingWindowRateLimiter } from './rate-limit';
 import { limitRequest } from './rate-limit-db';
 
 declare module 'next-auth' {
@@ -41,10 +48,7 @@ declare module 'next-auth' {
   }
 }
 
-function secret(): string | null {
-  const value = process.env['AUTH_SECRET'];
-  return value === undefined || value === '' ? null : value;
-}
+const secret = secretoDeSesion;
 
 /**
  * Si esta copia de la aplicación tiene cuentas.
@@ -75,6 +79,31 @@ export function authAvailable(): boolean {
 const LIMITE_ENTRAR = { limit: 5, windowMs: 60_000 } as const;
 const LIMITE_POR_DIRECCION = { limit: 20, windowMs: 60_000 } as const;
 const LIMITE_POR_CORREO = { limit: 30, windowMs: 15 * 60_000 } as const;
+
+/**
+ * Lo más largo que puede ser un correo: 254, el tope de la RFC 5321 y el mismo que
+ * mira `normalizeEmail` al registrarse. Uno más largo no puede tener cuenta.
+ */
+const MAX_CORREO = 254;
+
+/**
+ * Si lo que llega no puede ser de nadie por tamaño: un correo o una contraseña
+ * más largos que los que se aceptan al crear la cuenta.
+ *
+ * **Se mira lo primero, antes del tope y de `scrypt`.** Auth.js lee el cuerpo de
+ * la entrada sin el tope de 128 KB de las demás rutas, y un correo de 8 MB
+ * llegaba hasta el limitador, que lo guardaba como clave un cuarto de hora: veinte
+ * peticiones llevaban el proceso de 46 a 687 MB
+ * ([adr/0113](../../docs/adr/0113-los-topes-cuentan-lo-que-cabe-y-agrupan-lo-que-es-de-uno.md)).
+ * Contestar «no» sin contar no regala nada: no depende de que la cuenta exista, y
+ * no cuesta nada que valga la pena frenar.
+ */
+function fueraDeMedida(correo: unknown, password: string): boolean {
+  return (
+    (typeof correo === 'string' && correo.length > MAX_CORREO) ||
+    password.length > MAX_PASSWORD_LENGTH
+  );
+}
 
 /** El de memoria, para las copias sin base de datos. Uno por tope. */
 const limitador = new SlidingWindowRateLimiter(LIMITE_ENTRAR);
@@ -114,9 +143,10 @@ async function pasadoDeIntentos(request: Request | undefined, correo: unknown): 
   // algún día no llegara **sigue contando por correo**, que es la clave que para
   // a quien va a por una cuenta concreta.
   const direccion = request === undefined ? 'desconocido' : requesterKey(request.headers);
-  // En minúsculas y sin espacios, que es como se guarda: si no, «A@b.com» y
-  // «a@b.com» serían dos cupos para la misma cuenta.
-  const email = typeof correo === 'string' ? correo.trim().toLowerCase() : '';
+  // Con su huella y no en claro: normalizado como se guarda —si no, «A@b.com» y
+  // «a@b.com» serían dos cupos para la misma cuenta— y de largo fijo, que un
+  // correo de megas reventaba el índice de la tabla de topes (adr/0113).
+  const email = huellaDeCorreo(correo);
 
   const claves = [
     { key: `entrar:${email}:${direccion}`, memoria: limitador, options: LIMITE_ENTRAR },
@@ -155,6 +185,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(raw, request) {
         const password = typeof raw?.['password'] === 'string' ? raw['password'] : '';
+
+        // Lo enorme no es de nadie, y se contesta antes de tocar el tope.
+        if (fueraDeMedida(raw?.['email'], password)) {
+          return null;
+        }
 
         // **El tope de intentos, antes de comprobar la contraseña.**
         //

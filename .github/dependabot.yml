@@ -1,0 +1,36 @@
+# Las actualizaciones de seguridad, sin acordarse.
+#
+# Una vez por semana, y agrupadas, para que lleguen como una petición que se lee
+# y no como veinte que se aprueban sin mirar. Las acciones de CI van fijadas por
+# commit (`ci.yml`): Dependabot cambia el commit y el comentario de la versión a
+# la vez (docs/adr/0117).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      desarrollo:
+        dependency-type: development
+        update-types: [minor, patch]
+      produccion:
+        dependency-type: production
+        update-types: [patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Las imágenes base del `Dockerfile` y las de `compose.yml`, que van con huella.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly

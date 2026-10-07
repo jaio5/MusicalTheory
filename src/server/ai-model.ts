@@ -57,7 +57,7 @@ export function localModelUrl(): string | undefined {
  * **La clave gana al modelo local**, y a propósito: `OLLAMA_URL` es una variable
  * que se pone para probar y se olvida puesta. Si ganara ella, un despliegue con
  * las dos configuradas serviría en silencio respuestas de un modelo de ocho mil
- * millones de parámetros a quien ha pagado el plan Pro. Para probar en local se
+ * millones de parámetros a quien ha pagado un plan. Para probar en local se
  * quita la clave, que es lo explícito.
  */
 export function modelProvider(): ModelProvider {

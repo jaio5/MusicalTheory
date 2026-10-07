@@ -18,6 +18,7 @@ vi.mock('./ask-model', async (original) => ({
 }));
 
 const { preguntarAlModelo } = await import('./ai-intentos');
+const { MAX_MODEL_ATTEMPTS } = await import('@core/billing');
 const { RespuestaTruncada } = await import('./ask-model');
 
 /** Vale lo que trae `bien: true`, y el respaldo dice por qué ha hecho falta. */
@@ -96,6 +97,51 @@ describe('sin respaldo, el error de siempre', () => {
       fallo: 'model_unavailable',
     });
     expect(askModel).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * **Una API saturada sí, y el reintento es éste, no el del SDK** (adr/0114):
+   * con los dos, una pregunta podían ser cuatro llamadas y el coste suponía dos.
+   * Por eso tampoco pasa de `MAX_MODEL_ATTEMPTS`.
+   */
+  it('un 429 o un 5xx se reintenta, sin pasar de los intentos que cuenta el coste', async () => {
+    const saturada = Object.assign(new Error('saturada'), { status: 529 });
+    askModel.mockRejectedValueOnce(saturada).mockResolvedValueOnce({ bien: true });
+
+    expect((await preguntarAlModelo(ruta(), 'x')).kind).toBe('modelo');
+    expect(askModel).toHaveBeenCalledTimes(2);
+
+    askModel.mockReset();
+    askModel.mockRejectedValue(Object.assign(new Error('demasiadas'), { status: 429 }));
+    expect(await preguntarAlModelo(ruta(), 'x')).toEqual({
+      kind: 'error',
+      fallo: 'model_unavailable',
+    });
+    expect(askModel).toHaveBeenCalledTimes(MAX_MODEL_ATTEMPTS);
+  });
+
+  it('un 400 o una negativa no se reintentan: dirían lo mismo', async () => {
+    askModel.mockRejectedValueOnce(Object.assign(new Error('mal'), { status: 400 }));
+    await preguntarAlModelo(ruta(), 'x');
+    askModel.mockRejectedValueOnce(new Error('refusal'));
+    await preguntarAlModelo(ruta(), 'x');
+
+    expect(askModel).toHaveBeenCalledTimes(2);
+  });
+
+  it('lo que gasta cada llamada llega a quien lo cuenta', async () => {
+    askModel.mockImplementation(async ({ alUsar }: { alUsar?: (uso: unknown) => void }) => {
+      alUsar?.({ entrada: 10, salida: 5 });
+      return { bien: false };
+    });
+    const usos: unknown[] = [];
+
+    await preguntarAlModelo(ruta(), 'x', { alUsar: (uso) => usos.push(uso) });
+
+    expect(usos).toEqual([
+      { entrada: 10, salida: 5 },
+      { entrada: 10, salida: 5 },
+    ]);
   });
 
   it('una respuesta cortada no se reintenta: se cortaría igual', async () => {

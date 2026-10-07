@@ -9,7 +9,10 @@ import {
   type DegreeSymbol,
 } from '@core/music';
 
-import { MARCA_DIRECTRICES, seSostiene, type VersionsRequest } from './contract';
+import { seSostiene, type VersionsRequest } from './contract';
+
+/** La marca con la clave fija que se le da en estas pruebas. */
+const MARCA_DIRECTRICES = '###DIRECTRICES-d1e7a5###';
 import { COLORES, contextoDe, MAX_OPCIONES_DEL_MENU, menuDe } from './menu';
 import {
   enAcordes,
@@ -45,7 +48,7 @@ const EN_DO: VersionsRequest = {
 
 /** El prompt con la cabecera que pone la ruta. */
 function prompt(request: VersionsRequest): string {
-  return promptDeSalidas(request, ['Tonalidad: C mayor.']);
+  return promptDeSalidas(request, ['Tonalidad: C mayor.'], () => 'd1e7a5');
 }
 
 /** Un grado escrito en una frase: el patrón con el que lee la tabla lo que hace cada salida. */
@@ -308,7 +311,7 @@ describe('el prompt de las salidas', () => {
     const con = prompt({ ...EN_DO, directrices: 'más triste' });
 
     expect(con.endsWith(`${MARCA_DIRECTRICES}\nmás triste\n${MARCA_DIRECTRICES}`)).toBe(true);
-    expect(prompt(EN_DO)).not.toContain(MARCA_DIRECTRICES);
+    expect(prompt(EN_DO)).not.toContain('###DIRECTRICES');
   });
 });
 

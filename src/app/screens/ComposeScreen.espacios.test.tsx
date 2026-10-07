@@ -9,7 +9,7 @@ import type * as Tocar from '@features/arrange/TocarParaEscribir';
 import { pitchClassFromName } from '@core/music';
 import { useBancoStore } from '@state/banco';
 import { useSessionStore } from '@state/session-store';
-import { DEFAULT_BANCO } from '@state/workspace';
+import { DEFAULT_BANCO, loadPreferences, savePreferences } from '@state/workspace';
 
 /**
  * Pasar de «Tocando» a «Escribir» en cuanto lo tocado está escrito.
@@ -49,7 +49,10 @@ const { selectReparto } = await import('@state/banco');
 beforeEach(() => {
   localStorage.clear();
   useSessionStore.getState().actions.reset();
-  useBancoStore.setState({ espacio: DEFAULT_BANCO.espacio, repartos: DEFAULT_BANCO.repartos });
+  // Desde tocando, guardado: se entra por escribir, y aquí se viene a tocar.
+  const banco = { espacio: 'tocando' as const, repartos: DEFAULT_BANCO.repartos };
+  savePreferences({ ...loadPreferences(), banco });
+  useBancoStore.setState(banco);
 });
 
 describe('De tocando a escribir', () => {

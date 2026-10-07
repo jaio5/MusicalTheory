@@ -26,7 +26,8 @@ import {
   type ScaleId,
 } from '@core/music';
 import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
-import { sinMarca } from '@core/marca';
+import { entreMarcas, textoLibre } from '@core/marca';
+import { copiaLasInstrucciones, esUnCebo } from '@core/prosa-del-modelo';
 import { isRecord } from '@core/parse';
 import { pitchClassFromName } from '@core/music';
 import { MAX_QUESTION_LENGTH } from '@core/billing';
@@ -42,23 +43,29 @@ export { MAX_QUESTION_LENGTH };
 export const MAX_ANSWER_LENGTH = 900;
 
 /**
- * La marca que encierra la pregunta dentro del prompt.
+ * La palabra de la marca que encierra la pregunta dentro del prompt.
  *
  * La pregunta es **uno de los dos** textos libres que entran al modelo en toda la
- * aplicación —el otro son las directrices de una salida, `MARCA_DIRECTRICES`—, así
+ * aplicación —el otro son las directrices de una salida, `PALABRA_DIRECTRICES`—, así
  * que va delimitada y el prompt de sistema dice que lo de dentro es un dato y no
  * una instrucción. Los dos van igual, y a propósito: dos maneras de acotar lo
  * mismo serían dos superficies que revisar. No es una defensa perfecta —ninguna lo es
  * contra una inyección decidida— pero convierte el caso habitual, el «ignora lo
  * anterior», en una frase más dentro de un bloque marcado.
  *
- * Y por eso `parseTeacherRequest` la borra de la pregunta, **en cualquiera de
- * sus formas** (`sinMarca`): sin eso, quien la escribiera cerraría el bloque antes
- * de tiempo y lo de después se leería como instrucciones nuestras, que es
- * exactamente lo que se está evitando. Borrar solo esta cadena exacta lo saltaban
- * `### PREGUNTA ###`, `###pregunta###` y un espacio de ancho cero.
+ * **La marca lleva una clave nueva en cada petición** —`###PREGUNTA-3f9a1c###`, con
+ * `preguntaEntreMarcas`— y el prompt de sistema dice que solo la cierra la misma
+ * marca con la misma clave: quien escribe no la ve, así que no la puede escribir
+ * (adr/0115). Además `parseTeacherRequest` borra de la pregunta todo lo que se
+ * parezca a la marca, escrito como se escriba (`core/marca.ts`): con espacios, en
+ * minúsculas, con ancho cero, con selectores, acentos o letras de otro alfabeto.
  */
-export const MARCA_PREGUNTA = '###PREGUNTA###';
+export const PALABRA_PREGUNTA = 'PREGUNTA';
+
+/** La pregunta entre sus dos marcas, con una clave nueva (`core/marca.ts`). */
+export function preguntaEntreMarcas(question: string, clave?: () => string): string {
+  return entreMarcas(question, PALABRA_PREGUNTA, clave);
+}
 
 /**
  * Lo que contesta el profesor cuando lo que le preguntan no es de música.
@@ -195,11 +202,10 @@ export function parseTeacherRequest(body: unknown): TeacherRequest | null {
   if (typeof question !== 'string' || question.trim() === '') {
     return null;
   }
-  // Fuera la marca antes de nada, **escrita como se escriba** —con espacios, en
-  // minúsculas, con ancho cero o de ancho completo—: es lo que impide cerrar el
-  // bloque a mano y escribir instrucciones fuera de él (`core/marca.ts`).
-  const limpia = sinMarca(question, 'PREGUNTA').trim();
-  /* v8 ignore next 3 -- una pregunta que solo fueran marcas ya se ha caido por el largo minimo */
+  // Recortada antes de limpiarla, sin nada con forma de marca y dentro de su tope
+  // **en el peor alfabeto**: 240 letras en español o 25 caracteres chinos, que
+  // cuestan lo mismo (`core/marca.ts`, adr/0115).
+  const limpia = textoLibre(question, PALABRA_PREGUNTA, MAX_QUESTION_LENGTH);
   if (limpia === '') {
     return null;
   }
@@ -211,7 +217,7 @@ export function parseTeacherRequest(body: unknown): TeacherRequest | null {
     unitId?: string;
   } = {
     key: { tonic: tonic as NoteName, mode },
-    question: limpia.slice(0, MAX_QUESTION_LENGTH),
+    question: limpia,
   };
 
   const scale = campos['scale'];
@@ -288,10 +294,16 @@ export function validateTeacherAnswer(
   const result: { answer: string; example?: TeacherAnswer['example'] } = {
     answer: answer.trim().slice(0, MAX_ANSWER_LENGTH),
   };
-  // Ha dicho `musica` y no habla de música, o copia sus instrucciones: es lo que
-  // sale cuando una inyección funciona (adr/0015). Se tira como cualquier
-  // respuesta que no vale, y la ruta reintenta o contesta con lo nuestro.
-  if (!hablaDeMusica(result.answer) || copiaLasInstrucciones(result.answer, instrucciones)) {
+  // Un enlace, un correo o una contraseña se tiran **antes de mirar el tema**: «es
+  // una nota del equipo» pasaba por música (adr/0115). Y luego, ha dicho `musica` y
+  // no habla de música, o copia sus instrucciones: es lo que sale cuando una
+  // inyección funciona (adr/0015). Se tira como cualquier respuesta que no vale, y
+  // la ruta reintenta o contesta con lo nuestro.
+  if (
+    esUnCebo(result.answer) ||
+    !hablaDeMusica(result.answer) ||
+    copiaLasInstrucciones(result.answer, instrucciones)
+  ) {
     return null;
   }
   const tonic = pitchClassFromName(request.key.tonic);
@@ -492,41 +504,12 @@ function esDeAqui(question: string): boolean {
   );
 }
 
-/** Cuántas palabras seguidas de las instrucciones hacen falta para decir que las copia. */
-const PALABRAS_COPIADAS = 8;
-
 /**
- * Si la respuesta copia las instrucciones del prompt de sistema: ocho palabras
- * seguidas suyas.
- *
- * Es lo que pedía el último de los ocho casos de la auditoría, y `qwen3:8b` lo
- * pintó entero. Ocho palabras seguidas no salen por casualidad explicando una
- * cadencia, y siete ya se pueden: «en la tonalidad que te den» son seis. Llegan
- * como parámetro porque el prompt de sistema vive en el servidor y esto no puede
- * abrirlo.
+ * Si la respuesta copia las instrucciones del prompt de sistema. Vive en
+ * `core/prosa-del-modelo.ts`, porque las salidas la usan también con su título y su
+ * porqué; se reexporta aquí, donde se buscó siempre.
  */
-export function copiaLasInstrucciones(answer: string, instrucciones?: string): boolean {
-  if (instrucciones === undefined) {
-    return false;
-  }
-  const trozos = (texto: string) =>
-    texto
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter(Boolean);
-  const suyas = trozos(instrucciones);
-  const seguidas = new Set(
-    suyas
-      .slice(0, Math.max(0, suyas.length - PALABRAS_COPIADAS + 1))
-      .map((_, inicio) => suyas.slice(inicio, inicio + PALABRAS_COPIADAS).join(' ')),
-  );
-  const dichas = trozos(answer);
-  return dichas.some((_, inicio) =>
-    seguidas.has(dichas.slice(inicio, inicio + PALABRAS_COPIADAS).join(' ')),
-  );
-}
+export { copiaLasInstrucciones };
 
 /**
  * Lo que contesta el profesor cuando el modelo no ha dado nada que valga: no ha

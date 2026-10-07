@@ -8,7 +8,7 @@
  *
  * **En producción, sin Stripe, el de mentira no**: el que no deja pagar. Antes
  * devolvía el de mentira también ahí, y una copia publicada a la que le faltara
- * una sola de las cinco variables regalaba el plan Pro a quien pulsara el botón.
+ * una sola de las cinco variables regalaba un plan de pago a quien pulsara el botón.
  * Es lo mismo que hace el correo con `NoMailer`: lo que en desarrollo es cómodo,
  * en producción se cierra.
  *

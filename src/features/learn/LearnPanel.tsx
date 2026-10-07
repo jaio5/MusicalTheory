@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { WebAudioReferenceTone, type ReferenceTone } from '@audio/reference-tone';
 import { midiToFrequency, SCALES, type ScaleId } from '@core/music';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectEscala, selectTonalidadParaAprender, useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
@@ -37,8 +37,9 @@ export interface LearnPanelProps extends ListeningDeps {
 }
 
 export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: LearnPanelProps = {}) {
-  const activeKey = useSessionStore(selectActiveKey);
-  const chosen = useSessionStore((state) => state.scaleId);
+  // Sin tonalidad elegida, la de partida: la escala se toca sin esperar a elegir.
+  const activeKey = useSessionStore(selectTonalidadParaAprender);
+  const chosen = useSessionStore(selectEscala);
   const scaleId = asked ?? chosen;
 
   /*
@@ -66,10 +67,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
     factoryRef.current = createTone;
   });
 
-  const exercise = useMemo(
-    () => (activeKey === null ? null : createExercise(activeKey.tonic, scaleId)),
-    [activeKey, scaleId],
-  );
+  const exercise = useMemo(() => createExercise(activeKey.tonic, scaleId), [activeKey, scaleId]);
 
   // Al cambiar de escala o de tonalidad, el ejercicio anterior ya no vale. Se
   // ajusta durante el render comparando con el anterior, que es lo que React
@@ -82,7 +80,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
   }
 
   useEffect(() => {
-    if (!running || exercise === null) {
+    if (!running) {
       return;
     }
     // Suscribirse al store y actualizar el estado desde su aviso es justo para
@@ -119,7 +117,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
     };
   }, []);
 
-  const step = exercise?.steps[progress.index] ?? null;
+  const step = exercise.steps[progress.index] ?? null;
 
   async function playReference() {
     /* v8 ignore next 3 -- el boton de oir la nota solo se pinta con una nota delante */
@@ -129,17 +127,6 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
     /* v8 ignore next -- sin fabrica se usa el tono de verdad, que en un test no suena */
     toneRef.current ??= factoryRef.current?.() ?? new WebAudioReferenceTone();
     await toneRef.current.play(midiToFrequency(step.midi));
-  }
-
-  if (activeKey === null || exercise === null) {
-    return (
-      <Panel id="aprender" title="Aprender">
-        <p className="text-text-muted mt-4">
-          Elige una tonalidad o toca unas notas sueltas, y aquí sale la escala para practicarla nota
-          a nota.
-        </p>
-      </Panel>
-    );
   }
 
   return (

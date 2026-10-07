@@ -46,7 +46,14 @@ import {
   type SectionRole,
 } from '@core/music';
 
-import { MARCA_DIRECTRICES, seSostiene, type VersionsRequest, type VersionStep } from './contract';
+import { CARACTERES_POR_TOKEN, tokensEnElPeorCaso } from '@core/marca';
+
+import {
+  directricesEntreMarcas,
+  seSostiene,
+  type VersionsRequest,
+  type VersionStep,
+} from './contract';
 import {
   lineaDeSalida,
   MAX_CARACTERES_DEL_MENU,
@@ -274,7 +281,11 @@ interface Partes {
  * porque la tabla mira el menú entero (`menuDe`) y el sitio solo decide cuánto se
  * enseña de él.
  */
-function partes(request: VersionsRequest, cabecera: readonly string[]): Partes {
+function partes(
+  request: VersionsRequest,
+  cabecera: readonly string[],
+  clave?: () => string,
+): Partes {
   const entero = menuDe(request, (motivo, s) => seSostiene(enAcordes(motivo, request), s, request));
   const estilo = lineaDeEstilo(request);
   const punteo = lineaDePunteo(request);
@@ -297,14 +308,18 @@ function partes(request: VersionsRequest, cabecera: readonly string[]): Partes {
     // **Tus directrices, marcadas y al final.** Es el segundo texto libre que
     // entra al modelo —el otro es la pregunta del profesor— y va igual:
     // delimitado, con el prompt de sistema diciendo que lo de dentro es un dato, y
-    // con la marca ya borrada al validar para que nadie cierre el bloque antes de
-    // tiempo. Al final a propósito: es lo último que lee, y tiene que pesar al
-    // elegir.
+    // con una marca de clave nueva que nadie puede escribir para cerrar el bloque
+    // antes de tiempo (adr/0115). Al final a propósito: es lo último que lee, y
+    // tiene que pesar al elegir.
     ...(request.directrices === undefined
       ? []
-      : [`${MARCA_DIRECTRICES}\n${request.directrices}\n${MARCA_DIRECTRICES}`]),
+      : [directricesEntreMarcas(request.directrices, clave)]),
   ];
-  return { antes, menu: enSuSitio(request, entero, [...antes, ...despues]), despues };
+  return {
+    antes,
+    menu: enSuSitio(request, entero, [...antes, ...despues], loQuePesanDeMas(request)),
+    despues,
+  };
 }
 
 /**
@@ -323,9 +338,10 @@ function enSuSitio(
   request: VersionsRequest,
   entero: readonly OpcionDelMenu[],
   fijas: readonly string[],
+  deMas: number,
 ): OpcionDelMenu[] {
-  // Cada línea con su salto.
-  const fijo = fijas.join('\n').length + 1;
+  // Cada línea con su salto, y lo que pesan tus directrices por encima de lo que miden.
+  const fijo = fijas.join('\n').length + 1 + deMas;
   let queda = Math.min(MAX_CARACTERES_DEL_MENU, MAX_CARACTERES_DEL_PROMPT - fijo);
   const caben: OpcionDelMenu[] = [];
   for (const { salida, motivos: enGrados } of entero) {
@@ -342,6 +358,27 @@ function enSuSitio(
     caben.push(linea);
   }
   return caben;
+}
+
+/**
+ * Los caracteres que tus directrices pesan **de más** sobre los que miden.
+ *
+ * El tope del prompt está en caracteres y se cuenta a 3,2 por token, que es lo que
+ * pesa el español. Unas directrices en chino miden 25 caracteres y cuestan como 240
+ * letras (`tokensEnElPeorCaso`): contadas por lo que miden, el menú se comía los
+ * 215 que parecían sobrar y el prompt se pasaba del presupuesto en 67 tokens
+ * (adr/0115). Así ocupan en el tope lo que cuestan.
+ */
+function loQuePesanDeMas(request: VersionsRequest): number {
+  const directrices = request.directrices;
+  if (directrices === undefined) {
+    return 0;
+  }
+  return Math.max(
+    0,
+    // Con una milésima menos: sumar tercios en coma flotante no da exacto.
+    Math.ceil(tokensEnElPeorCaso(directrices) * CARACTERES_POR_TOKEN - 1e-9) - directrices.length,
+  );
 }
 
 /**
@@ -368,8 +405,10 @@ export function promptDeSalidas(
    * `server/`, y la alternativa era copiarla aquí.
    */
   cabecera: readonly string[],
+  /** De dónde sale la clave de la marca de tus directrices: al azar, salvo en las pruebas. */
+  clave?: () => string,
 ): string {
-  const { antes, menu, despues } = partes(request, cabecera);
+  const { antes, menu, despues } = partes(request, cabecera, clave);
   return [
     ...antes,
     ...menu.map(({ salida, motivos }, i) => lineaDeSalida(salida, i + 1, motivos)),

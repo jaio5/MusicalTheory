@@ -83,23 +83,31 @@ export const REPARTOS_DE_FABRICA: Readonly<Record<EspacioDeTrabajo, RepartoDeAre
   // Tocando solo hace falta saber en qué tonalidad estás y darle al botón. El
   // acorde y a dónde ir son para cuando ya hay algo escrito.
   tocando: { ...MEDIDAS, abajo: null, plegadas: ['derecha', 'camino'] },
-  // Escribiendo manda la canción, y al lado el acorde: cómo se toca el que
-  // eliges. La rueda ya cumplió —el tono se elige una vez— y «a dónde ir» viene
-  // plegada **porque el lienzo ya lleva su propia lista**: abiertas las dos,
-  // «Para empezar» y «Por dónde empezar» dicen casi lo mismo en la misma
-  // pantalla. Las dos escriben en la canción; la del lienzo está donde se
-  // arrastra y ésta es el cajón de abajo —las especies, el estilo, el buscador—,
-  // que se abre cuando el acorde que buscas no está en los seis de arriba
+  // Escribiendo manda la canción **y nada más abierto**: el lienzo ya trae lo
+  // imprescindible para los primeros acordes —«La canción está en blanco» y la
+  // lista de «Para empezar»—. La rueda ya cumplió —el tono se elige una vez—;
+  // «a dónde ir» viene plegada **porque el lienzo ya lleva su propia lista**:
+  // abiertas las dos, «Para empezar» y «Por dónde empezar» dicen casi lo mismo
+  // en la misma pantalla
   // ([adr/0032](../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
-  escribir: { ...MEDIDAS, abajo: null, plegadas: ['izquierda', 'camino'] },
+  // Y el acorde también: venía abierto, y lo primero que se leía a la derecha era
+  // «¿Y si lo tocas tú?», que invita a reconocer acordes por el micro, la parte
+  // que más duda. Está a un clic en su tira
+  // ([adr/0109](../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)).
+  escribir: { ...MEDIDAS, abajo: null, plegadas: ['izquierda', 'derecha', 'camino'] },
   // Ensayando no se decide nada: se toca lo que hay. Todo lo demás estorba.
   ensayar: { ...MEDIDAS, abajo: null, plegadas: ['izquierda', 'derecha', 'camino'] },
 };
 
 export const DEFAULT_BANCO: BancoLayout = {
-  // Se entra por tocar: es por donde se empieza una canción, y es la manera que
-  // este proyecto tenía construida y escondida detrás de dos pasos.
-  espacio: 'tocando',
+  // **Se entra por escribir.** Se entraba por tocar, que era la manera que este
+  // proyecto tenía construida y escondida detrás de dos pasos; pero tocando, lo
+  // que se apunta lo decide el reconocedor de acordes, y con una guitarra de
+  // verdad duda —el La menor abierto sale como otro—. La primera canción de
+  // alguien no puede empezar por un acorde que no tocó. Escribiendo, lo que entra
+  // es lo que pulsas, y tocar sigue a un clic
+  // ([adr/0109](../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)).
+  espacio: 'escribir',
   repartos: REPARTOS_DE_FABRICA,
 };
 
@@ -112,7 +120,17 @@ export const TOPES_DEL_BANCO = {
 
 export interface WorkspacePreferences {
   readonly styleId: StyleId;
-  readonly scaleId: ScaleId;
+  /**
+   * La escala elegida a mano, o nula para **la de la tonalidad**: la mayor en
+   * una tonalidad mayor y la menor natural en una menor (`escalaDeLaTonalidad`).
+   *
+   * Fue la pentatónica menor para todo el mundo, y en Do mayor enseñaba Mib y Sib
+   * a quien estaba aprendiendo las notas de Do. Nula no es «sin escala»: es que
+   * nadie ha elegido otra, y por eso se guarda nula y no la que sale ahora, que
+   * cambiaría con la tonalidad sin que nadie la tocara
+   * ([adr/0109](../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)).
+   */
+  readonly scaleId: ScaleId | null;
   readonly tuningId: TuningId;
   readonly pinnedKey: PinnedKey | null;
   readonly banco: BancoLayout;
@@ -136,7 +154,7 @@ export interface MicrofonoGuardado {
 
 export const DEFAULT_PREFERENCES: WorkspacePreferences = {
   styleId: 'rock',
-  scaleId: 'minorPentatonic',
+  scaleId: null,
   tuningId: 'standard',
   pinnedKey: null,
   banco: DEFAULT_BANCO,
@@ -158,7 +176,9 @@ export function parsePreferences(raw: unknown): WorkspacePreferences {
 
   return {
     styleId: unoDe(STYLES, record['styleId'], DEFAULT_PREFERENCES.styleId),
-    scaleId: unoDe(SCALES, record['scaleId'], DEFAULT_PREFERENCES.scaleId),
+    // Lo que alguien guardó se respeta, aunque sea la pentatónica de antes: no se
+    // sabe si la eligió o le vino de fábrica, y quitársela sería decidir por él.
+    scaleId: unoDe(SCALES, record['scaleId'], null),
     tuningId: unoDe(TUNINGS, record['tuningId'], DEFAULT_PREFERENCES.tuningId),
     pinnedKey: parsePinnedKey(record['pinnedKey']),
     banco: parseBanco(record['banco']),
@@ -205,12 +225,23 @@ function parseMicrofono(raw: unknown): MicrofonoGuardado | null {
  * `Object.hasOwn` y no `in`: con `in`, un `toString` guardado pasaría por una
  * escala, porque lo tiene cualquier objeto.
  */
-function unoDe<Id extends string>(
+function unoDe<Id extends string, PorDefecto extends Id | null>(
   catalogo: Readonly<Record<Id, unknown>>,
   raw: unknown,
-  porDefecto: Id,
-): Id {
+  porDefecto: PorDefecto,
+): Id | PorDefecto {
   return typeof raw === 'string' && Object.hasOwn(catalogo, raw) ? (raw as Id) : porDefecto;
+}
+
+/**
+ * La escala que sale de una tonalidad cuando nadie ha elegido otra: la suya.
+ *
+ * La mayor en mayor y la menor natural en menor, que son las que tienen las siete
+ * notas de la armadura y ninguna más. Es lo que espera ver quien aprende las
+ * notas de su tonalidad, y es lo que la rueda ya da por hecho al proponer acordes.
+ */
+export function escalaDeLaTonalidad(mode: KeyMode | null): ScaleId {
+  return mode === 'minor' ? 'naturalMinor' : 'major';
 }
 
 /**

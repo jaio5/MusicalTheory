@@ -15,6 +15,7 @@ import { frequencyToMidi, type FotogramaDeTono } from '@core/music';
 
 import { useClaqueta, volumenQueSuena } from './claqueta';
 import { contarAtras } from './cuenta-atras';
+import { contar } from './metricas';
 
 import {
   entradaActiva,
@@ -391,6 +392,9 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       // avisa cuando cambia: sin esto el primero no se escribía nunca. Sin cuenta
       // no hay compás uno donde ponerlo (`OpcionesDeCaptura`).
       acciones.startCapture(empiezaEn, { conElQueSuena: conCuenta });
+      // Se cuenta al arrancar de verdad, pasada la cuenta atrás: una toma cortada
+      // en la cuenta no es una toma. Solo el evento, nada de lo que suena (adr/0110).
+      contar('toma-grabada');
       setFase('tocando');
     },
     [acciones, contarAntesDeApuntar, escucha],

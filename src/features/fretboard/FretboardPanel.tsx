@@ -2,7 +2,7 @@
 
 import { accidentalForScale, SCALES, scaleNotes, noteName } from '@core/music';
 import { useAcordeElegido } from '@state/acorde-elegido';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, selectEscala, useSessionStore } from '@state/session-store';
 
 import { EscalaDelMastil } from './EscalaDelMastil';
 import { Fretboard, PROPORCION } from './Fretboard';
@@ -49,7 +49,7 @@ const ALTO_DE_LA_HOJA_REM = 18;
  */
 export function RotulosDelMastil() {
   const activeKey = useSessionStore(selectActiveKey);
-  const scaleId = useSessionStore((state) => state.scaleId);
+  const scaleId = useSessionStore(selectEscala);
   const delMontaje = useAcordeElegido();
   const delCamino = useSessionStore((state) => state.path.at(-1) ?? null);
   const elegido = delMontaje ?? delCamino;
@@ -92,7 +92,7 @@ export function RotulosDelMastil() {
  */
 export function FretboardPanel({ hoja = false }: { readonly hoja?: boolean } = {}) {
   const activeKey = useSessionStore(selectActiveKey);
-  const scaleId = useSessionStore((state) => state.scaleId);
+  const scaleId = useSessionStore(selectEscala);
   /**
    * La nota que suena, como número y no como lectura.
    *

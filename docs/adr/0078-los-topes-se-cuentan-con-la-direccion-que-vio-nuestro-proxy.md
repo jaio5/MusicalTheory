@@ -4,6 +4,11 @@ Fecha: 2026-10-02 · Estado: aceptada · Sustituye en parte a
 [ADR 0054](./0054-entrar-tiene-tope-de-intentos.md): la tabla de claves y la cifra
 de `scrypt`
 
+> **Completado por [ADR 0113](./0113-los-topes-cuentan-lo-que-cabe-y-agrupan-lo-que-es-de-uno.md):**
+> una IPv6 cuenta por su /64; el correo va en las claves con su huella; sin
+> `TRUSTED_PROXY_HOPS` en producción el aviso sale al arrancar, en grande, y `0` lo
+> calla a sabiendas.
+
 ## Contexto
 
 La auditoría de seguridad del 2 de octubre probó los topes de frecuencia por fuera y

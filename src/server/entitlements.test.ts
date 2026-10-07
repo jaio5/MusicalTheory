@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { levantarBaseDePrueba, type BaseDePrueba } from './db/para-tests';
 import type * as Entitlements from './entitlements';
@@ -44,8 +44,12 @@ beforeEach(async () => {
   currentCookie.mockResolvedValue(null);
 });
 
-async function entrar(plan: 'gratis' | 'basico' | 'medio' | 'pro' = 'gratis') {
-  const creada = await users.createUser({ email: 'a@b.c', password: 'unaContrasenaLarga' });
+async function entrar(plan: 'gratis' | 'basico' | 'medio' = 'gratis') {
+  const creada = await users.createUser({
+    mayorDe14: true,
+    email: 'a@b.c',
+    password: 'unaContrasenaLarga',
+  });
   if (creada.kind !== 'ok') {
     throw new Error(creada.kind);
   }
@@ -104,9 +108,9 @@ describe('quién está pidiendo', () => {
 describe('los cupos que da cada plan', () => {
   it('salen del modelo que hay puesto, no de un número escrito', async () => {
     const gratis = entitlements.limitsFor('gratis');
-    const pro = entitlements.limitsFor('pro');
+    const medio = entitlements.limitsFor('medio');
 
-    expect(pro.monthly).toBeGreaterThan(gratis.monthly);
+    expect(medio.monthly).toBeGreaterThan(gratis.monthly);
     expect(gratis.daily).toBeLessThanOrEqual(gratis.monthly);
   });
 });
@@ -212,5 +216,122 @@ describe('pedirle algo al modelo', () => {
     const pasado = await entitlements.spendAi('profesor');
 
     expect(pasado.kind === 'cupo' && pasado.scope).toBe('mes');
+  });
+});
+
+/**
+ * **El ataque de la auditoría** (adr/0114): sin confirmar el correo, cada cuenta
+ * gratis nueva trae su cupo, y nada acotaba la suma. Con cien direcciones
+ * registrando al ritmo que deja el límite eran unos 650 $ por hora con Sonnet
+ * 5.5. Aquí, en pequeño: veinte cuentas gratis gastando su cupo del día contra un
+ * techo de lo gratis de diez céntimos.
+ */
+describe('el techo de gasto de todos', () => {
+  const VARIABLES = ['ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL', 'IA_TOPE_GRATIS_DIARIO_USD'];
+  beforeEach(() => {
+    process.env['ANTHROPIC_API_KEY'] = 'sk-de-mentira';
+    process.env['ANTHROPIC_MODEL'] = 'claude-sonnet-5-5';
+    process.env['IA_TOPE_GRATIS_DIARIO_USD'] = '0.1';
+  });
+  afterEach(() => {
+    for (const v of VARIABLES) {
+      delete process.env[v];
+    }
+  });
+
+  async function otraCuenta(i: number, plan: 'gratis' | 'medio' = 'gratis') {
+    const creada = await users.createUser({
+      mayorDe14: true,
+      email: `atacante-${i}@dominio-inventado.invalid`,
+      password: 'unaContrasenaLarga',
+    });
+    if (creada.kind !== 'ok') {
+      throw new Error(creada.kind);
+    }
+    await users.setPlan(creada.user.id, plan);
+    currentCookie.mockResolvedValue({ id: creada.user.id, sessionVersion: 0 });
+  }
+
+  it('veinte cuentas gratis no pasan del techo de lo gratis', async () => {
+    const { requestCostMicros } = await import('@core/billing');
+    const { daily } = entitlements.limitsFor('gratis');
+    const porPregunta = requestCostMicros('profesor', 'claude-sonnet-5-5');
+    const caben = Math.floor(100_000 / porPregunta);
+
+    let servidas = 0;
+    let cerradas = 0;
+    for (let i = 0; i < 20; i += 1) {
+      await otraCuenta(i);
+      for (let j = 0; j < daily; j += 1) {
+        const v = await entitlements.spendAi('profesor');
+        servidas += v.kind === 'ok' ? 1 : 0;
+        cerradas += v.kind === 'tope-global' ? 1 : 0;
+      }
+    }
+
+    // Sin el techo eran las veinte por su cupo diario: sesenta preguntas.
+    expect(20 * daily).toBeGreaterThan(caben);
+    expect(servidas).toBe(caben);
+    expect(cerradas).toBe(20 * daily - caben);
+  }, 60_000);
+
+  it('cerrar lo gratis no cierra lo que se paga, ni gasta su cupo', async () => {
+    process.env['IA_TOPE_GRATIS_DIARIO_USD'] = '0';
+    await otraCuenta(0);
+    const gratis = await entitlements.spendAi('profesor');
+    expect(gratis).toMatchObject({ kind: 'tope-global', quien: 'gratis', cuando: 'dia' });
+    expect((await entitlements.currentAccount()).aiLeftMonth).toBe(
+      entitlements.limitsFor('gratis').monthly,
+    );
+
+    await otraCuenta(1, 'medio');
+    const pagando = await entitlements.spendAi('profesor');
+    expect(pagando.kind).toBe('ok');
+    expect(pagando.kind === 'ok' && pagando.reserva?.gratis).toBe(false);
+  });
+
+  it('con la sesión que le pasa la ruta no la vuelve a leer', async () => {
+    await otraCuenta(0);
+    const sesion = (await entitlements.currentSession())!;
+    currentCookie.mockReset();
+
+    const v = await entitlements.spendAi('profesor', {
+      ...sesion,
+      account: { ...sesion.account, email: null },
+    });
+
+    expect(v.kind).toBe('ok');
+    expect(currentCookie).not.toHaveBeenCalled();
+  });
+
+  it('si el cupo dice que no, la reserva se devuelve', async () => {
+    const { gastoDelMes } = await import('./ai-gasto');
+    await otraCuenta(0);
+    const { daily } = entitlements.limitsFor('gratis');
+    for (let i = 0; i < daily; i += 1) {
+      await entitlements.spendAi('profesor');
+    }
+    const antes = (await gastoDelMes())?.micros;
+
+    expect((await entitlements.spendAi('profesor')).kind).toBe('cupo');
+    expect((await gastoDelMes())?.micros).toBe(antes);
+  });
+
+  it('sin poder contar el gasto, no se sirve', async () => {
+    await otraCuenta(0);
+    await base.ejecutar('alter table ai_gasto rename to ai_gasto_escondida');
+    try {
+      expect((await entitlements.spendAi('profesor')).kind).toBe('sin-contador');
+    } finally {
+      await base.ejecutar('alter table ai_gasto_escondida rename to ai_gasto');
+    }
+  });
+
+  it('sin la API —modelo de casa o dominio— no se cuesta y no pasa por el techo', async () => {
+    delete process.env['ANTHROPIC_API_KEY'];
+    process.env['IA_TOPE_GRATIS_DIARIO_USD'] = '0';
+    await otraCuenta(0);
+
+    expect(await entitlements.spendAi('profesor')).toMatchObject({ kind: 'ok', reserva: null });
   });
 });

@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EMPTY_PROGRESS } from '@core/music';
+import { EMPTY_PROGRESS, UNIT_ORDER } from '@core/music';
+
+const contar = vi.fn();
+vi.mock('./metricas', () => ({ contar: (...a: unknown[]) => contar(...a) }));
 
 import { clearProgress, loadProgress, saveProgress, today } from './learn-progress';
 
@@ -91,5 +94,39 @@ describe('lo que llevas aprendido', () => {
 
     expect(loadProgress()).toEqual(EMPTY_PROGRESS);
     expect(() => clearProgress()).not.toThrow();
+  });
+});
+
+/**
+ * La unidad terminada se cuenta al guardar, que es por donde pasan todas, y
+ * solo cuando de verdad es una terminada hoy y no una fusión con otro aparato.
+ */
+describe('contar la unidad terminada', () => {
+  const [una, otra] = UNIT_ORDER as readonly string[];
+
+  beforeEach(() => {
+    localStorage.clear();
+    contar.mockClear();
+  });
+
+  it('una nueva, hoy: se cuenta', () => {
+    saveProgress({ ...EMPTY_PROGRESS, done: [una!], lastDay: today() });
+    expect(contar).toHaveBeenCalledWith('unidad-terminada');
+  });
+
+  it('volver a guardar lo mismo no la cuenta otra vez', () => {
+    saveProgress({ ...EMPTY_PROGRESS, done: [una!], lastDay: today() });
+    saveProgress({ ...EMPTY_PROGRESS, done: [una!], lastDay: today(), xp: 5 });
+    expect(contar).toHaveBeenCalledTimes(1);
+  });
+
+  it('dos de golpe es una fusión, no dos terminadas', () => {
+    saveProgress({ ...EMPTY_PROGRESS, done: [una!, otra!], lastDay: today() });
+    expect(contar).not.toHaveBeenCalled();
+  });
+
+  it('una que llega con la fecha de otro día viene de otro aparato', () => {
+    saveProgress({ ...EMPTY_PROGRESS, done: [una!], lastDay: '2020-01-01' });
+    expect(contar).not.toHaveBeenCalled();
   });
 });

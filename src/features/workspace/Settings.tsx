@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 import { SCALE_IDS, SCALES, STYLE_GROUPS, STYLES, type ScaleId, type StyleId } from '@core/music';
-import { useSessionStore } from '@state/session-store';
+import { selectEscala, useSessionStore } from '@state/session-store';
 import { Field } from '@ui/Field';
 
 import { NotasDeLaEscala } from './NotasDeLaEscala';
@@ -26,7 +26,7 @@ import { NotasDeLaEscala } from './NotasDeLaEscala';
  * pantalla los anuncia, y en un teléfono sale la rueda de siempre.
  */
 export function Settings() {
-  const scaleId = useSessionStore((state) => state.scaleId);
+  const scaleId = useSessionStore(selectEscala);
   const styleId = useSessionStore((state) => state.styleId);
   const actions = useSessionStore((state) => state.actions);
 

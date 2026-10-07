@@ -88,6 +88,7 @@ Después de la veinte, en un solo día (26 de agosto de 2026):
 | Aprender sigue al conservatorio: 41 unidades que se presentan antes de enseñar, y dictado de intervalos.            |
 | Las salidas se juzgan por lo que encajan: contexto en la petición, once criterios y tres exámenes.                  |
 | Estética e interfaz: el mástil es una hoja en el teléfono, el dedo sujeta antes de arrastrar y no hay campo a mano. |
+| Primeros cinco minutos: recorrido de 5 pasos sin modal, aprender en Do mayor y se entra por escribir.               |
 
 ## Los fallos que enseñaron algo
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { serverDay, serverMonth } from './ai-usage';
+import { guardarGastoDelCorreo, huellaDelCorreo, serverDay, serverMonth } from './ai-usage';
 
 /**
  * Los dos contadores viven en Postgres y su corrección la sostiene una sentencia
@@ -39,5 +39,19 @@ describe('el día y el mes del cupo', () => {
       const momento = new Date(iso);
       expect(serverDay(momento).startsWith(serverMonth(momento))).toBe(true);
     }
+  });
+});
+
+/** La huella del correo de una cuenta borrada (adr/0114): nunca el correo. */
+describe('la huella del correo', () => {
+  it('no es el correo, y no cambia con mayúsculas ni espacios', () => {
+    const huella = huellaDelCorreo('ana@x.es');
+    expect(huella).not.toContain('ana');
+    expect(huellaDelCorreo(' Ana@X.es ')).toBe(huella);
+    expect(huellaDelCorreo('otra@x.es')).not.toBe(huella);
+  });
+
+  it('sin base de datos no se puede guardar, y quien borra no borra', async () => {
+    expect(await guardarGastoDelCorreo('u', 'ana@x.es')).toBe(false);
   });
 });

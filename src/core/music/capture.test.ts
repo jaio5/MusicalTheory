@@ -18,6 +18,7 @@ import { PARECIDO_MINIMO } from './chord-matching';
 import { normalizePitchClass, pitchClassFromName, type PitchClass } from './notes';
 
 const C = pitchClassFromName('C');
+const Db = pitchClassFromName('Db');
 const D = pitchClassFromName('D');
 const Eb = pitchClassFromName('Eb');
 const E = pitchClassFromName('E');
@@ -596,6 +597,28 @@ describe('las alternativas que trae el motor', () => {
     // Seis pulsos de Do: los dos trozos sumados, no dos pasos.
     expect(capture.steps[0]?.beats).toBe(6);
     expect(capture.steps[0]?.confidence).toBeCloseTo(0.1);
+  });
+});
+
+describe('el mismo grado a los dos lados de algo que no se leyó', () => {
+  /**
+   * El primer colapso solo mira el acorde oído justo antes, y aquí es un ruido
+   * que no se pudo leer. El segundo mira el último paso escrito: Do, ruido, Do
+   * es un Do que duró más, con un hueco apuntado para preguntar, no dos Do.
+   */
+  it('se funde con el paso de antes y apunta el hueco', () => {
+    const conRuido: CapturedChord[] = [
+      { ...mayor(C, 0), margin: 0.9 },
+      { root: Db, notes: [Db, D, Eb], at: 2 * PULSO },
+      { ...mayor(C, 4 * PULSO), margin: 0.2 },
+      mayor(G, 8 * PULSO),
+    ];
+
+    const capture = captureProgression(conRuido, { ...EN_DO, endedAt: 12 * PULSO });
+
+    expect(capture.steps.map((paso) => paso.degree)).toEqual(['I', 'V']);
+    expect(capture.steps[0]?.confidence).toBeCloseTo(0.2);
+    expect(capture.unread).toEqual([{ at: 2 * PULSO, beats: 2, symbol: null, reason: 'ilegible' }]);
   });
 });
 

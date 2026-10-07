@@ -115,8 +115,10 @@ playwright-cli close
 
 ## Trampas que ya han mordido
 
-- **El recorrido de la primera visita sale en cada contexto nuevo** y tapa la
-  pantalla con un `<dialog>` modal. Antes de navegar:
+- **El recorrido de la primera visita sale en cada contexto nuevo**: una tarjeta
+  sin modal junto a la pieza que explica, que no bloquea pero tapa su trozo y sale
+  en las medidas ([adr/0108](../../../docs/adr/0108-el-recorrido-sale-por-pantallas.md)).
+  Antes de navegar:
   `await ctx.addInitScript(() => localStorage.setItem('caos-ordenado:recorrido', 'visto'))`.
   Los `.mjs` de aquí ya lo hacen; uno nuevo tiene que hacerlo también, o medirá la
   tarjeta y su trozo de código.

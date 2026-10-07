@@ -18,7 +18,12 @@ const spendAi = vi.fn(async () => ({ kind: 'ok', account: {}, leftMonth: 10 }) a
 const askModel = vi.fn();
 const salidasPosibles = vi.fn();
 
-vi.mock('@server/entitlements', () => ({ spendAi: () => spendAi() }));
+// Una cuenta nueva en cada petición: el límite por minuto es de la cuenta
+// (adr/0114), y aquí no es lo que se prueba.
+vi.mock('@server/entitlements', () => ({
+  spendAi: () => spendAi(),
+  currentSession: async () => ({ userId: crypto.randomUUID(), account: {} }),
+}));
 vi.mock('@server/ask-model', async (original) => ({
   ...(await original<typeof AskModel>()),
   modelAvailable: () => true,

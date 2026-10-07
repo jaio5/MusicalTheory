@@ -5,6 +5,8 @@ import { lazy, Suspense } from 'react';
 
 import { useRecorrido } from '@state/recorrido';
 
+import { tramoPara } from './tramos';
+
 /**
  * El recorrido llega **solo a quien le toca**.
  *
@@ -23,11 +25,9 @@ const Recorrido = lazy(() =>
 
 /**
  * **Un trámite no se interrumpe con una visita guiada.** Quien llega del correo a
- * `/olvidada?vale=…` viene a cambiar la contraseña, y el recorrido, al acabar,
- * le devolvía a la ruta sin la consulta: sin el vale, la pantalla le pedía el
- * correo otra vez. En estas rutas no empieza; sale en la siguiente pantalla de
- * trabajo que abra. Uno ya empezado no pasa por aquí: sus pasos nunca llevan a
- * un trámite.
+ * `/olvidada?vale=…` viene a cambiar la contraseña, no a que le enseñen la
+ * aplicación. En estas rutas no sale; sale en la siguiente pantalla de trabajo
+ * que abra.
  */
 const TRAMITES = ['/olvidada', '/registro', '/cuenta', '/planes'];
 
@@ -35,15 +35,25 @@ function esTramite(ruta: string): boolean {
   return TRAMITES.some((tramite) => ruta === tramite || ruta.startsWith(`${tramite}/`));
 }
 
+/**
+ * Y **solo el tramo de esta pantalla** (`tramoPara`): la bienvenida en la
+ * primera, y el de aprender, componer o afinar al llegar a cada una. Si no toca
+ * ninguno, no se descarga nada.
+ */
 export function LanzadorDelRecorrido() {
   const estado = useRecorrido();
   const ruta = usePathname();
-  if (estado.visto || (estado.origen === null && esTramite(ruta))) {
+  if (estado.visto || esTramite(ruta)) {
     return null;
   }
+  const tramo = tramoPara(estado.vistos, ruta);
+  if (tramo === null) {
+    return null;
+  }
+  // `key`: otro tramo es otra tarjeta, que se busca su pieza desde cero.
   return (
     <Suspense fallback={null}>
-      <Recorrido estado={estado} />
+      <Recorrido key={tramo} tramo={tramo} estado={estado} />
     </Suspense>
   );
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { act, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -265,60 +265,27 @@ describe('sin tonalidad', () => {
     useSessionStore.getState().actions.reset();
   });
 
-  it('la presentación se ve, y ofrece cuatro tonalidades ahí mismo', () => {
+  /**
+   * **No la pide: escribe la unidad en Do mayor.** La primera unidad empezaba
+   * preguntando por la tonalidad a quien venía a aprender qué es una nota.
+   */
+  it('no ofrece tonalidades: la presentación lleva directa a empezar', () => {
     pintarUnidad();
 
     expect(screen.getByText(presentacionDe(GRADOS.id).resumen)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'C mayor' })).toBeInTheDocument();
-    // Un botón no nace apagado por lo que falta.
+    expect(screen.queryByRole('button', { name: 'C mayor' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Empezar' })).toBeEnabled();
   });
 
-  it('empezar sin ella lleva a pedirla, sin ofrecer pasar a unas preguntas que no hay', async () => {
+  it('la teoría y las preguntas salen en Do mayor, sin fijarla', async () => {
     pintarUnidad();
     await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
 
-    expect(screen.getByText('Falta la tonalidad')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Ponerlo a prueba' })).toBeNull();
-  });
-
-  it('en la prueba también la pide', async () => {
-    pintarUnidad({ yaHecha: true });
-    await userEvent.click(screen.getByRole('button', { name: 'Ir directo a las preguntas' }));
-
-    expect(screen.getByText(/Las preguntas se escriben con sus acordes/)).toBeInTheDocument();
-  });
-
-  /**
-   * Los cuatro atajos desaparecen al elegir uno, y con ellos el foco: se lleva
-   * al título para que quien no ve la pantalla no pierda el sitio.
-   */
-  it('elegirla desde la presentación lleva el foco al título', async () => {
-    pintarUnidad();
-
-    await userEvent.click(screen.getByRole('button', { name: 'C mayor' }));
-
-    expect(screen.getByRole('heading', { level: 2, name: GRADOS.title })).toHaveFocus();
-    expect(screen.queryByRole('button', { name: 'C mayor' })).toBeNull();
-  });
-
-  // Si se eligió desde otro sitio, el foco está donde lo dejó quien la usaba.
-  it('elegida desde fuera con el foco en su sitio, no se lo quita', async () => {
-    render(
-      <>
-        <button type="button">Otra cosa</button>
-        <AccountProvider account={ANONYMOUS} accounts={false}>
-          <TheoryUnit unit={GRADOS} onDone={() => {}} />
-        </AccountProvider>
-      </>,
-    );
-    screen.getByRole('button', { name: 'Otra cosa' }).focus();
-
-    act(() => {
-      useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
-    });
-
-    expect(screen.getByRole('button', { name: 'Otra cosa' })).toHaveFocus();
+    const C = pitchClassFromName('C');
+    expect(screen.getByText(lessonNotes('degrees', C, 'major').points[0]!)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ponerlo a prueba' })).toBeInTheDocument();
+    // Es la de partida, no una elegida: componer sigue pidiendo la de tu canción.
+    expect(useSessionStore.getState().pinnedKey).toBeNull();
   });
 });
 

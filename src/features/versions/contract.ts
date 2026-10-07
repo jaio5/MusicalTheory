@@ -52,7 +52,8 @@ import {
   loQueNoEsVerdad,
 } from '@core/music';
 import { aiError, type AiError, type AiErrorCode } from '@core/ai-errors';
-import { sinMarca } from '@core/marca';
+import { entreMarcas, textoLibre } from '@core/marca';
+import { copiaLasInstrucciones, esUnCebo } from '@core/prosa-del-modelo';
 import { isRecord } from '@core/parse';
 
 import { contextoDe, salidasDe } from './menu';
@@ -67,27 +68,32 @@ import { contextoDe, salidasDe } from './menu';
 export { MAX_DIRECTRICES_LENGTH, MAX_VERSION_DEGREES, MAX_VERSIONS };
 
 /**
- * La marca que delimita tus directrices dentro del prompt.
+ * La palabra de la marca que delimita tus directrices dentro del prompt.
  *
- * Mismo mecanismo que la pregunta del profesor —`MARCA_PREGUNTA`— y por la misma
+ * Mismo mecanismo que la pregunta del profesor —`PALABRA_PREGUNTA`— y por la misma
  * razón: lo de dentro lo escribes tú, así que el prompt de sistema dice que es un
  * dato y nunca una instrucción. No es una defensa perfecta, ninguna lo es contra
  * una inyección decidida, pero convierte el «ignora lo anterior» en una frase más
  * dentro de un bloque marcado.
  *
- * Y `parseVersionsRequest` la borra de lo que escribas, en cualquiera de sus
- * formas (`sinMarca`), porque si no, escribirla cerraría el bloque antes de tiempo
- * y lo de después se leería como instrucciones nuestras: exactamente lo que se
- * está evitando.
+ * **La marca lleva una clave nueva en cada petición** (`directricesEntreMarcas`), y
+ * solo la cierra la misma marca con la misma clave, que no ves (adr/0115). Y
+ * `parseVersionsRequest` borra de lo que escribas todo lo que se le parezca,
+ * escrito como se escriba (`core/marca.ts`).
  */
-export const MARCA_DIRECTRICES = '###DIRECTRICES###';
+export const PALABRA_DIRECTRICES = 'DIRECTRICES';
+
+/** Tus directrices entre sus dos marcas, con una clave nueva (`core/marca.ts`). */
+export function directricesEntreMarcas(directrices: string, clave?: () => string): string {
+  return entreMarcas(directrices, PALABRA_DIRECTRICES, clave);
+}
 
 /**
  * Lo más largos que pueden ser el título y el porqué de una salida.
  *
  * **Son la única prosa del modelo que llega a la pantalla** —los acordes se
  * recalculan contra el dominio, el texto no— y no tenían tope ninguno: ni en el
- * esquema ni al validar, solo «que no esté vacío». Con `MARCA_DIRECTRICES` abierto
+ * esquema ni al validar, solo «que no esté vacío». Con las directrices abiertas
  * eso pasó a ser lo que una inyección podría usar para escribirte algo, así que se
  * cierra por construcción y no confiando en que el prompt se respete. El prompt ya
  * pide menos de sesenta caracteres de título y una sola frase: esto es lo mismo,
@@ -311,10 +317,11 @@ function leerDirectrices(crudo: unknown): string | null {
   if (typeof crudo !== 'string') {
     return null;
   }
-  // Cualquier forma de la marca, no solo la exacta: lo mismo que la pregunta del
-  // profesor, y por lo mismo (`core/marca.ts`).
-  const limpias = sinMarca(crudo, 'DIRECTRICES').trim();
-  return limpias === '' ? null : limpias.slice(0, MAX_DIRECTRICES_LENGTH);
+  // Recortadas antes de limpiarlas, sin nada con forma de marca y con su tope en
+  // el peor alfabeto: lo mismo que la pregunta del profesor, y por lo mismo
+  // (`core/marca.ts`, adr/0115).
+  const limpias = textoLibre(crudo, PALABRA_DIRECTRICES, MAX_DIRECTRICES_LENGTH);
+  return limpias === '' ? null : limpias;
 }
 
 /** Lo que sale de leer el cuerpo: la petición, o nulo y, si lo hay, por qué. */
@@ -921,6 +928,7 @@ function versionDe(
   request: VersionsRequest,
   title: string,
   why: string,
+  instrucciones?: string,
 ): Version {
   const { mode } = request.key;
   const tonica = pitchClassFromName(request.key.tonic);
@@ -975,9 +983,31 @@ function versionDe(
     // Lo que diga algo que la salida no tiene se cambia por lo que dice el dominio,
     // que la construyó y no puede equivocarse sobre ella. No se tira la salida: los
     // acordes son buenos, lo que sobra es la frase.
-    title: loQueNoEsta(title, sinTexto, request) === null ? title : salida.nombre,
-    why: loQueNoEsta(why, sinTexto, request) === null ? why : salida.que,
+    title: seDeja(title, sinTexto, request, instrucciones) ? title : salida.nombre,
+    why: seDeja(why, sinTexto, request, instrucciones) ? why : salida.que,
   };
+}
+
+/**
+ * Si una frase del modelo se puede pintar sobre esa salida.
+ *
+ * **Lo primero, que no sea un cebo ni copie las instrucciones**, sin mirar de qué
+ * habla: con las directrices inyectadas, `qwen3:8b` devolvió tres de tres veces el
+ * título «Renueva tu cuenta en evil.example», y nada lo miraba porque no nombraba
+ * ningún acorde (adr/0115). Luego, que no diga nada que la salida no tiene
+ * (`loQueNoEsta`).
+ */
+function seDeja(
+  texto: string,
+  version: Version,
+  request: VersionsRequest,
+  instrucciones: string | undefined,
+): boolean {
+  return (
+    !esUnCebo(texto) &&
+    !copiaLasInstrucciones(texto, instrucciones) &&
+    loQueNoEsta(texto, version, request) === null
+  );
 }
 
 /**
@@ -1012,11 +1042,18 @@ export function seSostiene(
  *
  * - **que el número exista**, y que no repita uno ya elegido;
  * - **que el título y el porqué no mientan** (`loQueNoEsta`): si nombran un acorde
- *   o un movimiento que no está, se cambian por los del dominio.
+ *   o un movimiento que no está, se cambian por los del dominio;
+ * - **y que no sean un cebo ni una copia de las instrucciones** (`seDeja`): un
+ *   enlace, un correo o una contraseña se cambian igual, hablen de lo que hablen.
  *
  * Los cifrados no se creen: se recalculan desde los grados, como siempre.
  */
-export function validateVersions(payload: unknown, request: VersionsRequest): Version[] {
+export function validateVersions(
+  payload: unknown,
+  request: VersionsRequest,
+  /** El prompt de sistema, para tapar el título o el porqué que lo copie. */
+  instrucciones?: string,
+): Version[] {
   if (!isRecord(payload) || !Array.isArray(payload['versions'])) {
     return [];
   }
@@ -1050,6 +1087,7 @@ export function validateVersions(payload: unknown, request: VersionsRequest): Ve
         // salida mala.
         title.trim().slice(0, MAX_VERSION_TITLE_LENGTH),
         why.trim().slice(0, MAX_VERSION_WHY_LENGTH),
+        instrucciones,
       ),
     );
   }

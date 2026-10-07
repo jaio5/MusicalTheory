@@ -57,6 +57,31 @@ const SALT_LENGTH = 16;
  */
 const MAXMEM = 64 * 1024 * 1024;
 
+/**
+ * Lo más larga que puede ser una contraseña: 1024 caracteres.
+ *
+ * **No había tope**, y lo que lo acotaba era lo que dejara pasar el cuerpo de la
+ * petición: la entrada la lee Auth.js sin el tope de 128 KB de las demás rutas, y
+ * una de 10 MB en ligaduras —que NFKC triplica— llegaba entera a `scrypt`. Mil
+ * caracteres sobran para cualquier gestor de contraseñas (suelen dar de 20 a 64) y
+ * para una frase larga, y dejan el trabajo de antes de `scrypt` en nada
+ * ([adr/0113](../../docs/adr/0113-los-topes-cuentan-lo-que-cabe-y-agrupan-lo-que-es-de-uno.md)).
+ *
+ * Lo comprueban quien crea, cambia y restablece una contraseña —con el resultado
+ * `contrasena-corta`, que quiere decir «fuera de medida»— y `verifyPassword`, que
+ * dice que no sin derivar nada.
+ */
+export const MAX_PASSWORD_LENGTH = 1024;
+
+/** Si una contraseña nueva tiene una longitud que se acepta: ni corta ni enorme. */
+export function contrasenaDeMedida(password: unknown, minimo: number): password is string {
+  return (
+    typeof password === 'string' &&
+    password.length >= minimo &&
+    password.length <= MAX_PASSWORD_LENGTH
+  );
+}
+
 /** Los parámetros con los que se cifra hoy, en el orden del formato guardado. */
 function parametros(): string {
   return ['scrypt', N, R, P].join('$');
@@ -155,6 +180,12 @@ export async function hashPassword(password: string): Promise<string> {
  * pantalla de entrar.
  */
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  // Más larga que el tope ya no se guarda ninguna, así que no puede ser la buena:
+  // se dice que no sin gastar `scrypt` en ella. Una de antes del tope que lo
+  // pasara —mil caracteres a mano— tendría que pedir el enlace de recuperarla.
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return false;
+  }
   const parts = stored.split('$');
   if (parts.length !== 6 || parts[0] !== 'scrypt') {
     return false;

@@ -1,6 +1,6 @@
 # ADR 0031 — Componer es un banco de trabajo, no dos caras
 
-Fecha: 2026-09-17 · Estado: aceptada · Revisa: [ADR 0018](./0018-el-lienzo-de-montar.md) y la vista doble de [ADR 0019](./0019-punteos-y-partitura.md)
+Fecha: 2026-09-17 · Estado: aceptada, ajustada por [ADR 0109](./0109-lo-que-se-da-por-hecho-al-empezar.md) (se entra por escribir, con solo la canción abierta) · Revisa: [ADR 0018](./0018-el-lienzo-de-montar.md) y la vista doble de [ADR 0019](./0019-punteos-y-partitura.md)
 
 ## Contexto
 

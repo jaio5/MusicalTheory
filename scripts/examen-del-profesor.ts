@@ -27,25 +27,29 @@
  * que no pasa son las puertas —frecuencia, cuenta y cupo—, que no cambian lo que
  * se contesta.
  *
- *     pnpm examen:profesor [--detalle] [--solo <categoría>] [--json <fichero>]
+ *     pnpm examen:profesor [--api] [--detalle] [--solo <categoría>] [--json <fichero>]
  *     pnpm examen:profesor --releer <fichero>
  *
  * `--releer` no le pregunta nada al modelo: vuelve a corregir con este banco lo que
  * contestó otra pasada guardada con `--json`. Sirve para comparar un antes y un
  * después con el mismo banco aunque el banco haya crecido en medio.
  *
- * Pide `OLLAMA_URL` en el `.env` y un Ollama con el modelo descargado, y **sin
- * `ANTHROPIC_API_KEY`**: con clave contestaría la API y se pagaría. **No está entre
- * los seis comandos**: sin modelo no hay nada que examinar, y en CI no lo hay.
+ * Pide `OLLAMA_URL` en el `.env` y un Ollama con el modelo descargado —el modelo se
+ * cambia con `OLLAMA_MODEL`—. **Contra la API de pago**, `ANTHROPIC_API_KEY` y
+ * `--api`, y el modelo con `ANTHROPIC_MODEL`: sin `--api` se para y dice cuánto
+ * costaría (`contra-la-api.ts`, `docs/MEDIR.md`). **No está entre los seis
+ * comandos**: sin modelo no hay nada que examinar, y en CI no lo hay.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
 import type { KeyMode, NoteName } from '@core/music';
 import { FUERA_DE_TEMA, parseTeacherRequest } from '@features/learn/teacher-contract';
-import { modelProvider } from '@server/ai-model';
+import { configuredModel, modelProvider } from '@server/ai-model';
 import { preguntarAlModelo } from '@server/ai-intentos';
 
 import { PROFESOR } from '@/app/api/teacher/prompt';
+
+import { puertaDelExamen } from './contra-la-api';
 
 /** De qué clase es cada pregunta. Las cifras salen por clase. */
 type Categoria = 'teoria' | 'mal-escrita' | 'aplicacion' | 'fuera' | 'inyeccion';
@@ -976,13 +980,6 @@ const solo = opcion('--solo');
 const json = opcion('--json');
 const releer = opcion('--releer');
 
-if (releer === undefined && modelProvider() !== 'local') {
-  console.error(
-    'El examen es contra el modelo de casa: pon OLLAMA_URL en el .env y deja ANTHROPIC_API_KEY vacía.',
-  );
-  process.exit(1);
-}
-
 /**
  * Una pregunta, por el camino de la ruta: prompt, modelo, validador, un reintento
  * con otra temperatura y el respaldo. Devuelve lo que habría salido en pantalla, o
@@ -1083,7 +1080,14 @@ function tonalidad(pregunta: Pregunta): string {
 }
 
 const banco = PREGUNTAS.filter((p) => solo === undefined || p.categoria === solo);
-console.log(`Examen del profesor contra el modelo de casa: ${banco.length} preguntas.\n`);
+if (releer === undefined) {
+  puertaDelExamen('profesor', banco.length, argumentos);
+}
+console.log(
+  releer === undefined
+    ? `Examen del profesor contra ${configuredModel()} (${modelProvider()}): ${banco.length} preguntas.\n`
+    : `Examen del profesor, releyendo ${releer}: ${banco.length} preguntas.\n`,
+);
 
 const resultados: Resultado[] = [];
 for (const pregunta of banco) {

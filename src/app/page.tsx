@@ -64,7 +64,7 @@ const SCREENS: ReadonlyArray<{
     href: '/aprender',
     name: 'Aprender',
     headline: 'Un camino de diez cursos, y empiezas por donde quieras',
-    body: 'Dos grados y diez cursos de unidades cortas, con su meta del día y su racha. Las preguntas se escriben en la tonalidad en la que estés, no en un C mayor de libro, y al contestar te dicen por qué, aciertes o falles. La mitad de las unidades son de tocar: la aplicación oye si la nota ha sonado limpia antes de pasar a la siguiente. Y si ya sabes teoría, eliges el curso por el que entras y no pasas por lo que ya te sabes.',
+    body: 'Dos grados y diez cursos de unidades cortas, con su meta del día y su racha. La primera empieza por las notas, sin pedirte nada; cuando eliges tonalidad, las preguntas se escriben con sus acordes, y al contestar te dicen por qué, aciertes o falles. En las unidades de tocar, la aplicación oye si cada nota de la escala ha sonado limpia antes de pasar a la siguiente. Y si ya sabes teoría, eliges el curso por el que entras y no pasas por lo que ya te sabes.',
   },
   {
     href: '/profesor',
@@ -76,7 +76,7 @@ const SCREENS: ReadonlyArray<{
     href: '/componer',
     name: 'Componer',
     headline: 'Guarda la idea antes de que se te olvide',
-    body: 'Eliges la tonalidad en la rueda y encadenas acordes. De cada uno ves sus notas, hasta seis formas de hacerlo a lo largo del mástil y a dónde puedes ir desde ahí, con un punto verde, ámbar o rojo según cuánto se salga. Puedes buscar un acorde por su cifrado y te dice si entra, si cabe como color o si se va fuera.',
+    body: 'Eliges la tonalidad en la rueda y encadenas acordes pulsándolos. De cada uno ves sus notas, hasta seis formas de hacerlo a lo largo del mástil y a dónde puedes ir desde ahí, con un punto verde, ámbar o rojo según cuánto se salga. Puedes buscar un acorde por su cifrado y te dice si entra, si cabe como color o si se va fuera. También puedes tocarlo y que intente reconocerlo, pero eso es una ayuda que duda, y lo dice.',
   },
   {
     href: '/afinar',
@@ -89,19 +89,19 @@ const SCREENS: ReadonlyArray<{
 const QUESTIONS: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: '¿Qué necesito para usarlo?',
-    a: 'La guitarra, un navegador reciente y permiso de micrófono. No hay que instalar nada ni conectar interfaz de audio: con el micro del portátil o del móvil llega.',
+    a: 'Un navegador reciente. Para afinar y para las unidades de tocar, la guitarra y permiso de micrófono; para aprender teoría y escribir canciones, ni eso. No hay que instalar nada ni conectar interfaz de audio: con el micro del portátil o del móvil llega.',
   },
   {
     q: '¿Sirve con guitarra eléctrica?',
-    a: 'Sí, tanto a pelo como enchufada. Si usas mucha distorsión la detección pierde precisión; con un sonido limpio o poco saturado va fina.',
+    a: 'Sí, tanto a pelo como enchufada. Si usas mucha distorsión la detección pierde precisión; con un sonido limpio o poco saturado el afinador va fino.',
   },
   {
     q: '¿Reconoce acordes o solo notas sueltas?',
-    a: 'Las dos cosas, con dos análisis distintos. El afinador busca una sola altura, así que ahí se toca nota a nota. En componer hay además un reconocedor de acordes que trabaja con el espectro: acierta con tríadas y séptimas tocadas en limpio, y duda con las inversiones, porque olvida en qué octava está cada nota.',
+    a: 'Las notas sueltas, sí: es lo que usan el afinador y las unidades de tocar, y es lo que mejor funciona. Los acordes, a medias. En componer hay un reconocedor que trabaja con el espectro, y con una guitarra de verdad se equivoca más de lo que querríamos: un La menor al aire puede salir como otro acorde, y una inversión la lee como el acorde sin invertir. Por eso dice cuándo duda y te pregunta, y por eso componer se empieza escribiendo y no tocando.',
   },
   {
     q: '¿Hace falta saber teoría?',
-    a: 'No. Puedes tocar y leer los nombres que van saliendo; la explicación está ahí cuando la quieras y se calla cuando no. Y si ya sabes, en el camino eliges por qué curso entras: no hay que pasar por lo que ya te sabes.',
+    a: 'No. La primera unidad empieza por cómo se llaman las notas, y en componer cada acorde que pulsas dice qué papel hace; la explicación está ahí cuando la quieras y se calla cuando no. Y si ya sabes, en el camino eliges por qué curso entras: no hay que pasar por lo que ya te sabes.',
   },
   {
     q: '¿Cuánto cuesta?',
@@ -240,8 +240,8 @@ export default function Portada() {
                 <span className="block">Y que la canción siga.</span>
               </h1>
               <p className="text-text-muted hero-entradilla entra mt-6 max-w-[40ch] [animation-delay:120ms]">
-                Teoría en unidades cortas, y una canción que sigue por donde la dejaste. Te oye por
-                el micro, y tu audio no sale de aquí.
+                Teoría en unidades cortas, un afinador de verdad y una canción que escribes acorde a
+                acorde, con ayuda para saber por dónde seguir. Tu audio no sale de aquí.
               </p>
 
               {/* A todo el ancho por debajo de `sm`: apilados con su ancho de texto,
@@ -251,7 +251,7 @@ export default function Portada() {
                   href="/componer"
                   className="bg-brass text-background hover:bg-brass-bright min-h-tap inline-flex w-full items-center justify-center rounded-md px-6 text-base font-medium transition-colors active:translate-y-px sm:w-auto 2xl:min-h-14 2xl:px-8 2xl:text-lg"
                 >
-                  Empezar a tocar
+                  Empezar una canción
                 </Link>
                 <a
                   href="#probar"
@@ -379,9 +379,9 @@ export default function Portada() {
                 La rueda gira sola hasta tu tonalidad
               </h2>
               <p className="text-text-muted text-fluid-body mt-4 max-w-[60ch] leading-relaxed">
-                Mientras tocas, la aplicación acumula las notas que aparecen y calcula en qué
-                tonalidad estás. Cuando lo tiene claro, la rueda gira y coloca esa tonalidad arriba
-                del todo.
+                Mientras tocas notas sueltas —una melodía, una escala—, la aplicación acumula las
+                que aparecen y calcula en qué tonalidad estás. Cuando lo tiene claro, la rueda gira
+                y coloca esa tonalidad arriba del todo. Rasgueando no: escucha una nota cada vez.
               </p>
               <p className="text-text-muted text-fluid-body mt-3 max-w-[60ch] leading-relaxed">
                 A partir de ahí, lo que queda cerca en la rueda es lo que suena natural a
@@ -459,18 +459,19 @@ export default function Portada() {
             className={`${MARCO} revelar grid grid-cols-[minmax(0,1fr)] gap-y-8 py-28 sm:py-36 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end lg:gap-x-(--hueco) 2xl:py-48`}
           >
             <h2 className="font-display portada-cartel max-w-[18ch] tracking-[-0.02em] text-balance">
-              Coge la guitarra y enciende el micro
+              Coge la guitarra y escribe la primera
             </h2>
             <div>
               <p className="text-text-muted text-fluid-body max-w-[60ch] leading-relaxed">
-                Se empieza tocando. Si a los cinco minutos no te aporta nada, cierras la pestaña y
+                Se empieza eligiendo tonalidad y pulsando acordes: suenan, y al lado te dice por
+                dónde puede seguir. Si a los cinco minutos no te aporta nada, cierras la pestaña y
                 no ha pasado nada.
               </p>
               <Link
                 href="/componer"
                 className="bg-brass text-background hover:bg-brass-bright min-h-tap mt-8 inline-flex items-center rounded-md px-7 text-lg font-medium transition-colors active:translate-y-px 2xl:min-h-14 2xl:px-9"
               >
-                Empezar a tocar
+                Empezar una canción
               </Link>
             </div>
           </div>
@@ -478,7 +479,7 @@ export default function Portada() {
       </main>
 
       <footer className="border-border text-text-muted border-t">
-        {/* Los cinco del pie **también se pulsan con el dedo**. Eran renglones de
+        {/* Los del pie **también se pulsan con el dedo**. Eran renglones de
             veinte píxeles: en un teléfono, cinco destinos pegados y ninguno con
             alto de dedo es la manera de acabar entrando donde no querías. */}
         <div className={`${MARCO} flex flex-wrap items-center gap-x-1 gap-y-1 py-6 text-sm`}>
@@ -514,6 +515,18 @@ export default function Portada() {
             className="hover:text-text min-h-tap inline-flex items-center px-3 transition-colors"
           >
             Planes
+          </Link>
+          <Link
+            href="/privacidad"
+            className="hover:text-text min-h-tap inline-flex items-center px-3 transition-colors"
+          >
+            Privacidad
+          </Link>
+          <Link
+            href="/aviso-legal"
+            className="hover:text-text min-h-tap inline-flex items-center px-3 transition-colors"
+          >
+            Aviso legal
           </Link>
           <span className="ml-auto px-1">Hecho para tocar de noche</span>
         </div>

@@ -2,6 +2,11 @@
 
 Fecha: 2026-09-23 · Estado: aceptada · Corrige: [ADR 0020](./0020-lo-que-se-oyo-y-lo-que-se-supo.md)
 
+> **Ampliada por [ADR 0107](./0107-los-armonicos-se-miden-en-su-serie.md).** Lo de
+> aquí abajo sobre el modelo de armónicos describe la tabla de entonces: ahora cada
+> armónico se mide en su serie, y el margen se mide contra el primer candidato que
+> se escribiría distinto. Lo medido es con guitarra sintética.
+
 ## Contexto
 
 Esto sale de una tarde de guitarra, que es la única prueba que no se puede

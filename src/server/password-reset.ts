@@ -29,7 +29,7 @@ import { MIN_PASSWORD_LENGTH } from '@core/billing';
 import { sameHex } from './constant-time';
 import { db } from './db/client';
 import { passwordResets, users } from './db/schema';
-import { hashPassword } from './password';
+import { contrasenaDeMedida, hashPassword } from './password';
 import { baseYCorreo } from './users';
 
 /**
@@ -135,7 +135,8 @@ export async function resetPassword(
   if (typeof token !== 'string' || token === '') {
     return 'vale-no-vale';
   }
-  if (typeof nueva !== 'string' || nueva.length < MIN_PASSWORD_LENGTH) {
+  // Corta o enorme, `contrasena-corta`: fuera de medida (adr/0113).
+  if (!contrasenaDeMedida(nueva, MIN_PASSWORD_LENGTH)) {
     return 'contrasena-corta';
   }
 

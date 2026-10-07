@@ -138,13 +138,68 @@ describe('los sufijos que se le piden', () => {
   });
 
   /**
-   * Y con un solo candidato no hay segundo del que despegarse: el margen es uno
-   * entero, que es «no había con qué confundirlo».
+   * El margen no se mide dentro de la lista que se pide, sino contra todo lo que
+   * se comparó: con un candidato pedido sigue habiendo de quién despegarse, y
+   * decir «no había con qué confundirlo» sería mentir.
    */
-  it('con un solo candidato, el margen es entero', () => {
+  it('con un solo candidato pedido, el margen se mide igual contra los demás', () => {
     const solo = readChord(doMayor(), { suffixes: [''], limit: 1 });
 
-    expect(solo?.margin).toBe(1);
     expect(solo?.alternatives).toEqual([]);
+    expect(solo?.margin).toBeGreaterThan(0);
+    expect(solo?.margin).toBeLessThan(1);
+  });
+});
+
+describe('la duda es entre acordes que se escribirían distinto', () => {
+  /**
+   * Un Do con su séptima mayor sonando por simpatía: `C` y `Cmaj7` empatan casi,
+   * y los dos se apuntan como Do mayor. Eso no es una duda; dudar sería entre Do
+   * y otro acorde, y ahí se mide el margen.
+   */
+  it('el mismo acorde con otra especie no cuenta como rival', () => {
+    const chroma = chromaOf(C, E, G);
+    chroma[B] = 0.45;
+    const lectura = readChord(chroma);
+    const [segundo] = lectura?.alternatives ?? [];
+
+    expect(lectura?.best.root).toBe(C);
+    expect(segundo?.root).toBe(C);
+    expect(lectura!.best.score - segundo!.score).toBeLessThan(0.06);
+    expect(lectura?.margin).toBeGreaterThan(0.06);
+  });
+
+  it('entre Do y La menor, sí', () => {
+    const lectura = readChord(chromaOf(C, E, G, A));
+
+    expect(lectura?.margin).toBe(0);
+  });
+});
+
+describe('el bajo desempata', () => {
+  /** La, Do, Mi y Sol: `Am7` y `C6`, las mismas notas y la misma puntuación. */
+  const laDoMiSol = () => chromaOf(A, C, E, G);
+
+  it('sin bajo, el empate sigue como estaba', () => {
+    expect(readChord(laDoMiSol())?.best.symbol).toBe('C6');
+  });
+
+  it('con La abajo es La menor con séptima, y con Do, Do con sexta', () => {
+    expect(readChord(laDoMiSol(), { bajo: A })?.best.symbol).toBe('Am7');
+    expect(readChord(laDoMiSol(), { bajo: C })?.best.symbol).toBe('C6');
+  });
+
+  /** Y sigue siendo un empate, así que se pregunta: el bajo elige, no asegura. */
+  it('elegir por el bajo no quita la duda', () => {
+    expect(readChord(laDoMiSol(), { bajo: A })?.margin).toBe(0);
+  });
+
+  /**
+   * Fuera de un empate exacto el bajo no manda: un Do con Mi abajo es `C/E`, y se
+   * escribe Do, no Mi menor.
+   */
+  it('una inversión sigue siendo su acorde', () => {
+    expect(readChord(chromaOf(C, E, G), { bajo: E })?.best.symbol).toBe('C');
+    expect(readChord(laDoMiSol(), { bajo: E })?.best.symbol).toBe('C6');
   });
 });

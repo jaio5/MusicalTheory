@@ -5,4 +5,29 @@ coverage
 reference
 docs
 *.log
+# Cualquier .env: lleva claves, y la imagen se sube a un registro.
 .env*
+
+# Lo que no es de la aplicación y puede llevar algo de alguien: las respuestas
+# guardadas del banco de IA, el estado de los agentes y sus capturas, y una
+# carpeta que un guion escribió con una variable sin poner (docs/adr/0117).
+banco-de-ia.txt
+.claude
+.playwright-cli
+undefined
+componer-medido.json
+arte
+*.tsbuildinfo
+
+# El audio no sale del equipo, tampoco dentro de una imagen: el mismo bloque que
+# `.gitignore`, por si alguien deja una toma en la carpeta del proyecto.
+tomas
+*.wav
+*.m4a
+*.webm
+*.ogg
+*.mp3
+*.flac
+*.opus
+*.caf
+*.3gp

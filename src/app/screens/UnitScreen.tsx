@@ -17,9 +17,8 @@ import {
 } from '@features/learn';
 import { BarraDeTonalidad } from '@features/wheel';
 import { useAccount } from '@state/account';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, TONALIDAD_DE_PARTIDA, useSessionStore } from '@state/session-store';
 import { estiloBoton } from '@ui/Button';
-import { CuatroTonalidades } from '@ui/EmpezarPorTonalidad';
 import { IconoCamino, IconoCandado } from '@ui/icons';
 import { PlanLock } from '@ui/PlanLock';
 import { Screen, WorkHeader } from '@ui/Screen';
@@ -32,9 +31,12 @@ import { Vacio } from '@ui/Vacio';
  * dejarla a medias sin perder el sitio. Y sobre todo: mientras se contesta no hay
  * nada más en pantalla, que es la mitad de por qué esto funciona.
  *
- * La tonalidad está aquí porque **aquí hace falta**: las preguntas se generan con
- * los acordes de la tonalidad en la que estés, así que sin ella no hay unidad que
- * enseñar. En una barra que se despliega, no ocupando media pantalla.
+ * La tonalidad está aquí porque las preguntas se generan con los acordes de la
+ * tonalidad en la que estés. En una barra que se despliega, no ocupando media
+ * pantalla, y **sin pedirla**: mientras no elijas una, la unidad va en Do mayor
+ * (`TONALIDAD_DE_PARTIDA`). Pedirla bloqueaba la primera unidad, la de las notas,
+ * a quien todavía no sabía qué es una tonalidad
+ * ([adr/0109](../../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)).
  */
 export function UnitScreen({ unitId }: { readonly unitId: string }) {
   const router = useRouter();
@@ -47,11 +49,10 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
    * La barra flota sobre la pregunta, así que abierta la tapa entera: verla no
    * se ve, pero seguía recibiendo el foco, y el tabulador caía en botones que
    * no se veían (WCAG 2.4.11). Mientras dura, lo de abajo va `inert`. Es el
-   * mismo trato que en componer, y sale igual: el valor de partida se calcula
-   * como lo calcula la barra, porque un `<details>` que nace abierto no dispara
-   * `toggle`, y a partir de ahí manda ella.
+   * mismo trato que en componer. Nace plegada —con la de partida no hay nada
+   * que pedir— y a partir de ahí manda ella.
    */
-  const [tapadoPorLaRueda, setTapadoPorLaRueda] = useState(activeKey === null);
+  const [tapadoPorLaRueda, setTapadoPorLaRueda] = useState(false);
 
   const found = findUnit(unitId);
   const acceso = unitAccess(progress, account.plan, unitId);
@@ -165,22 +166,15 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
       <BarraDeTonalidad
         className="border-border bg-surface shrink-0 border-b px-4"
         onAbrirse={setTapadoPorLaRueda}
+        dePartida={TONALIDAD_DE_PARTIDA}
       >
-        {/* **Lo que va aquí es lo único que se lee mientras no hay tonalidad**, y
-            por eso cambia. La barra se abre sola cuando falta y tapa la unidad,
-            así que sin tonalidad la acción va **junto a la rueda** —los cuatro
-            atajos— y no debajo, donde no se ve. Con ella puesta basta con decir
-            para qué sirve. */}
-        {activeKey === null ? (
-          <CuatroTonalidades>
-            Elige una tonalidad y la unidad se escribe con sus acordes:
-          </CuatroTonalidades>
-        ) : (
-          <p className="text-text-muted max-w-prose text-center text-xs">
-            Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
-            preguntas hablan de otros acordes.
-          </p>
-        )}
+        <p className="text-text-muted max-w-prose text-center text-xs">
+          {activeKey === null
+            ? 'Mientras no elijas otra, la unidad va en C mayor —Do mayor—, la que no lleva alteraciones. '
+            : ''}
+          Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
+          preguntas hablan de otros acordes.
+        </p>
       </BarraDeTonalidad>
 
       {/* **Y se ve que está apagado.** Con `inert` a secas la tarjeta de la

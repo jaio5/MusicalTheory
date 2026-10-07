@@ -35,6 +35,7 @@ const {
   planOfPrice,
   stripeConfigured,
   suscripcionEnStripe,
+  variableDelPrecio,
 } = await import('./stripe');
 
 const fetchFalso = vi.fn();
@@ -80,7 +81,8 @@ beforeEach(() => {
   process.env['STRIPE_SECRET_KEY'] = 'sk_test_loquesea';
   process.env['STRIPE_PRICE_BASICO'] = 'price_basico';
   process.env['STRIPE_PRICE_MEDIO'] = 'price_medio';
-  process.env['STRIPE_PRICE_PRO'] = 'price_pro';
+  process.env['STRIPE_PRICE_BASICO_ANUAL'] = 'price_basico_anual';
+  process.env['STRIPE_PRICE_MEDIO_ANUAL'] = 'price_medio_anual';
 });
 
 afterEach(() => {
@@ -89,30 +91,40 @@ afterEach(() => {
     'STRIPE_SECRET_KEY',
     'STRIPE_PRICE_BASICO',
     'STRIPE_PRICE_MEDIO',
-    'STRIPE_PRICE_PRO',
+    'STRIPE_PRICE_BASICO_ANUAL',
+    'STRIPE_PRICE_MEDIO_ANUAL',
   ]) {
     delete process.env[k];
   }
 });
 
 describe('estar configurado', () => {
-  it('pide la clave y los tres precios', () => {
+  it('pide la clave y los cuatro precios, también los anuales', () => {
     expect(stripeConfigured()).toBe(true);
 
     delete process.env['STRIPE_PRICE_MEDIO'];
     expect(stripeConfigured()).toBe(false);
-
     process.env['STRIPE_PRICE_MEDIO'] = 'price_medio';
+
+    // La pantalla ofrece el anual siempre: sin su precio no se cobra nada.
+    delete process.env['STRIPE_PRICE_BASICO_ANUAL'];
+    expect(stripeConfigured()).toBe(false);
+    process.env['STRIPE_PRICE_BASICO_ANUAL'] = 'price_basico_anual';
+
     delete process.env['STRIPE_SECRET_KEY'];
     expect(stripeConfigured()).toBe(false);
   });
 });
 
 describe('de qué plan es un precio', () => {
-  it('traduce los tres, y solo esos', () => {
+  it('traduce los cuatro, al mes y al año, y solo esos', () => {
     expect(planOfPrice('price_basico')).toBe('basico');
     expect(planOfPrice('price_medio')).toBe('medio');
-    expect(planOfPrice('price_pro')).toBe('pro');
+    expect(planOfPrice('price_basico_anual')).toBe('basico');
+    expect(planOfPrice('price_medio_anual')).toBe('medio');
+    // El de Pro, que ya no se vende (adr/0104), no es de ningún plan.
+    expect(planOfPrice('price_pro')).toBeNull();
+    expect(planOfPrice('')).toBeNull();
     expect(planOfPrice('price_inventado')).toBeNull();
     expect(planOfPrice(42)).toBeNull();
   });
@@ -141,12 +153,12 @@ describe('qué hace con el plan cada estado de la suscripción', () => {
  */
 describe('cómo está hoy una suscripción', () => {
   it('viva, con el plan del precio que cobra', async () => {
-    fetchFalso.mockResolvedValue(contesta(suscripcion('active', 'price_pro')));
+    fetchFalso.mockResolvedValue(contesta(suscripcion('active', 'price_medio_anual')));
 
     expect(await suscripcionEnStripe('sub_1')).toEqual({
       kind: 'viva',
       status: 'active',
-      plan: 'pro',
+      plan: 'medio',
     });
     const { url, init } = ultimaPeticion();
     expect(url).toBe('https://api.stripe.com/v1/subscriptions/sub_1');
@@ -220,7 +232,7 @@ describe('empezar a pagar sin suscripción', () => {
     // cometer y el que solo se ve al probarlo de verdad.
     fetchFalso.mockResolvedValue(contesta({ url: 'https://pago' }));
 
-    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio' });
+    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio', periodo: 'mensual' });
 
     const { headers } = ultimaPeticion();
     expect(headers['Content-Type']).toBe('application/x-www-form-urlencoded');
@@ -231,7 +243,7 @@ describe('empezar a pagar sin suscripción', () => {
     // de después —baja, cambio— llegan con ella y no con la sesión.
     fetchFalso.mockResolvedValue(contesta({ url: 'https://pago' }));
 
-    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio' });
+    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio', periodo: 'mensual' });
 
     const { url, body } = ultimaPeticion();
     expect(url).toBe('https://api.stripe.com/v1/checkout/sessions');
@@ -246,13 +258,30 @@ describe('empezar a pagar sin suscripción', () => {
     expect(body.has('customer')).toBe(false);
   });
 
+  it('al año cobra el precio anual del mismo plan, y lo apunta', async () => {
+    fetchFalso.mockResolvedValue(contesta({ url: 'https://pago' }));
+
+    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'basico', periodo: 'anual' });
+
+    const { body } = ultimaPeticion();
+    expect(body.get('line_items[0][price]')).toBe('price_basico_anual');
+    expect(body.get('metadata[plan]')).toBe('basico');
+    expect(body.get('metadata[periodo]')).toBe('anual');
+    expect(body.get('subscription_data[metadata][periodo]')).toBe('anual');
+  });
+
+  it('el nombre de la variable sale del plan y del periodo', () => {
+    expect(variableDelPrecio('medio', 'mensual')).toBe('STRIPE_PRICE_MEDIO');
+    expect(variableDelPrecio('basico', 'anual')).toBe('STRIPE_PRICE_BASICO_ANUAL');
+  });
+
   it('quien ya pagó alguna vez vuelve con su cliente, no con otro nuevo', async () => {
     // Con `customer_email` Stripe crea un cliente nuevo en cada Checkout, y el
     // portal enseñaría solo las facturas del último.
     suscripcionDe.mockResolvedValue({ customerId: 'cus_viejo', subscriptionId: null });
     fetchFalso.mockResolvedValue(contesta({ url: 'https://pago' }));
 
-    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio' });
+    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio', periodo: 'mensual' });
 
     const { body } = ultimaPeticion();
     expect(body.get('customer')).toBe('cus_viejo');
@@ -262,7 +291,12 @@ describe('empezar a pagar sin suscripción', () => {
   it('devuelve la dirección de pago cuando la hay', async () => {
     fetchFalso.mockResolvedValue(contesta({ url: 'https://pago' }));
 
-    const result = await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' });
+    const result = await StripeBilling.start({
+      userId: 'u1',
+      email: 'a@b.c',
+      plan: 'medio',
+      periodo: 'mensual',
+    });
 
     expect(result).toEqual({ kind: 'ir-a-pagar', url: 'https://pago' });
   });
@@ -270,31 +304,57 @@ describe('empezar a pagar sin suscripción', () => {
   it('y no se cree que ha ido bien cuando no la hay', async () => {
     fetchFalso.mockResolvedValue(contesta({ id: 'cs_123' }));
 
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
   });
 
   it('si Stripe contesta un error, tampoco', async () => {
     fetchFalso.mockResolvedValue(contesta({ error: { type: 'invalid_request_error' } }, 400));
 
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
   });
 
   it('si la red se cae, tampoco', async () => {
     fetchFalso.mockRejectedValue(new Error('sin red'));
 
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
   });
 
   it('un plan sin precio configurado no llega a llamar a Stripe', async () => {
-    delete process.env['STRIPE_PRICE_PRO'];
+    delete process.env['STRIPE_PRICE_MEDIO'];
 
-    const result = await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' });
+    const result = await StripeBilling.start({
+      userId: 'u1',
+      email: 'a@b.c',
+      plan: 'medio',
+      periodo: 'mensual',
+    });
 
     expect(result.kind).toBe('error');
     expect(fetchFalso).not.toHaveBeenCalled();
@@ -304,9 +364,16 @@ describe('empezar a pagar sin suscripción', () => {
     // No se sabría si ya paga, y un Checkout a ciegas es como se cobra dos veces.
     suscripcionDe.mockResolvedValue(null);
 
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
     expect(fetchFalso).not.toHaveBeenCalled();
   });
 });
@@ -326,7 +393,12 @@ describe('cambiar de plan teniendo ya suscripción', () => {
       .mockResolvedValueOnce(contesta(suscripcion('active')))
       .mockResolvedValueOnce(contesta({ object: 'billing_portal.session', url: 'https://portal' }));
 
-    const result = await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' });
+    const result = await StripeBilling.start({
+      userId: 'u1',
+      email: 'a@b.c',
+      plan: 'medio',
+      periodo: 'mensual',
+    });
 
     expect(result).toEqual({ kind: 'ir-a-pagar', url: 'https://portal' });
     const urls = fetchFalso.mock.calls.map((c) => (c as [string])[0]);
@@ -339,7 +411,7 @@ describe('cambiar de plan teniendo ya suscripción', () => {
     expect(body.get('flow_data[type]')).toBe('subscription_update_confirm');
     expect(body.get('flow_data[subscription_update_confirm][subscription]')).toBe('sub_1');
     expect(body.get('flow_data[subscription_update_confirm][items][0][id]')).toBe('si_1');
-    expect(body.get('flow_data[subscription_update_confirm][items][0][price]')).toBe('price_pro');
+    expect(body.get('flow_data[subscription_update_confirm][items][0][price]')).toBe('price_medio');
     expect(body.get('flow_data[after_completion][type]')).toBe('redirect');
   });
 
@@ -348,7 +420,7 @@ describe('cambiar de plan teniendo ya suscripción', () => {
       .mockResolvedValueOnce(contesta(suscripcion('past_due')))
       .mockResolvedValueOnce(contesta({ url: 'https://portal' }));
 
-    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' });
+    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio', periodo: 'mensual' });
 
     expect(ultimaPeticion().url).toBe('https://api.stripe.com/v1/billing_portal/sessions');
   });
@@ -357,7 +429,7 @@ describe('cambiar de plan teniendo ya suscripción', () => {
     fetchFalso
       .mockResolvedValueOnce(contesta(suscripcion('canceled')))
       .mockResolvedValueOnce(contesta({ url: 'https://pago' }));
-    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' });
+    await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio', periodo: 'mensual' });
     expect(ultimaPeticion().url).toBe('https://api.stripe.com/v1/checkout/sessions');
     expect(ultimaPeticion().body.get('customer')).toBe('cus_1');
 
@@ -366,7 +438,14 @@ describe('cambiar de plan teniendo ya suscripción', () => {
         contesta({ error: { type: 'invalid_request_error', code: 'resource_missing' } }, 404),
       )
       .mockResolvedValueOnce(contesta({ url: 'https://pago' }));
-    expect(await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).toEqual({
+    expect(
+      await StripeBilling.start({
+        userId: 'u1',
+        email: 'a@b.c',
+        plan: 'medio',
+        periodo: 'mensual',
+      }),
+    ).toEqual({
       kind: 'ir-a-pagar',
       url: 'https://pago',
     });
@@ -374,32 +453,67 @@ describe('cambiar de plan teniendo ya suscripción', () => {
 
   it('si no se puede consultar la suscripción, no se abre nada', async () => {
     fetchFalso.mockResolvedValueOnce(contesta({ error: {} }, 500));
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
 
     fetchFalso.mockRejectedValueOnce(new Error('sin red'));
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
     expect(fetchFalso).toHaveBeenCalledTimes(2);
   });
 
   it('una suscripción sin cliente o sin elementos no se toca', async () => {
     fetchFalso.mockResolvedValueOnce(contesta({ ...suscripcion('active'), items: { data: [] } }));
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
 
     fetchFalso.mockResolvedValueOnce(contesta({ ...suscripcion('active'), customer: null }));
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
 
     fetchFalso.mockResolvedValueOnce(contesta({ ...suscripcion('active'), items: undefined }));
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
     expect(fetchFalso).toHaveBeenCalledTimes(3);
   });
 
@@ -408,15 +522,27 @@ describe('cambiar de plan teniendo ya suscripción', () => {
       .mockResolvedValueOnce(contesta(suscripcion('active')))
       .mockResolvedValueOnce(contesta({ error: {} }, 400));
 
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
   });
 });
 
 describe('bajar a gratis', () => {
   it('sin suscripción no se paga ni se llama a Stripe: se baja la fila', async () => {
-    const result = await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'gratis' });
+    const result = await StripeBilling.start({
+      userId: 'u1',
+      email: 'a@b.c',
+      plan: 'gratis',
+      periodo: 'mensual',
+    });
 
     expect(result).toEqual({ kind: 'listo', plan: 'gratis' });
     expect(soltarSuscripcion).toHaveBeenCalledWith('u1');
@@ -463,9 +589,16 @@ describe('bajar a gratis', () => {
 
     soltarSuscripcion.mockResolvedValue('error');
     expect(await StripeBilling.cancel({ userId: 'u1' })).toEqual({ ok: false });
-    expect((await StripeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'gratis' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await StripeBilling.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'gratis',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
   });
 });
 

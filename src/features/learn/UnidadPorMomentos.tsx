@@ -11,7 +11,6 @@ import {
 } from 'react';
 
 import { presentacionDe, type Unit, type UnitKind } from '@core/music';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { IconoAcierto } from '@ui/icons';
 
@@ -112,7 +111,6 @@ export function UnidadPorMomentos({
   readonly teoria?: ReactNode;
   readonly prueba: ReactNode;
 }) {
-  const hayTonalidad = useSessionStore(selectActiveKey) !== null;
   const [momento, setMomento] = useState<Momento>('presentacion');
   // Si ya se ha llegado a las preguntas, para que volver de la teoría diga
   // «volver» y no «ponerlo a prueba», que suena a empezar de nuevo.
@@ -164,20 +162,6 @@ export function UnidadPorMomentos({
     titulo.focus();
   }, [momento]);
 
-  /*
-    **Y al elegir tonalidad desde dentro, también.** Los cuatro atajos de la
-    presentación —o los del estado vacío— desaparecen en cuanto hay tonalidad, y
-    con ellos el foco. Solo se rescata si de verdad se ha perdido: si se eligió en
-    la rueda de arriba, el foco está donde lo dejó quien la usaba.
-  */
-  const teniaTonalidad = useRef(hayTonalidad);
-  useEffect(() => {
-    if (hayTonalidad && !teniaTonalidad.current && document.activeElement === document.body) {
-      encabezado.current?.focus();
-    }
-    teniaTonalidad.current = hayTonalidad;
-  }, [hayTonalidad]);
-
   function ir(a: Momento): void {
     if (a === 'prueba') {
       setProbada(true);
@@ -199,7 +183,6 @@ export function UnidadPorMomentos({
           titulo={unit.title}
           presentacion={presentacionDe(unit.id)}
           queViene={QUE_VIENE[unit.kind]}
-          hayTonalidad={hayTonalidad}
           encabezado={encabezado}
           onEmpezar={() => empezar(momentos[1]!)}
           {...(teoria !== undefined && (yaHecha || empezadaAntes)
@@ -225,9 +208,7 @@ export function UnidadPorMomentos({
             {probada && <div hidden={momento !== 'prueba'}>{prueba}</div>}
           </div>
 
-          {/* Sin tonalidad, lo de arriba es el estado vacío que la pide: un
-              «Ponerlo a prueba» al lado llevaría a otro igual. */}
-          {momento === 'teoria' && hayTonalidad && (
+          {momento === 'teoria' && (
             <div className="mt-6">
               <Button onClick={() => ir('prueba')}>
                 {probada ? 'Volver a las preguntas' : 'Ponerlo a prueba'}

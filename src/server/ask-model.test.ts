@@ -10,8 +10,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  *
  * Dos cosas se sustituyen: el SDK de Anthropic —llamarlo de verdad costaría
  * dinero— y el modelo de casa, que ya tiene su propio test. Lo que queda en pie
- * es de este fichero: el `switch` del proveedor, apagar el pensamiento y qué se
- * hace con una respuesta que no trae texto o no es JSON.
+ * es de este fichero: el `switch` del proveedor, apagar el pensamiento donde se
+ * puede —y no mandar a cada modelo lo que rechaza— y qué se hace con una
+ * respuesta que no trae texto o no es JSON.
  */
 
 const crear = vi.fn();
@@ -32,8 +33,9 @@ vi.mock('./local-model', () => ({
   askLocalModel: (...a: unknown[]) => askLocalModel(...a),
 }));
 
-const { MAX_MODEL_ATTEMPTS } = await import('@core/billing');
-const { askModel, modelAvailable, RespuestaTruncada } = await import('./ask-model');
+const { MAX_MODEL_ATTEMPTS, RESERVA_PARA_PENSAR } = await import('@core/billing');
+const { askModel, modelAvailable, opcionesDelModelo, RespuestaTruncada } =
+  await import('./ask-model');
 
 const sinClave = vi.fn(() => ({ delDominio: true }));
 
@@ -133,13 +135,57 @@ describe('la llamada a la API', () => {
   it('pensar va apagado, y es una decision de coste', async () => {
     // El pensamiento se cobra como tokens de salida y puede comerse el
     // `max_tokens` para devolver una respuesta truncada: se paga y no se sirve.
+    // Con el modelo de por defecto, Sonnet 5.5, se apaga con `between_tools`:
+    // `disabled` es un 400 en ese modelo (adr/0103).
     crear.mockResolvedValue(contesta('{}'));
 
     await askModel(pregunta);
 
     const cuerpo = crear.mock.calls[0]![0] as Record<string, never>;
-    expect(cuerpo['thinking']).toEqual({ type: 'disabled' });
+    expect(cuerpo['model']).toBe('claude-sonnet-5-5');
+    expect(cuerpo['thinking']).toEqual({ type: 'between_tools' });
     expect(cuerpo['output_config']).toMatchObject({ effort: 'low' });
+  });
+
+  /**
+   * Lo que acepta cada modelo, de la documentación de la API (adr/0103). Mandar
+   * `disabled` y `effort` a todos era un 400 en Opus 5.5, Fable, Sonnet 5.5 y
+   * Haiku 4.5: ninguna pregunta llegaba a contestarse.
+   */
+  it.each([
+    ['claude-opus-5', { thinking: { type: 'disabled' }, effort: 'low' }],
+    ['claude-sonnet-5', { thinking: { type: 'disabled' }, effort: 'low' }],
+    ['claude-sonnet-4-6', { thinking: { type: 'disabled' }, effort: 'low' }],
+    ['claude-sonnet-5-5', { thinking: { type: 'between_tools' }, effort: 'low' }],
+    ['claude-opus-5-5', { effort: 'low' }],
+    ['claude-fable-5-1', { effort: 'low' }],
+    ['claude-fable-5', { effort: 'low' }],
+    ['claude-haiku-4-5', {}],
+    ['claude-haiku-4-5-20251001', {}],
+    // Lo desconocido se supone nuevo: sin `thinking` y con el esfuerzo bajo.
+    ['claude-lo-que-venga', { effort: 'low' }],
+  ])('a %s se le manda solo lo que acepta', (modelo, esperado) => {
+    expect(opcionesDelModelo(modelo)).toEqual(esperado);
+  });
+
+  it('a quien no deja de pensar se le reserva sitio en el tope, y a quien no, no', async () => {
+    crear.mockResolvedValue(contesta('{}'));
+
+    process.env['ANTHROPIC_MODEL'] = 'claude-opus-5-5';
+    await askModel(pregunta);
+    process.env['ANTHROPIC_MODEL'] = 'claude-haiku-4-5';
+    await askModel(pregunta);
+
+    const opus = crear.mock.calls[0]![0] as Record<string, never>;
+    expect(opus['max_tokens']).toBe(400 + RESERVA_PARA_PENSAR);
+    expect(opus).not.toHaveProperty('thinking');
+    expect(opus['output_config']).toMatchObject({ effort: 'low' });
+
+    const haiku = crear.mock.calls[1]![0] as Record<string, never>;
+    expect(haiku['max_tokens']).toBe(400);
+    expect(haiku).not.toHaveProperty('thinking');
+    expect(haiku['output_config']).not.toHaveProperty('effort');
+    expect(haiku['output_config']).toMatchObject({ format: { type: 'json_schema' } });
   });
 
   it('el esquema y el tope de tokens viajan tal cual', async () => {
@@ -225,10 +271,10 @@ describe('cuánto se espera', () => {
     await askModel(pregunta);
 
     expect(comoSeMonto).toBeDefined();
-    // Treinta segundos por llamada y un reintento: sesenta por `askModel`, y con
-    // el reintento de la ruta, los mismos dos minutos que el modelo de casa.
+    // Treinta segundos por llamada y **ningún reintento del SDK** (adr/0114): el
+    // único reintento es el de la ruta, que es el que cuentan los cupos.
     expect(comoSeMonto!['timeout']).toBe(30_000);
-    expect(comoSeMonto!['maxRetries']).toBe(1);
+    expect(comoSeMonto!['maxRetries']).toBe(0);
     // Y el peor caso cabe en el tope que este proyecto se ha puesto para las dos
     // ramas: si alguien sube uno de los dos números, esto avisa.
     const peorCaso =
@@ -260,5 +306,83 @@ describe('una respuesta cortada por el tope', () => {
     crear.mockResolvedValue(contesta('', 'refusal'));
 
     await expect(askModel(pregunta)).rejects.not.toBeInstanceOf(RespuestaTruncada);
+  });
+});
+
+/**
+ * **Lo que cuesta de verdad, llamada por llamada** (adr/0114).
+ *
+ * El techo de gasto suma lo que dice `usage`; sin él, el peor caso. Y el SDK no
+ * reintenta por su cuenta: con su reintento, una pregunta podían ser cuatro
+ * llamadas y el coste —de los cupos y del techo— suponía dos.
+ */
+describe('lo que gasta cada llamada', () => {
+  function conClave() {
+    process.env['ANTHROPIC_API_KEY'] = 'sk-de-mentira';
+    const usos: unknown[] = [];
+    return { usos, alUsar: (uso: unknown) => usos.push(uso) };
+  }
+
+  it('el SDK no reintenta: una llamada de askModel es una llamada a la API', async () => {
+    const { alUsar } = conClave();
+    crear.mockRejectedValue(Object.assign(new Error('sobrecargada'), { status: 529 }));
+
+    await expect(askModel({ ...pregunta, alUsar })).rejects.toThrow('sobrecargada');
+    expect(comoSeMonto!['maxRetries']).toBe(0);
+    expect(crear).toHaveBeenCalledTimes(1);
+  });
+
+  it('cuenta los tokens que dice la respuesta, caché incluida', async () => {
+    const { usos, alUsar } = conClave();
+    crear.mockResolvedValue({
+      ...contesta('{"vale":true}'),
+      usage: {
+        input_tokens: 100,
+        output_tokens: 40,
+        cache_creation_input_tokens: 5,
+        cache_read_input_tokens: null,
+      },
+    });
+
+    await askModel({ ...pregunta, alUsar });
+
+    expect(usos).toEqual([{ entrada: 105, salida: 40 }]);
+  });
+
+  it('también la que se corta o se niega, que se cobran igual', async () => {
+    const { usos, alUsar } = conClave();
+    const usage = { input_tokens: 10, output_tokens: 400 };
+    crear.mockResolvedValueOnce({ ...contesta('{', 'max_tokens'), usage });
+    crear.mockResolvedValueOnce({ ...contesta('', 'refusal'), usage });
+
+    await expect(askModel({ ...pregunta, alUsar })).rejects.toBeInstanceOf(RespuestaTruncada);
+    await expect(askModel({ ...pregunta, alUsar })).rejects.toThrow('refusal');
+    expect(usos).toEqual([
+      { entrada: 10, salida: 400 },
+      { entrada: 10, salida: 400 },
+    ]);
+  });
+
+  it('sin usage, o sin respuesta, el peor caso; un error de la API no cobra', async () => {
+    const { usos, alUsar } = conClave();
+    crear.mockResolvedValueOnce(contesta('{"vale":true}'));
+    crear.mockRejectedValueOnce(new Error('tiempo agotado'));
+    crear.mockRejectedValueOnce(Object.assign(new Error('demasiadas'), { status: 429 }));
+
+    await askModel({ ...pregunta, alUsar });
+    await expect(askModel({ ...pregunta, alUsar })).rejects.toThrow('tiempo agotado');
+    await expect(askModel({ ...pregunta, alUsar })).rejects.toThrow('demasiadas');
+
+    expect(usos).toEqual([null, null, { entrada: 0, salida: 0 }]);
+  });
+
+  it('el dominio y el modelo de casa no cuestan, y no dicen nada', async () => {
+    const usos: unknown[] = [];
+    await askModel({ ...pregunta, alUsar: (uso) => usos.push(uso) });
+    process.env['OLLAMA_URL'] = 'http://localhost:11434';
+    askLocalModel.mockResolvedValue({ deCasa: true });
+    await askModel({ ...pregunta, alUsar: (uso) => usos.push(uso) });
+
+    expect(usos).toEqual([]);
   });
 });

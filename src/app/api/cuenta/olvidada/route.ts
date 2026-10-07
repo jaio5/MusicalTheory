@@ -20,7 +20,8 @@ import { mailer } from '@server/mail';
 import { readJsonBody } from '@server/request-body';
 import { pruneResets, requestReset, resetPassword } from '@server/password-reset';
 import { limitRequest } from '@server/rate-limit-db';
-import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
+import { MAX_PASSWORD_LENGTH } from '@server/password';
+import { huellaDeCorreo, requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -59,12 +60,17 @@ async function puerta(request: Request): Promise<NextResponse | null> {
   return allowed ? null : tooManyRequests(retryAfterSeconds);
 }
 
-/** Si a ese correo se le pueden mandar más enlaces ahora. */
+/**
+ * Si a ese correo se le pueden mandar más enlaces ahora.
+ *
+ * La clave lleva la huella del correo y no el correo: entero, uno de 100 KB
+ * —cabe en el cuerpo— reventaba el índice de la tabla de topes y el tope caía al
+ * de memoria, que es por proceso (adr/0113).
+ */
 async function cabeOtroCorreo(email: unknown): Promise<boolean> {
-  const clave = typeof email === 'string' ? email.trim().toLowerCase() : '';
   const { allowed } = await limitRequest({
     memoria: limiterPorCorreo,
-    key: `olvidada:correo:${clave}`,
+    key: `olvidada:correo:${huellaDeCorreo(email)}`,
     now: Date.now(),
     options: LIMITE_POR_CORREO,
   });
@@ -146,7 +152,7 @@ const MENSAJES = {
   ok: '',
   'vale-no-vale':
     'Ese enlace ya no sirve: o ha caducado, o ya se usó. Pide uno nuevo desde la pantalla de entrar.',
-  'contrasena-corta': `La contraseña necesita al menos ${MIN_PASSWORD_LENGTH} caracteres.`,
+  'contrasena-corta': `La contraseña necesita entre ${MIN_PASSWORD_LENGTH} y ${MAX_PASSWORD_LENGTH} caracteres.`,
   'sin-base-de-datos': 'Esta copia de la aplicación no tiene cuentas.',
   error: 'No hemos podido cambiar la contraseña. Vuelve a intentarlo en un minuto.',
 } as const;

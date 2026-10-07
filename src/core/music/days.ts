@@ -14,9 +14,33 @@
 /** Milisegundos de un día. Ni bisiestos ni horarios de verano: ver abajo. */
 const UN_DIA_MS = 86_400_000;
 
-/** `AAAA-MM-DD` y nada más. Cualquier otra cosa se descarta. */
+/**
+ * `AAAA-MM-DD`, **y un día que exista**. Cualquier otra cosa se descarta.
+ *
+ * Mirar solo la forma dejaba pasar `9999-99-99`, y eso no era un descuido
+ * inofensivo: la fusión del avance se queda con el último día mayor, así que una
+ * fecha imposible subida una vez ganaba a todas las de verdad para siempre
+ * ([adr/0116](../../../docs/adr/0116-el-avance-que-sube-se-comprueba.md)). Se
+ * comprueba dando la vuelta por `Date`: si el 31 de febrero se convierte en el 3
+ * de marzo, no era un día.
+ */
 export function isDay(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const instante = Date.parse(`${value}T12:00:00Z`);
+  return !Number.isNaN(instante) && new Date(instante).toISOString().slice(0, 10) === value;
+}
+
+/**
+ * El día siguiente a uno dado, en `AAAA-MM-DD`.
+ *
+ * Es el tope de lo que puede decir un navegador: en UTC+14 ya es mañana cuando el
+ * servidor todavía va por hoy, así que «mañana» es lo más lejos que llega una
+ * fecha de verdad. Más allá, la fecha es inventada.
+ */
+export function diaSiguiente(day: string): string {
+  return new Date(Date.parse(`${day}T12:00:00Z`) + UN_DIA_MS).toISOString().slice(0, 10);
 }
 
 /**

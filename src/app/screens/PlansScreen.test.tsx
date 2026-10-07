@@ -41,7 +41,7 @@ describe('Los planes', () => {
 
     const texto = document.body.textContent ?? '';
     const gratis = texto.indexOf('gratis y lo van a seguir siendo');
-    const planes = texto.indexOf('Los tres planes de pago');
+    const planes = texto.indexOf('Los planes de pago');
 
     expect(gratis).toBeGreaterThanOrEqual(0);
     expect(gratis).toBeLessThan(planes);

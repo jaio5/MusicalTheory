@@ -565,8 +565,6 @@ export function ComposeScreen() {
   const bandeja = (enPanel: boolean) => (
     <section
       aria-label="Qué se ve abajo"
-      // El recorrido la señala en el banco; en un teléfono señala «Más».
-      data-tour={enPanel ? undefined : 'componer-bandeja'}
       className={
         enPanel ? 'flex flex-col' : 'border-border flex shrink-0 flex-col border-t max-lg:hidden'
       }
@@ -746,8 +744,7 @@ export function ComposeScreen() {
                 {!hayBanco && activeKey !== null && (
                   <>
                     <Separador />
-                    {/* En su propia caja para que el recorrido las señale juntas. */}
-                    <span className="flex gap-1" data-tour="componer-pestanas">
+                    <span className="flex gap-1">
                       {(
                         [
                           ['camino', 'A dónde ir'],
@@ -794,7 +791,6 @@ export function ComposeScreen() {
                   <button
                     type="button"
                     popoverTarget={idTonalidad}
-                    data-tour="componer-tonalidad"
                     className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center gap-1 rounded-md border px-3 text-sm font-medium"
                   >
                     <IconoAfinar />
@@ -836,7 +832,6 @@ export function ComposeScreen() {
               <button
                 type="button"
                 popoverTarget={idBandeja}
-                data-tour="componer-bandeja"
                 onPointerOver={precargarLaBandeja}
                 onFocus={precargarLaBandeja}
                 className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-sm font-medium lg:hidden"
@@ -868,7 +863,6 @@ export function ComposeScreen() {
                 <button
                   type="button"
                   onClick={() => accionesDelBanco.devolverElReparto()}
-                  data-tour="componer-restablecer"
                   className="text-text-muted hover:text-brass-bright min-h-tap inline-flex cursor-pointer items-center px-2 text-xs max-lg:hidden"
                   title={`Devolver las áreas a como venían en este espacio · ${ATAJOS.devolver}`}
                   aria-keyshortcuts={ATAJOS.devolver}
@@ -1062,7 +1056,7 @@ export function ComposeScreen() {
               // un salto antes de hidratar. Arriba no salta, y en un teléfono
               // arriba es donde se mira.
               <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-                <div className="lg:my-auto">
+                <div className="lg:my-auto" data-tour="componer-empezar">
                   <EmpezarPorTonalidad />
                 </div>
               </div>

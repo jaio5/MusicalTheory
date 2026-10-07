@@ -433,7 +433,7 @@ function gradosDe(
  * y sin ninguna de las dos se da por cierta: lo contrario sería marcar como
  * dudoso todo lo que no venga del micro.
  */
-function confianzaDe(chord: CapturedChord): number {
+export function confianzaDe(chord: CapturedChord): number {
   const porEmpate = chord.margin ?? 1;
   const porParecido = chord.score === undefined ? 1 : chord.score - PARECIDO_MINIMO;
   return Math.max(0, Math.min(porEmpate, porParecido));

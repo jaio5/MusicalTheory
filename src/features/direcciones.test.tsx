@@ -36,7 +36,7 @@ vi.mock('next-auth/react', () => ({
 const CON_PLAN: Account = {
   email: 'javier@example.com',
   name: null,
-  plan: 'pro',
+  plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 30,
   aiLeftMonth: 30,

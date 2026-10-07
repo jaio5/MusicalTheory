@@ -6,6 +6,7 @@ import { currentAccount } from '@server/entitlements';
 import { AccountProvider } from '@state/account';
 import { GUION_TEMA } from '@state/theme';
 
+import { ContarVisitas } from './ContarVisitas';
 import { CLASES_DE_FUENTES } from './fuentes';
 import './globals.css';
 
@@ -96,6 +97,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AccountProvider account={account} accounts={authAvailable()}>
           {children}
         </AccountProvider>
+        {/* Una visita por pantalla, sin cookies ni nadie de fuera (adr/0110). */}
+        <ContarVisitas />
       </body>
     </html>
   );

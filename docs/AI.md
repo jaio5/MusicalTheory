@@ -114,8 +114,8 @@ Los 502 quedan para las rutas sin respaldo.
 
 **`plan_required` y `quota_exhausted` llegan con el mensaje ya escrito por la ruta**,
 con el plan y el número concretos: «Las salidas de lo que tocas entran en el plan
-Medio: 9,99 € al mes», «No te quedan preguntas suficientes de las 148 de este mes
-(una salida gasta 3): se renuevan el día uno, y con el plan Pro son 296 al mes». La frase la construye
+Medio: 9,99 € al mes», «No te quedan preguntas suficientes de las 96 de este mes:
+se renuevan el día uno, y con el plan Medio son 193 al mes». La frase la construye
 `core/billing/messages.ts`, que es la misma que usa la pantalla para pintar el
 candado, y por eso el cliente **prefiere el mensaje del servidor** al genérico de su
 contrato cuando viene uno.
@@ -125,7 +125,7 @@ del 429 importa porque uno se arregla cambiando de plan y el otro esperando a ma
 
 Por eso el cliente **guarda el código y no solo la frase**: de él depende si debajo
 del aviso aparece el enlace a `/planes`. Sale con `plan_required` siempre, y con
-`quota_exhausted` solo si queda plan por encima —a quien ya está en Pro no hay nada
+`quota_exhausted` solo si queda plan por encima —a quien ya está en Medio no hay nada
 que ofrecerle—. Con el modelo caído no sale: mandar a la lista de precios a quien
 tiene un problema que no se arregla pagando es hacerle perder el viaje. La regla está
 escrita una vez, en `ui/PlansLink.tsx`, porque la usan el profesor y las salidas y un
@@ -165,7 +165,10 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
    error. No se encadenan reintentos: cuestan dinero y tiempo, y el usuario
    prefiere un «no ha salido, prueba otra vez» rápido a treinta segundos de espera.
 4. **Y hay dos cosas que no se reintentan nunca.** Un fallo del proveedor sale
-   como `model_unavailable` a la primera, porque el problema no es la tirada. Y
+   como `model_unavailable` a la primera, porque el problema no es la tirada
+   —salvo un `429` o un `5xx` de la API, que se pasan solos y gastan el segundo
+   intento: era el SDK quien los reintentaba por su cuenta, sin contarlos
+   ([adr/0114](./adr/0114-el-gasto-de-la-ia-tiene-techo-y-la-cuenta-se-cierra-en-orden.md))—. Y
    una respuesta **cortada por el tope de tokens** tampoco —lo dicen los dos
    proveedores, `stop_reason: 'max_tokens'` en la API y `done_reason: 'length'`
    en Ollama—: el prompt es el mismo
@@ -187,23 +190,27 @@ el reintento de la ruta encima, una pregunta al profesor podía tener a alguien
 esperando casi una hora contra una pantalla parada. Este documento llevaba desde
 el principio diciendo que aquí había «tiempo máximo», y no lo había.
 
-| Lo que se espera              | Cuánto                                               |
-| ----------------------------- | ---------------------------------------------------- |
-| Una llamada a la API          | 30 s                                                 |
-| Reintentos del SDK            | 1 (para un 429 o un 5xx, no para una respuesta mala) |
-| Por cada `askModel`           | 60 s                                                 |
-| Reintentos de la ruta         | `MAX_MODEL_ATTEMPTS` = 2                             |
-| **Peor caso de una petición** | **120 s**, el mismo tope que el modelo de casa       |
+| Lo que se espera              | Cuánto                                                     |
+| ----------------------------- | ---------------------------------------------------------- |
+| Una llamada a la API          | 30 s                                                       |
+| Reintentos del SDK            | **0**                                                      |
+| Reintentos de la ruta         | `MAX_MODEL_ATTEMPTS` = 2, también para un 429 o un 5xx     |
+| **Peor caso de una petición** | **60 s**, por debajo de los dos minutos del modelo de casa |
 
-Los reintentos del SDK y los de la ruta **no son los mismos** y por eso conviven:
-los de abajo son para una petición que ni llegó —la API sobrecargada, la conexión
-cortada—, y los de arriba para una respuesta que llegó y no vale. Apagar los de
-abajo convertiría un pico de carga de la API en un 502 inmediato.
+**El SDK no reintenta, y fue una decisión de coste** (adr/0114). Llevaba uno, para
+que un pico de carga de la API no saliera como 502 a la primera, y se decía que no se
+cobraba porque solo salta cuando la petición falla. Pero se sumaba a los dos intentos
+de la ruta: una pregunta podían ser **cuatro llamadas** y el coste —el de los cupos y
+el del techo de gasto— suponía dos, y un tiempo agotado reintentado es una llamada que
+la API pudo terminar y cobrar. Ahora el reintento de un `429` o un `5xx` es el segundo
+intento de la ruta, y **coste y realidad son el mismo número**: nunca más de
+`MAX_MODEL_ATTEMPTS` llamadas por petición. Lo que se pierde es un reintento cuando la
+respuesta no valida _y además_ la API estaba saturada: entonces contesta el respaldo.
 
-Sobre el coste: los del SDK **no se cobran**, porque ocurren cuando la petición
-falló. El único que podría cobrarse es el de un tiempo agotado —el servidor
-terminó y nosotros nos fuimos—, y para eso el tope es holgado: lo medido en este
-equipo son dos segundos en caliente y veinte en frío.
+**Y cada llamada dice lo que ha gastado** (`alUsar` en `askModel`): los tokens de su
+`usage` al precio de `MODEL_PRICES`, que se asientan en el techo de gasto de todos.
+Una que no trae `usage` —un tiempo agotado, una conexión cortada— cuenta como el peor
+caso; un error que contestó la API —un 400, un 429— no generó nada y cuenta cero.
 
 ## Configuración del modelo
 
@@ -211,20 +218,33 @@ equipo son dos segundos en caliente y veinte en frío.
 // src/server/ask-model.ts — el único sitio del proyecto que importa el SDK.
 const client = new Anthropic({ timeout: 30_000, maxRetries: 1 });
 
+const modelo = configuredModel();
+const { thinking, effort } = opcionesDelModelo(modelo); // lo que acepta ese modelo
+
 const response = await client.messages.create({
-  model: configuredModel(),
-  max_tokens: maxTokens, // TOKEN_BUDGETS[feature].output
+  model: modelo,
+  max_tokens: maxTokens + reservaParaPensar(modelo), // TOKEN_BUDGETS + reserva
   system,
-  thinking: { type: 'disabled' },
+  ...(thinking === undefined ? {} : { thinking }),
   output_config: {
-    effort: 'low',
+    ...(effort === undefined ? {} : { effort }),
     format: { type: 'json_schema', schema },
   },
   messages: [{ role: 'user', content: prompt }],
 });
 ```
 
-- **Modelo**: `claude-opus-5` por defecto, configurable por entorno.
+- **Modelo**: `claude-sonnet-5-5` por defecto, configurable por entorno
+  ([adr/0103](./adr/0103-los-modelos-vigentes-y-el-de-por-defecto.md)). Fue
+  `claude-opus-5`; Sonnet 5.5 cuesta la mitad por pregunta y su pensamiento se apaga.
+- **A cada modelo, solo lo que acepta.** `opcionesDelModelo` lee la tabla de
+  `core/billing/cost.ts` —la misma de los precios—: `disabled` a Opus 5, Sonnet 5 y
+  Sonnet 4.6; `between_tools` a Sonnet 5.5, que da 400 con `disabled`; nada a Opus
+  5.5 y Fable, que no dejan apagarlo; y a Haiku 4.5 ni `thinking` ni `effort`, que da
+  400 con él. Mandar `disabled` y `effort` a todos, como se hacía, dejaba sin
+  contestar ninguna pregunta con cuatro de los modelos vigentes. Comprobado contra
+  la documentación de la API el 7 de octubre de 2026. **`between_tools` lleva un
+  `as`**: el SDK instalado (0.115) no lo conoce todavía y manda el cuerpo tal cual.
 - **`max_tokens` sale del presupuesto de coste**, no de un número escrito aquí:
   `TOKEN_BUDGETS` de `core/billing/cost.ts`, que es el mismo con el que se
   calculan los cupos. Así el tope que impone el servidor **es** el peor caso que
@@ -232,13 +252,22 @@ const response = await client.messages.create({
   para el profesor y 900 para salidas. Los 900 venían de cuando una salida eran
   treinta y dos compases escritos por el modelo; desde que elige del menú, tres
   salidas son un número, un título y un porqué cada una —unos 300 tokens—, y
-  bajarlo subiría los cupos de Medio y Pro. Es una decisión de precio y está sin
-  tomar.
-- **Pensar está apagado, y es una decisión de coste.** La respuesta la fija un
-  esquema JSON: no hay nada que razonar. En `claude-opus-5` el pensamiento viene
-  encendido y se cobra como salida, así que dejarlo puesto multiplica el coste y
-  puede gastarse el `max_tokens` pensando para devolver algo cortado: se paga y
-  no se sirve. Por lo mismo, `effort: 'low'`.
+  bajarlo subiría los cupos de Medio. Es una decisión de precio y está sin
+  tomar. **En los modelos que no dejan apagar el pensamiento, el tope lleva 1.024
+  tokens más para pensar** (`reservaParaPensar`), y el coste los cuenta: lo que se
+  piensa se cobra como salida y cuenta dentro de `max_tokens`.
+- **La entrada cuenta el texto libre en su peor alfabeto** (`peorTextoLibreEnTokens`,
+  adr/0114). `TOKEN_BUDGETS` mide los prompts como castellano, a 3,2 caracteres por
+  token, y la pregunta o las directrices las escribe quien pide: 240 caracteres
+  chinos o yi eran hasta 587 tokens. Un token es al menos un byte y el contrato
+  recorta lo libre a lo que pesaría como 240 letras latinas (adr/0115), así que el
+  coste suma **480 tokens** de entrada a cada petición, y un test lo comprueba con el
+  recorte de verdad, alfabeto por alfabeto.
+- **Pensar se apaga donde se puede, y es una decisión de coste.** La respuesta la
+  fija un esquema JSON: no hay nada que razonar. El pensamiento se cobra como
+  salida, así que dejarlo puesto multiplica el coste y puede gastarse el
+  `max_tokens` pensando para devolver algo cortado: se paga y no se sirve. Donde no
+  se apaga, `effort: 'low'` lo modera.
 - **Sin `temperature`**: los modelos actuales no la aceptan. La variedad se pide
   en el prompt, no con parámetros de muestreo.
 - **Prompt de sistema**: fija el criterio —rock, no coral—, exige español, y
@@ -298,11 +327,11 @@ Quien hable con él es `server/local-model.ts`, **sin SDK**: Ollama habla JSON p
 HTTP y `fetch` está en el runtime. Las tres decisiones de coste de la API se
 traducen, no se reinventan:
 
-| En la API                        | En Ollama             | Por qué                                           |
-| -------------------------------- | --------------------- | ------------------------------------------------- |
-| `thinking: { type: 'disabled' }` | `think: false`        | La respuesta la fija un esquema: nada que razonar |
-| `max_tokens`                     | `options.num_predict` | El mismo número del presupuesto de `cost.ts`      |
-| `output_config.format`           | `format`              | El esquema constriñe la generación                |
+| En la API              | En Ollama             | Por qué                                           |
+| ---------------------- | --------------------- | ------------------------------------------------- |
+| `thinking` apagado     | `think: false`        | La respuesta la fija un esquema: nada que razonar |
+| `max_tokens`           | `options.num_predict` | El mismo número del presupuesto de `cost.ts`      |
+| `output_config.format` | `format`              | El esquema constriñe la generación                |
 
 Tres cosas que conviene saber antes de que muerdan:
 
@@ -365,29 +394,44 @@ quedaba sin peticiones del mes por una variable de entorno que faltaba.
 lee las rutas y comprueba que el proveedor se sigue mirando antes que el cupo:
 el orden de dos líneas es justo lo que se pierde al refactorizar.
 
-## Las tres puertas: frecuencia, cuenta y cupo
+## Las puertas: dirección, cuenta, frecuencia, techo y cupo
 
-Tres cosas distintas, y las tres hacen falta.
+En este orden, de lo que no cuesta nada a lo que cuesta dinero (`server/ai-route.ts`,
+[adr/0114](./adr/0114-el-gasto-de-la-ia-tiene-techo-y-la-cuenta-se-cierra-en-orden.md)):
 
-**Diez peticiones por minuto y dirección**, en una ventana deslizante
-(`server/rate-limit.ts`). No sabe de planes a propósito: aunque pagues, no hay razón
-para hacer diez peticiones en un segundo. El contador vive **en memoria y por
-instancia**: si esto corre en varias, cada una lleva su cuenta. Para lo que defiende
-—pulsar el botón veinte veces seguidas— es suficiente.
+**Sesenta por minuto y dirección**, una capa barata con su propia clave (`ia-ip`) que
+para a quien aporrea sin leer la sesión. **Solo cuando hay dirección**: sin
+`TRUSTED_PROXY_HOPS` todas las peticiones son la misma, y un tope común deja sin IA a
+todo el mundo. Fue el único límite, y por eso pasaba: diez peticiones anónimas
+dejaban sin profesor a todas las cuentas.
 
-**Cuenta.** Sin cuenta se contesta `401` y no se llama al modelo. Es lo que hace que el
-límite sea de verdad por cliente: una dirección IP se cambia con el móvil en la mano.
-Antes había un contador anónimo por dirección y en memoria; se ha borrado, no
-arreglado.
+**Que haya modelo, y cuenta, antes de leer el cuerpo.** Sin modelo, un `503` que lo
+dice. Sin cuenta, `401` y no se llama al modelo **ni se hace trabajo de dominio con lo
+que trae la petición**. Es lo que hace que el límite sea de verdad por cliente: una
+dirección IP se cambia con el móvil en la mano.
+
+**Diez peticiones por minuto y cuenta** (`frenarPorCuenta`). No sabe de planes a
+propósito: aunque pagues, no hay razón para hacer diez peticiones en un segundo. Con
+base de datos el contador es una fila compartida entre instancias; sin ella, en
+memoria.
+
+**El techo de gasto de todos** (`server/ai-gasto.ts`): cuatro topes en dinero —de
+todos y del plan gratis, al día y al mes— que cierran la IA con un `503` que dice que
+no es el cupo de quien pide, y hasta cuándo. Va antes que el cupo para que una
+petición parada no le cueste una pregunta a nadie. Las variables y sus valores de
+serie están en [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md#el-techo-de-gasto-de-todos)
+y en [DESPLIEGUE.md](./DESPLIEGUE.md).
 
 **Los dos cupos del plan** (`server/ai-usage.ts`) —el del mes y el del día—, que son
-los que acotan el gasto. Van al final porque son una escritura en la base de datos y
-comprobar memoria es gratis.
+los que acotan el gasto de cada cuenta. Van al final porque son una escritura en la
+base de datos.
 
 Los cupos **no están escritos en ninguna parte: se calculan** desde el precio del plan,
 el precio del modelo y el peor caso de tokens de una pregunta al profesor
-(`core/billing/cost.ts`). **Se cuentan en preguntas**: una salida gasta las que cuesta,
-tres hoy, y si no caben enteras no se sirve ([adr/0067](./adr/0067-el-cupo-se-cuenta-en-preguntas.md)). El `max_tokens` de estas rutas sale de ese mismo sitio, así
+(`core/billing/cost.ts`), sobre lo que entra sin IVA ni comisión de la pasarela
+([adr/0106](./adr/0106-el-margen-se-cuenta-sin-iva-y-con-pago-anual.md)). **Se cuentan
+en preguntas**: una salida gasta las que cuesta, tres con el modelo por defecto, y si
+no caben enteras no se sirve ([adr/0067](./adr/0067-el-cupo-se-cuenta-en-preguntas.md)). El `max_tokens` de estas rutas sale de ese mismo sitio, así
 que el peor caso que supone la aritmética es el tope que impone el servidor. La tabla
 de números y el porqué están en [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md) y en
 [adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
@@ -404,16 +448,20 @@ Cuatro detalles del cupo que conviene no olvidar aquí:
 - **El mensaje dice cuál de los dos se agotó**, porque no se arreglan igual: uno se
   espera a mañana y el otro se arregla subiendo de plan.
 
-## Pensar está apagado en las dos rutas
+## Pensar se apaga en las dos rutas, donde el modelo deja
 
 Y es una decisión de coste, no un descuido. La respuesta la fija un esquema JSON: no
-hay nada que razonar. En `claude-opus-5` **el pensamiento viene encendido por
+hay nada que razonar. En los modelos de hoy **el pensamiento viene encendido por
 defecto** y se cobra como tokens de salida, así que dejarlo puesto multiplicaba el
 coste de cada pregunta y podía gastarse el `max_tokens` pensando para devolver una
 respuesta truncada —se paga y no se sirve—.
 
-`server/ask-model.ts` manda `thinking: { type: 'disabled' }` con `effort: 'low'` para
-las dos, y los dos prompts de sistema piden explícitamente que no se cuelen
+`server/ask-model.ts` manda a cada modelo **lo que acepta** para pensar lo menos
+posible (`opcionesDelModelo`; la tabla está en
+[CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md#sin-pensar-donde-se-puede-y-a-propósito)):
+con el de por defecto, `thinking: { type: 'between_tools' }` y `effort: 'low'`. Donde
+no se puede apagar —Opus 5.5, Fable— el tope lleva una reserva para pensar y el coste
+la cuenta. Los dos prompts de sistema piden explícitamente que no se cuelen
 etiquetas XML internas en la respuesta: es lo que recomienda la documentación del
 modelo para ese caso.
 
@@ -427,9 +475,12 @@ en `prompts.test.ts` se dejaba fuera la mitad (más abajo, en «Las salidas»).
 
 ## Por dónde entra texto que no controlamos
 
-Toda la superficie, contada: **dos campos y 480 caracteres**. La pregunta del
+Toda la superficie, contada: **dos campos y 480 letras**. La pregunta del
 profesor, y las directrices de una salida —«a qué quieres que suene»—, que son 240
-cada una. Nada más.
+cada una. Nada más. **Las letras se cuentan en el peor alfabeto**: 240 latinas, o 25
+caracteres chinos o yi, que cuestan lo mismo en tokens (`tokensEnElPeorCaso`, en
+`core/marca.ts`); y se recortan **antes** de limpiarlas
+([adr/0115](./adr/0115-la-marca-no-se-adivina-y-lo-libre-se-acota-en-el-peor-alfabeto.md)).
 
 Fueron uno solo hasta el 24 de septiembre de 2026
 ([adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md)), y el segundo se abrió a
@@ -463,8 +514,16 @@ Alrededor del canal del profesor hay dos cosas, y las dos están en
    auditoría del 2 de octubre de 2026 la coló con espacios (`### PREGUNTA ###`), en
    minúsculas, con un espacio de ancho cero dentro y con almohadillas de ancho
    completo. Ahora la pregunta se normaliza primero —NFKC, sin caracteres de
-   formato ni de control— y se quita cualquier `##…PREGUNTA…##` y sus dos mitades.
+   formato ni de control— y se quita cualquier `#…PREGUNTA…#` y sus dos mitades.
    Las directrices de una salida, igual con `###DIRECTRICES###`.
+   **Y desde el 7 de octubre la marca lleva una clave aleatoria por petición**
+   —`###PREGUNTA-3f9a1c###`— y el prompt de sistema dice que el bloque va entre dos
+   iguales: quien escribe no la ve y no la puede escribir. Fue la respuesta a siete
+   disfraces más —selectores de variante, letras cirílicas, un relleno hangul…— que
+   `qwen3:8b` se creía; borrar lo que se parece sigue como segunda capa, buscado en
+   una copia plegada (`copiaParaBuscar`) y en una pasada lineal: la expresión de antes
+   tardaba 47 s con 128 KB de almohadillas
+   ([adr/0115](./adr/0115-la-marca-no-se-adivina-y-lo-libre-se-acota-en-el-peor-alfabeto.md)).
 2. **El modelo declara `tema: 'musica' | 'fuera'`**, obligatorio, enumerado y
    primero en el esquema —la generación constreñida rellena en ese orden, así que
    lo decide antes de contestar—. Con `fuera`, `validateTeacherAnswer` tira su
@@ -477,7 +536,10 @@ llega a la pantalla **es** su prosa, y de una salida son acordes recalculados
 contra el dominio más un título y un porqué. Esos dos no tenían tope ninguno —ni en
 el esquema ni al validar— y ahora caben en 60 y 200 caracteres: son la única prosa
 del modelo que se pinta, así que se cierran por construcción en vez de confiar en
-que el prompt se respete.
+que el prompt se respete. **Y no pueden llevar un enlace, un correo ni una palabra de
+cebo, ni copiar el prompt de sistema** (`core/prosa-del-modelo.ts`): con las
+directrices inyectadas, `qwen3:8b` titulaba «Renueva tu cuenta en evil.example» tres
+de tres veces. Lo que no pasa cae al texto del dominio.
 
 **Y lo que de verdad limita el abuso no es ninguna de las dos.** Contra alguien
 decidido, una inyección que funcione hará que el modelo conteste `musica`. Lo que
@@ -507,7 +569,11 @@ dependen de que el modelo obedezca:
   examen no tira ninguna respuesta de música; caza «París», la contraseña y la
   receta.
 - **Lo que copia ocho palabras seguidas del prompt de sistema no vale**
-  (`copiaLasInstrucciones`). Caza el último caso, que pintaba el prompt entero.
+  (`copiaLasInstrucciones`, en `core/prosa-del-modelo.ts`). Caza el último caso, que
+  pintaba el prompt entero. Y desde adr/0115, tampoco doce de sus palabras con
+  contenido en su orden con otras entre medias: la copia con una palabra cada seis.
+- **Antes que todo eso, ni un enlace, ni un correo, ni una contraseña** (`esUnCebo`):
+  «confirma tu cuenta en https://… es una nota del equipo» pasaba por música.
 - **Detrás de la pregunta se repite que es un dato** (`RECORDATORIO_DE_LA_PREGUNTA`),
   que es lo último que lee antes de contestar. En una prueba con las ocho
   inyecciones, el poema y seis preguntas buenas pasó de 6 a 11 de 15; moverlo del
@@ -530,6 +596,11 @@ escribe el modelo llega a otra persona.
 
 Lo que sale del equipo son entre diez y cincuenta caracteres de símbolos
 musicales. Ni una muestra de audio.
+
+Y **se dice que es una IA donde se pregunta**, encima de la pregunta al profesor
+(AI Act, art. 50.1), con un enlace a `/privacidad`, que nombra al proveedor que
+contesta en esa copia —leído de `modelProvider()`, no escrito a mano—
+([adr/0111](./adr/0111-la-edad-se-declara-y-el-titular-se-configura.md)).
 
 ## El profesor
 
@@ -663,7 +734,7 @@ y **no queda sitio**: lo próximo que entre en el prompt pide subir el presupues
 eso baja los cupos de todos los planes.
 
 **Cómo se mide**: `pnpm examen:profesor` le hace **88 preguntas** al modelo de casa
-por el mismo camino que la ruta —el mismo prompt, el mismo validador, el mismo
+—o al de pago, con `--api` ([MEDIR.md](./MEDIR.md))— por el mismo camino que la ruta —el mismo prompt, el mismo validador, el mismo
 reintento y el mismo respaldo, porque usa `PROFESOR` y `preguntarAlModelo`—: teoría
 en doce tonalidades con alteraciones, preguntas mal escritas, de la aplicación,
 fuera de tema y las ocho inyecciones de la auditoría. Y mide por separado las
@@ -687,8 +758,9 @@ un poema sobre el mar escrito con grados y los dos poemas sobre París. Pide
 ## Las salidas: por dónde puede tirar lo que tocas
 
 El otro route handler, `POST /api/versiones`, con el mismo reparto que el del
-profesor. Es **la petición más cara de las dos** y entra en los planes Medio y Pro
-([adr/0066](./adr/0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)).
+profesor. Es **la petición más cara de las dos** y entra en el plan Medio
+([adr/0066](./adr/0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)), que
+desde [adr/0104](./adr/0104-el-plan-pro-se-replantea.md) es el de arriba.
 
 Entra una progresión en grados con sus pulsos, una tonalidad y **qué se pide**.
 Salen hasta tres **salidas**: canciones distintas que arrancan de lo que llevas
@@ -843,7 +915,8 @@ Cinco exámenes del dominio, sin modelo, que corre `pnpm test` —`corpus-de-sal
 `corpus-final` (53 de 54) y `corpus-quinto` (27 de 50 menús), en `core/music/`—, cada uno con un trinquete que no deja
 bajar y una lista `YA_NO_PUEDEN_FALLAR`. **Y `pnpm examen:salidas`**
 (`scripts/examen-de-las-salidas.ts`), que pasa las peticiones por la ruta contra el
-modelo de verdad. Con `qwen3:8b`: contesta 72/72, los porqués son verdad 216/216,
+modelo de verdad —el de pago con `--api`, que antes dice cuánto puede costar
+([MEDIR.md](./MEDIR.md))—. Con `qwen3:8b`: contesta 72/72, los porqués son verdad 216/216,
 508/513 sin directrices y 7/8 sigue las directrices.
 
 **Un corpus que se usa para ajustar deja de medir, y los cinco se han usado.** La

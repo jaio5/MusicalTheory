@@ -13,6 +13,11 @@ en [adr/](./adr/).
 Es lo primero porque todo lo demás cuelga de aquí: si lo que se oye está mal, las
 lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
 
+- **Medir con cinco guitarras y tres micros: el script está, faltan las tomas.**
+  `pnpm medir:tomas` pasa una carpeta de grabaciones por el motor en diferido y da
+  acierto, dudas y «seguro y falso» por acorde, guitarra y micro; el protocolo y el
+  umbral —85 % en C, G, D, Am, Em y F, y los fallos con «?»— están en
+  [MEDIR.md](./MEDIR.md). Es lo que pide casi todo lo de abajo.
 - **Rodaje con guitarra: hecho una vez, el 23 de septiembre de 2026, y lo que
   salió está aquí.** El afinador, bien: afina las seis cuerdas y recupera una
   desafinada media vuelta. Los acordes, no: con C, F, G y Am sueltos **se inventa
@@ -23,8 +28,8 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   sigue durante la toma y lo apuntado empieza donde cae el compás uno
   ([adr/0072](./adr/0072-la-claqueta-suena-toda-la-toma.md), que sustituye en parte
   al [0053](./adr/0053-la-claqueta-cuenta-y-se-calla.md)). **Lo que queda es
-  tocar con una guitarra de verdad**: el La menor abierto se lee Esus4 o C6; los
-  retrasos de 40 y 520 ms están calibrados con una guitarra sintética; la latencia
+  tocar con una guitarra de verdad**: el acierto de los acordes está medido solo
+  con guitarras sintéticas; los retrasos de 40 y 520 ms están calibrados con una guitarra sintética; la latencia
   de entrada del micro no se descuenta; y no hay tresillos ni ligaduras
   (`LeadNote`, `Staff` y el reproductor no los tienen).
 - **«Traer punteo» del lienzo sigue leyendo el historial de 24 entradas**
@@ -60,20 +65,22 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   maneras de equivocarse —el empate y el mal parecido— en vez de solo la primera, y
   lo analizado en diferido lleva por fin su duda en vez de llegar como certeza.
   Ahora un acorde mal tocado sale con «?» en vez de afirmarse.
-- **Lo que falta es el acierto, y pasa por el modelo de armónicos.**
-  `discountHarmonics` rebaja la quinta y la tercera de _cualquier_ acorde, porque
-  en un Do real el Sol sí es el tercer armónico del Do: después del descuento, un
-  Do rasgueado y un Do pulsado a solas tienen casi la misma forma, y de ahí sale
-  que un punteo se lea como acordes. Lo que los distinguiría es si esos picos son
-  más fuertes de lo que el modelo predice, y el descuento actual lo aplana. **Pide
-  grabaciones de guitarra de verdad**: con la guitarra sintética de los tests no se
-  puede calibrar, porque tiene justo los armónicos que se le pusieron.
+- **El modelo de armónicos está cambiado, y medido solo con guitarra sintética**
+  ([adr/0107](./adr/0107-los-armonicos-se-miden-en-su-serie.md)). Cada armónico se
+  mide en su propia serie y no en una tabla, se mira hasta el duodécimo y el bajo
+  desempata `Am7` contra `C6`: con dos guitarras de Karplus-Strong distintas y un
+  conjunto ciego, la tríada pasa del 60–75 % al 90–99 %, y el La y el Si menor, de
+  casi nunca a casi siempre. **Lo que falta es medirlo con una guitarra de verdad**,
+  que tiene otros armónicos que ninguna de las dos. Y una nota sola sigue sin
+  separarse de un acorde: ahora sale como su quinta (`C5`), a veces sin «?».
 - **Los umbrales del motor de tono** se ajustaron tras una sola tarde de pruebas.
   Hay medidor para afinarlos con datos, y eso sigue sin hacerse.
 - **Las inversiones se leen como el acorde en estado fundamental.** El croma
   olvida la octava a propósito ([adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md)),
-  así que C/E y C son el mismo vector, y analizar después no lo arregla. Hace
-  falta otra cosa —bajo detectado aparte— o asumirlo y decirlo.
+  así que C/E y C son el mismo vector. **El bajo ya se detecta aparte**
+  ([adr/0107](./adr/0107-los-armonicos-se-miden-en-su-serie.md)), pero solo
+  desempata: escribir `C/E` pide que un bloque sepa guardar su bajo, y eso toca el
+  lienzo, la partitura, el reproductor y lo que se guarda.
 - **El reconocimiento en vivo sí aguanta una CPU lenta, y está medido.** Con el
   micrófono falso tocando un `C-F-G-Am` y la CPU frenada ×1, ×4, ×6, ×10 y ×20,
   escribe los cuatro acordes en los cinco casos —`gama-media.mjs` del skill
@@ -101,9 +108,9 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
   `otro-final` ni aparecen**. Con esto no se sabe si la función sirve o si el
   modelo es pequeño, que es exactamente para lo que hace falta la API.
 
-- **Pasar el examen del profesor contra la API.** `pnpm examen:profesor` son 28
-  preguntas de teoría por el mismo camino que la ruta, pero hoy solo sabe llamar al
-  modelo de casa (`server/local-model.ts`). Con `qwen3:8b` y el glosario
+- **Pasar el examen del profesor contra la API.** `pnpm examen:profesor` son 88
+  preguntas por el mismo camino que la ruta, y ya sabe llamar a la API con `--api`;
+  falta hacerlo, con la clave puesta ([MEDIR.md](./MEDIR.md)). Con `qwen3:8b` y el glosario
   delante salen 26 de 28 ([adr/0076](./adr/0076-el-profesor-se-apoya-en-un-glosario-comprobado.md)):
   el ii–V–I contesta sin acordes y dice que el bajo sube, y los siete modos, sin
   nombrar ninguno. El validador solo mira las cadencias y la relativa, así que
@@ -122,7 +129,9 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
   - **`pnpm banco:ia` es redundante con `pnpm examen:salidas`**, que mide lo mismo
     contra el modelo de verdad y con más casos. Cuando se pase contra la API,
     conviene quedarse con uno.
-  - **Un sexto corpus para volver a medir**: los cinco se han usado para arreglar
+  - **Un sexto corpus para volver a medir**, escrito a ciegas por un músico ajeno: el
+    andamio vacío está en `docs/corpus-sexto/` y el procedimiento en
+    [MEDIR.md](./MEDIR.md). Los cinco se han usado para arreglar
     causas (hoy pasan 71/72, 93/96, 98/98, 53/54 y 27/50 _después_ de arreglar), así
     que ya no miden. La última cifra honesta es la del quinto antes de tocar nada:
     22 de 50 menús enteros con el examen estricto
@@ -142,7 +151,7 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
     abierta, no hecha.
   - **Medir contra la API**, y no solo con `qwen3:8b`.
 - **`TOKEN_BUDGETS.versiones.output` está en 900 y bastan unos 300.** Bajarlo sube
-  los cupos de Medio y Pro: decisión de precio, no de código.
+  los cupos de Medio: decisión de precio, no de código.
 - **El presupuesto del profesor está lleno: 696 de 700 tokens.** No cabe otra frase
   en el prompt sin subirlo, y subirlo baja los cupos.
 - **Los bloques fantasma no tienen quien los llene.** `state/propuesta.ts` y su
@@ -203,8 +212,10 @@ la manera normal de componer aquí.
 
 - **Una entrada para tocar, sin banco.** Hubo una pantalla sencilla y se quitó
   ([adr/0095](./adr/0095-se-quita-componer-sencillo.md)): lo que abruma de
-  `/componer` lo atiende el recorrido
-  ([adr/0094](./adr/0094-el-recorrido-de-la-primera-visita.md)). Si vuelve, que sea
+  `/componer` lo atienden entrar por `Escribir` con solo la canción abierta y el
+  recorrido por pantallas
+  ([adr/0108](./adr/0108-el-recorrido-sale-por-pantallas.md),
+  [adr/0109](./adr/0109-lo-que-se-da-por-hecho-al-empezar.md)). Si vuelve, que sea
   el espacio `Tocando` más claro y no una segunda pantalla.
 
 ## 4. Que componer sea un banco de trabajo, y no dos caras
@@ -346,8 +357,6 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
   - **Esconder «Componer» del `WorkHeader` por debajo de `sm`.**
   - **Safari/iOS sin probar el toque**: todo se sintetizó en Chromium. Y con cuenta
     y micro, sin medir.
-  - **La escala por defecto, «pentatónica menor», enseña Mib y Sib** a quien aprende
-    las notas. Es una decisión de producto pendiente.
 - **Regenerar la escena y la mascota con la paleta del
   [adr/0070](./adr/0070-la-sala-encendida.md)**: `arte/portada/build.py` y
   `arte/mascota/build.py`.

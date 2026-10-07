@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 
 import { keyName } from '@core/music';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, useSessionStore, type SessionKey } from '@state/session-store';
 import { Disclosure } from '@ui/Disclosure';
 
 import { KeyPanel } from './KeyPanel';
@@ -18,8 +18,11 @@ import { KeyPanel } from './KeyPanel';
  * va debajo de la rueda.
  *
  * **Se abre sola mientras no haya tonalidad, y se pliega al elegirla.** Sin
- * tonalidad ninguna de las dos pantallas puede empezar, y pedirla con la rueda
- * plegada detrás de una frase es pedir sin ofrecer dónde.
+ * tonalidad componer no puede empezar, y pedirla con la rueda plegada detrás de
+ * una frase es pedir sin ofrecer dónde. **Salvo que haya una de partida**
+ * (`dePartida`): la unidad se escribe en Do mayor mientras no elijas otra, así
+ * que no hay nada que pedir y la barra se queda plegada diciendo cuál es
+ * ([adr/0109](../../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)).
  *
  * **Y flota sobre lo de abajo en vez de empujarlo.** Empujando había que repartir
  * el alto entre la rueda y lo que hay debajo, y no hay reparto bueno: la rueda
@@ -30,6 +33,7 @@ import { KeyPanel } from './KeyPanel';
 export function BarraDeTonalidad({
   className,
   onAbrirse,
+  dePartida,
   children,
 }: {
   /** El marco: quien no viva ya dentro de una caja con borde pone el suyo. */
@@ -42,6 +46,8 @@ export function BarraDeTonalidad({
    * apagar lo de debajo mientras dura.
    */
   readonly onAbrirse?: (abierto: boolean) => void;
+  /** La que se usa si no hay ninguna elegida: con ella, la barra no la pide. */
+  readonly dePartida?: SessionKey;
   /** Lo que acompaña a la rueda: los ajustes, o una frase que explique. */
   readonly children?: ReactNode;
 }) {
@@ -49,7 +55,7 @@ export function BarraDeTonalidad({
 
   return (
     <Disclosure
-      abierto={activeKey === null}
+      abierto={activeKey === null && dePartida === undefined}
       /*
         Flota **siempre**, y se probó a que no.
 
@@ -68,7 +74,11 @@ export function BarraDeTonalidad({
         <>
           Tonalidad:{' '}
           <span className="text-brass-bright">
-            {activeKey === null ? 'sin elegir' : keyName(activeKey.tonic, activeKey.mode)}
+            {activeKey !== null
+              ? keyName(activeKey.tonic, activeKey.mode)
+              : dePartida === undefined
+                ? 'sin elegir'
+                : `${keyName(dePartida.tonic, dePartida.mode)}, de partida`}
           </span>
         </>
       }

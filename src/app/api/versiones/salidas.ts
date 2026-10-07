@@ -116,12 +116,18 @@ export const SALIDAS: PreguntaAlModelo<VersionsRequest, RespuestaDeSalidas> = {
   schema: (peticion) => versionsSchema(cuantasSeVen(peticion), soloExplica(peticion)),
   /**
    * El tope de salida sale del dominio: es el mismo número con el que
-   * `core/billing/cost.ts` calcula el cupo de los planes Medio y Pro.
+   * `core/billing/cost.ts` calcula el cupo de los planes de pago.
    */
   maxTokens: TOKEN_BUDGETS.versiones.output,
   sinClave: delDominio,
   validar: (payload, peticion) => {
-    const versions = validateVersions(soloLoQueVio(payload, peticion), peticion);
+    // Con el prompt de sistema, para tapar el título o el porqué que lo copie
+    // (adr/0115), como hace el profesor con su respuesta.
+    const versions = validateVersions(
+      soloLoQueVio(payload, peticion),
+      peticion,
+      VERSIONS_SYSTEM_PROMPT,
+    );
     return versions.length > 0 ? { versions } : null;
   },
   /**

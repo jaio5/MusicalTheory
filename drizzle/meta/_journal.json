@@ -43,6 +43,20 @@
       "when": 1790943842257,
       "tag": "0005_quick_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791371976029,
+      "tag": "0006_third_rachel_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791378629090,
+      "tag": "0007_fearless_thor_girl",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import type * as NextServer from 'next/server';
+import type * as RateLimitDb from '@server/rate-limit-db';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -27,6 +28,19 @@ vi.mock('@server/password-reset', () => ({
   pruneResets: vi.fn(async () => undefined),
 }));
 vi.mock('@server/app-url', () => ({ appUrl: () => 'http://x' }));
+
+// El limitador de verdad, con un espía delante para ver con qué clave cuenta.
+const clavesDelTope: string[] = [];
+vi.mock('@server/rate-limit-db', async (original) => {
+  const real = await original<typeof RateLimitDb>();
+  return {
+    ...real,
+    limitRequest: (input: Parameters<typeof real.limitRequest>[0]) => {
+      clavesDelTope.push(input.key);
+      return real.limitRequest(input);
+    },
+  };
+});
 
 /**
  * `after` de Next, a mano: guarda lo que se deja para después de contestar, y el
@@ -204,9 +218,11 @@ describe('usar el vale', () => {
   it('una contraseña demasiado corta no se acepta', async () => {
     resetPassword.mockResolvedValue('contrasena-corta');
 
-    const { status } = await leer(await PUT(pedir('PUT', { vale: 't', password: 'corta' })));
+    const { status, body } = await leer(await PUT(pedir('PUT', { vale: 't', password: 'corta' })));
 
     expect(status).toBe(400);
+    // Y dice las dos medidas: corta o enorme es el mismo código (adr/0113).
+    expect((body['error'] as { message: string }).message).toMatch(/entre 8 y 1024/);
   });
 
   it('sin base de datos se dice, en vez de fingir que se ha cambiado', async () => {
@@ -272,6 +288,21 @@ describe('probar correos a lo bruto', () => {
 
     expect(status).toBe(200);
     expect(body['message']).toMatch(/Si ese correo tiene cuenta/);
+  });
+
+  /**
+   * **El correo va en la clave con su huella** (adr/0113). Entero, uno de 100 KB
+   * —cabe en el cuerpo— reventaba el índice de la tabla de topes, y el tope caía
+   * al de memoria, que es por proceso.
+   */
+  it('la clave del tope por correo lleva su huella, no el correo', async () => {
+    clavesDelTope.length = 0;
+    const enorme = `${'z'.repeat(100 * 1024)}@b.c`;
+
+    await POST(pedir('POST', { email: enorme }));
+
+    const porCorreo = clavesDelTope.filter((clave) => clave.startsWith('olvidada:correo:'));
+    expect(porCorreo).toEqual([expect.stringMatching(/^olvidada:correo:[0-9a-f]{32}$/)]);
   });
 
   it('y el mismo contador vale para poner la contraseña nueva', async () => {

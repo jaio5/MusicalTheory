@@ -155,10 +155,7 @@ export function PathScreen() {
           que se mira de un vistazo, abajo las medallas, que son las que se
           desplazan— y el camino ocupa las dos a su derecha.
         */}
-        <div
-          className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:pb-[calc(10dvh+4rem)]"
-          data-tour="aprender-camino"
-        >
+        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:pb-[calc(10dvh+4rem)]">
           <LearnPath
             progress={progress}
             plan={account.plan}

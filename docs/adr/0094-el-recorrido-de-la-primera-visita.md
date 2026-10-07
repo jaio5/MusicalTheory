@@ -1,6 +1,6 @@
 # ADR 0094 — La primera visita trae un recorrido guiado
 
-Fecha: 2026-10-03 · Estado: aceptada, **a prueba**
+Fecha: 2026-10-03 · Estado: aceptada, **sustituida en parte por [ADR 0108](./0108-el-recorrido-sale-por-pantallas.md)**: cinco pasos por pantallas, sin modal y sin tocar nada para enseñarse
 
 ## Contexto
 

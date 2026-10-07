@@ -135,6 +135,7 @@ delante:
 | Contexto        | Solo lo anterior           | Lo anterior y lo posterior         |
 | Umbral de ruido | Fijo, escrito aquí         | **Medido en la propia grabación**  |
 | Decisión        | Acorde a acorde            | **La secuencia entera de una vez** |
+| Techo           | 1000 Hz                    | 1000 Hz (miraba hasta 2200)        |
 
 Lo de la ventana es el punto entero: el Mi y el Fa graves están a 4,9 Hz, así que
 con 23,4 Hz por casilla caen en la misma y ahí abajo es donde una guitarra pasa
@@ -188,9 +189,9 @@ empates.
 **La rítmica se cuadra en la rejilla de la toma** (`captureProgression` con
 `startedAt`): cada cambio cae en su pulso, descontado lo que tarda el motor de
 acordes en decirlo (520 ms, medido), y el último acaba cuando dejó de sonar. Una
-cuatríada oída se escribe como su tríada, porque con una guitarra el croma casi
-siempre ve cuatro notas (el quinto armónico de la quinta es la séptima mayor), y
-el motor de acordes mira hasta 1000 Hz y no hasta 2200: por encima no hay
+cuatríada oída se escribe como su tríada, porque con una guitarra el croma ve a
+menudo cuatro notas (el quinto armónico de la quinta es la séptima mayor), y los
+dos análisis de acordes miran hasta 1000 Hz y no hasta 2200: por encima no hay
 fundamentales de guitarra, solo armónicos.
 
 **El acorde que ya suena al llegar el compás uno es el primero.** El croma solo
@@ -221,16 +222,16 @@ mismo algoritmo en Python para los WAV) a 90 pulsos, en Chromium con el sonido
 metido como micrófono, el clic de la aplicación colándose en él a 0,6 de su
 nivel, y comparando lo escrito en la partitura con lo tocado:
 
-| Toma                               | Antes                      | Después                         |
-| ---------------------------------- | -------------------------- | ------------------------------- |
-| Punteo de 20 notas, altura         | 3/20                       | 20/20                           |
-| Punteo, ataque en su casilla       | 3/20                       | 20/20                           |
-| Punteo, duración                   | 2/20                       | 20/20                           |
-| Punteo, notas fantasma             | 0 (solo apuntaba 4)        | 0                               |
-| Punteo con la onda cuadrada sumada | 3/20, 2/20, 2/20 y 1 falsa | 20/20, 20/20, 18/20 y 3 falsas  |
-| Rítmica C–Am–F/G–C, acordes leídos | 0/5                        | 4/5 (el Am sale como C, dudoso) |
-| Rítmica, cambios en su pulso       | 0/5                        | 4/5                             |
-| Rítmica, largos                    | 0/5                        | 3/5                             |
+| Toma                               | Antes                      | Después                        |
+| ---------------------------------- | -------------------------- | ------------------------------ |
+| Punteo de 20 notas, altura         | 3/20                       | 20/20                          |
+| Punteo, ataque en su casilla       | 3/20                       | 20/20                          |
+| Punteo, duración                   | 2/20                       | 20/20                          |
+| Punteo, notas fantasma             | 0 (solo apuntaba 4)        | 0                              |
+| Punteo con la onda cuadrada sumada | 3/20, 2/20, 2/20 y 1 falsa | 20/20, 20/20, 18/20 y 3 falsas |
+| Rítmica C–Am–F/G–C, acordes leídos | 0/5                        | 5/5 (4/5 antes del ADR 0107)   |
+| Rítmica, cambios en su pulso       | 0/5                        | 5/5                            |
+| Rítmica, largos                    | 0/5                        | 5/5                            |
 
 El «antes» apuntaba cuatro o cinco notas porque el historial se quedaba con las
 últimas veinticuatro entradas, y en la rítmica todo acorde salía como cuatríada
@@ -240,10 +241,9 @@ Chromium salieron peor; las sondas mostraron que el sonido de prueba llegaba
 desplazado al análisis, que es cosa del micrófono fingido y no se ha visto con
 uno de verdad —pero no se ha medido con uno de verdad—.
 
-**Lo que no aguanta:** el La menor de la postura abierta se lee Esus4 y C6 y se
-escribe como Do, marcado como dudoso; no hay tresillos ni ligaduras en la
-partitura, así que un tresillo cae en la semicorchea más cercana y una nota de
-más de cuatro pulsos sale partida en dos iguales; y la latencia de entrada del
+**Lo que no aguanta:** no hay tresillos ni ligaduras en la partitura, así que un
+tresillo cae en la semicorchea más cercana y una nota de más de cuatro pulsos sale
+partida en dos iguales; y la latencia de entrada del
 micro no se descuenta, porque el navegador no la da de forma fiable.
 
 ## Limitaciones que hay que asumir
@@ -301,8 +301,25 @@ El camino es: espectro → croma → plantillas.
 es doblar octavas, es que los armónicos mienten: una sexta al aire suena con su
 quinta y su tercera mayor encima por física pura, y un croma ingenuo lee un
 acorde de E mayor donde solo hay una cuerda pulsada. Por eso no se suma el
-espectro entero sino sus picos, y cada pico se descuenta —no se borra— si otro
-más grave y más fuerte lo explica como armónico suyo.
+espectro entero sino sus picos, y cada pico se descuenta —no se borra— si una
+nota más grave lo explica como armónico suyo.
+
+**Cuánto explica se mide en la serie de esa nota, no en una tabla**
+([adr/0107](./adr/0107-los-armonicos-se-miden-en-su-serie.md)). Lo que una cuerda
+pone en su armónico `h` se estima con lo que miden sus vecinos `h−1` y `h+1` —el
+menor de los dos—, y lo que el pico tenga por encima lo pone otra nota y se queda.
+Solo se descuentan los armónicos que caen en otra nota (el 3, 5, 6, 7, 9…, hasta
+el 12), y un pico solo cuenta como armónico si cae a menos de una décima de
+semitono del múltiplo. Antes había una tabla fija —la quinta de encima a 0,2 de
+la fundamental— que exigía a la fundamental ser más fuerte que su armónico, y una
+cuerda grave no lo es: el La de la quinta cuerda medía 15 dB menos que su octava,
+su séptimo armónico metía un Sol y el La menor se leía `C6`.
+
+**Y la nota más grave se sabe** (`leerEspectro` devuelve el croma y el bajo). Solo
+sirve para desempatar lo que el coseno no puede separar: `Am7` y `C6` son las
+mismas notas con la misma puntuación, y el empate lo ganaba el Do por salir antes
+en el bucle. Con La abajo es `Am7`. Fuera de un empate exacto el bajo no manda, así
+que un `C/E` sigue siendo Do.
 
 **Las plantillas** son las especies que ya conocía el dominio. Se compara por
 coseno, que castiga a la vez lo que suena y no debería y lo que debería y no
@@ -324,28 +341,67 @@ juntos para que ese acorde de paso no llegue a confirmarse.
 **Lo que no hace.** No entra solo en la canción: se propone y lo confirmas tú, y
 al confirmarlo entra como bloque —con su especie si la tiene— y no en una lista
 aparte ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
-Acierta con tríadas y séptimas sostenidas en limpio; con inversiones y omitidos
-duda —C sin fundamental es Em—, y con distorsión fuerte el espectro se llena de
-basura y falla. Es un detector de plantillas, no una red entrenada.
+Acierta con tríadas y séptimas sostenidas en limpio; las inversiones las escribe
+como el acorde en estado fundamental —el bloque no sabe guardar el bajo—; con
+omitidos duda —C sin fundamental es Em—, y con distorsión fuerte el espectro se
+llena de basura y falla. Es un detector de plantillas, no una red entrenada.
 
-**Una nota sola se lee como su acorde mayor, y no es un descuido del descuento
-de armónicos: es su límite.** Una cuerda pulsada suena con su quinta —tercer
-armónico— y su tercera mayor —quinto— encima, así que un croma ingenuo ve un
-acorde mayor donde hay una cuerda. `discountHarmonics` está justo para eso y
-rebaja los picos que otro más grave explica. El problema es que **en un acorde de
-verdad pasa lo mismo**: en un Do rasgueado, el Sol también es el tercer armónico
-del Do, así que también se rebaja. Los dos casos salen con la misma forma —la
-fundamental a 1 y las otras dos alrededor de 0,2—, y la compresión de sonoridad
-(`LOUDNESS_EXPONENT`) las vuelve a levantar a las dos por igual.
+**Una nota sola se lee como su quinta, y eso es el límite del croma.** Una
+cuerda pulsada suena con su quinta —tercer armónico— encima. El descuento por la
+serie se come casi toda, pero no toda: lo que queda, la compresión de sonoridad
+(`LOUDNESS_EXPONENT`) lo levanta, y un Do suelto sale `C5`, a veces sin «?». Antes
+salía como su acorde con séptima, siempre dudoso. Lo que separaría una nota de un
+acorde es contar cuántas suenan a la vez, y eso no lo da el croma: por eso una toma
+dice si es rítmica o punteo ([adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)), y
+está en el [ROADMAP](./ROADMAP.md).
 
-Consecuencia práctica, comprobada tocando: **un punteo de dos notas iguales
-seguidas se apunta como acordes.** Lo que distinguiría los dos casos es si los
-picos de la tercera y la quinta son más fuertes de lo que el modelo de armónicos
-predice, y eso el descuento actual lo tira al aplanarlos todos al mismo 0,2.
-Arreglarlo pide calibrar contra grabaciones de guitarra de verdad; está en el
-[ROADMAP](./ROADMAP.md) y **no se arregla adivinando desde un test sintético**,
-porque la guitarra de mentira de los tests tiene justo los armónicos que se le
-pusieron.
+### Lo medido: qué acorde es
+
+**Todo esto es con guitarra sintética, y con una guitarra de verdad está sin
+medir.** Es lo primero que hay que hacer con una en la mano: el modelo de armónicos
+es justo lo que más cambia de una guitarra a otra.
+
+Dos guitarras de Karplus-Strong distintas: la del repositorio
+(`audio/guitarra-sintetica.ts`) para ajustar, y otra escrita aparte —retardo
+fraccionario, posición de la púa, brillo, unos cents de desafinación por cuerda,
+caja y zumbido de red— para **dos conjuntos ciegos** que se generaron antes de
+tocar el motor y no se miraron hasta el final. Dieciséis acordes (C, G, D, A, E,
+Am, Em, Dm, F, Bm, G7, D7, A7, E7, C/E y G/B), abiertos y con cejilla, cuatro
+maneras de tocar —abajo, abajo-arriba, arpegio con los dedos, bajo y rasgueo—,
+tres niveles de ruido, varias semillas y progresiones enteras. Acierta si da la
+fundamental y la tríada, que es lo que se apunta.
+
+| Conjunto            | Vía         | Antes | Después | La menor  | Si menor  |
+| ------------------- | ----------- | ----- | ------- | --------- | --------- |
+| Ajuste, 72 tramos   | En diferido | 75 %  | 99 %    | 0/5 → 5/5 | 0/4 → 4/4 |
+| Ajuste              | En vivo     | 83 %  | 99 %    | 1/5 → 5/5 | 0/4 → 4/4 |
+| Ciego 1, 116 tramos | En diferido | 64 %  | 90 %    | 0/9 → 6/9 | 0/7 → 7/7 |
+| Ciego 1             | En vivo     | 74 %  | 93 %    | 0/9 → 6/9 | 1/7 → 7/7 |
+| Ciego 2, 116 tramos | En diferido | 60 %  | 90 %    | 0/7 → 5/7 | 0/7 → 4/7 |
+| Ciego 2             | En vivo     | 72 %  | 94 %    | 0/7 → 5/7 | 2/7 → 7/7 |
+
+«En vivo» es el motor de verdad escuchando por `EntradaGrabada`, con el mismo
+suavizado que el analizador del navegador. Los mayores, en el último ciego, pasan
+de 36/45 a 41/45 en diferido y de 41/45 a 43/45 en vivo; las séptimas, de 18/28 a
+27/28 y de 22/28 a 27/28.
+
+**En Chromium**, con el micrófono falso y ocho progresiones —C F G Am; C G Am F Dm
+E Em D; C C/E G7 A Bm, y las cinco del último ciego— en Do mayor, **los acordes que
+nadie tocó pasan de 8 a 1** y el La menor de C F G Am se escribe en todas las
+vueltas, no en una de cada dos. El Si menor no se escribe en ninguna de las dos
+versiones porque no es un grado de Do mayor: se cae como «fuera».
+
+**Lo que empeora o sigue mal:**
+
+- Una nota sola sale como su quinta, y en diferido a veces sin «?» (de 0 a 3 de 8
+  en el peor conjunto).
+- Ventana a ventana, lo mal leído y sin «?» pasa del 0–2 % al 3–4 % de las
+  ventanas; los bien leídos con «?» bajan del 95–98 % al 30–45 %. Tramo a tramo, lo
+  mal afirmado sigue en uno o ninguno.
+- El arpegio con los dedos es lo que peor aguanta: la tercera suena una vez por
+  vuelta y a veces se pierde (`A5` por `Am`).
+- El diferido sigue marcando con «?» la mayoría de los tramos, porque manda su peor
+  ventana ([adr/0043](./adr/0043-dos-maneras-de-equivocarse.md)).
 
 Por qué este método y no otro, con lo que se descartó por el camino, en
 [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).

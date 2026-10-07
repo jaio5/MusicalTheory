@@ -9,20 +9,37 @@ on:
     branches: [main]
   pull_request:
 
+# Lo mínimo: leer el código. El repositorio es público y esto corre con lo que
+# traiga cualquier petición de cambio; sin esta línea el permiso lo decide la
+# configuración de la cuenta, que puede cambiar sin que nadie mire aquí.
+permissions:
+  contents: read
+
 jobs:
   comprobar:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # **Cada acción, fijada por su commit** y no por la etiqueta: una etiqueta
+      # se puede mover, y quien la mueva ejecuta lo que quiera aquí dentro.
+      # El comentario dice qué versión es; Dependabot sube las dos cosas juntas.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      # Lo que viaja a producción, sin avisos altos. Solo `--prod`: las de
+      # desarrollo no llegan a la imagen, y alguna —`braces`, por ESLint— no
+      # tiene arreglo publicado, así que pararían la integración sin remedio.
+      - name: Dependencias de producción sin avisos graves
+        run: pnpm audit --prod --audit-level high
 
       - name: Formato
         run: pnpm format:check

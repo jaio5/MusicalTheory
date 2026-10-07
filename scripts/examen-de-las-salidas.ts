@@ -39,7 +39,7 @@
  * `preguntarAlModelo`. Lo único que no pasa son las puertas: frecuencia, cuenta y
  * cupo, que no cambian lo que se contesta.
  *
- *     pnpm examen:salidas [--detalle] [--solo <caso|familia|continuar|retocar|directrices>] [--tonos <mayor>:<menor>] [--json <fichero>]
+ *     pnpm examen:salidas [--api] [--detalle] [--solo <caso|familia|continuar|retocar|directrices>] [--tonos <mayor>:<menor>] [--json <fichero>]
  *
  * `--solo` admite varios separados por comas: `--solo pop-eje,andaluza`.
  *
@@ -49,9 +49,11 @@
  * pasaron en cinco tonalidades, cuarenta peticiones, porque el corpus está en
  * grados y lo que cambia de una a otra es lo que lee el modelo.
  *
- * Pide `OLLAMA_URL` en el `.env` y un Ollama con el modelo descargado, y **sin
- * `ANTHROPIC_API_KEY`**: con clave contestaría la API y se pagaría. **No está entre
- * los seis comandos**, como el del profesor: sin modelo no hay nada que examinar.
+ * Pide `OLLAMA_URL` en el `.env` y un Ollama con el modelo descargado —el modelo se
+ * cambia con `OLLAMA_MODEL`—. **Contra la API de pago**, `ANTHROPIC_API_KEY` y
+ * `--api`, y el modelo con `ANTHROPIC_MODEL`: sin `--api` se para y dice cuánto
+ * costaría (`contra-la-api.ts`, `docs/MEDIR.md`). **No está entre los seis
+ * comandos**, como el del profesor: sin modelo no hay nada que examinar.
  */
 import { writeFileSync } from 'node:fs';
 
@@ -81,6 +83,8 @@ import { configuredModel, modelProvider } from '@server/ai-model';
 import { preguntarAlModelo } from '@server/ai-intentos';
 
 import { SALIDAS } from '@/app/api/versiones/salidas';
+
+import { puertaDelExamen } from './contra-la-api';
 
 type Kind = 'continuar' | 'retocar';
 type Fuente = 'modelo' | 'dominio' | 'nada';
@@ -222,13 +226,6 @@ function opcion(nombre: string): string | undefined {
 const solo = opcion('--solo')?.split(',');
 const [MAYOR, MENOR] = (opcion('--tonos') ?? 'C:A').split(':') as [NoteName, NoteName];
 const json = opcion('--json');
-
-if (modelProvider() !== 'local') {
-  console.error(
-    'El examen es contra el modelo de casa: pon OLLAMA_URL en el .env y deja ANTHROPIC_API_KEY vacía.',
-  );
-  process.exit(1);
-}
 
 /**
  * El cuerpo que mandaría la pantalla de componer para este caso: la tonalidad en
@@ -384,6 +381,7 @@ const banco = [
     ),
 );
 
+puertaDelExamen('versiones', banco.length, argumentos);
 console.log(
   `Examen de las salidas contra ${configuredModel()} (${modelProvider()}), en ${MAYOR} mayor y ${MENOR} menor: ${banco.length} peticiones.\n`,
 );

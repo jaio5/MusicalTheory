@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_BANCO,
   DEFAULT_PREFERENCES,
+  escalaDeLaTonalidad,
   loadPreferences,
   parsePreferences,
   REPARTOS_DE_FABRICA,
@@ -208,5 +209,27 @@ describe('lo que hay guardado en el equipo', () => {
     localStorage.clear();
 
     expect(loadPreferences()).toEqual(DEFAULT_PREFERENCES);
+  });
+});
+
+/**
+ * **La escala, si nadie la eligió, es la de la tonalidad**, y se guarda nula
+ * (adr/0109). Lo guardado por la versión de antes se respeta: no se sabe si la
+ * pentatónica la eligió alguien o le vino de fábrica.
+ */
+describe('la escala de partida', () => {
+  it('sin escala guardada queda nula, que es seguir a la tonalidad', () => {
+    expect(parsePreferences({}).scaleId).toBeNull();
+    expect(DEFAULT_PREFERENCES.scaleId).toBeNull();
+  });
+
+  it('la que estaba guardada se respeta, aunque fuera la de fábrica de antes', () => {
+    expect(parsePreferences({ scaleId: 'minorPentatonic' }).scaleId).toBe('minorPentatonic');
+  });
+
+  it('la de la tonalidad: mayor en mayor, menor natural en menor', () => {
+    expect(escalaDeLaTonalidad('major')).toBe('major');
+    expect(escalaDeLaTonalidad('minor')).toBe('naturalMinor');
+    expect(escalaDeLaTonalidad(null)).toBe('major');
   });
 });

@@ -25,7 +25,20 @@ const guardado = () => loadPreferences().banco.repartos[useBancoStore.getState()
 
 beforeEach(() => {
   localStorage.clear();
-  useBancoStore.setState({ espacio: DEFAULT_BANCO.espacio, repartos: REPARTOS_DE_FABRICA });
+  // Desde tocando, que es el que tiene las tres clases de área —abierta, plegada
+  // y la rueda—; por dónde se entra lo dice su propio test.
+  useBancoStore.setState({ espacio: 'tocando', repartos: REPARTOS_DE_FABRICA });
+});
+
+/**
+ * **Se entra por escribir, con solo la canción abierta.** Se entraba por tocar,
+ * y lo que se apuntaba lo decidía el reconocedor de acordes, que con una guitarra
+ * de verdad duda: la primera canción de alguien no puede empezar por un acorde
+ * que no tocó (adr/0109).
+ */
+it('se entra por escribir, con solo la canción abierta', () => {
+  expect(DEFAULT_BANCO.espacio).toBe('escribir');
+  expect(DEFAULT_BANCO.repartos.escribir.plegadas).toEqual(['izquierda', 'derecha', 'camino']);
 });
 
 describe('mover un area', () => {
@@ -169,14 +182,13 @@ describe('plegar un area', () => {
 
 /**
  * Cada espacio de trabajo trae **su** reparto, y por eso los tres no enseñan lo
- * mismo: tocando hace falta la rueda; escribiendo, la canción y el acorde;
- * ensayando, solo la canción. Con un reparto único, los tres enseñaban las cinco
+ * mismo: tocando hace falta la rueda; escribiendo y ensayando, solo la canción. Con un reparto único, los tres enseñaban las cinco
  * áreas a la vez.
  */
 describe('un reparto por espacio', () => {
   it('cada espacio viene repartido de fabrica a su manera', () => {
     expect(REPARTOS_DE_FABRICA.tocando.plegadas).toEqual(['derecha', 'camino']);
-    expect(REPARTOS_DE_FABRICA.escribir.plegadas).toEqual(['izquierda', 'camino']);
+    expect(REPARTOS_DE_FABRICA.escribir.plegadas).toEqual(['izquierda', 'derecha', 'camino']);
     expect(REPARTOS_DE_FABRICA.ensayar.plegadas).toEqual(['izquierda', 'derecha', 'camino']);
   });
 

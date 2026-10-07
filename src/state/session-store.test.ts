@@ -1,13 +1,23 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   A4_FREQUENCY,
   captureProgression,
+  pitchClassFromName,
   RETARDO_DEL_ACORDE_MS,
   type PitchClass,
 } from '@core/music';
 
-import { NIVEL_QUE_SUENA, selectActiveKey, useSessionStore } from './session-store';
+import {
+  NIVEL_QUE_SUENA,
+  selectActiveKey,
+  selectEscala,
+  selectTonalidadParaAprender,
+  TONALIDAD_DE_PARTIDA,
+  useSessionStore,
+} from './session-store';
+import { loadPreferences } from './workspace';
 
 describe('store de sesión', () => {
   beforeEach(() => {
@@ -346,5 +356,70 @@ describe('el acorde que ya sonaba al empezar', () => {
     actions.startCapture(COMPAS_UNO, { conElQueSuena: true });
     actions.clearCapture();
     expect(useSessionStore.getState().primeroYaSonaba).toBe(false);
+  });
+});
+
+/**
+ * **La escala sigue a la tonalidad mientras nadie elija otra.** Era la pentatónica
+ * menor para todo el mundo, y en Do mayor enseñaba Mib y Sib a quien aprendía las
+ * notas de Do (adr/0109).
+ */
+describe('la escala que manda', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSessionStore.getState().actions.reset();
+    useSessionStore.setState({ scaleId: null, pinnedKey: null });
+  });
+
+  it('sin elegir, la de la tonalidad: mayor en mayor y menor natural en menor', () => {
+    const { actions } = useSessionStore.getState();
+    expect(selectEscala(useSessionStore.getState())).toBe('major');
+
+    actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+    expect(selectEscala(useSessionStore.getState())).toBe('naturalMinor');
+
+    actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    expect(selectEscala(useSessionStore.getState())).toBe('major');
+  });
+
+  it('elegida a mano, manda la elegida aunque cambie la tonalidad', () => {
+    const { actions } = useSessionStore.getState();
+    actions.setScale('blues');
+    actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+
+    expect(selectEscala(useSessionStore.getState())).toBe('blues');
+  });
+
+  // Se guarda nula, no la que sale ahora: si se guardara, dejaría de seguir a la
+  // tonalidad en la siguiente visita sin que nadie la hubiera tocado.
+  it('fijar la tonalidad no guarda una escala que nadie eligió', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('G'), mode: 'major' });
+
+    expect(loadPreferences().scaleId).toBeNull();
+  });
+});
+
+/** Aprender no espera a que se elija tonalidad: va en Do mayor (adr/0109). */
+describe('la tonalidad para aprender', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useSessionStore.setState({ pinnedKey: null, keyCandidates: [] });
+  });
+
+  it('sin ninguna, Do mayor, y sin fijarla', () => {
+    const tonalidad = selectTonalidadParaAprender(useSessionStore.getState());
+
+    expect(tonalidad).toBe(TONALIDAD_DE_PARTIDA);
+    expect(tonalidad).toEqual({ tonic: 0, mode: 'major' });
+    expect(useSessionStore.getState().pinnedKey).toBeNull();
+  });
+
+  it('con una elegida, la elegida', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('E'), mode: 'minor' });
+
+    expect(selectTonalidadParaAprender(useSessionStore.getState())).toEqual({
+      tonic: pitchClassFromName('E'),
+      mode: 'minor',
+    });
   });
 });

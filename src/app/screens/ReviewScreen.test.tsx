@@ -48,7 +48,7 @@ vi.mock('next/navigation', () => ({
 const CON_PLAN: Account = {
   email: 'javier@example.com',
   name: 'Javier',
-  plan: 'pro',
+  plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 20,
   aiLeftMonth: 300,

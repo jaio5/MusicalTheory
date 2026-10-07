@@ -9,7 +9,7 @@ import { useAccount } from '@state/account';
 import { Screen, Section } from '@ui/Screen';
 
 /**
- * La pantalla de planes: tres de pago y lo que hay sin pagar.
+ * La pantalla de planes: dos de pago y lo que hay sin pagar.
  *
  * Pantalla propia y no un bloque dentro de la cuenta. Son dos preguntas
  * distintas —«¿quién soy?» y «¿qué compro?»— y quien llega aquí desde un candado
@@ -49,8 +49,8 @@ export function PlansScreen() {
               canciones, y la tarjeta de al lado decía otra cosa. Lo dicen ellas. */}
           <p className="text-text-muted mt-2 max-w-prose">
             Lo que cuesta dinero es la IA —cada pregunta al profesor y cada tanda de salidas es una
-            llamada a un modelo que se paga—. De eso van estos tres planes, que traen además lo que
-            no entra gratis: cada tarjeta dice qué.
+            llamada a un modelo que se paga—. De eso van estos dos planes, que traen además lo que
+            no entra gratis: cada tarjeta dice qué. Se pagan al mes o al año, con dos meses gratis.
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function PlansScreen() {
           esa anchura tres tarjetas solas salían de ochocientos píxeles cada una,
           con el «nuevo» a medio metro de lo que marca. */}
       <div className="grid gap-x-[clamp(2rem,4vw,5rem)] gap-y-10 min-[112rem]:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)]">
-        <Section title="Los tres planes de pago">
+        <Section title="Los planes de pago">
           <PlanCards />
         </Section>
 

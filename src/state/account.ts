@@ -9,6 +9,7 @@ import {
   isSignedIn,
   planOf,
   type Account,
+  type Periodo,
   type PlanId,
 } from '@core/billing';
 
@@ -208,17 +209,25 @@ async function pedir(url: string, method: string, body: unknown): Promise<Respon
   });
 }
 
-/** Crear la cuenta y entrar con ella, que es lo que espera quien se registra. */
+/**
+ * Crear la cuenta y entrar con ella, que es lo que espera quien se registra.
+ *
+ * `mayorDe14` es lo que la persona ha declarado en el formulario, y viaja tal
+ * cual: quien decide si vale es el servidor (adr/0111). Por defecto, no: sin
+ * haberlo dicho no se crea.
+ */
 export async function registerAccount(
   email: string,
   password: string,
   name?: string,
+  mayorDe14 = false,
 ): Promise<RegisterResult> {
   try {
     const response = await pedir('/api/cuenta', 'POST', {
       email,
       password,
       ...(name === undefined ? {} : { name }),
+      mayorDe14,
     });
 
     if (!response.ok) {
@@ -339,10 +348,15 @@ export type ChangePlanResult =
  * Contempla ya la respuesta «vete a pagar a otro sitio» aunque el cobrador de
  * hoy no la use nunca: es la forma que tendrá cuando haya Stripe, y dejarla
  * escrita ahora cuesta cuatro líneas y evita tocar esta función entonces.
+ *
+ * El periodo elige el precio, al mes o al año (adr/0106); el plan es el mismo.
  */
-export async function changePlan(plan: PlanId): Promise<ChangePlanResult> {
+export async function changePlan(
+  plan: PlanId,
+  periodo: Periodo = 'mensual',
+): Promise<ChangePlanResult> {
   try {
-    const response = await pedir('/api/plan', 'POST', { plan });
+    const response = await pedir('/api/plan', 'POST', { plan, periodo });
     // Aquí se interpreta el cuerpo una sola vez porque el camino bueno también lo
     // necesita, así que el error se lee con `apiErrorOf` —el de un cuerpo ya
     // interpretado— y no con `apiErrorFrom`, que volvería a leer la respuesta.

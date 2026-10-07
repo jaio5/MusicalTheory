@@ -20,7 +20,7 @@ import {
 } from '@core/music';
 
 import type { AudioInput } from './audio-input';
-import { chromaFromSpectrum } from './chroma';
+import { ACORDES_HASTA_HZ, leerEspectro } from './chroma';
 import { Emisor } from '@core/estado-observable';
 
 export interface ChordEngineOptions {
@@ -36,14 +36,17 @@ export interface ChordEngineOptions {
   /**
    * Hasta dónde se mira el espectro, en hercios.
    *
-   * **Mil, y no los 2200 del croma**, porque en un acorde de guitarra por encima
-   * de mil no suena ninguna fundamental —la nota más aguda de una postura abierta
-   * es un Sol 4, a 392 Hz, y en el traste doce de la primera, un Mi 5 a 659—:
-   * solo hay armónicos, y los armónicos mienten. Medido con cuerdas pulsadas
-   * sintéticas (`guitarra-sintetica.ts`), mirando hasta 2200 ningún acorde de
-   * C, Am, F y G pasaba del parecido mínimo: el quinto armónico de la quinta les
-   * añadía una séptima mayor y el de la fundamental una tercera mayor de más.
-   * Mirando hasta mil, los cuatro salen con su fundamental y por encima del suelo.
+   * **Mil (`ACORDES_HASTA_HZ`, el mismo que el análisis en diferido), y no los
+   * 2200 del croma**, porque en un acorde de guitarra por encima de mil no suena
+   * ninguna fundamental —la nota más aguda de una postura abierta es un Sol 4, a
+   * 392 Hz, y en el traste doce de la primera, un Mi 5 a 659—: solo hay
+   * armónicos, y los armónicos mienten.
+   *
+   * Con el descuento de antes, mirando hasta 2200 ningún acorde de C, Am, F y G
+   * pasaba del parecido mínimo. Con el de ahora, que mide cada armónico en su
+   * serie, esa toma ya sale entera también hasta 2200 (`toma-sintetica.test.ts`);
+   * el techo se queda porque en diferido, con los dos conjuntos de guitarra
+   * sintética, mirar hasta 2200 acertaba bastante menos (`docs/AUDIO-PITCH.md`).
    */
   readonly maxHz: number;
 }
@@ -64,7 +67,7 @@ const DEFAULT_CHORD_ENGINE_OPTIONS: ChordEngineOptions = {
   confirmations: 4,
   minScore: PARECIDO_MINIMO,
   accidental: 'sharp',
-  maxHz: 1000,
+  maxHz: ACORDES_HASTA_HZ,
 };
 
 /**
@@ -159,7 +162,7 @@ export class ChromaChordEngine implements ChordEngine {
       return;
     }
 
-    const chroma = chromaFromSpectrum(spectrum, {
+    const { croma: chroma, bajo } = leerEspectro(spectrum, {
       sampleRate: input.sampleRate,
       fftSize: input.spectrumSize,
       maxHz: this.options.maxHz,
@@ -172,9 +175,12 @@ export class ChromaChordEngine implements ChordEngine {
       (value, note) => value * (1 - smoothing) + chroma[note]! * smoothing,
     );
 
+    // El bajo es el del análisis de ahora, no uno suavizado: solo desempata
+    // acordes con las mismas notas, y la nota más grave no se promedia.
     const reading = readChord(this.#smoothed, {
       accidental: this.#accidental,
       minScore: this.options.minScore,
+      bajo,
     });
     const identidad = identidadDe(reading);
 

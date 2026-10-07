@@ -3,10 +3,9 @@
 import { useMemo, useState } from 'react';
 
 import { lessonNotes, type TheoryUnit as TheoryUnitDef } from '@core/music';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectTonalidadParaAprender, useSessionStore } from '@state/session-store';
 
 import { Question } from './Question';
-import { SinTonalidad } from './SinTonalidad';
 import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
 import { UnidadPorMomentos } from './UnidadPorMomentos';
 
@@ -38,10 +37,11 @@ export function TheoryUnit({
   /** Si ya se superó: la presentación ofrece ir directo a las preguntas. */
   readonly yaHecha?: boolean;
 }) {
-  const activeKey = useSessionStore(selectActiveKey);
+  // Sin tonalidad elegida, la de partida: la unidad no espera a que se elija.
+  const tonalidad = useSessionStore(selectTonalidadParaAprender);
   const notes = useMemo(
-    () => (activeKey === null ? null : lessonNotes(unit.lesson, activeKey.tonic, activeKey.mode)),
-    [unit.lesson, activeKey],
+    () => lessonNotes(unit.lesson, tonalidad.tonic, tonalidad.mode),
+    [unit.lesson, tonalidad],
   );
 
   const [at, setAt] = useState(0);
@@ -50,8 +50,8 @@ export function TheoryUnit({
   // que es casi siempre.
   const [aviso, setAviso] = useState<string | null>(null);
 
-  const exercise = notes?.exercises[at];
-  const last = notes === null || at >= notes.exercises.length - 1;
+  const exercise = notes.exercises[at];
+  const last = at >= notes.exercises.length - 1;
 
   return (
     <div className={`min-h-0 grow overflow-y-auto p-4 ${HUECO_DEL_TUTOR}`}>
@@ -59,48 +59,40 @@ export function TheoryUnit({
         unit={unit}
         yaHecha={yaHecha}
         teoria={
-          notes === null ? (
-            <SinTonalidad para="La explicación se escribe con sus acordes: elige una para empezar." />
-          ) : (
-            <ul className="flex max-w-prose flex-col gap-2">
-              {notes.points.map((point) => (
-                <li key={point} className="text-text text-base leading-relaxed">
-                  {point}
-                </li>
-              ))}
-            </ul>
-          )
+          <ul className="flex max-w-prose flex-col gap-2">
+            {notes.points.map((point) => (
+              <li key={point} className="text-text text-base leading-relaxed">
+                {point}
+              </li>
+            ))}
+          </ul>
         }
         prueba={
-          notes === null ? (
-            <SinTonalidad para="Las preguntas se escriben con sus acordes: elige una para empezar." />
-          ) : (
-            exercise !== undefined && (
-              <div className="max-w-prose">
-                <Question
-                  exercise={exercise}
-                  position={at + 1}
-                  total={notes.exercises.length}
-                  lastLabel="Terminar la unidad"
-                  onAnswered={(correct) => {
-                    if (!correct) {
-                      setFailed(true);
-                      onMiss?.(at);
-                      setAviso(
-                        'Esa no era. Si quieres te lo explico, y con los acordes que tienes puestos.',
-                      );
-                    }
-                  }}
-                  onNext={() => {
-                    if (last) {
-                      onDone(!failed);
-                      return;
-                    }
-                    setAt(at + 1);
-                  }}
-                />
-              </div>
-            )
+          exercise !== undefined && (
+            <div className="max-w-prose">
+              <Question
+                exercise={exercise}
+                position={at + 1}
+                total={notes.exercises.length}
+                lastLabel="Terminar la unidad"
+                onAnswered={(correct) => {
+                  if (!correct) {
+                    setFailed(true);
+                    onMiss?.(at);
+                    setAviso(
+                      'Esa no era. Si quieres te lo explico, y con los acordes que tienes puestos.',
+                    );
+                  }
+                }}
+                onNext={() => {
+                  if (last) {
+                    onDone(!failed);
+                    return;
+                  }
+                  setAt(at + 1);
+                }}
+              />
+            </div>
           )
         }
       />

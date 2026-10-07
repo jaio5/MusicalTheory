@@ -29,11 +29,13 @@ describe('el cobrador de mentira', () => {
   });
 
   it('cambiar de plan es cambiar una fila, sin pasar por ninguna pasarela', async () => {
-    expect(await FakeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).toEqual({
+    expect(
+      await FakeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio', periodo: 'mensual' }),
+    ).toEqual({
       kind: 'listo',
-      plan: 'pro',
+      plan: 'medio',
     });
-    expect(setPlan).toHaveBeenCalledWith('u1', 'pro');
+    expect(setPlan).toHaveBeenCalledWith('u1', 'medio');
   });
 
   it('si no se puede guardar, se dice que no se ha podido', async () => {
@@ -41,9 +43,10 @@ describe('el cobrador de mentira', () => {
     // mirando una pantalla y hay que decirle algo.
     setPlan.mockResolvedValue('no-existe');
 
-    expect((await FakeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (await FakeBilling.start({ userId: 'u1', email: 'a@b.c', plan: 'medio', periodo: 'mensual' }))
+        .kind,
+    ).toBe('error');
   });
 
   it('cancelar baja a gratis', async () => {
@@ -87,21 +90,36 @@ describe('en producción sin Stripe', () => {
     vi.stubEnv('STRIPE_SECRET_KEY', 'sk_test_x');
     vi.stubEnv('STRIPE_PRICE_BASICO', 'p1');
     vi.stubEnv('STRIPE_PRICE_MEDIO', 'p2');
-    vi.stubEnv('STRIPE_PRICE_PRO', 'p3');
+    vi.stubEnv('STRIPE_PRICE_BASICO_ANUAL', 'p3');
+    vi.stubEnv('STRIPE_PRICE_MEDIO_ANUAL', 'p4');
 
     expect(billing().name).toBe('Stripe');
   });
 
   it('subir de plan no se regala, y no se toca la fila', async () => {
-    expect((await CobroCerrado.start({ userId: 'u1', email: 'a@b.c', plan: 'pro' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await CobroCerrado.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'medio',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
     expect(setPlan).not.toHaveBeenCalled();
     expect(CobroCerrado.charges).toBe(false);
   });
 
   it('bajar a gratis sí, porque no da nada', async () => {
-    expect(await CobroCerrado.start({ userId: 'u1', email: 'a@b.c', plan: 'gratis' })).toEqual({
+    expect(
+      await CobroCerrado.start({
+        userId: 'u1',
+        email: 'a@b.c',
+        plan: 'gratis',
+        periodo: 'mensual',
+      }),
+    ).toEqual({
       kind: 'listo',
       plan: 'gratis',
     });
@@ -109,9 +127,16 @@ describe('en producción sin Stripe', () => {
     expect(setPlan).toHaveBeenCalledWith('u1', 'gratis');
 
     setPlan.mockResolvedValue('error');
-    expect((await CobroCerrado.start({ userId: 'u1', email: 'a@b.c', plan: 'gratis' })).kind).toBe(
-      'error',
-    );
+    expect(
+      (
+        await CobroCerrado.start({
+          userId: 'u1',
+          email: 'a@b.c',
+          plan: 'gratis',
+          periodo: 'mensual',
+        })
+      ).kind,
+    ).toBe('error');
   });
 
   it('y no hay portal', async () => {

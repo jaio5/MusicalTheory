@@ -43,7 +43,7 @@ const CON_PASOS = UNIT_ORDER.find((id) => findUnit(id)?.unit.kind === 'play')!;
 const CON_SINCRONIA: Account = {
   email: 'javier@example.com',
   name: 'Javier',
-  plan: 'pro',
+  plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 20,
   aiLeftMonth: 300,

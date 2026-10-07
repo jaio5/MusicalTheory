@@ -6,7 +6,8 @@ import { PAID_PLANS, planOf, priceLabel, type Plan } from '@core/billing';
 import { useAccount } from '@state/account';
 
 /**
- * Lo que va al lado de la ventana de pago: este plan entre los otros dos.
+ * Lo que va al lado de la ventana de pago: este plan entre los otros de pago.
+ * Se llamó `ElPlanEntreLosTres` mientras hubo tres (adr/0104).
  *
  * **La ventana de pago era una columna en un rincón**: el resumen, el aviso y el
  * botón en 768 px, y a 1920 la pantalla usaba el 40 % del ancho. Lo que llena ese
@@ -15,24 +16,24 @@ import { useAccount } from '@state/account';
  * **¿es este el que quiero, o me basta el de abajo?** Contestarlo aquí ahorra
  * volver a la lista, que es donde se pierde el plan que se había elegido.
  *
- * Los tres, con su precio y la frase que dice qué trae cada uno que el anterior
- * no (`plans.ts`, `claim`), y el que se está mirando encendido. Los otros dos
+ * Todos, con su precio y la frase que dice qué trae cada uno que el anterior
+ * no (`plans.ts`, `claim`), y el que se está mirando encendido. Los otros
  * llevan a su propia ventana. El tuyo, si tienes uno, lo dice.
  *
  * Y una línea de lo que **no** cambia con ningún plan, porque es la duda que
  * frena: que la guitarra estuviera de pago.
  */
-export function ElPlanEntreLosTres({ plan }: { readonly plan: Plan }) {
+export function ElPlanEntreLosDePago({ plan }: { readonly plan: Plan }) {
   const { account } = useAccount();
   const tuyo = planOf(account.plan).id;
 
   return (
     // Las tarjetas se reparten por el ancho **de su caja**: van en una columna
-    // estrecha en un teléfono, debajo del pago, y en tres al lado en un monitor.
-    <section aria-label="Los tres planes" className="@container flex flex-col gap-4">
-      <h2 className="rotulo">Los tres planes</h2>
+    // estrecha en un teléfono, debajo del pago, y una al lado de otra en un monitor.
+    <section aria-label="Los planes de pago" className="@container flex flex-col gap-4">
+      <h2 className="rotulo">Los planes de pago</h2>
 
-      <ul className="grid gap-3 @min-[40rem]:grid-cols-3">
+      <ul className="grid gap-3 @min-[30rem]:grid-cols-2">
         {PAID_PLANS.map((otro) => {
           const este = otro.id === plan.id;
           const dentro = (

@@ -10,7 +10,12 @@ import { useArrangementStore } from '@state/arrangement-store';
 import { selectReparto, useBancoStore } from '@state/banco';
 import { useClaqueta } from '@state/claqueta';
 import { useSessionStore } from '@state/session-store';
-import { DEFAULT_BANCO, loadPreferences, REPARTOS_DE_FABRICA } from '@state/workspace';
+import {
+  DEFAULT_BANCO,
+  loadPreferences,
+  REPARTOS_DE_FABRICA,
+  savePreferences,
+} from '@state/workspace';
 
 import { ComposeScreen } from './ComposeScreen';
 
@@ -39,12 +44,25 @@ vi.mock('next/navigation', () => ({
  * anterior. Es el mismo motivo por el que existe la persistencia, visto desde el
  * otro lado.
  */
+/** El reparto de fábrica de antes de adr/0109: escribiendo, el acorde abierto. */
+const REPARTOS_ANTERIORES = {
+  ...REPARTOS_DE_FABRICA,
+  escribir: { ...REPARTOS_DE_FABRICA.escribir, plegadas: ['izquierda', 'camino'] as const },
+};
+
 beforeEach(() => {
   localStorage.clear();
   useSessionStore.getState().actions.reset();
   // Y el reparto, que vive fuera de `localStorage` una vez cargado: sin esto
   // una prueba abre un editor y la siguiente se lo encuentra abierto.
-  useBancoStore.setState({ espacio: DEFAULT_BANCO.espacio, repartos: DEFAULT_BANCO.repartos });
+  //
+  // **Guardado como lo dejaba la versión de antes**: entrando por tocando y con
+  // el acorde abierto al escribir. Casi todas se escribieron así y lo que miran
+  // es el banco, no por dónde se entra; eso lo dice «Las areas del banco», que
+  // parte de nada guardado. De paso prueba que lo guardado se respeta.
+  const banco = { espacio: 'tocando' as const, repartos: REPARTOS_ANTERIORES };
+  savePreferences({ ...loadPreferences(), banco });
+  useBancoStore.setState(banco);
 });
 
 /**
@@ -168,9 +186,28 @@ describe('Las areas del banco', () => {
     expect(screen.queryAllByRole('group', { name: 'Tonalidades para empezar' })).toHaveLength(0);
   });
 
-  // Por donde se entra: componer tocando estaba construido y escondido detrás de
-  // dos pasos, y ahora es la primera puerta.
-  it('se entra por tocando, que es por donde se empieza una cancion', () => {
+  /**
+   * **Por donde se entra, sin nada guardado: escribiendo, con solo la canción.**
+   * Se entraba por tocando, y lo que se apuntaba lo decidía el reconocedor de
+   * acordes, que con una guitarra de verdad duda: la primera canción de alguien
+   * no puede empezar por un acorde que no tocó (adr/0109). Lo primero que se lee
+   * es qué hacer: la canción está en blanco y se pulsa un acorde.
+   */
+  it('se entra por escribir, con solo la cancion abierta', () => {
+    localStorage.clear();
+    useBancoStore.setState({ espacio: DEFAULT_BANCO.espacio, repartos: DEFAULT_BANCO.repartos });
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+
+    render(<ComposeScreen />);
+
+    expect(screen.getByLabelText('Arreglo')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Tocando' })).not.toBeInTheDocument();
+    // El acorde, plegado a su tira: se abre con un clic.
+    expect(selectReparto(useBancoStore.getState()).plegadas).toContain('derecha');
+  });
+
+  // Tocar sigue a un clic, y con lo guardado se vuelve a donde se estaba.
+  it('con tocando guardado, se vuelve a tocando', () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
 
     render(<ComposeScreen />);
@@ -390,7 +427,12 @@ describe('El mástil en una pantalla estrecha', () => {
 
   it('se abre como hoja flotante, con su escala y su cierre dentro', async () => {
     enEstrecho();
-    const abrir = vi.fn();
+    // Abrirla de verdad: jsdom no trae la API, y desde la 30.1 no deja enfocar
+    // nada dentro de un `popover` cerrado —el `display: none` de su hoja de
+    // estilos—, igual que el navegador. Sin esto el foco no podría entrar.
+    const abrir = vi.fn(function (this: HTMLElement) {
+      this.style.display = 'block';
+    });
     HTMLElement.prototype.showPopover = abrir;
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
     render(<ComposeScreen />);

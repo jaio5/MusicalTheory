@@ -12,6 +12,10 @@
  * El identificador de la canción **no se cree nunca del cuerpo**: al crear lo
  * pone Postgres, y al actualizar se comprueba contra el dueño en la misma
  * sentencia que escribe.
+ *
+ * Crear y escribir encima llevan **tope por cuenta** (`frenoPorCuenta`): cada una
+ * es una escritura de hasta 128 KB, y sin tope un bucle con la sesión de alguien
+ * ocupaba la única conexión a Postgres de la instancia (adr/0116).
  */
 
 import { NextResponse } from 'next/server';
@@ -19,6 +23,7 @@ import { NextResponse } from 'next/server';
 import { can, cheapestPlanWith, needsPlanMessage } from '@core/billing';
 import { MAX_SONGS, parseSong, type Song } from '@core/music';
 import { currentSession } from '@server/entitlements';
+import { contarEnElServidor } from '@server/metricas';
 import { readJsonBody } from '@server/request-body';
 import {
   createSong,
@@ -28,6 +33,7 @@ import {
   updateSong,
   type SaveResult,
 } from '@server/songs-repo';
+import { frenoPorCuenta, TOPE_DE_CANCIONES } from '@server/tope-por-cuenta';
 
 export const runtime = 'nodejs';
 
@@ -82,6 +88,19 @@ function noEsUna(): NextResponse {
     },
     { status: 400 },
   );
+}
+
+/** La cuenta y el permiso de quien escribe, y además su tope: crear y escribir encima. */
+async function puertaDeEscribir(): Promise<
+  | { readonly ok: true; readonly userId: string }
+  | { readonly ok: false; readonly res: NextResponse }
+> {
+  const puerto = await puerta();
+  if (!puerto.ok) {
+    return puerto;
+  }
+  const frenado = await frenoPorCuenta('canciones', puerto.userId, TOPE_DE_CANCIONES);
+  return frenado === null ? puerto : { ok: false, res: frenado };
 }
 
 /** La cuenta y el permiso, que se comprueban igual en los cuatro verbos. */
@@ -146,7 +165,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const puerto = await puerta();
+  const puerto = await puertaDeEscribir();
   if (!puerto.ok) {
     return puerto.res;
   }
@@ -158,11 +177,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     return noEsUna();
   }
 
-  return respuesta(await createSong(puerto.userId, song));
+  const result = await createSong(puerto.userId, song);
+  // Una canción nueva guardada, contada aquí y no desde el navegador: guardar ya
+  // pasa por el servidor. Solo crear, no cada retoque, que son el mismo guardado
+  // contado veinte veces (adr/0110).
+  if (result.kind === 'ok') {
+    await contarEnElServidor(request, 'cancion-guardada', puerto.userId);
+  }
+  return respuesta(result);
 }
 
 export async function PUT(request: Request): Promise<NextResponse> {
-  const puerto = await puerta();
+  const puerto = await puertaDeEscribir();
   if (!puerto.ok) {
     return puerto.res;
   }

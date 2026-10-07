@@ -28,7 +28,7 @@ vi.mock('next/navigation', () => ({
 const PRO: Account = {
   email: 'javier@example.com',
   name: 'Javier',
-  plan: 'pro',
+  plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 20,
   aiLeftMonth: 300,
@@ -103,10 +103,10 @@ describe('El profesor', () => {
     expect(screen.getByText(/Nada de audio/)).toBeInTheDocument();
   });
 
-  it('a quien no tiene Pro le enseña qué le falta', () => {
+  it('a quien no tiene Medio le enseña qué le falta', () => {
     pintar();
 
-    expect(screen.getByText(/Con el plan Pro/)).toBeInTheDocument();
+    expect(screen.getByText(/Con el plan Medio/)).toBeInTheDocument();
     expect(screen.getByText(/qué unidades llevas hechas/)).toBeInTheDocument();
   });
 
@@ -133,5 +133,27 @@ describe('El profesor', () => {
       'href',
       '/aprender',
     );
+  });
+});
+
+/**
+ * El aviso del AI Act (art. 50.1): **donde se pregunta**, antes de escribir, y no
+ * solo en la política de privacidad.
+ */
+describe('se dice que es una IA', () => {
+  it('encima de la pregunta, con lo que se le manda a un clic', () => {
+    useSessionStore.getState().actions.reset();
+    pintar(PRO);
+
+    expect(screen.getByText(/Hablas con una IA, no con una persona/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Qué se le manda' })).toHaveAttribute(
+      'href',
+      '/privacidad',
+    );
+  });
+
+  it('sin cuentas no hay profesor, y no hay aviso de nada', () => {
+    pintar(ANONYMOUS, false);
+    expect(screen.queryByText(/Hablas con una IA/)).not.toBeInTheDocument();
   });
 });

@@ -91,7 +91,9 @@ export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: Salid
       <p className="text-text-muted mt-1 text-sm">{version.why}</p>
 
       {version.sections.map((seccion, parte) => (
-        <div key={`${version.title}-${seccion.name}`} className="mt-3">
+        // Por su sitio: el título lo escribe el modelo y el nombre de una parte se
+        // puede repetir, y dos hermanos con la misma clave se pisan.
+        <div key={parte} className="mt-3">
           {/* El nombre de la parte solo se pinta cuando hay más de una:
                 con una sola sería un rótulo de adorno encima de lo mismo
                 de siempre. */}
@@ -127,7 +129,7 @@ export function Salida({ version, suena, compas, onEscuchar, onQuedarse }: Salid
               const cambia = cambiaDeGrado || cambiaDeEspecie || cambiaDeDuracion || move !== null;
               return (
                 <li
-                  key={`${version.title}-${seccion.name}-${index}`}
+                  key={index}
                   // Lo que se propone se destaca y lo que se queda se apaga:
                   // es lo único que hace falta ver de un vistazo con la
                   // guitarra puesta. Y el que suena lleva halo, que es lo

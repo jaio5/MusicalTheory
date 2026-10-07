@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { monthlyAiRequests } from '@core/billing';
+import { monthlyAiRequests, PAID_PLANS } from '@core/billing';
 import { enUnaFrase, loQueNoTrae, loQueTrae } from '@features/account/lo-que-va-con-plan';
 import { useAccount } from '@state/account';
 import { IconoAfinar, IconoCamino, IconoComponer, IconoProfesor, IconoTocar } from '@ui/icons';
@@ -78,11 +78,13 @@ export function QueTeDaLaCuenta({ accounts }: { readonly accounts: boolean }) {
         </ul>
         {/* Lo que no hay sale de la tabla de permisos. Decía «lo único que pide
             cuenta es la IA», y el repaso y guardar las canciones también van con
-            un plan, que va con una cuenta. */}
+            un plan, que va con una cuenta. El plan de arriba, que lo trae todo:
+            nombrarlo a mano se quedó apuntando a Pro cuando se fundió en Medio. */}
         <p className="text-text-muted max-w-prose text-sm">
-          Lo que no hay sin cuenta es lo que va con ella: {enUnaFrase(loQueTrae('pro'))}. La IA,
-          porque cuesta dinero servirla y hay que saber de quién es el gasto; lo demás, porque va
-          con un plan, y un plan va con una cuenta.
+          Lo que no hay sin cuenta es lo que va con ella:{' '}
+          {enUnaFrase(loQueTrae(PAID_PLANS.at(-1)!.id))}. La IA, porque cuesta dinero servirla y hay
+          que saber de quién es el gasto; lo demás, porque va con un plan, y un plan va con una
+          cuenta.
         </p>
       </section>
     );

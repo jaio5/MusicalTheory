@@ -425,6 +425,10 @@ export function Tutor({
             )
           ) : (
             <div className="mt-3">
+              {/* El mismo aviso que en /profesor (AI Act, art. 50.1): aquí el
+                  muñeco habla en primera persona, y es donde más fácil se toma
+                  por alguien. */}
+              <p className="text-text-muted mb-2 text-xs">Contesta una IA: puede equivocarse.</p>
               <Teacher unitId={unitId} compact />
             </div>
           )}

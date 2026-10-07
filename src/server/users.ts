@@ -8,13 +8,13 @@
  * son dos frases distintas.
  */
 
-import { and, eq, isNull, type SQL } from 'drizzle-orm';
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 
-import { MAX_NAME_LENGTH, MIN_PASSWORD_LENGTH, planOf, type PlanId } from '@core/billing';
+import { MAX_NAME_LENGTH, MIN_PASSWORD_LENGTH, planEnVigor, type PlanId } from '@core/billing';
 
 import { db, type Database } from './db/client';
 import { users } from './db/schema';
-import { hashPassword, verifyPassword } from './password';
+import { contrasenaDeMedida, hashPassword, verifyPassword } from './password';
 
 export interface User {
   readonly id: string;
@@ -67,6 +67,7 @@ function normalizeName(raw: unknown): string | null {
 export type CreateUserResult =
   | { readonly kind: 'ok'; readonly user: User }
   | { readonly kind: 'sin-base-de-datos' }
+  | { readonly kind: 'menor' }
   | { readonly kind: 'correo-invalido' }
   | { readonly kind: 'contrasena-corta' }
   | { readonly kind: 'ya-existe' }
@@ -78,12 +79,15 @@ function toUser(row: {
   name: string | null;
   plan: string;
   sessionVersion: number;
+  impagadaDesde?: Date | null;
 }): User {
   return {
     id: row.id,
     email: row.email,
     name: row.name,
-    plan: planOf(row.plan).id,
+    // **El que vale hoy**, no el guardado: con el cobro fallando más de
+    // `DIAS_DE_GRACIA`, gratis (adr/0114). Todo lo que lee el plan pasa por aquí.
+    plan: planEnVigor(row.plan, row.impagadaDesde ?? null),
     sessionVersion: row.sessionVersion,
   };
 }
@@ -92,17 +96,32 @@ export async function createUser(input: {
   email: unknown;
   password: unknown;
   name?: unknown;
+  /**
+   * Que ha declarado tener catorce años o más (LOPDGDD art. 7). Tiene que ser
+   * `true` y nada más: un `"sí"` o un `1` que llegue en el cuerpo no es haberlo
+   * declarado.
+   */
+  mayorDe14?: unknown;
 }): Promise<CreateUserResult> {
   const database = db();
   if (database === null) {
     return { kind: 'sin-base-de-datos' };
   }
 
+  // **Lo primero, antes que el correo y antes de cifrar nada.** Por debajo de
+  // catorce no se crea la cuenta, y no tiene sentido decirle a quien no puede
+  // tenerla que su correo está mal escrito (adr/0111).
+  if (input.mayorDe14 !== true) {
+    return { kind: 'menor' };
+  }
+
   const email = normalizeEmail(input.email);
   if (email === null) {
     return { kind: 'correo-invalido' };
   }
-  if (typeof input.password !== 'string' || input.password.length < MIN_PASSWORD_LENGTH) {
+  // Corta o enorme: las dos son `contrasena-corta`, «fuera de medida». La enorme
+  // no la escribe nadie a mano, y sin tope llegaba entera a `scrypt` (adr/0113).
+  if (!contrasenaDeMedida(input.password, MIN_PASSWORD_LENGTH)) {
     return { kind: 'contrasena-corta' };
   }
   const name = normalizeName(input.name);
@@ -115,7 +134,7 @@ export async function createUser(input: {
     // por la que dos registros a la vez crean dos cuentas con el mismo correo.
     const [row] = await database
       .insert(users)
-      .values({ email, name, passwordHash })
+      .values({ email, name, passwordHash, mayorDe14En: new Date() })
       .onConflictDoNothing({ target: users.email })
       .returning();
 
@@ -270,7 +289,7 @@ export async function changePassword(
   if (database === null) {
     return { kind: 'sin-base-de-datos' };
   }
-  if (typeof nueva !== 'string' || nueva.length < MIN_PASSWORD_LENGTH) {
+  if (!contrasenaDeMedida(nueva, MIN_PASSWORD_LENGTH)) {
     return { kind: 'contrasena-corta' };
   }
 
@@ -300,7 +319,13 @@ export async function changePassword(
   }
 }
 
-export type DeleteAccountResult = 'ok' | 'no-coincide' | 'sin-base-de-datos' | 'error';
+export type DeleteAccountResult =
+  | 'ok'
+  | 'no-coincide'
+  | 'sin-base-de-datos'
+  | 'error'
+  /** Lo de antes de borrar —cancelar el cobro— no ha salido: no se borra. */
+  | 'sin-cancelar';
 
 /**
  * Borra la cuenta y todo lo que cuelga de ella.
@@ -321,6 +346,14 @@ export type DeleteAccountResult = 'ok' | 'no-coincide' | 'sin-base-de-datos' | '
 export async function deleteAccount(
   userId: string,
   password: unknown,
+  /**
+   * Lo que tiene que pasar **después de comprobar la contraseña y antes de
+   * borrar** (adr/0114): cancelar la suscripción en la pasarela y guardar lo
+   * gastado del mes. Lo escribe la ruta, que es quien conoce el cobrador. Si no
+   * dice `ok`, no se borra: una cuenta borrada con la suscripción viva sigue
+   * cobrando, y sus avisos ya no encuentran a nadie.
+   */
+  antesDeBorrar?: () => Promise<'ok' | 'sin-cancelar' | 'error'>,
 ): Promise<DeleteAccountResult> {
   const database = db();
   if (database === null) {
@@ -334,6 +367,11 @@ export async function deleteAccount(
     }
     if (cuenta.kind === 'no-coincide') {
       return 'no-coincide';
+    }
+
+    const antes = (await antesDeBorrar?.()) ?? 'ok';
+    if (antes !== 'ok') {
+      return antes;
     }
 
     await database.delete(users).where(eq(users.id, userId));
@@ -423,7 +461,8 @@ export async function suscripcionDe(userId: string): Promise<CuentaEnStripe | nu
 /** Escribe y dice si había a quién, con los tres resultados de `setPlan`. */
 async function escribirCuenta(
   donde: SQL,
-  cambios: Partial<typeof users.$inferInsert>,
+  // Un valor o una expresión: `marcarImpago` escribe un `coalesce`.
+  cambios: { [K in keyof typeof users.$inferInsert]?: (typeof users.$inferInsert)[K] | SQL },
 ): Promise<SetPlanResult> {
   const database = db();
   if (database === null) {
@@ -510,7 +549,23 @@ export async function planDeSuscripcion(
 ): Promise<SetPlanResult> {
   return escribirCuenta(eq(users.stripeSubscriptionId, subscriptionId), {
     plan,
+    // Lo que diga Stripe ya no es `past_due`: el plazo de gracia se acaba aquí.
+    impagadaDesde: null,
     ...(opciones.soltar ? { stripeSubscriptionId: null } : {}),
+  });
+}
+
+/**
+ * El cobro de esa suscripción ha fallado y Stripe lo está reintentando
+ * (`past_due`): empieza el plazo de gracia, **si no había empezado ya**.
+ *
+ * `coalesce` y no la fecha de ahora a secas: Stripe manda un aviso por cada
+ * cambio, y cada uno no puede volver a dar siete días. El plan no se toca; lo que
+ * se lee cambia solo al pasar el plazo (`planEnVigor`).
+ */
+export async function marcarImpago(subscriptionId: string, desde: Date): Promise<SetPlanResult> {
+  return escribirCuenta(eq(users.stripeSubscriptionId, subscriptionId), {
+    impagadaDesde: sql`coalesce(${users.impagadaDesde}, ${desde.toISOString()}::timestamptz)`,
   });
 }
 

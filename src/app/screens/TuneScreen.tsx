@@ -83,7 +83,7 @@ export function TuneScreen() {
               : 'my-auto md:grid-cols-[minmax(15rem,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]'
           }`}
         >
-          <div className="min-w-0 md:self-start" data-tour="afinar-afinacion">
+          <div className="min-w-0 md:self-start">
             {escuchando ? (
               <Disclosure
                 summary={

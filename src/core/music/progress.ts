@@ -26,7 +26,7 @@ import {
   type Unit,
   type UnitKind,
 } from './curriculum';
-import { daysBetween, isDay } from './days';
+import { daysBetween, diaSiguiente, isDay } from './days';
 import {
   EMPTY_REVIEW,
   MASTERED_HITS,
@@ -236,6 +236,32 @@ export const DAILY_GOAL_XP = 40;
 
 /** Lo que se gana por terminar un repaso. No suma al total del temario. */
 export const REVIEW_XP = 10;
+
+/**
+ * El primer día en que esta aplicación existió: nadie practicó antes.
+ *
+ * Es el suelo de la racha que se puede creer. Una racha viva no puede ser más
+ * larga que los días que han pasado desde aquí, así que un `streak` de `1e308`
+ * subido desde la consola se recorta a lo posible en vez de quedarse para siempre
+ * ([adr/0116](../../../docs/adr/0116-el-avance-que-sube-se-comprueba.md)).
+ */
+export const PRIMER_DIA = '2026-07-28';
+
+/**
+ * Lo más que se puede llevar ganado en un día.
+ *
+ * El temario entero, el tope de componer y cincuenta repasos. Lo último no es un
+ * tope de verdad —repasar no lo tiene—, es lo que ninguna tarde llega a hacer: a
+ * cinco minutos por repaso son cuatro horas. Sin un techo, un `xpToday` de `1e308`
+ * guardado una vez ganaba todas las fusiones de ese día. Solo se usa para la meta,
+ * que se cumple con cuarenta, así que el techo no le quita nada a nadie.
+ */
+export const MAX_XP_DEL_DIA = TOTAL_XP + DAILY_GOAL_XP + 50 * REVIEW_XP;
+
+/** Lo ganado en el día, sin pasar del techo de lo posible. */
+function alTecho(xp: number): number {
+  return Math.min(MAX_XP_DEL_DIA, xp);
+}
 
 /**
  * Las cuatro cosas que cuentan como componer.
@@ -458,7 +484,7 @@ export function completeUnit(
     streak,
     bestStreak: Math.max(progress.bestStreak, streak),
     lastDay: day,
-    xpToday: xpEarnedOn(progress, day) + found.unit.xp,
+    xpToday: alTecho(xpEarnedOn(progress, day) + found.unit.xp),
   };
 
   return { ...next, badges: awardBadges(next, found.course, found.unit.kind, flawless) };
@@ -623,7 +649,7 @@ export function practiceReview(
   { cleared = false }: ReviewDoneOptions = {},
 ): Progress {
   const streak = streakAfter(progress, day);
-  const xpToday = xpEarnedOn(progress, day) + REVIEW_XP;
+  const xpToday = alTecho(xpEarnedOn(progress, day) + REVIEW_XP);
 
   const badges = new Set<BadgeId>(progress.badges);
   if (cleared) {
@@ -674,7 +700,7 @@ function composeRoomOn(progress: Progress, day: string): number {
 export function practiceCompose(progress: Progress, day: string, deed: ComposeDeed): Progress {
   const ganado = Math.min(COMPOSE_XP[deed], composeRoomOn(progress, day));
   const streak = streakAfter(progress, day);
-  const xpToday = xpEarnedOn(progress, day) + ganado;
+  const xpToday = alTecho(xpEarnedOn(progress, day) + ganado);
 
   const badges = new Set<BadgeId>(progress.badges);
   if (deed === 'cancion') {
@@ -833,7 +859,11 @@ function asCount(value: unknown): number {
 /** Cuántos sitios tiene una unidad a los que la cola de repaso puede apuntar. */
 export type ContarPosiciones = (unit: Unit) => number;
 
-function asReviewQueue(value: unknown, posiciones?: ContarPosiciones): ReviewQueue {
+function asReviewQueue(
+  value: unknown,
+  posiciones?: ContarPosiciones,
+  manana?: string,
+): ReviewQueue {
   if (!Array.isArray(value)) {
     return EMPTY_REVIEW;
   }
@@ -862,7 +892,7 @@ function asReviewQueue(value: unknown, posiciones?: ContarPosiciones): ReviewQue
       {
         unitId: unit.id,
         index,
-        seenOn: isDay(item['seenOn']) ? item['seenOn'] : '1970-01-01',
+        seenOn: diaCreible(item['seenOn'], manana) ?? '1970-01-01',
         hits: Math.min(asCount(item['hits']), MASTERED_HITS - 1),
       },
     ];
@@ -881,7 +911,8 @@ function asReviewQueue(value: unknown, posiciones?: ContarPosiciones): ReviewQue
  * El XP no se lee de lo guardado: se recalcula desde las unidades hechas.
  * Guardarlo y leerlo por separado permite que las dos cosas se contradigan, y
  * entonces la barra de avance dice una cosa y la lista de unidades otra. El XP
- * del día sí se lee, porque no hay de dónde recalcularlo.
+ * del día sí se lee, porque no hay de dónde recalcularlo, pero sin pasar de
+ * `MAX_XP_DEL_DIA`.
  *
  * `posiciones`, si llega, suelta además lo de la cola de repaso que apunta a una
  * pregunta que su lección ya no tiene. **Es opcional por el peso**: contarlas
@@ -890,44 +921,141 @@ function asReviewQueue(value: unknown, posiciones?: ContarPosiciones): ReviewQue
  * pregunta. Lo pasa el servidor, que no viaja al navegador; y como quien tiene
  * cola de repaso tiene plan y cuenta, su navegador recibe la cola ya limpia en
  * cuanto sincroniza.
+ *
+ * `hoy`, si llega, es el día del servidor en UTC, y con él **ninguna fecha puede
+ * ser posterior a mañana** ni una racha más larga que los días que lleva existiendo
+ * la aplicación. Lo pasa el servidor por lo mismo que `posiciones`: el dominio no
+ * lee relojes, y el navegador no tiene uno del que fiarse. Sin esto, una fecha
+ * inventada subida una vez ganaba todas las fusiones siguientes y no había forma de
+ * arreglarla ([adr/0116](../../../docs/adr/0116-el-avance-que-sube-se-comprueba.md)).
+ * Como lo guardado también pasa por aquí al leerse, lo envenenado antes de esto se
+ * repara en la siguiente subida.
  */
-export function parseProgress(raw: unknown, posiciones?: ContarPosiciones): Progress {
+export function parseProgress(raw: unknown, posiciones?: ContarPosiciones, hoy?: string): Progress {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return EMPTY_PROGRESS;
   }
   const record = raw as Record<string, unknown>;
+  const manana = hoy === undefined ? undefined : diaSiguiente(hoy);
 
   const known = new Set(UNIT_ORDER);
   const done = [...new Set(asStrings(record['done']).filter((id) => known.has(id)))];
   /* v8 ignore next -- la linea de arriba ya descarta lo que no esta en el temario */
   const xp = done.reduce((total, id) => total + (findUnit(id)?.unit.xp ?? 0), 0);
 
-  // En el orden del catálogo y descartando lo que no exista: así una medalla
-  // retirada no reaparece y la lista no depende de cómo se guardó.
-  const saved = new Set(asStrings(record['badges']));
-  const badges: readonly BadgeId[] = BADGES.map((badge) => badge.id).filter((id) => saved.has(id));
+  const lastDay = diaCreible(record['lastDay'], manana);
+  // La racha más larga posible acaba hoy y empezó el primer día. Sin `hoy` no hay
+  // con qué medirla: el navegador se cree lo suyo, y el servidor lo recorta al subir.
+  const tope = manana === undefined ? Infinity : Math.max(1, daysBetween(PRIMER_DIA, manana) + 1);
+  const streak = Math.min(tope, asCount(record['streak']));
 
-  const streak = asCount(record['streak']);
-  const lastDay = isDay(record['lastDay']) ? record['lastDay'] : null;
-
-  return {
+  const base: Progress = {
     done,
     xp,
     // Sin último día no puede haber racha: sería una racha que no empezó nunca.
     streak: lastDay === null ? 0 : streak,
-    bestStreak: Math.max(asCount(record['bestStreak']), lastDay === null ? 0 : streak),
+    // Ni mejor racha: sin un día practicado no ha habido ninguna.
+    bestStreak:
+      lastDay === null ? 0 : Math.min(tope, Math.max(asCount(record['bestStreak']), streak)),
     lastDay,
-    badges,
+    badges: [],
     // Y sin último día tampoco puede haber XP de hoy.
-    xpToday: lastDay === null ? 0 : asCount(record['xpToday']),
+    xpToday: lastDay === null ? 0 : alTecho(asCount(record['xpToday'])),
     // Acotado al tope: lo guardado viene de un `localStorage` que cualquiera
     // puede editar, y un número mayor que el tope dejaría `composeRoomOn` sin
     // sentido en vez de simplemente a cero.
     composeToday: lastDay === null ? 0 : Math.min(MAX_COMPOSE_XP, asCount(record['composeToday'])),
-    review: asReviewQueue(record['review'], posiciones),
+    review: asReviewQueue(record['review'], posiciones, manana),
     startCourse: asCourseId(record['startCourse']),
-    startCourseAt: asInstante(record['startCourseAt']),
+    startCourseAt: asInstante(record['startCourseAt'], manana),
   };
+
+  return { ...base, badges: medallasCreibles(base, new Set(asStrings(record['badges']))) };
+}
+
+/**
+ * Un día de verdad y no posterior a mañana, o nulo.
+ *
+ * Sin `manana` solo se mira que exista. Con él, además, que no venga del futuro:
+ * la fusión se queda con el último día mayor, así que una fecha adelantada ganaba a
+ * todas las de verdad mientras no llegara ese día.
+ */
+function diaCreible(value: unknown, manana: string | undefined): string | null {
+  if (!isDay(value)) {
+    return null;
+  }
+  return manana !== undefined && value > manana ? null : value;
+}
+
+/**
+ * Las medallas que el avance puede tener, en el orden del catálogo.
+ *
+ * **Se suman las que el avance demuestra** —unidades hechas, cursos y grados
+ * cerrados, la racha de siete—: terminar un curso en otro aparato trae su medalla
+ * sola. **Y de las que llegan se quedan las posibles**, no solo las que hoy se
+ * pueden demostrar:
+ *
+ * - Todas piden haber practicado algún día (`lastDay`): no hay forma de ganar una
+ *   sin que quede apuntado.
+ * - Las de unidades y cursos piden alguna unidad hecha, y «sin un fallo» una que no
+ *   sea de tocar. **No piden que el curso siga cerrado**, y es a propósito: el
+ *   temario se reescribe (adr/0096) y una unidad retirada deja un curso a medias que
+ *   se cerró de verdad. Lo que se ganó, se ganó.
+ * - La de siete días pide una mejor racha de siete, que nunca baja.
+ *
+ * Exigir más —que cada medalla se pueda volver a demostrar— borraría las de verdad
+ * de quien estudió con el temario de antes, y las que no dejan rastro (componer,
+ * ensayar, repasar, la meta de un día) de todo el mundo en la siguiente subida. Una
+ * medalla no abre nada ni cuenta para nada: lo que se protege es que el avance no
+ * diga algo imposible (adr/0116).
+ */
+function medallasCreibles(progress: Progress, guardadas: ReadonlySet<string>): readonly BadgeId[] {
+  const tocadas = progress.done.filter((id) => findUnit(id)?.unit.kind === 'play').length;
+  const demostradas = new Set<BadgeId>();
+  if (progress.done.length > 0) {
+    demostradas.add('primer-paso');
+  }
+  if (tocadas > 0) {
+    demostradas.add('primera-escala');
+  }
+  if (tocadas >= 5) {
+    demostradas.add('cinco-escalas');
+  }
+  if (COURSES.some((course) => isCourseDone(progress, course))) {
+    demostradas.add('curso-completo');
+  }
+  if (isGradeDone(progress, 'elemental')) {
+    demostradas.add('elemental-superado');
+  }
+  if (isGradeDone(progress, 'profesional')) {
+    demostradas.add('profesional-superado');
+  }
+  if (progress.bestStreak >= 7) {
+    demostradas.add('racha-siete');
+  }
+
+  const conUnidades = progress.done.length > 0;
+  const posible: Readonly<Record<BadgeId, boolean>> = {
+    'primer-paso': conUnidades,
+    'primera-escala': conUnidades,
+    'cinco-escalas': conUnidades,
+    'sin-fallar': progress.done.some((id) => findUnit(id)?.unit.kind !== 'play'),
+    'curso-completo': conUnidades,
+    'elemental-superado': conUnidades,
+    'profesional-superado': conUnidades,
+    'primera-cancion': true,
+    'de-oido': true,
+    'a-tu-manera': true,
+    'ensayo-entero': true,
+    'ensayo-limpio': true,
+    'racha-siete': progress.bestStreak >= 7,
+    'repaso-al-dia': true,
+    'meta-diaria': true,
+  };
+
+  return BADGES.map((badge) => badge.id).filter(
+    (id) => demostradas.has(id) || (guardadas.has(id) && progress.lastDay !== null && posible[id]),
+  );
 }
 
 /**
@@ -935,10 +1063,20 @@ export function parseProgress(raw: unknown, posiciones?: ContarPosiciones): Prog
  *
  * Se comprueba que sea una fecha de verdad y no solo que sea texto: esto viene de
  * un `localStorage` que cualquiera puede editar, y una cadena cualquiera haría que
- * la comparación de la fusión devolviera siempre falso sin decir por qué.
+ * la comparación de la fusión devolviera siempre falso sin decir por qué. Con
+ * `manana`, además, que no pase de mañana.
  */
-function asInstante(value: unknown): string | null {
-  return typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? value : null;
+function asInstante(value: unknown, manana?: string): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const instante = Date.parse(value);
+  if (Number.isNaN(instante)) {
+    return null;
+  }
+  // Y no del futuro, por lo mismo que el último día: el punto de partida elegido
+  // «más tarde» gana la fusión, y uno fechado en el año 9999 ganaría siempre.
+  return manana !== undefined && instante > Date.parse(`${manana}T23:59:59.999Z`) ? null : value;
 }
 
 /** Un curso del temario, o nulo. Un curso retirado se olvida. */

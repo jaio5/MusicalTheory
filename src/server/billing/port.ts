@@ -16,7 +16,7 @@
  * resultado tiene esas dos formas y no una.
  */
 
-import type { PlanId } from '@core/billing';
+import type { Periodo, PlanId } from '@core/billing';
 
 export type StartResult =
   /** Cambiado ya. No hay nada más que hacer. */
@@ -35,8 +35,20 @@ export interface Billing {
    * pantalla de pago que no cobra y no lo dice es una pantalla que engaña.
    */
   readonly charges: boolean;
-  /** Empieza el cambio al plan pedido. */
-  start(input: { userId: string; email: string; plan: PlanId }): Promise<StartResult>;
+  /**
+   * Empieza el cambio al plan pedido, pagado al mes o al año.
+   *
+   * El periodo solo decide **qué precio** se cobra: el plan, lo que abre y el
+   * cupo son los mismos (adr/0106). Por eso no se guarda en la cuenta, y por eso
+   * pasar de mensual a anual con la suscripción viva va por el portal de la
+   * pasarela, como cambiar de plan (adr/0077).
+   */
+  start(input: {
+    userId: string;
+    email: string;
+    plan: PlanId;
+    periodo: Periodo;
+  }): Promise<StartResult>;
   /** Deja la cuenta en el plan gratis. */
   cancel(input: { userId: string }): Promise<{ ok: boolean }>;
   /**

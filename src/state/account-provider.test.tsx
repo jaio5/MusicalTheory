@@ -112,7 +112,7 @@ describe('con proveedor', () => {
     // Lo usa el panel de IA después de cada petición: el cupo ha cambiado se haya
     // contestado o se haya rechazado.
     fetchFalso.mockResolvedValue(
-      new Response(JSON.stringify({ account: { ...CUENTA, plan: 'pro' } }), {
+      new Response(JSON.stringify({ account: { ...CUENTA, plan: 'basico' } }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -127,7 +127,7 @@ describe('con proveedor', () => {
     await userEvent.click(screen.getByRole('button'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('plan')).toHaveTextContent('Pro');
+      expect(screen.getByTestId('plan')).toHaveTextContent('Básico');
     });
     // Sin caché: pedirla otra vez es justo para no creerse la de antes.
     expect(fetchFalso).toHaveBeenCalledWith('/api/cuenta', { cache: 'no-store' });

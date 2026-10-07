@@ -29,8 +29,19 @@
 
 import { NextResponse } from 'next/server';
 
-import { abrirPuertaDeIa, frenarPorFrecuencia, type ConstructorDeError } from './ai-gate';
+import { costeDeUso, peorLlamadaMicros, type UsoDelModelo } from '@core/billing';
+
+import {
+  abrirPuertaDeIa,
+  comprobarProveedor,
+  frenarPorCuenta,
+  frenarPorDireccion,
+  type ConstructorDeError,
+} from './ai-gate';
+import { asentarGasto } from './ai-gasto';
 import { preguntarAlModelo, type PreguntaAlModelo } from './ai-intentos';
+import { configuredModel } from './ai-model';
+import { currentSession } from './entitlements';
 import type { PuertaDeIa } from './ai-gate';
 import type { SlidingWindowRateLimiter } from './rate-limit';
 import { readJsonBody } from './request-body';
@@ -44,7 +55,10 @@ import { readJsonBody } from './request-body';
  * limitador, los errores, la puerta del cupo y cómo se lee el cuerpo.
  */
 export interface RutaDeIa<Peticion, Respuesta> extends PreguntaAlModelo<Peticion, Respuesta> {
-  /** En memoria y por instancia: cada ruta tiene el suyo. */
+  /**
+   * El de cada cuenta cuando no hay base de datos: en memoria y por instancia,
+   * cada ruta el suyo. Con base, el contador es una fila compartida.
+   */
   readonly limiter: SlidingWindowRateLimiter;
   readonly error: ConstructorDeError;
   /** Qué se está pidiendo, para el cupo y para la frase del plan. */
@@ -79,19 +93,48 @@ function avisarDelFallo(ruta: string, codigo: number, motivo: string): void {
 /**
  * Contesta una petición de IA de principio a fin.
  *
- * El orden de las puertas no es un detalle: el límite por minuto va primero
- * porque es memoria y es gratis; leer el cuerpo, después; y el cupo, el último,
- * porque es una escritura en la base de datos. Al revés se pagaría una consulta
- * por cada pulsación de más.
+ * **El orden de las puertas no es un detalle**, y va de lo que no cuesta nada a
+ * lo que cuesta dinero (adr/0114):
+ *
+ * 1. **La dirección**, en memoria o en una fila: una capa barata con su propia
+ *    clave, que para a quien aporrea sin leer ni la sesión.
+ * 2. **Que haya modelo**: sin él nada de lo de abajo tiene sentido.
+ * 3. **La cuenta**, antes de leer el cuerpo. Una petición anónima se contesta
+ *    401 sin hacer trabajo de dominio con lo que traiga.
+ * 4. **El límite por minuto de esa cuenta.** Era por dirección y antes de saber
+ *    quién pedía, y sin `TRUSTED_PROXY_HOPS` diez anónimas dejaban a todas las
+ *    cuentas sin IA.
+ * 5. **El cuerpo**, por el lector acotado.
+ * 6. **El plan, el techo de gasto y el cupo** (`abrirPuertaDeIa`), que escriben
+ *    en la base: lo último antes del modelo.
+ *
+ * Y después del modelo, **lo gastado de verdad** se asienta en el techo.
  */
 export async function responderConModelo<Peticion, Respuesta>(
   request: Request,
   ruta: RutaDeIa<Peticion, Respuesta>,
 ): Promise<NextResponse> {
-  // Compartido entre instancias cuando hay base de datos; en memoria cuando no.
-  const frenada = await frenarPorFrecuencia(request, ruta.limiter, ruta.error, Date.now());
-  if (frenada !== null) {
-    return frenada;
+  const ahora = Date.now();
+  const puerta = { ...ruta.puerta, error: ruta.error };
+
+  const porDireccion = await frenarPorDireccion(request, ruta.error, ahora);
+  if (porDireccion !== null) {
+    return porDireccion;
+  }
+
+  const sinModelo = comprobarProveedor(puerta);
+  if (sinModelo !== null) {
+    return sinModelo;
+  }
+
+  const session = await currentSession();
+  if (session === null) {
+    return NextResponse.json(ruta.error('account_required'), { status: 401 });
+  }
+
+  const porCuenta = await frenarPorCuenta(session.userId, ruta.limiter, ruta.error, ahora);
+  if (porCuenta !== null) {
+    return porCuenta;
   }
 
   // Por el lector acotado: un cuerpo roto, vacío o de cincuenta megas llega como
@@ -105,12 +148,24 @@ export async function responderConModelo<Peticion, Respuesta>(
     return NextResponse.json(ruta.error('invalid_request', motivo), { status: 400 });
   }
 
-  const cerrada = await abrirPuertaDeIa({ ...ruta.puerta, error: ruta.error });
-  if (cerrada !== null) {
-    return cerrada;
+  const abierta = await abrirPuertaDeIa(puerta, session);
+  if (abierta instanceof NextResponse) {
+    return abierta;
   }
 
-  const desenlace = await preguntarAlModelo(ruta, peticion);
+  // Lo que dice `usage` de cada llamada, o su peor caso si no lo dice.
+  const modelo = configuredModel();
+  const peor = peorLlamadaMicros(ruta.puerta.feature, modelo);
+  let gastado = 0;
+  const alUsar = (uso: UsoDelModelo | null): void => {
+    gastado += uso === null ? peor : costeDeUso(uso, modelo);
+  };
+
+  const desenlace = await preguntarAlModelo(ruta, peticion, { alUsar });
+  if (abierta.reserva !== null) {
+    await asentarGasto(abierta.reserva, gastado);
+  }
+
   if (desenlace.kind === 'error') {
     avisarDelFallo(ruta.puerta.feature, 502, desenlace.fallo);
     return NextResponse.json(ruta.error(desenlace.fallo), { status: 502 });

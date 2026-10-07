@@ -21,7 +21,7 @@ import {
  * El plan que abre el Grado Profesional, por su nombre de verdad.
  *
  * Lo decía el `title` de cada nodo con un nombre escrito a mano —«Estudiante»— que
- * ya no existe: los planes son Básico, Medio y Pro. Sale de `core/billing`, así
+ * ya no existe: los planes son Gratis, Básico y Medio. Sale de `core/billing`, así
  * que un renombrado no lo deja mintiendo otra vez. Siempre hay uno: es la
  * definición de la tabla de planes.
  */

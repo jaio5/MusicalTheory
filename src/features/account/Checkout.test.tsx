@@ -16,7 +16,7 @@ const changePlan = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: refrescar, push: () => {} }),
-  usePathname: () => '/planes/pro',
+  usePathname: () => '/planes/medio',
 }));
 
 vi.mock('@state/account', async (original) => ({
@@ -38,7 +38,7 @@ vi.mock('@state/account', async (original) => ({
  * decorado que se parece demasiado a un cobro de verdad.
  */
 
-const PRO = PAID_PLANS.find((p) => p.id === 'pro')!;
+const MEDIO = PAID_PLANS.find((p) => p.id === 'medio')!;
 const BASICO = PAID_PLANS.find((p) => p.id === 'basico')!;
 
 const CUENTA: Account = {
@@ -50,10 +50,10 @@ const CUENTA: Account = {
   aiLeftMonth: 20,
 };
 
-function pintar(props: { plan?: typeof PRO; charges?: boolean } = {}, account = CUENTA) {
+function pintar(props: { plan?: typeof MEDIO; charges?: boolean } = {}, account = CUENTA) {
   return render(
     <AccountProvider account={account} accounts>
-      <Checkout plan={props.plan ?? PRO} charges={props.charges ?? false} />
+      <Checkout plan={props.plan ?? MEDIO} charges={props.charges ?? false} />
     </AccountProvider>,
   );
 }
@@ -61,20 +61,20 @@ function pintar(props: { plan?: typeof PRO; charges?: boolean } = {}, account = 
 beforeEach(() => {
   refrescar.mockReset();
   changePlan.mockReset();
-  changePlan.mockResolvedValue({ kind: 'listo', plan: 'pro' });
+  changePlan.mockResolvedValue({ kind: 'listo', plan: 'medio' });
 });
 
 describe('lo que vas a contratar', () => {
   it('se enseña el plan, su precio y lo que trae', () => {
     pintar();
 
-    expect(screen.getByText(`Plan ${PRO.name}`)).toBeInTheDocument();
+    expect(screen.getByText(`Plan ${MEDIO.name}`)).toBeInTheDocument();
     expect(screen.getByLabelText('Qué vas a contratar')).toBeInTheDocument();
   });
 
   it('lo que ya tenias no se marca como nuevo', () => {
     // Marcarlo sería inflar la lista con cosas por las que ya pagabas.
-    pintar({ plan: PRO }, { ...CUENTA, plan: 'medio' });
+    pintar({ plan: MEDIO }, { ...CUENTA, plan: 'basico' });
 
     const nuevos = screen.queryAllByText('nuevo').length;
     const todos = screen.getAllByText('✓').length;
@@ -83,7 +83,7 @@ describe('lo que vas a contratar', () => {
   });
 
   it('al bajar de plan se avisa de que se puede perder algo', async () => {
-    pintar({ plan: BASICO }, { ...CUENTA, plan: 'pro' });
+    pintar({ plan: BASICO }, { ...CUENTA, plan: 'medio' });
 
     expect(screen.getByText(/Comprueba que no pierdes nada/)).toBeInTheDocument();
     expect(screen.queryByText('nuevo')).not.toBeInTheDocument();
@@ -120,7 +120,7 @@ describe('confirmar', () => {
   it('sin cuenta no se confirma: primero se entra, y sin salir de aqui', () => {
     render(
       <AccountProvider account={ANONYMOUS} accounts>
-        <Checkout plan={PRO} />
+        <Checkout plan={MEDIO} />
       </AccountProvider>,
     );
 
@@ -136,7 +136,7 @@ describe('confirmar', () => {
   it('sin cuentas configuradas se dice, y que lo del plan tampoco esta', () => {
     render(
       <AccountProvider account={ANONYMOUS} accounts={false}>
-        <Checkout plan={PRO} />
+        <Checkout plan={MEDIO} />
       </AccountProvider>,
     );
 
@@ -179,7 +179,7 @@ describe('confirmar', () => {
   });
 
   it('el que ya tienes no se vuelve a contratar', () => {
-    pintar({ plan: PRO }, { ...CUENTA, plan: 'pro' });
+    pintar({ plan: MEDIO }, { ...CUENTA, plan: 'medio' });
 
     expect(screen.getByText(/Ya lo tienes/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Activar/ })).not.toBeInTheDocument();
@@ -218,6 +218,34 @@ describe('el plan que se pide', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Activar el plan/ }));
 
-    await waitFor(() => expect(changePlan).toHaveBeenCalledWith(planOf('basico').id));
+    await waitFor(() => expect(changePlan).toHaveBeenCalledWith(planOf('basico').id, 'mensual'));
+  });
+});
+
+/**
+ * Al mes o al año (adr/0106). Lo que cambia es el precio, y se dice al lado del
+ * precio; lo que se abre y el cupo son los mismos.
+ */
+describe('cada cuánto se paga', () => {
+  it('al mes por defecto, y se ofrece el año con sus meses gratis', () => {
+    pintar({ plan: BASICO });
+
+    expect(screen.getByRole('button', { name: 'Al mes', pressed: true })).toBeInTheDocument();
+    expect(screen.getByText('4,99 € al mes')).toBeInTheDocument();
+    expect(screen.getByText('O 49,90 € al año: 2 meses gratis.')).toBeInTheDocument();
+  });
+
+  it('al elegir el año cambia el precio, la frase de cobro y lo que se pide', async () => {
+    pintar({ plan: BASICO, charges: true });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Al año' }));
+
+    expect(screen.getByText('49,90 € al año')).toBeInTheDocument();
+    expect(screen.getByText('Pagas 10 meses y tienes 12: 2 gratis.')).toBeInTheDocument();
+    expect(screen.getByText(/se cobra 49,90 € al año hasta que/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Activar el plan/ }));
+
+    await waitFor(() => expect(changePlan).toHaveBeenCalledWith('basico', 'anual'));
   });
 });

@@ -2,6 +2,10 @@
 #
 # Levanta Postgres, aplica las migraciones y arranca la aplicación.
 #
+# Con `--db` levanta solo Postgres, en segundo plano, para usarlo con `pnpm dev`:
+# es `pnpm docker:db`, y pasa por aquí para que el `.env` con sus contraseñas
+# exista antes, que compose ya no arranca sin ellas.
+#
 # Con `--ia` levanta además Ollama y descarga el modelo de casa, para poder probar
 # las tres pantallas de IA sin clave de Anthropic y sin pagar tokens. Es el perfil
 # `ia` de `compose.yml`, más la dirección que la aplicación necesita para hablarle:
@@ -12,6 +16,11 @@
 # hace se puede hacer a mano; lo que no se puede hacer a mano es acordarse.
 
 set -euo pipefail
+
+# Lo que escriba este guion —el `.env`, con el secreto de las sesiones y las
+# contraseñas de la base— lo lee solo quien lo escribe. Con la máscara de
+# siempre salía legible para cualquier usuario del equipo.
+umask 077
 
 cd "$(dirname "$0")/.."
 
@@ -47,30 +56,59 @@ fi
 # El `.env`. Compose lo lee solo, y `pnpm dev` también, así que la cadena de
 # conexión que se escribe aquí es la del equipo —`localhost`— y no la de la red de
 # compose: dentro de los contenedores la pone compose.yml, que allí sí se llama `db`.
+#
+# **Sin contraseñas fijas.** Antes escribía `caos:caos`, y compose las daba por
+# defecto: un servidor levantado así tenía la base de todas las cuentas con la
+# contraseña del README. Ahora se sacan al azar, y compose se niega a arrancar
+# sin ellas (docs/adr/0117).
 # ---------------------------------------------------------------------------
+aleatorio() {
+  # En hexadecimal y no en base64: va dentro de una URL de Postgres, y `+`, `/`
+  # o `=` la romperían.
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex "$1"
+  else
+    node -e "console.log(require('node:crypto').randomBytes($1).toString('hex'))"
+  fi
+}
+
 if [[ ! -f .env ]]; then
   if command -v openssl >/dev/null 2>&1; then
     secreto="$(openssl rand -base64 32)"
   else
     secreto="$(node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))")"
   fi
+  clave_db="$(aleatorio 24)"
+  clave_app="$(aleatorio 24)"
 
   cat > .env <<EOF
 # Escrito por scripts/docker-arriba.sh. Es para tu equipo: no vale para publicar.
+# Las contraseñas son al azar y solo valen para la base de este equipo.
 POSTGRES_USER=caos
-POSTGRES_PASSWORD=caos
+POSTGRES_PASSWORD=$clave_db
 POSTGRES_DB=caos
+
+# El rol con el que entra la aplicación dentro de compose: lee y escribe filas y
+# nada más. Lo crea el contenedor de las migraciones.
+POSTGRES_APP_USER=caos_app
+POSTGRES_APP_PASSWORD=$clave_app
 
 # Con qué se firma la cookie de sesión. Si cambia, todo el mundo vuelve a entrar.
 AUTH_SECRET=$secreto
 
-# La de aquí apunta al Postgres del contenedor desde el equipo, para \`pnpm dev\`
-# y \`pnpm db:studio\`. Dentro de compose la cadena la pone compose.yml.
-DATABASE_URL=postgres://caos:caos@localhost:5432/caos
+# La de aquí apunta al Postgres del contenedor desde el equipo, para \`pnpm dev\`,
+# \`pnpm db:migrate\` y \`pnpm db:studio\`, y por eso entra como superusuario: migrar
+# lo pide. Dentro de compose la cadena la pone compose.yml, con el rol de arriba.
+DATABASE_URL=postgres://caos:$clave_db@localhost:5432/caos
 
 # En qué puerto de tu equipo se ve la aplicación. Cámbialo si el 3000 ya lo tiene
 # otro contenedor: lo de dentro sigue siendo el 3000.
 APP_PORT=3000
+
+# Todo escucha solo en este equipo (127.0.0.1). Para abrir la aplicación al móvil
+# por la red de casa, descomenta esto; Postgres y Ollama tienen las suyas
+# —POSTGRES_ESCUCHA_EN, OLLAMA_ESCUCHA_EN— y no hay motivo para abrirlos.
+# APP_ESCUCHA_EN=0.0.0.0
 
 # Opcional: sin ella contesta el modelo de casa si lo hay, y si tampoco lo hay,
 # el dominio. La clave gana a los dos: mira docs/AI.md.
@@ -88,8 +126,28 @@ ANTHROPIC_API_KEY=
 # COMPOSE_PROFILES=ia
 # OLLAMA_URL_DOCKER=http://ollama:11434
 EOF
-  gris 'Escrito .env con un AUTH_SECRET nuevo. No se sube: está en .gitignore.'
+  gris 'Escrito .env con un AUTH_SECRET y contraseñas nuevas. No se sube: está en .gitignore.'
+else
+  # Un `.env` de antes de las contraseñas obligatorias: se completa sin tocar lo
+  # que ya tiene. Solo se añade, nunca se cambia una línea.
+  if ! grep -q '^POSTGRES_PASSWORD=' .env; then
+    # Si la base ya existe, se creó con la contraseña que compose daba por
+    # defecto, y Postgres no la cambia al arrancar: poner otra la dejaría fuera.
+    if docker volume inspect caos-ordenado_datos >/dev/null 2>&1; then
+      clave_db='caos'
+      gris 'Tu base se creó con la contraseña de antes, «caos»: se apunta en .env para no perderla. Cámbiala si este equipo sale a internet (docs/DESPLIEGUE.md).'
+    else
+      clave_db="$(aleatorio 24)"
+    fi
+    printf '\n# Añadida por scripts/docker-arriba.sh: compose ya no la da por defecto.\nPOSTGRES_PASSWORD=%s\n' "$clave_db" >> .env
+  fi
+  if ! grep -q '^POSTGRES_APP_PASSWORD=' .env; then
+    printf '\n# Añadida por scripts/docker-arriba.sh: el rol con el que entra la aplicación,\n# que solo lee y escribe filas. Lo crea el contenedor de las migraciones.\nPOSTGRES_APP_PASSWORD=%s\n' "$(aleatorio 24)" >> .env
+    gris 'Añadida a .env la contraseña del rol de la aplicación.'
+  fi
 fi
+# El `.env` lleva el secreto de las sesiones: que no lo lea nadie más del equipo.
+chmod go-rwx .env
 
 # ---------------------------------------------------------------------------
 # El modelo de casa que ya corre en el equipo, si lo hay.
@@ -112,10 +170,13 @@ fi
 
 perfiles=()
 resto=()
+solo_db=0
 mensaje='Levantando Postgres, aplicando migraciones y arrancando la aplicación...'
 
 for arg in "$@"; do
-  if [[ "$arg" == '--ia' ]]; then
+  if [[ "$arg" == '--db' ]]; then
+    solo_db=1
+  elif [[ "$arg" == '--ia' ]]; then
     # El perfil levanta los contenedores; la dirección le dice a la aplicación
     # dónde están. Una sin la otra deja a Ollama arrancado y sin nadie que le
     # hable, que es peor que no levantarlo: parece que funciona.
@@ -130,6 +191,11 @@ for arg in "$@"; do
     resto+=("$arg")
   fi
 done
+
+if [[ $solo_db == 1 ]]; then
+  gris 'Levantando solo Postgres, para usarlo con `pnpm dev`.'
+  exec docker compose up -d db ${resto[@]+"${resto[@]}"}
+fi
 
 # Y arriba. `--build` para que un cambio en el código se note sin acordarse de
 # reconstruir, que es el fallo que hace pensar que un arreglo no ha funcionado.

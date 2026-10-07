@@ -9,7 +9,7 @@ import {
   type SessionStorage,
   type StoredSession,
 } from '@state/session-storage';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, selectEscala, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { IconoSesiones } from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
@@ -62,7 +62,7 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
       id: `${now()}`,
       savedAt: now(),
       key,
-      scaleId: state.scaleId,
+      scaleId: selectEscala(state),
       notes: state.noteHistory.map((note) => noteName(note.pitchClass)),
       chords,
     };

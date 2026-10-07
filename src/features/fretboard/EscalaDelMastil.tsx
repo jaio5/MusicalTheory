@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { SCALE_IDS, SCALES, type ScaleId } from '@core/music';
 import { useClaqueta } from '@state/claqueta';
-import { useSessionStore } from '@state/session-store';
+import { selectEscala, useSessionStore } from '@state/session-store';
 import { Chevron } from '@ui/Chevron';
 import { Field } from '@ui/Field';
 
@@ -104,7 +104,7 @@ const AJUSTE_DEL_DESPLEGABLE = 'max-sm:pr-7 max-sm:pl-2 max-sm:text-[13px]';
  * texto dentro no la lee todo lector (`docs/ESTILO.md`).
  */
 export function EscalaDelMastil() {
-  const scaleId = useSessionStore((state) => state.scaleId);
+  const scaleId = useSessionStore(selectEscala);
   const actions = useSessionStore((state) => state.actions);
   const [anuncio, setAnuncio] = useState('');
 

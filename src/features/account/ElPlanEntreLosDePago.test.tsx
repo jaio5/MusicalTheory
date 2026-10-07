@@ -7,13 +7,13 @@ import { describe, expect, it } from 'vitest';
 import { ANONYMOUS, PAID_PLANS, type Account } from '@core/billing';
 import { AccountProvider } from '@state/account';
 
-import { ElPlanEntreLosTres } from './ElPlanEntreLosTres';
+import { ElPlanEntreLosDePago } from './ElPlanEntreLosDePago';
 
 /**
  * Este plan entre los otros dos, al lado de la ventana de pago.
  *
- * Lo que se defiende es que se pueda **dudar sin salir de aquí**: los tres con su
- * precio, el que miras sin enlace a sí mismo y los otros dos llevando a su
+ * Lo que se defiende es que se pueda **dudar sin salir de aquí**: los de pago con
+ * su precio, el que miras sin enlace a sí mismo y el otro llevando a su
  * ventana. Y que el tuyo se diga, para no comprar dos veces lo mismo.
  */
 const MEDIO = PAID_PLANS.find((p) => p.id === 'medio')!;
@@ -21,19 +21,19 @@ const MEDIO = PAID_PLANS.find((p) => p.id === 'medio')!;
 function pintar(account: Account = ANONYMOUS) {
   return render(
     <AccountProvider account={account} accounts>
-      <ElPlanEntreLosTres plan={MEDIO} />
+      <ElPlanEntreLosDePago plan={MEDIO} />
     </AccountProvider>,
   );
 }
 
-describe('el plan entre los tres', () => {
-  it('estan los tres, con su precio', () => {
+describe('el plan entre los de pago', () => {
+  it('estan los dos, con su precio', () => {
     pintar();
 
     for (const plan of PAID_PLANS) {
       expect(screen.getByText(plan.claim)).toBeInTheDocument();
     }
-    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
   });
 
   it('el que miras se enciende y no es un enlace; los otros llevan a su ventana', () => {
@@ -44,12 +44,11 @@ describe('el plan entre los tres', () => {
     expect(screen.getByText('El que miras')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /^Medio/ })).toBeNull();
     expect(screen.getByRole('link', { name: /^Básico/ })).toHaveAttribute('href', '/planes/basico');
-    expect(screen.getByRole('link', { name: /^Pro/ })).toHaveAttribute('href', '/planes/pro');
   });
 
   it('dice cual es el tuyo, y si es el mismo que miras', () => {
-    const { unmount } = pintar({ ...ANONYMOUS, email: 'a@b.c', plan: 'pro' });
-    expect(screen.getByRole('link', { name: /^Pro/ })).toHaveTextContent('El tuyo');
+    const { unmount } = pintar({ ...ANONYMOUS, email: 'a@b.c', plan: 'basico' });
+    expect(screen.getByRole('link', { name: /^Básico/ })).toHaveTextContent('El tuyo');
     unmount();
 
     pintar({ ...ANONYMOUS, email: 'a@b.c', plan: 'medio' });

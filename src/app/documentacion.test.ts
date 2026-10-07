@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_AI_MODEL,
   dailyAiRequests,
   MAX_QUESTION_LENGTH,
   monthlyAiRequests,
@@ -32,7 +33,7 @@ function leer(ruta: string): string {
   return readFileSync(resolve(RAIZ, ruta), 'utf8');
 }
 
-/** Los números hasta cuarenta, como los escribe esta casa: con letra. */
+/** Los números hasta ciento doce, como los escribe esta casa: con letra. */
 const EN_LETRA: Readonly<Record<number, string>> = {
   13: 'trece',
   14: 'catorce',
@@ -113,6 +114,21 @@ const EN_LETRA: Readonly<Record<number, string>> = {
   100: 'cien',
   101: 'ciento uno',
   102: 'ciento dos',
+  103: 'ciento tres',
+  104: 'ciento cuatro',
+  105: 'ciento cinco',
+  106: 'ciento seis',
+  107: 'ciento siete',
+  108: 'ciento ocho',
+  109: 'ciento nueve',
+  110: 'ciento diez',
+  111: 'ciento once',
+  112: 'ciento doce',
+  113: 'ciento trece',
+  114: 'ciento catorce',
+  115: 'ciento quince',
+  116: 'ciento dieciséis',
+  117: 'ciento diecisiete',
 };
 
 describe('lo que la documentación cuenta', () => {
@@ -149,41 +165,47 @@ describe('lo que la documentación cuenta', () => {
    */
   it('los cupos de la pagina de planes son los que calcula el codigo', () => {
     const texto = leer('docs/CUENTAS-Y-PLANES.md');
+    // Con el modelo de por defecto, que es el que verá quien entre (adr/0103).
+    const modelo = DEFAULT_AI_MODEL;
 
-    for (const plan of ['basico', 'medio', 'pro'] as const) {
-      const mes = monthlyAiRequests(plan, 'claude-opus-5');
-      const dia = dailyAiRequests(plan, 'claude-opus-5');
+    for (const plan of ['basico', 'medio'] as const) {
+      const mes = monthlyAiRequests(plan, modelo);
+      const dia = dailyAiRequests(plan, modelo);
       expect(texto, `el cupo mensual de ${plan}`).toContain(`${mes}/mes · ${dia}/día`);
     }
 
     // Y la fila de arriba del todo, que es la que se lee antes de pagar.
-    const [basico, medio, pro] = (['basico', 'medio', 'pro'] as const).map((plan) =>
-      monthlyAiRequests(plan, 'claude-opus-5'),
+    const [basico, medio] = (['basico', 'medio'] as const).map((plan) =>
+      monthlyAiRequests(plan, modelo),
     );
     expect(texto).toMatch(
       new RegExp(
-        `Preguntas al profesor al mes\\s*\\|\\s*15\\s*\\|\\s*${basico}\\s*\\|\\s*${medio}\\s*\\|\\s*${pro}`,
+        `Preguntas al profesor al mes\\s*\\|\\s*15\\s*\\|\\s*${basico}\\s*\\|\\s*${medio}`,
       ),
     );
     // Y lo que gasta una salida, que es la otra mitad del número (adr/0067).
-    const k = unidadesDe('versiones', 'claude-opus-5');
+    const k = unidadesDe('versiones', modelo);
     expect(texto).toMatch(
-      new RegExp(
-        `Preguntas que gasta una salida\\s*\\|\\s*—\\s*\\|\\s*—\\s*\\|\\s*${k}\\s*\\|\\s*${k}`,
-      ),
+      new RegExp(`Preguntas que gasta una salida\\s*\\|\\s*—\\s*\\|\\s*—\\s*\\|\\s*${k}`),
     );
   });
 
   /**
    * Y la tabla de despliegue también, que es la que se mira **antes de cambiar
-   * `ANTHROPIC_MODEL`**: si miente, alguien baja de modelo creyendo que
+   * `ANTHROPIC_MODEL`**: si miente, alguien cambia de modelo creyendo que
    * multiplica los cupos por un número que no es.
    */
   it('la tabla de cupos por modelo del despliegue tambien', () => {
     const texto = leer('docs/DESPLIEGUE.md');
 
-    for (const modelo of ['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5']) {
-      const fila = (['basico', 'medio', 'pro'] as const).map(
+    for (const modelo of [
+      'claude-sonnet-5-5',
+      'claude-opus-5-5',
+      'claude-opus-5',
+      'claude-haiku-4-5',
+      'claude-fable-5-1',
+    ]) {
+      const fila = (['basico', 'medio'] as const).map(
         (plan) => `${monthlyAiRequests(plan, modelo)}/mes`,
       );
       for (const celda of fila) {

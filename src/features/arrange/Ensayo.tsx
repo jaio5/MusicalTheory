@@ -73,7 +73,7 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
       // estado vacío centrado en una caja que recorta se sale por arriba y por
       // abajo en cuanto la ventana es baja.
       <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-        <div className="my-auto" data-tour="componer-ensayo">
+        <div className="my-auto">
           {/* **Con la salida puesta, no solo dicha.** Decía «escribe unos
               acordes» sin decir dónde, y los dos sitios donde se escriben son
               dos espacios de esta misma pantalla: la acción es ir a ellos. */}
@@ -129,10 +129,7 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
     // lados**, y en una ventana baja el botón se iba por arriba sin manera de
     // alcanzarlo. Así se centra mientras sobra sitio y se desplaza cuando no.
     <div className="flex h-full min-h-0 flex-col overflow-y-auto">
-      <div
-        className="my-auto flex flex-col items-center gap-5 p-4 text-center"
-        data-tour="componer-ensayo"
-      >
+      <div className="my-auto flex flex-col items-center gap-5 p-4 text-center">
         {ensayando && paso !== null ? (
           <>
             {/* El que toca, grande, y los dos que vienen detrás en pequeño. Leer

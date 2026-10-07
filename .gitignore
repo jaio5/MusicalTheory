@@ -31,3 +31,21 @@ banco-de-ia.txt
 
 # Caché de Python de los scripts de arte/
 __pycache__/
+
+# Las grabaciones de guitarra para medir el motor (docs/MEDIR.md). Mejor fuera del
+# repositorio; si se dejan dentro, en `tomas/`, y por si acaso cualquier audio suelto:
+# el audio no sale del equipo, tampoco en un commit.
+tomas/
+*.wav
+*.m4a
+*.webm
+*.ogg
+*.mp3
+*.flac
+*.opus
+*.caf
+*.3gp
+
+# Un script que escriba en `${sinDefinir}/` crea esta carpeta; ya se coló una vez
+# en un commit con capturas.
+undefined/

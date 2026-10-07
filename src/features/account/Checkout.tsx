@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { useEnvio } from './use-envio';
 
@@ -10,7 +11,10 @@ import {
   cupoEnPalabras,
   monthlyAiRequests,
   planOf,
+  MESES_GRATIS_AL_AÑO,
+  MESES_QUE_SE_PAGAN_AL_AÑO,
   priceLabel,
+  type Periodo,
   type Plan,
 } from '@core/billing';
 import { changePlan, useAccount } from '@state/account';
@@ -20,6 +24,7 @@ import { AccessForm } from './AccessForm';
 import { enUnaFrase, loQueTrae } from './lo-que-va-con-plan';
 import { ETIQUETAS } from './PlanCards';
 import { Aviso } from '@ui/Aviso';
+import { Segmentado } from '@ui/Segmentado';
 
 /**
  * La ventana de pagar un plan concreto.
@@ -52,13 +57,17 @@ export function Checkout({
   // `hecho` se llama `done` aquí desde antes; el sobre es el mismo.
   const { error, setError, hecho: done, setHecho: setDone, working, enviar } = useEnvio();
 
+  // Al mes por defecto: es lo que se puede dejar en cualquier momento, y quien
+  // quiere el año lo elige sabiendo que lo elige (adr/0106).
+  const [periodo, setPeriodo] = useState<Periodo>('mensual');
+
   const actual = planOf(account.plan);
   const yaEsTuyo = actual.id === plan.id;
   const esSubida = plan.monthlyCents > actual.monthlyCents;
 
   async function activar(): Promise<void> {
     await enviar(async () => {
-      const result = await changePlan(plan.id);
+      const result = await changePlan(plan.id, periodo);
       if (result.kind === 'ir-a-pagar') {
         // Con pasarela puesta, se sale a pagar a su dominio. `assign` y no
         // `router.push`: es otra web, no una ruta de esta aplicación.
@@ -84,7 +93,7 @@ export function Checkout({
           <p className="rotulo text-tube-bright">{done ? 'Plan activado' : 'Ya lo tienes'}</p>
           <h2 className="text-text mt-1 text-2xl">Tienes el plan {plan.name}</h2>
           <p className="text-text-muted mt-2 max-w-prose text-sm">
-            {/* v8 ignore start -- los tres planes de pago abren el Grado Profesional; la otra frase espera a que haya uno que no */}
+            {/* v8 ignore start -- los planes de pago abren todos el Grado Profesional; la otra frase espera a que haya uno que no */}
             {can(plan.id, 'grado-profesional')
               ? 'El Grado Profesional está abierto, y puedes empezar por el curso que quieras desde el camino.'
               : 'Ya puedes seguir por donde ibas.'}
@@ -120,7 +129,30 @@ export function Checkout({
               <p className="text-text text-lg">Plan {plan.name}</p>
               <p className="text-text-muted text-sm">{plan.claim}</p>
             </div>
-            <p className="text-brass-bright min-w-0 font-mono text-lg">{priceLabel(plan.id)}</p>
+            <p className="text-brass-bright min-w-0 font-mono text-lg">
+              {priceLabel(plan.id, periodo)}
+            </p>
+          </div>
+
+          {/* **Al mes o al año, en el mismo sitio que el precio**, porque es lo que
+              lo cambia. El año lleva su «dos meses gratis» dicho con el número de
+              meses de verdad, no escrito a mano: si un día cambia, la frase
+              cambia con él. Lo que se abre y el cupo son los mismos en los dos. */}
+          <div className="border-border flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3">
+            <Segmentado
+              etiqueta="Cada cuánto se paga"
+              opciones={[
+                { valor: 'mensual', texto: 'Al mes' },
+                { valor: 'anual', texto: 'Al año' },
+              ]}
+              valor={periodo}
+              onCambiar={setPeriodo}
+            />
+            <p className="text-text-muted text-sm">
+              {periodo === 'anual'
+                ? `Pagas ${MESES_QUE_SE_PAGAN_AL_AÑO} meses y tienes 12: ${MESES_GRATIS_AL_AÑO} gratis.`
+                : `O ${priceLabel(plan.id, 'anual')}: ${MESES_GRATIS_AL_AÑO} meses gratis.`}
+            </p>
           </div>
 
           <ul className="flex flex-col gap-1 px-4 py-3">
@@ -197,7 +229,8 @@ export function Checkout({
                 <>
                   <strong>Al confirmar se sale a pagar.</strong> Los datos de la tarjeta se escriben
                   en la pasarela y no pasan por aquí. El plan {plan.name} se activa cuando el pago
-                  se confirma, y se cobra {priceLabel(plan.id).toLowerCase()} hasta que lo canceles.
+                  se confirma, y se cobra {priceLabel(plan.id, periodo).toLowerCase()} hasta que lo
+                  canceles.
                 </>
               ) : (
                 <>

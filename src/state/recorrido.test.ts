@@ -10,6 +10,7 @@ import {
   guardarPasoDelRecorrido,
   leerRecorrido,
   marcarRecorridoVisto,
+  marcarTramoVisto,
   suscribirseAlRecorrido,
   useRecorrido,
   volverAVerElRecorrido,
@@ -32,19 +33,31 @@ describe('lo guardado', () => {
     expect(leerRecorrido('visto')).toEqual({ visto: true });
   });
 
-  it('un recorrido a medias se lee entero, con lo que puso para enseñarse', () => {
+  it('un recorrido a medias se lee entero: los tramos vistos y el paso', () => {
     const guardado = JSON.stringify({
+      vistos: ['bienvenida', 'aprender'],
+      paso: 'componer-espacios',
+    });
+
+    expect(leerRecorrido(guardado)).toEqual({
+      visto: false,
+      vistos: ['bienvenida', 'aprender'],
+      paso: 'componer-espacios',
+    });
+  });
+
+  /**
+   * El de la versión de antes, de veintiún pasos a medias, se lee como sin
+   * empezar: el de ahora es otro recorrido, y empieza por la bienvenida.
+   */
+  it('el de la versión de antes se lee como sin empezar el de ahora', () => {
+    const deAntes = JSON.stringify({
       paso: 'componer-tocar',
       origen: '/componer',
       puso: { tonalidad: true, espacio: 'escribir' },
     });
 
-    expect(leerRecorrido(guardado)).toEqual({
-      visto: false,
-      paso: 'componer-tocar',
-      origen: '/componer',
-      puso: { tonalidad: true, espacio: 'escribir' },
-    });
+    expect(leerRecorrido(deAntes)).toEqual({ visto: false, vistos: [], paso: 'componer-tocar' });
   });
 
   /**
@@ -59,36 +72,27 @@ describe('lo guardado', () => {
   });
 
   it('campo a campo: lo que no vale se cae y lo demás se queda', () => {
-    const guardado = JSON.stringify({
-      paso: 'x'.repeat(500),
-      origen: 3,
-      puso: { tonalidad: 'sí', espacio: 'bailar' },
-    });
+    const guardado = JSON.stringify({ paso: 'x'.repeat(500), vistos: ['aprender', 3, ''] });
 
-    expect(leerRecorrido(guardado)).toEqual({
-      visto: false,
-      paso: null,
-      origen: null,
-      puso: { tonalidad: false, espacio: null },
-    });
+    expect(leerRecorrido(guardado)).toEqual({ visto: false, vistos: ['aprender'], paso: null });
     expect(leerRecorrido(JSON.stringify({ paso: '' }))).toEqual(SIN_EMPEZAR);
   });
 });
 
 describe('el estado en el navegador', () => {
   it('es el mismo objeto mientras no cambie lo guardado', () => {
-    guardarPasoDelRecorrido({ paso: 'profesor', origen: '/afinar', puso: SIN_EMPEZAR.puso });
+    guardarPasoDelRecorrido({ vistos: ['bienvenida'], paso: 'componer-espacios' });
 
     const primero = estadoDelRecorrido();
     expect(estadoDelRecorrido()).toBe(primero);
-    expect(primero).toMatchObject({ visto: false, paso: 'profesor', origen: '/afinar' });
+    expect(primero).toMatchObject({ visto: false, paso: 'componer-espacios' });
   });
 
   it('avisa al guardar el paso, al darlo por visto y al pedir verlo otra vez', () => {
     const oyente = vi.fn();
     const dejar = suscribirseAlRecorrido(oyente);
 
-    guardarPasoDelRecorrido({ paso: 'profesor', origen: null, puso: SIN_EMPEZAR.puso });
+    guardarPasoDelRecorrido({ vistos: [], paso: 'aprender-hoy' });
     marcarRecorridoVisto();
     expect(localStorage.getItem(CLAVE_RECORRIDO)).toBe('visto');
     expect(estadoDelRecorrido()).toEqual({ visto: true });
@@ -100,6 +104,20 @@ describe('el estado en el navegador', () => {
     dejar();
     marcarRecorridoVisto();
     expect(oyente).toHaveBeenCalledTimes(3);
+  });
+
+  /** Un tramo cada vez; con todos vistos, el recorrido entero. */
+  it('un tramo visto se apunta, y con todos se da por visto entero', () => {
+    const todos = ['bienvenida', 'aprender'];
+    marcarTramoVisto('bienvenida', todos);
+    expect(estadoDelRecorrido()).toEqual({ visto: false, vistos: ['bienvenida'], paso: null });
+
+    // Cerrarlo dos veces no lo apunta dos veces.
+    marcarTramoVisto('bienvenida', todos);
+    expect(estadoDelRecorrido()).toEqual({ visto: false, vistos: ['bienvenida'], paso: null });
+
+    marcarTramoVisto('aprender', todos);
+    expect(estadoDelRecorrido()).toEqual({ visto: true });
   });
 
   it('en el servidor se da por visto: el HTML sale igual para todos', () => {

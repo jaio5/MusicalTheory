@@ -17,6 +17,8 @@ import {
   type PitchClass,
 } from '@core/music';
 
+import { marcaConClave } from '@core/marca';
+
 import {
   ANSWER_SCHEMA,
   CABECERA_DE_TEORIA,
@@ -106,7 +108,8 @@ function peorPromptDelProfesor(): string {
     .sort((a, b) => b.length - a.length)
     .slice(0, 2)
     .map((referencia) => `- ${referencia}`);
-  const marca = '###PREGUNTA###';
+  // Con su clave, que mide siempre lo mismo (adr/0115).
+  const marca = marcaConClave('PREGUNTA', 'ffffff');
 
   return [
     elMasLargo(
@@ -130,6 +133,7 @@ describe('el presupuesto de tokens del profesor', () => {
       peorPromptDelProfesor(),
     );
 
+    console.log(`peor prompt del profesor: ${estimado} tokens de ${TOKEN_BUDGETS.profesor.input}`);
     expect(estimado).toBeLessThanOrEqual(TOKEN_BUDGETS.profesor.input);
   });
 
@@ -277,7 +281,8 @@ describe('el prompt de sistema de las salidas', () => {
 
   it('pide que el porqué cuente el del juez, y lo de siempre sobre lo dudoso y el cierre', () => {
     expect(VERSIONS_SYSTEM_PROMPT).toContain('Por que');
-    expect(VERSIONS_SYSTEM_PROMPT).toContain('###DIRECTRICES###');
+    // La marca con su clave, y que solo la cierra la misma (adr/0115).
+    expect(VERSIONS_SYSTEM_PROMPT).toMatch(/entre dos ###DIRECTRICES-clave###\s+iguales/u);
     expect(VERSIONS_SYSTEM_PROMPT).toMatch(/Un\s+compas con \?/u);
     expect(VERSIONS_SYSTEM_PROMPT).toMatch(/no digas que\s+cierra/u);
   });

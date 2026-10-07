@@ -40,7 +40,7 @@ describe('qué plan hace falta', () => {
 describe('el plan siguiente', () => {
   it('es el de arriba, y al último no le queda ninguno', () => {
     expect(planAfter('basico')?.id).toBe('medio');
-    expect(planAfter('pro')).toBeNull();
+    expect(planAfter('medio')).toBeNull();
   });
 });
 
@@ -55,6 +55,15 @@ describe('cupo gastado', () => {
     expect(hoy).toMatch(/mañana/);
     expect(mes).toMatch(/de este mes/);
     expect(mes).toMatch(/día uno/);
+  });
+
+  // Desde que Pro se fundió en Medio (adr/0104), lo que se ofrece al agotar el mes
+  // es Medio, y solo a quien tiene Básico.
+  it('al agotar el mes ofrece el plan de arriba, con su número', () => {
+    const modelo = 'claude-sonnet-5-5';
+    expect(quotaMessage(planOf('basico'), modelo, 'mes')).toBe(
+      `No te quedan preguntas suficientes de las ${monthlyAiRequests('basico', modelo)} de este mes: se renuevan el día uno, y con el plan Medio son ${monthlyAiRequests('medio', modelo)} al mes.`,
+    );
   });
 
   /**
@@ -78,7 +87,7 @@ describe('cupo gastado', () => {
   });
 
   it('al que ya está en el último plan no le ofrece otro', () => {
-    expect(quotaMessage(planOf('pro'), 'claude-opus-5', 'mes')).not.toMatch(/con el plan/);
+    expect(quotaMessage(planOf('medio'), 'claude-opus-5', 'mes')).not.toMatch(/con el plan/);
   });
 });
 

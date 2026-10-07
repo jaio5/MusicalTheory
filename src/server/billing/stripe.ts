@@ -20,7 +20,7 @@
  * (`docs/PARA-PUBLICAR.md`).
  */
 
-import type { PlanId } from '@core/billing';
+import { PAID_PLANS, PERIODOS, type Periodo, type PlanId } from '@core/billing';
 
 import { appUrl } from '../app-url';
 import { soltarSuscripcion, suscripcionDe } from '../users';
@@ -30,43 +30,58 @@ import type { Billing, StartResult } from './port';
 const API = 'https://api.stripe.com/v1';
 
 /**
- * Qué precio de Stripe corresponde a cada plan.
+ * Qué precio de Stripe corresponde a cada plan y cada periodo.
  *
  * Los identificadores viven en el entorno y no en el código: son distintos en la
  * cuenta de pruebas y en la de verdad, y tenerlos escritos aquí obligaría a un
  * despliegue para cambiarlos y garantizaría que algún día se cobra en la cuenta
  * equivocada.
+ *
+ * Cuatro: `STRIPE_PRICE_BASICO`, `STRIPE_PRICE_MEDIO` y los dos `_ANUAL`. El
+ * nombre sale del plan y del periodo, no de una lista escrita aquí: al fundir
+ * Pro en Medio (adr/0104) y añadir el anual (adr/0106), una lista a mano era otro
+ * sitio que había que acordarse de tocar.
  */
-function priceIdOf(plan: PlanId): string | null {
-  const byPlan: Readonly<Record<string, string | undefined>> = {
-    basico: process.env['STRIPE_PRICE_BASICO'],
-    medio: process.env['STRIPE_PRICE_MEDIO'],
-    pro: process.env['STRIPE_PRICE_PRO'],
-  };
-  const price = byPlan[plan];
+export function variableDelPrecio(plan: PlanId, periodo: Periodo): string {
+  return `STRIPE_PRICE_${plan.toUpperCase()}${periodo === 'anual' ? '_ANUAL' : ''}`;
+}
+
+function priceIdOf(plan: PlanId, periodo: Periodo): string | null {
+  const price = process.env[variableDelPrecio(plan, periodo)];
   return price === undefined || price === '' ? null : price;
 }
 
-/** El plan que corresponde a un precio. Es lo que traduce el webhook. */
+/** Cada plan de pago en cada periodo: lo que tiene que tener precio para cobrar. */
+const PRECIOS: ReadonlyArray<{ readonly plan: PlanId; readonly periodo: Periodo }> =
+  PAID_PLANS.flatMap((plan) => PERIODOS.map((periodo) => ({ plan: plan.id, periodo })));
+
+/**
+ * El plan que corresponde a un precio. Es lo que traduce el webhook.
+ *
+ * Mensual o anual da el mismo plan: lo que abre es lo mismo y el cupo también.
+ * Un precio que no es de ninguno —el del Pro que ya no se vende, por ejemplo—
+ * no da plan.
+ */
 export function planOfPrice(priceId: unknown): PlanId | null {
   if (typeof priceId !== 'string' || priceId === '') {
     return null;
   }
-  for (const plan of ['basico', 'medio', 'pro'] as const) {
-    if (priceIdOf(plan) === priceId) {
-      return plan;
-    }
-  }
-  return null;
+  return PRECIOS.find(({ plan, periodo }) => priceIdOf(plan, periodo) === priceId)?.plan ?? null;
 }
 
-/** Si están puestas las variables que hacen falta para cobrar de verdad. */
+/**
+ * Si están puestas las variables que hacen falta para cobrar de verdad.
+ *
+ * **Las cuatro de precio**, también las anuales: la pantalla de planes ofrece
+ * pagar al año siempre, y una copia que cobrara al mes y fallara al año
+ * enseñaría un botón que no lleva a ninguna parte.
+ */
 export function stripeConfigured(): boolean {
   const key = process.env['STRIPE_SECRET_KEY'];
   return (
     typeof key === 'string' &&
     key !== '' &&
-    (['basico', 'medio', 'pro'] as const).every((plan) => priceIdOf(plan) !== null)
+    PRECIOS.every(({ plan, periodo }) => priceIdOf(plan, periodo) !== null)
   );
 }
 
@@ -276,10 +291,12 @@ export const StripeBilling: Billing = {
     userId,
     email,
     plan,
+    periodo,
   }: {
     userId: string;
     email: string;
     plan: PlanId;
+    periodo: Periodo;
   }): Promise<StartResult> {
     // Bajar de plan no se paga: se cancela lo que hay y se queda en gratis.
     if (plan === 'gratis') {
@@ -288,7 +305,7 @@ export const StripeBilling: Billing = {
         : { kind: 'error', reason: 'no se ha podido cancelar la suscripción' };
     }
 
-    const price = priceIdOf(plan);
+    const price = priceIdOf(plan, periodo);
     if (price === null) {
       return { kind: 'error', reason: 'ese plan no tiene precio configurado' };
     }
@@ -328,12 +345,14 @@ export const StripeBilling: Billing = {
       client_reference_id: userId,
       'metadata[userId]': userId,
       'metadata[plan]': plan,
+      'metadata[periodo]': periodo,
       // **Y en la suscripción también.** Los metadatos de la sesión se quedan en la
       // sesión: la suscripción que crea nace sin ellos, y los avisos de después —el
       // de baja, el de cambio— llegan con la suscripción. Así se ve de quién es
       // desde el panel de Stripe.
       'subscription_data[metadata][userId]': userId,
       'subscription_data[metadata][plan]': plan,
+      'subscription_data[metadata][periodo]': periodo,
       success_url: `${appUrl()}/cuenta?pago=hecho`,
       cancel_url: `${appUrl()}/planes/${plan}?pago=cancelado`,
     });

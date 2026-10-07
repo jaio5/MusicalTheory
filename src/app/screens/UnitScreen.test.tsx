@@ -43,7 +43,7 @@ vi.mock('next/navigation', () => ({
 const PRO: Account = {
   email: 'javier@example.com',
   name: 'Javier',
-  plan: 'pro',
+  plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 20,
   aiLeftMonth: 300,
@@ -145,31 +145,22 @@ describe('la unidad abierta', () => {
     pintar(PRIMERA);
 
     expect(screen.getByText(/Tonalidad:/)).toBeInTheDocument();
-    expect(screen.getByText(/sin elegir/)).toBeInTheDocument();
+    expect(screen.getByText(/C mayor, de partida/)).toBeInTheDocument();
   });
 
   /**
-   * Y sin tonalidad, la unidad **ofrece cuáles**, no señala la rueda.
-   *
-   * Esa barra flota sobre la caja de la unidad y se abre ella sola cuando no hay
-   * tonalidad puesta, así que lo que había debajo —un estado vacío que decía
-   * «está en la rueda de aquí arriba»— quedaba justo detrás del panel: en una
-   * ventana de 900 se veía la rueda y medio millar de píxeles de negro. Se vio
-   * mirando la pantalla, que es la única manera de ver algo tapado.
+   * **Y sin tonalidad no la pide**: la primera unidad, la de las notas, se
+   * quedaba detrás de una rueda de veinticuatro tonalidades abierta sola, a
+   * quien venía a aprender qué es una nota. Va en Do mayor hasta que elijas.
    */
-  it('sin tonalidad ofrece cuatro con las que empezar, y elegir una abre la unidad', async () => {
+  it('sin tonalidad no la pide: la unidad se puede empezar en Do mayor', async () => {
     pintar(PRIMERA);
 
-    // Los de la barra, que es lo que se ve: los del estado vacío de debajo
-    // están tapados e inertes mientras la rueda sigue abierta.
-    const [empezar] = screen.getAllByRole('group', { name: 'Tonalidades para empezar' });
-    await userEvent.click(within(empezar!).getByRole('button', { name: 'C mayor' }));
-
-    // Elegida, la unidad arranca: ni el ofrecimiento ni «sin elegir» siguen ahí.
     expect(
       screen.queryByRole('group', { name: 'Tonalidades para empezar' }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText(/sin elegir/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    expect(screen.getByRole('button', { name: 'Ponerlo a prueba' })).toBeInTheDocument();
   });
 });
 
@@ -462,9 +453,11 @@ describe('lo que se falla', () => {
  * tonalidad que falta.
  */
 describe('lo que dice la barra de tonalidad', () => {
-  it('sin tonalidad, pide elegirla', () => {
+  it('sin tonalidad, dice que va en Do mayor hasta que elijas otra', () => {
     render(<UnitScreen unitId={PRIMERA} />);
-    expect(screen.getByText(/Elige una tonalidad y la unidad se escribe/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Mientras no elijas otra, la unidad va en C mayor/),
+    ).toBeInTheDocument();
   });
 
   it('con tonalidad, cuenta que se puede cambiar', () => {
@@ -483,34 +476,28 @@ describe('lo que tapa la rueda', () => {
     return document.querySelector<HTMLElement>('.max-w-2xl.grow')!;
   }
 
-  it('sin tonalidad la rueda se abre sola y la unidad queda inerte', () => {
+  // Sin tonalidad ya no se abre sola: hay una de partida y nada que pedir.
+  it('sin tonalidad la rueda no se abre sola y la unidad responde', () => {
     pintar(PRIMERA);
 
-    expect(contenido()).toHaveAttribute('inert');
+    expect(document.querySelector('details')).not.toHaveAttribute('open');
+    expect(contenido()).not.toHaveAttribute('inert');
   });
 
   // Inerte y a todo color parecía viva: «Empezar» se veía entero bajo el panel y
   // no respondía. Lo tapado se atenúa con la variante `inert:` de la casa.
-  it('y se ve apagada mientras la rueda la tapa, y vuelve al cerrarla', async () => {
+  it('abierta a mano la tapa y la apaga, y al cerrarla vuelve a responder', async () => {
     pintar(PRIMERA);
+    const detalles = document.querySelector('details')!;
+
+    detalles.open = true;
+    detalles.dispatchEvent(new Event('toggle'));
+    await waitFor(() => expect(contenido()).toHaveAttribute('inert'));
     expect(contenido()).toHaveClass('inert:opacity-50');
-    expect(contenido()).toHaveAttribute('inert');
 
-    const detalles = document.querySelector('details')!;
     detalles.open = false;
     detalles.dispatchEvent(new Event('toggle'));
-
     await waitFor(() => expect(contenido()).not.toHaveAttribute('inert'));
-  });
-
-  it('al cerrarla, la unidad vuelve a responder', () => {
-    pintar(PRIMERA);
-    const detalles = document.querySelector('details')!;
-
-    detalles.open = false;
-    detalles.dispatchEvent(new Event('toggle'));
-
-    return waitFor(() => expect(contenido()).not.toHaveAttribute('inert'));
   });
 
   it('con tonalidad puesta empieza cerrada y no tapa nada', () => {

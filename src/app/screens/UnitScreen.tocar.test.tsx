@@ -44,7 +44,7 @@ const { UnitScreen } = await import('./UnitScreen');
 const PRO: Account = {
   email: 'javier@example.com',
   name: 'Javier',
-  plan: 'pro',
+  plan: 'medio',
   aiModel: 'claude-opus-5',
   aiLeftToday: 20,
   aiLeftMonth: 300,

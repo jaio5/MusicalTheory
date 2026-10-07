@@ -3,6 +3,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { levantarBaseDePrueba, type BaseDePrueba } from './db/para-tests';
 import type * as RateLimitDb from './rate-limit-db';
 import { SlidingWindowRateLimiter } from './rate-limit';
+import { db } from './db/client';
+import { rateLimits } from './db/schema';
 
 /**
  * El límite de frecuencia contra Postgres de verdad.
@@ -110,6 +112,33 @@ describe('contar contra la base de datos', () => {
     } finally {
       process.env['DATABASE_URL'] = guardada;
     }
+  });
+});
+
+/**
+ * **Una clave enorme seguía contando, pero en el sitio equivocado** (adr/0113).
+ *
+ * La auditoría lo reprodujo entrando con un correo de 4 MB: la clave lo llevaba
+ * entero, Postgres no indexa filas de más de 8 KB, la sentencia fallaba, el
+ * `catch` se lo tragaba y el tope caía al contador de memoria —por proceso, y
+ * guardando los megas un cuarto de hora—. Aquí la misma clave cuenta en la tabla,
+ * con su huella, y la comparten dos instancias.
+ */
+describe('una clave de megas', () => {
+  it('cuenta en la tabla compartida, con su huella, y no cae al de memoria', async () => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const enorme = `entrar:${'a'.repeat(4 * 1024 * 1024)}@x.es`;
+
+    for (let i = 0; i < 3; i += 1) {
+      expect((await pedir(enorme, AHORA, memoria())).allowed).toBe(true);
+    }
+    // Una instancia nueva, con su memoria vacía: si contara en memoria, pasaría.
+    expect((await pedir(enorme, AHORA, memoria())).allowed).toBe(false);
+
+    const rows = await db()!.select({ key: rateLimits.key }).from(rateLimits);
+    expect(rows).toEqual([{ key: expect.stringMatching(/^huella:[0-9a-f]{32}$/) }]);
+    expect(aviso).not.toHaveBeenCalled();
+    aviso.mockRestore();
   });
 });
 

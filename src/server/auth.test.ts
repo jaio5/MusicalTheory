@@ -57,7 +57,7 @@ let users: typeof Users;
 
 beforeAll(async () => {
   base = await levantarBaseDePrueba();
-  process.env['AUTH_SECRET'] = 'un-secreto-de-prueba';
+  process.env['AUTH_SECRET'] = 'un-secreto-de-prueba-con-largo-de-sobra';
   // Como detrás de un proxy: sin esto no se cree `X-Forwarded-For` y todas las
   // peticiones de estos tests compartirían dirección.
   process.env['TRUSTED_PROXY_HOPS'] = '1';
@@ -116,7 +116,7 @@ describe('si esta copia tiene cuentas', () => {
     process.env['AUTH_SECRET'] = '';
     expect(auth.authAvailable()).toBe(false);
 
-    process.env['AUTH_SECRET'] = 'un-secreto-de-prueba';
+    process.env['AUTH_SECRET'] = 'un-secreto-de-prueba-con-largo-de-sobra';
   });
 });
 
@@ -170,7 +170,7 @@ describe('el tope de intentos al entrar', () => {
    * solo molestaría a quien se equivoca.
    */
   it('pasado el tope, no entra ni con la contraseña buena', async () => {
-    await users.createUser({ email: CORREO, password: 'la-buena-de-verdad' });
+    await users.createUser({ mayorDe14: true, email: CORREO, password: 'la-buena-de-verdad' });
     await fallar(5, desde('10.0.0.2'));
 
     await expect(
@@ -185,7 +185,7 @@ describe('el tope de intentos al entrar', () => {
    * quien prueba desde su casa no lo pagas tú desde la tuya.
    */
   it('lo que falla otro desde otra direccion no te cierra la puerta', async () => {
-    await users.createUser({ email: CORREO, password: 'la-buena-de-verdad' });
+    await users.createUser({ mayorDe14: true, email: CORREO, password: 'la-buena-de-verdad' });
     await fallar(6, desde('10.0.1.1'));
 
     await expect(
@@ -232,7 +232,11 @@ describe('el tope de intentos al entrar', () => {
   // Y el tope de una cuenta no cierra la puerta a otra: si no, bastaría con probar
   // cinco veces para dejar sin entrar a quien tú quisieras.
   it('el tope de una cuenta no afecta a otra', async () => {
-    await users.createUser({ email: 'otra@ejemplo.test', password: 'la-suya-buena' });
+    await users.createUser({
+      mayorDe14: true,
+      email: 'otra@ejemplo.test',
+      password: 'la-suya-buena',
+    });
     await fallar(5, desde('10.0.2.1'));
 
     await expect(
@@ -251,9 +255,81 @@ describe('el tope de intentos al entrar', () => {
   });
 });
 
+/**
+ * **Lo que la auditoría reprodujo en la entrada** (adr/0113): la lee Auth.js sin el
+ * tope de 128 KB de las demás rutas, y lo que llegaba enorme llegaba hasta el
+ * limitador y hasta `scrypt`.
+ */
+describe('lo enorme y lo repartido, al entrar', () => {
+  it('un correo de 8 MB se contesta que no sin contar ni comprobar nada', async () => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    igualarCoste.mockClear();
+
+    const enorme = `${'a'.repeat(8 * 1024 * 1024)}@x.es`;
+    for (let i = 0; i < 3; i += 1) {
+      expect(await autorizar({ email: enorme, password: 'x' }, desde('10.0.6.1'))).toBeNull();
+    }
+
+    // Antes: la clave con los megas dentro reventaba el índice de la tabla, el
+    // aviso de la caída al de memoria salía en cada intento y `scrypt` corría.
+    expect(aviso).not.toHaveBeenCalled();
+    expect(igualarCoste).not.toHaveBeenCalled();
+    const { db } = await import('./db/client');
+    const { rateLimits } = await import('./db/schema');
+    expect(await db()!.select().from(rateLimits)).toEqual([]);
+    aviso.mockRestore();
+  });
+
+  it('una contraseña de más de mil caracteres tampoco llega a scrypt', async () => {
+    igualarCoste.mockClear();
+
+    expect(
+      await autorizar(
+        { email: 'topes@ejemplo.test', password: 'x'.repeat(1025) },
+        desde('10.0.6.2'),
+      ),
+    ).toBeNull();
+
+    expect(igualarCoste).not.toHaveBeenCalled();
+  });
+
+  it('la clave del tope no lleva el correo, sino su huella', async () => {
+    const correo = `${'b'.repeat(40)}@ejemplo.test`;
+    await autorizar({ email: correo, password: 'no' }, desde('10.0.6.3'));
+
+    const { db } = await import('./db/client');
+    const { rateLimits } = await import('./db/schema');
+    const claves = (await db()!.select({ key: rateLimits.key }).from(rateLimits)).map((f) => f.key);
+    expect(claves).toHaveLength(3);
+    expect(claves.some((clave) => clave.includes('bbbb'))).toBe(false);
+    expect(Math.max(...claves.map((clave) => clave.length))).toBeLessThan(80);
+  });
+
+  /**
+   * **Veintiuna IPv6 del mismo /64 son una dirección.** La auditoría tomó cuarenta
+   * cuentas cambiando de dirección en cada intento dentro de un /64, sin un solo
+   * freno: cada dirección suelta era un contador nuevo.
+   */
+  it('cambiar de IPv6 dentro del mismo /64 no da cupo nuevo', async () => {
+    for (let i = 0; i < 20; i += 1) {
+      expect(
+        await autorizar(
+          { email: `r${i}@ejemplo.test`, password: 'no' },
+          desde(`2001:db8:1:2::${(i + 1).toString(16)}`),
+        ),
+      ).toBeNull();
+    }
+
+    await expect(
+      autorizar({ email: 'r99@ejemplo.test', password: 'no' }, desde('2001:db8:1:2:ffff::1')),
+    ).rejects.toMatchObject({ code: DEMASIADOS_INTENTOS });
+  }, 30_000);
+});
+
 describe('entrar con correo y contraseña', () => {
   it('con las dos buenas, entra y se lleva la version de la sesion', async () => {
     const creada = await users.createUser({
+      mayorDe14: true,
       email: 'a@b.c',
       password: 'unaContrasenaLarga',
       name: 'Javi',
@@ -275,7 +351,7 @@ describe('entrar con correo y contraseña', () => {
   });
 
   it('con la contraseña mal, no entra', async () => {
-    await users.createUser({ email: 'a@b.c', password: 'unaContrasenaLarga' });
+    await users.createUser({ mayorDe14: true, email: 'a@b.c', password: 'unaContrasenaLarga' });
 
     expect(await autorizar({ email: 'a@b.c', password: 'otraCosa' })).toBeNull();
   });
@@ -296,7 +372,7 @@ describe('entrar con correo y contraseña', () => {
     // cuenta aquí. El margen es holgado a propósito —esto mide un reloj de
     // pared en un CI compartido— y aun así pilla la diferencia de dos ordenes de
     // magnitud que hay entre comprobar un `scrypt` y no comprobar nada.
-    await users.createUser({ email: 'a@b.c', password: 'unaContrasenaLarga' });
+    await users.createUser({ mayorDe14: true, email: 'a@b.c', password: 'unaContrasenaLarga' });
 
     const empiezaConocido = performance.now();
     await autorizar({ email: 'a@b.c', password: 'mal' });
@@ -317,7 +393,11 @@ describe('las contraseñas cifradas con los parámetros de antes', () => {
    * tiene la contraseña en claro, así que es ahí donde se vuelve a cifrar.
    */
   it('al entrar se vuelven a cifrar con los de hoy, sin echar a nadie', async () => {
-    const creada = await users.createUser({ email: 'vieja@b.c', password: 'unaContrasenaLarga' });
+    const creada = await users.createUser({
+      mayorDe14: true,
+      email: 'vieja@b.c',
+      password: 'unaContrasenaLarga',
+    });
     if (creada.kind !== 'ok') {
       throw new Error(creada.kind);
     }
@@ -349,7 +429,7 @@ describe('las contraseñas cifradas con los parámetros de antes', () => {
  */
 describe('fallar tarda lo mismo con una cuenta vieja', () => {
   async function cuentaVieja(): Promise<string> {
-    await users.createUser({ email: 'vieja@b.c', password: 'unaContrasenaLarga' });
+    await users.createUser({ mayorDe14: true, email: 'vieja@b.c', password: 'unaContrasenaLarga' });
     const { scryptSync } = await import('node:crypto');
     const sal = Buffer.from('sal de las viejas');
     const clave = scryptSync('unaContrasenaLarga', sal, 64, { N: 16_384, r: 8, p: 1 });
@@ -374,7 +454,7 @@ describe('fallar tarda lo mismo con una cuenta vieja', () => {
   });
 
   it('con una de hoy, o un correo que no existe, no hace falta nada más', async () => {
-    await users.createUser({ email: 'nueva@b.c', password: 'unaContrasenaLarga' });
+    await users.createUser({ mayorDe14: true, email: 'nueva@b.c', password: 'unaContrasenaLarga' });
 
     await autorizar({ email: 'nueva@b.c', password: 'mal' }, desde('10.0.9.2'));
     await autorizar({ email: 'nadie@b.c', password: 'mal' }, desde('10.0.9.3'));
@@ -401,7 +481,7 @@ describe('lo que va en la cookie', () => {
     // seguiría viendo candados.
     const token = callbacks().jwt({
       token: {},
-      user: { id: 'u1', sessionVersion: 3, plan: 'pro' },
+      user: { id: 'u1', sessionVersion: 3, plan: 'medio' },
     }) as Record<string, unknown>;
 
     expect(token['sub']).toBe('u1');
@@ -445,7 +525,7 @@ describe('quien pide', () => {
 
     expect(await auth.currentCookie()).toBeNull();
 
-    process.env['AUTH_SECRET'] = 'un-secreto-de-prueba';
+    process.env['AUTH_SECRET'] = 'un-secreto-de-prueba-con-largo-de-sobra';
   });
 
   it('sin haber entrado, nadie', async () => {

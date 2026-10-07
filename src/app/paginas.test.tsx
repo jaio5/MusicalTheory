@@ -147,23 +147,23 @@ describe('una unidad por direccion', () => {
 });
 
 describe('la ventana de pago de un plan', () => {
-  it('los tres de pago tienen la suya', async () => {
+  it('los dos de pago tienen la suya', async () => {
     const { default: Plan, generateStaticParams } = await import('./(marco)/planes/[plan]/page');
 
-    pintar(await Plan({ params: Promise.resolve({ plan: 'pro' }) }));
+    pintar(await Plan({ params: Promise.resolve({ plan: 'medio' }) }));
 
-    expect(screen.getByRole('heading', { name: /Plan Pro/ })).toBeInTheDocument();
-    expect(generateStaticParams()).toHaveLength(3);
+    expect(screen.getByRole('heading', { name: /Plan Medio/ })).toBeInTheDocument();
+    expect(generateStaticParams()).toHaveLength(2);
   });
 
   // Y el título de la pestaña lleva el plan: es lo que se ve al compartirla.
   it('el titulo de la pestaña lleva el nombre del plan', async () => {
     const { generateMetadata } = await import('./(marco)/planes/[plan]/page');
 
-    const meta = await generateMetadata({ params: Promise.resolve({ plan: 'pro' }) });
+    const meta = await generateMetadata({ params: Promise.resolve({ plan: 'medio' }) });
 
-    expect(meta.title).toMatch(/Plan Pro/);
-    expect(meta.description).toMatch(/Pro,/);
+    expect(meta.title).toMatch(/Plan Medio/);
+    expect(meta.description).toMatch(/Medio,/);
   });
 
   it('un nombre viejo sigue llevando a su plan, no a un 404', async () => {

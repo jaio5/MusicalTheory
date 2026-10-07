@@ -44,9 +44,9 @@ metrónomo, los acordes y la grabación pasan enteros en tu navegador, así que 
 no cuesta nada y van a seguir siendo gratis.
 
 Lo que cuesta es la IA: cada pregunta al profesor y cada tanda de salidas es una llamada
-a un modelo que se paga, y el temario del Grado Profesional. De eso van los tres
-planes de pago —**Básico**, **Medio** y **Pro**, desde 4,99 € al mes—, que se leen y
-se contratan en `/planes`. La tabla completa está en
+a un modelo que se paga, y el temario del Grado Profesional. De eso van los dos
+planes de pago —**Básico** y **Medio**, desde 4,99 € al mes o 49,90 € al año—, que se
+leen y se contratan en `/planes`. La tabla completa está en
 [docs/CUENTAS-Y-PLANES.md](./docs/CUENTAS-Y-PLANES.md).
 
 Dos cosas que conviene saber antes de nada:
@@ -63,8 +63,9 @@ Dos cosas que conviene saber antes de nada:
   que `ANTHROPIC_MODEL` los cambia sin tocar código. Se cuentan en
   preguntas al profesor, y una salida gasta tres porque cuesta más servirla
   ([adr/0067](./docs/adr/0067-el-cupo-se-cuenta-en-preguntas.md)). Con el modelo por
-  defecto son 73 preguntas al mes en Básico, 148 en Medio y 296 en Pro; con Haiku 4.5,
-  cinco veces más. Un test comprueba que ningún plan pierde dinero.
+  defecto, Sonnet 5.5, son 96 preguntas al mes en Básico y 193 en Medio; con Haiku
+  4.5, el doble. Un test comprueba que ningún plan deja menos de un 60 % de margen
+  sobre lo que entra, sin IVA ni comisión.
 - **Hoy no se cobra de verdad.** Detrás del cambio de plan hay un cobrador de mentira
   que cambia el plan y no pasa por caja. Es una decisión con su
   [ADR](./docs/adr/0006-planes-y-puerto-de-facturacion.md), no un olvido, y significa
