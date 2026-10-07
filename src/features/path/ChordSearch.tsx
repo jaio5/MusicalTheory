@@ -9,6 +9,7 @@ import {
   type ParsedChord,
 } from '@core/music';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { TextField } from '@ui/TextField';
 
 const VERDICT_STYLE: Readonly<Record<ChordJudgement['verdict'], string>> = {
   diatonic: 'text-tube-bright',
@@ -71,37 +72,40 @@ export function ChordSearch({ onPick }: ChordSearchProps) {
 
   return (
     <div>
-      <label className="block">
-        <span className="sr-only">Buscar un acorde</span>
-        <input
-          type="text"
-          role="combobox"
-          aria-expanded={matches.length > 0}
-          aria-controls="acordes-encontrados"
-          aria-autocomplete="list"
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            setHighlighted(0);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
-              event.preventDefault();
-              setHighlighted(Math.min(index + 1, matches.length - 1));
-            } else if (event.key === 'ArrowUp') {
-              event.preventDefault();
-              setHighlighted(Math.max(index - 1, 0));
-            } else if (event.key === 'Enter') {
-              event.preventDefault();
-              choose(matches[index]);
-            } else if (event.key === 'Escape') {
-              setText('');
-            }
-          }}
-          placeholder="Buscar acorde: A, F#m7, Bb…"
-          className="border-border bg-background text-text placeholder:text-text-muted w-full border px-2 py-1 font-mono text-sm"
-        />
-      </label>
+      {/* `ui/TextField` y no un `<input>` a mano: medía 30 px de alto con el
+          borde a 1,5:1, en una aplicación donde todo lo que se pulsa mide 44 y
+          los controles llevan `border-strong`. Lo que se teclea son cifrados, y
+          por eso la mono. */}
+      <TextField
+        label="Buscar un acorde"
+        compact
+        type="text"
+        role="combobox"
+        aria-expanded={matches.length > 0}
+        aria-controls="acordes-encontrados"
+        aria-autocomplete="list"
+        value={text}
+        onChange={(event) => {
+          setText(event.target.value);
+          setHighlighted(0);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setHighlighted(Math.min(index + 1, matches.length - 1));
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setHighlighted(Math.max(index - 1, 0));
+          } else if (event.key === 'Enter') {
+            event.preventDefault();
+            choose(matches[index]);
+          } else if (event.key === 'Escape') {
+            setText('');
+          }
+        }}
+        placeholder="Buscar acorde: A, F#m7, Bb…"
+        className="font-mono"
+      />
 
       {text.trim() !== '' && matches.length === 0 && (
         <p className="text-text-muted mt-1 text-xs">
@@ -124,7 +128,7 @@ export function ChordSearch({ onPick }: ChordSearchProps) {
                   type="button"
                   onClick={() => choose(chord)}
                   onMouseEnter={() => setHighlighted(position)}
-                  className={`flex w-full items-baseline gap-2 px-2 py-1 text-left ${
+                  className={`min-h-tap flex w-full items-baseline gap-2 rounded-md px-2 py-1 text-left ${
                     position === index ? 'bg-surface-raised' : ''
                   }`}
                 >

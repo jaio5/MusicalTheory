@@ -88,6 +88,12 @@ Las tres están pensadas para videollamadas y las tres estropean el análisis:
   señal con un umbral de RMS, un control de ganancia automático hace que ese
   umbral no signifique nada: el ruido de fondo acaba subiendo hasta cruzarlo.
 
+Y con `deviceId: { exact }` cuando hay un micrófono elegido
+(`state/microfono.ts`). Exacto y no preferido a propósito: con `ideal`, un
+aparato que no está se sustituye en silencio por otro, y la aplicación no podría
+decir que está escuchando por uno que no es el que elegiste. Si falla, se pide el
+del sistema y se dice (`docs/RECORDING.md`, «Qué micrófono se usa»).
+
 ## Dónde vive el cálculo
 
 **Ahora mismo, en el hilo principal, fuera del ciclo de render.** El bucle es un
@@ -109,6 +115,137 @@ Llevarlo a un `AudioWorklet` sigue siendo la salida si esto se queda corto
 cuando haya rueda de quintas y mástil animándose a la vez. Por qué no se ha
 hecho ya está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
 
+## Dos pasadas: mientras suena y al parar
+
+Hasta la fase de las salidas solo había una: el motor decidía mientras sonaba, y
+lo que quedaba guardado era su lectura. Ahora hay dos, y hacen cosas distintas.
+
+**En vivo** manda `chord-engine.ts` y no ha cambiado: diez análisis por segundo,
+media móvil y cuatro confirmaciones. Es lo que se ve mientras tocas, y arrastra
+tres límites que no son parámetros mal puestos sino consecuencias de decidir en
+el momento: la ventana tiene que ser corta o el retardo se nota, solo puede mirar
+hacia atrás, y decide acorde a acorde.
+
+**Al parar de grabar** entra `audio/offline-chords.ts`, que tiene el trozo entero
+delante:
+
+|                 | En vivo                    | Al parar                           |
+| --------------- | -------------------------- | ---------------------------------- |
+| Ventana         | 2048 · 23,4 Hz por casilla | 16384 · **2,9 Hz por casilla**     |
+| Contexto        | Solo lo anterior           | Lo anterior y lo posterior         |
+| Umbral de ruido | Fijo, escrito aquí         | **Medido en la propia grabación**  |
+| Decisión        | Acorde a acorde            | **La secuencia entera de una vez** |
+| Techo           | 1000 Hz                    | 1000 Hz (miraba hasta 2200)        |
+
+Lo de la ventana es el punto entero: el Mi y el Fa graves están a 4,9 Hz, así que
+con 23,4 Hz por casilla caen en la misma y ahí abajo es donde una guitarra pasa
+media canción.
+
+Y lo de la secuencia usa el grafo que ya estaba escrito, `nextDegrees` —de cada
+grado, adónde se suele ir y cuánto—, con programación dinámica. Un acorde suelto
+que no pega con sus vecinos se cae aunque el espectro lo apoye.
+
+El espectro lo calcula una FFT propia (`audio/fft.ts`): en vivo lo da el
+navegador, pero un `AnalyserNode` mira lo que entra ahora, no un trozo de memoria
+de hace dos minutos.
+
+**Va en un worker**, y esa es la diferencia con [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md):
+analizar dos minutos son 1,1 s en un sobremesa y hasta diez en un móvil. El
+razonamiento entero, con lo que se descartó, está en
+[adr/0017](./adr/0017-escuchar-la-grabacion-entera.md).
+
+**El audio no sale del equipo.** Las muestras se quedan en memoria, se analizan
+ahí y lo que sale son símbolos.
+
+## La toma: el clic suena, y se transcribe todo
+
+En «Tocando» se cuentan dos compases y **el clic sigue sonando toda la toma**,
+con el tempo y el compás de la pantalla y el volumen que se elija (quitarlo no
+para el pulso: el metrónomo sigue contando en silencio). El compás uno cae un
+pulso después del último clic de la cuenta, medido desde **cuándo suena** ese
+clic —el reloj del audio más lo que tarda el altavoz— y no desde el aviso del
+temporizador (`audio/metronome.ts`, `state/cuenta-atras.ts`).
+
+**El micro oye el clic, y eso se resuelve por su timbre, no por su tiempo.** La
+onda cuadrada de 1000/1600 Hz que había tiene periodo dentro del rango del motor
+de tono: metía un Si 5 en cada silencio y partía las notas largas en el pulso.
+El golpe es ahora **ruido filtrado por encima de 4,5 kHz**: no se repite, así que
+la autocorrelación no le encuentra periodo, y vive donde no mira ningún motor.
+Detrás hay dos redes más: la entrada analiza a través de dos pasos bajos a 3 kHz
+(`web-audio-input.ts`), y un ataque de la misma nota solo cuenta si el nivel
+vuelve a la mitad de su golpe inicial —un clic o un hueco del sonido no llegan—.
+
+**El punteo se transcribe de cada análisis** (`transcribirPunteo`, en
+`core/music/melody.ts`), no del historial de la sesión, que guarda veinticuatro
+entradas y apunta la misma nota cada cuarto de segundo. Con cada análisis hay
+ataques —la misma altura que vuelve a sonar fuerte es otra nota—, finales —una
+nota acaba cuando deja de oírse, y si se apagó sola, se dejó sonar hasta la
+siguiente—, silencios, y fuera las fantasmas: un análisis suelto con otra altura
+entre dos iguales se corrige a la de sus vecinas, y una nota de un análisis no
+cuenta. Cada instante se descuenta lo que tarda el motor en reconocer una nota
+(40 ms) y se cuadra en la semicorchea, prefiriendo el sitio fuerte en los
+empates.
+
+**La rítmica se cuadra en la rejilla de la toma** (`captureProgression` con
+`startedAt`): cada cambio cae en su pulso, descontado lo que tarda el motor de
+acordes en decirlo (520 ms, medido), y el último acaba cuando dejó de sonar. Una
+cuatríada oída se escribe como su tríada, porque con una guitarra el croma ve a
+menudo cuatro notas (el quinto armónico de la quinta es la séptima mayor), y los
+dos análisis de acordes miran hasta 1000 Hz y no hasta 2200: por encima no hay
+fundamentales de guitarra, solo armónicos.
+
+**El acorde que ya suena al llegar el compás uno es el primero.** El croma solo
+avisa cuando el acorde cambia, así que el que se rasgueó durante la cuenta no
+volvía a decirse y no se escribía: con C G Am F empezado dos pulsos antes de
+«¡Ahora!», la toma escribía «G Am F». Ahora, al empezar a apuntar, si hay un
+acorde oído **y el nivel de entrada está por encima del suelo** (0,006, el mismo
+con el que el motor de tono deja de buscar nota), entra en el compás uno —con su
+instante desplazado lo que tarda el motor en decirlo, para que la rejilla lo
+ponga en el pulso cero y nunca antes—. El nivel es la prueba de que suena: el
+croma compara formas y no tamaños, y en silencio sostiene el último acorde. Si el
+croma vuelve a decir el mismo, no se repite; si dice otro antes del compás uno, el
+que sonaba sobra (`startCapture` con `conElQueSuena`, `state/session-store.ts`).
+Medido en Chromium con el WAV, tres pasadas en cada una de las dos pantallas que
+había entonces: de 0 a 6 tomas con el Do, y las que empezaban en «¡Ahora!» siguen en C G Am F
+sin un Do de más.
+
+**No hay tope de compases.** Una toma larga se reparte en varias partes seguidas
+—64 notas o 32 bloques cada una, cortando en una barra donde la parte de antes
+acaba justo, para que al tocarlas seguidas cada nota caiga donde se tocó—, y a
+los diez minutos se
+para sola escribiendo lo tocado.
+
+### Lo medido
+
+Con una guitarra sintética de Karplus-Strong (`audio/guitarra-sintetica.ts`, y el
+mismo algoritmo en Python para los WAV) a 90 pulsos, en Chromium con el sonido
+metido como micrófono, el clic de la aplicación colándose en él a 0,6 de su
+nivel, y comparando lo escrito en la partitura con lo tocado:
+
+| Toma                               | Antes                      | Después                        |
+| ---------------------------------- | -------------------------- | ------------------------------ |
+| Punteo de 20 notas, altura         | 3/20                       | 20/20                          |
+| Punteo, ataque en su casilla       | 3/20                       | 20/20                          |
+| Punteo, duración                   | 2/20                       | 20/20                          |
+| Punteo, notas fantasma             | 0 (solo apuntaba 4)        | 0                              |
+| Punteo con la onda cuadrada sumada | 3/20, 2/20, 2/20 y 1 falsa | 20/20, 20/20, 18/20 y 3 falsas |
+| Rítmica C–Am–F/G–C, acordes leídos | 0/5                        | 5/5 (4/5 antes del ADR 0107)   |
+| Rítmica, cambios en su pulso       | 0/5                        | 5/5                            |
+| Rítmica, largos                    | 0/5                        | 5/5                            |
+
+El «antes» apuntaba cuatro o cinco notas porque el historial se quedaba con las
+últimas veinticuatro entradas, y en la rítmica todo acorde salía como cuatríada
+y se descartaba. Las cifras del «después» las fija `audio/toma-sintetica.test.ts`
+con la misma señal. Con la máquina muy cargada (carga 15 a 20) algunas tomas en
+Chromium salieron peor; las sondas mostraron que el sonido de prueba llegaba
+desplazado al análisis, que es cosa del micrófono fingido y no se ha visto con
+uno de verdad —pero no se ha medido con uno de verdad—.
+
+**Lo que no aguanta:** no hay tresillos ni ligaduras en la partitura, así que un
+tresillo cae en la semicorchea más cercana y una nota de más de cuatro pulsos sale
+partida en dos iguales; y la latencia de entrada del
+micro no se descuenta, porque el navegador no la da de forma fiable.
+
 ## Limitaciones que hay que asumir
 
 **Es monofónico.** La autocorrelación devuelve _un_ periodo. Si suenan dos
@@ -118,6 +255,12 @@ afinar y para practicar escalas es suficiente; para detectar un acorde rasgueado
 no sirve. Por eso el modo componer no le pregunta a este motor qué acorde suena:
 lo saca de otro análisis distinto, el de «[Reconocer acordes](#reconocer-acordes)»
 más abajo.
+
+Y **el afinador lo dice cuando pasa**: con señal entrando y ninguna lectura, en
+vez de «esperando a que suene algo» —que se contradecía con el medidor de nivel
+lleno dos líneas más abajo— dice que te oye y no engancha, y que pruebes una
+cuerda sola. Es la misma regla de decir cuándo se duda que sigue el
+reconocimiento de acordes.
 
 **La distorsión la confunde.** Un previo saturado genera armónicos que pueden
 superar en energía a la fundamental. Cuando el segundo armónico domina, la
@@ -158,8 +301,25 @@ El camino es: espectro → croma → plantillas.
 es doblar octavas, es que los armónicos mienten: una sexta al aire suena con su
 quinta y su tercera mayor encima por física pura, y un croma ingenuo lee un
 acorde de E mayor donde solo hay una cuerda pulsada. Por eso no se suma el
-espectro entero sino sus picos, y cada pico se descuenta —no se borra— si otro
-más grave y más fuerte lo explica como armónico suyo.
+espectro entero sino sus picos, y cada pico se descuenta —no se borra— si una
+nota más grave lo explica como armónico suyo.
+
+**Cuánto explica se mide en la serie de esa nota, no en una tabla**
+([adr/0107](./adr/0107-los-armonicos-se-miden-en-su-serie.md)). Lo que una cuerda
+pone en su armónico `h` se estima con lo que miden sus vecinos `h−1` y `h+1` —el
+menor de los dos—, y lo que el pico tenga por encima lo pone otra nota y se queda.
+Solo se descuentan los armónicos que caen en otra nota (el 3, 5, 6, 7, 9…, hasta
+el 12), y un pico solo cuenta como armónico si cae a menos de una décima de
+semitono del múltiplo. Antes había una tabla fija —la quinta de encima a 0,2 de
+la fundamental— que exigía a la fundamental ser más fuerte que su armónico, y una
+cuerda grave no lo es: el La de la quinta cuerda medía 15 dB menos que su octava,
+su séptimo armónico metía un Sol y el La menor se leía `C6`.
+
+**Y la nota más grave se sabe** (`leerEspectro` devuelve el croma y el bajo). Solo
+sirve para desempatar lo que el coseno no puede separar: `Am7` y `C6` son las
+mismas notas con la misma puntuación, y el empate lo ganaba el Do por salir antes
+en el bucle. Con La abajo es `Am7`. Fuera de un empate exacto el bajo no manda, así
+que un `C/E` sigue siendo Do.
 
 **Las plantillas** son las especies que ya conocía el dominio. Se compara por
 coseno, que castiga a la vez lo que suena y no debería y lo que debería y no
@@ -178,10 +338,143 @@ y al cambiar de acorde la media móvil ve los dos a la vez —de C a Am se ve un
 C6, que es literalmente cierto—. El suavizado y las confirmaciones se ajustan
 juntos para que ese acorde de paso no llegue a confirmarse.
 
-**Lo que no hace.** No entra solo en el camino: se propone y lo confirmas tú.
-Acierta con tríadas y séptimas sostenidas en limpio; con inversiones y omitidos
-duda —C sin fundamental es Em—, y con distorsión fuerte el espectro se llena de
-basura y falla. Es un detector de plantillas, no una red entrenada.
+**Lo que no hace.** No entra solo en la canción: se propone y lo confirmas tú, y
+al confirmarlo entra como bloque —con su especie si la tiene— y no en una lista
+aparte ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+Acierta con tríadas y séptimas sostenidas en limpio; las inversiones las escribe
+como el acorde en estado fundamental —el bloque no sabe guardar el bajo—; con
+omitidos duda —C sin fundamental es Em—, y con distorsión fuerte el espectro se
+llena de basura y falla. Es un detector de plantillas, no una red entrenada.
+
+**Una nota sola se lee como su quinta, y eso es el límite del croma.** Una
+cuerda pulsada suena con su quinta —tercer armónico— encima. El descuento por la
+serie se come casi toda, pero no toda: lo que queda, la compresión de sonoridad
+(`LOUDNESS_EXPONENT`) lo levanta, y un Do suelto sale `C5`, a veces sin «?». Antes
+salía como su acorde con séptima, siempre dudoso. Lo que separaría una nota de un
+acorde es contar cuántas suenan a la vez, y eso no lo da el croma: por eso una toma
+dice si es rítmica o punteo ([adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)), y
+está en el [ROADMAP](./ROADMAP.md).
+
+### Lo medido: qué acorde es
+
+**Todo esto es con guitarra sintética, y con una guitarra de verdad está sin
+medir.** Es lo primero que hay que hacer con una en la mano: el modelo de armónicos
+es justo lo que más cambia de una guitarra a otra.
+
+Dos guitarras de Karplus-Strong distintas: la del repositorio
+(`audio/guitarra-sintetica.ts`) para ajustar, y otra escrita aparte —retardo
+fraccionario, posición de la púa, brillo, unos cents de desafinación por cuerda,
+caja y zumbido de red— para **dos conjuntos ciegos** que se generaron antes de
+tocar el motor y no se miraron hasta el final. Dieciséis acordes (C, G, D, A, E,
+Am, Em, Dm, F, Bm, G7, D7, A7, E7, C/E y G/B), abiertos y con cejilla, cuatro
+maneras de tocar —abajo, abajo-arriba, arpegio con los dedos, bajo y rasgueo—,
+tres niveles de ruido, varias semillas y progresiones enteras. Acierta si da la
+fundamental y la tríada, que es lo que se apunta.
+
+| Conjunto            | Vía         | Antes | Después | La menor  | Si menor  |
+| ------------------- | ----------- | ----- | ------- | --------- | --------- |
+| Ajuste, 72 tramos   | En diferido | 75 %  | 99 %    | 0/5 → 5/5 | 0/4 → 4/4 |
+| Ajuste              | En vivo     | 83 %  | 99 %    | 1/5 → 5/5 | 0/4 → 4/4 |
+| Ciego 1, 116 tramos | En diferido | 64 %  | 90 %    | 0/9 → 6/9 | 0/7 → 7/7 |
+| Ciego 1             | En vivo     | 74 %  | 93 %    | 0/9 → 6/9 | 1/7 → 7/7 |
+| Ciego 2, 116 tramos | En diferido | 60 %  | 90 %    | 0/7 → 5/7 | 0/7 → 4/7 |
+| Ciego 2             | En vivo     | 72 %  | 94 %    | 0/7 → 5/7 | 2/7 → 7/7 |
+
+«En vivo» es el motor de verdad escuchando por `EntradaGrabada`, con el mismo
+suavizado que el analizador del navegador. Los mayores, en el último ciego, pasan
+de 36/45 a 41/45 en diferido y de 41/45 a 43/45 en vivo; las séptimas, de 18/28 a
+27/28 y de 22/28 a 27/28.
+
+**En Chromium**, con el micrófono falso y ocho progresiones —C F G Am; C G Am F Dm
+E Em D; C C/E G7 A Bm, y las cinco del último ciego— en Do mayor, **los acordes que
+nadie tocó pasan de 8 a 1** y el La menor de C F G Am se escribe en todas las
+vueltas, no en una de cada dos. El Si menor no se escribe en ninguna de las dos
+versiones porque no es un grado de Do mayor: se cae como «fuera».
+
+**Lo que empeora o sigue mal:**
+
+- Una nota sola sale como su quinta, y en diferido a veces sin «?» (de 0 a 3 de 8
+  en el peor conjunto).
+- Ventana a ventana, lo mal leído y sin «?» pasa del 0–2 % al 3–4 % de las
+  ventanas; los bien leídos con «?» bajan del 95–98 % al 30–45 %. Tramo a tramo, lo
+  mal afirmado sigue en uno o ninguno.
+- El arpegio con los dedos es lo que peor aguanta: la tercera suena una vez por
+  vuelta y a veces se pierde (`A5` por `Am`).
+- El diferido sigue marcando con «?» la mayoría de los tramos, porque manda su peor
+  ventana ([adr/0043](./adr/0043-dos-maneras-de-equivocarse.md)).
 
 Por qué este método y no otro, con lo que se descartó por el camino, en
 [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
+
+## Lo que se apunta lleva su duda
+
+`readChord` no devuelve solo el acorde: devuelve también los candidatos que
+compitieron y **el margen**, que es cuánto se despega el elegido del segundo.
+
+**Hay dos maneras de equivocarse, y la confianza mira las dos.**
+
+El margen mide la ambigüedad: un 0,90 con el segundo en 0,89 es un empate resuelto
+casi a cara o cruz, y un 0,85 con el segundo en 0,60 es una certeza. La puntuación
+mide otra cosa, cuánto se parece el croma a una plantilla, y eso depende del
+instrumento, de la sala y de la pastilla.
+
+Hacen falta las dos porque **un acorde puede ganar de calle y no parecerse a
+nada**: una cuerda que roza o una nota que no llegó a sonar dejan un croma que solo
+una plantilla explica —mal, pero sola—, y eso sale con margen de sobra. Así que la
+confianza es la peor de las dos holguras:
+
+```
+confianza = min( margen , puntuación − PARECIDO_MINIMO )
+```
+
+Las dos son diferencias de puntuación, así que se comparan con el mismo
+`DUDOSO = 0,06` sin convertir nada. `PARECIDO_MINIMO` es 0,78, el suelo por debajo
+del cual no hay acorde, y vive en un solo sitio: de él cuelga la mitad de la
+confianza. El porqué entero, y el fallo de guitarra que lo destapó, en
+[adr/0043](./adr/0043-dos-maneras-de-equivocarse.md).
+
+Esa duda **sobrevive a los dos colapsos** de `captureProgression`: al fundir
+fotogramas repetidos y al fundir grados iguales seguidos se conserva la peor
+confianza, no la media. Si en alguno de esos análisis el motor estuvo a punto de
+decir otra cosa —o se pareció bastante menos—, el acorde entero es dudoso.
+
+**Lo analizado en diferido lleva la misma duda.** «Grabar un trozo y analizarlo»
+usaba `bestChord`, que contesta el acorde a secas, así que llegaba al lienzo sin
+margen y sin puntuación: confianza 1 por omisión, certeza absoluta. Ahora usa
+`readChord`, y la confianza de un tramo es la de su peor ventana **de las que
+oyeron ese acorde por su cuenta** —la programación dinámica extiende un acorde por
+encima de ventanas que oyeron otra cosa, y la puntuación de esas habla de ese otro
+acorde—. Un tramo que ninguna ventana oyó lo puso la vecindad y no el sonido: sale
+con la duda máxima.
+
+Y lo que no se pudo leer deja de ser un contador: `Capture.unread` dice cuándo
+sonó, cuánto duró, qué se oyó y por qué se cayó. Varios acordes que no caben en la
+tonalidad son casi siempre la misma cosa —que la tonalidad detectada no es la que
+se estaba tocando—, y eso solo se ve si se enseña.
+
+El razonamiento entero está en
+[adr/0020](./adr/0020-lo-que-se-oyo-y-lo-que-se-supo.md).
+
+## La tonalidad se detecta con notas sueltas, no rasgueando
+
+Vale la pena decirlo aparte porque la interfaz llegó a prometer lo contrario.
+
+La tonalidad se deduce de un **histograma de alturas**: cada nota que el motor de
+tono reconoce suma en su casilla, y cada medio segundo se correlaciona el
+histograma con los veinticuatro perfiles. El motor de tono es el de
+autocorrelación, y es **monofónico**: con un acorde sonando no entrega ninguna
+nota, así que el histograma no se llena y no hay nada que correlacionar.
+Es decir: **rasgueando acordes, la tonalidad no se detecta nunca.** Tocando la
+escala, sale en cuatro o cinco segundos.
+
+Comprobado tocándole a la aplicación dos ficheros por el micrófono falso: uno de
+la progresión G–C–D–Em, doce segundos y cero detección; otro de la escala de Sol
+arriba y abajo, que la saca a los pocos compases —como Mi menor, que comparte
+armadura con Sol mayor y es una lectura correcta para un histograma sin contexto
+armónico—. Por eso la interfaz dice «toca unas notas sueltas y la detecto sola» y
+no «toca unos compases».
+
+Lo que sí oye un rasgueo es el **motor de croma**, que responde a otra pregunta
+—qué acorde suena ahora— y corre a la vez que el de tono sin que se hablen.
+Hubo una pantalla que le sacaba la tonalidad a los acordes oídos; se quitó
+([adr/0095](./adr/0095-se-quita-componer-sencillo.md)) y esa detección ya no existe.

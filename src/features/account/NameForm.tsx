@@ -2,9 +2,14 @@
 
 import { useState } from 'react';
 
+import { useEnvio } from './use-envio';
+
 import { MAX_NAME_LENGTH } from '@core/billing';
 import { updateAccount, useAccount } from '@state/account';
 import { Button } from '@ui/Button';
+import { TextField } from '@ui/TextField';
+import { Aviso } from '@ui/Aviso';
+import { Formulario } from '@ui/Formulario';
 
 /**
  * Cómo quieres que te llamen.
@@ -19,23 +24,19 @@ import { Button } from '@ui/Button';
 export function NameForm() {
   const { account, refresh } = useAccount();
   const [name, setName] = useState(account.name ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [hecho, setHecho] = useState(false);
-  const [working, setWorking] = useState(false);
+  const { error, setError, hecho, setHecho, working, enviar } = useEnvio();
 
   // Si la cuenta cambia por debajo —al refrescar, al entrar con otra— gana la del
   // servidor, igual que hace el proveedor de la cuenta con la suya.
   const [tracked, setTracked] = useState(account.name);
   if (tracked !== account.name) {
     setTracked(account.name);
+    /* v8 ignore next -- el servidor solo repinta con otra cuenta cuando tiene nombre; sin el, el campo ya estaba vacio */
     setName(account.name ?? '');
   }
 
   async function submit(): Promise<void> {
-    setError(null);
-    setHecho(false);
-    setWorking(true);
-    try {
+    await enviar(async () => {
       const result = await updateAccount({ name });
       if (!result.ok) {
         setError(result.message);
@@ -43,51 +44,32 @@ export function NameForm() {
       }
       setHecho(true);
       await refresh();
-    } finally {
-      setWorking(false);
-    }
+    });
   }
 
   return (
-    <form
-      className="flex max-w-sm flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void submit();
-      }}
-    >
-      <label className="flex flex-col gap-1">
-        <span className="text-text-muted text-xs">Cómo te llamas</span>
-        <input
-          type="text"
-          autoComplete="name"
-          maxLength={MAX_NAME_LENGTH}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            setHecho(false);
-          }}
-          placeholder="Sin poner nada, se usa tu correo"
-          className="border-border bg-background text-text placeholder:text-text-muted rounded-md border px-2 py-2 text-base"
-        />
-      </label>
+    <Formulario onEnviar={submit}>
+      <TextField
+        label="Cómo te llamas"
+        type="text"
+        autoComplete="name"
+        maxLength={MAX_NAME_LENGTH}
+        value={name}
+        onChange={(event) => {
+          setName(event.target.value);
+          setHecho(false);
+        }}
+        placeholder="Sin poner nada, se usa tu correo"
+      />
 
-      {error !== null && (
-        <p className="text-oxblood-bright text-sm" aria-live="polite">
-          {error}
-        </p>
-      )}
-      {hecho && (
-        <p className="text-tube-bright text-sm" aria-live="polite">
-          Guardado.
-        </p>
-      )}
+      <Aviso mensaje={error} />
+      <Aviso mensaje={hecho && 'Guardado.'} tono="hecho" />
 
       <div>
         <Button type="submit" disabled={working || name === (account.name ?? '')}>
           {working ? 'Un momento...' : 'Guardar el nombre'}
         </Button>
       </div>
-    </form>
+    </Formulario>
   );
 }

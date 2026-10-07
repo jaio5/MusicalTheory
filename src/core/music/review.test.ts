@@ -152,3 +152,79 @@ describe('mergeReview', () => {
     expect(mergeReview(a, b)).toHaveLength(REVIEW_LIMIT);
   });
 });
+
+/**
+ * Juntar dos colas: **lo último que se sabe**, no lo peor.
+ *
+ * Se quedaba con el mínimo de aciertos, y eso rompía el repaso entero para quien
+ * tiene cuenta: al subir el avance, el servidor fusiona lo que llega con lo
+ * guardado, así que los aciertos volvían siempre al número de antes. Medido en el
+ * navegador: aciertas, sube a uno, y al terminar el repaso vuelve a cero. Con dos
+ * pasos para salir y un contador que no sube, la cola no se vacía nunca.
+ */
+describe('juntar dos colas', () => {
+  const ITEM = { unitId: 'e1-grados', index: 1 } as const;
+
+  it('lo que sube gana a lo guardado, que es de antes', () => {
+    const guardado = [{ ...ITEM, seenOn: '2026-09-19', hits: 0 }];
+    const sube = [{ ...ITEM, seenOn: '2026-09-19', hits: 1 }];
+
+    expect(mergeReview(guardado, sube)[0]?.hits).toBe(1);
+    // Y da igual el orden en que se junten.
+    expect(mergeReview(sube, guardado)[0]?.hits).toBe(1);
+  });
+
+  it('con fechas distintas manda la más reciente, suba o baje', () => {
+    const viejo = [{ ...ITEM, seenOn: '2026-09-18', hits: 1 }];
+    const nuevo = [{ ...ITEM, seenOn: '2026-09-19', hits: 0 }];
+
+    // Se falló hoy después de acertar ayer: lo de hoy es lo que vale.
+    expect(mergeReview(viejo, nuevo)[0]).toMatchObject({ seenOn: '2026-09-19', hits: 0 });
+    expect(mergeReview(nuevo, viejo)[0]).toMatchObject({ seenOn: '2026-09-19', hits: 0 });
+  });
+
+  // Lo que solo está en una de las dos sigue entrando entero.
+  it('lo que solo tiene una de las dos entra igual', () => {
+    const a = [{ ...ITEM, seenOn: '2026-09-19', hits: 1 }];
+    const b = [{ unitId: 'e2-calidades', index: 0, seenOn: '2026-09-19', hits: 0 }];
+
+    expect(mergeReview(a, b)).toHaveLength(2);
+  });
+});
+
+describe('el orden de lo que toca repasar', () => {
+  /**
+   * Lo más viejo primero, y entre dos del mismo día, la que va antes en la
+   * unidad: dos sesiones con los mismos datos tienen que dar el mismo orden, o
+   * repasar se vuelve una lotería distinta cada vez.
+   */
+  it('lo mas viejo primero, y a igual dia por el orden de la unidad', () => {
+    const cola = [
+      { unitId: 'e1', index: 3, seenOn: '2026-01-02', hits: 0 },
+      { unitId: 'e1', index: 1, seenOn: '2026-01-02', hits: 0 },
+      { unitId: 'e1', index: 2, seenOn: '2026-01-01', hits: 0 },
+    ];
+
+    expect(dueReview(cola, '2026-01-10').map((item) => item.index)).toEqual([2, 1, 3]);
+    // Y la cola que nos pasan no se toca: esto es dominio puro.
+    expect(cola.map((item) => item.index)).toEqual([3, 1, 2]);
+  });
+});
+
+describe('acertar una de varias en la cola', () => {
+  /**
+   * Acertar una no toca a las demás: la cola es de lo que se falló, y cada
+   * pregunta lleva su propia cuenta de aciertos y su propia fecha.
+   */
+  it('solo se apunta la que se acerto', () => {
+    const cola = [
+      { unitId: 'e1', index: 0, seenOn: '2026-01-01', hits: 0 },
+      { unitId: 'e1', index: 1, seenOn: '2026-01-01', hits: 0 },
+    ];
+
+    const despues = recordHit(cola, 'e1', 0, '2026-01-05');
+
+    expect(despues[0]).toMatchObject({ index: 0, hits: 1, seenOn: '2026-01-05' });
+    expect(despues[1]).toBe(cola[1]);
+  });
+});

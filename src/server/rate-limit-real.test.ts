@@ -1,0 +1,217 @@
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { levantarBaseDePrueba, type BaseDePrueba } from './db/para-tests';
+import type * as RateLimitDb from './rate-limit-db';
+import { SlidingWindowRateLimiter } from './rate-limit';
+import { db } from './db/client';
+import { rateLimits } from './db/schema';
+
+/**
+ * El límite de frecuencia contra Postgres de verdad.
+ *
+ * Existe porque el otro test de esto —`rate-limit-db.test.ts`— lee el código
+ * fuente para comprobar que no se cuela un `Date` dentro de una plantilla `sql`,
+ * y eso fue lo que se pudo hacer mientras no había forma de levantar una base de
+ * datos en un test. Ahora la hay, así que esto ejecuta la sentencia.
+ *
+ * **Y era justo el sitio donde hacía falta.** La sentencia estuvo mal una fase
+ * entera: fallaba, el `catch` se la tragaba, el límite caía al de memoria y desde
+ * fuera todo funcionaba sin compartir nada entre instancias. Un test que la
+ * ejecuta es lo único que lo habría visto.
+ */
+
+let base: BaseDePrueba;
+let limitador: typeof RateLimitDb;
+
+const AHORA = Date.UTC(2026, 7, 25, 18, 0, 0);
+const VENTANA = { limit: 3, windowMs: 60_000 };
+
+beforeAll(async () => {
+  base = await levantarBaseDePrueba();
+  limitador = await import('./rate-limit-db');
+});
+afterAll(async () => {
+  await base.cerrar();
+});
+beforeEach(async () => {
+  await base.limpiar();
+});
+
+/** Un limitador de memoria nuevo, para que no arrastre nada entre tests. */
+function memoria(): SlidingWindowRateLimiter {
+  return new SlidingWindowRateLimiter(VENTANA);
+}
+
+function pedir(key: string, now: number, mem = memoria()) {
+  return limitador.limitRequest({ memoria: mem, key, now, options: VENTANA });
+}
+
+describe('contar contra la base de datos', () => {
+  it('la sentencia se ejecuta: cuenta y sobra una menos cada vez', async () => {
+    const primera = await pedir('ip:1', AHORA);
+    const segunda = await pedir('ip:1', AHORA);
+
+    expect(primera).toEqual({ allowed: true, remaining: 2, retryAfterSeconds: 0 });
+    expect(segunda).toEqual({ allowed: true, remaining: 1, retryAfterSeconds: 0 });
+  });
+
+  it('pasado el tope se rechaza, y se dice cuánto falta', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await pedir('ip:2', AHORA);
+    }
+
+    const pasada = await pedir('ip:2', AHORA + 10_000);
+
+    expect(pasada.allowed).toBe(false);
+    expect(pasada.remaining).toBe(0);
+    // La ventana empezó hace diez segundos y dura sesenta.
+    expect(pasada.retryAfterSeconds).toBe(50);
+  });
+
+  it('cada clave cuenta por su lado', async () => {
+    await pedir('ip:3', AHORA);
+    await pedir('ip:3', AHORA);
+
+    expect((await pedir('ip:4', AHORA)).remaining).toBe(2);
+  });
+
+  it('el contador se comparte: dos instancias suman en el mismo sitio', async () => {
+    // Es la razón de que esto exista. Cada llamada lleva su propio limitador de
+    // memoria —son dos servidores distintos— y aun así la cuenta es una.
+    await pedir('ip:5', AHORA, memoria());
+    await pedir('ip:5', AHORA, memoria());
+    await pedir('ip:5', AHORA, memoria());
+
+    expect((await pedir('ip:5', AHORA, memoria())).allowed).toBe(false);
+  });
+
+  it('caducada la ventana, se empieza de cero', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await pedir('ip:6', AHORA);
+    }
+
+    const despues = await pedir('ip:6', AHORA + 60_001);
+
+    expect(despues).toEqual({ allowed: true, remaining: 2, retryAfterSeconds: 0 });
+  });
+
+  it('sin base de datos se cae al de memoria en vez de rechazar', async () => {
+    // Dejar sin usar la aplicación a todo el mundo porque el contador no
+    // contesta es peor que el abuso del que defiende, y la puerta del dinero
+    // —el cupo del plan— sigue en pie de todos modos.
+    const guardada = process.env['DATABASE_URL'];
+    delete process.env['DATABASE_URL'];
+    const mem = memoria();
+
+    try {
+      const primera = await pedir('ip:7', AHORA, mem);
+      const segunda = await pedir('ip:7', AHORA, mem);
+
+      expect(primera.allowed).toBe(true);
+      expect(segunda.remaining).toBe(1);
+    } finally {
+      process.env['DATABASE_URL'] = guardada;
+    }
+  });
+});
+
+/**
+ * **Una clave enorme seguía contando, pero en el sitio equivocado** (adr/0113).
+ *
+ * La auditoría lo reprodujo entrando con un correo de 4 MB: la clave lo llevaba
+ * entero, Postgres no indexa filas de más de 8 KB, la sentencia fallaba, el
+ * `catch` se lo tragaba y el tope caía al contador de memoria —por proceso, y
+ * guardando los megas un cuarto de hora—. Aquí la misma clave cuenta en la tabla,
+ * con su huella, y la comparten dos instancias.
+ */
+describe('una clave de megas', () => {
+  it('cuenta en la tabla compartida, con su huella, y no cae al de memoria', async () => {
+    const aviso = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const enorme = `entrar:${'a'.repeat(4 * 1024 * 1024)}@x.es`;
+
+    for (let i = 0; i < 3; i += 1) {
+      expect((await pedir(enorme, AHORA, memoria())).allowed).toBe(true);
+    }
+    // Una instancia nueva, con su memoria vacía: si contara en memoria, pasaría.
+    expect((await pedir(enorme, AHORA, memoria())).allowed).toBe(false);
+
+    const rows = await db()!.select({ key: rateLimits.key }).from(rateLimits);
+    expect(rows).toEqual([{ key: expect.stringMatching(/^huella:[0-9a-f]{32}$/) }]);
+    expect(aviso).not.toHaveBeenCalled();
+    aviso.mockRestore();
+  });
+});
+
+describe('vaciar la tabla', () => {
+  it('se barre de vez en cuando, no en cada petición', async () => {
+    // Una de cada cincuenta: barrer siempre sería una escritura de más por
+    // petición para borrar unas pocas filas, y no barrer nunca deja crecer la
+    // tabla con cada dirección que pasa por aquí.
+    for (let i = 0; i < 60; i += 1) {
+      await pedir(`ip:barrido:${i}`, AHORA);
+    }
+
+    // Lo que se comprueba es que el barrido corre sin lanzar y sin borrar lo que
+    // aún cuenta: la clave de arriba sigue con su ventana viva.
+    expect((await pedir('ip:barrido:0', AHORA)).remaining).toBe(1);
+  });
+});
+
+describe('cuando la base contesta un error', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('se cae al de memoria, pero en desarrollo se dice', async () => {
+    // Este `catch` mudo escondió durante una fase entera que la sentencia
+    // estaba mal y que aquí no se compartía nada: funcionaba desde fuera. El
+    // aviso es lo que lo habría enseñado el primer día.
+    const registro = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await base.ejecutar('alter table rate_limits rename to rate_limits_escondida');
+    const mem = memoria();
+
+    try {
+      const primera = await pedir('ip:rota', AHORA, mem);
+      const segunda = await pedir('ip:rota', AHORA, mem);
+
+      // Cuenta el de memoria, así que sigue contando.
+      expect(primera.allowed).toBe(true);
+      expect(segunda.remaining).toBe(1);
+      expect(registro).toHaveBeenCalled();
+    } finally {
+      await base.ejecutar('alter table rate_limits_escondida rename to rate_limits');
+    }
+  });
+
+  it('en produccion se cae igual, pero sin escribir en el registro', async () => {
+    // Un registro lleno de avisos por cada petición no ayuda a nadie, y el
+    // camino de recuperación es el mismo.
+    vi.stubEnv('NODE_ENV', 'production');
+    const registro = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await base.ejecutar('alter table rate_limits rename to rate_limits_escondida');
+
+    try {
+      expect((await pedir('ip:rota-prod', AHORA)).allowed).toBe(true);
+      expect(registro).not.toHaveBeenCalled();
+    } finally {
+      await base.ejecutar('alter table rate_limits_escondida rename to rate_limits');
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('barrer una tabla que no esta no tumba la peticion que venia a otra cosa', async () => {
+    await base.ejecutar('alter table rate_limits rename to rate_limits_escondida');
+
+    try {
+      // Cincuenta peticiones disparan el barrido, y el barrido falla: lo que no
+      // puede es propagarse.
+      for (let i = 0; i < 55; i += 1) {
+        await pedir(`ip:barrido-roto:${i}`, AHORA);
+      }
+    } finally {
+      await base.ejecutar('alter table rate_limits_escondida rename to rate_limits');
+    }
+
+    expect((await pedir('ip:despues', AHORA)).allowed).toBe(true);
+  });
+});

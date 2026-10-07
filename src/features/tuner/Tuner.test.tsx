@@ -1,16 +1,36 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AudioInput, AudioInputError, AudioInputState } from '@audio/audio-input';
 import type { PitchEngine, PitchSample } from '@audio/pitch-engine';
 import { DEFAULT_PITCH_ENGINE_OPTIONS } from '@audio/pitch-engine';
 import { midiToFrequency } from '@core/music';
 
+import type * as PanelDeUi from '@ui/Panel';
+
+import { useMicrofono } from '@state/microfono';
 import { Tuner } from './Tuner';
+
+/**
+ * Cuántas veces se pinta el marco del afinador, que es lo que pinta el `Tuner`
+ * de fuera. Se cuenta envolviendo `Panel`: solo se repinta si se repinta él.
+ */
+const marco = vi.hoisted(() => ({ pintado: 0 }));
+vi.mock('@ui/Panel', async (original) => {
+  const { createElement } = await import('react');
+  const real = await original<typeof PanelDeUi>();
+  return {
+    ...real,
+    Panel: (props: Parameters<typeof real.Panel>[0]) => {
+      marco.pintado += 1;
+      return createElement(real.Panel, props);
+    },
+  };
+});
 
 class FakeInput implements AudioInput {
   state: AudioInputState = 'idle';
@@ -116,7 +136,7 @@ describe('Afinador', () => {
   it('explica para qué quiere el micrófono antes de pedirlo', () => {
     renderTuner();
 
-    expect(screen.getByText(/necesitamos el micrófono/i)).toBeInTheDocument();
+    expect(screen.getByText(/necesitamos oírte para afinarte/i)).toBeInTheDocument();
     expect(screen.getByText(/no sale de tu equipo/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toBeInTheDocument();
   });
@@ -158,6 +178,40 @@ describe('Afinador', () => {
     expect(live).toHaveTextContent('A2, está afinada.');
   });
 
+  /**
+   * **Lo que llega del motor no repinta el marco.** Leído arriba, cada lectura
+   * —veinte por segundo— repintaba el panel entero, el botón de parar y la lista
+   * de micrófonos, para mover una aguja. Lo lee quien lo enseña.
+   */
+  it('lo que llega veinte veces por segundo no repinta el marco', async () => {
+    renderTuner();
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
+    await screen.findByText('A');
+    const antes = marco.pintado;
+
+    // La misma nota con otros cents, y el nivel subiendo y bajando: la aguja y
+    // el medidor se mueven, la frase de la región viva no cambia.
+    for (const [cents, rms] of [
+      [3, 0.18],
+      [-2, 0.22],
+      [1, 0.2],
+    ] as const) {
+      act(() =>
+        engine.emit({
+          frequency: midiToFrequency(45) * 2 ** (cents / 1200),
+          clarity: 0.99,
+          rms,
+          at: 0,
+        }),
+      );
+      act(() => engine.emitLevel(rms));
+    }
+
+    expect(screen.getByText(/\+1\.0 cents/)).toBeInTheDocument();
+    expect(marco.pintado).toBe(antes);
+  });
+
   it('dice hacia dónde corregir cuando la nota está alta', async () => {
     renderTuner();
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
@@ -170,7 +224,30 @@ describe('Afinador', () => {
       at: 0,
     });
 
+    // Y es lo segundo más grande de la pantalla, pegado a la nota: lo que hay
+    // que hacer iba a 18 px bajo una letra de 160 y caía bajo el pliegue.
+    const consejo = await screen.findByText('Suena alta: afloja');
+    expect(consejo).toHaveClass('text-3xl', 'font-semibold');
+  });
+
+  // Quedaban «Sin señal» y «+36 cents · Suena alta: afloja» a la vez, y lo
+  // segundo era de hace un rato: sin señal, la instrucción y los cents se vacían.
+  it('sin señal, no queda una instrucción vieja debajo del aviso', async () => {
+    renderTuner();
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    engine.emit({
+      frequency: midiToFrequency(45) * Math.pow(2, 20 / 1200),
+      clarity: 0.99,
+      rms: 0.2,
+      at: 0,
+    });
     expect(await screen.findByText('Suena alta: afloja')).toBeInTheDocument();
+
+    engine.emit(null);
+
+    expect(await screen.findByText(/sin señal/i)).toBeInTheDocument();
+    expect(screen.queryByText('Suena alta: afloja')).not.toBeInTheDocument();
+    expect(screen.queryByText(/cents ·/)).not.toBeInTheDocument();
   });
 
   it('avisa cuando la señal no llega limpia', async () => {
@@ -180,6 +257,31 @@ describe('Afinador', () => {
     engine.emit({ frequency: midiToFrequency(45), clarity: 0.91, rms: 0.2, at: 0 });
 
     expect(await screen.findByText(/no llega limpia/i)).toBeInTheDocument();
+  });
+
+  /**
+   * **El hueco del aviso no se monta ni se desmonta.** Lo hacía cada vez que la
+   * señal se ensuciaba o se iba, y todo lo de debajo saltaba: era la mitad del
+   * CLS de afinar. Tiene que ser el mismo nodo, con texto o sin él.
+   */
+  it('el aviso vive siempre en el mismo sitio, haya aviso o no', async () => {
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    act(() => engine.emitLevel(0.2));
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
+    await screen.findByText('A');
+    const hueco = container.querySelector('p.min-h-10.md\\:min-h-5');
+    await waitFor(() => expect(hueco).toBeEmptyDOMElement());
+
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.91, rms: 0.2, at: 0 }));
+    await waitFor(() => expect(hueco).toHaveTextContent(/no llega limpia/i));
+
+    act(() => engine.emit(null));
+    await waitFor(() => expect(hueco).toHaveTextContent(/sin señal/i));
+    expect(hueco?.isConnected).toBe(true);
   });
 
   it('mantiene la nota en pantalla cuando deja de sonar, apagada', async () => {
@@ -233,8 +335,11 @@ describe('medidor de nivel', () => {
 
     const meter = await screen.findByRole('meter', { name: /nivel de la señal/i });
     expect(meter).toBeInTheDocument();
-    expect(Number(meter.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
-    expect(screen.getByText(/señal de sobra/i)).toBeInTheDocument();
+    // El número va por detrás de la barra, a cuatro refrescos por segundo.
+    await waitFor(() => expect(Number(meter.getAttribute('aria-valuenow'))).toBeGreaterThan(0));
+    // Y ya no escribe su propia frase: el único aviso de nivel es el de la espera.
+    expect(screen.queryByText(/señal de sobra/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/te oigo/i)).toBeInTheDocument();
   });
 
   it('avisa cuando llega poca señal, que es lo que no se podía saber antes', async () => {
@@ -244,15 +349,217 @@ describe('medidor de nivel', () => {
 
     engine.emitLevel(0.0005);
 
-    expect(await screen.findByText(/llega poca señal/i)).toBeInTheDocument();
+    expect(await screen.findByText(/sube el volumen/i)).toBeInTheDocument();
+    expect(screen.queryByText(/llega poca señal/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * **Un solo aviso a la vez, por prioridad.** Con una nota limpia delante salían
+   * «llega poca señal» y «no llega limpia» juntos, y cada uno cambiaba por su
+   * cuenta: sin señal manda sobre suciedad, y suciedad sobre poca señal.
+   */
+  it('con nota en pantalla dice una sola cosa, la que más importa', async () => {
+    const engine = new FakeEngine();
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    const hueco = () => container.querySelector('p.min-h-10.md\\:min-h-5');
+
+    // Poca señal, con la nota limpia.
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
+    await waitFor(() => expect(hueco()).toHaveTextContent(/llega poca señal/i));
+
+    // Suciedad y poca señal a la vez: manda la suciedad.
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.9, rms: 0.2, at: 0 }));
+    await waitFor(() => expect(hueco()).toHaveTextContent(/no llega limpia/i));
+    expect(hueco()).not.toHaveTextContent(/poca señal/i);
+
+    // Y sin señal manda sobre las dos.
+    act(() => engine.emit(null));
+    await waitFor(() => expect(hueco()).toHaveTextContent(/sin señal/i));
+    expect(hueco()).not.toHaveTextContent(/no llega limpia/i);
+  });
+
+  // Entre los dos umbrales no cambia nada: 0,94 ni ensucia ni limpia.
+  it('una claridad entre los dos umbrales no ensucia una señal limpia', async () => {
+    const engine = new FakeEngine();
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    act(() => engine.emitLevel(0.2));
+
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.94, rms: 0.2, at: 0 }));
+    await screen.findByText('A');
+    await waitFor(() =>
+      expect(container.querySelector('p.min-h-10.md\\:min-h-5')).toBeEmptyDOMElement(),
+    );
+    expect(screen.queryByText(/no llega limpia/i)).not.toBeInTheDocument();
+  });
+
+  // La zona de la nota está reservada desde el «esperando», invisible y fuera del
+  // árbol de accesibilidad: la tarjeta no crece al enganchar la primera nota.
+  it('reserva la zona de la nota desde el esperando, sin enseñarla ni leerla', async () => {
+    const engine = new FakeEngine();
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    const reserva = container.querySelector('.invisible');
+    expect(reserva).toHaveAttribute('aria-hidden', 'true');
+    expect(reserva).toHaveAttribute('inert');
+    // Y hay un solo medidor para quien lo lee.
+    expect(screen.getAllByRole('meter')).toHaveLength(1);
+
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
+    await screen.findByText('A');
+    expect(container.querySelector('.invisible')).toBeNull();
+  });
+
+  /**
+   * Con señal entrando no se puede decir «esperando a que suene algo»: algo
+   * está sonando, y el medidor lo enseña dos líneas más abajo. Se veía
+   * rasgueando un acorde al afinador —el motor de tono es monofónico, así que
+   * no saca ninguna nota— y las dos frases se contradecían en la misma
+   * pantalla.
+   */
+  it('con senal y sin nota dice que oye y no engancha, no que espera', async () => {
+    const engine = new FakeEngine();
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => engine} />);
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    engine.emitLevel(0.05);
+
+    expect(await screen.findByText(/no engancho la nota/i)).toBeInTheDocument();
+    expect(screen.queryByText(/esperando a que suene algo/i)).not.toBeInTheDocument();
+    // Y dice por qué pasa casi siempre, que es lo único accionable.
+    expect(screen.getByText(/una sola al aire/i)).toBeInTheDocument();
   });
 });
 
-describe('selector de entrada', () => {
+describe('mientras el navegador decide', () => {
+  /**
+   * Entre pulsar y que conteste pasa un rato, y en ese rato el botón lo dice y
+   * no se puede volver a pulsar: dos peticiones seguidas dejan dos micrófonos
+   * abiertos en algunos navegadores.
+   */
+  it('el boton dice que se esta pidiendo permiso, y no se puede repulsar', async () => {
+    class EntradaLenta extends FakeInput {
+      override async start(): Promise<void> {
+        await new Promise(() => {});
+      }
+    }
+    render(<Tuner createInput={() => new EntradaLenta()} createEngine={() => new FakeEngine()} />);
+
+    const boton = screen.getByRole('button', { name: /escuchar la guitarra/i });
+    await userEvent.click(boton);
+
+    const pidiendo = await screen.findByRole('button', { name: /pidiendo permiso/i });
+    // **Trabaja sin apagarse**: con `disabled` soltaba el foco justo después de
+    // pulsarlo. Con `aria-disabled` el clic se ignora igual.
+    expect(pidiendo).toHaveAttribute('aria-disabled', 'true');
+    expect(pidiendo).toHaveFocus();
+  });
+});
+
+/**
+ * **El foco no se cae al abrir ni al cerrar el micro.** Cada botón vive en su
+ * pantalla, y al pulsarlo la suya se cambia por la otra: el foco se iba con él al
+ * `<body>`. Ahora pasa al botón equivalente de la que llega.
+ */
+describe('el foco al abrir y cerrar el micro', () => {
+  it('pasa de «Escuchar la guitarra» a «Dejar de escuchar», y vuelve', async () => {
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
+    const escuchar = screen.getByRole('button', { name: /escuchar la guitarra/i });
+    escuchar.focus();
+
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByRole('button', { name: /dejar de escuchar/i })).toHaveFocus();
+
+    await userEvent.keyboard('{Enter}');
+    expect(await screen.findByRole('button', { name: /escuchar la guitarra/i })).toHaveFocus();
+  });
+
+  // Traer «Dejar de escuchar» a la vista empujaba la nota fuera de la pantalla
+  // por arriba en una ventana de 600 px: el foco pasa sin desplazar nada.
+  it('y lo hace sin desplazar la pantalla', async () => {
+    const enfocar = vi.spyOn(HTMLElement.prototype, 'focus');
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
+    screen.getByRole('button', { name: /escuchar la guitarra/i }).focus();
+
+    await userEvent.keyboard('{Enter}');
+    await screen.findByRole('button', { name: /dejar de escuchar/i });
+
+    expect(enfocar).toHaveBeenLastCalledWith({ preventScroll: true });
+    enfocar.mockRestore();
+  });
+
+  // Si el permiso se deniega, el botón sigue en su sitio y con el foco: no se
+  // mueve a ningún otro.
+  it('si se deniega, el foco sigue donde estaba', async () => {
+    render(
+      <Tuner createInput={() => new FakeInput('denied')} createEngine={() => new FakeEngine()} />,
+    );
+    const escuchar = screen.getByRole('button', { name: /escuchar la guitarra/i });
+    escuchar.focus();
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /escuchar la guitarra/i })).toHaveFocus();
+  });
+});
+
+describe('a cuántos semitonos está la cuerda', () => {
+  /**
+   * Un motor nuevo por llamada, y el micro solo se abre si estaba cerrado: la
+   * escucha vive en el estado de sesión y sigue abierta de un pintado a otro.
+   */
+  async function oyendo(midi: number) {
+    const engine = new FakeEngine();
+    render(<Tuner createInput={() => new FakeInput()} createEngine={() => engine} />);
+    const abrir = screen.queryByRole('button', { name: /escuchar la guitarra/i });
+    if (abrir !== null) {
+      await userEvent.click(abrir);
+    }
+    engine.emit({ frequency: midiToFrequency(midi), clarity: 0.99, rms: 0.2, at: 0 });
+  }
+
+  /**
+   * Con la cuerda al aire no se dice «a 0 semitonos», y con uno solo va en
+   * singular: es lo que se lee mientras se gira la clavija, y un «a 1 semitonos
+   * por encima» delata que nadie ha mirado la pantalla afinando.
+   */
+  it('al aire se dice al aire', async () => {
+    await oyendo(45);
+
+    expect(await screen.findByText(/al aire/)).toBeInTheDocument();
+  });
+
+  it('y uno solo va en singular', async () => {
+    await oyendo(46);
+
+    expect(await screen.findByText(/A 1 semitono/)).toBeInTheDocument();
+  });
+
+  it('y por debajo, y en plural', async () => {
+    await oyendo(43);
+
+    expect(await screen.findByText(/A 2 semitonos por debajo/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * **El micrófono se elige en la barra, y el afinador abre ése.** Tenía su propio
+ * desplegable, con un estado suyo que no sabía nadie más: componer abría el del
+ * sistema, y al recargar se olvidaba. Ahora hay una sola elección.
+ */
+describe('el micrófono del afinador', () => {
   const DEVICES = [
     { deviceId: 'default', kind: 'audioinput', label: 'Micro del portátil', groupId: 'a' },
     { deviceId: 'scarlett', kind: 'audioinput', label: 'Focusrite Scarlett', groupId: 'b' },
-    { deviceId: 'cam', kind: 'videoinput', label: 'Cámara', groupId: 'c' },
   ] as MediaDeviceInfo[];
 
   beforeEach(() => {
@@ -262,17 +569,12 @@ describe('selector de entrada', () => {
     });
   });
 
-  it('deja elegir entre las entradas de audio, sin colar la cámara', async () => {
-    render(<Tuner createInput={() => new FakeInput()} createEngine={() => new FakeEngine()} />);
-    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-
-    const selector = await screen.findByLabelText(/entrada/i);
-    expect(selector).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Focusrite Scarlett' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Cámara' })).not.toBeInTheDocument();
+  afterEach(() => {
+    useMicrofono.setState({ elegido: null, cargado: false, cayo: false });
   });
 
-  it('reabre la escucha en la entrada elegida', async () => {
+  it('abre el elegido para toda la aplicación, y no tiene un selector suyo', async () => {
+    useMicrofono.setState({ elegido: 'scarlett', cargado: true });
     const opened: Array<string | undefined> = [];
     render(
       <Tuner
@@ -285,8 +587,9 @@ describe('selector de entrada', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-    await userEvent.selectOptions(await screen.findByLabelText(/entrada/i), 'scarlett');
+    await screen.findByRole('button', { name: /dejar de escuchar/i });
 
-    expect(opened).toEqual([undefined, 'scarlett']);
+    expect(opened).toEqual(['scarlett']);
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 });

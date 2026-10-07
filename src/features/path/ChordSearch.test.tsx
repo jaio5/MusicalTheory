@@ -108,4 +108,56 @@ describe('Buscar un acorde', () => {
     expect(await screen.findByText(/elige una tonalidad y te digo si pegan/i)).toBeInTheDocument();
     expect(screen.queryByText('Entra')).not.toBeInTheDocument();
   });
+
+  it('subir con el teclado no se sale por arriba de la lista', async () => {
+    // Con la primera fila marcada, `ArrowUp` se queda donde está: pasarse
+    // dejaría un `index` negativo y `Enter` no elegiría nada.
+    inKeyOfC();
+    const onPick = vi.fn();
+    render(<ChordSearch onPick={onPick} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'A');
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}{Enter}');
+
+    expect(onPick.mock.calls[0]![0]).toMatchObject({ symbol: 'A' });
+  });
+
+  it('bajar tampoco se sale por abajo', async () => {
+    inKeyOfC();
+    const onPick = vi.fn();
+    render(<ChordSearch onPick={onPick} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'A');
+    for (let i = 0; i < 30; i += 1) {
+      await userEvent.keyboard('{ArrowDown}');
+    }
+    await userEvent.keyboard('{Enter}');
+
+    expect(onPick).toHaveBeenCalledOnce();
+  });
+
+  it('Escape borra lo escrito y cierra la lista', async () => {
+    // Con la guitarra en las manos, buscar el ratón para cerrar una lista es lo
+    // que hace que se deje de usar el buscador.
+    inKeyOfC();
+    render(<ChordSearch onPick={() => {}} />);
+    const campo = screen.getByRole('combobox');
+
+    await userEvent.type(campo, 'Am');
+    await userEvent.keyboard('{Escape}');
+
+    expect(campo).toHaveValue('');
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+  });
+
+  it('Enter sin ninguna coincidencia no añade nada', async () => {
+    inKeyOfC();
+    const onPick = vi.fn();
+    render(<ChordSearch onPick={onPick} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'zzz');
+    await userEvent.keyboard('{Enter}');
+
+    expect(onPick).not.toHaveBeenCalled();
+  });
 });

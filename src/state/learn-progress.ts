@@ -17,6 +17,9 @@
 
 import { EMPTY_PROGRESS, parseProgress, type Progress } from '@core/music';
 
+import { today } from './hoy';
+import { contar } from './metricas';
+
 const STORAGE_KEY = 'caos-ordenado:aprender';
 
 export function loadProgress(): Progress {
@@ -35,11 +38,31 @@ export function saveProgress(progress: Progress): void {
   if (typeof localStorage === 'undefined') {
     return;
   }
+  contarLaUnidadTerminada(loadProgress(), progress);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   } catch {
     // Modo privado o cuota llena: se pierde el avance, no la sesión que estás
     // tocando ahora mismo.
+  }
+}
+
+/**
+ * Una unidad terminada se cuenta aquí, que es por donde pasan todas
+ * ([adr/0110](../../docs/adr/0110-contar-sin-seguir.md)).
+ *
+ * **Solo si entra exactamente una, y hoy.** Por aquí pasa también juntar el
+ * avance de la cuenta con el del navegador al entrar, y eso puede traer varias
+ * unidades hechas en otro aparato otro día: contarlas sería contar dos veces lo
+ * que ya se contó allí. Terminar una unidad añade una y pone la fecha de hoy.
+ *
+ * Lo que no distingue es una fusión que traiga justo una unidad hecha hoy en otro
+ * aparato. Es raro, y el día que estorbe se cuenta desde quien la termina.
+ */
+function contarLaUnidadTerminada(antes: Progress, despues: Progress): void {
+  const nuevas = despues.done.filter((unidad) => !antes.done.includes(unidad));
+  if (nuevas.length === 1 && despues.lastDay === today()) {
+    contar('unidad-terminada');
   }
 }
 
@@ -55,16 +78,5 @@ export function clearProgress(): void {
   }
 }
 
-/**
- * El día de hoy en `AAAA-MM-DD`, en hora local.
- *
- * Vive aquí y no en el dominio porque leer el reloj es efecto, no teoría. En
- * local y no en UTC: la racha la cuenta quien toca, y para quien toca a las once
- * de la noche en Madrid el día es el suyo, no el de Greenwich.
- */
-export function today(now: Date = new Date()): string {
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, '0');
-  const day = `${now.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+/** El día de hoy. Vive en `hoy.ts` para que pedir la fecha no traiga el temario. */
+export { today } from './hoy';

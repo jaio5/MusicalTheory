@@ -1,0 +1,699 @@
+/*
+ * La escena de la portada: un local de ensayo de píxel en tres capas
+ * (adr/0069, docs/adr/0069-la-portada-es-una-escena-de-pixel.md).
+ *
+ * Vive en su hoja y no en globals.css porque solo la pide la portada: así no
+ * viaja a las otras ocho rutas. Las imágenes se piden con url() relativa, y eso
+ * hace que el empaquetador las copie con huella en el nombre y caché larga.
+ *
+ * Todo lo que se mide aquí se mide en píxeles del dibujo multiplicados por
+ * --px, que es el tamaño entero al que se pinta cada uno. Nunca hay un tamaño
+ * suelto en píxeles de pantalla: un píxel del dibujo que cayera entre dos de
+ * pantalla saldría unas veces de tres y otras de cuatro.
+ */
+
+/*
+ * El negro de la sala: el de los cantos del dibujo, que se funden en él. Por eso
+ * el lienzo puede quedarse más pequeño que la pantalla sin que se vea dónde
+ * acaba.
+ *
+ * **Es el decimoséptimo color, y se queda a propósito.** No es `night` porque el
+ * dibujo se pintó antes de la paleta nueva (adr/0070) con el `negro` de
+ * `arte/portada/build.py`, y sus cuatro esquinas son ese negro —leído del PNG,
+ * tres puntos por canal más oscuro que la pared de la página—. Ponerle aquí
+ * `night` dibujaría el rectángulo del lienzo: dos negros distintos pegados se
+ * ven, y es justo lo que este valor evita. Se resuelve en el dibujo y no en esta
+ * hoja: el día que `build.py` pinte con `night`, esto pasa a ser
+ * `var(--color-night)` y el color sobra. `escena.test.ts` vigila que sea el del
+ * dibujo y que no se le sume otro.
+ */
+.hero-escena,
+.escena {
+  --sala: #07090c;
+}
+
+/*
+ * Lo que mide la barra de la portada, que el encabezado sube por detrás de ella:
+ * 44 de dedo, 12 arriba y 12 abajo, **y su línea de un píxel**, que existe aunque
+ * sea transparente. Con 4.25rem a secas el encabezado subía uno de menos y dejaba
+ * arriba del todo una raya del fondo de la página, clara en el tema claro.
+ */
+.hero-escena,
+.hero-texto {
+  --alto-barra: calc(4.25rem + 1px);
+}
+
+/*
+ * Los márgenes de la portada, escritos una vez.
+ *
+ * Toda la página iba dentro de una columna de 78 rem centrada: en un monitor de
+ * 2560 dejaba 680 píxeles vacíos a cada lado, y el titular, sujeto a esa columna,
+ * se quedaba pequeño delante de una sala que sí llegaba al borde. Ahora la página
+ * va de borde a borde con un margen que crece con la pantalla —veinte píxeles en
+ * un teléfono, ciento diez en 2560— y no tiene ancho máximo: lo que se lee
+ * conserva su medida porque cada párrafo lleva su tope en `ch`, y lo que se
+ * reparte el ancho son las columnas.
+ *
+ * `--hueco` es el aire entre dos columnas, y crece igual.
+ */
+.portada {
+  --margen: clamp(1.25rem, 4vw + 0.5rem, 7.5rem);
+  --hueco: clamp(1rem, 2.5vw, 4rem);
+}
+
+.portada-marco {
+  padding-inline: var(--margen);
+}
+
+/*
+ * El contenedor del que la sala saca su ancho: el `main`, que va a sangre. Es el
+ * ancho de la página sin la barra de desplazamiento, que `vw` sí cuenta.
+ */
+.portada-contenedor {
+  container: portada / inline-size;
+}
+
+/*
+ * El tamaño del píxel de la sala, registrado como longitud: se calcula una vez en
+ * el encabezado y lo que heredan la escena, el velo y el hueco del texto ya es un
+ * número de píxeles, no una fórmula que cada hijo resolvería contra su propio
+ * contenedor. Los dos píxeles de partida son lo que sale donde no hay `round()`.
+ */
+@property --px {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 2px;
+}
+
+.escena {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--sala);
+}
+
+/*
+ * El múltiplo de la sala: el mayor entero que cabe a la vez en el ancho y en el
+ * alto.
+ *
+ * Se calcula con `round(down, …, 1px)` y no se elige de una lista de cortes por
+ * ancho, que es lo que había: con la lista, una ventana de 2560 × 1440 y otra de
+ * 2560 × 1080 llevaban el mismo 7×, y una de 1024 × 768 el mismo 4× que tapaba el
+ * titular con el cartel y el platillo. Hay dos maneras de colocarla, y cada una
+ * tiene dos topes, en columnas y filas del dibujo:
+ *
+ * - **De pie** —un teléfono, una tableta en vertical—, abajo y centrada, con el
+ *   texto encima sobre la pared. El ancho le pone 160 columnas: lo importante
+ *   (`SEGURO`, 120) ocupa como mucho tres cuartos de la pantalla, así que la
+ *   mascota y el ampli nunca se salen. El alto, 260 filas: la sala no se lleva más
+ *   de lo que le toca de la primera pantalla.
+ * - **Tumbada** —una ventana apaisada desde 640, también un móvil en horizontal—,
+ *   anclada a la derecha y centrada en alto, con el titular en la pared de la
+ *   izquierda. El ancho le pone 318 columnas, que es que el lienzo no pase del
+ *   68 % del ancho. El alto, 140 filas: de las 164 del lienzo sobran 24, pared de arriba y
+ *   tarima, y pueden quedarse fuera, doce por cada lado.
+ *
+ * Está puesto desde el primer fotograma, sin JavaScript, y no hay salto.
+ * `escena.test.ts` recorre una rejilla de pantallas con estas cifras.
+ */
+.hero-escena {
+  --sala-de-pie-ancho: 160;
+  --sala-de-pie-alto: 260;
+  --sala-tumbada-ancho: 318;
+  --sala-tumbada-alto: 140;
+  /* Las columnas del lienzo, desde la derecha, que las letras no pueden pisar:
+     las 216 menos las 48 de pared que hay antes del cartel (`SEGURO.x`). Lo que
+     queda en esa pared, el borde del platillo, va debajo del velo. */
+  --sala-tapa: 168;
+}
+@media (min-width: 1280px) and (orientation: landscape) {
+  .hero-escena {
+    --px: 4px;
+  }
+}
+@supports (width: round(down, 1.5px, 1px)) {
+  .hero-escena {
+    --px: max(
+      2px,
+      round(down, min(100cqw / var(--sala-de-pie-ancho), 100svh / var(--sala-de-pie-alto)), 1px)
+    );
+  }
+  @media (min-width: 640px) and (orientation: landscape) {
+    .hero-escena {
+      --px: max(
+        2px,
+        round(down, min(100cqw / var(--sala-tumbada-ancho), 100svh / var(--sala-tumbada-alto)), 1px)
+      );
+    }
+  }
+}
+
+/* El lienzo entero, con cada píxel del dibujo de `--px`. */
+.escena-escenario {
+  position: absolute;
+  left: calc(50% - var(--px) * var(--lienzo-ancho) / 2);
+  top: calc(100% - var(--px) * var(--lienzo-alto));
+  width: calc(var(--px) * var(--lienzo-ancho));
+  height: calc(var(--px) * var(--lienzo-alto));
+}
+
+/* Centrado a píxel entero: con una caja de ancho impar, la mitad cae en medio
+   píxel y la escena entera se emborrona media columna. */
+@supports (left: round(down, 1.5px, 1px)) {
+  .escena-escenario {
+    left: round(down, 50% - var(--px) * var(--lienzo-ancho) / 2, 1px);
+  }
+}
+
+@media (min-width: 640px) and (orientation: landscape) {
+  .escena-escenario {
+    left: calc(100% - var(--px) * var(--lienzo-ancho));
+    top: calc(50% - var(--px) * var(--lienzo-alto) / 2);
+  }
+  @supports (top: round(down, 1.5px, 1px)) {
+    .escena-escenario {
+      top: round(down, 50% - var(--px) * var(--lienzo-alto) / 2, 1px);
+    }
+  }
+}
+
+/*
+ * El hero: un escenario oscuro en los dos temas.
+ *
+ * La sala es de noche, así que lo que se escribe encima va con los colores del
+ * tema oscuro también cuando la página es clara. En vez de pintar cada texto con
+ * `bulb` a mano, se vuelven a declarar aquí las variables crudas del oscuro: los
+ * `text-text`, `bg-brass` y el foco de dentro las heredan solos, y el foco de
+ * latón vivo se sigue viendo —el del tema claro es un marrón que sobre la sala no
+ * llega a 3:1—. `escena.test.ts` vigila que sean las mismas que las de
+ * `globals.css`.
+ */
+.escenario-oscuro {
+  --fondo: #0a0e19;
+  --superficie: #131824;
+  --superficie-alta: #1e2432;
+  --borde: #303747;
+  --borde-fuerte: #788093;
+  --texto: #f4f0e7;
+  --texto-suave: #a6aec0;
+  --laton: #e3a04b;
+  --laton-vivo: #f4c87e;
+  --laton-suave: #533a1e;
+  /* Y los nombres de la paleta otra vez. Una variable que apunta a otra se
+     resuelve donde se declara —`:root`, con los valores del claro—, y lo que
+     hereda el hijo ya es el color hecho. Las utilidades no lo notan, porque
+     `@theme inline` les pone la cruda, pero el foco, el `posarse` de la barra y
+     cualquier hoja que diga `var(--color-…)` sí. */
+  --color-background: var(--fondo);
+  --color-surface: var(--superficie);
+  --color-surface-raised: var(--superficie-alta);
+  --color-border: var(--borde);
+  --color-border-strong: var(--borde-fuerte);
+  --color-text: var(--texto);
+  --color-text-muted: var(--texto-suave);
+  --color-brass: var(--laton);
+  --color-brass-bright: var(--laton-vivo);
+  --color-brass-dim: var(--laton-suave);
+  color-scheme: dark;
+  color: var(--texto);
+}
+
+.hero-escena {
+  margin-top: calc(var(--alto-barra) * -1);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: var(--sala);
+}
+
+/*
+ * Lo que deja leer el titular, medido en filas y columnas del dibujo para que
+ * acompañe a la sala en cualquier múltiplo. De pie, la sala está abajo: el velo
+ * baja desde arriba, opaco hasta donde acaba el texto y abierto a la altura de la
+ * bombilla. Tumbada, está a la derecha: el velo va de izquierda a derecha y se
+ * abre antes del cartel, y al pie la tarima se funde para que el corte con la
+ * franja siguiente no sea una línea.
+ */
+.hero-velo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--sala) 0,
+    var(--sala) calc(100% - var(--px) * 144),
+    transparent calc(100% - var(--px) * 116)
+  );
+}
+@media (min-width: 640px) and (orientation: landscape) {
+  .hero-velo {
+    background:
+      linear-gradient(to top, var(--sala), transparent 14%),
+      linear-gradient(
+        to right,
+        var(--sala) 0,
+        color-mix(in srgb, var(--sala) 90%, transparent) calc(100% - var(--px) * 200),
+        transparent calc(100% - var(--px) * 150)
+      );
+  }
+}
+
+/*
+ * El hueco del texto. Sube por detrás de la barra —que flota encima— y ocupa al
+ * menos la pantalla entera, así que el encabezado acaba donde acaba la primera
+ * pantalla a cualquier alto: con un tope de 58 rem, en 2560 × 1440 se quedaba en
+ * 928 píxeles y la franja siguiente asomaba por debajo.
+ *
+ * De pie reserva abajo lo que ocupa la sala desde su fila 20, que es pared por
+ * encima de la bombilla, para que el titular no caiga encima del ampli. Tumbada, el texto va centrado en alto
+ * y reserva a la derecha lo que tapa la sala (`--sala-tapa`) más el hueco.
+ */
+.hero-texto {
+  position: relative;
+  pointer-events: none;
+  min-height: 100svh;
+  padding-top: calc(var(--alto-barra) + clamp(1.5rem, 5svh, 4rem));
+  padding-bottom: calc(var(--px) * 144);
+}
+.hero-texto > * {
+  pointer-events: auto;
+}
+@media (min-width: 640px) and (orientation: landscape) {
+  .hero-texto {
+    display: flex;
+    align-items: center;
+    padding-top: calc(var(--alto-barra) + clamp(1rem, 4svh, 3rem));
+    padding-bottom: clamp(2rem, 6svh, 5rem);
+    padding-right: calc(var(--px) * var(--sala-tapa) + var(--hueco));
+  }
+}
+
+/*
+ * El titular, de cartel: lo mide el ancho de su columna y no el de la pantalla.
+ *
+ * «Toca. Aprende.», su línea más larga, mide 7,72 em en la letra de títulos, así
+ * que a 12,5 cqi llena la columna con un 3 % de aire y nunca se parte. El alto
+ * pone el otro tope: de pie, que el titular y la sala quepan juntos en una
+ * tableta; tumbada, que en una ventana baja no empuje los botones fuera de la
+ * primera pantalla. Y los diez rem son para que en 4K no sea un muro.
+ */
+.hero-columna {
+  container-type: inline-size;
+  width: 100%;
+}
+.hero-titular {
+  font-size: clamp(2rem, min(12.5cqi, 7.5svh), 10rem);
+  line-height: 1.02;
+}
+@media (min-width: 640px) and (orientation: landscape) {
+  .hero-titular {
+    font-size: clamp(2rem, min(12.5cqi, 30svh - 6.5rem), 10rem);
+  }
+}
+.hero-entradilla {
+  font-size: clamp(1.0625rem, 0.4rem + 2cqi, 2rem);
+  line-height: 1.55;
+}
+
+/* La barra de la portada no necesita nada propio: lleva `.escenario-oscuro`, y
+   el `posarse` de globals.css pinta su fondo y su línea con `--fondo` y
+   `--borde`, que aquí son los del oscuro. Así flota oscura encima de la noche en
+   los dos temas, también con movimiento reducido, donde se queda en su último
+   fotograma. */
+
+/*
+ * Las tres capas. La de fuera se mueve con el puntero y la de dentro con el
+ * scroll y con la entrada: son tres movimientos y cada uno necesita su propia
+ * propiedad, porque una animación sobre transform pisaría a la otra.
+ */
+.escena-capa,
+.escena-lamina {
+  position: absolute;
+  inset: 0;
+}
+
+.escena-lamina {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  /* El píxel duro. Sin esto el navegador interpola al escalar y sale una
+     acuarela. */
+  image-rendering: pixelated;
+}
+
+.escena-fondo {
+  background-image: url('./_escena/fondo.png');
+}
+.escena-medio {
+  background-image: url('./_escena/medio.png');
+}
+.escena-frente {
+  background-image: url('./_escena/frente.png');
+}
+
+/* El puntero: un desplazamiento en píxeles enteros del dibujo que escribe el
+   componente. El medio no se mueve; es el ancla, y la mascota con él. */
+.escena-capa-fondo {
+  transform: translate(calc(var(--fondo-x, 0) * var(--px)), calc(var(--fondo-y, 0) * var(--px)));
+}
+.escena-capa-frente {
+  transform: translate(calc(var(--frente-x, 0) * var(--px)), calc(var(--frente-y, 0) * var(--px)));
+}
+
+/*
+ * Lo que se mueve: un trozo de la hoja de fotogramas puesto encima de su sitio.
+ *
+ * Sin la hoja no pinta nada, y la hoja solo se pide con la escena viva: con
+ * movimiento reducido o ahorro de datos, el atributo no está y el navegador ni
+ * la descarga. Lo que se ve entonces es lo que ya trae cada capa, que es la
+ * escena quieta con todo encendido.
+ */
+.escena-tira {
+  position: absolute;
+  left: calc(var(--x) * var(--px));
+  top: calc(var(--y) * var(--px));
+  width: calc(var(--w) * var(--px));
+  height: calc(var(--h) * var(--px));
+  background-repeat: no-repeat;
+  background-size: calc(var(--hoja-ancho) * var(--px)) calc(var(--hoja-alto) * var(--px));
+  background-position: 0 calc(var(--fila) * var(--px) * -1);
+  image-rendering: pixelated;
+}
+
+.escena[data-viva] .escena-tira {
+  background-image: url('./_escena/vida.png');
+}
+
+/* Las notas solo existen mientras suben. */
+.escena-tira[data-tira='corchea'],
+.escena-tira[data-tira='corcheas'] {
+  opacity: 0;
+}
+
+.escena-velo {
+  position: absolute;
+  inset: 0;
+  background-color: var(--sala);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/*
+ * El movimiento, solo para quien lo acepta.
+ *
+ * Todo va a saltos —step-end y steps()—, nunca con una curva: un píxel a medio
+ * camino entre dos posiciones no existe, y el navegador lo pintaría repartido
+ * entre las dos. Por la misma razón nada se escala: se cambia de fotograma o se
+ * desplaza un número entero de píxeles del dibujo.
+ *
+ * La regla general de prefers-reduced-motion de globals.css es el segundo
+ * cerrojo, como con la mascota.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  /* La entrada: la sala se enciende como una bombilla que duda, y lo que está
+     cerca de la cámara llega desde más abajo. Un segundo, y se acaba. */
+  .escena-velo {
+    animation: escena-encender 1.1s step-end 120ms both;
+  }
+  .escena-medio {
+    animation: escena-llega-medio 600ms steps(3) 120ms both;
+  }
+  .escena-frente {
+    animation: escena-llega-frente 840ms steps(7) 120ms both;
+  }
+
+  /* Lo que late en bucle, con la escena viva. */
+  .escena[data-viva] [data-tira='mascota'] {
+    animation: escena-mascota 11s step-end infinite;
+  }
+  .escena[data-viva] [data-tira='vumetro'] {
+    animation: escena-vumetro 1.76s steps(16) infinite;
+  }
+  .escena[data-viva] [data-tira='valvulas'] {
+    animation: escena-valvulas 4.2s step-end infinite;
+  }
+  .escena[data-viva] [data-tira='piloto'] {
+    animation: escena-piloto 2.4s step-end infinite;
+  }
+  .escena[data-viva] [data-tira='neon'] {
+    animation: escena-neon 9s step-end infinite;
+  }
+  .escena[data-viva] [data-tira='corchea'] {
+    animation: escena-nota 5s step-end 1.4s infinite;
+  }
+  .escena[data-viva] [data-tira='corcheas'] {
+    animation: escena-nota 5s step-end 3.9s infinite;
+  }
+
+  /* El botón de parar lo detiene todo donde esté (WCAG 2.2.2). */
+  .escena[data-parada] .escena-tira {
+    animation-play-state: paused;
+  }
+
+  /* Y fuera de la vista también, sin que nadie lo pida: cada fotograma de una
+     tira es un recálculo de estilo, y bajada la portada eran sesenta por segundo
+     para nadie. Lo pone `EscenaPortada` mirando con un IntersectionObserver;
+     al volver, cada tira sigue en el fotograma donde se quedó. */
+  .escena[data-fuera] .escena-tira {
+    animation-play-state: paused;
+  }
+}
+
+/*
+ * El paralaje del scroll, donde haya líneas de tiempo de scroll.
+ *
+ * Con @supports y no como el resto de la portada, que degrada solo: aquí la
+ * animación tiene un desplazamiento en su último fotograma, y donde no hubiera
+ * línea de tiempo se quedaría ahí plantada, con la pared corrida tres píxeles.
+ *
+ * La pared baja más despacio que la página y lo de delante sube más deprisa; el
+ * medio no se mueve. El cero cae con la caja en el centro de la pantalla.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .escena {
+      view-timeline: --escena block;
+    }
+    .escena-fondo {
+      animation: escena-hondo-fondo linear both;
+      animation-timing-function: steps(6);
+      animation-timeline: --escena;
+      animation-range: cover;
+    }
+    .escena-frente {
+      animation:
+        escena-llega-frente 840ms steps(7) 120ms both,
+        escena-hondo-frente linear both;
+      animation-timing-function: steps(7), steps(8);
+      animation-timeline: auto, --escena;
+      animation-range: normal, cover;
+    }
+  }
+}
+
+@keyframes escena-encender {
+  0% {
+    opacity: 0.94;
+  }
+  35% {
+    opacity: 0.55;
+  }
+  45% {
+    opacity: 0.85;
+  }
+  60% {
+    opacity: 0.3;
+  }
+  72% {
+    opacity: 0.5;
+  }
+  86% {
+    opacity: 0.12;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes escena-llega-medio {
+  from {
+    transform: translateY(calc(var(--px) * 3));
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes escena-llega-frente {
+  from {
+    transform: translateY(calc(var(--px) * 7));
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes escena-hondo-fondo {
+  from {
+    translate: 0 calc(var(--px) * -3);
+  }
+  to {
+    translate: 0 calc(var(--px) * 3);
+  }
+}
+
+@keyframes escena-hondo-frente {
+  from {
+    translate: 0 calc(var(--px) * 4);
+  }
+  to {
+    translate: 0 calc(var(--px) * -4);
+  }
+}
+
+/*
+ * El profesor: parpadea dos veces y una se enciende un rato, con el cerco que
+ * late, como cuando escucha en las unidades. Fotograma 1 el parpadeo, 2 y 3
+ * encendido con y sin el cerco de fuera; el 0 está vacío y deja ver la capa.
+ */
+@keyframes escena-mascota {
+  0% {
+    background-position-x: 0;
+  }
+  45% {
+    background-position-x: calc(var(--w) * var(--px) * -1);
+  }
+  46.2% {
+    background-position-x: 0;
+  }
+  70%,
+  74%,
+  78%,
+  82% {
+    background-position-x: calc(var(--w) * var(--px) * -2);
+  }
+  72%,
+  76%,
+  80% {
+    background-position-x: calc(var(--w) * var(--px) * -3);
+  }
+  84% {
+    background-position-x: 0;
+  }
+  92% {
+    background-position-x: calc(var(--w) * var(--px) * -1);
+  }
+  93.2% {
+    background-position-x: 0;
+  }
+}
+
+/* Dieciséis lecturas a 110 ms: el orden de los niveles ya viene escrito en la
+   hoja, así que aquí solo se recorre. */
+@keyframes escena-vumetro {
+  from {
+    background-position-x: calc(var(--w) * var(--px) * -1);
+  }
+  to {
+    background-position-x: calc(var(--w) * var(--px) * -17);
+  }
+}
+
+@keyframes escena-valvulas {
+  0% {
+    background-position-x: 0;
+  }
+  30% {
+    background-position-x: calc(var(--w) * var(--px) * -1);
+  }
+  38% {
+    background-position-x: 0;
+  }
+  61% {
+    background-position-x: calc(var(--w) * var(--px) * -2);
+  }
+  66% {
+    background-position-x: 0;
+  }
+  85% {
+    background-position-x: calc(var(--w) * var(--px) * -1);
+  }
+  90% {
+    background-position-x: 0;
+  }
+}
+
+@keyframes escena-piloto {
+  0% {
+    background-position-x: 0;
+  }
+  50% {
+    background-position-x: calc(var(--w) * var(--px) * -1);
+  }
+}
+
+/* El neón casi siempre encendido, y de vez en cuando duda: se apaga, vuelve a
+   medias y se queda. */
+@keyframes escena-neon {
+  0% {
+    background-position-x: 0;
+  }
+  78% {
+    background-position-x: calc(var(--w) * var(--px) * -1);
+  }
+  79% {
+    background-position-x: 0;
+  }
+  80.5% {
+    background-position-x: calc(var(--w) * var(--px) * -1);
+  }
+  82% {
+    background-position-x: calc(var(--w) * var(--px) * -2);
+  }
+  84% {
+    background-position-x: 0;
+  }
+}
+
+/* Una nota sube catorce píxeles en zigzag y se apaga; luego hay un silencio. */
+@keyframes escena-nota {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  6% {
+    transform: translate(0, calc(var(--px) * -2));
+  }
+  12% {
+    transform: translate(var(--px), calc(var(--px) * -4));
+  }
+  18% {
+    transform: translate(var(--px), calc(var(--px) * -6));
+  }
+  24% {
+    transform: translate(0, calc(var(--px) * -8));
+  }
+  30% {
+    transform: translate(0, calc(var(--px) * -10));
+  }
+  36% {
+    transform: translate(var(--px), calc(var(--px) * -12));
+  }
+  42% {
+    opacity: 1;
+    transform: translate(var(--px), calc(var(--px) * -14));
+  }
+  48%,
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+/*
+ * La despedida de la portada, a la escala del titular: crece con la pantalla y
+ * no con su columna, porque abajo no hay sala que le quite sitio.
+ */
+.portada-cartel {
+  font-size: clamp(2.25rem, 1rem + 4.5vw, 8rem);
+  line-height: 1.05;
+}

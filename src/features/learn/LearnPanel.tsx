@@ -3,34 +3,60 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { WebAudioReferenceTone, type ReferenceTone } from '@audio/reference-tone';
-import { accidentalForScale, midiToFrequency, SCALES, noteName, type ScaleId } from '@core/music';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { midiToFrequency, SCALES, type ScaleId } from '@core/music';
+import { selectEscala, selectTonalidadParaAprender, useSessionStore } from '@state/session-store';
+import { useListening, type ListeningDeps } from '@state/use-listening';
 import { Button } from '@ui/Button';
 import { Panel } from '@ui/Panel';
 
 import {
   advanceExercise,
+  stumbledSteps,
   createExercise,
   exerciseCompletion,
   INITIAL_PROGRESS,
   type ExerciseProgress,
 } from './exercise';
 
-export interface LearnPanelProps {
+export interface LearnPanelProps extends ListeningDeps {
   readonly createTone?: () => ReferenceTone;
   /**
    * La escala que pide la unidad del temario. Sin ella se practica la que esté
    * elegida en los ajustes, que es como funciona el panel suelto.
    */
   readonly scaleId?: ScaleId;
-  /** Se avisa una vez, cuando se termina la escala entera. */
-  readonly onDone?: () => void;
+  /**
+   * Se avisa una vez, cuando se termina la escala entera.
+   *
+   * `stumbled` son los pasos que costaron —los que se soltaron dos veces o más
+   * antes de contar—, para que puedan volver en el repaso. Hasta ahora una
+   * unidad de tocar no dejaba rastro de qué te había salido regular: o la
+   * hacías o no la hacías.
+   */
+  readonly onDone?: (stumbled: readonly number[]) => void;
 }
 
-export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelProps = {}) {
-  const activeKey = useSessionStore(selectActiveKey);
-  const chosen = useSessionStore((state) => state.scaleId);
+export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: LearnPanelProps = {}) {
+  // Sin tonalidad elegida, la de partida: la escala se toca sin esperar a elegir.
+  const activeKey = useSessionStore(selectTonalidadParaAprender);
+  const chosen = useSessionStore(selectEscala);
   const scaleId = asked ?? chosen;
+
+  /*
+    El ejercicio se contesta con la guitarra, así que **lo enciende él**.
+
+    Leía la nota del micro y no lo abría ni decía que hiciera falta: se pulsaba
+    «Empezar», salía «Toca C» y no pasaba nada nunca, con el micro tachado en la
+    cabecera y sin una palabra que lo relacionara. Quien llega aquí es alguien
+    que acaba de terminar su primera unidad de teoría.
+
+    El micro es uno y lo sujeta `state/use-listening`, que cuenta cuántos lo
+    piden y lo suelta cuando no queda ninguno; aquí se pide como lo pide el
+    afinador.
+  */
+  const microfono = useSessionStore((state) => state.listening);
+  const escuchando = microfono === 'listening';
+  const { start } = useListening(deps);
 
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<ExerciseProgress>(INITIAL_PROGRESS);
@@ -41,10 +67,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
     factoryRef.current = createTone;
   });
 
-  const exercise = useMemo(
-    () => (activeKey === null ? null : createExercise(activeKey.tonic, scaleId)),
-    [activeKey, scaleId],
-  );
+  const exercise = useMemo(() => createExercise(activeKey.tonic, scaleId), [activeKey, scaleId]);
 
   // Al cambiar de escala o de tonalidad, el ejercicio anterior ya no vale. Se
   // ajusta durante el render comparando con el anterior, que es lo que React
@@ -57,7 +80,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
   }
 
   useEffect(() => {
-    if (!running || exercise === null) {
+    if (!running) {
       return;
     }
     // Suscribirse al store y actualizar el estado desde su aviso es justo para
@@ -79,12 +102,13 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
       notified.current = false;
       return;
     }
+    /* v8 ignore next 3 -- al terminar, el efecto se rehace y vuelve arriba antes de llegar aqui */
     if (notified.current) {
       return;
     }
     notified.current = true;
-    onDone?.();
-  }, [progress.done, onDone]);
+    onDone?.(stumbledSteps(progress));
+  }, [progress, onDone]);
 
   useEffect(() => {
     return () => {
@@ -93,26 +117,16 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
     };
   }, []);
 
-  const step = exercise?.steps[progress.index] ?? null;
-  const accidental = activeKey === null ? 'sharp' : accidentalForScale(activeKey.tonic, scaleId);
+  const step = exercise.steps[progress.index] ?? null;
 
   async function playReference() {
+    /* v8 ignore next 3 -- el boton de oir la nota solo se pinta con una nota delante */
     if (step === null) {
       return;
     }
+    /* v8 ignore next -- sin fabrica se usa el tono de verdad, que en un test no suena */
     toneRef.current ??= factoryRef.current?.() ?? new WebAudioReferenceTone();
     await toneRef.current.play(midiToFrequency(step.midi));
-  }
-
-  if (activeKey === null || exercise === null) {
-    return (
-      <Panel id="aprender" title="Aprender">
-        <p className="text-text-muted mt-4">
-          Elige una tonalidad o toca unos compases, y aquí sale la escala para practicarla nota a
-          nota.
-        </p>
-      </Panel>
-    );
   }
 
   return (
@@ -128,6 +142,12 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
             onClick={() => {
               setProgress(INITIAL_PROGRESS);
               setRunning((current) => !current);
+              // Empezar un ejercicio que se contesta tocando **es** abrir el
+              // micro. Si ya está abierto no se toca: lo puede estar por otra
+              // pantalla, y pedirlo dos veces no cuesta nada pero tampoco vale.
+              if (!escuchando) {
+                void start();
+              }
             }}
           >
             {running ? 'Empezar de nuevo' : 'Empezar'}
@@ -136,8 +156,8 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
       }
     >
       <p className="text-text-muted mt-2 text-sm">
-        {SCALES[scaleId].name} de {noteName(activeKey.tonic, accidental)}, subiendo y bajando. Cada
-        nota cuenta cuando suena limpia y la sostienes un momento.
+        {SCALES[scaleId].name} de {exercise.steps[0]!.name}, subiendo y bajando. Cada nota cuenta
+        cuando suena limpia y la sostienes un momento.
       </p>
 
       <ol className="mt-6 flex flex-wrap gap-2" aria-label="Notas del ejercicio">
@@ -149,7 +169,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
             <li
               key={item.index}
               aria-current={current ? 'step' : undefined}
-              className={`rounded-md border px-3 py-2 font-mono text-sm ${
+              className={`rounded-md border px-3 py-2 text-sm ${
                 current
                   ? 'border-brass-bright text-brass-bright'
                   : passed
@@ -157,7 +177,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
                     : 'border-border text-text-muted'
               }`}
             >
-              {noteName(item.pitchClass, accidental)}
+              {item.name}
               {item.descending && <span aria-hidden="true"> ↓</span>}
             </li>
           );
@@ -167,11 +187,29 @@ export function LearnPanel({ createTone, scaleId: asked, onDone }: LearnPanelPro
       <p className="mt-6" aria-live="polite">
         {!running ? (
           <span className="text-text-muted">Pulsa «Empezar» y toca la primera nota.</span>
+        ) : microfono === 'requesting' ? (
+          // Mientras el navegador pregunta, el micro no está cerrado: se está
+          // abriendo. Decía «está cerrado. Abrirlo.» justo cuando se acababa de
+          // pulsar «Empezar», y ofrecía pedir otra vez lo que ya se estaba pidiendo.
+          <span className="text-text-muted">Abriendo el micrófono…</span>
+        ) : !escuchando ? (
+          // Y si el micro no llegó a abrirse —permiso denegado, o cerrado desde
+          // la cabecera—, se dice y se ofrece dónde, en vez de dejar «Toca C»
+          // esperando algo que nadie está oyendo.
+          <span className="text-text-muted">
+            Esto se contesta tocando, y el micrófono está cerrado.{' '}
+            <button type="button" onClick={() => void start()} className="enlace cursor-pointer">
+              Abrirlo
+            </button>
+            .
+          </span>
         ) : progress.done ? (
           <span className="text-tube-bright">Escala completa. Otra vez, más rápido.</span>
         ) : (
           <span className="text-text">
-            Toca {noteName(step?.pitchClass ?? activeKey.tonic, accidental)}
+            {/* v8 ignore start -- si hay escala que tocar hay paso: el «hecho» se pinta en la rama de arriba */}
+            Toca {step?.name}
+            {/* v8 ignore stop */}
             {progress.heldSince !== null && <span className="text-tube-bright"> · sostenla</span>}
           </span>
         )}

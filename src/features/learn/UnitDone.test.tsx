@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { DAILY_GOAL_XP, EMPTY_PROGRESS, UNIT_ORDER, completeUnit } from '@core/music';
+import { BADGES, DAILY_GOAL_XP, EMPTY_PROGRESS, UNIT_ORDER, completeUnit } from '@core/music';
 
 import { UnitDone } from './UnitDone';
 import type { Celebration } from './use-progress';
@@ -43,6 +43,19 @@ describe('La pantalla de después', () => {
     expect(screen.getByText('+20 XP')).toBeInTheDocument();
   });
 
+  /**
+   * **El foco va al título.** La última pregunta desaparece al contestarla, y
+   * con ella el botón que tenía el foco: caía al `<body>` y el lector de
+   * pantalla no decía que la unidad había terminado.
+   */
+  it('al aparecer, el foco va a su titulo', () => {
+    pintar();
+
+    const titulo = screen.getByRole('heading', { name: 'Qué es un grado' });
+    expect(titulo).toHaveFocus();
+    expect(titulo).toHaveAttribute('tabindex', '-1');
+  });
+
   it('marca cuando se ha acertado todo a la primera', () => {
     pintar({ flawless: true });
 
@@ -59,6 +72,11 @@ describe('La pantalla de después', () => {
   it('enseña la racha en singular y en plural', () => {
     pintar({ streak: 1 });
     expect(screen.getByText('1 día')).toBeInTheDocument();
+
+    cleanup();
+
+    pintar({ streak: 4 });
+    expect(screen.getByText('4 días')).toBeInTheDocument();
   });
 
   it('avisa cuando la meta se acaba de cerrar', () => {
@@ -108,5 +126,57 @@ describe('La pantalla de después', () => {
     pintar({ unitId: 'repaso', title: 'Repaso', xp: 10 });
 
     expect(screen.getByText('Repaso terminado')).toBeInTheDocument();
+  });
+});
+
+describe('al terminar un repaso', () => {
+  /**
+   * Un repaso no es una unidad: no se «supera» ni se puede hacer «sin un
+   * fallo», porque las preguntas que trae son justo las que ya se fallaron. Se
+   * dice lo que es.
+   */
+  it('se dice que es un repaso, aunque se haya clavado', () => {
+    pintar({ unitId: 'repaso', title: 'Repaso', flawless: true });
+
+    expect(screen.getByText('Repaso terminado')).toBeInTheDocument();
+    expect(screen.queryByText('Sin un fallo')).not.toBeInTheDocument();
+  });
+
+  // Y sin medallas nuevas no se enseña la fila de medallas.
+  it('sin medallas nuevas no se enseña ninguna', () => {
+    pintar({ newBadges: [] });
+
+    expect(screen.queryByText(/medalla/i)).not.toBeInTheDocument();
+  });
+
+  // Con una, en singular; con varias, en plural.
+  it('las medallas nuevas se cuentan en singular y en plural', () => {
+    const [una, otra] = BADGES;
+
+    pintar({ newBadges: [una!.id] });
+    expect(screen.getByText('Medalla nueva')).toBeInTheDocument();
+
+    cleanup();
+
+    pintar({ newBadges: [una!.id, otra!.id] });
+    expect(screen.getByText('Medallas nuevas')).toBeInTheDocument();
+  });
+
+  /**
+   * Y sin día no hay meta que contar: pasa al terminar algo con el reloj del
+   * equipo sin cuadrar, y entonces la barra se queda a cero en vez de romperse.
+   */
+  it('sin dia, la meta se queda a cero', () => {
+    render(
+      <UnitDone
+        celebration={BASE}
+        progress={EMPTY_PROGRESS}
+        day={null}
+        onNext={vi.fn()}
+        nextLabel="Seguir"
+      />,
+    );
+
+    expect(screen.getByText('Meta de hoy')).toBeInTheDocument();
   });
 });

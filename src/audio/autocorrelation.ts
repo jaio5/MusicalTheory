@@ -34,6 +34,24 @@ export interface PitchDetection {
 const PEAK_TOLERANCE = 0.9;
 
 /**
+ * Los búferes de trabajo, **uno de cada para siempre**.
+ *
+ * Se reservaban nuevos en cada análisis: veinte veces por segundo, dos
+ * `Float64Array` de unos dos mil y cuatro mil huecos —más de cuarenta kilobytes—
+ * puestos a cero y tirados enseguida. Eso es basura que el recolector tiene que
+ * barrer mientras suena la guitarra, y sus pausas caen en el hilo que pinta.
+ *
+ * Crecen si llega una ventana más grande y nunca encogen: el tamaño lo fija el
+ * motor y no cambia mientras escucha. Lo que se lee de ellos va siempre por una
+ * vista del tamaño exacto (`subarray`, que no copia), así que un resto de un
+ * análisis anterior no puede colarse en el siguiente: fuera de la vista no hay
+ * nada que leer, igual que con un búfer recién hecho.
+ */
+let energiaReservada = new Float64Array(0);
+let correlacionReservada = new Float64Array(0);
+let centradaReservada = new Float64Array(0);
+
+/**
  * Devuelve la frecuencia fundamental del bloque, o null si no hay señal
  * suficiente, si el pico no es lo bastante claro o si la frecuencia se sale del
  * rango de la guitarra. Devolver null es una respuesta válida: es preferible no
@@ -62,12 +80,37 @@ export function detectPitch(
     return null;
   }
 
+  // **Sin la continua.** Un bloque montado sobre un escalón —la continua de una
+  // tarjeta barata, el golpe de la mano en la caja, el retumbar de la sala— tiene
+  // la correlación positiva en todos los desplazamientos: el lóbulo del cero no
+  // se acaba nunca, no aparece ningún pico y la nota se pierde. Medido con una
+  // cuerda sintética con un poco de media: a los 200 ms dejaba de reconocerse.
+  // Quitar la media no cambia el periodo de nada que suene.
+  let suma = 0;
+  for (let i = 0; i < length; i += 1) {
+    suma += samples[i]!;
+  }
+  const media = suma / length;
+  if (centradaReservada.length < length) {
+    centradaReservada = new Float64Array(length);
+  }
+  const centrada = centradaReservada.subarray(0, length);
+  for (let i = 0; i < length; i += 1) {
+    centrada[i] = samples[i]! - media;
+  }
+
   // Energía acumulada: permite sacar la energía de cualquier tramo en tiempo
   // constante, y con ella normalizar cada desplazamiento sin recorrer el bloque
   // otra vez.
-  const cumulativeEnergy = new Float64Array(length + 1);
+  if (energiaReservada.length < length + 1) {
+    energiaReservada = new Float64Array(length + 1);
+  }
+  const cumulativeEnergy = energiaReservada.subarray(0, length + 1);
+  // El búfer se reutiliza, así que el cero de partida hay que ponerlo: ya no
+  // viene de fábrica.
+  cumulativeEnergy[0] = 0;
   for (let i = 0; i < length; i += 1) {
-    const sample = samples[i]!;
+    const sample = centrada[i]!;
     cumulativeEnergy[i + 1] = cumulativeEnergy[i]! + sample * sample;
   }
 
@@ -84,12 +127,17 @@ export function detectPitch(
     return null;
   }
 
-  const correlation = new Float64Array(maxLag + 1);
+  if (correlacionReservada.length < maxLag + 1) {
+    correlacionReservada = new Float64Array(maxLag + 1);
+  }
+  // Se escriben todos los huecos de la vista antes de leer ninguno, así que no
+  // hace falta ponerlos a cero.
+  const correlation = correlacionReservada.subarray(0, maxLag + 1);
   for (let lag = 0; lag <= maxLag; lag += 1) {
     const overlap = length - lag;
     let sum = 0;
     for (let i = 0; i < overlap; i += 1) {
-      sum += samples[i]! * samples[i + lag]!;
+      sum += centrada[i]! * centrada[i + lag]!;
     }
     const energyHead = cumulativeEnergy[overlap]!;
     const energyTail = cumulativeEnergy[length]! - cumulativeEnergy[lag]!;
@@ -152,6 +200,7 @@ function choosePeak(correlation: Float64Array, minLag: number, maxLag: number): 
   }
 
   const threshold = bestValue * PEAK_TOLERANCE;
+  /* v8 ignore next -- el mejor pico esta entre los picos, asi que siempre hay uno que llega al umbral */
   return peaks.find((candidate) => correlation[candidate]! >= threshold) ?? null;
 }
 
@@ -167,11 +216,13 @@ function interpolatePeak(
   const current = correlation[lag]!;
   const next = correlation[lag + 1];
 
+  /* v8 ignore next 3 -- el pico se busca entre el segundo y el penultimo, asi que tiene vecinos */
   if (previous === undefined || next === undefined) {
     return { position: lag, value: current };
   }
 
   const curvature = previous - 2 * current + next;
+  /* v8 ignore next 3 -- un pico con curvatura cero seria una meseta, y una meseta no es un pico */
   if (curvature === 0) {
     return { position: lag, value: current };
   }

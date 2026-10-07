@@ -15,13 +15,14 @@
 
 import { normalizePitchClass, noteName, type Accidental, type PitchClass } from './notes';
 import { CHORD_SHAPES, type ChordShape } from './chord-symbols';
+import { TRIADS } from './chords';
 
 export interface ChordMatch {
   readonly root: PitchClass;
   readonly shape: ChordShape;
   readonly symbol: string;
   readonly notes: readonly PitchClass[];
-  /** De 0 a 1. Uno es calcado; por debajo de 0,78 no se parece lo bastante. */
+  /** De 0 a 1. Uno es calcado; por debajo de `PARECIDO_MINIMO` no se parece. */
   readonly score: number;
 }
 
@@ -63,6 +64,16 @@ const DEFAULT_SUFFIXES: readonly string[] = [
  * comprimir cuenta tan poco que el acorde se lee como una quinta sin tercera.
  */
 const LOUDNESS_EXPONENT = 0.5;
+
+/**
+ * Por debajo de esto, lo que suena no se parece a ningún acorde.
+ *
+ * Estaba escrito tres veces —aquí dos y en el motor una—, y es un número del que
+ * cuelga algo más que un `null`: **lo que un acorde le saque a este suelo es la
+ * mitad de su confianza** (`capture.ts`). Con tres copias, subirlo en un sitio
+ * dejaba a los otros dos midiendo la holgura contra otro suelo.
+ */
+export const PARECIDO_MINIMO = 0.78;
 
 /**
  * Ordena los acordes que mejor explican el croma.
@@ -110,12 +121,118 @@ export function matchChords(
   return matches.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+/**
+ * Lo que se ha oído, con lo seguro que se está y lo que también pudo ser.
+ *
+ * `bestChord` contesta «Am» y se queda tan ancho. Eso vale para enseñar un
+ * cifrado en pantalla mientras alguien toca, y no vale para nada de lo que viene
+ * después: ni para saber si fiarse de lo que se ha apuntado, ni para ofrecer una
+ * corrección, ni para que quien mire una progresión sepa de qué partes dudar.
+ *
+ * **El margen es lo que dice si había duda, y no la puntuación.** Un 0,90 con el
+ * segundo en 0,89 es un empate y el motor eligió casi a cara o cruz; un 0,85 con
+ * el segundo en 0,60 es una certeza. La puntuación sola no distingue esos dos
+ * casos, y son justo los dos que hay que distinguir: el primero hay que
+ * preguntarlo y el segundo no.
+ *
+ * Los candidatos que acompañan no son ruido: al oír una guitarra, el segundo
+ * suele ser el mismo acorde con otra especie —un `C` contra un `Cmaj7` porque la
+ * séptima está sonando por simpatía— o su relativo, que comparte dos notas. Son
+ * exactamente las dos correcciones que alguien querría hacer a mano.
+ */
+export interface ChordReading {
+  readonly best: ChordMatch;
+  /** Lo que también pudo ser, de más a menos parecido y sin repetir el mejor. */
+  readonly alternatives: readonly ChordMatch[];
+  /**
+   * Cuánto se despega el mejor del primer candidato **que se escribiría
+   * distinto**, de 0 a 1. Cero es un empate.
+   *
+   * No del segundo a secas, porque el segundo suele ser el mismo acorde con otra
+   * especie —un `C` contra un `Cmaj7`— y eso no es una duda: lo oído se apunta
+   * por su tríada, y los dos se apuntan igual. Medido contra él, el margen salía
+   * casi cero en casi todo lo rasgueado y el «?» dejaba de decir nada
+   * ([adr/0107](../../../docs/adr/0107-los-armonicos-se-miden-en-su-serie.md)).
+   */
+  readonly margin: number;
+}
+
+/**
+ * Qué acorde es a efectos de apuntarlo: la fundamental y la tríada de dentro,
+ * o las notas si no lleva tríada —una quinta, un suspendido—.
+ *
+ * Es la misma identidad con la que el motor en vivo confirma y con la que la
+ * captura funde repetidos (`mismoAcordeOido`), dicha aquí desde la forma: dos
+ * candidatos con la misma no son una duda, son dos maneras de escribir lo mismo.
+ */
+function identidad(match: ChordMatch): string {
+  const intervalos = new Set(match.shape.intervals);
+  const triada = TRIADS.find(({ third, fifth }) => intervalos.has(third) && intervalos.has(fifth));
+  return `${match.root}:${triada?.quality ?? [...match.notes].sort((a, b) => a - b).join('.')}`;
+}
+
+/** Las mismas notas, en cualquier orden: lo que el coseno no puede separar. */
+function mismasNotas(a: ChordMatch, b: ChordMatch): boolean {
+  return a.notes.length === b.notes.length && a.notes.every((note) => b.notes.includes(note));
+}
+
+/**
+ * El acorde que suena, con su duda.
+ *
+ * Se piden cuatro candidatos y no uno: tres alternativas es lo que cabe ofrecer
+ * en una corrección sin que se convierta en un catálogo, y el cuarto ya nunca es
+ * el que era.
+ *
+ * **Con el bajo, un empate exacto deja de resolverse por el alfabeto.** `Am7` y
+ * `C6` son las mismas cuatro notas, el coseno les da la misma puntuación al
+ * decimal, y ganaba el que salía antes en el bucle —el de la fundamental más
+ * baja contando desde Do—. Así un La menor con su séptima armónica encima se
+ * escribía Do. Lo que separa los dos es la nota más grave, que es lo que dice un
+ * músico: con La abajo es `Am7`; con Do, `C6`. Solo decide **entre candidatos
+ * con las mismas notas**: fuera del empate, el bajo no le quita nada a nadie, y
+ * así una inversión —`C/E`— sigue siendo Do y no pasa a Mi menor.
+ */
+export function readChord(
+  chroma: readonly number[],
+  options: MatchOptions & {
+    readonly minScore?: number;
+    /** La nota más grave que suena, si se sabe (`leerEspectro`). */
+    readonly bajo?: PitchClass | null;
+  } = {},
+): ChordReading | null {
+  const { minScore = PARECIDO_MINIMO, bajo = null } = options;
+  // Todos, y no solo los que caben en la lista: el rival que mide el margen
+  // puede venir quinto, detrás de tres especies del mismo acorde.
+  const todos = [...matchChords(chroma, { ...options, limit: Infinity })];
+  const primero = todos[0];
+
+  if (primero === undefined || primero.score < minScore) {
+    return null;
+  }
+
+  // Las mismas notas dan la misma puntuación, así que esto es el empate exacto.
+  const delBajo = todos.find((match) => match.root === bajo && mismasNotas(match, primero));
+  const best = delBajo ?? primero;
+  const resto = todos.filter((match) => match !== best);
+  const suya = identidad(best);
+  const rival = Math.max(
+    0,
+    ...resto.filter((match) => identidad(match) !== suya).map((match) => match.score),
+  );
+
+  return {
+    best,
+    alternatives: resto.slice(0, (options.limit ?? 4) - 1),
+    margin: Math.max(0, Math.min(1, best.score - rival)),
+  };
+}
+
 /** El acorde que suena, o null si nada se parece lo bastante. */
 export function bestChord(
   chroma: readonly number[],
   options: MatchOptions & { readonly minScore?: number } = {},
 ): ChordMatch | null {
-  const { minScore = 0.78 } = options;
+  const { minScore = PARECIDO_MINIMO } = options;
   const [best] = matchChords(chroma, { ...options, limit: 1 });
   return best !== undefined && best.score >= minScore ? best : null;
 }

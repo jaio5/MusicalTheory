@@ -2,14 +2,27 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { can, cheapestPlanWith, nextAllowedUnit, unitAccess } from '@core/billing';
-import { findUnit, keyName } from '@core/music';
-import { LearnPanel, TheoryUnit, UnitDone, useProgress, type Celebration } from '@features/learn';
-import { KeyPanel } from '@features/wheel';
+import { findUnit } from '@core/music';
+import {
+  EarUnit,
+  LearnPanel,
+  TheoryUnit,
+  UnidadPorMomentos,
+  UnitDone,
+  useProgress,
+  type Celebration,
+} from '@features/learn';
+import { BarraDeTonalidad } from '@features/wheel';
 import { useAccount } from '@state/account';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, TONALIDAD_DE_PARTIDA, useSessionStore } from '@state/session-store';
+import { estiloBoton } from '@ui/Button';
+import { IconoCamino, IconoCandado } from '@ui/icons';
 import { PlanLock } from '@ui/PlanLock';
+import { Screen, WorkHeader } from '@ui/Screen';
+import { Vacio } from '@ui/Vacio';
 
 /**
  * Una unidad, a pantalla completa y con su propia dirección.
@@ -18,27 +31,51 @@ import { PlanLock } from '@ui/PlanLock';
  * dejarla a medias sin perder el sitio. Y sobre todo: mientras se contesta no hay
  * nada más en pantalla, que es la mitad de por qué esto funciona.
  *
- * La tonalidad está aquí porque **aquí hace falta**: las preguntas se generan con
- * los acordes de la tonalidad en la que estés, así que sin ella no hay unidad que
- * enseñar. En una barra que se despliega, no ocupando media pantalla.
+ * La tonalidad está aquí porque las preguntas se generan con los acordes de la
+ * tonalidad en la que estés. En una barra que se despliega, no ocupando media
+ * pantalla, y **sin pedirla**: mientras no elijas una, la unidad va en Do mayor
+ * (`TONALIDAD_DE_PARTIDA`). Pedirla bloqueaba la primera unidad, la de las notas,
+ * a quien todavía no sabía qué es una tonalidad
+ * ([adr/0109](../../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)).
  */
 export function UnitScreen({ unitId }: { readonly unitId: string }) {
   const router = useRouter();
-  const activeKey = useSessionStore(selectActiveKey);
   const { account, signedIn } = useAccount();
   const { progress, day, celebration, dismissCelebration, complete, miss } = useProgress();
+  const activeKey = useSessionStore(selectActiveKey);
+  /**
+   * Si la rueda está abierta tapando la unidad.
+   *
+   * La barra flota sobre la pregunta, así que abierta la tapa entera: verla no
+   * se ve, pero seguía recibiendo el foco, y el tabulador caía en botones que
+   * no se veían (WCAG 2.4.11). Mientras dura, lo de abajo va `inert`. Es el
+   * mismo trato que en componer. Nace plegada —con la de partida no hay nada
+   * que pedir— y a partir de ahí manda ella.
+   */
+  const [tapadoPorLaRueda, setTapadoPorLaRueda] = useState(false);
 
   const found = findUnit(unitId);
   const acceso = unitAccess(progress, account.plan, unitId);
   const repasa = can(account.plan, 'repaso');
 
+  // La página ya contesta 404 a una unidad que no está en el temario; esto queda
+  // para la pantalla montada suelta, que no sabe de dónde le llega el nombre.
   if (found === null) {
     return (
       <Marco titulo="Esta unidad no existe">
-        <p className="text-text-muted max-w-prose text-sm">
-          Puede que se haya renombrado o retirado del temario. Vuelve al camino y sigue por donde
-          ibas.
-        </p>
+        {/* Con la salida escrita como botón: decir «vuelve al camino» y dejar la
+            vuelta en el enlace pequeño de arriba era pedir sin ofrecer. */}
+        <Vacio
+          icono={<IconoCamino />}
+          titulo="No está en el temario"
+          accion={
+            <Link href="/aprender" className={estiloBoton('primary')}>
+              Volver al camino
+            </Link>
+          }
+        >
+          Puede que se haya renombrado o retirado. Vuelve al camino y sigue por donde ibas.
+        </Vacio>
       </Marco>
     );
   }
@@ -47,9 +84,9 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
     return (
       <Marco titulo={found.unit.title}>
         <p className="text-text-muted max-w-prose text-sm">
-          Es del Grado Profesional. Los cuatro cursos del Elemental son gratis y lo seguirán siendo;
-          los seis del Profesional —funciones, cuatríadas, prestados, sustituciones, modos y
-          cadencias— van con plan.
+          Es del Grado Profesional. Los cuatro cursos del Elemental —el lenguaje musical— son gratis
+          y lo seguirán siendo; los seis del Profesional —la armonía: funciones y cadencias,
+          inversiones, séptimas, modulación, cromatismo y modos— van con plan.
         </p>
         <div className="mt-4 max-w-prose">
           <PlanLock
@@ -63,12 +100,31 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   }
 
   if (acceso === 'por-temario') {
+    // La que toca es la primera abierta y sin hacer desde tu punto de partida:
+    // la misma que ofrece el botón de seguir del camino.
+    const laQueToca = nextAllowedUnit(progress, account.plan);
     return (
       <Marco titulo={found.unit.title}>
-        <p className="text-text-muted max-w-prose text-sm">
-          Todavía no está abierta: se abre al terminar la anterior. Si quieres empezar por aquí,
-          cambia tu punto de partida en el camino y esta unidad se abre sola.
-        </p>
+        <Vacio
+          icono={<IconoCandado />}
+          titulo="Todavía no está abierta"
+          accion={
+            <div className="flex flex-wrap justify-center gap-2">
+              {/* v8 ignore next 5 -- si esta está cerrada es que falta alguna antes: la que toca existe */}
+              {laQueToca !== null && (
+                <Link href={`/aprender/${laQueToca}`} className={estiloBoton('primary')}>
+                  Ir a la que toca
+                </Link>
+              )}
+              <Link href="/aprender" className={estiloBoton('quiet')}>
+                Cambiar el punto de partida
+              </Link>
+            </div>
+          }
+        >
+          Se abre al terminar la anterior. Si quieres empezar por aquí, cambia tu punto de partida
+          en el camino y esta unidad se abre sola.
+        </Vacio>
       </Marco>
     );
   }
@@ -92,54 +148,86 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="border-border bg-surface flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-2">
-        <Link
-          href="/aprender"
-          className="text-text-muted hover:text-text shrink-0 font-mono text-sm"
-          aria-label="Volver al camino"
-        >
-          ← Camino
-        </Link>
-        <div className="min-w-0 grow">
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            {found.course.year}º de{' '}
-            {found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'}
-            {' · '}
-            {found.course.title}
-          </p>
-          <h1 className="text-text truncate text-lg">{found.unit.title}</h1>
-        </div>
-        <p className="text-text-muted shrink-0 font-mono text-xs">{found.unit.xp} XP</p>
-      </header>
+      <WorkHeader
+        title={found.unit.title}
+        lead={`${found.course.year}º de ${
+          found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'
+        } · ${found.course.title}`}
+        back={{ href: '/aprender', label: 'Camino' }}
+        actions={
+          <p className="text-text-muted font-mono text-xs tabular-nums">{found.unit.xp} XP</p>
+        }
+      />
 
       {/* La tonalidad, en una barra que se abre. Cerrada ocupa una línea y dice en
           qué tonalidad estás, que es lo único que hay que saber mientras contestas. */}
-      <details className="border-border bg-surface shrink-0 border-b">
-        <summary className="text-text-muted hover:text-text cursor-pointer px-4 py-1.5 font-mono text-xs">
-          Tonalidad:{' '}
-          <span className="text-brass-bright">
-            {activeKey === null ? 'sin elegir' : keyName(activeKey.tonic, activeKey.mode)}
-          </span>
-        </summary>
-        <div className="flex flex-col items-center gap-2 px-4 pt-2 pb-4">
-          <KeyPanel compact />
-          <p className="text-text-muted max-w-prose text-center text-xs">
-            Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
-            preguntas hablan de otros acordes.
-          </p>
-        </div>
-      </details>
+      {/* `shrink-0`: lo que se abre flota sobre la pregunta en vez de quitarle
+          altura, así que la barra mide su rótulo y no negocia nada. */}
+      <BarraDeTonalidad
+        className="border-border bg-surface shrink-0 border-b px-4"
+        onAbrirse={setTapadoPorLaRueda}
+        dePartida={TONALIDAD_DE_PARTIDA}
+      >
+        <p className="text-text-muted max-w-prose text-center text-xs">
+          {activeKey === null
+            ? 'Mientras no elijas otra, la unidad va en C mayor —Do mayor—, la que no lleva alteraciones. '
+            : ''}
+          Las preguntas se escriben con los acordes de esta tonalidad. Cámbiala y las mismas
+          preguntas hablan de otros acordes.
+        </p>
+      </BarraDeTonalidad>
 
-      <div className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto">
+      {/* **Y se ve que está apagado.** Con `inert` a secas la tarjeta de la
+          presentación seguía entera y a todo color bajo el panel, con su
+          «Empezar» pidiendo que lo pulsaran: parecía viva y no respondía.
+          La variante `inert:` la atenúa mientras dure —la misma que usa
+          componer—, que es lo que dice «ahora no» sin una palabra, y sin una
+          clase que cambie al hidratar. */}
+      <div
+        className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto inert:opacity-50 inert:saturate-50"
+        inert={tapadoPorLaRueda}
+      >
+        {/* `key`: otra unidad es otra unidad, aunque la pantalla siga montada al
+            ir de una a otra. Sin ella se heredaban el momento y la pregunta en
+            la que iba la anterior. */}
         {found.unit.kind === 'theory' ? (
           <TheoryUnit
+            key={unitId}
+            unit={found.unit}
+            yaHecha={acceso === 'hecha'}
+            onDone={(flawless) => complete(unitId, flawless)}
+            {...(repasa ? { onMiss: (index: number) => miss(unitId, index) } : {})}
+          />
+        ) : found.unit.kind === 'ear' ? (
+          <EarUnit
+            key={unitId}
             unit={found.unit}
             onDone={(flawless) => complete(unitId, flawless)}
             {...(repasa ? { onMiss: (index: number) => miss(unitId, index) } : {})}
           />
         ) : (
-          <div className="p-4">
-            <LearnPanel scaleId={found.unit.scaleId} onDone={() => complete(unitId, true)} />
+          <div key={unitId} className="p-4">
+            {/* La de tocar también se presenta antes: «tócala» sin saber qué
+                escala ni para qué es pedir a ciegas, y el micro se abre en cuanto
+                se empieza. Las notas que costaron entran en la cola igual que
+                una pregunta fallada. Terminar la escala sigue siendo terminarla
+                —aquí no se suspende— pero lo que salió regular vuelve. */}
+            <UnidadPorMomentos
+              unit={found.unit}
+              prueba={
+                <LearnPanel
+                  scaleId={found.unit.scaleId}
+                  onDone={(stumbled) => {
+                    if (repasa) {
+                      for (const index of stumbled) {
+                        miss(unitId, index);
+                      }
+                    }
+                    complete(unitId, stumbled.length === 0);
+                  }}
+                />
+              }
+            />
           </div>
         )}
       </div>
@@ -147,7 +235,12 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   );
 }
 
-/** El marco de las pantallas que solo explican algo y ofrecen volver. */
+/**
+ * El marco de esta pantalla es el de todas —`ui/Screen`—, con la vuelta al camino
+ * arriba. Antes era un componente local, y el repaso tenía otro casi igual: dos
+ * copias del mismo marco que ya se habían separado en el ancho y en el hueco bajo
+ * el título.
+ */
 function Marco({
   titulo,
   children,
@@ -156,15 +249,9 @@ function Marco({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto max-w-2xl p-4 md:p-8">
-        <Link href="/aprender" className="text-text-muted hover:text-text font-mono text-sm">
-          ← Camino
-        </Link>
-        <h1 className="text-text mt-4 text-2xl">{titulo}</h1>
-        <div className="mt-3">{children}</div>
-      </div>
-    </div>
+    <Screen title={titulo} back={{ href: '/aprender', label: 'Camino' }} ancho="lectura">
+      {children}
+    </Screen>
   );
 }
 
@@ -190,7 +277,7 @@ function Siguiente({
         onNext={onNext}
       />
       <p className="pb-6 text-center">
-        <Link href="/aprender" className="text-text-muted hover:text-text font-mono text-sm">
+        <Link href="/aprender" className="text-text-muted hover:text-text text-sm">
           Volver al camino
         </Link>
       </p>

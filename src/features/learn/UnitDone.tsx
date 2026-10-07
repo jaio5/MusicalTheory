@@ -1,6 +1,8 @@
 'use client';
 
-import { BADGES, DAILY_GOAL_XP, goalCompletion, type Progress } from '@core/music';
+import { useEffect, useRef } from 'react';
+
+import { badgesOf, DAILY_GOAL_XP, goalCompletion, type Progress } from '@core/music';
 import { Button } from '@ui/Button';
 
 import type { Celebration } from './use-progress';
@@ -33,20 +35,35 @@ export function UnitDone({
   /** Qué dice el botón: casi siempre «Seguir», y otra cosa al terminar el grado. */
   readonly nextLabel: string;
 }) {
-  const nuevas = BADGES.filter((badge) => celebration.newBadges.includes(badge.id));
+  /*
+    **El foco, al título de lo que se ha terminado.** Lo último que se pulsó fue
+    la respuesta de la última pregunta, y esa pregunta ya no está: el foco caía
+    al `<body>`, sin dirección, y el lector de pantalla no decía que la unidad
+    había acabado. En el título se lee lo que ha pasado, y el siguiente tabulador
+    lleva a «Seguir».
+  */
+  const titulo = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    titulo.current?.focus();
+  }, []);
+
+  const nuevas = badgesOf(celebration.newBadges);
   const parte = day === null ? 0 : goalCompletion(progress, day);
 
   return (
     <div className="flex min-h-0 grow flex-col items-center justify-center gap-6 p-6 text-center">
       <div>
-        <p className="text-tube-bright font-mono text-xs tracking-widest uppercase">
+        <p className="rotulo text-tube-bright">
           {celebration.flawless && celebration.unitId !== 'repaso'
             ? 'Sin un fallo'
             : celebration.unitId === 'repaso'
               ? 'Repaso terminado'
               : 'Unidad superada'}
         </p>
-        <h2 className="text-text mt-1 text-2xl">{celebration.title}</h2>
+        {/* `tabIndex={-1}`: recibe el foco por código sin ser una parada más. */}
+        <h2 ref={titulo} tabIndex={-1} className="text-text mt-1 text-2xl">
+          {celebration.title}
+        </h2>
       </div>
 
       <dl className="flex flex-wrap items-baseline justify-center gap-x-8 gap-y-3">
@@ -88,9 +105,7 @@ export function UnitDone({
 
       {nuevas.length > 0 && (
         <div>
-          <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            {nuevas.length === 1 ? 'Medalla nueva' : 'Medallas nuevas'}
-          </p>
+          <p className="rotulo">{nuevas.length === 1 ? 'Medalla nueva' : 'Medallas nuevas'}</p>
           <ul aria-label="Medallas nuevas" className="mt-2 flex flex-wrap justify-center gap-2">
             {nuevas.map((badge) => (
               <li
@@ -121,7 +136,7 @@ function Dato({
 }) {
   return (
     <div>
-      <dt className="text-text-muted font-mono text-xs tracking-widest uppercase">{etiqueta}</dt>
+      <dt className="rotulo">{etiqueta}</dt>
       <dd className={`mt-0.5 font-mono text-xl ${bueno ? 'text-tube-bright' : 'text-text'}`}>
         {valor}
       </dd>

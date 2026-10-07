@@ -1,11 +1,56 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import type { AudioInput, AudioInputState } from '@audio/audio-input';
+import type { PitchEngine } from '@audio/pitch-engine';
 import { useSessionStore } from '@state/session-store';
 
 import { HeardChord } from './HeardChord';
+
+/** Un micrófono que se abre y se cierra sin tocar el navegador. */
+class EntradaFalsa implements AudioInput {
+  state: AudioInputState = 'idle';
+  readonly sampleRate = 48_000;
+  readonly frameSize = 2048;
+  readonly spectrumSize = 8192;
+  error = null;
+
+  async start(): Promise<void> {
+    this.state = 'running';
+  }
+  async stop(): Promise<void> {
+    this.state = 'idle';
+  }
+  readTimeDomain(): boolean {
+    return true;
+  }
+  readSpectrum(): boolean {
+    return true;
+  }
+  subscribe(): () => void {
+    return () => {};
+  }
+}
+
+class MotorCallado implements PitchEngine {
+  readonly options = {} as PitchEngine['options'];
+  running = false;
+  async start(): Promise<void> {
+    this.running = true;
+  }
+  stop(): void {
+    this.running = false;
+  }
+  subscribe(): () => void {
+    return () => {};
+  }
+  subscribeLevel(): () => void {
+    return () => {};
+  }
+}
 
 function escuchando(): void {
   useSessionStore.getState().actions.setListening('listening');
@@ -16,18 +61,53 @@ function silencio(): void {
   useSessionStore.getState().actions.setHeardChord(null);
 }
 
-const AM = { symbol: 'Am', root: 9 as const, notes: [9, 0, 4] as const, score: 0.93, at: 0 };
-const F = { symbol: 'F', root: 5 as const, notes: [5, 9, 0] as const, score: 0.88, at: 1 };
+/** Sin alternativas y con margen amplio: acordes que se oyeron sin dudar. */
+const SIN_DUDA = { margin: 0.2, alternatives: [] };
+const AM = {
+  symbol: 'Am',
+  root: 9 as const,
+  notes: [9, 0, 4] as const,
+  score: 0.93,
+  at: 0,
+  ...SIN_DUDA,
+};
+const F = {
+  symbol: 'F',
+  root: 5 as const,
+  notes: [5, 9, 0] as const,
+  score: 0.88,
+  at: 1,
+  ...SIN_DUDA,
+};
 
 describe('El acorde que suena', () => {
   beforeEach(() => {
     useSessionStore.getState().actions.reset();
   });
 
-  it('no dice nada si no se escucha y no ha sonado nada todavía', () => {
-    const { container } = render(<HeardChord />);
+  /**
+   * Con el micro cerrado, **lo ofrece**.
+   *
+   * Esta zona se quedaba en blanco, y con ella se quedaba callada la cosa que
+   * esta aplicación dice de sí misma en la portada: que te oye tocar. Estaba a un
+   * botón de distancia —el de la barra de arriba— y nada lo decía aquí, que es
+   * donde pasa.
+   */
+  it('con el micro cerrado ofrece abrirlo, en vez de quedarse en blanco', () => {
+    render(<HeardChord />);
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByRole('button', { name: /abrir el micrófono/i })).toBeInTheDocument();
+  });
+
+  it('y al pulsarlo, escucha', async () => {
+    const entrada = new EntradaFalsa();
+    render(
+      <HeardChord deps={{ createInput: () => entrada, createEngine: () => new MotorCallado() }} />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /abrir el micrófono/i }));
+
+    await waitFor(() => expect(entrada.state).toBe('running'));
   });
 
   it('pide un acorde entero mientras no reconoce ninguno', () => {
@@ -47,14 +127,36 @@ describe('El acorde que suena', () => {
     expect(screen.getByRole('list', { name: /formas de hacer am/i })).toBeInTheDocument();
   });
 
-  it('no lo mete solo en el camino: lo propone', () => {
+  /**
+   * No entra solo, y **entra en la canción** cuando hay dónde escribirla: tocar
+   * un acorde y quedárselo es componer, no explorar
+   * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+   */
+  it('no lo mete solo, y con sitio donde escribir va a la cancion', () => {
+    // Con tonalidad: un acorde solo tiene grado dentro de una, y sin grado no
+    // hay bloque que escribir.
+    useSessionStore.getState().actions.pinKey({ tonic: 9, mode: 'minor' });
+    escuchando();
+    useSessionStore.getState().actions.setHeardChord(AM);
+    const puestos: Array<[string, string | undefined]> = [];
+    render(<HeardChord onPoner={(degree, seventh) => puestos.push([degree, seventh])} />);
+
+    expect(puestos).toEqual([]);
+
+    fireEvent.click(screen.getByRole('button', { name: /meterlo en la canción/i }));
+
+    // La menor en La menor es el grado i, y sin séptima.
+    expect(puestos).toEqual([['i', undefined]]);
+    expect(useSessionStore.getState().path).toEqual([]);
+  });
+
+  // Sin sitio donde escribir hace lo de siempre: al camino, a probarlo.
+  it('sin donde escribir, sigue yendo al camino', () => {
     escuchando();
     useSessionStore.getState().actions.setHeardChord(AM);
     render(<HeardChord />);
 
-    expect(useSessionStore.getState().path).toEqual([]);
-
-    fireEvent.click(screen.getByRole('button', { name: /meterlo en el camino/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Probarlo$/ }));
 
     expect(useSessionStore.getState().path.at(-1)?.symbol).toBe('Am');
   });
@@ -63,9 +165,9 @@ describe('El acorde que suena', () => {
     escuchando();
     useSessionStore.getState().actions.setHeardChord(AM);
     render(<HeardChord />);
-    fireEvent.click(screen.getByRole('button', { name: /meterlo en el camino/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Probarlo$/ }));
 
-    expect(screen.queryByRole('button', { name: /meterlo en el camino/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Probarlo$/ })).not.toBeInTheDocument();
   });
 });
 
@@ -95,7 +197,7 @@ describe('El último acorde tocado se mantiene', () => {
     silencio();
     render(<HeardChord />);
 
-    fireEvent.click(screen.getByRole('button', { name: /meterlo en el camino/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Probarlo$/ }));
 
     expect(useSessionStore.getState().path.at(-1)?.symbol).toBe('Am');
   });
@@ -132,5 +234,32 @@ describe('El último acorde tocado se mantiene', () => {
     render(<HeardChord />);
 
     expect(screen.getByText('Am')).toBeInTheDocument();
+  });
+});
+
+/**
+ * **Al lector, el acorde que se queda y no el que suena.** Mientras se toca, el
+ * acorde cambia con cada rasgueo y leerlo sería un parloteo que además sale por
+ * el altavoz que el micro oye. Y la región está desde antes: una que nace con el
+ * texto dentro no se anuncia.
+ */
+describe('lo que se anuncia', () => {
+  beforeEach(() => {
+    useSessionStore.getState().actions.reset();
+  });
+
+  it('calla mientras suena y dice el ultimo al soltarlo, en una region que ya estaba', () => {
+    escuchando();
+    const { container } = render(<HeardChord />);
+    const region = container.querySelector('p.sr-only[aria-live="polite"]');
+    expect(region).toBeEmptyDOMElement();
+
+    act(() => useSessionStore.getState().actions.setHeardChord(AM));
+    expect(region).toBeEmptyDOMElement();
+    act(() => useSessionStore.getState().actions.setHeardChord(F));
+    expect(region).toBeEmptyDOMElement();
+
+    act(() => silencio());
+    expect(region).toHaveTextContent('Último acorde: F.');
   });
 });

@@ -1,5 +1,9 @@
 # Arquitectura
 
+> Este documento contesta **por qué** las capas son así. Si lo que buscas es
+> **dónde está el fichero que quieres tocar**, eso lo contesta
+> [ENCONTRAR-UN-FICHERO.md](./ENCONTRAR-UN-FICHERO.md).
+
 ## La idea en una frase
 
 La teoría musical no sabe que existe un navegador, y la interfaz no sabe cómo
@@ -11,7 +15,7 @@ se calcula un acorde. Todo lo demás es consecuencia de eso.
 src/
   core/       teoría musical y planes, en TypeScript puro
   audio/      adaptadores Web Audio: captura, motor de tono, síntesis
-  media/      cámara, composición en canvas, grabación
+  media/      micrófono para grabar, grabación a fichero
   server/     base de datos, sesión de cuenta y cupos: solo corre en el servidor
   state/      store de sesión (Zustand), cuenta y selectores
   features/   cada bloque de interfaz con su lógica
@@ -33,6 +37,13 @@ la pantalla enseñe abierto lo que la ruta va a cerrar. La única flecha entre l
 dos mitades del dominio va de `billing/` a `music/` —los planes saben qué es un
 grado— y nunca al revés: la teoría musical no cambia según lo que pagues.
 
+Sueltos en la raíz de `core/` hay tres ficheros que no son dominio musical pero
+cumplen la misma regla —TypeScript y nada más—: `parse.ts`, `ai-errors.ts` y
+`estado-observable.ts`. El último es la lista de apuntados que usan el micrófono
+de `audio/`, el de `media/`, la grabadora y los dos motores de análisis; estaba
+escrita cinco veces, y es un `Set` con un valor, así que no tiene por qué vivir
+donde se usa.
+
 Funciones puras sobre números y cadenas. Cero React, cero DOM, cero `window`,
 cero `Date.now()`. Si algo necesita saber qué hora es, el instante entra por
 parámetro: por eso `addPitchClass(histograma, nota, instante)` recibe el tiempo
@@ -43,10 +54,27 @@ simulando dos minutos de sesión en un test que tarda un milisegundo.
 
 ### `audio/` y `media/`
 
-Adaptadores. Exponen interfaces (`AudioInput`, `PitchEngine`, `CameraInput`,
+Adaptadores. Exponen interfaces (`AudioInput`, `PitchEngine`, `MicInput`,
 `SessionRecorder`) y esconden `AudioContext`, `getUserMedia` y `MediaRecorder`.
 Un componente pide un `PitchEngine`, se suscribe y recibe hercios; no construye
 nunca un `AnalyserNode`.
+
+**Las dos saben abrir el micrófono, pero no lo abren dos veces.** `audio/` lo
+abre para analizar —mide el tono, saca el croma y no guarda nada— y `media/` para
+grabar a fichero, y cada una puede vivir sin la otra: dejar de grabar no deja de
+escuchar. Cuando las dos cosas pasan a la vez —componer tocando—, `audio/`
+**presta su flujo** por el puerto `StreamSource` y `media/` graba sobre él, que
+es lo que siempre pudo hacer: `SessionRecorder.start` **recibe** un `MediaStream`,
+no lo pide. Dos `getUserMedia` sobre el mismo aparato son dos permisos y dos
+pilotos, y en un iPhone el segundo puede quedarse con el dispositivo y dejar al
+primero sin señal.
+
+Prestar no es ceder: quien recibe el flujo no cierra las pistas. Las suelta quien
+las abrió, al pararse. Y por eso, al parar de tocar, **se para el grabador antes
+que la escucha**: al revés, cerrar la entrada le cortaba la toma por el final.
+
+Lo que `media/` ya no hace es vídeo: la cámara, la composición en canvas y el
+overlay se fueron enteros ([adr/0023](./adr/0023-grabar-solo-el-sonido.md)).
 
 ### `server/`
 
@@ -87,7 +115,7 @@ directamente a `core/`.
 ### `features/`
 
 Un directorio por bloque: `tuner`, `wheel`, `fretboard`, `path`, `suggest`,
-`learn`, `compose`, `ideas`, `recorder`, `sessions`, `account` —entrar, tarjetas de
+`learn`, `compose`, `recorder`, `sessions`, `account` —entrar, tarjetas de
 plan, ventana de pago— y `workspace` —el botón del micro y los ajustes—. Cada uno tiene sus componentes y su lógica de
 presentación, y ninguno conoce a los demás.
 
@@ -114,8 +142,12 @@ tempo está en `core/`, el pulso —osciladores y relojes— en `audio/`, y el f
 solo pone botones. Así el tempo se prueba sin audio y el pulso se puede sustituir
 por un doble en los tests de interfaz.
 
-`recorder` es el caso curioso: envuelve a la pantalla de componer con
-`children`, así que la enseña entera sin saber qué hay dentro.
+`recorder` **ya no envuelve nada**, y eso es lo que queda de una decisión: cuando
+grababa vídeo tenía que ponerse por detrás de la pantalla entera con `children`
+para que se te viera tocando, y con la cámara se fue esa forma
+([adr/0023](./adr/0023-grabar-solo-el-sonido.md)). Hoy es un panel más del área de
+abajo de componer, y quien graba el sonido mientras escribes tocando es
+`state/use-tocar-y-apuntar.ts`, que abre las dos cosas con una sola pulsación.
 
 ### `ui/`
 
@@ -162,7 +194,7 @@ Las flechas van siempre hacia abajo. Cinco reglas que no se saltan:
    `AudioContext` suelto dentro de un componente.
 3. **Un `feature` no importa de otro `feature`.** Lo compartido sube a `core/`,
    `ui/` o `state/`. También lo vigila ESLint.
-4. **El audio y el vídeo del usuario no salen del dispositivo.** A la IA solo
+4. **El audio del usuario no sale del dispositivo.** A la IA solo
    viajan símbolos: tonalidad, escala, nombres de notas, grado actual. Y a la base
    de datos, identificadores de unidad, números y fechas.
    Ver [AI.md](./AI.md) y [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md).
@@ -201,19 +233,47 @@ eso vive en `audio/`, no en el componente.
 
 **`useEffect` no es `ngOnInit`.** Se ejecuta después de pintar, puede
 ejecutarse dos veces en desarrollo (modo estricto) y debe devolver su propia
-limpieza. Todo lo que abre un recurso —micro, cámara, grabación— tiene que
+limpieza. Todo lo que abre un recurso —micro, grabación— tiene que
 cerrarse en ese `return`, o al recargar en caliente se quedan dos micrófonos
 abiertos.
 
-**Composición con `children` en vez de proyección de contenido.** El grabador
-envuelve a la pantalla de componer y la enseña dentro. En Angular sería
-`<ng-content>`; aquí es una prop más —`children`— que resulta ser un árbol de
-componentes. Por eso el grabador puede envolver cualquier cosa sin importarla:
-recibe lo que le den ya construido.
+**Y un recurso que es único no puede vivir en un componente.** Es la otra mitad
+de lo anterior y costó un fallo real. El micrófono lo abren dos botones —el del
+afinador y el de la barra— y el estado de sesión es uno solo; con las
+referencias dentro del gancho, cada componente tenía su copia y podía decir «he
+parado» sin haber parado nada. Ahora la entrada, los motores y la suscripción
+viven en el módulo de `state/use-listening.ts`, y lo que cuenta el componente es
+**cuántos hay montados**: se suelta el aparato cuando no queda ninguno, no cuando
+se va uno. Un `<button>` que abre un recurso compartido no es su dueño.
+
+**Contar montados solo vale si lo que sujeta no se desmonta al navegar.** Cada
+`page.tsx` montaba su propio `AppShell`, así que ir de `/afinar` a `/aprender`
+desmontaba la barra, el recuento llegaba a cero y el micro se cerraba **con la
+barra diciendo que seguía escuchando**. Ahora el marco vive en el layout del grupo
+`app/(marco)/`, que Next conserva entre sus páginas: el micro abierto sigue
+abierto al cambiar de pantalla, y cuando el recuento sí llega a cero —al ir a la
+portada— la sesión vuelve a reposo con él. Y como abrirlo espera varias veces
+—a descargar los motores, al permiso—, cada espera mira si el arranque sigue
+siendo de alguien: un «parar» o una pantalla que se va en medio ya no dejan una
+pista viva sin dueño.
 
 **Server components por defecto.** En Next con App Router, un componente se
 renderiza en el servidor salvo que lleve `'use client'` en la primera línea.
 Todo lo que toque `navigator`, `window` o un hook necesita esa marca.
+
+Y de ahí sale una trampa propia de `ui/`, que es la capa que **usan las dos
+orillas**: una pieza sin `'use client'` la puede montar una pantalla de cliente o
+una página de servidor, y en la segunda no caben ni un `ref` ni un manejador de
+eventos. `ui/Disclosure` ganó los dos para poder avisar de si está abierto, y la
+portada —que lo usa para sus preguntas— pasó a devolver **500** con «Refs cannot
+be used in Server Components». Los cinco comandos pasaban, `pnpm build`
+incluido: montar el componente en un test de jsdom es un render de cliente y ahí
+el `ref` es legal. Lo cazó pedir la página con un navegador.
+
+La regla: en `ui/`, lo que solo tiene sentido en el cliente se engancha **solo si
+quien lo monta lo pide**. Pasada la prop, quien la pasa es de cliente y el
+componente baja con él; sin pasarla, el elemento sale limpio y el servidor lo
+sirve.
 
 El layout raíz es de servidor y lee la cuenta, y lleva `export const dynamic =
 'force-dynamic'`. Sin eso, un `pnpm build` hecho sin `DATABASE_URL` deja las

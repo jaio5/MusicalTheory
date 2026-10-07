@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PlanId } from '@core/billing';
-import { COURSES, EMPTY_PROGRESS, startAt, type Progress } from '@core/music';
+import { COURSES, EMPTY_PROGRESS, startAt, UNIT_ORDER, type Progress } from '@core/music';
 
 import { StartPicker } from './StartPicker';
+
+/** Un instante cualquiera: el dominio lo pide por parámetro y aquí da igual cuál. */
+const CUANDO = '2026-09-24T10:00:00.000Z';
 
 function pintar(progress: Progress = EMPTY_PROGRESS, plan: PlanId = 'basico') {
   const onChange = vi.fn();
@@ -35,13 +38,13 @@ describe('Elegir por dónde empezar', () => {
   });
 
   it('enseña el curso elegido', () => {
-    pintar(startAt(EMPTY_PROGRESS, 'profesional-2'));
+    pintar(startAt(EMPTY_PROGRESS, 'profesional-2', CUANDO));
 
     expect(desplegable().value).toBe('profesional-2');
   });
 
   it('avisa del curso elegido y deja volver al principio', async () => {
-    const onChange = pintar(startAt(EMPTY_PROGRESS, 'profesional-2'));
+    const onChange = pintar(startAt(EMPTY_PROGRESS, 'profesional-2', CUANDO));
 
     await userEvent.selectOptions(desplegable(), '');
 
@@ -73,7 +76,7 @@ describe('Elegir por dónde empezar', () => {
   });
 
   it('con plan se pueden elegir todos', () => {
-    pintar(EMPTY_PROGRESS, 'pro');
+    pintar(EMPTY_PROGRESS, 'medio');
 
     for (const course of COURSES) {
       expect(screen.getByRole('option', { name: new RegExp(course.title) })).toBeEnabled();
@@ -86,5 +89,22 @@ describe('Elegir por dónde empezar', () => {
     pintar();
 
     expect(screen.getByText(/no da por hechas las unidades anteriores/i)).toBeInTheDocument();
+  });
+
+  /**
+   * Con un punto de partida elegido, la frase cambia: lo que hay antes sigue
+   * abierto. Y si ya se ha empezado, además se promete que lo hecho no se
+   * pierde al cambiarlo, que es la pregunta que frena a la hora de tocarlo.
+   */
+  it('con punto de partida elegido, la frase dice lo que pasa con lo anterior', () => {
+    const segundo = COURSES[1]!.id;
+
+    pintar({ ...EMPTY_PROGRESS, startCourse: segundo });
+    expect(screen.getByText(/queda abierto por si te hace falta/i)).toBeInTheDocument();
+
+    cleanup();
+
+    pintar({ ...EMPTY_PROGRESS, startCourse: segundo, done: [UNIT_ORDER[0]!] });
+    expect(screen.getByText(/lo que ya has hecho no se pierde/i)).toBeInTheDocument();
   });
 });

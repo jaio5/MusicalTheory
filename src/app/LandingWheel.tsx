@@ -19,13 +19,15 @@ export function LandingWheel() {
   return (
     <div className="flex flex-col items-center gap-3">
       <KeyPanel compact />
-      <p className="text-text-muted text-center font-mono text-sm">
+      <p className="text-text-muted text-center text-sm">
         {activeKey === null ? 'Pulsa una tonalidad' : keyName(activeKey.tonic, activeKey.mode)}
       </p>
+      {/* Con alto de dedo: con `py-1.5` medía treinta y dos píxeles, y es lo que
+          se pulsa justo después de elegir con el dedo una tonalidad. */}
       {activeKey !== null && (
         <Link
           href="/componer"
-          className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 border px-4 py-1.5 text-sm"
+          className="border-brass-bright text-brass-bright hover:bg-brass-dim/20 min-h-tap inline-flex items-center border px-4 text-sm"
         >
           Componer en {keyName(activeKey.tonic, activeKey.mode)}
         </Link>

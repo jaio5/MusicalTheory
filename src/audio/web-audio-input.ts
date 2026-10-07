@@ -1,10 +1,17 @@
 /**
  * Entrada de audio sobre Web Audio.
  *
- * Es el único sitio del proyecto que llama a getUserMedia y que construye un
- * AudioContext. Todo lo demás habla con la interfaz AudioInput.
+ * Es el único sitio del proyecto que construye un AudioContext, y el único que
+ * llama a getUserMedia **para analizar**. Todo lo demás habla con la interfaz
+ * AudioInput.
+ *
+ * Presta su flujo a quien grabe (`stream-source.ts`), y por eso componer tocando
+ * ya no abre un segundo micrófono para quedarse con la toma.
  */
 
+import { EstadoObservable, type Oyente } from '@core/estado-observable';
+import { MAX_RECORDING_SECONDS, type AudioRecorder, type Recording } from './recorder';
+import type { StreamSource } from './stream-source';
 import type {
   AudioInput,
   AudioInputError,
@@ -13,29 +20,53 @@ import type {
 } from './audio-input';
 
 /** Ventana de análisis por defecto. El porqué está en docs/AUDIO-PITCH.md. */
-export const DEFAULT_FRAME_SIZE = 2048;
+const DEFAULT_FRAME_SIZE = 2048;
 
 /**
  * Ventana del espectro. A 48 kHz son 5,9 Hz por casilla, que es lo que hace
  * falta para no confundir dos notas vecinas en las cuerdas graves.
  */
-export const DEFAULT_SPECTRUM_SIZE = 8192;
+const DEFAULT_SPECTRUM_SIZE = 8192;
 
-type StateListener = (state: AudioInputState) => void;
+/**
+ * Por encima de esto no se analiza nada, en hercios.
+ *
+ * **Lo pide el clic del metrónomo**, que ahora suena durante toda la toma y el
+ * micro lo oye. Es un golpe de ruido por encima de 4,5 kHz (`metronome.ts`), y
+ * con dos pasos bajos aquí delante llega al análisis unos veinte decibelios más
+ * abajo. No se pierde nada que se mire: el motor de tono llega a 1400 Hz y el de
+ * acordes a mil; a 2,2 kHz, lo más alto que mira el croma por defecto, se quedan
+ * dos decibelios.
+ *
+ * Es la segunda red, no la primera. Lo que deja fuera al clic es que no tiene
+ * altura y que su golpe no llega a la mitad del ataque de una nota
+ * (`transcribirPunteo`): medido con una guitarra sintética y el clic sumado a su
+ * volumen de fuga, sin el filtro la toma ya sale entera. El filtro cubre lo que
+ * esa medida no prueba —un clic más fuerte que la cuerda— y le quita al croma lo
+ * que no es suyo. La toma que se graba para oírla no pasa por aquí: se graba el
+ * micro tal cual.
+ */
+export const CORTE_DEL_ANALISIS_HZ = 3000;
 
-export class WebAudioInput implements AudioInput {
+export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
   readonly frameSize: number;
   readonly spectrumSize: number;
 
   readonly #deviceId: string | undefined;
-  readonly #listeners = new Set<StateListener>();
+  readonly #estado = new EstadoObservable<AudioInputState>('idle');
 
-  #state: AudioInputState = 'idle';
   #error: AudioInputError | null = null;
   #context: AudioContext | null = null;
   #stream: MediaStream | null = null;
   #analyser: AnalyserNode | null = null;
   #spectrumAnalyser: AnalyserNode | null = null;
+  /** Lo que hay que soltar al parar: el vigilante del contexto. */
+  #soltarVigilancia: (() => void) | null = null;
+  /** La grabación en curso, si la hay. */
+  #grabadora: MediaRecorder | null = null;
+  #trozos: Blob[] = [];
+  /** El reloj del tope de duración. Se apaga al parar, o quedaría suelto. */
+  #relojDelTope: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: AudioInputOptions = {}) {
     this.frameSize = options.frameSize ?? DEFAULT_FRAME_SIZE;
@@ -44,7 +75,7 @@ export class WebAudioInput implements AudioInput {
   }
 
   get state(): AudioInputState {
-    return this.#state;
+    return this.#estado.valor;
   }
 
   get error(): AudioInputError | null {
@@ -56,8 +87,18 @@ export class WebAudioInput implements AudioInput {
     return this.#context?.sampleRate ?? 0;
   }
 
+  /**
+   * El flujo abierto, para prestárselo a quien grabe.
+   *
+   * Prestar no es ceder: quien lo recibe **no cierra las pistas**. Las suelta
+   * esta entrada al pararse, que es quien las abrió.
+   */
+  get stream(): MediaStream | null {
+    return this.#stream;
+  }
+
   async start(): Promise<void> {
-    if (this.#state === 'running' || this.#state === 'requesting') {
+    if (this.#estado.valor === 'running' || this.#estado.valor === 'requesting') {
       return;
     }
 
@@ -71,7 +112,7 @@ export class WebAudioInput implements AudioInput {
     }
 
     this.#error = null;
-    this.#setState('requesting');
+    this.#estado.cambiarA('requesting');
 
     try {
       // Las tres opciones desactivadas están pensadas para videollamadas y
@@ -114,8 +155,18 @@ export class WebAudioInput implements AudioInput {
       // La entrada no se conecta a los altavoces a propósito: con el ampli
       // abierto sería un acople inmediato.
       const source = this.#context.createMediaStreamSource(this.#stream);
-      source.connect(this.#analyser);
-      source.connect(this.#spectrumAnalyser);
+      // Dos pasos bajos seguidos: con uno solo, el clic llegaba a medias.
+      const filtros = [0, 1].map(() => {
+        const filtro = this.#context!.createBiquadFilter();
+        filtro.type = 'lowpass';
+        filtro.frequency.value = CORTE_DEL_ANALISIS_HZ;
+        return filtro;
+      });
+      source.connect(filtros[0]!).connect(filtros[1]!);
+      filtros[1]!.connect(this.#analyser);
+      filtros[1]!.connect(this.#spectrumAnalyser);
+
+      this.#vigilarContexto(this.#context);
     } catch {
       await this.stop();
       this.#fail({
@@ -126,10 +177,173 @@ export class WebAudioInput implements AudioInput {
       return;
     }
 
-    this.#setState('running');
+    this.#estado.cambiarA('running');
+  }
+
+  /**
+   * Mantiene el contexto despierto mientras dure la escucha.
+   *
+   * **Reanudarlo una vez al crearlo no basta**, y esto es un fallo que llegó a
+   * notarse tocando: el sistema suspende el contexto solo —al bloquear la
+   * pantalla, al cambiar de dispositivo de sonido, al entrar en reposo— y
+   * entonces `getFloatTimeDomainData` sigue contestando, pero escribe ceros. El
+   * motor no detecta nada, la pantalla sigue diciendo «escuchando» y no se oye
+   * nada: había que parar y volver a arrancar, que es lo que crea un contexto
+   * nuevo.
+   *
+   * Se vigila por dos caminos porque avisan en momentos distintos:
+   * `statechange` salta en cuanto el contexto cambia, y `visibilitychange` es el
+   * que hace falta cuando el navegador lo suspendió al perder la pestaña de
+   * vista y no vuelve solo al recuperarla.
+   */
+  #vigilarContexto(context: AudioContext): void {
+    const despertar = () => {
+      // Solo mientras se supone que estamos escuchando: si ya se paró, dejarlo
+      // dormido es lo correcto.
+      /* v8 ignore next 3 -- al parar se quita el oyente, asi que esto solo protege de una carrera */
+      if (this.#context !== context || this.#estado.valor !== 'running') {
+        return;
+      }
+      if (context.state !== 'suspended') {
+        return;
+      }
+      void context.resume().catch(() => {
+        // No se ha podido despertar. Decirlo, porque lo peor que puede hacer
+        // esta pantalla es seguir diciendo que escucha mientras no oye nada.
+        this.#fail({
+          state: 'error',
+          message:
+            'El sonido se ha quedado dormido y no hemos podido despertarlo. Para la escucha y vuelve a arrancarla.',
+        });
+      });
+    };
+
+    context.addEventListener('statechange', despertar);
+    /* v8 ignore next 3 -- en el servidor no hay `document`, y alli esto no se monta */
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', despertar);
+    }
+
+    this.#soltarVigilancia = () => {
+      context.removeEventListener('statechange', despertar);
+      /* v8 ignore next 3 -- en el servidor no hay `document`, y alli esto no se monta */
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', despertar);
+      }
+    };
+  }
+
+  /**
+   * Empieza a guardar el sonido crudo.
+   *
+   * Con `MediaRecorder` y no leyendo bloques del analizador, que es lo que
+   * parecía más directo y no vale: el analizador contesta *el último bloque*, y
+   * leerlo cada tanto deja huecos y repeticiones. Un espectro calculado sobre una
+   * señal con costuras se llena de faldas que no existen. `MediaRecorder` da el
+   * flujo entero y seguido, que es lo único que sirve para volver a analizarlo.
+   *
+   * Es además lo que ya usa `media/stream-recorder.ts` para grabar la toma que
+   * te descargas, así que no entra una pieza nueva en el proyecto.
+   */
+  startRecording(): boolean {
+    if (this.#stream === null || typeof MediaRecorder === 'undefined') {
+      return false;
+    }
+    this.stopRecordingSilently();
+
+    try {
+      this.#trozos = [];
+      const grabadora = new MediaRecorder(this.#stream);
+      grabadora.addEventListener('dataavailable', (evento) => {
+        if (evento.data.size > 0) {
+          this.#trozos.push(evento.data);
+        }
+      });
+      grabadora.start();
+      this.#grabadora = grabadora;
+
+      // El tope no es una regla musical: son 34 MB de memoria por cada tres
+      // minutos a 48 kHz. Se para sola por si alguien deja el botón puesto.
+      //
+      // **El reloj para esta grabadora y solo esta.** Estuvo leyendo
+      // `this.#grabadora` al disparar, que es la de entonces y no la de ahora:
+      // grabar diez segundos, parar, y volver a grabar dejaba un reloj vivo que
+      // a los tres minutos del primero cortaba la segunda grabación por la
+      // mitad, sin motivo visible. Se cierra sobre la suya y se apaga al parar.
+      this.#relojDelTope = setTimeout(() => {
+        /* v8 ignore next 3 -- al parar se apaga el reloj, asi que cuando salta la grabadora sigue viva */
+        if (grabadora.state !== 'inactive') {
+          grabadora.stop();
+        }
+      }, MAX_RECORDING_SECONDS * 1000);
+      return true;
+    } catch {
+      this.#grabadora = null;
+      return false;
+    }
+  }
+
+  async stopRecording(): Promise<Recording | null> {
+    const grabadora = this.#grabadora;
+    const context = this.#context;
+    this.#grabadora = null;
+    this.#apagarReloj();
+    if (grabadora === null || context === null) {
+      return null;
+    }
+
+    if (grabadora.state !== 'inactive') {
+      await new Promise<void>((listo) => {
+        grabadora.addEventListener('stop', () => listo(), { once: true });
+        grabadora.stop();
+      });
+    }
+
+    const trozos = this.#trozos;
+    this.#trozos = [];
+    if (trozos.length === 0) {
+      return null;
+    }
+
+    try {
+      const datos = await new Blob(trozos).arrayBuffer();
+      const decodificado = await context.decodeAudioData(datos);
+      // Un solo canal: el micro de una guitarra es mono, y si viniera estéreo
+      // los dos canales dicen lo mismo para lo que hace falta aquí.
+      const samples = decodificado.getChannelData(0);
+      return {
+        samples: samples as Float32Array<ArrayBuffer>,
+        sampleRate: decodificado.sampleRate,
+      };
+    } catch {
+      // Un formato que el propio navegador no sabe decodificar, o el contexto
+      // cerrado mientras tanto. No se enseña error: lo que se pierde es la
+      // mejora, y los acordes que el motor oyó en vivo siguen ahí.
+      return null;
+    }
+  }
+
+  /** Corta una grabación anterior sin esperar a nada. */
+  private stopRecordingSilently(): void {
+    if (this.#grabadora !== null && this.#grabadora.state !== 'inactive') {
+      this.#grabadora.stop();
+    }
+    this.#grabadora = null;
+    this.#trozos = [];
+    this.#apagarReloj();
+  }
+
+  #apagarReloj(): void {
+    if (this.#relojDelTope !== null) {
+      clearTimeout(this.#relojDelTope);
+      this.#relojDelTope = null;
+    }
   }
 
   async stop(): Promise<void> {
+    this.stopRecordingSilently();
+    this.#soltarVigilancia?.();
+    this.#soltarVigilancia = null;
     this.#analyser = null;
     this.#spectrumAnalyser = null;
 
@@ -144,13 +358,25 @@ export class WebAudioInput implements AudioInput {
       await context.close();
     }
 
-    if (this.#state === 'running' || this.#state === 'requesting') {
-      this.#setState('idle');
+    if (this.#estado.valor === 'running' || this.#estado.valor === 'requesting') {
+      this.#estado.cambiarA('idle');
     }
   }
 
+  /**
+   * Si el contexto está despierto de verdad.
+   *
+   * Se comprueba antes de leer porque un contexto suspendido **no falla**:
+   * escribe ceros en el buffer y devuelve como si nada. Eso llega al motor como
+   * silencio, y silencio es indistinguible de no estar tocando. Devolviendo
+   * `false` el motor sabe que no hay dato, que no es lo mismo.
+   */
+  get #despierto(): boolean {
+    return this.#estado.valor === 'running' && this.#context?.state === 'running';
+  }
+
   readTimeDomain(target: Float32Array<ArrayBuffer>): boolean {
-    if (this.#analyser === null || this.#state !== 'running') {
+    if (this.#analyser === null || !this.#despierto) {
       return false;
     }
     this.#analyser.getFloatTimeDomainData(target);
@@ -158,33 +384,20 @@ export class WebAudioInput implements AudioInput {
   }
 
   readSpectrum(target: Float32Array<ArrayBuffer>): boolean {
-    if (this.#spectrumAnalyser === null || this.#state !== 'running') {
+    if (this.#spectrumAnalyser === null || !this.#despierto) {
       return false;
     }
     this.#spectrumAnalyser.getFloatFrequencyData(target);
     return true;
   }
 
-  subscribe(listener: StateListener): () => void {
-    this.#listeners.add(listener);
-    return () => {
-      this.#listeners.delete(listener);
-    };
+  subscribe(listener: Oyente<AudioInputState>): () => void {
+    return this.#estado.suscribir(listener);
   }
 
   #fail(error: AudioInputError): void {
     this.#error = error;
-    this.#setState(error.state);
-  }
-
-  #setState(state: AudioInputState): void {
-    if (this.#state === state) {
-      return;
-    }
-    this.#state = state;
-    for (const listener of this.#listeners) {
-      listener(state);
-    }
+    this.#estado.cambiarA(error.state);
   }
 }
 
@@ -223,17 +436,6 @@ function describeCaptureError(cause: unknown): AudioInputError {
   }
 }
 
-/**
- * Las entradas de audio disponibles.
- *
- * Los nombres solo llegan después de conceder el permiso: antes, el navegador
- * los deja en blanco para no delatar qué hardware hay conectado. Por eso el
- * selector solo tiene sentido una vez arrancada la escucha.
- */
-export async function listAudioInputDevices(): Promise<MediaDeviceInfo[]> {
-  if (typeof navigator === 'undefined' || navigator.mediaDevices?.enumerateDevices === undefined) {
-    return [];
-  }
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  return devices.filter((device) => device.kind === 'audioinput');
-}
+// Las entradas de audio disponibles viven en `entradas-de-audio.ts`: listarlas
+// no necesita abrir nada, y desde aquí arrastraban esta entrada entera a /afinar
+// y a la portada.

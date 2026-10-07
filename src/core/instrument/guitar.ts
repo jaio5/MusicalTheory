@@ -9,8 +9,16 @@
 import { midiToFrequency, midiToPitchClass, type PitchClass } from '../music/notes';
 
 export interface GuitarString {
-  /** Numeración de guitarrista: la 1 es la más aguda. */
-  readonly number: 1 | 2 | 3 | 4 | 5 | 6;
+  /**
+   * Numeración de guitarrista: la 1 es la más aguda.
+   *
+   * Un número y no `1 | 2 | 3 | 4 | 5 | 6`. El tipo estrecho decía que aquí solo
+   * caben seis cuerdas, y era mentira: `fretboardPositions`, `voicings` y
+   * `nearestString` recorren la afinación que se les pase y funcionan igual con
+   * cuatro o con siete. Lo único que hacía era impedir que un bajo o un ukelele
+   * entraran por la puerta que ya estaba abierta.
+   */
+  readonly number: number;
   /** Nota al aire, como número MIDI. */
   readonly midi: number;
   /** Nombre en español, tal como se dice al afinar. */
@@ -28,13 +36,25 @@ export const STANDARD_TUNING: readonly GuitarString[] = [
 ];
 
 /**
- * Trastes que se muestran. Quince cubre las cinco posiciones de la pentatónica
- * sin que el dibujo se haga ilegible.
+ * Trastes que se muestran.
+ *
+ * **Doce, y antes eran quince** ([adr/0038](../../../docs/adr/0038-doce-trastes-que-se-vean.md)).
+ * Quince cubrían las cinco posiciones de la pentatónica, pero repartidos en una
+ * tira cuatro veces más ancha que alta: en un monitor de 1440 cada traste salía
+ * a 94 px y las cuerdas a 49. Con doce, el mismo hueco da 107 y 54.
+ *
+ * Lo que se pierde es la quinta posición, que vive entre el doce y el quince.
+ * Se prefiere ver bien cuatro que adivinar cinco.
  */
-export const DEFAULT_FRET_COUNT = 15;
+export const DEFAULT_FRET_COUNT = 12;
 
-/** Trastes donde van los puntos de referencia del mástil. */
-export const INLAY_FRETS: readonly number[] = [3, 5, 7, 9, 12, 15];
+/**
+ * Trastes donde van los puntos de referencia del mástil.
+ *
+ * Sin el quince, que ya no se dibuja: un punto fuera del mástil es un punto
+ * pintado en el aire.
+ */
+export const INLAY_FRETS: readonly number[] = [3, 5, 7, 9, 12];
 
 export function stringFrequency(string: GuitarString): number {
   return midiToFrequency(string.midi);

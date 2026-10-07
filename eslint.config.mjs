@@ -65,7 +65,10 @@ const config = [
                 'Solo app/ abre src/server/. Lo que haga falta abajo se pasa por props o se pide por fetch a una ruta.',
             },
             {
-              group: ['@features/*/*'],
+              // Sin la forma de un solo tramo, `@features/recorder` —el índice—
+              // se colaba: `@features/*/*` exige dos, y el índice es donde
+              // primero se busca al importar de otro feature.
+              group: ['@features/*'],
               message:
                 'Un feature no importa de otro feature. Lo compartido sube a core/, ui/ o state/.',
             },

@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { keyName, noteName, resolveProgression } from '@core/music';
+import { keyName, noteName, resolveProgression, SCALES } from '@core/music';
 import {
   createSessionStorage,
   describeSession,
   type SessionStorage,
   type StoredSession,
 } from '@state/session-storage';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import { selectActiveKey, selectEscala, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
+import { IconoSesiones } from '@ui/icons';
+import { Vacio } from '@ui/Vacio';
 
 export interface SessionsPanelProps {
   readonly createStorage?: () => SessionStorage;
@@ -29,6 +31,7 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
   });
 
   const storage = useCallback((): SessionStorage => {
+    /* v8 ignore next -- sin fabrica se usa el almacen de verdad, que es el de la aplicacion */
     storageRef.current ??= factoryRef.current?.() ?? createSessionStorage();
     return storageRef.current;
   }, []);
@@ -59,7 +62,7 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
       id: `${now()}`,
       savedAt: now(),
       key,
-      scaleId: state.scaleId,
+      scaleId: selectEscala(state),
       notes: state.noteHistory.map((note) => noteName(note.pitchClass)),
       chords,
     };
@@ -75,26 +78,44 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
 
   async function restore(session: StoredSession) {
     const { actions } = useSessionStore.getState();
-    actions.setScale(session.scaleId);
+    // **Lo guardado no se cree a ciegas**, igual que en `ResumeLast`: una escala
+    // que ya no existe —renombrada, o de otra versión— llegaba al mástil y tumbaba
+    // componer. Se retoma la tonalidad, y la escala solo si sigue en el catálogo.
+    // `Object.hasOwn` porque un `toString` también «está» en cualquier objeto.
+    if (Object.hasOwn(SCALES, session.scaleId)) {
+      actions.setScale(session.scaleId);
+    }
     if (session.key !== null) {
       actions.pinKey(session.key);
     }
   }
 
   async function remove(id: string) {
-    await storage().remove(id);
-    await refresh();
+    // Con su aviso, como leer y guardar. Sin él, en modo privado la fila se
+    // quedaba ahí sin decir nada y la promesa se rechazaba sola.
+    try {
+      await storage().remove(id);
+      await refresh();
+    } catch {
+      setMessage('No se ha podido borrar. El navegador puede estar en modo privado.');
+    }
   }
 
   return (
     <div>
-      <div className="flex justify-end">
-        <Button onClick={() => void save()}>Guardar esta sesión</Button>
+      {/* La explicación y el botón, en la misma fila y en ese orden: qué es esto
+          antes que el botón de hacerlo. Estaban en dos filas y el botón arriba
+          del todo a la derecha, tan lejos de su frase que parecía de otra cosa. */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="text-text-muted max-w-prose text-sm">
+          Se guardan en tu navegador: tonalidad, escala y las notas que has tocado. Nada de audio, y
+          sin cuenta ni servidor.
+        </p>
+        <Button onClick={() => void save()} className="shrink-0">
+          <IconoSesiones />
+          Guardar esta sesión
+        </Button>
       </div>
-      <p className="text-text-muted mt-2 text-sm">
-        Se guardan en tu navegador: tonalidad, escala y las notas que has tocado. Ni audio ni vídeo,
-        y sin cuenta ni servidor.
-      </p>
 
       {message !== null && (
         <p role="alert" className="text-oxblood-bright mt-4 text-sm">
@@ -103,7 +124,10 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
       )}
 
       {sessions.length === 0 ? (
-        <p className="text-text-muted mt-6 text-sm">Todavía no has guardado ninguna.</p>
+        <Vacio tono="discreto" icono={<IconoSesiones />} titulo="Todavía no has guardado ninguna">
+          Una sesión es el rastro de un rato de tocar: en qué tonalidad ibas y qué notas salieron.
+          Guarda esta y la tendrás para retomarla donde la dejaste.
+        </Vacio>
       ) : (
         <ul className="mt-6 space-y-2">
           {sessions.map((session) => (

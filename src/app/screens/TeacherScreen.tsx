@@ -1,12 +1,24 @@
 'use client';
 
-import { can, cheapestPlanWith, dailyAiRequests, monthlyAiRequests, planOf } from '@core/billing';
+import Link from 'next/link';
+
+import {
+  can,
+  cheapestPlanWith,
+  dailyAiRequests,
+  gastoDeUnaSalida,
+  monthlyAiRequests,
+  planOf,
+} from '@core/billing';
 import { keyName } from '@core/music';
 import { Teacher } from '@features/learn';
 import { KeyPanel } from '@features/wheel';
+import { Disclosure } from '@ui/Disclosure';
 import { useAccount } from '@state/account';
+import { estiloBoton } from '@ui/Button';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { PlanLock } from '@ui/PlanLock';
+import { Screen, Section } from '@ui/Screen';
 
 /**
  * El profesor, en su propia pantalla.
@@ -22,67 +34,143 @@ import { PlanLock } from '@ui/PlanLock';
  */
 export function TeacherScreen() {
   const activeKey = useSessionStore(selectActiveKey);
-  const { account, signedIn } = useAccount();
+  const { account, accounts, signedIn } = useAccount();
   const plan = planOf(account.plan);
 
-  return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4 md:p-8">
-        <header>
-          <h1 className="text-text text-3xl">Profesor</h1>
-          <p className="text-text-muted mt-2 max-w-prose">
-            Pregunta lo que quieras de teoría. Responde en la tonalidad que tengas puesta y con sus
-            acordes, en tres frases y sin darte una lección que no has pedido.
-          </p>
-        </header>
-
-        <section
-          aria-label="Tonalidad"
-          className="border-border flex flex-wrap items-center gap-4 border p-4"
-        >
-          <KeyPanel compact />
-          <div className="min-w-0">
-            <p className="text-text-muted font-mono text-xs tracking-widest uppercase">
-              Está explicando en
-            </p>
-            <p className="text-brass-bright text-lg">
+  // Con relieve y con el relleno justo: cerrada es **una línea**, y una caja de
+  // cuatro de relleno alrededor de un renglón deja ochenta píxeles de hueco que no
+  // dicen nada. Abierta, el relleno lo pone lo de dentro.
+  const tonalidad = (
+    <section aria-label="Tonalidad" className="superficie px-4 py-1">
+      <Disclosure
+        summary={
+          <>
+            Explicando en:{' '}
+            <span className="text-brass-bright">
               {activeKey === null
                 ? 'ninguna tonalidad todavía'
                 : keyName(activeKey.tonic, activeKey.mode)}
-            </p>
-            <p className="text-text-muted mt-1 text-xs">
-              {activeKey === null
-                ? 'Elige una en la rueda, o toca unos compases con el micro abierto y se detecta sola.'
-                : 'Cámbiala y la misma pregunta se contesta con otros acordes.'}
-            </p>
+            </span>
+          </>
+        }
+      >
+        {/* **En fila en cuanto hay ancho** (`docs/ESTILO.md`) y otra vez en
+            columna desde `lg`, que es cuando va en la columna estrecha de al lado
+            del formulario: ahí la rueda ocupa el ancho y la frase va debajo. */}
+        <div className="flex flex-col items-center gap-4 pt-3 sm:flex-row sm:gap-6 lg:flex-col lg:items-start lg:gap-4">
+          <div className="w-full max-w-sm shrink-0">
+            <KeyPanel compact />
           </div>
-        </section>
+          <p className="text-text-muted max-w-prose min-w-0 text-sm">
+            {activeKey === null
+              ? 'Elige una en la rueda, o toca unas notas sueltas con el micro abierto y se detecta sola.'
+              : 'Cámbiala y la misma pregunta se contesta con otros acordes.'}
+          </p>
+        </div>
+      </Disclosure>
+    </section>
+  );
 
-        <section aria-label="La pregunta">
-          <Teacher />
-        </section>
+  // Lo que acompaña a la pregunta: en qué tonalidad se contesta, qué da Pro y
+  // cuánto queda del cupo. Las tres cosas se consultan mientras se pregunta, y
+  // ninguna es la pregunta.
+  const alLado = (
+    <>
+      {tonalidad}
 
-        {/* El cupo es de todos los planes, así que aquí no hay candado que enseñar
-            salvo el del profesor que sabe por dónde vas, que es lo que distingue a
-            Pro. */}
-        {!can(account.plan, 'profesor-con-progreso') && (
-          <section aria-label="Con el plan Pro">
-            <PlanLock
-              needed={cheapestPlanWith('profesor-con-progreso')}
-              what="Un profesor que sabe qué unidades llevas hechas"
-              signedIn={signedIn}
-              compact
-            />
-          </section>
-        )}
+      {/* El cupo es de todos los planes, así que aquí no hay candado que enseñar
+          salvo el del profesor que sabe por dónde vas, que es lo que distingue a
+          Medio. Sin cuentas, ni ese: un plan que no se puede contratar no se ofrece. */}
+      {accounts && !can(account.plan, 'profesor-con-progreso') && (
+        <Section title="Con el plan Medio">
+          {/* Aquí no es compacto: es el contenido entero de un apartado, y su
+              enlace es lo único que se puede hacer en él. Compacto es para una
+              fila estrecha metida dentro de otra cosa, como la del camino. */}
+          <PlanLock
+            needed={cheapestPlanWith('profesor-con-progreso')}
+            what="Un profesor que sabe qué unidades llevas hechas"
+            signedIn={signedIn}
+          />
+        </Section>
+      )}
 
-        <p className="text-text-muted text-xs">
-          Tu plan {plan.name} incluye {monthlyAiRequests(plan.id, account.aiModel)} peticiones a la
-          IA al mes —hasta {dailyAiRequests(plan.id, account.aiModel)} en un mismo día—, contando
-          las preguntas de aquí y las ideas de componer. A la IA solo viajan símbolos: la tonalidad,
-          la escala y lo que escribas. Ni audio, ni vídeo.
+      {accounts && (
+        <p className="text-text-muted max-w-prose text-xs">
+          Tu plan {plan.name} incluye {monthlyAiRequests(plan.id, account.aiModel)} preguntas al
+          profesor al mes —hasta {dailyAiRequests(plan.id, account.aiModel)} en un mismo día—
+          {can(plan.id, 'versiones') && (
+            <>, y las salidas de componer salen de ahí: {gastoDeUnaSalida(account.aiModel)}</>
+          )}
+          . A la IA solo viajan símbolos: la tonalidad, la escala y lo que escribas. Nada de audio.
         </p>
-      </div>
-    </div>
+      )}
+    </>
+  );
+
+  return (
+    <Screen
+      title="Profesor"
+      lead="Pregunta lo que quieras de teoría: responde en la tonalidad que tengas puesta y con sus acordes, en tres frases."
+      aside={alLado}
+    >
+      {/*
+        **La pregunta primero, y lo que la acompaña al lado.**
+
+        Mandaba la rueda: era lo primero de la pantalla, y a 390 px la pregunta —a
+        lo que se viene— caía bajo el pliegue. Ahora la pregunta va delante, y la
+        tonalidad es una línea («Explicando en: Do mayor») que se abre si hace
+        falta cambiarla.
+
+        **Desde `lg`, la conversación y lo que la acompaña van lado a lado** —la
+        tonalidad, el plan Medio y el cupo, en la columna de `aside`—. Antes la
+        tonalidad iba al lado y el plan y el cupo debajo, todo en una caja de 1024
+        px: a 1920 la pantalla usaba la mitad del ancho y el plan Medio quedaba bajo
+        el pliegue.
+
+        Tampoco hace falta abrirla para empezar: sin tonalidad, el formulario
+        ofrece las cuatro más comunes ahí mismo (`features/learn/Teacher`), así que
+        la rueda es para quien quiere otra.
+      */}
+      <Section title="La pregunta">
+        <div>
+          {accounts ? (
+            <>
+              {/* **Se dice que es una IA, y aquí, donde se pregunta** (AI Act,
+                  art. 50.1): quien escribe tiene que saber que le contesta una
+                  máquina antes de escribir, no enterarse en la política de
+                  privacidad. El muñeco es un profesor dibujado, y sin esto se
+                  puede leer como una persona al otro lado. */}
+              <p className="text-text-muted mb-3 max-w-prose text-sm">
+                Hablas con una IA, no con una persona: puede equivocarse.{' '}
+                <Link href="/privacidad" className="enlace">
+                  Qué se le manda
+                </Link>
+                .
+              </p>
+              <Teacher />
+            </>
+          ) : (
+            /*
+            **Sin cuentas, el profesor no está, y se dice.** Prometía «quince
+            preguntas al mes» y mandaba a entrar en `/cuenta`, donde lo único que
+            se leía era que aquí no hay cuentas: un callejón con dos puertas. El
+            profesor necesita saber de quién es el gasto, y en esta copia no hay de
+            quién.
+          */
+            <div className="flex max-w-prose flex-col items-start gap-3">
+              <p className="text-text-muted text-sm">
+                Esta copia de la aplicación no tiene cuentas configuradas, y el profesor necesita
+                una: cada pregunta es una llamada a un modelo que se paga, y hay que saber de quién
+                es el gasto. Lo que pasa en tu navegador —el camino, componer, afinar— funciona
+                igual.
+              </p>
+              <Link href="/aprender" className={estiloBoton('primary')}>
+                Seguir aprendiendo
+              </Link>
+            </div>
+          )}
+        </div>
+      </Section>
+    </Screen>
   );
 }

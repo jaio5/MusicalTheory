@@ -1,0 +1,5389 @@
+{
+  "cuando": "2026-09-28T08:56:41.286Z",
+  "casos": [
+    {
+      "tamano": "movil",
+      "escenario": "tocando-sin-tonalidad",
+      "montaje": {
+        "pasos": [],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 320,
+        "alto": 568
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 416,
+        "ancho": 320,
+        "arriba": 239
+      },
+      "ayudas": [],
+      "documentoPct": 73,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 54,
+      "encimaDelDocumento": 11,
+      "duplicados": [
+        {
+          "nombre": "C mayor",
+          "veces": 3
+        },
+        {
+          "nombre": "G mayor",
+          "veces": 3
+        },
+        {
+          "nombre": "A menor",
+          "veces": 3
+        },
+        {
+          "nombre": "E menor",
+          "veces": 3
+        }
+      ],
+      "pequenos": [
+        {
+          "nombre": "A menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 33,
+          "alto": 33
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 33,
+          "alto": 33
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C mayor",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "G mayor",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "A menor",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E menor",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C mayor",
+          "estado": "tapado",
+          "por": "SPAN"
+        },
+        {
+          "nombre": "G mayor",
+          "estado": "tapado",
+          "por": "SPAN"
+        },
+        {
+          "nombre": "A menor",
+          "estado": "tapado",
+          "por": "Profesor"
+        },
+        {
+          "nombre": "E menor",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "Abrir el micrófono",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Salidas",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 702,
+        "conAlgo": 0,
+        "vacioPct": 100
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil",
+      "escenario": "tocando",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 320,
+        "alto": 568
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 416,
+        "ancho": 320,
+        "arriba": 292
+      },
+      "ayudas": [],
+      "documentoPct": 73,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 27,
+      "encimaDelDocumento": 14,
+      "duplicados": [
+        {
+          "nombre": "Tocando",
+          "veces": 2
+        }
+      ],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Tocar",
+          "estado": "tapado",
+          "por": "Grabar"
+        },
+        {
+          "nombre": "Salidas",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 585,
+        "conAlgo": 161,
+        "vacioPct": 72
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil",
+      "escenario": "escribir-vacio",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 320,
+        "alto": 568
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 416,
+        "ancho": 320,
+        "arriba": 292
+      },
+      "ayudas": [],
+      "documentoPct": 73,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 45,
+      "encimaDelDocumento": 14,
+      "duplicados": [],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Partitura",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bloques",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Solo acordes",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escribe un acorde",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C, I. Casa.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Antesala de la dominante.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Em, iii. Casa en penumbra: comparte dos notas con I.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. El otro polo. Con I y V basta para medio repertorio.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Tensión que pide volver a I.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Am, vi. La relativa menor: el mismo material, otro ánimo.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Salidas",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 585,
+        "conAlgo": 105,
+        "vacioPct": 82
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil",
+      "escenario": "escribir-con-acordes",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 320,
+        "alto": 568
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 416,
+        "ancho": 320,
+        "arriba": 229
+      },
+      "ayudas": [
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 320,
+          "arriba": 292
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 296,
+          "arriba": 602
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 158,
+          "ancho": 296,
+          "arriba": 1045
+        }
+      ],
+      "documentoPct": 73,
+      "ayudaMasAlta": {
+        "nombre": "Estrofa",
+        "alto": 229,
+        "ancho": 320,
+        "arriba": 292
+      },
+      "mandosVisibles": 64,
+      "encimaDelDocumento": 11,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escuchar la canción",
+          "estado": "tapado",
+          "por": "A dónde ir"
+        },
+        {
+          "nombre": "MIDI",
+          "estado": "tapado",
+          "por": "Acorde"
+        },
+        {
+          "nombre": "Partitura",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bloques",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Solo acordes",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Pídeme una idea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Quitar Estrofa",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Añadir otra parte",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "Quitar Am",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escribe un acorde",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. Cierra el bucle de los cuatro acordes.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Recupera tensión.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Salidas",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 741,
+        "conAlgo": 248,
+        "vacioPct": 67
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil",
+      "escenario": "escribir-todo-abierto",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Desplegar Tonalidad",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Desplegar A dónde ir",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Mástil",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": [
+          {
+            "paso": "Desplegar Tonalidad",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Desplegar A dónde ir",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          }
+        ]
+      },
+      "ventana": {
+        "ancho": 320,
+        "alto": 568
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 416,
+        "ancho": 320,
+        "arriba": 229
+      },
+      "ayudas": [
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 320,
+          "arriba": 246
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 296,
+          "arriba": 556
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 158,
+          "ancho": 296,
+          "arriba": 999
+        },
+        {
+          "nombre": "Mástil",
+          "alto": 119,
+          "ancho": 320,
+          "arriba": 323
+        }
+      ],
+      "documentoPct": 73,
+      "ayudaMasAlta": {
+        "nombre": "Estrofa",
+        "alto": 229,
+        "ancho": 320,
+        "arriba": 246
+      },
+      "mandosVisibles": 65,
+      "encimaDelDocumento": 11,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Cerrar Mástil",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escuchar la canción",
+          "estado": "tapado",
+          "por": "A dónde ir"
+        },
+        {
+          "nombre": "MIDI",
+          "estado": "tapado",
+          "por": "Acorde"
+        },
+        {
+          "nombre": "Partitura",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bloques",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Solo acordes",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Pídeme una idea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Estrofa",
+          "estado": "tapado",
+          "por": "Arreglo"
+        },
+        {
+          "nombre": "Papel de Estrofa",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Acortar Estrofa",
+          "estado": "tapado",
+          "por": "A dónde ir"
+        },
+        {
+          "nombre": "Compases de Estrofa",
+          "estado": "tapado",
+          "por": "Acorde"
+        },
+        {
+          "nombre": "Alargar Estrofa",
+          "estado": "tapado",
+          "por": "Acorde"
+        },
+        {
+          "nombre": "Escuchar Estrofa",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Quitar Estrofa",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Añadir otra parte",
+          "estado": "tapado",
+          "por": "Profesor"
+        },
+        {
+          "nombre": "Quitar Am",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escribe un acorde",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. Cierra el bucle de los cuatro acordes.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Recupera tensión.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Salidas",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 741,
+        "conAlgo": 36,
+        "vacioPct": 95
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil",
+      "escenario": "ensayar",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Ensayar",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 320,
+        "alto": 568
+      },
+      "documento": {
+        "nombre": "Ensayo",
+        "alto": 416,
+        "ancho": 320,
+        "arriba": 229
+      },
+      "ayudas": [],
+      "documentoPct": 73,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 25,
+      "encimaDelDocumento": 11,
+      "duplicados": [
+        {
+          "nombre": "Ensayar",
+          "veces": 2
+        }
+      ],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Salidas",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 741,
+        "conAlgo": 105,
+        "vacioPct": 86
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil-alto",
+      "escenario": "tocando-sin-tonalidad",
+      "montaje": {
+        "pasos": [],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 390,
+        "alto": 844
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 479,
+        "ancho": 390,
+        "arriba": 239
+      },
+      "ayudas": [],
+      "documentoPct": 57,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 54,
+      "encimaDelDocumento": 11,
+      "duplicados": [
+        {
+          "nombre": "C mayor",
+          "veces": 3
+        },
+        {
+          "nombre": "G mayor",
+          "veces": 3
+        },
+        {
+          "nombre": "A menor",
+          "veces": 3
+        },
+        {
+          "nombre": "E menor",
+          "veces": 3
+        }
+      ],
+      "pequenos": [
+        {
+          "nombre": "A menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 42,
+          "alto": 42
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 42,
+          "alto": 42
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C mayor",
+          "estado": "tapado",
+          "por": "Ab mayor"
+        },
+        {
+          "nombre": "G mayor",
+          "estado": "tapado",
+          "por": "D#m"
+        },
+        {
+          "nombre": "A menor",
+          "estado": "tapado",
+          "por": "E mayor"
+        },
+        {
+          "nombre": "E menor",
+          "estado": "tapado",
+          "por": "F#"
+        },
+        {
+          "nombre": "Abrir el micrófono",
+          "estado": "tapado",
+          "por": "Tonalidades para empezar"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 0,
+        "vacioPct": 100
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil-alto",
+      "escenario": "tocando",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 390,
+        "alto": 844
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 426,
+        "ancho": 390,
+        "arriba": 292
+      },
+      "ayudas": [],
+      "documentoPct": 50,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 27,
+      "encimaDelDocumento": 14,
+      "duplicados": [
+        {
+          "nombre": "Tocando",
+          "veces": 2
+        }
+      ],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 414,
+        "vacioPct": 54
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil-alto",
+      "escenario": "escribir-vacio",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 390,
+        "alto": 844
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 426,
+        "ancho": 390,
+        "arriba": 292
+      },
+      "ayudas": [],
+      "documentoPct": 50,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 45,
+      "encimaDelDocumento": 14,
+      "duplicados": [],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Partitura",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bloques",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Solo acordes",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C, I. Casa.",
+          "estado": "tapado",
+          "por": "Grabar"
+        },
+        {
+          "nombre": "Dm, ii. Antesala de la dominante.",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "Em, iii. Casa en penumbra: comparte dos notas con I.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. El otro polo. Con I y V basta para medio repertorio.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Tensión que pide volver a I.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Am, vi. La relativa menor: el mismo material, otro ánimo.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 374,
+        "vacioPct": 58
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil-alto",
+      "escenario": "escribir-con-acordes",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 390,
+        "alto": 844
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 426,
+        "ancho": 390,
+        "arriba": 292
+      },
+      "ayudas": [
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 390,
+          "arriba": 116
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 366,
+          "arriba": 426
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 142,
+          "ancho": 366,
+          "arriba": 842
+        }
+      ],
+      "documentoPct": 50,
+      "ayudaMasAlta": {
+        "nombre": "Estrofa",
+        "alto": 229,
+        "ancho": 390,
+        "arriba": 116
+      },
+      "mandosVisibles": 64,
+      "encimaDelDocumento": 25,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bloques",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Solo acordes",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Pídeme una idea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Estrofa",
+          "estado": "tapado",
+          "por": "Poner el metrónomo"
+        },
+        {
+          "nombre": "Papel de Estrofa",
+          "estado": "tapado",
+          "por": "INPUT"
+        },
+        {
+          "nombre": "Acortar Estrofa",
+          "estado": "tapado",
+          "por": "Pulsos por minutobpm"
+        },
+        {
+          "nombre": "Compases de Estrofa",
+          "estado": "tapado",
+          "por": "Dos pulsos menos"
+        },
+        {
+          "nombre": "Alargar Estrofa",
+          "estado": "tapado",
+          "por": "Dos pulsos más"
+        },
+        {
+          "nombre": "Escuchar Estrofa",
+          "estado": "tapado",
+          "por": "TocandoEscribirEnsayarPulsos por minutobpm−+"
+        },
+        {
+          "nombre": "Quitar Estrofa",
+          "estado": "tapado",
+          "por": "ComponerEscribe la canción, mírala acorde a "
+        },
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayorC mayorG mayorD mayorA may"
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "tapado",
+          "por": "Grabar"
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 544,
+        "vacioPct": 39
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil-alto",
+      "escenario": "escribir-todo-abierto",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Desplegar Tonalidad",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Desplegar A dónde ir",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Mástil",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": [
+          {
+            "paso": "Desplegar Tonalidad",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Desplegar A dónde ir",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          }
+        ]
+      },
+      "ventana": {
+        "ancho": 390,
+        "alto": 844
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 416,
+        "ancho": 390,
+        "arriba": 292
+      },
+      "ayudas": [
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 390,
+          "arriba": 116
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 366,
+          "arriba": 426
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 142,
+          "ancho": 366,
+          "arriba": 842
+        },
+        {
+          "nombre": "Mástil",
+          "alto": 139,
+          "ancho": 390,
+          "arriba": 579
+        }
+      ],
+      "documentoPct": 49,
+      "ayudaMasAlta": {
+        "nombre": "Estrofa",
+        "alto": 229,
+        "ancho": 390,
+        "arriba": 116
+      },
+      "mandosVisibles": 65,
+      "encimaDelDocumento": 25,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Cerrar Mástil",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bloques",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Solo acordes",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Pídeme una idea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Estrofa",
+          "estado": "tapado",
+          "por": "Poner el metrónomo"
+        },
+        {
+          "nombre": "Papel de Estrofa",
+          "estado": "tapado",
+          "por": "INPUT"
+        },
+        {
+          "nombre": "Acortar Estrofa",
+          "estado": "tapado",
+          "por": "Pulsos por minutobpm"
+        },
+        {
+          "nombre": "Compases de Estrofa",
+          "estado": "tapado",
+          "por": "Dos pulsos menos"
+        },
+        {
+          "nombre": "Alargar Estrofa",
+          "estado": "tapado",
+          "por": "Dos pulsos más"
+        },
+        {
+          "nombre": "Escuchar Estrofa",
+          "estado": "tapado",
+          "por": "TocandoEscribirEnsayarPulsos por minutobpm−+"
+        },
+        {
+          "nombre": "Quitar Estrofa",
+          "estado": "tapado",
+          "por": "ComponerEscribe la canción, mírala acorde a "
+        },
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayorC mayorG mayorD mayorA may"
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. Cierra el bucle de los cuatro acordes.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "G, V. Recupera tensión.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "tapado",
+          "por": "Grabar"
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 352,
+        "vacioPct": 61
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "movil-alto",
+      "escenario": "ensayar",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Ensayar",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 390,
+        "alto": 844
+      },
+      "documento": {
+        "nombre": "Ensayo",
+        "alto": 426,
+        "ancho": 390,
+        "arriba": 292
+      },
+      "ayudas": [],
+      "documentoPct": 50,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 25,
+      "encimaDelDocumento": 14,
+      "duplicados": [
+        {
+          "nombre": "Ensayar",
+          "veces": 2
+        }
+      ],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 319,
+        "vacioPct": 64
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "tableta",
+      "escenario": "tocando-sin-tonalidad",
+      "montaje": {
+        "pasos": [],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 700,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 416,
+        "ancho": 700,
+        "arriba": 239
+      },
+      "ayudas": [],
+      "documentoPct": 69,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 56,
+      "encimaDelDocumento": 13,
+      "duplicados": [
+        {
+          "nombre": "C mayor",
+          "veces": 3
+        },
+        {
+          "nombre": "G mayor",
+          "veces": 3
+        },
+        {
+          "nombre": "A menor",
+          "veces": 3
+        },
+        {
+          "nombre": "E menor",
+          "veces": 3
+        }
+      ],
+      "pequenos": [
+        {
+          "nombre": "A menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 38,
+          "alto": 38
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 38,
+          "alto": 38
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Abrir el micrófono",
+          "estado": "tapado",
+          "por": "Componer"
+        }
+      ],
+      "vacio": {
+        "puntos": 780,
+        "conAlgo": 0,
+        "vacioPct": 100
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "tableta",
+      "escenario": "tocando",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 700,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 416,
+        "ancho": 700,
+        "arriba": 292
+      },
+      "ayudas": [],
+      "documentoPct": 69,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 29,
+      "encimaDelDocumento": 16,
+      "duplicados": [
+        {
+          "nombre": "Tocando",
+          "veces": 2
+        }
+      ],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Tocar",
+          "estado": "tapado",
+          "por": "Salidas"
+        }
+      ],
+      "vacio": {
+        "puntos": 663,
+        "conAlgo": 83,
+        "vacioPct": 87
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "tableta",
+      "escenario": "escribir-vacio",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 700,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 416,
+        "ancho": 700,
+        "arriba": 292
+      },
+      "ayudas": [],
+      "documentoPct": 69,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 47,
+      "encimaDelDocumento": 16,
+      "duplicados": [],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escribe un acorde",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C, I. Casa.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Antesala de la dominante.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Em, iii. Casa en penumbra: comparte dos notas con I.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. El otro polo. Con I y V basta para medio repertorio.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Tensión que pide volver a I.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Am, vi. La relativa menor: el mismo material, otro ánimo.",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 663,
+        "conAlgo": 121,
+        "vacioPct": 82
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "tableta",
+      "escenario": "escribir-con-acordes",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 700,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 416,
+        "ancho": 700,
+        "arriba": 129
+      },
+      "ayudas": [
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 700,
+          "arriba": 292
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 676,
+          "arriba": 602
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 94,
+          "ancho": 676,
+          "arriba": 1018
+        }
+      ],
+      "documentoPct": 69,
+      "ayudaMasAlta": {
+        "nombre": "Estrofa",
+        "alto": 229,
+        "ancho": 700,
+        "arriba": 292
+      },
+      "mandosVisibles": 66,
+      "encimaDelDocumento": 4,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 148,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 148,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 148,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 148,
+          "alto": 29
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escuchar la canción",
+          "estado": "tapado",
+          "por": "INPUT"
+        },
+        {
+          "nombre": "MIDI",
+          "estado": "tapado",
+          "por": "Dos pulsos más"
+        },
+        {
+          "nombre": "Partitura",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "Bloques",
+          "estado": "tapado",
+          "por": "C mayor"
+        },
+        {
+          "nombre": "Solo acordes",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "Pídeme una idea",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "tapado",
+          "por": "Arreglo"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "negra",
+          "estado": "tapado",
+          "por": "A dónde ir"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "tapado",
+          "por": "Acorde"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Añadir otra parte",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "Quitar Am",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escribe un acorde",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. Cierra el bucle de los cuatro acordes.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Recupera tensión.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 352,
+        "vacioPct": 61
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "tableta",
+      "escenario": "escribir-todo-abierto",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Desplegar Tonalidad",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Desplegar A dónde ir",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Mástil",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": [
+          {
+            "paso": "Desplegar Tonalidad",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          },
+          {
+            "paso": "Desplegar A dónde ir",
+            "pudo": false,
+            "copias": 0,
+            "porque": "ninguna copia se dejo pulsar"
+          }
+        ]
+      },
+      "ventana": {
+        "ancho": 700,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 416,
+        "ancho": 700,
+        "arriba": 129
+      },
+      "ayudas": [
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 700,
+          "arriba": 244
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 676,
+          "arriba": 554
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 94,
+          "ancho": 676,
+          "arriba": 970
+        },
+        {
+          "nombre": "Mástil",
+          "alto": 225,
+          "ancho": 700,
+          "arriba": 292
+        }
+      ],
+      "documentoPct": 69,
+      "ayudaMasAlta": {
+        "nombre": "Estrofa",
+        "alto": 229,
+        "ancho": 700,
+        "arriba": 244
+      },
+      "mandosVisibles": 67,
+      "encimaDelDocumento": 4,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 148,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 148,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 148,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 148,
+          "alto": 29
+        },
+        {
+          "nombre": "Cerrar Mástil",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escuchar la canción",
+          "estado": "tapado",
+          "por": "INPUT"
+        },
+        {
+          "nombre": "MIDI",
+          "estado": "tapado",
+          "por": "Dos pulsos más"
+        },
+        {
+          "nombre": "Partitura",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "Bloques",
+          "estado": "tapado",
+          "por": "C mayor"
+        },
+        {
+          "nombre": "Solo acordes",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "Pídeme una idea",
+          "estado": "tapado",
+          "por": "Tonalidad: C mayor"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "tapado",
+          "por": "Arreglo"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "negra",
+          "estado": "tapado",
+          "por": "A dónde ir"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "tapado",
+          "por": "Acorde"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Estrofa",
+          "estado": "tapado",
+          "por": "Arreglo"
+        },
+        {
+          "nombre": "Papel de Estrofa",
+          "estado": "tapado",
+          "por": "A dónde ir"
+        },
+        {
+          "nombre": "Acortar Estrofa",
+          "estado": "tapado",
+          "por": "Acorde"
+        },
+        {
+          "nombre": "Compases de Estrofa",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Alargar Estrofa",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Escuchar Estrofa",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "Quitar Estrofa",
+          "estado": "tapado",
+          "por": "Qué se ve"
+        },
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Añadir otra parte",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Quitar Am",
+          "estado": "tapado",
+          "por": "Afinar"
+        },
+        {
+          "nombre": "Escribe un acorde",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. Cierra el bucle de los cuatro acordes.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Recupera tensión.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Mástil",
+          "estado": "tapado",
+          "por": "Aprender"
+        },
+        {
+          "nombre": "Grabar",
+          "estado": "tapado",
+          "por": "Aprender"
+        },
+        {
+          "nombre": "Ideas",
+          "estado": "tapado",
+          "por": "svg"
+        },
+        {
+          "nombre": "Salidas",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "Canciones",
+          "estado": "tapado",
+          "por": "Componer"
+        },
+        {
+          "nombre": "Sesiones",
+          "estado": "tapado",
+          "por": "SPAN"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 0,
+        "vacioPct": 100
+      },
+      "recortado": [
+        {
+          "tipo": "fuera-de-alcance",
+          "el": "div",
+          "hacia": "abajo",
+          "camino": "div.fondo-sala.relative > main.min-h-0.grow > div.flex.h-full > div.relative.flex",
+          "texto": "MástilPentatónica menor de C: C · Eb · F · G · Bb · Rel",
+          "caja": "div.fondo-sala.relative > main.min-h-0.grow"
+        },
+        {
+          "tipo": "fuera-de-alcance",
+          "el": "section[Qué se ve abajo]",
+          "hacia": "abajo",
+          "camino": "div.fondo-sala.relative > main.min-h-0.grow > div.flex.h-full > div.relative.flex > section[Qué se ve abajo].border-border.flex",
+          "texto": "MástilGrabarIdeasSalidasCancionesSesiones",
+          "caja": "div.fondo-sala.relative > main.min-h-0.grow"
+        },
+        {
+          "tipo": "fuera-de-alcance",
+          "el": "div",
+          "hacia": "abajo",
+          "camino": "div.fondo-sala.relative > main.min-h-0.grow > div.flex.h-full > div.relative.flex > section[Qué se ve abajo].border-border.flex > div.flex.gap-1.5",
+          "texto": "MástilGrabarIdeasSalidasCancionesSesiones",
+          "caja": "div.fondo-sala.relative > main.min-h-0.grow"
+        }
+      ],
+      "fallos": []
+    },
+    {
+      "tamano": "tableta",
+      "escenario": "ensayar",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 3,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Ensayar",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 700,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Ensayo",
+        "alto": 416,
+        "ancho": 700,
+        "arriba": 129
+      },
+      "ayudas": [],
+      "documentoPct": 69,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 27,
+      "encimaDelDocumento": 4,
+      "duplicados": [
+        {
+          "nombre": "Ensayar",
+          "veces": 2
+        }
+      ],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 159,
+        "vacioPct": 82
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "portatil",
+      "escenario": "tocando-sin-tonalidad",
+      "montaje": {
+        "pasos": [],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1024,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 393,
+        "ancho": 703,
+        "arriba": 146
+      },
+      "ayudas": [
+        {
+          "nombre": "Tonalidad",
+          "alto": 393,
+          "ancho": 320,
+          "arriba": 146
+        }
+      ],
+      "documentoPct": 66,
+      "ayudaMasAlta": {
+        "nombre": "Tonalidad",
+        "alto": 393,
+        "ancho": 320,
+        "arriba": 146
+      },
+      "mandosVisibles": 56,
+      "encimaDelDocumento": 18,
+      "duplicados": [
+        {
+          "nombre": "C mayor",
+          "veces": 2
+        },
+        {
+          "nombre": "G mayor",
+          "veces": 2
+        },
+        {
+          "nombre": "A menor",
+          "veces": 2
+        },
+        {
+          "nombre": "E menor",
+          "veces": 2
+        }
+      ],
+      "pequenos": [
+        {
+          "nombre": "Plegar Tonalidad",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "A menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 36,
+          "alto": 36
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escala",
+          "estado": "tapado",
+          "por": "Grabar"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 269,
+        "vacioPct": 70
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "portatil",
+      "escenario": "tocando",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1024,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 349,
+        "ancho": 659,
+        "arriba": 146
+      },
+      "ayudas": [
+        {
+          "nombre": "Tonalidad",
+          "alto": 393,
+          "ancho": 320,
+          "arriba": 146
+        }
+      ],
+      "documentoPct": 58,
+      "ayudaMasAlta": {
+        "nombre": "Tonalidad",
+        "alto": 393,
+        "ancho": 320,
+        "arriba": 146
+      },
+      "mandosVisibles": 56,
+      "encimaDelDocumento": 18,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "Plegar Tonalidad",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "A menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 36,
+          "alto": 36
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Escala",
+          "estado": "tapado",
+          "por": "Grabar"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 264,
+        "vacioPct": 71
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "portatil",
+      "escenario": "escribir-vacio",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1024,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 349,
+        "ancho": 611,
+        "arriba": 146
+      },
+      "ayudas": [
+        {
+          "nombre": "Acorde",
+          "alto": 393,
+          "ancho": 368,
+          "arriba": 146
+        },
+        {
+          "nombre": "Reconocer lo que tocas",
+          "alto": 224,
+          "ancho": 367,
+          "arriba": 462
+        }
+      ],
+      "documentoPct": 58,
+      "ayudaMasAlta": {
+        "nombre": "Acorde",
+        "alto": 393,
+        "ancho": 368,
+        "arriba": 146
+      },
+      "mandosVisibles": 49,
+      "encimaDelDocumento": 18,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "Plegar Acorde",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Antesala de la dominante.",
+          "estado": "tapado",
+          "por": "Canciones"
+        },
+        {
+          "nombre": "Em, iii. Casa en penumbra: comparte dos notas con I.",
+          "estado": "tapado",
+          "por": "MástilGrabarIdeasSalidasCancionesSesiones"
+        },
+        {
+          "nombre": "F, IV. El otro polo. Con I y V basta para medio repertorio.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Tensión que pide volver a I.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Am, vi. La relativa menor: el mismo material, otro ánimo.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Abrir el micrófono",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 401,
+        "vacioPct": 55
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "portatil",
+      "escenario": "escribir-con-acordes",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1024,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 349,
+        "ancho": 611,
+        "arriba": 146
+      },
+      "ayudas": [
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 323,
+          "arriba": 337
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 263,
+          "arriba": 228
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 158,
+          "ancho": 263,
+          "arriba": 671
+        },
+        {
+          "nombre": "Acorde",
+          "alto": 393,
+          "ancho": 368,
+          "arriba": 146
+        },
+        {
+          "nombre": "Formas del acorde elegido",
+          "alto": 540,
+          "ancho": 367,
+          "arriba": 174
+        },
+        {
+          "nombre": "Reconocer lo que tocas",
+          "alto": 224,
+          "ancho": 367,
+          "arriba": 714
+        }
+      ],
+      "documentoPct": 58,
+      "ayudaMasAlta": {
+        "nombre": "Formas del acorde elegido",
+        "alto": 540,
+        "ancho": 367,
+        "arriba": 174
+      },
+      "mandosVisibles": 68,
+      "encimaDelDocumento": 18,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Plegar Acorde",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Quitar Estrofa",
+          "estado": "tapado",
+          "por": "Qué poner ahora"
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "estado": "tapado",
+          "por": "Pulsa uno, o arrástralo hasta la parte donde"
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "estado": "tapado",
+          "por": "Pulsa uno, o arrástralo hasta la parte donde"
+        },
+        {
+          "nombre": "Añadir otra parte",
+          "estado": "tapado",
+          "por": "Grabar"
+        },
+        {
+          "nombre": "Quitar Am",
+          "estado": "tapado",
+          "por": "PartituraBloquesSolo acordes+ PartePídeme un"
+        },
+        {
+          "nombre": "G, V. Recupera tensión.",
+          "estado": "tapado",
+          "por": "Desplegar A dónde ir"
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "tapado",
+          "por": "Canciones"
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Abrir el micrófono",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 553,
+        "vacioPct": 38
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "portatil",
+      "escenario": "escribir-todo-abierto",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Desplegar Tonalidad",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "Desplegar A dónde ir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "Mástil",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1024,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 140,
+        "ancho": 334,
+        "arriba": 146
+      },
+      "ayudas": [
+        {
+          "nombre": "Tonalidad",
+          "alto": 172,
+          "ancho": 320,
+          "arriba": 146
+        },
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 46,
+          "arriba": 457
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 263,
+          "arriba": 348
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 158,
+          "ancho": 263,
+          "arriba": 791
+        },
+        {
+          "nombre": "A dónde ir",
+          "alto": 32,
+          "ancho": 334,
+          "arriba": 286
+        },
+        {
+          "nombre": "Acorde",
+          "alto": 172,
+          "ancho": 368,
+          "arriba": 146
+        },
+        {
+          "nombre": "Formas del acorde elegido",
+          "alto": 540,
+          "ancho": 367,
+          "arriba": 174
+        },
+        {
+          "nombre": "Reconocer lo que tocas",
+          "alto": 224,
+          "ancho": 367,
+          "arriba": 714
+        },
+        {
+          "nombre": "Mástil",
+          "alto": 221,
+          "ancho": 1024,
+          "arriba": 318
+        }
+      ],
+      "documentoPct": 23,
+      "ayudaMasAlta": {
+        "nombre": "Formas del acorde elegido",
+        "alto": 540,
+        "ancho": 367,
+        "arriba": 174
+      },
+      "mandosVisibles": 110,
+      "encimaDelDocumento": 18,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "Plegar Tonalidad",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "A menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Añadir otra parte",
+          "ancho": 22,
+          "alto": 62
+        },
+        {
+          "nombre": "Plegar A dónde ir",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "",
+          "ancho": 318,
+          "alto": 30
+        },
+        {
+          "nombre": "Fmaj7, IVmaj7. Ponerlo en la canción",
+          "ancho": 318,
+          "alto": 40
+        },
+        {
+          "nombre": "Plegar Acorde",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "Cerrar Mástil",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "A mayor",
+          "estado": "tapado",
+          "por": "MástilPentatónica menor de C: C · Eb · F · G"
+        },
+        {
+          "nombre": "E mayor",
+          "estado": "tapado",
+          "por": "rect"
+        },
+        {
+          "nombre": "B mayor",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "F# mayor",
+          "estado": "tapado",
+          "por": "line"
+        },
+        {
+          "nombre": "Db mayor",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Ab mayor",
+          "estado": "tapado",
+          "por": "5"
+        },
+        {
+          "nombre": "Eb mayor",
+          "estado": "tapado",
+          "por": "Mástil"
+        },
+        {
+          "nombre": "F# menor",
+          "estado": "tapado",
+          "por": "MástilPentatónica menor de C: C · Eb · F · G"
+        },
+        {
+          "nombre": "C# menor",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "G# menor",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "D# menor",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Bb menor",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "F menor",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "C menor",
+          "estado": "tapado",
+          "por": "MástilPentatónica menor de C: C · Eb · F · G"
+        },
+        {
+          "nombre": "Estilo",
+          "estado": "tapado",
+          "por": "654321FGBbCEbBbCEbFGEbFGBbCGBbCEbFGCEbFGBbFG"
+        },
+        {
+          "nombre": "Escala",
+          "estado": "tapado",
+          "por": "Grabar"
+        },
+        {
+          "nombre": "+ Parte",
+          "estado": "tapado",
+          "por": "MástilPentatónica menor de C: C · Eb · F · G"
+        },
+        {
+          "nombre": "Pídeme una idea",
+          "estado": "tapado",
+          "por": "MástilPentatónica menor de C: C · Eb · F · G"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "corchea",
+          "estado": "tapado",
+          "por": "rect"
+        },
+        {
+          "nombre": "negra",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "blanca",
+          "estado": "tapado",
+          "por": "rect"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "redonda",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Estrofa",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Papel de Estrofa",
+          "estado": "tapado",
+          "por": "rect"
+        },
+        {
+          "nombre": "Acortar Estrofa",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Compases de Estrofa",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Alargar Estrofa",
+          "estado": "tapado",
+          "por": "rect"
+        },
+        {
+          "nombre": "Escuchar Estrofa",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Quitar Estrofa",
+          "estado": "tapado",
+          "por": "rect"
+        },
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "estado": "tapado",
+          "por": "654321FGBbCEbBbCEbFGEbFGBbCGBbCEbFGCEbFGBbFG"
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "estado": "tapado",
+          "por": "654321FGBbCEbBbCEbFGEbFGBbCGBbCEbFGCEbFGBbFG"
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "estado": "tapado",
+          "por": "654321FGBbCEbBbCEbFGEbFGBbCGBbCEbFGCEbFGBbFG"
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "estado": "tapado",
+          "por": "654321FGBbCEbBbCEbFGEbFGBbCGBbCEbFGCEbFGBbFG"
+        },
+        {
+          "nombre": "Añadir otra parte",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Quitar Am",
+          "estado": "tapado",
+          "por": "line"
+        },
+        {
+          "nombre": "Escribe un acorde",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "F, IV. Cierra el bucle de los cuatro acordes.",
+          "estado": "tapado",
+          "por": "Canciones"
+        },
+        {
+          "nombre": "G, V. Recupera tensión.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "",
+          "estado": "tapado",
+          "por": "MástilPentatónica menor de C: C · Eb · F · G"
+        },
+        {
+          "nombre": "Dm, ii. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "F"
+        },
+        {
+          "nombre": "Dm7, ii7. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "Canciones"
+        },
+        {
+          "nombre": "C, I. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Em, iii. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F, IV. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Fmaj7, IVmaj7. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G, V. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "D7, V7/V. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Em7, iii7. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "G5, V5. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bm7b5, viiø7. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Cmaj7, Imaj7. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bdim, vii°. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C5, I5. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Abrir el micrófono",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 386,
+        "vacioPct": 57
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "portatil",
+      "escenario": "ensayar",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Ensayar",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1024,
+        "alto": 600
+      },
+      "documento": {
+        "nombre": "Ensayo",
+        "alto": 349,
+        "ancho": 936,
+        "arriba": 146
+      },
+      "ayudas": [],
+      "documentoPct": 58,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 28,
+      "encimaDelDocumento": 18,
+      "duplicados": [
+        {
+          "nombre": "Ensayar",
+          "veces": 2
+        }
+      ],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 158,
+        "vacioPct": 82
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "escritorio",
+      "escenario": "tocando-sin-tonalidad",
+      "montaje": {
+        "pasos": [],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1440,
+        "alto": 900
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 721,
+        "ancho": 1119,
+        "arriba": 118
+      },
+      "ayudas": [
+        {
+          "nombre": "Tonalidad",
+          "alto": 721,
+          "ancho": 320,
+          "arriba": 118
+        }
+      ],
+      "documentoPct": 80,
+      "ayudaMasAlta": {
+        "nombre": "Tonalidad",
+        "alto": 721,
+        "ancho": 320,
+        "arriba": 118
+      },
+      "mandosVisibles": 56,
+      "encimaDelDocumento": 18,
+      "duplicados": [
+        {
+          "nombre": "C mayor",
+          "veces": 2
+        },
+        {
+          "nombre": "G mayor",
+          "veces": 2
+        },
+        {
+          "nombre": "A menor",
+          "veces": 2
+        },
+        {
+          "nombre": "E menor",
+          "veces": 2
+        }
+      ],
+      "pequenos": [
+        {
+          "nombre": "Plegar Tonalidad",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "A menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 36,
+          "alto": 36
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 93,
+        "vacioPct": 90
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "escritorio",
+      "escenario": "tocando",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1440,
+        "alto": 900
+      },
+      "documento": {
+        "nombre": "Tocando",
+        "alto": 677,
+        "ancho": 1075,
+        "arriba": 118
+      },
+      "ayudas": [
+        {
+          "nombre": "Tonalidad",
+          "alto": 721,
+          "ancho": 320,
+          "arriba": 118
+        }
+      ],
+      "documentoPct": 75,
+      "ayudaMasAlta": {
+        "nombre": "Tonalidad",
+        "alto": 721,
+        "ancho": 320,
+        "arriba": 118
+      },
+      "mandosVisibles": 56,
+      "encimaDelDocumento": 18,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "Plegar Tonalidad",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "A menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 36,
+          "alto": 36
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 120,
+        "vacioPct": 87
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "escritorio",
+      "escenario": "escribir-vacio",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1440,
+        "alto": 900
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 677,
+        "ancho": 1027,
+        "arriba": 118
+      },
+      "ayudas": [
+        {
+          "nombre": "Acorde",
+          "alto": 721,
+          "ancho": 368,
+          "arriba": 118
+        },
+        {
+          "nombre": "Reconocer lo que tocas",
+          "alto": 224,
+          "ancho": 367,
+          "arriba": 434
+        }
+      ],
+      "documentoPct": 75,
+      "ayudaMasAlta": {
+        "nombre": "Acorde",
+        "alto": 721,
+        "ancho": 368,
+        "arriba": 118
+      },
+      "mandosVisibles": 49,
+      "encimaDelDocumento": 18,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "Plegar Acorde",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 246,
+        "vacioPct": 73
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "escritorio",
+      "escenario": "escribir-con-acordes",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1440,
+        "alto": 900
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 677,
+        "ancho": 1027,
+        "arriba": 118
+      },
+      "ayudas": [
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 739,
+          "arriba": 261
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 263,
+          "arriba": 273
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 158,
+          "ancho": 263,
+          "arriba": 716
+        },
+        {
+          "nombre": "Acorde",
+          "alto": 721,
+          "ancho": 368,
+          "arriba": 118
+        },
+        {
+          "nombre": "Formas del acorde elegido",
+          "alto": 540,
+          "ancho": 367,
+          "arriba": 146
+        },
+        {
+          "nombre": "Reconocer lo que tocas",
+          "alto": 224,
+          "ancho": 367,
+          "arriba": 686
+        }
+      ],
+      "documentoPct": 75,
+      "ayudaMasAlta": {
+        "nombre": "Acorde",
+        "alto": 721,
+        "ancho": 368,
+        "arriba": 118
+      },
+      "mandosVisibles": 68,
+      "encimaDelDocumento": 18,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 158,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 158,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 158,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 158,
+          "alto": 29
+        },
+        {
+          "nombre": "Plegar Acorde",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "tapado",
+          "por": "Desplegar A dónde ir"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "tapado",
+          "por": "Desplegar A dónde ir"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "tapado",
+          "por": "Desplegar A dónde ir"
+        },
+        {
+          "nombre": "Abrir el micrófono",
+          "estado": "tapado",
+          "por": "MástilGrabarIdeasSalidasCancionesSesiones"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 383,
+        "vacioPct": 57
+      },
+      "recortado": [],
+      "fallos": []
+    },
+    {
+      "tamano": "escritorio",
+      "escenario": "escribir-todo-abierto",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Desplegar Tonalidad",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "Desplegar A dónde ir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "Mástil",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1440,
+        "alto": 900
+      },
+      "documento": {
+        "nombre": "Arreglo",
+        "alto": 128,
+        "ancho": 750,
+        "arriba": 118
+      },
+      "ayudas": [
+        {
+          "nombre": "Tonalidad",
+          "alto": 290,
+          "ancho": 320,
+          "arriba": 118
+        },
+        {
+          "nombre": "Estrofa",
+          "alto": 229,
+          "ancho": 462,
+          "arriba": 309
+        },
+        {
+          "nombre": "Lo elegido",
+          "alto": 70,
+          "ancho": 263,
+          "arriba": 321
+        },
+        {
+          "nombre": "Qué nota puede seguir",
+          "alto": 158,
+          "ancho": 263,
+          "arriba": 764
+        },
+        {
+          "nombre": "A dónde ir",
+          "alto": 384,
+          "ancho": 750,
+          "arriba": 246
+        },
+        {
+          "nombre": "Acorde",
+          "alto": 290,
+          "ancho": 368,
+          "arriba": 118
+        },
+        {
+          "nombre": "Formas del acorde elegido",
+          "alto": 540,
+          "ancho": 367,
+          "arriba": 146
+        },
+        {
+          "nombre": "Reconocer lo que tocas",
+          "alto": 224,
+          "ancho": 367,
+          "arriba": 686
+        },
+        {
+          "nombre": "Mástil",
+          "alto": 431,
+          "ancho": 1440,
+          "arriba": 408
+        }
+      ],
+      "documentoPct": 14,
+      "ayudaMasAlta": {
+        "nombre": "Formas del acorde elegido",
+        "alto": 540,
+        "ancho": 367,
+        "arriba": 146
+      },
+      "mandosVisibles": 110,
+      "encimaDelDocumento": 18,
+      "duplicados": [],
+      "pequenos": [
+        {
+          "nombre": "Plegar Tonalidad",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "A menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "E menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "B menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D# menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "Bb menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "F menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "G menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "D menor",
+          "ancho": 36,
+          "alto": 36
+        },
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "ancho": 114,
+          "alto": 29
+        },
+        {
+          "nombre": "Plegar A dónde ir",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "",
+          "ancho": 734,
+          "alto": 30
+        },
+        {
+          "nombre": "Fmaj7, IVmaj7. Ponerlo en la canción",
+          "ancho": 734,
+          "alto": 40
+        },
+        {
+          "nombre": "Plegar Acorde",
+          "ancho": 44,
+          "alto": 27
+        },
+        {
+          "nombre": "Cerrar Mástil",
+          "ancho": 44,
+          "alto": 27
+        }
+      ],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "F# mayor",
+          "estado": "tapado",
+          "por": "MástilPentatónica menor de C: C · Eb · F · G"
+        },
+        {
+          "nombre": "Estilo",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Escala",
+          "estado": "tapado",
+          "por": "circle"
+        },
+        {
+          "nombre": "semicorchea",
+          "estado": "tapado",
+          "por": "Buscar un acorde"
+        },
+        {
+          "nombre": "corchea",
+          "estado": "tapado",
+          "por": "Buscar un acorde"
+        },
+        {
+          "nombre": "negra",
+          "estado": "tapado",
+          "por": "Buscar un acorde"
+        },
+        {
+          "nombre": "negra con puntillo",
+          "estado": "tapado",
+          "por": "Buscar un acorde"
+        },
+        {
+          "nombre": "blanca",
+          "estado": "tapado",
+          "por": "Buscar un acorde"
+        },
+        {
+          "nombre": "blanca con puntillo",
+          "estado": "tapado",
+          "por": "Buscar un acorde"
+        },
+        {
+          "nombre": "redonda",
+          "estado": "tapado",
+          "por": "Buscar un acorde"
+        },
+        {
+          "nombre": "Deshacer",
+          "estado": "tapado",
+          "por": "Buscar un acorde"
+        },
+        {
+          "nombre": "Estrofa",
+          "estado": "tapado",
+          "por": "Desde Am"
+        },
+        {
+          "nombre": "Papel de Estrofa",
+          "estado": "tapado",
+          "por": "Desde Am"
+        },
+        {
+          "nombre": "Acortar Estrofa",
+          "estado": "tapado",
+          "por": "Desde Am"
+        },
+        {
+          "nombre": "Compases de Estrofa",
+          "estado": "tapado",
+          "por": "Desde Am"
+        },
+        {
+          "nombre": "Alargar Estrofa",
+          "estado": "tapado",
+          "por": "entra"
+        },
+        {
+          "nombre": "Escuchar Estrofa",
+          "estado": "tapado",
+          "por": "entracolorfuera"
+        },
+        {
+          "nombre": "Quitar Estrofa",
+          "estado": "tapado",
+          "por": "Desde Am"
+        },
+        {
+          "nombre": "C, grado I, 4 pulsos",
+          "estado": "tapado",
+          "por": "DmiiSubdominante"
+        },
+        {
+          "nombre": "F, grado IV, 4 pulsos",
+          "estado": "tapado",
+          "por": "DmiiSubdominante"
+        },
+        {
+          "nombre": "G, grado V, 4 pulsos",
+          "estado": "tapado",
+          "por": "DmiiSubdominante"
+        },
+        {
+          "nombre": "Am, grado vi, 4 pulsos",
+          "estado": "tapado",
+          "por": "DmiiSubdominante"
+        },
+        {
+          "nombre": "Añadir otra parte",
+          "estado": "tapado",
+          "por": "rect"
+        },
+        {
+          "nombre": "Quitar Am",
+          "estado": "tapado",
+          "por": "Dm, ii. Ponerlo en la canción"
+        },
+        {
+          "nombre": "Escribe un acorde",
+          "estado": "tapado",
+          "por": "Pentatónica menor de C: C · Eb · F · G · Bb "
+        },
+        {
+          "nombre": "F, IV. Cierra el bucle de los cuatro acordes.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "G, V. Recupera tensión.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Dm, ii. Cae por quintas.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "C, I. Vuelta a casa.",
+          "estado": "tapado",
+          "por": "circle"
+        },
+        {
+          "nombre": "C: Del acorde y aquí al lado: cae de pie y se canta sola.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "E: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "G: Es del acorde de I: suene cuando suene, encaja.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Bb: Un paso desde donde estás. Es el movimiento más natural que hay.",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Eb: De la escala: entra, pero pide seguir andando.",
+          "estado": "tapado",
+          "por": "MástilGrabarIdeasSalidasCancionesSesiones"
+        },
+        {
+          "nombre": "F: De la escala: entra, pero pide seguir andando.",
+          "estado": "tapado",
+          "por": "MástilGrabarIdeasSalidasCancionesSesiones"
+        },
+        {
+          "nombre": "Db: De fuera de la escala. Roza y sigue: si te paras en ella, se nota.",
+          "estado": "tapado",
+          "por": "MástilGrabarIdeasSalidasCancionesSesiones"
+        },
+        {
+          "nombre": "Dm7, ii7. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "circle"
+        },
+        {
+          "nombre": "C, I. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "circle"
+        },
+        {
+          "nombre": "Em, iii. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "F, IV. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "Mástil de 12 trastes con la escala pentatónica menor de C, con las notas del acorde elegido rellenas."
+        },
+        {
+          "nombre": "Fmaj7, IVmaj7. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "F"
+        },
+        {
+          "nombre": "G, V. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "Bb"
+        },
+        {
+          "nombre": "D7, V7/V. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "MástilGrabarIdeasSalidasCancionesSesiones"
+        },
+        {
+          "nombre": "Em7, iii7. Ponerlo en la canción",
+          "estado": "tapado",
+          "por": "MástilGrabarIdeasSalidasCancionesSesiones"
+        },
+        {
+          "nombre": "G5, V5. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bm7b5, viiø7. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Cmaj7, Imaj7. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Bdim, vii°. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "C5, I5. Ponerlo en la canción",
+          "estado": "fuera de la ventana"
+        },
+        {
+          "nombre": "Abrir el micrófono",
+          "estado": "tapado",
+          "por": "MástilGrabarIdeasSalidasCancionesSesiones"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 309,
+        "vacioPct": 66
+      },
+      "recortado": [
+        {
+          "tipo": "fuera-de-alcance",
+          "el": "section[A dónde ir]",
+          "hacia": "abajo",
+          "camino": "div.fondo-sala.relative > main.min-h-0.grow > div.flex.h-full > div.flex.min-h-0 > div.flex.min-h-0 > section[A dónde ir].bg-surface.flex",
+          "texto": "A dónde irBuscar un acordeDesde AmentracolorfueraTrepos",
+          "caja": "div.fondo-sala.relative > main.min-h-0.grow > div.flex.h-full > div.flex.min-h-0"
+        },
+        {
+          "tipo": "fuera-de-alcance",
+          "el": "div",
+          "hacia": "abajo",
+          "camino": "main.min-h-0.grow > div.flex.h-full > div.flex.min-h-0 > div.flex.min-h-0 > section[A dónde ir].bg-surface.flex > div.flex.min-h-0",
+          "texto": "Buscar un acordeDesde AmentracolorfueraTreposoSsalidaDt",
+          "caja": "div.fondo-sala.relative > main.min-h-0.grow > div.flex.h-full > div.flex.min-h-0"
+        }
+      ],
+      "fallos": []
+    },
+    {
+      "tamano": "escritorio",
+      "escenario": "ensayar",
+      "montaje": {
+        "pasos": [
+          {
+            "paso": "C mayor",
+            "pudo": true,
+            "copias": 2,
+            "cual": 0
+          },
+          {
+            "paso": "Escribir",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          },
+          {
+            "paso": "acorde C, I",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde F, IV",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde G, V",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "acorde Am, vi",
+            "pudo": true,
+            "copias": 1
+          },
+          {
+            "paso": "Ensayar",
+            "pudo": true,
+            "copias": 1,
+            "cual": 0
+          }
+        ],
+        "roto": []
+      },
+      "ventana": {
+        "ancho": 1440,
+        "alto": 900
+      },
+      "documento": {
+        "nombre": "Ensayo",
+        "alto": 677,
+        "ancho": 1352,
+        "arriba": 118
+      },
+      "ayudas": [],
+      "documentoPct": 75,
+      "ayudaMasAlta": null,
+      "mandosVisibles": 28,
+      "encimaDelDocumento": 18,
+      "duplicados": [
+        {
+          "nombre": "Ensayar",
+          "veces": 2
+        }
+      ],
+      "pequenos": [],
+      "alcance": [
+        {
+          "nombre": "Saltar al contenido",
+          "estado": "fuera de la ventana"
+        }
+      ],
+      "vacio": {
+        "puntos": 897,
+        "conAlgo": 48,
+        "vacioPct": 95
+      },
+      "recortado": [],
+      "fallos": []
+    }
+  ]
+}

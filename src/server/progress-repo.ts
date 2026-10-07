@@ -9,7 +9,7 @@
 
 import { eq } from 'drizzle-orm';
 
-import { parseProgress, type Progress } from '@core/music';
+import { mergeProgress, parseProgress, posicionesDeLaUnidad, type Progress } from '@core/music';
 
 import { db } from './db/client';
 import { progress as progressTable } from './db/schema';
@@ -28,7 +28,28 @@ export type LoadResult =
   | { readonly kind: 'vacio' }
   | { readonly kind: 'error' };
 
-export async function loadAccountProgress(userId: string): Promise<LoadResult> {
+/**
+ * El día del servidor, en UTC.
+ *
+ * Es el tope de las fechas que se creen al leer un avance (`parseProgress`): nada
+ * puede haberse practicado después de mañana. El reloj se lee aquí y no en el
+ * dominio, que no lee relojes.
+ */
+export function hoyEnElServidor(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+function leer(data: unknown, hoy: string): Progress {
+  // Con las posiciones contadas: lo que la cola apunte a una pregunta que su
+  // lección ya no tiene se suelta aquí, y el navegador lo recibe limpio. Y con el
+  // día: lo que se guardó envenenado antes de comprobarlo se repara al leerlo.
+  return parseProgress(data, posicionesDeLaUnidad, hoy);
+}
+
+export async function loadAccountProgress(
+  userId: string,
+  hoy: string = hoyEnElServidor(),
+): Promise<LoadResult> {
   const database = db();
   if (database === null) {
     return { kind: 'error' };
@@ -40,9 +61,7 @@ export async function loadAccountProgress(userId: string): Promise<LoadResult> {
       .where(eq(progressTable.userId, userId))
       .limit(1);
 
-    return row === undefined
-      ? { kind: 'vacio' }
-      : { kind: 'ok', progress: parseProgress(row.data) };
+    return row === undefined ? { kind: 'vacio' } : { kind: 'ok', progress: leer(row.data, hoy) };
   } catch {
     return { kind: 'error' };
   }
@@ -65,5 +84,61 @@ export async function saveAccountProgress(userId: string, value: Progress): Prom
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Funde lo que sube un aparato con lo guardado, **en una transacción**, y devuelve
+ * el resultado, o nulo si no se ha podido.
+ *
+ * Antes la ruta leía, fundía y escribía en tres pasos sueltos, y dos aparatos que
+ * subían a la vez leían lo mismo: el segundo en escribir borraba lo del primero.
+ * La auditoría lo reprodujo con dos `PUT` simultáneos —una unidad cada uno— y se
+ * guardaba una sola (adr/0116). Ahora la fila se bloquea con `for update` antes de
+ * leerla, y el segundo espera a que el primero haya escrito para leer ya lo suyo.
+ *
+ * La primera vez no hay fila que bloquear, y dos inserciones a la vez volverían a
+ * pisarse. Por eso se crea antes, vacía y sin pisar nada (`on conflict do
+ * nothing`): el segundo que lo intenta espera en el índice único a que el primero
+ * termine, y luego bloquea la fila que ya existe.
+ *
+ * Si algo falla dentro, no se escribe nada: Postgres deshace la transacción entera,
+ * y lo que había se queda como estaba, que es la regla de siempre —sin poder leer
+ * lo guardado no se escribe encima—.
+ */
+export async function fusionarAvance(
+  userId: string,
+  entrante: Progress,
+  hoy: string = hoyEnElServidor(),
+): Promise<Progress | null> {
+  const database = db();
+  if (database === null) {
+    return null;
+  }
+  try {
+    return await database.transaction(async (tx) => {
+      await tx
+        .insert(progressTable)
+        .values({ userId, data: {}, updatedAt: new Date() })
+        .onConflictDoNothing({ target: progressTable.userId });
+
+      const [row] = await tx
+        .select({ data: progressTable.data })
+        .from(progressTable)
+        .where(eq(progressTable.userId, userId))
+        .for('update');
+
+      // Recién creada, `data` es `{}` y se lee como el avance vacío: fundir con él
+      // deja lo que sube tal cual, sin un camino aparte para la primera vez.
+      const junto = mergeProgress(leer(row?.data, hoy), entrante);
+
+      await tx
+        .update(progressTable)
+        .set({ data: junto, updatedAt: new Date() })
+        .where(eq(progressTable.userId, userId));
+      return junto;
+    });
+  } catch {
+    return null;
   }
 }

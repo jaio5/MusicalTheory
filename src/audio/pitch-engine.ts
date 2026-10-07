@@ -83,4 +83,25 @@ export interface PitchEngine {
    * y aun así no se engancha ninguna nota.
    */
   subscribeLevel(listener: (rms: number) => void): () => void;
+
+  /**
+   * Cada análisis, **haya nota o no**: el instante, la altura si la hubo, su
+   * claridad y el nivel.
+   *
+   * Lo pide la toma, que transcribe un punteo entero y necesita lo que las otras
+   * dos suscripciones no dan: los análisis sin nota —que es donde acaban las notas
+   * y empiezan los silencios— y el nivel de cada uno pegado a su altura —que es
+   * como se ve que la misma nota se ha vuelto a pulsar—. Opcional porque solo lo
+   * pide ella; un motor que no lo tenga deja la toma con el historial de siempre.
+   */
+  subscribeFrames?(listener: (frame: PitchFrame) => void): () => void;
+}
+
+/** Un análisis, con nota o sin ella. */
+export interface PitchFrame {
+  readonly at: number;
+  /** Nula cuando el análisis no encontró nota. */
+  readonly frequency: number | null;
+  readonly clarity: number;
+  readonly rms: number;
 }

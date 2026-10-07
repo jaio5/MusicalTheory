@@ -186,6 +186,7 @@ function seventhLabel(roman: string, shape: ShapeId): string {
       return `${base}maj7`;
     case 'halfDiminished7':
       return `${base}ø7`;
+    /* v8 ignore next 2 -- ninguna de las dos tablas de septimas diatonicas trae un disminuido entero */
     case 'diminished7':
       return `${base}°7`;
     default:
@@ -204,10 +205,23 @@ function seventhWhy(shape: ShapeId): string {
       return 'Con la séptima menor aparece el tritono. Eso es lo que le hace pedir resolver.';
     case 'halfDiminished7':
       return 'Semidisminuido: el disminuido con la quinta bemol, mucho más usable que a secas.';
+    /* v8 ignore next 2 -- las cuatro especies de las tablas ya tienen su frase arriba */
     default:
       return 'La misma función con una nota más de color.';
   }
 }
+
+/**
+ * Los grados de la escala que un estilo **evita** aunque sean de la tonalidad: la v
+ * menor en flamenco y en bolero, donde la dominante es mayor y con sensible. Con el
+ * peso de los diatónicos salía arriba, al lado del V que es su centro.
+ */
+const GRADOS_QUE_SE_EVITAN: Readonly<
+  Record<KeyMode, Readonly<Record<string, Partial<Record<StyleId, number>>>>>
+> = {
+  major: {},
+  minor: { v: { flamenco: 0.3, bolero: 0.4 } },
+};
 
 function diatonicCandidates(mode: KeyMode): Candidate[] {
   const degrees = mode === 'major' ? MAJOR_DEGREES : MINOR_DEGREES;
@@ -222,6 +236,7 @@ function diatonicCandidates(mode: KeyMode): Candidate[] {
     const substitution = substitutionOfDegree(mode, index);
     const rank = teachingRank(mode, index);
 
+    const evitado = GRADOS_QUE_SE_EVITAN[mode][romans[index]!];
     candidates.push({
       rootOffset: offset,
       shape: shapes[index]!,
@@ -231,6 +246,7 @@ function diatonicCandidates(mode: KeyMode): Candidate[] {
       role,
       rank,
       substitution,
+      ...(evitado === undefined ? {} : { weights: evitado }),
     });
     candidates.push({
       rootOffset: offset,
@@ -408,7 +424,9 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
         label: 'I7',
         family: 'borrowed',
         why: 'La tónica con séptima menor. En blues no es una licencia, es la norma.',
-        weights: { blues: 1, rock: 0.55 },
+        // Y en funk tampoco: es el vamp. En country y en bolero es la tónica que se
+        // hace dominante del IV, el I7 que abre el cambio.
+        weights: { blues: 1, funk: 1, rock: 0.55, country: 0.6, bolero: 0.7 },
         role: 'tonic',
         rank: OUTSIDE_RANK + 14,
       },
@@ -418,7 +436,7 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
         label: 'IV7',
         family: 'borrowed',
         why: 'El cuarto grado también dominante: el compás cinco del blues.',
-        weights: { blues: 0.95, rock: 0.5 },
+        weights: { blues: 0.95, funk: 0.95, rock: 0.5, country: 0.45 },
         role: 'subdominant',
         rank: OUTSIDE_RANK + 15,
       },
@@ -432,6 +450,8 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
       label: 'IV',
       family: 'borrowed',
       why: 'El cuarto grado mayor: color dórico dentro del menor.',
+      // El im7 – IV7 es el vamp del funk en menor, y el i – IV, el del reggae.
+      weights: { funk: 0.9, reggae: 0.6 },
       role: 'subdominant',
       rank: OUTSIDE_RANK + 11,
       substitution: {
@@ -445,6 +465,9 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
       label: 'V',
       family: 'borrowed',
       why: 'Dominante con sensible, prestada del menor armónico. Aprieta más que la menor.',
+      // En flamenco es el centro, adonde llega la andaluza; en bolero, la dominante
+      // de siempre. En ninguno de los dos es un préstamo.
+      weights: { flamenco: 1, bolero: 0.95 },
       role: 'dominant',
       rank: OUTSIDE_RANK + 10,
       substitution: {
@@ -458,6 +481,7 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
       label: 'V7',
       family: 'borrowed',
       why: 'La misma dominante con séptima: pide volver a casa.',
+      weights: { bolero: 1, flamenco: 0.7 },
       role: 'dominant',
       rank: OUTSIDE_RANK + 12,
     },
@@ -470,8 +494,9 @@ function borrowedCandidates(mode: KeyMode): Candidate[] {
       role: 'tonic',
       rank: OUTSIDE_RANK + 13,
       // En folk y en jazz es un final de toda la vida; en rock y metal, casi
-      // nunca. Con el peso de la familia salía demasiado arriba en rock.
-      weights: { rock: 0.25, metal: 0.15, pop: 0.3 },
+      // nunca. Con el peso de la familia salía demasiado arriba en rock. Tampoco en
+      // un vamp de funk o de reggae, que no acaba: vuelve.
+      weights: { rock: 0.25, metal: 0.15, pop: 0.3, funk: 0.2, reggae: 0.2 },
     },
   ];
 }
@@ -571,6 +596,8 @@ function chromaticCandidates(mode: KeyMode): Candidate[] {
       label: 'V7b9',
       family: 'altered',
       why: 'Dominante con la novena bemol: aprieta hacia el menor.',
+      // La novena bemol sobre el V es la nota del flamenco, el Fa sobre el Mi.
+      weights: { flamenco: 0.8 },
       role: 'dominant',
       rank: OUTSIDE_RANK + 64,
     },
@@ -655,9 +682,11 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
   const hasPlayed = playedNotes.length > 0;
 
   const seen = new Set<string>();
-  // El rango viaja con la sugerencia solo para ordenar; fuera de aquí no
-  // significa nada, así que se quita antes de devolverla.
-  const suggestions: (ChordSuggestion & { rank: number })[] = [];
+  // El rango va **al lado** de la sugerencia y no dentro: es un criterio de
+  // orden, no algo que la sugerencia sea. Estuvo dentro y había que quitarlo
+  // antes de devolverla, que es justo la señal de que estaba en el sitio
+  // equivocado.
+  const suggestions: { suggestion: ChordSuggestion; rank: number }[] = [];
 
   for (const candidate of buildCandidates(mode)) {
     const weight = candidate.weights?.[styleId] ?? style.weights[candidate.family];
@@ -667,7 +696,18 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
 
     const root = normalizePitchClass(tonic + candidate.rootOffset);
     const notes = chordNotesFor(root, candidate.shape);
-    const symbol = `${noteName(root, accidental)}${SHAPES[candidate.shape].suffix}`;
+    // **La alteración la manda el nombre del grado, no la tonalidad.**
+    //
+    // Un grado que se llama «b» algo se escribe con bemol valga lo que valga la
+    // tonalidad: el bVII de Do es Bb y nunca A#, que suena igual y no lo escribe
+    // nadie. Aquí se usaba la de la tonalidad —que en Do es de sostenidos— y el
+    // panel proponía «A#, bVII» contradiciendo la etiqueta de al lado.
+    //
+    // `resolveDegree` ya lo hacía bien y lo tenía escrito; esta rama nunca pasó
+    // por ahí, así que se le pasó por alto.
+    const symbol = `${noteName(root, candidate.label.startsWith('b') ? 'flat' : accidental)}${
+      SHAPES[candidate.shape].suffix
+    }`;
 
     if (seen.has(symbol)) {
       continue;
@@ -681,17 +721,19 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
     const score = hasPlayed ? weight * 0.35 + fit * 0.65 : weight;
 
     suggestions.push({
-      symbol,
-      label: candidate.label,
-      family: candidate.family,
-      root,
-      notes,
-      fit,
-      score,
-      why: candidate.why,
-      role: candidate.role,
-      roleWhy: HARMONIC_ROLES[candidate.role].what,
-      substitution: candidate.substitution ?? null,
+      suggestion: {
+        symbol,
+        label: candidate.label,
+        family: candidate.family,
+        root,
+        notes,
+        fit,
+        score,
+        why: candidate.why,
+        role: candidate.role,
+        roleWhy: HARMONIC_ROLES[candidate.role].what,
+        substitution: candidate.substitution ?? null,
+      },
       rank: candidate.rank,
     });
   }
@@ -700,7 +742,14 @@ export function suggestChords(input: SuggestionInput): ChordSuggestion[] {
   // se desempataba por el cifrado, y en Do mayor eso sacaba «Am, Bdim, C…»:
   // el disminuido de segundo y la tónica de tercera.
   return suggestions
-    .sort((a, b) => b.score - a.score || a.rank - b.rank || a.symbol.localeCompare(b.symbol))
+    .sort(
+      (a, b) =>
+        b.suggestion.score - a.suggestion.score ||
+        a.rank - b.rank ||
+        /* v8 ignore start -- dos candidatos con la misma nota y el mismo orden de enseñanza no se dan hoy; esta para que el orden no dependa de la suerte */
+        a.suggestion.symbol.localeCompare(b.suggestion.symbol),
+      /* v8 ignore stop */
+    )
     .slice(0, limit)
-    .map(({ rank: _rank, ...suggestion }) => suggestion);
+    .map((entry) => entry.suggestion);
 }

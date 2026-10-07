@@ -26,6 +26,26 @@ export function msPerBeat(bpm: number): number {
   return 60_000 / clampBpm(bpm);
 }
 
+/**
+ * Compases de cuenta atrás antes de empezar a apuntar.
+ *
+ * Dos, y no uno: uno da cuatro golpes para coger el pulso y colocar la mano, y
+ * con tomas cortas eso se queda justo. Vive aquí y no en quien graba porque es
+ * tiempo musical —se mide en compases, no en segundos— y lo que dure depende del
+ * tempo y de los pulsos por compás.
+ */
+const COMPASES_DE_CUENTA = 2;
+
+/**
+ * Cuántos golpes de cuenta atrás, con esos pulsos por compás.
+ *
+ * Se cuentan golpes y no segundos porque es lo que oye quien toca: la cuenta
+ * acaba cuando suena el último clic, y el compás uno cae un pulso después.
+ */
+export function pulsosDeCuenta(beatsPerBar: number = DEFAULT_BEATS_PER_BAR): number {
+  return Math.max(1, Math.round(beatsPerBar)) * COMPASES_DE_CUENTA;
+}
+
 /** Cuántos golpes hacen falta para fiarse de lo que se está marcando. */
 const MIN_TAPS = 3;
 /** Más de esto entre dos golpes y es que has empezado de nuevo. */

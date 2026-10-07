@@ -32,8 +32,9 @@ export function SignOutButton() {
           })
           .finally(() => setWorking(false));
       }}
+      cargando={working}
     >
-      {working ? 'Saliendo...' : 'Salir de la cuenta'}
+      {working ? 'Saliendo…' : 'Salir de la cuenta'}
     </Button>
   );
 }

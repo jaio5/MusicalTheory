@@ -1,0 +1,648 @@
+/**
+ * Lo que has tocado, convertido en una progresión con duraciones.
+ *
+ * Esto es «grabar un trozo» sin grabar nada: el motor de croma ya dice qué
+ * acorde suena y cuándo, así que lo que se guarda de la grabación son **símbolos
+ * y milisegundos**, nunca una muestra de sonido. Es lo que permite pedirle
+ * versiones a la IA sin subir audio, y por eso la regla 4 de la arquitectura
+ * sigue en pie.
+ *
+ * Dominio puro y con el instante por parámetro, como `exercise.ts`: una
+ * grabación de tres minutos se prueba entera sin esperar ni un milisegundo real.
+ *
+ * Lo que se pierde y conviene tener presente: no hay ritmo dentro del compás, no
+ * hay melodía y las inversiones se leen como el acorde en estado fundamental
+ * —el croma olvida la octava, [adr/0004]—. Lo que sale de aquí es la armonía y
+ * su reparto en el tiempo, que es justo lo que hace falta para rearmonizar.
+ */
+
+import { PARECIDO_MINIMO } from './chord-matching';
+import {
+  chordSymbol,
+  especieSimpleDe,
+  seventhInside,
+  TRIADS,
+  type ChordQuality,
+  type EspecieDeBloque,
+} from './chords';
+import { accidentalForKey } from './circle-of-fifths';
+import type { KeyMode } from './keys';
+import { normalizePitchClass, type PitchClass } from './notes';
+import { degreeOfChord, gradoDeLaFundamental, type DegreeSymbol } from './progressions';
+import { MAX_SECTION_DEGREES } from './song';
+import { clampBpm, DEFAULT_BEATS_PER_BAR, msPerBeat } from './tempo';
+
+/**
+ * Lo que tarda el motor de acordes en decir un acorde que ya suena, en ms.
+ *
+ * Diez análisis por segundo, una media que tarda un par en olvidar el anterior y
+ * cuatro confirmaciones seguidas antes de decir nada: entre una cosa y otra, el
+ * acorde se anuncia medio segundo después de empezar: medido con la guitarra
+ * sintética rasgueando a 90 (`guitarra-sintetica.ts`), entre 430 y 570 ms según
+ * el acorde. Sin descontarlo, contado desde el compás uno, cada cambio caía casi
+ * un pulso tarde.
+ */
+export const RETARDO_DEL_ACORDE_MS = 520;
+
+/** Lo más largo que puede durar un bloque, en pulsos: cuatro compases de 4/4. */
+const PULSOS_POR_BLOQUE = 16;
+
+/**
+ * Qué se está tocando en una toma: la rítmica o el punteo.
+ *
+ * **Lo dice quien toca, y por eso existe esto.** Una toma producía las dos cosas a
+ * la vez —acordes del croma y notas del motor de tono, de la misma grabación— y
+ * nadie le decía nunca a la aplicación cuál de las dos era. Así que adivinaba, y
+ * adivinaba mal: un punteo salía escrito como acordes, que es uno de los fallos
+ * que se vieron tocando.
+ *
+ * No es un detalle de interfaz, es lo que hace que los dos motores dejen de
+ * competir. Después del descuento de armónicos, **un Do rasgueado y un Do pulsado
+ * a solas tienen casi la misma forma** —el Sol de un Do real es su tercer
+ * armónico—, así que ningún umbral los separa. Declararlo lo separa entero, y
+ * además pone cada cosa en el motor que sabe hacerla: el croma es bueno con
+ * acordes y es el que duda, y el de tono es monofónico y es el que afina.
+ */
+export type PapelDeLaToma = 'ritmica' | 'punteo' | 'solo-grabar';
+
+/** Cómo se llama cada papel y qué se espera de él, para quien lo elige. */
+export const PAPELES_DE_TOMA: Readonly<
+  Record<PapelDeLaToma, { readonly name: string; readonly what: string }>
+> = {
+  ritmica: {
+    name: 'Rítmica',
+    what: 'Acordes. Se apuntan los cifrados y lo que dura cada uno.',
+  },
+  punteo: {
+    name: 'Punteo',
+    what: 'Notas sueltas. Se apuntan las alturas y sus figuras.',
+  },
+  /**
+   * Guardar el sonido y no escribir nada.
+   *
+   * Era una herramienta aparte —una pastilla «Grabar» en la barra de abajo— y
+   * hacía lo mismo que esto menos transcribir: su propio reproductor, su propia
+   * descarga y **su propio micrófono**, que es la trampa que este proyecto tiene
+   * escrita —dos `getUserMedia` sobre el mismo aparato son dos permisos y dos
+   * pilotos—. Lo único suyo era no tocar la canción, y eso es un papel de la toma,
+   * no otra pantalla
+   * ([adr/0056](../../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md)).
+   */
+  'solo-grabar': {
+    name: 'Solo grabar',
+    what: 'Se guarda el sonido y no se escribe nada en la canción.',
+  },
+};
+
+/** El papel con el que se empieza, que es el que más se toca. */
+export const PAPEL_POR_DEFECTO: PapelDeLaToma = 'ritmica';
+
+/** Un acorde oído, con el instante en que empezó a sonar. */
+export interface CapturedChord {
+  readonly root: PitchClass;
+  readonly notes: readonly PitchClass[];
+  /** Milisegundos, del reloj que sea. Solo se usan las diferencias. */
+  readonly at: number;
+  /** Lo que se parecía, de 0 a 1. Opcional: hay capturas escritas a mano. */
+  readonly score?: number;
+  /** Cuánto se despegaba del siguiente candidato. Cero es un empate. */
+  readonly margin?: number;
+  /** Lo que también pudo ser, para poder corregirlo después. */
+  readonly alternatives?: readonly {
+    readonly root: PitchClass;
+    readonly notes: readonly PitchClass[];
+  }[];
+}
+
+export interface CaptureOptions {
+  readonly tonic: PitchClass;
+  readonly mode: KeyMode;
+  readonly bpm: number;
+  /** Cuándo se paró de grabar. Es lo que mide el último acorde. */
+  readonly endedAt: number;
+  readonly beatsPerBar?: number;
+  /**
+   * Lo que tiene que durar un acorde para contar, en pulsos.
+   *
+   * Medio pulso por defecto, y no cero: al pasar de un acorde a otro el croma
+   * enseña un instante el de en medio —las dos manos no cambian a la vez— y sin
+   * este filtro cada cambio metería un acorde fantasma en la progresión.
+   */
+  readonly minBeats?: number;
+  /**
+   * Dónde cae el compás uno, si la toma lo sabe.
+   *
+   * **Con él, los cambios se cuadran contra la rejilla de la toma** y no contra
+   * el primer acorde oído: cada frontera cae en su pulso, descontado lo que tarda
+   * el motor en decirlo, y los compases salen donde los marcó el clic. Sin él se
+   * mide como siempre, de acorde a acorde, que es lo que sigue usando quien no
+   * tiene cuenta atrás.
+   */
+  readonly startedAt?: number;
+  /** Lo que se descuenta a cada acorde con `startedAt`. Por defecto, `RETARDO_DEL_ACORDE_MS`. */
+  readonly retardoMs?: number;
+  /**
+   * Hasta cuándo sonó algo, si se sabe. Es lo que mide el último acorde.
+   *
+   * Sin esto el último duraba hasta que se pulsaba parar, y entre soltar la
+   * guitarra y llegar al botón pasa un segundo: el último acorde salía con un
+   * pulso o dos de más.
+   */
+  readonly sonoHasta?: number;
+  /** Cuántos pasos devolver como mucho. Por defecto, los que caben en una parte. */
+  readonly tope?: number;
+}
+
+/** Un grado con lo que dura, y con lo seguro que se estuvo de él. */
+export interface CapturedStep {
+  readonly degree: DegreeSymbol;
+  /** Pulsos, siempre uno o más. */
+  readonly beats: number;
+  /**
+   * Cuánto se despegaba del siguiente candidato, de 0 a 1. Uno es «no había con
+   * qué confundirlo».
+   *
+   * **Es el mínimo de los acordes que se fundieron en este paso, no la media.**
+   * Si de los tres fotogramas que se unieron uno era dudoso, el paso es dudoso:
+   * promediar escondería la duda justo donde hay que preguntar.
+   */
+  readonly confidence: number;
+  /** Los grados que también pudo ser, para poder corregirlo sin volver a tocar. */
+  readonly alternatives: readonly DegreeSymbol[];
+}
+
+/**
+ * Un tramo que sonó y no se pudo leer.
+ *
+ * Antes esto era un número —«se han caído tres»— y con un número no se puede
+ * hacer nada: ni saber dónde estaban, ni preguntar qué eran, ni dejar el hueco
+ * marcado en la progresión. Con el instante y el cifrado que se oyó, el hueco se
+ * puede enseñar donde estaba y quien tocó puede decir qué era.
+ *
+ * Se cae por dos motivos y los dos se distinguen: `fuera` es un acorde que se
+ * oyó bien y no es ninguno de los grados del modo —un F#m en Do mayor—, y
+ * `ilegible` es que no se pareció lo bastante a nada.
+ */
+export interface UnreadChord {
+  /** Milisegundos desde que empezó a grabarse. */
+  readonly at: number;
+  readonly beats: number;
+  /** El cifrado que se oyó, cuando se oyó alguno. */
+  readonly symbol: string | null;
+  readonly reason: 'fuera' | 'ilegible';
+}
+
+export interface Capture {
+  readonly steps: readonly CapturedStep[];
+  /**
+   * Lo que sonó y no se pudo apuntar, con dónde estaba y qué se oyó.
+   *
+   * No es una lista de errores: es lo que hace falta para poder arreglarlo. Un
+   * `F#m` tocado en una canción en Do es casi siempre que la tonalidad detectada
+   * está mal, y eso solo se ve si se enseña qué se cayó.
+   */
+  readonly unread: readonly UnreadChord[];
+  /** Acordes que no encajan en la tonalidad ni entre los prestados. */
+  readonly dropped: number;
+  /** Acordes que sonaron menos de lo que pide `minBeats`. */
+  readonly skipped: number;
+  /** Compases que ocupa entera, redondeando hacia arriba. */
+  readonly bars: number;
+}
+
+/**
+ * Lo que suena, medido desde la fundamental y sin repetir.
+ *
+ * Conjunto y no lista porque el croma devuelve las notas en el orden en que
+ * salen del vector, no en el de la partitura.
+ */
+function intervalosDesde(root: PitchClass, notes: readonly PitchClass[]): ReadonlySet<number> {
+  return new Set(notes.map((note) => normalizePitchClass(note - root)));
+}
+
+/**
+ * La primera tríada del catálogo que está entera ahí dentro.
+ *
+ * El catálogo es `TRIADS`, de `chords.ts`, y **no una copia**: que un acorde
+ * mayor sea 0-4-7 se escribe en un sitio. Que sea la primera que encaja y no la
+ * que mejor encaje también viene de allí, con su porqué.
+ */
+function triadaDentro(relativos: ReadonlySet<number>): ChordQuality | null {
+  const found = TRIADS.find(
+    (candidate) =>
+      relativos.has(0) && relativos.has(candidate.third) && relativos.has(candidate.fifth),
+  );
+  return found?.quality ?? null;
+}
+
+/**
+ * Qué especie de tríada forman esas notas sobre esa fundamental.
+ *
+ * Una cuatríada devuelve nulo: la séptima todavía no tiene grado en el catálogo,
+ * y adivinar la tríada de dentro sería tirar la nota que más define el acorde.
+ * Eso —y solo eso— es lo que la separa de `triadInside`.
+ */
+export function triadQuality(root: PitchClass, notes: readonly PitchClass[]): ChordQuality | null {
+  const relativos = intervalosDesde(root, notes);
+  return relativos.size === 3 ? triadaDentro(relativos) : null;
+}
+
+/**
+ * La tríada que hay **dentro** de un acorde, tenga las notas que tenga.
+ *
+ * `triadQuality` exige que sean exactamente tres, porque eso es lo que oye el
+ * croma y ahí de más significa que se ha colado una nota. Al escribir un cifrado
+ * es al revés: un `Am7` tiene cuatro notas y sigue siendo el mismo grado que un
+ * `Am`, y un `C7b9` tiene cinco y sigue siendo el I.
+ *
+ * Se busca la primera calidad cuyos intervalos estén todos presentes, y por eso
+ * el orden de `TRIADS` importa: un `7#9` lleva dentro la tercera mayor y la
+ * menor, y es un acorde mayor con una tensión, no un acorde menor.
+ *
+ * No vale mirar las tres primeras notas: van ordenadas por semitono, así que las
+ * tres primeras de un `add9` son la fundamental, la novena y la tercera.
+ */
+/**
+ * Un acorde cualquiera convertido en **lo que un bloque sabe guardar**: su grado
+ * y su especie.
+ *
+ * Existe porque tres sitios hacían la misma cuenta a mano —la lista de «a dónde
+ * ir», su buscador y lo que oye el micro—, y tres copias de la misma traducción
+ * son tres maneras de que un día no coincidan.
+ *
+ * Y porque la cuenta tiene **dos caminos**: con tercera, el grado sale de la
+ * tríada (`triadInside` y `degreeOfChord`); sin ella —un `C5`— no hay tríada que
+ * mirar y el grado sale de la fundamental
+ * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+ *
+ * Nulo cuando no hay grado: lo que no cabe en la tonalidad, y lo que no es ni
+ * tríada ni quinta —un `Fsus2` cambia la tercera por la segunda—. Eso es correcto
+ * y no una limitación escondida: quien pregunta lo dice antes de ofrecerlo.
+ *
+ * Y lo que lleva una tríada y alguna nota que el bloque no sabe guardar —un `C6`,
+ * un `Cadd9`, un `C7b9`— entra como su tríada, **nunca como una séptima que no
+ * es**: el `C6` entraba como `CmMaj7`, y el bloque decía un acorde y sonaba otro.
+ */
+export function comoBloque(
+  tonic: PitchClass,
+  mode: KeyMode,
+  root: PitchClass,
+  notes: readonly PitchClass[],
+): { degree: DegreeSymbol; especie?: EspecieDeBloque } | null {
+  // **Primero por la tríada**, que es lo que dice de qué grado se trata: un `Am`
+  // en Do mayor es el `vi` a secas, sin especie que lo adorne. Preguntando antes
+  // por la especie, todos los menores entrarían como «el grado de su fundamental
+  // con especie menor», que es verdad y es inútil.
+  const triada = triadInside(root, notes);
+  const porLaTriada = triada === null ? null : degreeOfChord(tonic, mode, root, triada);
+  const septima = seventhInside(root, notes);
+  if (porLaTriada !== null) {
+    return septima === null ? { degree: porLaTriada } : { degree: porLaTriada, especie: septima };
+  }
+
+  /**
+   * Y si la tríada no cae en ningún grado, **manda la fundamental**.
+   *
+   * Es lo que ya hacía la quinta, y por lo mismo: el catálogo de grados es un
+   * vocabulario escogido —no tiene un menor sobre el I ni un disminuido sobre
+   * cualquier fundamental—, pero la tonalidad sí sabe qué grado hay sobre esa
+   * nota. Con esto, `Csus4`, `Cdim`, `Caug`, `Cm` y `Cdim7` dejan de estar
+   * apagados en el buscador.
+   *
+   * Lo que sigue sin entrar es la fundamental que no es ningún grado —un `F#` en
+   * Do mayor—, y eso no lo arregla una especie: pide un grado que no existe.
+   */
+  const porLaFundamental = gradoDeLaFundamental(tonic, mode, root);
+  if (porLaFundamental === null) {
+    return null;
+  }
+  const simple = especieSimpleDe(root, notes);
+  if (simple !== null) {
+    return { degree: porLaFundamental, especie: simple };
+  }
+  return septima === null ? null : { degree: porLaFundamental, especie: septima };
+}
+
+export function triadInside(root: PitchClass, notes: readonly PitchClass[]): ChordQuality | null {
+  return triadaDentro(intervalosDesde(root, notes));
+}
+
+/**
+ * La tríada de un acorde oído: la suya si tiene tres notas, y si tiene cuatro, la
+ * que lleva dentro.
+ *
+ * **Una séptima oída se escribe como su tríada.** Con una guitarra, el croma ve
+ * cuatro notas casi siempre: el quinto armónico de la quinta es la séptima mayor,
+ * y el tercero de la fundamental refuerza la quinta, así que un Do mayor
+ * rasgueado se lee C7, Cmaj7 o C6 según el golpe. Medido con cuerdas pulsadas
+ * sintéticas: los cuatro acordes de una progresión salían como cuatríadas, y
+ * como aquí solo se aceptaban tríadas, **no se apuntaba ni uno**. Es la física de
+ * la cuerda, no un fallo del motor, y no tiene arreglo mirando el croma; lo que
+ * se tocó, casi siempre, es la tríada.
+ */
+function triadaOida(chord: CapturedChord): ChordQuality | null {
+  return triadQuality(chord.root, chord.notes) ?? triadInside(chord.root, chord.notes);
+}
+
+/**
+ * El grado que la toma escribirá para un acorde oído, o nulo si no lo escribe.
+ *
+ * Es la lectura de cada acorde que hace `captureProgression` —la tríada oída y
+ * su grado en la tonalidad—, suelta para probarla sola: un G7 o un Cmaj7 del
+ * croma se escriben G y C, y leído con `comoBloque` saldrían con su séptima.
+ */
+export function gradoOido(
+  tonic: PitchClass,
+  mode: KeyMode,
+  root: PitchClass,
+  notes: readonly PitchClass[],
+): DegreeSymbol | null {
+  const quality = triadaOida({ root, notes, at: 0 });
+  return quality === null ? null : degreeOfChord(tonic, mode, root, quality);
+}
+
+/**
+ * Si dos acordes oídos son el mismo: la misma fundamental y la misma tríada.
+ *
+ * Se exporta porque la sesión lo necesita al apuntar: el acorde que ya sonaba al
+ * empezar entra en el compás uno, y si el croma vuelve a decirlo no es otro.
+ */
+export function mismoAcordeOido(a: CapturedChord, b: CapturedChord): boolean {
+  if (a.root !== b.root) {
+    return false;
+  }
+  const suya = triadaOida(a);
+  if (suya !== null) {
+    return suya === triadaOida(b);
+  }
+  // Sin tríada que comparar —una quinta, un sus— se comparan las notas, que el
+  // croma no distingue por inversión.
+  const notas = new Set(b.notes);
+  return a.notes.length === b.notes.length && a.notes.every((note) => notas.has(note));
+}
+
+/**
+ * Los candidatos que también cabían, traducidos a grados de esta tonalidad.
+ *
+ * Se cae lo que no es un grado del modo y lo que ya es el elegido: al corregir
+ * hay que ofrecer lo que **cambia** algo, y una lista con el mismo acorde dentro
+ * es una lista con una opción que no hace nada.
+ */
+function gradosDe(
+  alternatives: CapturedChord['alternatives'],
+  tonic: PitchClass,
+  mode: KeyMode,
+  elegido: DegreeSymbol,
+): DegreeSymbol[] {
+  const salida: DegreeSymbol[] = [];
+  for (const otra of alternatives ?? []) {
+    const quality = triadQuality(otra.root, otra.notes) ?? triadInside(otra.root, otra.notes);
+    const degree = quality === null ? null : degreeOfChord(tonic, mode, otra.root, quality);
+    if (degree !== null && degree !== elegido && !salida.includes(degree)) {
+      salida.push(degree);
+    }
+  }
+  return salida;
+}
+
+/**
+ * La progresión que sale de lo que se ha tocado.
+ *
+ * Colapsa dos veces, y las dos hacen falta por motivos distintos: la primera une
+ * repeticiones del **mismo acorde oído**, que es lo que emite el motor mientras
+ * la mano no se mueve; la segunda une grados iguales seguidos, que es lo que
+ * pasa cuando se cambia de postura sin cambiar de acorde —de C al aire a C en
+ * cejilla— y el croma lo lee como dos acordes distintos y el mismo grado.
+ */
+/**
+ * De cuánto fiarse de un acorde oído, de 0 a 1.
+ *
+ * **Son dos maneras distintas de equivocarse, y hasta aquí solo se miraba una.**
+ * El margen dice si hubo empate: si el segundo candidato se quedó pegado, el
+ * motor eligió casi a cara o cruz. Pero un acorde puede ganar de calle y aun así
+ * no parecerse a nada: una cuerda que roza o una nota que no llegó a sonar dejan
+ * un croma que solo una plantilla explica —mal, pero sola—, y eso salía con
+ * margen de sobra y se escribía como una certeza. Es literalmente lo que se
+ * notaba tocando: **lo apuntaba como si estuviera seguro**.
+ *
+ * Así que la holgura son las dos, y manda la peor: lo que le saca al segundo, y
+ * lo que le saca al suelo de parecido. Las dos son diferencias de puntuación, así
+ * que se comparan con el mismo `DUDOSO` sin convertir nada.
+ *
+ * Sin puntuación —una captura escrita a mano, o un test— se mira solo el margen,
+ * y sin ninguna de las dos se da por cierta: lo contrario sería marcar como
+ * dudoso todo lo que no venga del micro.
+ */
+export function confianzaDe(chord: CapturedChord): number {
+  const porEmpate = chord.margin ?? 1;
+  const porParecido = chord.score === undefined ? 1 : chord.score - PARECIDO_MINIMO;
+  return Math.max(0, Math.min(porEmpate, porParecido));
+}
+
+export function captureProgression(
+  heard: readonly CapturedChord[],
+  options: CaptureOptions,
+): Capture {
+  const bpm = clampBpm(options.bpm);
+  const porPulso = msPerBeat(bpm);
+  const beatsPerBar = options.beatsPerBar ?? DEFAULT_BEATS_PER_BAR;
+  const minBeats = options.minBeats ?? 0.5;
+
+  // Primer colapso: lo que el motor repite mientras no cambia nada.
+  const unicos: CapturedChord[] = [];
+  for (const chord of heard) {
+    const ultimo = unicos.at(-1);
+    if (ultimo === undefined || !mismoAcordeOido(ultimo, chord)) {
+      unicos.push(chord);
+      continue;
+    }
+    // **La duda del repetido no se tira.** El motor emite el mismo acorde
+    // muchas veces mientras la mano no se mueve, y cada uno con su confianza: si
+    // en alguno de esos análisis estuvo a punto de decir otra cosa, o se pareció
+    // bastante menos, el acorde entero es dudoso. Quedarse con el primero
+    // escondía justo eso.
+    if (confianzaDe(chord) < confianzaDe(ultimo)) {
+      unicos[unicos.length - 1] = { ...ultimo, margin: chord.margin, score: chord.score };
+    }
+  }
+
+  const { tramos, skipped } =
+    options.startedAt === undefined
+      ? tramosDeAcordeAAcorde(unicos, options.endedAt, porPulso, minBeats)
+      : tramosEnLaRejilla(unicos, { ...options, startedAt: options.startedAt }, porPulso, minBeats);
+
+  let dropped = 0;
+  const pasos: CapturedStep[] = [];
+  const unread: UnreadChord[] = [];
+  const desde = unicos[0]?.at ?? 0;
+  // **En la rejilla, lo que no se pudo leer no se lleva su tiempo.** Se lo queda
+  // el acorde de antes —o el de después, si era el primero—: un bloque menos es
+  // un hueco que se puede corregir, pero un pulso menos corre todo lo que viene
+  // detrás y los cambios dejan de caer donde se tocaron.
+  const enLaRejilla = options.startedAt !== undefined;
+  let sinDueno = 0;
+
+  for (const { chord, beats } of tramos) {
+    const quality = triadaOida(chord);
+    const degree = gradoOido(options.tonic, options.mode, chord.root, chord.notes);
+
+    if (degree === null) {
+      dropped += 1;
+      if (enLaRejilla) {
+        const previo = pasos.at(-1);
+        if (previo === undefined) {
+          sinDueno += beats;
+        } else {
+          pasos[pasos.length - 1] = { ...previo, beats: previo.beats + beats };
+        }
+      }
+      // Se apunta dónde estaba y qué se oyó. Con un contador no se puede
+      // preguntar «aquí sonó algo que no supe leer, ¿qué era?».
+      unread.push({
+        at: chord.at - desde,
+        beats,
+        symbol:
+          quality === null
+            ? null
+            : chordSymbol(chord.root, quality, accidentalForKey(options.tonic, options.mode)),
+        reason: quality === null ? 'ilegible' : 'fuera',
+      });
+      continue;
+    }
+
+    const confidence = confianzaDe(chord);
+    const alternatives = gradosDe(chord.alternatives, options.tonic, options.mode, degree);
+    const anterior = pasos.at(-1);
+    const suyos = beats + sinDueno;
+    sinDueno = 0;
+
+    // Segundo colapso: el mismo grado dos veces seguidas es un cambio de
+    // postura, no un acorde nuevo. Se suman los pulsos en vez de repetirlo.
+    if (anterior !== undefined && anterior.degree === degree) {
+      pasos[pasos.length - 1] = {
+        degree,
+        beats: anterior.beats + suyos,
+        // El mínimo, no la media: si uno de los que se funden era dudoso, el
+        // paso entero lo es. Promediar escondería la duda donde hay que
+        // preguntar.
+        confidence: Math.min(anterior.confidence, confidence),
+        alternatives: [...new Set([...anterior.alternatives, ...alternatives])],
+      };
+    } else {
+      pasos.push({ degree, beats: suyos, confidence, alternatives });
+    }
+  }
+
+  // **Un bloque no dura más de cuatro compases**, que es lo que el lienzo deja
+  // estirar: un acorde sostenido toda la toma sale en varios bloques iguales
+  // seguidos en vez de recortado a dieciséis pulsos.
+  const partidos = pasos.flatMap((paso) =>
+    Array.from({ length: Math.ceil(paso.beats / PULSOS_POR_BLOQUE) }, (_, trozo) => ({
+      ...paso,
+      beats: Math.min(PULSOS_POR_BLOQUE, paso.beats - trozo * PULSOS_POR_BLOQUE),
+    })),
+  );
+
+  const steps = partidos.slice(0, options.tope ?? MAX_SECTION_DEGREES);
+  const totalBeats = steps.reduce((total, step) => total + step.beats, 0);
+
+  return {
+    steps,
+    unread,
+    dropped,
+    skipped,
+    bars: Math.ceil(totalBeats / Math.max(1, beatsPerBar)),
+  };
+}
+
+interface TramoDeAcorde {
+  readonly chord: CapturedChord;
+  readonly beats: number;
+}
+
+/** Lo de siempre: cada acorde dura hasta el siguiente, medido desde él. */
+function tramosDeAcordeAAcorde(
+  unicos: readonly CapturedChord[],
+  endedAt: number,
+  porPulso: number,
+  minBeats: number,
+): { tramos: TramoDeAcorde[]; skipped: number } {
+  const tramos: TramoDeAcorde[] = [];
+  let skipped = 0;
+  for (const [index, chord] of unicos.entries()) {
+    const hasta = unicos[index + 1]?.at ?? endedAt;
+    const pulsos = (hasta - chord.at) / porPulso;
+    if (!Number.isFinite(pulsos) || pulsos < minBeats) {
+      skipped += 1;
+      continue;
+    }
+    tramos.push({ chord, beats: Math.max(1, Math.round(pulsos)) });
+  }
+  return { tramos, skipped };
+}
+
+/**
+ * Cada cambio, en su pulso de la rejilla de la toma.
+ *
+ * **Se cuadran las fronteras y no los largos**, y es la diferencia entre que la
+ * canción se mantenga en su sitio o se vaya corriendo: redondear cada largo por
+ * su cuenta acumula el error —tres acordes de 3,6 pulsos salen de 4 y el cuarto
+ * ya empieza un pulso tarde—; redondeando dónde cae cada cambio, el error de uno
+ * no pasa al siguiente.
+ *
+ * Lo que sonó antes del primer acorde se lo queda él hasta el principio de su
+ * compás: un bloque no puede empezar con silencio, y así los cambios siguen
+ * cayendo en sus pulsos. Los compases enteros vacíos de delante no se escriben.
+ */
+function tramosEnLaRejilla(
+  unicos: readonly CapturedChord[],
+  options: CaptureOptions & { readonly startedAt: number },
+  porPulso: number,
+  minBeats: number,
+): { tramos: TramoDeAcorde[]; skipped: number } {
+  const retardo = options.retardoMs ?? RETARDO_DEL_ACORDE_MS;
+  const beatsPerBar = Math.max(1, options.beatsPerBar ?? DEFAULT_BEATS_PER_BAR);
+  const pulsoDe = (at: number) => (at - options.startedAt) / porPulso;
+  const fin = pulsoDe(options.sonoHasta ?? options.endedAt);
+
+  // Primero fuera lo que duró menos de lo que cuenta: el acorde de paso que el
+  // croma ve un instante al cambiar de postura. Su tiempo es del de antes.
+  const quedan: { chord: CapturedChord; pulso: number }[] = [];
+  let skipped = 0;
+  for (const [index, chord] of unicos.entries()) {
+    const pulso = pulsoDe(chord.at - retardo);
+    const siguiente = unicos[index + 1];
+    const hasta = siguiente === undefined ? fin : pulsoDe(siguiente.at - retardo);
+    if (!Number.isFinite(hasta - pulso) || hasta - pulso < minBeats) {
+      skipped += 1;
+      continue;
+    }
+    quedan.push({ chord, pulso });
+  }
+
+  const fronteras = quedan.map(({ pulso }) => Math.max(0, Math.round(pulso)));
+  if (fronteras.length > 0) {
+    fronteras[0] = Math.floor(fronteras[0]! / beatsPerBar) * beatsPerBar;
+  }
+  // El final se redondea **hacia arriba**, con un cuarto de pulso de holgura: un
+  // rasgueo se apaga poco a poco y deja de oírse antes de acabar su pulso —medido,
+  // el último Do salía de tres pulsos en vez de cuatro—.
+  const ultimo = Math.max((fronteras.at(-1) ?? 0) + 1, Math.ceil(fin - 0.25));
+
+  const tramos: TramoDeAcorde[] = [];
+  for (const [index, { chord }] of quedan.entries()) {
+    const beats = (fronteras[index + 1] ?? ultimo) - fronteras[index]!;
+    if (beats <= 0) {
+      // Dos cambios en el mismo pulso: el segundo es el que se oyó asentarse.
+      skipped += 1;
+      continue;
+    }
+    tramos.push({ chord, beats });
+  }
+  return { tramos, skipped };
+}
+
+/** Los grados a secas, que es lo que guarda una canción. */
+export function capturedDegrees(capture: Capture): DegreeSymbol[] {
+  return capture.steps.map((step) => step.degree);
+}

@@ -1,0 +1,236 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+/**
+ * Cambiar de plan.
+ *
+ * Hoy el cobrador no cobra —lo cambia y ya, a propósito y con su ADR—, así que lo
+ * que se prueba es lo que seguirá siendo verdad cuando sí cobre: que hace falta
+ * cuenta, que el plan que se pide tiene que existir, y que **quién cambia de plan
+ * sale de la sesión y no del cuerpo**.
+ */
+
+const currentSession = vi.fn();
+const billing = vi.fn();
+const setPlan = vi.fn<(userId: string, plan: string) => Promise<string>>();
+
+vi.mock('@server/entitlements', () => ({ currentSession: () => currentSession() }));
+vi.mock('@server/billing', () => ({ billing: () => billing() }));
+vi.mock('@server/users', () => ({
+  setPlan: (userId: string, plan: string) => setPlan(userId, plan),
+}));
+vi.mock('@server/auth', () => ({ authAvailable: () => true }));
+
+const { GET, POST, PUT } = await import('./route');
+
+const SESION = { userId: 'u1', account: { plan: 'gratis' } };
+
+/** El cobrador que no cobra: cambia el plan y lo declara. */
+const COBRADOR_FALSO = {
+  name: 'sin cobro',
+  charges: false,
+  start: vi.fn<(datos: { userId: string; email: string; plan: string }) => Promise<unknown>>(),
+  cancel: vi.fn<(datos: { userId: string }) => Promise<{ ok: boolean }>>(),
+  portal: vi.fn<(datos: { userId: string; email: string }) => Promise<string | null>>(),
+};
+
+function pedir(body: unknown): Request {
+  return new Request('http://x/api/plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+async function leer(res: Response) {
+  return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+}
+
+beforeEach(() => {
+  currentSession.mockReset();
+  currentSession.mockResolvedValue(SESION);
+  billing.mockReset();
+  billing.mockReturnValue(COBRADOR_FALSO);
+  setPlan.mockClear();
+  setPlan.mockResolvedValue('ok');
+  COBRADOR_FALSO.start.mockReset();
+  COBRADOR_FALSO.start.mockResolvedValue({ kind: 'listo', plan: 'medio' });
+  COBRADOR_FALSO.cancel.mockReset();
+  COBRADOR_FALSO.cancel.mockResolvedValue({ ok: true });
+  COBRADOR_FALSO.portal.mockReset();
+  COBRADOR_FALSO.portal.mockResolvedValue(null);
+});
+
+describe('quién puede cambiar de plan', () => {
+  it('sin cuenta, no', async () => {
+    currentSession.mockResolvedValue(null);
+
+    const { status } = await leer(await POST(pedir({ plan: 'medio' })));
+
+    expect(status).toBe(401);
+    expect(COBRADOR_FALSO.start).not.toHaveBeenCalled();
+  });
+
+  it('volver a gratis cancela en vez de cobrar', async () => {
+    currentSession.mockResolvedValue({ userId: 'u1', account: { plan: 'medio' } });
+
+    await POST(pedir({ plan: 'gratis' }));
+
+    expect(COBRADOR_FALSO.cancel).toHaveBeenCalledWith({ userId: 'u1' });
+    expect(COBRADOR_FALSO.start).not.toHaveBeenCalled();
+  });
+
+  it('pedir el plan que ya tienes no hace nada', async () => {
+    const { status } = await leer(await POST(pedir({ plan: 'gratis' })));
+
+    expect(status).toBe(200);
+    expect(COBRADOR_FALSO.start).not.toHaveBeenCalled();
+    expect(COBRADOR_FALSO.cancel).not.toHaveBeenCalled();
+  });
+
+  it('el usuario sale de la sesión, no del cuerpo', async () => {
+    // Si saliera del cuerpo, cualquiera le pondría el plan Medio a otra persona
+    // —o se lo quitaría—.
+    await POST(pedir({ plan: 'medio', userId: 'otro' }));
+
+    const usuarios = setPlan.mock.calls.map((c) => c[0]);
+    const enCobro = COBRADOR_FALSO.start.mock.calls.map((c) => c[0].userId);
+
+    expect(COBRADOR_FALSO.start).toHaveBeenCalled();
+    expect([...usuarios, ...enCobro].every((u) => u === undefined || u === 'u1')).toBe(true);
+  });
+});
+
+describe('qué plan se pide', () => {
+  it('un plan que no existe no se acepta', async () => {
+    const { status } = await leer(await POST(pedir({ plan: 'platino' })));
+
+    expect(status).toBe(400);
+    expect(COBRADOR_FALSO.start).not.toHaveBeenCalled();
+  });
+
+  it('sin decir plan tampoco', async () => {
+    const { status } = await leer(await POST(pedir({})));
+
+    expect(status).toBe(400);
+  });
+
+  // Pro se fundió en Medio (adr/0104): ya no se vende, aunque una cuenta que lo
+  // tenga guardado siga resolviendo como Medio.
+  it('Pro ya no se vende', async () => {
+    const { status } = await leer(await POST(pedir({ plan: 'pro' })));
+
+    expect(status).toBe(400);
+  });
+});
+
+describe('cada cuánto se paga', () => {
+  it('sin decirlo, al mes', async () => {
+    await POST(pedir({ plan: 'medio' }));
+
+    expect(COBRADOR_FALSO.start).toHaveBeenCalledWith(
+      expect.objectContaining({ plan: 'medio', periodo: 'mensual' }),
+    );
+  });
+
+  it('al año, si se pide', async () => {
+    await POST(pedir({ plan: 'basico', periodo: 'anual' }));
+
+    expect(COBRADOR_FALSO.start).toHaveBeenCalledWith(
+      expect.objectContaining({ plan: 'basico', periodo: 'anual' }),
+    );
+  });
+
+  it('un periodo que no es ninguno de los dos no se cobra', async () => {
+    const { status, body } = await leer(await POST(pedir({ plan: 'medio', periodo: 'semanal' })));
+
+    expect(status).toBe(400);
+    expect((body['error'] as { code: string }).code).toBe('periodo-desconocido');
+    expect(COBRADOR_FALSO.start).not.toHaveBeenCalled();
+  });
+});
+
+describe('lo que dice el cobrador', () => {
+  it('GET cuenta si esta copia cobra o no', async () => {
+    // La pantalla lo usa para avisar de que no se cobra en vez de fingir una
+    // pasarela.
+    const { status, body } = await leer(await GET());
+
+    expect(status).toBe(200);
+    expect(body['billing']).toMatchObject({ charges: false });
+    expect(body['plans']).toBeInstanceOf(Array);
+  });
+
+  it('con el cobrador que no cobra, el plan cambia sin pasar por caja', async () => {
+    const { status } = await leer(await POST(pedir({ plan: 'medio' })));
+
+    expect(status).toBe(200);
+    expect(COBRADOR_FALSO.start).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', plan: 'medio' }),
+    );
+  });
+});
+
+describe('el portal de la pasarela', () => {
+  it('es PUT y no GET, porque abrirlo crea una sesion en la pasarela', async () => {
+    // No es una consulta, aunque lo parezca desde fuera: un `GET` que crea algo
+    // lo acaba creando un rastreador de enlaces.
+    COBRADOR_FALSO.portal.mockResolvedValue('https://portal');
+
+    const { status, body } = await leer(await PUT());
+
+    expect(status).toBe(200);
+    expect(body['url']).toBe('https://portal');
+  });
+
+  it('sin cuenta no hay portal que abrir', async () => {
+    currentSession.mockResolvedValue(null);
+
+    expect((await leer(await PUT())).status).toBe(401);
+  });
+
+  it('sin adonde ir se contesta 404, que es la verdad', async () => {
+    // Pasa sin pasarela puesta y también con una cuenta que nunca ha pagado. La
+    // pantalla no enseña el enlace en ninguno de los dos casos: esto es la red
+    // de debajo.
+    COBRADOR_FALSO.portal.mockResolvedValue(null);
+
+    const { status, body } = await leer(await PUT());
+
+    expect(status).toBe(404);
+    expect((body['error'] as { code: string }).code).toBe('sin-portal');
+  });
+});
+
+describe('cuando el cobrador falla', () => {
+  it('cancelar sin exito no baja el plan a medias', async () => {
+    // Desde un plan de pago: pedir el que ya se tiene no llega al cobrador.
+    currentSession.mockResolvedValue({ userId: 'u1', account: { plan: 'medio' } });
+    COBRADOR_FALSO.cancel.mockResolvedValue({ ok: false });
+
+    const { status, body } = await leer(await POST(pedir({ plan: 'gratis' })));
+
+    expect(status).toBe(502);
+    expect((body['error'] as { code: string }).code).toBe('no-guardado');
+  });
+
+  it('un error de la pasarela se cuenta sin repetir lo que dijo', async () => {
+    // Lo que conteste la pasarela se queda en el servidor: al cliente le llega
+    // siempre la misma frase.
+    COBRADOR_FALSO.start.mockResolvedValue({ kind: 'error', reason: 'card_declined' });
+
+    const { status, body } = await leer(await POST(pedir({ plan: 'medio' })));
+
+    expect(status).toBe(502);
+    expect(JSON.stringify(body)).not.toContain('card_declined');
+  });
+
+  it('el «vete a pagar a otro sitio» se pasa tal cual', async () => {
+    // Hoy no llega nunca, pero es la forma que tendra con Stripe.
+    COBRADOR_FALSO.start.mockResolvedValue({ kind: 'ir-a-pagar', url: 'https://pago' });
+
+    const { status, body } = await leer(await POST(pedir({ plan: 'medio' })));
+
+    expect(status).toBe(200);
+    expect(body).toEqual({ kind: 'ir-a-pagar', url: 'https://pago' });
+  });
+});

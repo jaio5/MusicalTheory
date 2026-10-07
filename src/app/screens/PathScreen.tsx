@@ -4,10 +4,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { can, cheapestPlanWith, nextAllowedUnit } from '@core/billing';
-import { dueReview, findUnit } from '@core/music';
-import { DailyGoal, LearnPath, StartPicker, useProgress } from '@features/learn';
+import { BADGES, dueReview, findUnit } from '@core/music';
+import { Badges, DailyGoal, LearnPath, StartPicker, Tutor, useProgress } from '@features/learn';
 import { useAccount } from '@state/account';
+import { volverAVerElRecorrido } from '@state/recorrido';
+import { Button } from '@ui/Button';
+import { Disclosure } from '@ui/Disclosure';
 import { PlanLock } from '@ui/PlanLock';
+import { IconoTeoria, IconoTocar } from '@ui/icons';
+import { WorkHeader } from '@ui/Screen';
 
 /**
  * Aprender: el camino, y nada más.
@@ -31,65 +36,178 @@ export function PathScreen() {
   const found = siguiente === null ? null : findUnit(siguiente);
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto max-w-xl">
-        <DailyGoal
-          progress={progress}
-          day={day}
-          onReview={repasa && pendientes > 0 ? () => router.push('/aprender/repaso') : null}
-        />
+    <div className="flex h-full min-h-0 flex-col">
+      <WorkHeader title="Aprender" lead="Diez cursos, y empiezas por donde quieras." />
+      {/* En pantalla ancha, dos columnas: a la izquierda lo que se consulta —la
+          meta, por dónde empiezas y el botón de seguir— y a la derecha el camino,
+          que es lo que se recorre. Antes era una columna de 576 px centrada, así
+          que en un portátil media pantalla era fondo vacío y había que desplazarse
+          para ver lo que ya cabía.
 
-        <div className="border-border flex flex-col gap-3 border-b px-3 py-3">
-          <StartPicker progress={progress} plan={account.plan} onChange={chooseStart} />
+          En estrecho se apila en el orden de siempre: primero la meta, porque lo
+          primero que se mira al abrir es si hoy ya has hecho algo. */}
+      {/* El hueco del final es el del muñeco (`HUECO_DEL_TUTOR`): flota abajo a la
+          derecha, y sin él lo último de la columna quedaba siempre debajo de él,
+          sin forma de desplazarlo a la vista. Son 10 % de la altura más lo que
+          mide, no un `pb-24`: a 390 de ancho y 844 de alto no llegaba. En ancho el hueco lo lleva
+          el camino, que es la columna sobre la que flota. */}
+      <div className="grid min-h-0 grow grid-cols-1 overflow-y-auto pb-[calc(10dvh+4rem)] lg:grid-cols-[24rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden lg:pb-0 xl:grid-cols-[27rem_minmax(0,1fr)] min-[112rem]:grid-cols-[32rem_minmax(0,1fr)]">
+        {/* La columna de la izquierda, un punto más clara que el camino.
 
-          {/* El botón grande de seguir, arriba y siempre a la misma altura: es lo
+            Estaban las dos sobre el mismo negro, separadas por una línea de un
+            píxel: desde lejos, una pared. Con el tono se ve de un vistazo que a un
+            lado está lo que se consulta y al otro lo que se recorre, que es lo que
+            este proyecto ya dice de la profundidad. */}
+        <div
+          className="border-border lg:bg-surface flex flex-col lg:col-start-1 lg:row-start-1 lg:border-r"
+          data-tour="aprender-hoy"
+        >
+          <DailyGoal
+            progress={progress}
+            day={day}
+            onReview={repasa && pendientes > 0 ? () => router.push('/aprender/repaso') : null}
+          />
+
+          <div className="border-border flex flex-col gap-3 border-b px-3 py-3 lg:border-b-0">
+            <StartPicker progress={progress} plan={account.plan} onChange={chooseStart} />
+
+            {/* El botón grande de seguir, arriba y siempre a la misma altura: es lo
               que se pulsa nueve de cada diez veces que se abre esta pantalla. */}
-          {found !== null ? (
-            <Link
-              href={`/aprender/${found.unit.id}`}
-              className="bg-brass text-background hover:bg-brass-bright flex items-center gap-3 rounded-md px-4 py-3"
-            >
-              <span aria-hidden="true" className="text-xl">
-                {found.unit.kind === 'play' ? '🎸' : '📖'}
-              </span>
-              <span className="min-w-0">
-                <span className="block font-mono text-xs opacity-80">
-                  {found.course.year}º de{' '}
-                  {found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'} · seguir
+            {found !== null ? (
+              <Link
+                href={`/aprender/${found.unit.id}`}
+                className="bg-brass text-background hover:bg-brass-bright flex items-center gap-3 rounded-md px-4 py-3"
+              >
+                <span aria-hidden="true">
+                  {found.unit.kind === 'play' ? <IconoTocar /> : <IconoTeoria />}
                 </span>
-                <span className="block truncate text-base">{found.unit.title}</span>
-              </span>
-            </Link>
-          ) : (
-            <div className="border-border border p-3">
-              <p className="text-text text-sm">
-                No queda nada abierto por delante.{' '}
-                {can(account.plan, 'grado-profesional')
-                  ? 'Has terminado el temario: puedes volver a cualquier unidad, y en otra tonalidad no es repetir.'
-                  : 'Lo siguiente es el Grado Profesional.'}
-              </p>
-              {!can(account.plan, 'grado-profesional') && (
-                <div className="mt-2">
-                  <PlanLock
-                    needed={cheapestPlanWith('grado-profesional')}
-                    what="El Grado Profesional"
-                    signedIn={signedIn}
-                    compact
-                  />
-                </div>
-              )}
-            </div>
-          )}
+                <span className="min-w-0">
+                  {/* Sin `opacity-80`: sobre el latón del tema claro dejaba la línea
+                      en 3,74:1. El mismo color que el título, y la jerarquía la
+                      pone el tamaño. */}
+                  <span className="block text-xs">
+                    {found.course.year}º de{' '}
+                    {found.course.grade === 'elemental' ? 'Elemental' : 'Profesional'} · seguir
+                  </span>
+                  <span className="block truncate text-base">{found.unit.title}</span>
+                </span>
+              </Link>
+            ) : (
+              <div className="border-border border p-3">
+                <p className="text-text text-sm">
+                  No queda nada abierto por delante.{' '}
+                  {can(account.plan, 'grado-profesional')
+                    ? 'Has terminado el temario: puedes volver a cualquier unidad, y en otra tonalidad no es repetir.'
+                    : 'Lo siguiente es el Grado Profesional.'}
+                </p>
+                {!can(account.plan, 'grado-profesional') && (
+                  <div className="mt-2">
+                    <PlanLock
+                      needed={cheapestPlanWith('grado-profesional')}
+                      what="El Grado Profesional"
+                      signedIn={signedIn}
+                      compact
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/*
+              **El recorrido se vuelve a ver desde aquí**, y no desde la barra ni
+              desde la cuenta. La barra es de las pantallas y del micro; la cuenta,
+              sin cuentas configuradas, ni siquiera tiene botón que lleve a ella.
+              Aprender es la pantalla por la que se empieza y la que está en la
+              navegación con cualquier ancho, y esta columna se ve sin desplazar
+              nada: debajo del botón de seguir, que es donde se mira al llegar.
+
+              Lleva `data-recorrido` para que el foco vuelva aquí al acabar
+              aunque la pantalla se haya vuelto a pintar mientras tanto.
+
+              **Con forma de botón**, el secundario de la casa: era una frase gris
+              que solo se subrayaba al pasar el ratón, y a un metro una frase
+              gris no se pulsa porque no parece que se pueda.
+            */}
+            <Button
+              variant="quiet"
+              tamano="compacto"
+              onClick={volverAVerElRecorrido}
+              data-recorrido="volver"
+              className="self-start"
+            >
+              Ver otra vez el recorrido por la aplicación
+            </Button>
+          </div>
         </div>
 
-        <LearnPath
-          progress={progress}
-          plan={account.plan}
-          day={day}
-          active={siguiente}
-          onPick={(unitId) => router.push(`/aprender/${unitId}`)}
-        />
+        {/*
+          El camino va **antes que las medallas** en el orden del documento, y eso
+          es lo que decide el teléfono.
+
+          Apilado, la columna de la izquierda caía entera encima del camino, y las
+          quince medallas —que recién llegado están las quince vacías— son
+          novecientos píxeles: había que pasarlas para llegar al primer curso. La
+          pantalla se llama «el camino» y el camino era lo último. Ahora, en
+          estrecho, se lee meta, curso, seguir, **camino**, y las medallas al
+          final, que es donde va un escaparate de lo que te falta.
+
+          En ancho no se mueve nada: la izquierda se parte en dos filas —arriba lo
+          que se mira de un vistazo, abajo las medallas, que son las que se
+          desplazan— y el camino ocupa las dos a su derecha.
+        */}
+        <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:min-h-0 lg:overflow-y-auto lg:pb-[calc(10dvh+4rem)]">
+          <LearnPath
+            progress={progress}
+            plan={account.plan}
+            day={day}
+            active={siguiente}
+            onPick={(unitId) => router.push(`/aprender/${unitId}`)}
+          />
+        </div>
+
+        {/* Las medallas llenan la mitad de abajo de esta columna, que se quedaba
+            vacía en cuanto la ventana pasaba de los novecientos de alto. Y sobre
+            todo: existían y no se veían en ninguna parte más que como un
+            contador. */}
+        {/* Con parada de tabulador y nombre: en ancho esta columna se desplaza
+            sola, y sin nada enfocable dentro —las medallas no se pulsan— quien
+            usa el teclado no tenía cómo bajar por ella (axe:
+            `scrollable-region-focusable`). */}
+        {/* **Y apiladas van plegadas.** En un teléfono eran quince renglones
+            —recién llegado, quince vacíos con su cómo— al final de la columna:
+            un muro de 435 px después del último curso. Plegadas dicen cuántas
+            llevas en una línea, y se abren para quien busca cuál probar. En ancho
+            tienen su media columna y van abiertas, como siempre; son dos copias
+            y una está oculta, porque qué ancho hay no se sabe hasta pintar. */}
+        <div
+          role="region"
+          aria-label="Medallas"
+          tabIndex={0}
+          className="border-border lg:bg-surface lg:col-start-1 lg:row-start-2 lg:min-h-0 lg:overflow-y-auto lg:border-r"
+        >
+          <div className="px-3 py-1 lg:hidden">
+            <Disclosure
+              summary={
+                <>
+                  Medallas:{' '}
+                  <span className="text-brass-bright">
+                    {new Set(progress.badges).size} de {BADGES.length}
+                  </span>
+                </>
+              }
+            >
+              <Badges progress={progress} sinRotulo />
+            </Disclosure>
+          </div>
+          <div className="hidden lg:block">
+            <Badges progress={progress} />
+          </div>
+        </div>
       </div>
+
+      {/* En el camino no avisa de nada: está por si quieres preguntar algo antes
+          de meterte en una unidad. */}
+      <Tutor />
     </div>
   );
 }

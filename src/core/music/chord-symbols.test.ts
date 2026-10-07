@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseChordSymbol } from './chord-symbols';
+import { parseChordSymbol, suggestChordSymbols } from './chord-symbols';
 import { noteName, pitchClassFromName } from './notes';
 
 describe('leer un cifrado', () => {
@@ -59,5 +59,20 @@ describe('leer un cifrado', () => {
       const chord = parseChordSymbol(symbol)!;
       expect(new Set(chord.notes).size).toBe(chord.notes.length);
     }
+  });
+});
+
+describe('lo que se sugiere mientras se teclea', () => {
+  /**
+   * Lo que ya se ha escrito entero va primero: si alguien teclea «Am7» quiere
+   * Am7, y las variantes que empiezan igual vienen detrás. Pero un sufijo que no
+   * es ningún acorde no puede colarse el primero por haberlo escrito entero.
+   */
+  it('un sufijo que no existe no se ofrece el primero', () => {
+    const conocido = suggestChordSymbols('Am7');
+    const inventado = suggestChordSymbols('Cxyz');
+
+    expect(conocido[0]?.symbol).toBe('Am7');
+    expect(inventado).toEqual([]);
   });
 });

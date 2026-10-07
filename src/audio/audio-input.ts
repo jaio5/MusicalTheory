@@ -75,6 +75,6 @@ export interface AudioInput {
   subscribe(listener: (state: AudioInputState) => void): () => void;
 }
 
-// TODO (fase 1): implementar WebAudioInput sobre getUserMedia + AnalyserNode,
-// con echoCancellation, noiseSuppression y autoGainControl desactivados.
-// Ver docs/AUDIO-PITCH.md.
+// Quien lo implementa es `web-audio-input.ts`, sobre getUserMedia y AnalyserNode,
+// con echoCancellation, noiseSuppression y autoGainControl desactivados. El porqué
+// de cada parámetro está en docs/AUDIO-PITCH.md.

@@ -1,526 +1,377 @@
-# Roadmap
-
-Estado a 1 de agosto de 2026. Las trece fases están implementadas;
-lo que queda anotado abajo es deuda y afinado con instrumento real.
-
-## Fase 0 — Esqueleto y dominio · hecha
-
-- [x] Configuración: `package.json`, `tsconfig.json` con paths absolutos,
-      Tailwind, ESLint, Prettier, Vitest, `.env.example`, `.gitignore`.
-- [x] `core/music/notes.ts`: frecuencia, MIDI, clase de altura, nombre y cents.
-- [x] `core/music/scales.ts`: nueve escalas.
-- [x] `core/music/chords.ts`: tríadas diatónicas con cifrado y grado romano.
-- [x] `core/music/keys.ts`: detección de tonalidad con perfiles de Krumhansl,
-      tres candidatas con puntuación e histograma que decae.
-- [x] `core/music/progressions.ts`: caminos entre grados con criterio de rock y
-      catálogo de progresiones.
-- [x] Tests del dominio.
-- [x] Interfaces declaradas sin implementar: `AudioInput`, `PitchEngine`,
-      `CameraInput`, `SessionRecorder`.
-- [x] Tokens de diseño en `ui/tokens.ts`.
-- [x] Documentación y dos ADR.
-- [ ] `reference/prototype.jsx`: el prototipo no estaba disponible al arrancar.
-
-## Fase 1 — Motor de tono y afinador · hecha
-
-- [x] `detectPitch`: autocorrelación normalizada con interpolación parabólica,
-      probada contra tonos sintéticos de las seis cuerdas al aire con menos de
-      un cent de error.
-- [x] `WebAudioInput`: `getUserMedia` con `echoCancellation`,
-      `noiseSuppression` y `autoGainControl` desactivados, y los errores del
-      navegador traducidos a frases que dicen qué ha pasado y qué hacer.
-- [x] `AutocorrelationPitchEngine`: bucle a 20 análisis por segundo, con margen
-      de silencio para que el hueco entre dos púas no apague la nota.
-- [x] Store de sesión en `state/`, sin conocer la capa de audio.
-- [x] Afinador: nota grande, cents, aguja, cuerda más cercana y aviso cuando la
-      señal no llega limpia.
-- [x] Estado «no se oye nada» explícito, en vez de congelar la última nota.
-- [x] Umbrales de enganche y de seguimiento separados, tras probar con guitarra
-      real: con un solo umbral la nota se perdía a los pocos instantes.
-- [ ] Pendiente de más rodaje: los valores actuales salen de una sola prueba y
-      de señales sintéticas.
-
-El análisis se quedó en el hilo principal en vez de ir a un `AudioWorklet`;
-el porqué está en [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md).
-
-## Fase 2 — Rueda de quintas y mástil · hecha
-
-- [x] `core/instrument/guitar.ts`: la afinación y los trastes suben a core,
-      porque los usan el afinador y el mástil y un feature no importa de otro.
-- [x] `core/music/circle-of-fifths.ts`: orden de la rueda, relativas, ángulos y
-      el giro por el camino corto.
-- [x] El store acumula lo tocado en el histograma y recalcula la tonalidad dos
-      veces por segundo, no veinte.
-- [x] Rueda de quintas que gira con GSAP hasta poner arriba la tonalidad, con
-      `prefers-reduced-motion` respetado desde `ui/motion.ts`.
-- [x] Las tres candidatas con su puntuación, y la posibilidad de fijar una
-      tonalidad a mano o volver a la detección.
-- [x] Mástil de quince trastes con la escala elegida, tónicas destacadas y la
-      nota que suena encendida.
-- [ ] Pendiente de prueba tocando: cuánto tarda la detección en asentarse y si
-      la vida media de veinte segundos es la buena.
-
-Las etiquetas de la rueda giran con ella, como en el aparato de cartón: la que
-queda arriba se lee derecha y las demás quedan inclinadas.
-
-## Fase 3 — Modo aprender · hecha
-
-- [x] `features/learn/exercise.ts`: la escala subiendo y bajando como máquina de
-      estados pura, con el instante por parámetro. Un ejercicio entero se prueba
-      sin esperar ni un milisegundo real.
-- [x] Validación por detección: la nota cuenta cuando se sostiene 350 ms
-      afinada; rozarla no basta y soltarla reinicia el contador.
-- [x] `audio/reference-tone.ts`: nota de referencia con oscilador triangular y
-      envolvente, para comparar de oído.
-- [x] Avance con barra, aviso al terminar y reinicio al cambiar de escala.
-- [ ] Pendiente de prueba tocando: si 350 ms es cómodo o se hace lento.
-
-La nota se valida por clase de altura, no por octava: la misma nota cae en
-varias cuerdas y exigir una octava concreta sería pelearse con el mástil.
-
-## Fase 4 — Modo componer · hecha
-
-- [x] Los siete acordes diatónicos de la tonalidad, con su cifrado y su grado.
-- [x] Caminos desde el acorde actual, ordenados por frecuencia de uso y con el
-      porqué de cada uno. Se encadenan: pulsar una sugerencia la convierte en el
-      acorde actual.
-- [x] Catálogo de progresiones resuelto a acordes de la tonalidad.
-- [x] Historial de notas tocadas, con la misma nota contando otra vez solo si
-      vuelve a sonar tras una pausa.
-- [x] El acorde actual se detecta: croma con descuento de armónicos y coseno
-      contra plantillas, en un motor aparte del de tono. El porqué y sus límites,
-      en [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
-- [ ] Pendiente de prueba tocando: si las cuatro décimas que tarda en salir el
-      acorde se notan al encadenar, y cuánto estorba que las inversiones se lean
-      como el acorde en estado fundamental.
-
-Si la escala elegida en el mástil es pentatónica o de blues, los acordes se
-arman con la mayor o la menor natural: sobre cinco notas no se pueden apilar
-terceras.
-
-## Fase 5 — Ideas de IA · hecha
-
-- [x] Route handler `/api/ideas`, único sitio que importa el SDK y lee la clave.
-- [x] Validación de entrada: lo que no está en el esquema se ignora, y la
-      petición al modelo se reconstruye desde los campos que pasan.
-- [x] Salida estructurada con esquema JSON, más validación contra el dominio:
-      los grados tienen que existir en ese modo.
-- [x] Los cifrados que devuelve el modelo **no se creen**: se recalculan desde
-      los grados, que es la única forma de que no aparezca un acorde imposible.
-- [x] Un reintento y errores en español que dicen qué hacer.
-- [ ] Pendiente de probar con clave de verdad: el contrato está probado, la
-      llamada al modelo no.
-- [ ] Sin límite de frecuencia todavía: `rate_limited` está en el contrato pero
-      nadie lo emite.
-
-## Fase 6 — Grabación con cámara · hecha
-
-- [x] `BrowserCameraInput`: el permiso de cámara se pide solo al darle a grabar,
-      y su error se traduce a una frase que dice qué hacer.
-- [x] `CanvasSessionRecorder`: vídeo oculto → canvas → `captureStream` →
-      `MediaRecorder`, con negociación de formato y troceado cada segundo.
-- [x] Overlay con nota, cents, tonalidad y acorde, colocado en proporción al
-      lienzo y con un velo debajo para que se lea sobre ropa clara.
-- [x] Descarga local con nombre fechado, liberando la URL del objeto.
-- [ ] Pendiente de grabar de verdad: solo están probadas las partes puras
-      —formato, nombre y overlay—, porque jsdom no tiene `MediaRecorder`.
-
-Sigue sin haber ni una línea de código de subida, y no la habrá sin un ADR.
-
-## Fase 7 — Persistencia local de sesiones · hecha
-
-- [x] `SessionStorage` como interfaz, con dos implementaciones: IndexedDB en el
-      navegador y en memoria para los tests y el renderizado en servidor.
-- [x] Se guardan tonalidad, escala y nombres de notas. Ni audio ni vídeo.
-- [x] Retención de veinte sesiones, con la regla probada aparte de la base.
-- [x] Retomar una sesión devuelve su tonalidad y su escala.
-- [ ] No se restaura sola al abrir: hay que pulsar «Retomar». Automático sería
-      cómodo, pero también sorprendente.
-
-IndexedDB y no localStorage porque localStorage es síncrono, y escribir cientos
-de notas ahí bloquearía el hilo que está analizando el audio.
-
-## Fase 8 — Cuentas y planes · hecha
-
-- [x] Capa `src/server/`, que solo abre `app/`, vigilada por ESLint en los dos
-      sentidos: un import de `@server/` desde un componente se llevaría la cadena
-      de conexión al navegador.
-- [x] Cuentas con Auth.js: correo y contraseña, sesión en cookie firmada y sin
-      tabla de sesiones. El plan **no** viaja en la cookie, para que quien acaba de
-      pagar no siga viendo candados.
-- [x] Contraseñas con `scrypt` de la biblioteca estándar de Node: sin dependencias
-      que se compilen al instalar. Comparación en tiempo constante, y cifrado
-      también cuando el correo no existe, para que no se pueda averiguar quién
-      tiene cuenta midiendo lo que tarda.
-- [x] Tres tablas en Postgres con Drizzle y migraciones en el repositorio:
-      `users`, `progress` y `ai_usage`.
-- [x] Tres planes en el dominio (`core/billing`), con permisos por verbo y cupo
-      diario. La pantalla y la ruta preguntan a la **misma** función.
-- [x] Candado en las dos rutas de IA: `402` con el plan que hace falta y `429` con
-      el cupo gastado, los dos con el precio en la frase.
-- [x] Cupo que sube y comprueba su tope en la misma sentencia, para que dos
-      peticiones a la vez no gasten las dos la última.
-- [x] Avance sincronizado con **la fusión en el servidor**: subir es idempotente y
-      dos aparatos abiertos a la vez no se pisan.
-- [x] Puerto de facturación con un cobrador que no cobra, y que lo declara para que
-      la pantalla pueda avisarlo.
-- [x] Pantalla `/cuenta`: entrar, registrarse, los tres planes con lo que da cada
-      uno, y qué se guarda de ti.
-- [x] **Probado con Postgres de verdad** (1 de agosto de 2026), con el de
-      `compose.yml`: tablas, registro, entrada, cambio de plan, fusión del avance y
-      contador de IA. Estuvo escrito sin ejecutar desde esta fase; lo único que salió
-      al ejecutarlo fue una falta de concordancia en un mensaje, no una consulta mal.
-- [ ] Sin cobro de verdad. Es lo siguiente, y es añadir una implementación del
-      puerto, no rediseñar nada.
-
-El porqué de las dos decisiones grandes está en
-[adr/0005](./adr/0005-cuentas-y-avance-en-servidor.md) —cuentas propias y quién
-fusiona el avance— y [adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md)
-—planes en el dominio y cobro como puerto—. Lo que da cada plan y qué se guarda de
-quien entra, en [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md).
-
-## Fase 9 — Aprender como una aplicación de idiomas · hecha
-
-El dominio ya era medio Duolingo desde la fase 3: XP, racha con su aritmética de
-días, medallas y desbloqueo lineal. Lo que faltaba era la piel, y una parte del
-dominio.
-
-- [x] **Camino con nodos** en vez de lista. La lista pesaba igual en todas sus
-      filas, así que no había un «aquí estoy», y con nueve de cada diez unidades
-      cerradas lo que se veía era un muro de candados. Ahora el que toca es más
-      grande y lleva su cartel, y lo cerrado se atenúa hasta quedar de fondo.
-- [x] **Cuatro estados y no dos**: hecha, abierta, cerrada por temario y cerrada
-      por plan. Los dos candados no se abren igual —uno estudiando y otro
-      pagando—, y con el mismo icono quien va por el cuarto curso cree que le falta
-      estudiar.
-- [x] **Meta diaria** con su anillo, y la racha en grande al lado. Un número que
-      sube durante diez cursos no da la sensación de haber hecho algo hoy; una meta
-      que se llena, se cierra y mañana está vacía, sí.
-- [x] **Pantalla de después**: cuánto has ganado, cómo va la racha, si has cerrado
-      la meta y qué medallas son nuevas. Antes terminar una unidad devolvía a la
-      lista sin decir nada.
-- [x] **Repaso de lo fallado.** Lo que se falla se apunta por su **posición** en la
-      lección, no por su texto, así que se vuelve a generar en la tonalidad de hoy:
-      el repaso pregunta lo mismo con otros acordes, que es lo que distingue haber
-      entendido el V grado de haberse aprendido que la respuesta era Sol.
-- [x] Unidades **agrietadas**: superadas pero con preguntas esperando repaso. Una
-      unidad hecha deja de ser una casilla cerrada para siempre.
-- [x] Dos medallas nuevas —cerrar la meta del día y dejar la cola de repaso
-      vacía— y XP de repaso que **cuenta para la meta y no para el temario**: si
-      contase para el temario, repasar mucho el Elemental diría que llevas medio
-      Profesional hecho.
-- [ ] Pendiente de rodaje: si la meta de 40 XP es la buena, y si dos pasos de
-      repaso —hoy y mañana— bastan para que algo se quede.
-
-**Sin vidas ni corazones**, a propósito y en contra del modelo que imita: fallar no
-bloquea, se dice por qué era la otra y se sigue. Lo que se pierde al fallar es la
-medalla de no fallar y que la pregunta vuelva, no el avance, porque una unidad que
-hay que repetir desde el principio se abandona.
-
-## Fase 10 — Una pantalla por cosa, y empezar donde quieras · hecha
-
-- [x] **Tres planes de pago** —Básico 4,99 €, Medio 9,99 €, Pro 19,99 €— cada uno con
-      algo que el anterior no tiene: el temario entero, las ideas de la IA, y un
-      profesor que sabe por dónde vas. El gratis sigue siendo lo que tiene quien no
-      paga, y no se vende como una cuarta columna.
-- [x] `planOf` traduce los nombres viejos: `estudiante` → Básico, `conservatorio` →
-      Pro. Un renombrado no puede degradar en silencio a quien había pagado.
-- [x] **`/planes` y una ventana de pago por plan** (`/planes/basico`, `/medio`,
-      `/pro`), con el resumen, el precio, lo que se abre **que no tuvieras ya**, y el
-      hueco para entrar sin salir de la pantalla. `/planes/gratis` da 404: el plan
-      gratis no es una compra.
-- [x] Sin campos de tarjeta, y dicho en su sitio: mientras el cobrador no cobre,
-      unos campos que no llevan a ninguna pasarela serían un decorado que se parece
-      demasiado a un cobro de verdad.
-- [x] **Aprender es solo el camino.** La unidad, el repaso y el profesor se han ido a
-      sus propias direcciones: `/aprender/[unidad]`, `/aprender/repaso`, `/profesor`.
-- [x] **Se elige por dónde empezar.** Un desplegable con los diez cursos: lo anterior
-      al punto de partida queda abierto, de ahí en adelante sigue siendo una detrás de
-      otra, y saltar no da por hechas las unidades que se salta.
-- [x] Navegación con iconos abajo en pantalla estrecha, donde llega el pulgar, y
-      arriba en pantalla grande.
-- [ ] Pendiente de rodaje: si el desplegable es la forma buena de elegir el nivel, o
-      si hace falta que la primera vez lo pregunte a pantalla completa.
-
-El comentario de `progress.ts` que defendía el desbloqueo lineal decía lo contrario de
-lo que hace ahora el código, así que se ha reescrito. Las alternativas —abrirlo todo,
-una prueba de nivel, dar por hechas las unidades saltadas— están en
-[adr/0007](./adr/0007-elegir-por-donde-empezar.md).
-
-## Fase 11 — Que los cupos cuadren con el dinero · hecha
-
-Los cupos de IA salieron escritos a mano y **perdían dinero**: cuarenta peticiones al
-día son mil doscientas al mes, y con Opus 5 eso eran entre veintiséis y sesenta euros
-de coste para un plan de 4,99 €. Nadie los había multiplicado.
-
-- [x] `core/billing/cost.ts`: los precios reales de los tres modelos, el peor caso de
-      tokens de cada petición y los cupos como una **división** —presupuesto del plan
-      entre coste del peor caso—. Ya no hay ningún cupo escrito a mano.
-- [x] Un test que comprueba que **ningún plan de pago pierde dinero** aunque se gaste
-      el cupo entero, con los tres modelos y con uno desconocido.
-- [x] El `max_tokens` de las dos rutas sale del mismo sitio que el cálculo: el peor
-      caso que supone la aritmética es el tope que impone el servidor.
-- [x] **Pensar apagado** en las dos rutas. En Opus 5 viene encendido por defecto y se
-      cobra como salida: multiplicaba el coste de cada pregunta y podía gastarse el
-      tope pensando para devolver una respuesta truncada.
-- [x] Dos topes: el del mes protege el dinero y el del día evita fundirse el mes en una
-      tarde. Se comprueban **en la misma sentencia**, y por eso la tabla pasó a tener
-      una fila por cuenta y mes con el día dentro.
-- [x] **La IA pide cuenta.** El contador anónimo por dirección IP se ha borrado, no
-      arreglado: no era un límite por cliente, era un rótulo.
-- [x] `server/prompts.ts` con los dos prompts y los dos esquemas juntos, y un test que
-      mide sus caracteres: si crecen hasta comerse la holgura del presupuesto de
-      tokens, falla. Es lo que evita que el modelo de coste mienta en silencio.
-- [ ] El peor caso de entrada sigue siendo una estimación por longitud, no una medida
-      con `count_tokens`. Confirmarlo con clave de verdad es lo que falta.
-
-Lo que sale con el modelo por defecto: Básico 147 peticiones al mes, Medio 181, Pro 363,
-y quince de regalo sin pagar. Con Haiku 4.5 se multiplican por cinco, y el cálculo ya lo
-hace solo. El porqué y las alternativas, en
-[adr/0008](./adr/0008-los-cupos-salen-del-precio.md).
-
-## Fase 12 — El avatar, el registro y los ajustes de tu cuenta · hecha
-
-La cuenta funcionaba entera desde la fase 8, pero se llegaba a ella por un rótulo con
-el correo recortado que en el móvil se comía el sitio de la navegación, y una vez
-dentro no se podía cambiar nada.
-
-- [x] **Avatar redondo** arriba a la derecha, con la inicial de cómo te llamas. Sin
-      cuenta es un enlace a `/registro`, y con cuenta un desplegable: un menú cuya
-      única opción es «entrar» es un clic de más para llegar al mismo sitio.
-- [x] **`/registro`**, pantalla propia. Quien llega no viene a mirar nada, viene a
-      rellenar tres campos, y al lado se cuenta qué le da la cuenta —incluido que sin
-      ella la aplicación funciona entera menos la IA—. Con la sesión abierta no se
-      pinta el formulario: crear una segunda cuenta sin querer es perder el avance de
-      la primera.
-- [x] **`/cuenta` son cuatro secciones con ancla** —perfil, suscripción, contraseña y
-      privacidad—, que son las cuatro entradas del desplegable. Anclas y no cuatro
-      pantallas: se miran de una en una y muy de tarde en tarde.
-- [x] **Cambiar el nombre y la contraseña**, con `PATCH /api/cuenta` y su propio
-      límite de intentos. La contraseña se pide aunque ya haya sesión: una cookie viva
-      en un ordenador prestado no puede bastar para quedarse con la cuenta.
-- [x] El nombre sube hasta el navegador dentro de la cuenta, que es de donde salen el
-      saludo y la letra del círculo. Antes se guardaba al registrarse y no se enseñaba
-      en ningún sitio.
-- [x] Entrar refresca la cuenta **y** vuelve a pintar desde el servidor. Sin lo
-      primero el candado de al lado seguía cerrado un instante; sin lo segundo el
-      avatar de arriba seguía siendo el de nadie.
-- [ ] **Sin «he olvidado mi contraseña» y sin cambiar de correo.** Las dos piden
-      escribir a un buzón para confirmarlo, y aquí no hay envío de correo. Está dicho
-      en la pantalla, no escondido.
-- [ ] Cambiar la contraseña no echa a las demás sesiones: la cookie va firmada con el
-      secreto del servidor, no con la contraseña. Hacerlo pide una versión de sesión en
-      la fila de la cuenta y comprobarla al leer la cookie.
-- [x] Probado contra Postgres de verdad, como el resto de la fase 8: el nombre se
-      guarda recortado, la contraseña actual equivocada devuelve 403 y **no guarda
-      tampoco el nombre** que venía en la misma petición, y con la contraseña vieja
-      ya no se entra.
-
-## Fase 13 — Docker: la aplicación entera en un comando · hecha
-
-- [x] `compose.yml` con Postgres, un contenedor de migraciones que corre una vez y el
-      servidor, que espera a que las migraciones terminen bien.
-- [x] Etapa `migraciones` en el `Dockerfile`, que hereda de la de construcción porque
-      necesita justo lo contrario que el servidor: drizzle-kit, el esquema en
-      TypeScript y `drizzle/`. No entra en la imagen final.
-- [x] `pnpm docker:up`, que comprueba que el `docker` del `PATH` no es el `.exe` de
-      Windows —la trampa de WSL, que en este proyecto ya mordió con `npx` y con
-      `mvnw`— y escribe el `.env` que falte con un `AUTH_SECRET` recién generado.
-- [x] `APP_PORT` para mover el puerto del anfitrión: el 3000 es el puerto por defecto
-      de medio mundo, y chocar con otro contenedor da un error que habla de
-      «endpoint» y no de quién lo ocupa.
-- [x] Con esto se ejecutó por fin todo lo que dependía de la base de datos. Lo único
-      que apareció fue «Las ideas de la IA **entra** en el plan Medio»: el verbo
-      estaba fijo en singular y la mitad de los sujetos son plurales. Corregido, con
-      su test.
-- [ ] Sin probar: la respuesta del modelo con una clave de verdad puesta, y el
-      arranque de este compose en una máquina que no sea esta.
-- [ ] `elemental-1` como punto de partida se guarda como «ninguno». No abre nada
-      distinto —es el primer curso, así que da igual para el candado—, pero el
-      desplegable no recuerda que lo elegiste. Se arregla guardando la elección
-      aparte del índice que abre camino.
-
-## El camino
-
-El panel que hace que esto se juegue: eliges tonalidad, te propone por dónde
-empezar, y al elegir un acorde te enseña **cuatro formas de hacerlo** sobre el
-mástil y **a dónde puedes ir** desde él. Encadenando se construye la progresión,
-y se puede volver atrás a cualquier punto.
-
-## La portada
-
-`/` explica qué es esto y cómo funciona, y trae el afinador de verdad para
-probarlo sin entrar: es el mismo componente que hay dentro, no una imitación.
-La rueda también es la de verdad, y la tonalidad que pulses ahí ya está puesta
-al entrar.
-
-El resto no se demuestra en la portada: se cuenta y se enlaza. Meter aquí la
-pantalla de componer sería enseñar una foto de la aplicación en vez de la
-aplicación.
-
-El encabezado ocupa una pantalla justa —ni más, para que se vea que hay algo
-debajo, ni menos— con el vídeo a la vista. El velo va de lado y no plano: por la
-izquierda oscurece lo justo para leer el titular y por la derecha deja la imagen
-entera. Con un velo plano encima, o no se lee el titular o no se ve el vídeo.
-
-Las letras crecen con el ancho de la pantalla. Un tamaño fijo se queda pequeño
-en un monitor grande y se desborda en uno pequeño; con `clamp` lo resuelve el
-navegador solo, y los tamaños viven en los tokens como cualquier otro valor de
-diseño. La medida de lectura va en caracteres —`42ch`, `68ch`— y no en píxeles,
-que es lo que hace que al crecer la letra la línea siga midiendo lo mismo en
-palabras.
-
-El texto sale del diseño que hay en `reference/landing`, adaptado a lo que la
-aplicación hace de verdad hoy.
-
-## Las tres pantallas
-
-Cada una está hecha para una cosa y trae lo que hace falta para esa cosa. No hay
-que montarse nada: se elige arriba y ya está.
-
-**Aprender.** El camino y nada más: diez cursos en dos grados, en nodos, con la unidad
-que toca destacada y la meta del día arriba. Se elige por qué curso entrar, así que
-quien ya sabe teoría no tiene once unidades de peaje. Cada unidad se abre en su propia
-pantalla, y el repaso también.
-
-**Profesor.** Su pantalla, con la tonalidad a la vista porque es lo que cambia la
-respuesta. Antes era una columna estrecha dentro de aprender, y ahí no se podía ni
-escribir a gusto ni preguntar mientras componías, que es cuando salen la mitad de las
-dudas.
-
-**Componer.** Arriba, el metrónomo: se pone en marcha y se olvida uno de él,
-como el botón de grabar. El tempo se escribe, se ajusta de dos en dos o se marca
-con el dedo, que es como se saca de verdad el de una canción que suena en la
-cabeza. El pulso no lo lleva un temporizador de JavaScript —el hilo se atasca
-con cualquier cosa y el clic llega tarde— sino el reloj del audio, que es
-independiente.
-
-Debajo, la rueda para elegir tonalidad, el acorde en el que estás con
-todas sus formas a lo largo del mástil, y a dónde puedes ir, con el buscador que
-propone mientras escribes. Cada acorde lleva un punto: verde si es seguro, ámbar
-si trae una nota de fuera y rojo si trae más. Mástil, ideas y sesiones se abren en una franja
-a lo ancho de toda la parte de abajo: el mástil son seis cuerdas y quince
-trastes, y en una columna estrecha no se lee. La franja crece con lo que haya
-dentro hasta un tope, así que las sesiones no dejan medio hueco vacío debajo.
-
-El mástil no hace scroll nunca: se lleva un alto fijo y el dibujo se encoge
-hasta caber, con sitio de sobra para salir a todo lo ancho —1354 píxeles en una
-pantalla de 1440—. Un mástil que hay que arrastrar para ver el traste doce no sirve
-con la guitarra en las manos, y perder la mitad de la pantalla mientras está
-abierto es un precio que se paga solo mientras se mira.
-
-Aquí está grabarte tocando: al darle al botón la cámara se pone detrás de todo y
-la interfaz se queda en contorno y letra, así que te ves mientras sigues leyendo
-los acordes. El vídeo no sale del equipo.
-
-**Afinar.** La afinación que elijas —estándar, drop D, medio tono abajo, un tono
-abajo, drop C, DADGAD, open G y open D— y nada más. Quien viene a afinar viene a
-eso.
-
-Las notas de cada afinación están comprobadas contra fuentes y fijadas en el
-test, con las fuentes escritas al lado. No es celo de más: un error aquí no se
-ve —una afinación mal escrita suena razonable— y acaba en una guitarra mal
-afinada con el afinador diciendo que está bien. Cada una se escribe además como
-se escribe de verdad: la bajada de medio tono es Eb Ab Db Gb Bb Eb, no
-D# G# C# F# A# D#, que suena igual y no lo reconoce nadie.
-
-Las notas se escriben en cifrado anglosajón —C, D, E— en toda la aplicación.
-
-## Que se lea con la guitarra puesta
-
-Se toca a un metro de la pantalla, no a cuarenta centímetros, y con las dos
-manos ocupadas. De ahí tres reglas:
-
-- Nada de letra por debajo de doce píxeles. Lo que no se lee de un vistazo no
-  está.
-- Los diagramas y la rueda, grandes: son dibujos que hay que interpretar, no
-  iconos.
-- El porqué de cada acorde cabe en dos líneas y no se corta a mitad de palabra.
-  Un texto cortado con puntos suspensivos obliga a acercarse, y acercarse
-  significa dejar de tocar.
-- Lo que significa un color va al lado del color. El punto verde, el ámbar y el
-  rojo llevan su leyenda encima de la lista, no en una ayuda aparte.
-- Cada columna tiene un tema: la izquierda es lo que decides —tonalidad, estilo,
-  escala, herramientas—, el centro es el acorde y la derecha a dónde vas.
-
-Grabando, la cámara lleva un velo por encima. Sin él hay que pelear el contraste
-letra a letra contra lo que sea que tengas detrás —una ventana, una pared
-blanca— y nunca sale bien; con él se te sigue viendo y se lee todo.
-
-## Deuda técnica
-
-### Pagada
-
-- ~~**La respuesta buena era siempre la de la izquierda.**~~ Las opciones se
-  escriben con la correcta delante —así se leen las cien de `lessons.ts`— y salían
-  en ese mismo orden: se aprobaba el temario pulsando el primer botón sin leer la
-  pregunta. Ahora `lessonNotes` las reparte al salir, con un barajado **sin azar
-  de verdad**: la semilla sale del texto de la pregunta y de sus opciones, así que
-  la misma pregunta sale siempre igual —con `Math.random()` el botón se movería
-  debajo del dedo en cada repintado— y en otra tonalidad cae de otra forma. Sobre
-  248 ejercicios el reparto queda en 27 / 28 / 26 / 19 %.
-- ~~**Escritura con bemoles.**~~ Cada tonalidad decide su escritura según su
-  posición en la rueda. F mayor escribe Sib.
-- ~~**Cuatríadas y tensiones.**~~ Hay cuatríadas con sus siete especies, y el
-  modo componer las enciende con una casilla. Quedan las tensiones por encima de
-  la séptima, que es otra cosa y no la pide nadie todavía.
-- ~~**Tokens duplicados.**~~ Siguen escritos dos veces —Tailwind v4 quiere sus
-  variables en CSS— pero ahora un test lee `globals.css` y falla si se separan.
-- ~~**Sin medidor de nivel.**~~ El afinador enseña cuánta señal entra, en
-  decibelios y con los dos umbrales marcados encima.
-- ~~**La rueda no se puede pulsar.**~~ Cada tonalidad es un `<button>` de
-  verdad: entra en el tabulador, responde a Intro y el lector de pantalla la
-  anuncia con su nombre completo.
-- ~~**Sin selector de dispositivo.**~~ Con el permiso ya concedido aparece la
-  lista de entradas y se puede cambiar sin recargar.
-- ~~**Sin límite de frecuencia en la API.**~~ Diez peticiones por minuto y
-  dirección, con `Retry-After`.
-- ~~**Análisis en el hilo principal, sin medir.**~~ Medido: 16,2 ms por segundo
-  con los dos motores en marcha, un 1,6 % del hilo, y la peor ráfaga en un 5 %
-  de un fotograma. El 97 % es la autocorrelación; el motor de acordes cuesta
-  treinta veces menos. Se queda en el hilo principal y el Web Worker se
-  descarta por ahora, con los números en
-  [adr/0003](./adr/0003-analisis-en-el-hilo-principal.md) y un test que vigila
-  la regresión.
-- ~~**Reconocimiento de acordes.**~~ Era el límite del método, no de la
-  implementación: la autocorrelación devuelve un periodo y un acorde tiene
-  varios. Se resuelve con un segundo motor que no usa autocorrelación sino
-  croma, con el ADR que pedía: [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
-
-### Viva
-
+# Lo que falta
+
+**Ordenado por lo que impide usarla a diario**, no por lo que falta para
+publicar. Hoy esto corre en un equipo y lo usa una persona; lo comercial está
+recogido aparte, en [PARA-PUBLICAR.md](./PARA-PUBLICAR.md), y no se mezcla con
+esto para no confundir lo que estorba hoy con lo que hará falta algún día.
+
+Lo que ya se hizo, en [HISTORIA.md](./HISTORIA.md). El porqué de cada decisión,
+en [adr/](./adr/).
+
+## 1. Que acierte con la guitarra delante
+
+Es lo primero porque todo lo demás cuelga de aquí: si lo que se oye está mal, las
+lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
+
+- **Medir con cinco guitarras y tres micros: el script está, faltan las tomas.**
+  `pnpm medir:tomas` pasa una carpeta de grabaciones por el motor en diferido y da
+  acierto, dudas y «seguro y falso» por acorde, guitarra y micro; el protocolo y el
+  umbral —85 % en C, G, D, Am, Em y F, y los fallos con «?»— están en
+  [MEDIR.md](./MEDIR.md). Es lo que pide casi todo lo de abajo.
+- **Rodaje con guitarra: hecho una vez, el 23 de septiembre de 2026, y lo que
+  salió está aquí.** El afinador, bien: afina las seis cuerdas y recupera una
+  desafinada media vuelta. Los acordes, no: con C, F, G y Am sueltos **se inventa
+  alguno**; rasgueando, falla; una inversión —C/E—, falla; una cuerda que roza, la
+  escribía **como si estuviera seguro**; y un punteo de dos notas iguales seguidas
+  **se apunta como acordes**. El análisis en diferido arrastra lo mismo.
+- **La claqueta: hecha, y suena toda la toma.** Se cuentan dos compases, el clic
+  sigue durante la toma y lo apuntado empieza donde cae el compás uno
+  ([adr/0072](./adr/0072-la-claqueta-suena-toda-la-toma.md), que sustituye en parte
+  al [0053](./adr/0053-la-claqueta-cuenta-y-se-calla.md)). **Lo que queda es
+  tocar con una guitarra de verdad**: el acierto de los acordes está medido solo
+  con guitarras sintéticas; los retrasos de 40 y 520 ms están calibrados con una guitarra sintética; la latencia
+  de entrada del micro no se descuenta; y no hay tresillos ni ligaduras
+  (`LeadNote`, `Staff` y el reproductor no los tienen).
+- **«Traer punteo» del lienzo sigue leyendo el historial de 24 entradas**
+  (`state/session-store.ts`): un punteo largo se queda en sus últimas notas. La
+  toma ya no depende de él, pero esa vía sí.
+- **`VersionsPanel` mezcla instantes relativos a la grabación con un `endedAt` de
+  `performance.now`.**
+- **Preguntar lo dudoso sin tener que ir a buscarlo: hecho.** La corrección estaba
+  puesta y solo aparecía para el bloque que tuvieras elegido, así que había que dar
+  con los dudosos pulsándolos uno a uno. Ahora la pregunta sale sola, **una y con la
+  cuenta de las que quedan** —ni todas, que llenaría la columna, ni ninguna—. Es el
+  paso 1 de los tres que hacen falta para quitar el selector.
+- **Y hay que quitar el selector de rítmica o punteo: tiene que transcribirse
+  solo.** Decidido el 26 de septiembre de 2026 por quien la usa, y **revierte
+  [adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)**. La medida de aquel sigue en
+  pie —tras el descuento de armónicos, una nota sola y su acorde mayor tienen casi
+  la misma forma— pero cambia el objetivo: no hay que acertar siempre, hay que
+  transcribir solo **y dejar corregir**. Tres pasos, en este orden: que corregir
+  cueste un gesto —cambiar un acorde por una nota y al revés, en la partitura—;
+  después contar cuántas notas suenan a la vez, que es lo único que separa un
+  punteo de un rasgueo y pide las grabaciones de calibración de abajo; y el
+  selector se cae solo cuando eso acierte. **Quitarlo antes devuelve los acordes
+  inventados encima del punteo**, que es el fallo que 0048 cerró.
+- **Y una clase entera de falso positivo se ha ido sin tocar el motor**: un punteo
+  ya no entra con acordes inventados encima, porque una toma dice si es rítmica o
+  punteo y solo se apunta lo de ese papel
+  ([adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)). No era que el croma fallara:
+  era que se le preguntaba por algo que no era, y los dos motores competían por la
+  misma señal. **Lo que sigue pendiente es acertar qué acorde es**, y eso sí pide
+  las grabaciones.
+- **De eso, lo que ya está arreglado es la honestidad, no el acierto**
+  ([adr/0043](./adr/0043-dos-maneras-de-equivocarse.md)): la confianza mira las dos
+  maneras de equivocarse —el empate y el mal parecido— en vez de solo la primera, y
+  lo analizado en diferido lleva por fin su duda en vez de llegar como certeza.
+  Ahora un acorde mal tocado sale con «?» en vez de afirmarse.
+- **El modelo de armónicos está cambiado, y medido solo con guitarra sintética**
+  ([adr/0107](./adr/0107-los-armonicos-se-miden-en-su-serie.md)). Cada armónico se
+  mide en su propia serie y no en una tabla, se mira hasta el duodécimo y el bajo
+  desempata `Am7` contra `C6`: con dos guitarras de Karplus-Strong distintas y un
+  conjunto ciego, la tríada pasa del 60–75 % al 90–99 %, y el La y el Si menor, de
+  casi nunca a casi siempre. **Lo que falta es medirlo con una guitarra de verdad**,
+  que tiene otros armónicos que ninguna de las dos. Y una nota sola sigue sin
+  separarse de un acorde: ahora sale como su quinta (`C5`), a veces sin «?».
+- **Los umbrales del motor de tono** se ajustaron tras una sola tarde de pruebas.
+  Hay medidor para afinarlos con datos, y eso sigue sin hacerse.
 - **Las inversiones se leen como el acorde en estado fundamental.** El croma
-  olvida la octava a propósito, así que C/E y C son el mismo vector. Es el
-  límite que sustituye al anterior, y sale documentado en
-  [adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md).
-- **Umbrales con poco rodaje.** Los cuatro se ajustaron tras una prueba. Ahora
-  al menos hay medidor para afinarlos con datos en vez de a ojo.
-- **Sin medir en un aparato de gama media.** Los números de arriba salen de un
-  Ryzen de sobremesa. Un teléfono anda entre cinco y diez veces por detrás, que
-  seguiría cabiendo, pero eso es aritmética y no medición.
+  olvida la octava a propósito ([adr/0004](./adr/0004-reconocimiento-de-acordes-por-croma.md)),
+  así que C/E y C son el mismo vector. **El bajo ya se detecta aparte**
+  ([adr/0107](./adr/0107-los-armonicos-se-miden-en-su-serie.md)), pero solo
+  desempata: escribir `C/E` pide que un bloque sepa guardar su bajo, y eso toca el
+  lienzo, la partitura, el reproductor y lo que se guarda.
+- **El reconocimiento en vivo sí aguanta una CPU lenta, y está medido.** Con el
+  micrófono falso tocando un `C-F-G-Am` y la CPU frenada ×1, ×4, ×6, ×10 y ×20,
+  escribe los cuatro acordes en los cinco casos —`gama-media.mjs` del skill
+  `arrancar`, 22 de septiembre de 2026—. **Lo que no dice esa cifra**: el micro
+  falso da señal limpia, así que mide si el motor llega a tiempo y no si acierta
+  con una guitarra en una habitación.
+- **Sigue sin medirse el análisis de la grabación entera en un aparato de gama
+  media.** Es otra cosa, va en un worker, y los números salen de un Ryzen de
+  sobremesa: el de dos minutos tarda 1,1 s aquí y allí serían diez.
+
+## 2. Que lo que propone la IA valga la pena
+
+El corazón de la aplicación, y lo único que no se puede comprobar con un test.
+
+- **Medir las salidas contra la API, no contra un modelo local.** El banco ya
+  está hecho —`pnpm banco:ia`, y deja su informe en `banco-de-ia.txt`—: usa el
+  mismo prompt, el mismo esquema y el mismo validador que la ruta, así que mide
+  lo que hay en producción y no una copia. **Falta pasarlo contra la API**: hoy
+  el `ANTHROPIC_API_KEY` del `.env` está vacío, así que contesta el Ollama de
+  casa.
+
+  La línea base medida con `qwen3:8b`, 22 de septiembre de 2026: **5 de 12
+  salidas pasan el contrato**, una de ellas devolviendo la canción tal cual.
+  Por camino: `seguir` 2, `contraste` 2, `estirar` 1, y **`rearmonizar` y
+  `otro-final` ni aparecen**. Con esto no se sabe si la función sirve o si el
+  modelo es pequeño, que es exactamente para lo que hace falta la API.
+
+- **Pasar el examen del profesor contra la API.** `pnpm examen:profesor` son 88
+  preguntas por el mismo camino que la ruta, y ya sabe llamar a la API con `--api`;
+  falta hacerlo, con la clave puesta ([MEDIR.md](./MEDIR.md)). Con `qwen3:8b` y el glosario
+  delante salen 26 de 28 ([adr/0076](./adr/0076-el-profesor-se-apoya-en-un-glosario-comprobado.md)):
+  el ii–V–I contesta sin acordes y dice que el bajo sube, y los siete modos, sin
+  nombrar ninguno. El validador solo mira las cadencias y la relativa, así que
+  errores pequeños fuera de ellas —«la menor natural tiene la séptima justa»—
+  siguen llegando a la pantalla.
+- **`pnpm docker:ia` está escrito y sin levantar.** El adaptador sí se probó
+  contra un Ollama de verdad; el camino de compose, nunca, porque en este equipo
+  Docker Desktop no tiene encendida la integración con WSL.
+- **Retocar y continuar ya dan salidas válidas, y encajan con lo que llevas.** El
+  dominio las construye y un juez las ordena
+  ([adr/0089](./adr/0089-las-salidas-las-construye-el-dominio-y-el-modelo-elige.md),
+  [adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)). Con
+  `qwen3:8b`: contesta 72/72, 216/216 porqués verdaderos, 508/513 sin directrices.
+  Lo que falta saber, contra la API, es si un modelo grande aporta algo más que el
+  menú. **Y lo que sigue fallando:**
+  - **`pnpm banco:ia` es redundante con `pnpm examen:salidas`**, que mide lo mismo
+    contra el modelo de verdad y con más casos. Cuando se pase contra la API,
+    conviene quedarse con uno.
+  - **Un sexto corpus para volver a medir**, escrito a ciegas por un músico ajeno: el
+    andamio vacío está en `docs/corpus-sexto/` y el procedimiento en
+    [MEDIR.md](./MEDIR.md). Los cinco se han usado para arreglar
+    causas (hoy pasan 71/72, 93/96, 98/98, 53/54 y 27/50 _después_ de arreglar), así
+    que ya no miden. La última cifra honesta es la del quinto antes de tocar nada:
+    22 de 50 menús enteros con el examen estricto
+    ([adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)). Lo que
+    falta en el quinto son casi todo gustos del arreglista: el V/V sin preparar arriba
+    del menú, el iii en un pop con suspendidos, un menú de dos compases que estira.
+  - **El estribillo (MC02, de `corpus-final`)**: un pop `I V vi IV` con punteo y
+    papel de estribillo, donde el arreglista espera que la primera salida siga y
+    cierre en la tónica. Es el único menú de `corpus-final` que no pasa (53 de 54).
+  - **«La 1 primero» sin directrices**: baja de 72/72 a 66/72 desde que el prompt de
+    sistema no dice que el menú va de más a menos encaje
+    ([adr/0100](./adr/0100-hacer-sitio-en-el-prompt-sin-subir-el-presupuesto.md)).
+    Devolver la frase lo arreglaba y perdía lo ganado con las directrices.
+  - **¿Contestar desde el dominio, sin llamar al modelo, las salidas sin
+    directrices?** Sin ellas el modelo solo explica las tres mejores y el respaldo ya
+    las construye (`lasTresMejores`). Lo propone la auditoría de prompts; es decisión
+    abierta, no hecha.
+  - **Medir contra la API**, y no solo con `qwen3:8b`.
+- **`TOKEN_BUDGETS.versiones.output` está en 900 y bastan unos 300.** Bajarlo sube
+  los cupos de Medio: decisión de precio, no de código.
+- **El presupuesto del profesor está lleno: 696 de 700 tokens.** No cabe otra frase
+  en el prompt sin subirlo, y subirlo baja los cupos.
+- **Los bloques fantasma no tienen quien los llene.** `state/propuesta.ts` y su
+  tira siguen funcionando, pero quien proponía era el panel de ideas, retirado. Si
+  el copiloto en línea vuelve, tiene que volver con otra fuente: una salida
+  aceptada a fantasma, o una propuesta del dominio sin modelo.
+- **Cambiar de tonalidad sería el sexto camino.** `circle-of-fifths.ts` ya sabría
+  comprobar que la vecina es vecina y que el pivote existe en las dos. Descartado
+  por ahora, no para siempre.
+
+## 3. Que el lienzo llegue hasta donde se compone de verdad
+
+El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
+([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
+la manera normal de componer aquí.
+
+- **El lienzo ya se guarda solo en el navegador: hecho.** Estaba anotado como lo
+  primero de esta sección desde el 26 de septiembre de 2026 —una canción se monta
+  en **muchas** sesiones, y sin plan un F5 la borraba entera—. Ahora el lienzo que
+  hay se guarda en la IndexedDB `caos-ordenado`, con su versión, al cabo de 300 ms
+  del último cambio y nunca a mitad de un arrastre, y vuelve al abrir
+  (`guardarElLienzo` en `state/arrangement-store.ts`). Es local y no sube nada.
+  **Lo que no hace**: no guarda el deshacer, que es de la sesión; no es una
+  canción con nombre —es un solo lienzo, el último—, así que tener varias sigue
+  pidiendo guardarlas desde Canciones; y lo de otro navegador u otro aparato no
+  lo ve, que para eso está la cuenta.
+- **Y reabrir ya no desagrupa los bloques: hecho.** Un grado sigue siendo un
+  compás, que es lo que leen la ruta de salidas y la de canciones, pero la
+  agrupación se guarda aparte en `compasesPorBloque`. Aquí ponía que arreglarlo
+  pedía tocar el esquema de la base de datos, y **era falso**: la canción vive en
+  una columna `jsonb`, así que un campo opcional más no pide ninguna migración,
+  igual que no la pidieron `sources` ni `especies`. Las canciones de antes no lo
+  traen y siguen abriendo un bloque por compás.
+
+- **Que la marca de «oído» sirva de algo medible.** Los compases que leyó el micro
+  y nadie confirmó viajan al modelo marcados, y el prompt le dice que no se fíe de
+  ellos. **No está medido**: no se sabe si cambia lo que devuelve, y no se sabrá
+  hasta que las salidas se midan contra la API, que es lo primero de esta lista.
+- **Las lecciones siguen sin leer la procedencia.** Un `vi` que leyó el micro y
+  otro escrito a mano valen lo mismo cuando el profesor o una unidad hablan de tu
+  canción.
+- **Dos notas iguales seguidas se transcriben como una sola larga.** El motor mide
+  altura y no ataques, así que no las distingue. Hace falta detección de onsets
+  para que la transcripción sea fiel.
+- **La partitura no tiene ligaduras ni silencios escritos.** Tampoco tresillos ni
+  dos voces. No es que falte dibujarlos: es que el modelo no los tiene, y una nota
+  que cruza la barra de compás se dibuja donde empieza y ya.
+- **Que la IA ordene las partes.** Sería el sexto camino de `paths.ts`,
+  `estructura`: el modelo recibe las partes que hay y devuelve un orden con
+  nombres, y el dominio comprueba que solo ha reordenado y repetido lo que había,
+  sin inventar acordes. El validador es más fácil que los cinco que ya hay.
+- **Exportar a MusicXML o a PDF.** El MIDI ya sale
+  ([adr/0041](./adr/0041-la-cancion-sale-en-midi.md)); lo otro, cuando la
+  partitura tenga silencios, ligaduras y tresillos, que es lo de arriba.
+- **En la partitura no se mueven acordes de una parte a otra.** Dentro de una
+  parte se reordenan arrastrando el cifrado; para llevárselo al estribillo hay que
+  pasar a la vista de bloques, que es donde se ven las dos partes a la vez.
+
+- **Una entrada para tocar, sin banco.** Hubo una pantalla sencilla y se quitó
+  ([adr/0095](./adr/0095-se-quita-componer-sencillo.md)): lo que abruma de
+  `/componer` lo atienden entrar por `Escribir` con solo la canción abierta y el
+  recorrido por pantallas
+  ([adr/0108](./adr/0108-el-recorrido-sale-por-pantallas.md),
+  [adr/0109](./adr/0109-lo-que-se-da-por-hecho-al-empezar.md)). Si vuelve, que sea
+  el espacio `Tocando` más claro y no una segunda pantalla.
+
+## 4. Que componer sea un banco de trabajo, y no dos caras
+
+Hecho lo gordo. `/componer` es una pantalla de áreas que se pliegan y se
+arrastran, con tres espacios de trabajo que son **tres maneras de escribir la
+misma canción** —tocando, por bloques y partitura, y ensayando—, cada uno con su
+reparto de fábrica. El porqué está en
+[adr/0031](./adr/0031-componer-es-un-banco-de-trabajo.md),
+[adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md),
+[adr/0033](./adr/0033-el-copiloto-propone-y-no-escribe.md) y
+[adr/0034](./adr/0034-tres-maneras-de-escribir-la-misma-cancion.md).
+
+Lo que queda, en el orden en que se hace:
+
+- **Fundir `path` con el arreglo, lo que le queda.** Ya no se ven dos listas de
+  lo mismo —«a dónde ir» viene plegada y, abierta, **escribe en la canción**: lo
+  que tiene grado entra como bloque con su séptima y lo que no lo tiene lleva al
+  camino, diciéndolo antes de pulsar—. Lo que oye el micro también entra en la
+  canción, y la columna del acorde, el mástil, las salidas y «añadir parte» siguen
+  a la canción y no al camino. Y lo que la aplicación propone **se puede escribir
+  entero**: medido, de los catorce acordes de la lista no quedaba fuera ninguno
+  en los seis estilos de entonces, desde que un bloque sabe que no lleva tercera
+  ([adr/0035](./adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+
+  Lo que queda del camino es lo que no es ni tríada ni quinta —un `Fsus2` cambia
+  la tercera por la segunda—, que hoy no se propone en ningún estilo. Cuando
+  aparezca, el ADR 0035 se amplía con la medida delante
+  ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
+
+- **El parpadeo del primer fotograma en un teléfono: el del banco, hecho.**
+  El servidor sigue contestando que sí hay banco, pero su árbol lleva las clases que
+  esconden lo de escritorio en un teléfono, y el CLS de componer a 390 pasa de 0,116
+  a 0 ([adr/0083](./adr/0083-componer-pinta-lo-de-escritorio-y-las-clases-lo-esconden.md)).
+  **Lo que queda de lo que se anotó aquí**: el servidor no puede saber la tonalidad
+  —vive en el navegador—, y que el primer fotograma diga «sin elegir» y enseñe la
+  rueda abierta hasta cargar el estado **no se ha vuelto a medir** después de este
+  cambio. Si sigue ahí, lo que lo resolvería es pintar el marco y esperar al estado,
+  y eso es una decisión con alternativas: va con su ADR.
+
+## 5. Que aprender y componer sean lo mismo
+
+- **Faltan unidades de tocar acordes y de oído sobre escalas, y están bloqueadas.**
+  El temario tiene 41 unidades —22 de teoría, 9 de tocar y 10 de oído— y sigue
+  ordenado como el conservatorio
+  ([adr/0096](./adr/0096-el-temario-sigue-al-conservatorio.md)). Los cursos de
+  Armonía de 2º a 5º del Profesional no tienen unidad de tocar:
+  - Tocar acordes valida con el croma, y el croma falla hoy con una guitarra de
+    verdad. **Esto se desbloquea arreglando el motor**, que es lo primero de esta
+    misma lista.
+  - El oído sobre escalas pide hacer sonar una melodía, y un ejercicio de oído
+    sabe hacer sonar acordes y, desde el dictado de intervalos, dos notas. Una
+    escala entera es otra máquina.
+- **No hay nada de ritmo, de lectura ni de acordes en el mástil**, y la aplicación
+  los da por sabidos: componer ofrece siete figuras y un compás de 1 a 6, «Ensayar»
+  te **puntúa** contra el metrónomo, la vista por defecto del arreglo es una
+  partitura con clave y armadura, y el panel de acordes enseña seis posiciones con
+  su cejilla. Las nueve unidades de tocar son **escalas, todas**: se terminan los
+  diez cursos sin que nadie te haya pedido tocar un Do y pasar a un Sol a tiempo.
+  El ritmo y la lectura se explican con palabras y se preguntan con palabras.
+- **Las diez unidades de oído no se han probado con oídos ajenos**
+  ([adr/0022](./adr/0022-aprender-de-oido.md)). Los ejercicios suenan con
+  osciladores, no con una guitarra, y no se sabe si distinguir un `IVmaj7` de un
+  `V7` con ese timbre es más fácil o más difícil que con el instrumento de verdad.
+  **Y una de ellas no se podía hacer**: la de cuatríadas sonaba dos veces la misma
+  tríada y preguntaba por una nota que nunca llegaba a oírse. Arreglado, con la
+  regla que lo habría cazado el primer día
+  ([adr/0044](./adr/0044-un-ejercicio-de-oido-se-contesta-de-oido.md)).
+- **El repaso de lo fallado enseña las preguntas de oído sin sonido**
+  ([adr/0022](./adr/0022-aprender-de-oido.md)), y con el dictado de intervalos
+  se nota más: la pregunta pide oír dos notas y en el repaso no suenan. Y leer
+  una nota en un pentagrama **dibujado dentro de la unidad** sería el siguiente
+  paso: hoy la lectura se pregunta con palabras.
+- **Una cola de repaso vieja guardada en el navegador, sin sesión, enseña
+  posiciones muertas** de lecciones que cambiaron
+  (`core/music/posiciones.ts`). El servidor las suelta al guardar, así que quien
+  tiene plan las ve hasta volver a entrar con su cuenta.
+- **No se puede practicar el oído sin avanzar en el camino.** Una pantalla de
+  entrenamiento suelto se descartó para no duplicar la meta diaria y la racha; si
+  se hace, lo que tiene que compartir con el camino es exactamente esa racha.
+
+Las dos mitades del corazón funcionan por separado y todavía no se hablan.
+
+- **Las lecciones no explican lo que propone la IA.** Cuando una salida declara
+  un préstamo modal, la unidad que lo enseña está a dos pantallas y hay que
+  buscarla. Enlazarlas es lo que convierte dos productos en uno.
+- **Componer ya cuenta, y lo que devuelve el modelo con el papel puesto no está
+  medido.** Cuatro hechos suman a la meta del día y mantienen la racha
+  ([adr/0028](./adr/0028-componer-tambien-cuenta.md)), y una parte dice ahora si
+  es estrofa, estribillo o solo una idea, que es lo que viaja al prompt. Que la
+  frase llega, lo dice un test; que cambie lo que contesta, no lo sabe nadie
+  hasta medir contra la API, que es lo primero de esta lista.
+- **El papel de una parte no lo lee nada más que la IA.** Ni las lecciones, ni la
+  partitura, ni las salidas ya recibidas. Un estribillo y una estrofa se dibujan
+  igual y se tratan igual en todo lo demás.
+
+## 6. Que no estorbe
+
+- **Renombrar `versiones` a `salidas` por dentro.** La ruta, la carpeta y la
+  capacidad del plan siguen con el nombre viejo, que ya no es el que se ve en
+  pantalla. Cuarenta ficheros, mecánico
+  —[adr/0016](./adr/0016-salidas-en-vez-de-versiones.md)—.
+- **El camino con base de datos pide Docker.** Las rutas de IA exigen cuenta,
+  así que probar la IA de punta a punta pide levantar Postgres. Se hizo una vez
+  con un Postgres embebido y funcionó, pero no está montado como opción.
 - **Trastes igual de anchos.** En una guitarra se estrechan hacia el puente. Se
   queda así a propósito: el diagrama se lee mejor.
-- **El contador de frecuencia es por instancia.** En memoria. Si esto se
-  despliega en varias, cada una llevará su cuenta. El cupo diario de las cuentas
-  sí es compartido: vive en Postgres.
-- **El cobro no cobra.** Cualquiera con una cuenta puede darse el plan Pro.
-- **Los cupos suponen los tokens de entrada, no los miden.** La estimación sale de la
-  longitud de los prompts, con holgura de sobra y un test que la vigila, pero
-  confirmarla con `count_tokens` pide clave y red.
-- **El plan gratis pierde dinero a propósito**: quince peticiones al mes por cuenta,
-  unos veinte céntimos con el modelo más caro. Es captación, está en una constante con
-  nombre, y con muchas cuentas gratis hay que mirarlo. Es una decisión, no un olvido
-  —[adr/0006](./adr/0006-planes-y-puerto-de-facturacion.md)—, pero es lo primero
-  que hay que cerrar antes de publicar esto en serio.
-- **Nada de las cuentas está probado contra Postgres.** Solo lo puro: planes,
-  permisos, fusión de avances, cola de repaso y cifrado de contraseñas.
-- **El repaso solo alcanza a las preguntas de teoría.** Las unidades de tocar no
-  tienen preguntas que fallar, así que una escala que sale regular no se apunta en
-  ninguna parte.
-- **Sin restaurar la sesión al abrir.** Hay que pulsar «Retomar». Automático
-  sería cómodo y también sorprendente.
-- **Sin probar con instrumento y clave reales.** Lo que no puede comprobar un
-  test: cómo se siente el afinador, si la tonalidad se asienta rápido, si el
-  ejercicio se hace lento, si la grabación sale bien y si el modelo devuelve
-  ideas que valgan. Ahora también: si la meta diaria de 40 XP es la buena y si dos
-  pasos de repaso bastan.
+
+- **Las dianas de la rueda, fuera de la portada.** Valen 44 px o más en la
+  portada ([adr/0074](./adr/0074-la-diana-de-la-rueda-sale-de-una-cuenta.md)); en
+  el panel de componer del teléfono y en la columna de escritorio salen en 41 px, y
+  a 320 de ventana no se puede pasar de 38.
+- **Sin plan, el repaso no apunta lo fallado**, y el texto ya lo dice. Falta que
+  decida el usuario si debería apuntarse.
+- **`lectura` entre 768 y 1023** deja el `aside` en unos 200 px
+  ([adr/0073](./adr/0073-las-pantallas-llenan-el-ancho.md)), y `WorkHeader` sigue con
+  16 px de margen frente al `px-margen` del cuerpo.
+- **Nada vigila que los tres cortes de la navegación se muevan juntos**: `AppShell`
+  en `md`, el tope del panel flotante de `ui/Disclosure` y el corte de 500 px de alto.
+  Lo caza la sonda del skill `arrancar`, que no corre sola
+  ([adr/0084](./adr/0084-lo-que-trabaja-no-se-apaga-y-el-foco-se-mueve-a-mano.md)).
+- **El lienzo guardado no está atado a la cuenta.** Es por navegador: quien comparta
+  uno ve la canción del otro. Está en
+  [PARA-PUBLICAR.md](./PARA-PUBLICAR.md) porque pesa al publicar, no antes
+  ([adr/0081](./adr/0081-el-lienzo-se-guarda-solo-en-el-navegador.md)).
+- **Medir la inyección del profesor contra la API.** Con `qwen3:8b` resisten dos de
+  ocho disfraces, y contra el modelo de pago no se ha pasado: son los mismos ocho
+  casos de [adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md), «Corrección».
+- **Lo que dejó la tanda de interfaz**
+  ([adr/0102](./adr/0102-lo-que-se-lee-a-un-metro-se-ve-y-lo-que-se-pulsa-se-sujeta.md)):
+  - **El muñeco del profesor a 390 sigue tapando el final de una línea**: no cabe a
+    48 px por el píxel entero de la mascota.
+  - **Con las cinco áreas abiertas a 1024×600 el Arreglo se queda en 96 px**: el
+    mástil tiene suelo de 14 rem para que sus notas no bajen de 12 px, y lo que
+    cede es el Arreglo, que de todos modos solo enseñaba su barra. Hace falta una
+    ventana de más de 700 px de alto para tener los dos holgados.
+  - **La columna de tonalidad bajo la bandeja a 1024×600** pide una pista vertical
+    de que se desplaza.
+  - **Esconder «Componer» del `WorkHeader` por debajo de `sm`.**
+  - **Safari/iOS sin probar el toque**: todo se sintetizó en Chromium. Y con cuenta
+    y micro, sin medir.
+- **Regenerar la escena y la mascota con la paleta del
+  [adr/0070](./adr/0070-la-sala-encendida.md)**: `arte/portada/build.py` y
+  `arte/mascota/build.py`.
+
+## Lo que se decidió no hacer
+
+No es deuda, son decisiones, y están aquí para no volver a proponerlas:
+
+- **No sube audio**, y no lo hará sin un ADR
+  ([adr/0017](./adr/0017-escuchar-la-grabacion-entera.md) lo vuelve a confirmar al
+  analizar la grabación en local).
+- **No hay vidas ni corazones.** Fallar no bloquea: se explica y se sigue.
+- **No se examina a nadie** para colocarle de nivel
+  ([adr/0007](./adr/0007-elegir-por-donde-empezar.md)).
+- **Un instrumento por ahora**, con el mapa del segundo escrito
+  ([adr/0012](./adr/0012-un-instrumento-por-ahora.md)).
+- **Un solo canal de texto libre**, y el profesor solo contesta de música
+  ([adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md)).

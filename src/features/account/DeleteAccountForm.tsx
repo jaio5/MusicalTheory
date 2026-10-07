@@ -1,0 +1,111 @@
+'use client';
+
+import { useState } from 'react';
+
+import { useEnvio } from './use-envio';
+
+import { deleteAccount, signOutHere } from '@state/account';
+import { Button } from '@ui/Button';
+import { TextField } from '@ui/TextField';
+import { Aviso } from '@ui/Aviso';
+import { Formulario } from '@ui/Formulario';
+
+/**
+ * Borrar la cuenta.
+ *
+ * Tres cosas que no son adorno:
+ *
+ * **Hay que abrirlo.** Cerrado es una línea de texto y un botón que solo despliega;
+ * el formulario de verdad está dentro. Un campo de contraseña con un botón rojo al
+ * lado, siempre a la vista al final de los ajustes, es un accidente esperando a
+ * pasar con la guitarra en las manos.
+ *
+ * **Hay que escribir la palabra.** La contraseña sola no basta: la contraseña se
+ * escribe de memoria y sin leer, y esto no tiene vuelta atrás. Escribir «borrar»
+ * obliga a haber leído qué se va a perder.
+ *
+ * **Se dice qué se va con ella**, y en concreto: el avance, las canciones y el
+ * plan. «Se borrarán todos tus datos» no dice nada; una lista de tres cosas sí.
+ */
+export function DeleteAccountForm() {
+  const [abierto, setAbierto] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmacion, setConfirmacion] = useState('');
+  const { error, setError, working, enviar } = useEnvio();
+
+  const puede = password !== '' && confirmacion.trim().toLowerCase() === 'borrar' && !working;
+
+  async function submit(): Promise<void> {
+    await enviar(async () => {
+      const result = await deleteAccount(password);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      // La cookie sigue viva y firmada, así que hay que cerrarla a mano. Sin
+      // esto, quien acaba de borrarse se queda con una sesión que apunta a una
+      // fila que ya no existe. Por `state/account`, que es el único sitio que
+      // conoce la librería de sesión y la descarga solo al usarla.
+      await signOutHere('/');
+    });
+  }
+
+  if (!abierto) {
+    return (
+      <div>
+        <p className="text-text-muted mb-3 max-w-prose text-xs">
+          Borrar la cuenta se lleva por delante tu avance, tus canciones y tu plan. No hay vuelta
+          atrás y no guardamos copia.
+        </p>
+        <Button variant="quiet" onClick={() => setAbierto(true)}>
+          Quiero borrar mi cuenta
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Formulario onEnviar={submit}>
+      <p className="text-text max-w-prose text-sm">
+        Se van con la cuenta: <strong>tu avance</strong> —unidades, XP, racha y medallas—,{' '}
+        <strong>tus canciones guardadas</strong> y <strong>tu plan</strong>. Lo que hay en este
+        navegador se queda; lo que está en tu cuenta desaparece.
+      </p>
+
+      <TextField
+        label="Tu contraseña"
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
+
+      <TextField
+        label="Escribe borrar para confirmar"
+        type="text"
+        autoComplete="off"
+        value={confirmacion}
+        onChange={(event) => setConfirmacion(event.target.value)}
+      />
+
+      <Aviso mensaje={error} anuncio="urgente" />
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" disabled={!puede} cargando={working}>
+          {working ? 'Borrando…' : 'Borrar mi cuenta'}
+        </Button>
+        <Button
+          variant="quiet"
+          onClick={() => {
+            setAbierto(false);
+            setPassword('');
+            setConfirmacion('');
+            setError(null);
+          }}
+        >
+          Mejor no
+        </Button>
+      </div>
+    </Formulario>
+  );
+}

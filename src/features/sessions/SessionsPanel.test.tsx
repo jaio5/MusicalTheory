@@ -95,4 +95,129 @@ describe('Panel de sesiones', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/modo privado/i);
   });
+
+  it('si no se puede leer lo guardado, se dice y no se queda en blanco', async () => {
+    // Una lista vacía diría «no tienes ninguna sesión», que en modo privado es
+    // mentira: las hay, lo que no hay es forma de leerlas.
+    const rota = new MemorySessionStorage();
+    rota.list = async () => {
+      throw new Error('modo privado');
+    };
+
+    render(<SessionsPanel createStorage={() => rota} now={() => SAVED_AT} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/modo privado/i);
+  });
+
+  it('si no se puede borrar, tampoco se calla', async () => {
+    await storage.save({
+      id: '1',
+      savedAt: SAVED_AT,
+      key: { tonic: A, mode: 'minor' },
+      scaleId: 'minorPentatonic',
+      notes: ['A'],
+      chords: ['Am'],
+    });
+    storage.remove = async () => {
+      throw new Error('modo privado');
+    };
+
+    renderPanel();
+    await userEvent.click(await screen.findByRole('button', { name: /borrar/i }));
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+
+  describe('una sesión guardada sin tonalidad', () => {
+    /**
+     * Tocar sin fijar tonalidad es lo normal al empezar, y esa sesión se guarda
+     * igual. Retomarla devuelve la escala; la tonalidad se queda como esté,
+     * porque no hubo ninguna que devolver.
+     */
+    it('al retomarla se devuelve la escala y no se inventa tonalidad', async () => {
+      const guardada = new MemorySessionStorage();
+      await guardada.save({
+        id: 'sin-tono',
+        savedAt: SAVED_AT,
+        key: null,
+        scaleId: 'blues',
+        notes: ['A'],
+        chords: [],
+      });
+      render(<SessionsPanel createStorage={() => guardada} now={() => SAVED_AT} />);
+
+      await userEvent.click(await screen.findByRole('button', { name: /retomar/i }));
+
+      expect(useSessionStore.getState().scaleId).toBe('blues');
+      expect(useSessionStore.getState().pinnedKey).toBeNull();
+    });
+  });
+
+  /**
+   * **Una escala que ya no está en el catálogo no se aplica.** Llegaba tal cual
+   * al almacén, de ahí al mástil, y componer se caía entera. Es el mismo fallo
+   * que ya se arregló en `ResumeLast`: la tonalidad se retoma, la escala no.
+   */
+  describe('una sesión con una escala que ya no existe', () => {
+    for (const scaleId of ['escala-retirada', 'toString']) {
+      it(`«${scaleId}» no se aplica, y la tonalidad sí`, async () => {
+        const { actions } = useSessionStore.getState();
+        actions.setScale('major');
+        actions.followDetection();
+        const guardada = new MemorySessionStorage();
+        await guardada.save({
+          id: 'vieja',
+          savedAt: SAVED_AT,
+          key: { tonic: A, mode: 'minor' },
+          scaleId: scaleId as never,
+          notes: ['A'],
+          chords: [],
+        });
+        render(<SessionsPanel createStorage={() => guardada} now={() => SAVED_AT} />);
+
+        await userEvent.click(await screen.findByRole('button', { name: /retomar/i }));
+
+        expect(useSessionStore.getState().scaleId).toBe('major');
+        expect(useSessionStore.getState().pinnedKey).toEqual({ tonic: A, mode: 'minor' });
+      });
+    }
+  });
+
+  describe('guardar una sesión sin tonalidad', () => {
+    /**
+     * Sin tonalidad no hay acorde que apuntar: se guarda la escala y las notas, y
+     * la lista de acordes va vacía en vez de con un cifrado inventado.
+     */
+    /**
+     * Con tonalidad y un acorde delante, el cifrado se guarda: lo que se apunta
+     * son símbolos —nunca audio—, y por eso una sesión pesa lo que pesa un
+     * párrafo.
+     */
+    it('con tonalidad y acorde, se guarda el cifrado', async () => {
+      const { actions } = useSessionStore.getState();
+      actions.pinKey({ tonic: A, mode: 'minor' });
+      actions.setCurrentDegree('i');
+
+      // Sin `now`: el de verdad, que es el que corre en la aplicación.
+      render(<SessionsPanel createStorage={() => storage} />);
+      await userEvent.click(screen.getByRole('button', { name: /guardar esta sesión/i }));
+
+      const guardadas = await storage.list();
+      expect(guardadas[0]?.chords).toEqual(['Am']);
+      expect(guardadas[0]?.savedAt).toBeGreaterThan(0);
+    });
+
+    it('se guarda sin acordes, y no se inventa ninguno', async () => {
+      const { actions } = useSessionStore.getState();
+      actions.followDetection();
+      actions.setScale('blues');
+
+      renderPanel();
+      await userEvent.click(screen.getByRole('button', { name: /guardar esta sesión/i }));
+
+      const guardadas = await storage.list();
+      expect(guardadas[0]?.chords).toEqual([]);
+      expect(guardadas[0]?.key).toBeNull();
+    });
+  });
 });

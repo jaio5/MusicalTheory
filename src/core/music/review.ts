@@ -13,6 +13,8 @@
  * vuelve a calcular en la tonalidad de hoy y sigue preguntando por lo mismo.
  */
 
+import { daysBetween } from './days';
+
 /** Una pregunta esperando repaso. */
 export interface ReviewItem {
   readonly unitId: string;
@@ -36,7 +38,7 @@ export const EMPTY_REVIEW: ReviewQueue = [];
  * repaso y pasa a ser una deuda. Con dos pasos —hoy y mañana— el efecto se nota
  * y se puede llegar a tenerlo todo limpio, que es lo que hace que apetezca.
  */
-export const REVIEW_INTERVALS: readonly number[] = [0, 1];
+const REVIEW_INTERVALS: readonly number[] = [0, 1];
 
 /** Con estos aciertos seguidos, la pregunta sale de la cola. */
 export const MASTERED_HITS = REVIEW_INTERVALS.length;
@@ -53,17 +55,6 @@ export const REVIEW_LIMIT = 60;
 
 function isSame(item: ReviewItem, unitId: string, index: number): boolean {
   return item.unitId === unitId && item.index === index;
-}
-
-/** Días entre dos fechas `AAAA-MM-DD`, o `NaN` si alguna no lo es. */
-function daysBetween(from: string, to: string): number {
-  const parse = (day: string): number => Date.parse(`${day}T12:00:00Z`);
-  const start = parse(from);
-  const end = parse(to);
-  if (Number.isNaN(start) || Number.isNaN(end)) {
-    return Number.NaN;
-  }
-  return Math.round((end - start) / 86_400_000);
 }
 
 /**
@@ -111,6 +102,7 @@ export function recordHit(
 
 /** Si a esa pregunta le toca hoy. */
 export function isDue(item: ReviewItem, day: string): boolean {
+  /* v8 ignore next -- el indice va recortado al ultimo de la lista, asi que siempre hay espera */
   const wait = REVIEW_INTERVALS[Math.min(item.hits, REVIEW_INTERVALS.length - 1)] ?? 0;
   const gap = daysBetween(item.seenOn, day);
   // Una fecha imposible no puede dejar una pregunta atrapada para siempre: si no
@@ -147,11 +139,25 @@ export function crackedUnits(queue: ReviewQueue, day: string): readonly string[]
 }
 
 /**
- * Junta dos colas, quedándose con lo peor de cada una.
+ * Junta dos colas, quedándose con **lo último que se sabe** de cada pregunta.
  *
- * Lo peor y no lo mejor: si un aparato dice que la pregunta se acertó dos veces
- * y el otro que se acaba de fallar, lo cierto es que se falló. Dar por sabido
- * algo que no se sabe es el único error que esta cola no puede permitirse.
+ * Se quedaba con lo peor —el mínimo de aciertos— y eso rompía el repaso entero
+ * para quien tiene cuenta: al subir el avance, el servidor fusiona lo que llega
+ * con lo que tenía guardado, así que **los aciertos volvían siempre al número de
+ * antes**. Medido en el navegador: aciertas, la pregunta sube a un acierto, y al
+ * terminar el repaso vuelve a cero. Con dos pasos para salir de la cola y un
+ * contador que nunca sube, la cola no se vacía nunca, que es justo lo contrario
+ * de lo que dice `REVIEW_INTERVALS`: «se puede llegar a tenerlo todo limpio, que
+ * es lo que hace que apetezca».
+ *
+ * Ahora manda **la fecha más reciente**, que es la última vez que se vio de
+ * verdad, y con la misma fecha manda el que más aciertos lleve. Es lo mismo que
+ * hace el resto de `mergeProgress` —el máximo del XP de hoy, de la racha, la
+ * unión de las medallas—; la cola era la única que iba al revés.
+ *
+ * Lo que se pierde: dos aparatos el mismo día, uno acertando y otro fallando, se
+ * quedan con el acierto. Cuesta un día de espera de más, y la pregunta vuelve
+ * igual; la regla de antes costaba la función entera.
  */
 export function mergeReview(a: ReviewQueue, b: ReviewQueue): ReviewQueue {
   const merged = new Map<string, ReviewItem>();
@@ -162,14 +168,14 @@ export function mergeReview(a: ReviewQueue, b: ReviewQueue): ReviewQueue {
       merged.set(clave, item);
       continue;
     }
+    // El que se vio más tarde manda: es el que sabe lo último. Con la misma
+    // fecha no hay forma de ordenarlos, y entonces manda el que más lleva.
+    const ultimo = item.seenOn > previo.seenOn ? item : previo;
     merged.set(clave, {
       unitId: item.unitId,
       index: item.index,
-      // La fecha más reciente, porque es la última vez que se vio de verdad.
-      seenOn: item.seenOn > previo.seenOn ? item.seenOn : previo.seenOn,
-      // Y los aciertos del que menos lleve: dar por sabido lo que no se sabe es
-      // el único error que esta cola no puede permitirse.
-      hits: Math.min(previo.hits, item.hits),
+      seenOn: ultimo.seenOn,
+      hits: item.seenOn === previo.seenOn ? Math.max(previo.hits, item.hits) : ultimo.hits,
     });
   }
   return [...merged.values()].slice(-REVIEW_LIMIT);

@@ -23,6 +23,11 @@ export interface ChordDiagramProps {
  *
  * Va marcado como imagen con su descripción: quien no lo ve necesita la
  * digitación en texto, no seis líneas y unos círculos.
+ *
+ * **Debajo de la rejilla hay un trozo de mástil**, y no es adorno: sin él, seis
+ * de estos seguidos son una tabla de contabilidad sobre el fondo de la página.
+ * Con el fondo un punto más claro y las esquinas redondeadas, cada uno se lee
+ * como una pieza —lo que es— y la fila entera se recorre de un vistazo.
  */
 export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
   // Si el acorde está más arriba del mástil se dibuja una ventana de cuatro
@@ -33,10 +38,25 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      className="h-auto w-full max-w-[152px] min-w-[132px]"
+      // Entre 148 y 152 px de ancho, y no desde 132: el lienzo mide 107, así que
+      // a 132 la letra de 9 salía a 11 px y la de la digitación, de 8, a 9,9:
+      // por debajo del suelo de 12 px que esta aplicación pide para todo lo que
+      // se lee, también dentro de un SVG. A 148 el más pequeño llega a 12,4.
+      className="h-auto w-full max-w-[152px] min-w-[148px]"
       role="img"
       aria-label={`${label}: ${text}`}
     >
+      {/* El trozo de mástil sobre el que se dibuja todo. Sobresale medio hueco a
+          los lados para que las cuerdas de fuera no queden en el canto. */}
+      <rect
+        x={LEFT - CELL / 2}
+        y={TOP}
+        width={CELL * (STRINGS - 1) + CELL}
+        height={CELL * FRETS}
+        rx={3}
+        className="fill-surface-raised"
+      />
+
       {/* Cejuela gruesa solo si el acorde empieza en el primer traste. */}
       <line
         x1={LEFT}
@@ -77,7 +97,7 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
                 x={x}
                 y={TOP - 5}
                 textAnchor="middle"
-                className="fill-text-muted font-mono text-[9px]"
+                className="fill-text-muted font-mono text-[10px]"
               >
                 ×
               </text>
@@ -94,11 +114,14 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
             )}
 
             {fret !== null && fret > 0 && (
+              // El dedo, con su aro del color del mástil: sobre una línea de
+              // traste, un círculo liso se funde con ella y parece un nudo.
               <circle
                 cx={x}
                 cy={TOP + CELL * (fret - start) + CELL / 2}
                 r={5}
-                className="fill-brass-bright"
+                className="fill-brass-bright stroke-surface-raised"
+                strokeWidth={1.5}
               />
             )}
           </g>
@@ -106,7 +129,7 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
       })}
 
       {start > 1 && (
-        <text x={4} y={TOP + CELL / 2 + 3} className="fill-text-muted font-mono text-[9px]">
+        <text x={4} y={TOP + CELL / 2 + 3} className="fill-text-muted font-mono text-[10px]">
           {start}
         </text>
       )}
@@ -115,7 +138,7 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
         x={WIDTH / 2}
         y={HEIGHT - 2}
         textAnchor="middle"
-        className="fill-text-muted font-mono text-[8px]"
+        className="fill-text-muted font-mono text-[9px]"
       >
         {text}
       </text>

@@ -1,111 +1,1011 @@
 @import 'tailwindcss';
 
 /*
- * Espejo de src/ui/tokens.ts. Tailwind genera las utilidades a partir de aquí
- * (bg-background, text-brass, font-display...). Si cambias un valor, cámbialo
- * también en tokens.ts, que es lo que lee el código TypeScript.
+ * La paleta, en dos temas: **la sala de ensayo de noche y la misma sala de día**
+ * (docs/adr/0070-la-sala-encendida.md).
+ *
+ * **Oscuro de base y claro como opción** —sin preferencia guardada no hay
+ * `data-tema` y vale el bloque de `:root`, el oscuro—, y por eso los colores no
+ * viven aquí dentro: `@theme inline` solo dice qué utilidad usa qué variable, y
+ * las variables se declaran abajo, una vez por tema. Con los valores metidos en
+ * `@theme` no habría forma de cambiarlos en caliente, que es justo lo que pide un
+ * conmutador de tema.
+ *
+ * **Dieciséis colores y ninguno más.** Son los que pinta la escena de la portada,
+ * y todo lo que sale en pantalla tiene que poder pintarse con ellos: un tono de
+ * Tailwind o un hexadecimal escrito en un componente lo caza
+ * `screens/coherencia.test.ts`. Para un matiz, `color-mix` sobre uno de estos.
+ *
+ * Espejo de src/ui/tokens.ts, y hay un test que lo vigila.
  */
-@theme {
-  --color-background: #12100e;
-  --color-surface: #1a1714;
-  --color-surface-raised: #241f1a;
-  --color-border: #332c25;
+@theme inline {
+  --color-background: var(--fondo);
+  --color-surface: var(--superficie);
+  --color-surface-raised: var(--superficie-alta);
+  --color-border: var(--borde);
+  /* El borde de un campo, que tiene que verse (3:1) y no solo separar. */
+  --color-border-strong: var(--borde-fuerte);
+  /* Donde se escribe. No es un color más: en cada tema es uno de los de arriba. */
+  --color-field: var(--campo);
 
-  --color-text: #ede6da;
-  --color-text-muted: #a79c8c;
+  --color-text: var(--texto);
+  --color-text-muted: var(--texto-suave);
 
-  --color-brass: #b08d4f;
-  --color-brass-bright: #d8b76a;
-  --color-brass-dim: #6e5830;
+  --color-brass: var(--laton);
+  --color-brass-bright: var(--laton-vivo);
+  --color-brass-dim: var(--laton-suave);
 
-  --color-oxblood: #6b1f24;
-  --color-oxblood-bright: #8c2b31;
+  --color-oxblood: var(--rojo);
+  --color-oxblood-bright: var(--rojo-vivo);
 
-  --color-tube: #5c8a5a;
-  --color-tube-bright: #7fb07c;
+  --color-tube: var(--verde);
+  --color-tube-bright: var(--verde-vivo);
 
-  --font-display: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  /* La sala, oscura en los dos temas, y la luz que se escribe sobre ella. */
+  --color-night: var(--noche);
+  --color-bulb: var(--bombilla);
+
+  --font-display: var(--fuente-titulos), 'Arial Black', system-ui, sans-serif;
+  --font-sans: var(--fuente-cuerpo), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--fuente-cifras), ui-monospace, 'SFMono-Regular', Consolas, monospace;
 
   /* Tamaños que crecen con el ancho: mínimo legible, máximo sensato. */
-  --text-fluid-hero: clamp(2.75rem, 6.6vw, 7rem);
-  --text-fluid-title: clamp(1.9rem, 4vw, 4rem);
-  --text-fluid-subtitle: clamp(1.2rem, 2vw, 1.9rem);
-  --text-fluid-body: clamp(1rem, 1.15vw, 1.3rem);
+  --text-fluid-hero: clamp(2.25rem, 1.4rem + 3.6vw, 4.5rem);
+  --text-fluid-hero--line-height: 1.02;
+  --text-fluid-title: clamp(1.875rem, 1.35rem + 1.9vw, 3rem);
+  --text-fluid-title--line-height: 1.06;
+  --text-fluid-subtitle: clamp(1.0625rem, 0.95rem + 0.45vw, 1.3125rem);
+  --text-fluid-subtitle--line-height: 1.5;
+  --text-fluid-body: clamp(1rem, 0.95rem + 0.2vw, 1.125rem);
+  --text-fluid-body--line-height: 1.6;
 
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 8px;
+  /* Lo mínimo que mide algo que se pulsa. Espejo de `tap` en tokens.ts. */
+  --spacing-tap: 2.75rem;
+
+  /*
+   * El margen de una pantalla a cada lado, que **crece con ella**: `px-margen`.
+   *
+   * Eran cuatro escalones a mano —16, 24, 40 y 56 px— y luego nada: a 1920 el
+   * margen se quedaba en 56 y lo que sobraba era vacío al lado de una columna de
+   * 1280. Con el `clamp` el borde es el justo en un teléfono (16 px, que es lo que
+   * pide el pulgar sin que el texto toque el canto) y respira en un monitor (64 a
+   * 1920, 83 a 2560) sin que nadie tenga que escribir un punto de corte más.
+   */
+  --spacing-margen: clamp(1rem, 0.4rem + 3vw, 6rem);
+
+  /*
+   * El ancho máximo de una pantalla, `max-w-pantalla`: 160 rem, 2560 px.
+   *
+   * No es una columna de lectura —eso lo pone cada párrafo con su `max-w-prose`—
+   * sino el techo de la composición. Por debajo de él la pantalla se reparte en
+   * columnas y llega a los bordes; por encima, en un monitor de más de 2560, se
+   * centra, porque una rejilla de cinco metros ya no se abarca de un vistazo.
+   */
+  --container-pantalla: 160rem;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 22px;
+
+  /*
+   * La curva de la casa: sale deprisa y se posa despacio, como un fader que se
+   * suelta. Es la de todo lo que responde a algo que has hecho; la lineal queda
+   * para lo que va atado al scroll. Genera `ease-salida`.
+   */
+  --ease-salida: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * Las duraciones, espejo de `durations` en tokens.ts. Fuera de `@theme` porque
+ * no son una escala de Tailwind: las piden las clases de esta hoja.
+ */
+:root {
+  --duracion-instant: 90ms;
+  --duracion-quick: 180ms;
+  --duracion-entrada: 320ms;
+  --duracion-wheel: 650ms;
+}
+
+/*
+ * El tema claro: **la sala de día**, con la luz de la ventana.
+ *
+ * Hielo teñido del mismo azul tinta que la pared de noche, y las superficies
+ * **suben hacia el blanco**: elevarse es acercarse a la luz en los dos temas
+ * (docs/adr/0026-el-blanco-hielo.md). Los grises son de la familia de la pared y
+ * no neutros, y el latón baja hasta #97570d, que es lo que hace falta para que un
+ * texto de acento llegue a 4,5:1. El dorado bonito de las paletas, #d4af37, no lo
+ * cumple ni de lejos.
+ */
+:root[data-tema='claro'] {
+  color-scheme: light;
+
+  --fondo: #edf0f7;
+  --superficie: #f5f7fc;
+  --superficie-alta: #ffffff;
+  /* El campo de escribir, blanco: sobre una tarjeta blanca, un campo del color
+     del fondo se leía como desactivado. */
+  --campo: var(--superficie-alta);
+  --borde: #d5d9e3;
+  --borde-fuerte: #737a8a;
+
+  --texto: #101624;
+  --texto-suave: #535b6c;
+
+  --laton: #97570d;
+  --laton-vivo: #7a420a;
+  --laton-suave: #e7cda5;
+
+  --rojo: #b32130;
+  --rojo-vivo: #9d1137;
+
+  --verde: #227c45;
+  --verde-vivo: #166238;
+
+  /* La sala no cambia con el tema: la escena va en su marco oscuro también de día. */
+  --noche: #0a0e19;
+  --bombilla: #f4f0e7;
+
+  /* El relieve, en claro, es una sombra fría y ancha teñida de tinta, no una
+     línea negra: sobre hielo, una sombra parda ensucia y una dura recorta. */
+  --sombra-suave: 0 1px 2px rgb(16 22 36 / 0.06);
+  --sombra-alta: 0 14px 34px -14px rgb(16 22 36 / 0.2), 0 2px 6px -2px rgb(16 22 36 / 0.06);
+  /* La misma, del revés: los cajones que suben desde la barra de abajo. */
+  --sombra-alta-arriba: 0 -14px 34px -14px rgb(16 22 36 / 0.2);
+  /* El hueco: una sombra por dentro, arriba, que es como se ve algo hundido
+     con la luz encima. */
+  --sombra-hueco: inset 0 1px 3px rgb(16 22 36 / 0.1);
+  --filo: inset 0 1px 0 rgb(255 255 255 / 0.9);
+
+  /* Las dos luces de la sala. De día no pueden ser ámbar ni verde —un lavado de
+     color sobre hielo es una mancha—, así que la de la bombilla es blanca y la de
+     la válvula no se ve: la esquina se aclara hacia el blanco puro. Va hacia
+     arriba, como en oscuro: una luz aclara, y un degradado que oscurece la esquina
+     es un viñeteo. */
+  --resplandor: color-mix(in srgb, #ffffff 75%, transparent);
+  --resplandor-valvula: transparent;
+}
+
+/*
+ * El tema oscuro: **la sala de noche**, y el de partida.
+ *
+ * No cuelga de `prefers-color-scheme`: esto es oscuro salvo que se pida claro, y
+ * por eso vive en `:root` a secas. Una sala de ensayo se usa de noche, la escena
+ * de la portada es de noche en los dos temas y el profesor se enciende en verde
+ * sobre lo oscuro: el claro es una salida para quien toque junto a una ventana,
+ * no una votación entre dos temas.
+ *
+ * La pared es tinta —el azul de la espuma a oscuras— y no grafito neutro, el
+ * texto es la luz de una bombilla de filamento y no blanco de pantalla, y los
+ * escalones entre fondo, superficie y superficie alta doblan su luminancia de uno
+ * a otro, para que se note qué está encima de qué sin depender del borde.
+ */
+:root,
+:root[data-tema='oscuro'] {
+  color-scheme: dark;
+
+  --fondo: #0a0e19;
+  --superficie: #131824;
+  --superficie-alta: #1e2432;
+  /* En oscuro, más hondo que la tarjeta: un hueco donde escribir. */
+  --campo: var(--fondo);
+  --borde: #303747;
+  --borde-fuerte: #788093;
+
+  --texto: #f4f0e7;
+  --texto-suave: #a6aec0;
+
+  --laton: #e3a04b;
+  --laton-vivo: #f4c87e;
+  --laton-suave: #533a1e;
+
+  /* El granate es relleno —la alfombra, el botón de grabar— y el vivo es el que
+     llevan los mensajes de error. */
+  --rojo: #5e1927;
+  --rojo-vivo: #fb9494;
+
+  --verde: #3d7e5d;
+  --verde-vivo: #85d5ab;
+
+  --noche: #0a0e19;
+  --bombilla: #f4f0e7;
+
+  /* Sombras largas y suaves en vez de cortas y duras: sobre tinta, una sombra de
+     cuatro píxeles no separa nada, y lo que hace que una tarjeta flote es la caída
+     ancha de debajo, no el filo. Son del negro de la sala, no negro puro. */
+  --sombra-suave: 0 1px 2px rgb(3 5 10 / 0.45);
+  --sombra-alta: 0 18px 44px -18px rgb(3 5 10 / 0.8), 0 2px 8px rgb(3 5 10 / 0.35);
+  --sombra-alta-arriba: 0 -18px 44px -18px rgb(3 5 10 / 0.8), 0 -2px 8px rgb(3 5 10 / 0.35);
+  --sombra-hueco: inset 0 2px 4px rgb(3 5 10 / 0.5);
+  --filo: inset 0 1px 0 color-mix(in srgb, var(--texto) 7%, transparent);
+
+  /* Las dos luces de la sala: la bombilla, cálida, arriba a la izquierda, y el
+     verde de la válvula, que apenas se nota, abajo a la derecha. Son lo que impide
+     que la tinta se lea como un panel de administración. */
+  --resplandor: color-mix(in srgb, var(--laton-vivo) 7%, transparent);
+  --resplandor-valvula: color-mix(in srgb, var(--verde-vivo) 4%, transparent);
+}
+
+/*
+ * La paleta del profesor (`ui/Mascota`), que es de píxel y lleva la suya.
+ *
+ * Dieciséis colores y no los de la interfaz, porque un dibujo de 32×32 necesita
+ * rampas —luz, tono, sombra y contorno de cada material— y la interfaz tiene un
+ * solo tono de cada cosa. Salen de ella: el latón junta el de los dos temas, y
+ * los verdes son `tube` del claro y `tube-bright` del oscuro.
+ *
+ * **Casi todos valen igual en los dos temas, y cuatro no.** Un contorno de
+ * grafito sobre el fondo oscuro desaparece, y con él la punta de la cúpula, que
+ * es solo contorno: en oscuro el borde sube a un gris que se ve, y el cristal baja
+ * un punto para no deslumbrar. Los valores los escribe a mano esta hoja y los
+ * repite `arte/mascota/build.py` para pintar su muestra; `ui/Mascota.test.tsx`
+ * comprueba que no se separan.
+ */
+:root,
+:root[data-tema='oscuro'] {
+  --mascota-contorno: #3a4454;
+  --mascota-tinta: #1e2430;
+  --mascota-cristal: #c7d6e2;
+  --mascota-cristal-luz: #ffffff;
+  --mascota-cristal-sombra: #8496aa;
+  --mascota-cristal-encendido: #b9e4c9;
+  --mascota-laton-luz: #f0be6e;
+  --mascota-laton: #d99a45;
+  --mascota-laton-sombra: #9a5b08;
+  --mascota-laton-contorno: #4a2a06;
+  --mascota-metal: #6b7686;
+  --mascota-mejilla: #f2a0a0;
+  --mascota-filamento: #7a8591;
+  --mascota-verde-vivo: #7fd4a3;
+  --mascota-verde: #15803d;
+  --mascota-halo: #a8e3bf;
+}
+
+:root[data-tema='claro'] {
+  --mascota-contorno: #1e2430;
+  --mascota-cristal: #dce9f2;
+  --mascota-cristal-sombra: #9fb2c4;
+  --mascota-cristal-encendido: #cdefd9;
+}
+
+/*
+ * Las piezas del sistema, en un sitio y sacadas de la paleta.
+ *
+ * Todo con `color-mix` sobre las variables y nada transcrito a mano: el test que
+ * vigila que los tokens no se separen del CSS no puede ver un número dentro de una
+ * cadena, así que un `rgba` copiado del latón se queda del color viejo en cuanto
+ * el latón cambia. Las únicas cifras en crudo de esta hoja son las de las paletas
+ * de arriba y las sombras, que son negro de la sala con su alfa.
+ */
+@layer components {
+  /*
+   * La profundidad de la aplicación, en cuatro piezas.
+   *
+   * Un tema oscuro sin relieve se lee plano y viejo: todo al mismo nivel, todo
+   * separado por una línea de un píxel. Lo que da modernidad no es más color, es
+   * **que se note qué está encima de qué**, y aquí eso se hace con lo mismo que un
+   * aparato de verdad: un filo de luz arriba, una sombra debajo y un fondo un punto
+   * más claro según se sube. Y lo contrario para lo que está hundido.
+   */
+  .superficie {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--filo), var(--sombra-suave);
+  }
+
+  /* La de encima: la que se mira primero en cada pantalla, y lo que flota. */
+  .superficie-alta {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--filo), var(--sombra-alta);
+  }
+
+  /*
+   * Y la que además está encendida: la unidad de ahora, el plan que tienes.
+   *
+   * El borde es latón apagado y el filo de arriba latón vivo: es el piloto de un
+   * aparato puesto, visto de canto. La luz de debajo es lo que la separa de una
+   * `superficie-alta` de lejos, sin otro color.
+   */
+  .superficie-viva {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-brass-dim);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--color-brass-bright) 30%, transparent),
+      0 6px 28px -6px color-mix(in srgb, var(--color-brass) 22%, transparent);
+  }
+
+  /*
+   * Lo hundido: donde se trabaja dentro de una tarjeta.
+   *
+   * El dial del afinador, el pentagrama, la caja donde cae lo que tocas. Va del
+   * color del fondo con la sombra por dentro, y por eso se lee como un hueco en la
+   * tarjeta y no como otra tarjeta encima: es la diferencia entre el panel de un
+   * aparato y el sitio donde se mete el cable.
+   */
+  .hueco {
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--sombra-hueco);
+  }
+
+  /*
+   * La ventana del profesor: un cuadro de diálogo de consola de dieciséis bits.
+   *
+   * **Solo para lo que dice el profesor**, que es de píxel
+   * ([adr/0068](../../docs/adr/0068-la-mascota-es-de-pixel.md)): su bocadillo, su
+   * bienvenida, lo que explica al fallar. Puesto en cualquier tarjeta deja de
+   * decir quién habla y pasa a ser disfraz.
+   *
+   * Las esquinas van **a escalones, no redondeadas**, y se dibujan con sombras sin
+   * desenfoque: la caja se alarga `--px` hacia los cuatro lados en su propio color
+   * —eso recorta la esquina un píxel— y por fuera otra vez en el color del marco,
+   * con cuatro más en diagonal que ponen el escalón. Sin imágenes ni `clip-path`,
+   * así que el foco sigue viéndose, y los colores son los de la paleta y cambian
+   * con el tema. Sin sombra debajo: una sombra desenfocada no sigue los escalones,
+   * y una dura desplazada se leía como una barra gris suelta.
+   *
+   * Ocupa `2 × --px` más por cada lado de lo que mide: quien la monta le deja ese
+   * aire, o el marco pisa lo de al lado.
+   */
+  .ventana-pixel {
+    --px: 3px;
+    --marco: var(--color-border-strong);
+    position: relative;
+    border-radius: 0;
+    background-color: var(--color-surface-raised);
+    box-shadow:
+      0 calc(-1 * var(--px)) 0 0 var(--color-surface-raised),
+      0 var(--px) 0 0 var(--color-surface-raised),
+      calc(-1 * var(--px)) 0 0 0 var(--color-surface-raised),
+      var(--px) 0 0 0 var(--color-surface-raised),
+      0 calc(-2 * var(--px)) 0 0 var(--marco),
+      0 calc(2 * var(--px)) 0 0 var(--marco),
+      calc(-2 * var(--px)) 0 0 0 var(--marco),
+      calc(2 * var(--px)) 0 0 0 var(--marco),
+      calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--marco),
+      var(--px) calc(-1 * var(--px)) 0 0 var(--marco),
+      calc(-1 * var(--px)) var(--px) 0 0 var(--marco),
+      var(--px) var(--px) 0 0 var(--marco);
+  }
+
+  /*
+   * El piloto: lo que está puesto lleva una luz encendida debajo.
+   *
+   * Es el piloto del ampli de la escena, y dice «esto es lo que hay ahora» en la
+   * navegación, en una pastilla marcada y en la opción elegida de un segmentado.
+   * Hacía falta porque **el latón decía dos cosas a la vez**: relleno era «púlsame»
+   * y borde era «está puesto», y de lejos las dos son una mancha ámbar. La luz es
+   * pequeña a propósito —dieciséis por dos píxeles— y brilla, que es lo que una
+   * marca de borde no hace.
+   *
+   * No sustituye a `aria-pressed` ni a `aria-current`, que es lo que lee quien no
+   * ve la luz: quien pone la clase pone también el atributo.
+   */
+  .piloto {
+    position: relative;
+  }
+
+  .piloto::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 5px;
+    width: 1rem;
+    height: 2px;
+    translate: -50% 0;
+    border-radius: 1px;
+    background-color: var(--color-brass-bright);
+    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-brass-bright) 55%, transparent);
+    transition:
+      opacity var(--duracion-quick) var(--ease-salida),
+      scale var(--duracion-quick) var(--ease-salida);
+  }
+
+  /* Se enciende al ponerse, no aparece de golpe. */
+  @starting-style {
+    .piloto::after {
+      opacity: 0;
+      scale: 0.3 1;
+    }
+  }
+
+  /*
+   * Una tarjeta entera que se pulsa: una unidad, un plan, una canción guardada.
+   *
+   * Sube dos píxeles y se le enciende el borde al pasar, y vuelve a su sitio al
+   * pulsar: lo mismo que un botón, a la escala de una caja. Solo para lo que **es**
+   * un enlace o un botón; una tarjeta que no hace nada y se mueve al pasar por
+   * encima promete algo que no cumple.
+   */
+  .tarjeta-pulsable {
+    transition:
+      border-color var(--duracion-quick) var(--ease-salida),
+      box-shadow var(--duracion-quick) var(--ease-salida),
+      translate var(--duracion-quick) var(--ease-salida);
+  }
+
+  .tarjeta-pulsable:hover {
+    border-color: color-mix(in srgb, var(--color-brass) 55%, var(--color-border));
+    translate: 0 -2px;
+    box-shadow: var(--filo), var(--sombra-alta);
+  }
+
+  .tarjeta-pulsable:active {
+    translate: 0 0;
+    transition-duration: var(--duracion-instant);
+  }
+
+  /* El filo tenue de lo que está marcado: una pastilla, una pestaña abierta. */
+  .filo-latón {
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-brass-bright) 18%, transparent);
+  }
+
+  /*
+   * El titular: la letra del flight case.
+   *
+   * La Archivo ancha a peso de rótulo, apretada lo justo para que a tamaño grande
+   * las letras no se separen —una ancha sin apretar se lee como espaciada a
+   * propósito— y con el reparto de renglones equilibrado, que es lo que evita una
+   * palabra sola en la última línea de un título de dos.
+   */
+  .titular {
+    font-family: var(--font-display);
+    font-weight: 720;
+    letter-spacing: -0.018em;
+    line-height: 1.04;
+    text-wrap: balance;
+  }
+
+  /*
+   * El título de un apartado: la misma letra, a la altura de leerse y no de
+   * anunciar. Es un `h2` de verdad y se lee como tal; el rótulo pequeño de abajo
+   * es para nombrar una caja, no un trozo de página.
+   */
+  .titulo-apartado {
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 640;
+    letter-spacing: -0.005em;
+    line-height: 1.3;
+    color: var(--color-text);
+  }
+
+  /*
+   * Un enlace dentro de una frase.
+   *
+   * La raya separada es la que deja leer las colas de las jotas y las ges. Va de
+   * latón vivo: es lo único que se puede pulsar dentro de un párrafo, y el apagado
+   * sobre el fondo claro no llega al contraste de un texto. La raya engorda al
+   * pasar, que es lo que dice «esto se pulsa» sin cambiar de color.
+   */
+  .enlace {
+    color: var(--color-brass-bright);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    transition:
+      color var(--duracion-instant) linear,
+      text-decoration-thickness var(--duracion-instant) linear;
+  }
+
+  .enlace:hover {
+    color: var(--color-brass);
+    text-decoration-thickness: 2px;
+  }
+
+  /*
+   * El fondo de la aplicación, con las dos luces de la sala encendidas.
+   *
+   * La bombilla arriba a la izquierda y la válvula, que apenas se ve, abajo a la
+   * derecha: es lo que separa una tinta plana de una sala iluminada, y un hielo
+   * plano de uno con aire. Va fijo para que no se mueva con el scroll, como la luz
+   * de una sala. Lo piden `AppShell` y la portada, que son las dos cajas que pintan
+   * el fondo de verdad (el `body` queda tapado por ellas).
+   */
+  .fondo-sala {
+    background-color: var(--color-background);
+    background-image:
+      radial-gradient(64rem 36rem at 12% -12%, var(--resplandor), transparent 70%),
+      radial-gradient(48rem 30rem at 100% 110%, var(--resplandor-valvula), transparent 70%);
+    background-attachment: fixed;
+  }
+
+  /*
+   * La luz que se escapa por detrás de la escena de la portada.
+   *
+   * Desenfocada y por detrás, no como borde: un borde de color alrededor de una
+   * imagen es un marco de los noventa, y lo que se busca es que el aparato parezca
+   * encendido.
+   */
+  .aureola {
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--color-brass) 16%, transparent),
+      transparent
+    );
+    filter: blur(28px);
+  }
+
+  /*
+   * La sombra de una pieza de píxel: el muñeco del profesor.
+   *
+   * Era `drop-shadow-lg`, que es el negro de Tailwind con su alfa: el único
+   * relieve de la aplicación que no salía de la sala. Es una sombra propia, algo
+   * más larga que `--sombra-suave` (0 1px 2px) porque el muñeco flota sobre la
+   * columna y con esa caída no se despegaba; en el negro de la noche, y como
+   * filtro porque un `box-shadow` sobre un SVG sombrea su caja y no el dibujo.
+   */
+  .sombra-pixel {
+    filter: drop-shadow(0 3px 4px color-mix(in srgb, var(--color-night) 45%, transparent));
+  }
+
+  /* El aro de lo que está seleccionado en el camino. */
+  .halo-latón {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brass-bright) 15%, transparent);
+  }
+
+  /* Y el de la unidad que toca ahora, que además brilla un poco. */
+  .halo-aquí {
+    box-shadow:
+      0 0 0 5px color-mix(in srgb, var(--color-brass-bright) 12%, transparent),
+      0 2px 14px color-mix(in srgb, var(--color-brass-bright) 28%, transparent);
+  }
+
+  /*
+   * El rótulo: el nombre de una caja, no el título de un trozo de página.
+   *
+   * Estuvo escrito como `font-mono text-xs tracking-widest uppercase` en
+   * diecinueve sitios, y era **la causa principal de que esto pareciera un panel
+   * de administración**. Es la sans a 12 px, con peso y sin gritar, y nunca en
+   * mayúsculas. Para el título de un apartado está `.titulo-apartado`.
+   */
+  .rotulo {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 650;
+    letter-spacing: 0.03em;
+    color: var(--color-text-muted);
+  }
+
+  /*
+   * Que se vea que una tira sigue hacia el lado.
+   *
+   * En el móvil hay tres barras que no caben y se arrastran —la del lienzo, la de
+   * la parte y la de abajo—, y **nada decía que hubiera más**: la última pastilla
+   * salía partida contra el borde y parecía rota, no desplazable.
+   *
+   * Sin medir nada y sin JavaScript. Las dos primeras capas viajan **con el
+   * contenido** y tapan a las otras dos, que están pegadas **al marco**: pegado al
+   * borde izquierdo la tapa cubre su sombra, y al arrastrar la tapa se va y la
+   * sombra aparece. Por eso la pista sale solo cuando de verdad queda algo, que es
+   * justo lo que una sombra puesta siempre no consigue.
+   *
+   * El color de la tapa es el del fondo de detrás, y se puede cambiar con
+   * `--tira-fondo` donde la tira no esté sobre el fondo de la página.
+   *
+   * Hasta 1024 y no hasta 640, que es donde estaba: la fila de mandos de
+   * componer sigue desplazándose hasta `lg`, y entre 640 y 1023 se cortaba
+   * contra el borde sin ninguna pista —medido a 700: 250 px de más y nada que
+   * lo dijera—. Y no mancha a la tira que ya cabe: sin desplazamiento, las dos
+   * tapas quedan justo encima de las dos sombras y no se ve nada. Por eso el
+   * corte es solo ahorro, no lo que decide si se pinta.
+   */
+  @media (width < 64rem) {
+    .hay-mas-al-lado {
+      background:
+        linear-gradient(to right, var(--tira-fondo, var(--color-background)) 55%, transparent) 0 0 /
+          34px 100% no-repeat local,
+        linear-gradient(to left, var(--tira-fondo, var(--color-background)) 55%, transparent) 100%
+          0 / 34px 100% no-repeat local,
+        linear-gradient(
+            to right,
+            color-mix(in srgb, var(--color-text) 20%, transparent),
+            transparent
+          )
+          0 0 / 22px 100% no-repeat scroll,
+        linear-gradient(
+            to left,
+            color-mix(in srgb, var(--color-text) 20%, transparent),
+            transparent
+          )
+          100% 0 / 22px 100% no-repeat scroll;
+    }
+  }
+}
+
+/*
+ * El filo de luz de arriba: es lo que hace que el latón parezca metal.
+ *
+ * **Son utilidades y no componentes**, y la diferencia se notaba sin verse: el
+ * botón principal pedía `hover:filo-luz-alto` desde hace meses, y una clase de
+ * `@layer components` no admite variantes en Tailwind v4, así que esa regla no se
+ * generaba y al pasar por encima no se encendía nada. Con `@utility`, sí.
+ */
+@utility filo-luz {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-bulb) 35%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-night) 18%, transparent),
+    var(--sombra-suave);
+}
+
+@utility filo-luz-alto {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-bulb) 45%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-night) 18%, transparent),
+    0 4px 16px -2px color-mix(in srgb, var(--color-brass) 45%, transparent);
 }
 
 @layer base {
+  /*
+   * Lo primero, y lo que más se nota: decirle al navegador que esto es oscuro.
+   *
+   * Sin `color-scheme`, todo lo que dibuja el sistema y no nosotros sale en
+   * claro sobre una aplicación negra: la lista que se abre de un desplegable
+   * —el rectángulo blanco del selector de afinación—, la barra de scroll, el
+   * cursor de un campo de texto y los menús de un `<input type="date">`. Con
+   * esto, el propio navegador los pinta en oscuro y dejan de ser un parche
+   * blanco en medio.
+   */
   body {
     background-color: var(--color-background);
     color: var(--color-text);
     font-family: var(--font-sans);
+    /* La Atkinson está dibujada a 16 px y con aire entre renglones: por debajo de
+       1,5 sus letras abiertas se tocan entre líneas. */
+    line-height: 1.5;
+    font-kerning: normal;
+    text-rendering: optimizeLegibility;
   }
 
-  /* El foco siempre se ve, y se ve en latón sobre el negro cálido. */
+  /* Los títulos reparten sus renglones; los párrafos evitan la palabra sola al
+     final. Es lo que hace que un título de dos líneas no quede cojo. */
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p,
+  li {
+    text-wrap: pretty;
+  }
+
+  /* Las cifras que cambian mientras se mira —cents, compases, XP— no bailan: cada
+     dígito mide lo mismo. Va en la monoespaciada, que ya lo hace, y en la sans
+     cuando se pide `tabular-nums`. */
+
+  /*
+   * **El foco siempre se ve**, y en los dos temas: latón vivo, dos píxeles y
+   * separado del control, que da 12:1 sobre la tinta y 7:1 sobre el hielo (WCAG
+   * 2.4.7 y 1.4.11 piden 3:1). Separado y no pegado porque los controles llevan su
+   * propio borde, y un aro encima del borde se confunde con él.
+   */
   :focus-visible {
     outline: 2px solid var(--color-brass-bright);
-    outline-offset: 2px;
+    outline-offset: 3px;
+  }
+
+  /* Lo que se selecciona con el ratón, en latón y no en el azul del sistema, que
+     es el único color de otra paleta que podía aparecer en pantalla. */
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-brass) 38%, transparent);
+    color: var(--color-text);
   }
 
   /*
-   * Modo grabación: la cámara va detrás de todo, así que la interfaz se queda
-   * en contorno y letra. El !important es a propósito: hay que ganarle a las
-   * utilidades de fondo de cada componente sin tocar los cien sitios donde se
-   * ponen, y esto solo aplica mientras se está grabando.
-   */
-  body.grabando,
-  body.grabando *:not([data-senal]):not([data-velo]) {
-    background-color: transparent !important;
-  }
-
-  body.grabando {
-    /* Con el velo ya se lee; la sombra es para los sitios claros de la imagen. */
-    text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
-  }
-
-  body.grabando button,
-  body.grabando input,
-  body.grabando select,
-  body.grabando [class*='border'] {
-    border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
-  }
-
-  /*
-   * Los fondos de los dibujos son relleno de SVG, no background: la rueda es un
-   * disco negro que, sin esto, tapa la cámara entera. Solo caen los rellenos
-   * que son fondo; los puntos del diagrama y las letras siguen ahí, que es la
-   * información.
-   */
-  body.grabando .fill-surface,
-  body.grabando .fill-surface-raised,
-  body.grabando .fill-background {
-    fill: transparent !important;
-  }
-
-  /* Sobre vídeo, el gris apagado se queda corto aun con velo. */
-  body.grabando .text-text-muted {
-    color: color-mix(in srgb, var(--color-text) 88%, transparent);
-  }
-
-  body.grabando .fill-text-muted {
-    fill: color-mix(in srgb, var(--color-text) 88%, transparent);
-  }
-
-  /*
-   * Lo marcado como señal conserva su color: el piloto de grabación, el de
-   * escucha y el punto verde o rojo de cada acorde. Es estado, no adorno, y en
-   * mitad de una toma es justo lo único que hay tiempo de mirar.
+   * La barra de scroll, del color de la aplicación.
    *
-   * El aro oscuro es para que el color se lea sobre lo que sea que haya detrás:
-   * un punto verde sobre una pared verde no dice nada.
+   * Dos formas porque no hay una sola: Firefox entiende `scrollbar-*` y los de
+   * WebKit y Chromium el pseudoelemento. Se escriben las dos, no se elige.
+   *
+   * Fina y de latón apagado, y solo se aviva al pasar por encima: en una
+   * pantalla donde lo que importa son las notas y los acordes, la barra dice
+   * dónde estás y no compite con nada. El fondo del canal es la superficie
+   * elevada, no el negro, para que se vea el recorrido entero.
    */
-  body.grabando [data-senal] {
-    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.65);
+  /* `scrollbar-color` se hereda, así que basta con declararla arriba del todo;
+     colgar las dos del selector universal daba dos propiedades no iniciales a
+     cada elemento del documento y rompía la caché de estilos compartidos. */
+  :root {
+    scrollbar-color: var(--color-brass-dim) var(--color-surface);
+  }
+
+  html,
+  .overflow-y-auto,
+  .overflow-auto {
+    scrollbar-width: thin;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-brass-dim);
+    border: 2px solid var(--color-surface);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-brass);
+  }
+
+  /* La esquina donde se juntan las dos barras, del mismo color que el canal. */
+  ::-webkit-scrollbar-corner {
+    background: var(--color-surface);
+  }
+
+  /*
+   * El profesor que asoma por la esquina al fallar una pregunta.
+   *
+   * Su entrada es la única animación suave que le queda: lo demás del muñeco va
+   * por fotogramas, más abajo.
+   */
+  @keyframes asomar {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /*
+   * El muñeco, por fotogramas: **se enciende y se apaga una capa, no se deforma
+   * nada**.
+   *
+   * Era vector y parpadeaba encogiendo los ojos con `scaleY`; un dibujo de píxel
+   * escalado a 0,1 deja de ser de píxel, con filas a medias y bordes borrosos. Aquí
+   * cada fotograma es una capa entera del dibujo, y `step-end` hace que pase de
+   * una a otra sin intermedios, como en una consola.
+   *
+   * Van de dos en dos porque una capa no puede «apagar» a otra: los ojos abiertos
+   * se esconden justo cuando aparecen los cerrados, y la boca abierta cuando sale
+   * la entornada. Lo que hay **sin animación** es lo que se queda con
+   * `prefers-reduced-motion`: ojos abiertos, boca abierta y la brasa encendida, o
+   * sea el muñeco quieto en su gesto. Por eso las capas que solo salen un momento
+   * llevan `opacity: 0` de base.
+   *
+   * Y solo se piden con movimiento aceptado; la regla general de abajo es el
+   * segundo cerrojo, como en `desplegar`.
+   */
+  .mascota-ojos-cerrados,
+  .mascota-boca-entornada {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    /* Un parpadeo cada cinco segundos y medio, de algo más de cien milisegundos:
+       más a menudo parece un tic, y más largo, que se duerme. */
+    .mascota-ojos-abiertos {
+      animation: mascota-se-ve 5.5s step-end infinite;
+    }
+    .mascota-ojos-cerrados {
+      animation: mascota-asoma 5.5s step-end infinite;
+    }
+
+    /* Hablar son dos bocas a 150 ms cada una: el ritmo de las sílabas. */
+    .mascota-boca-abierta {
+      animation: mascota-alterna 300ms step-end infinite;
+    }
+    .mascota-boca-entornada {
+      animation: mascota-turna 300ms step-end infinite;
+    }
+
+    /* El cerco de la brasa late despacio: a la velocidad de la boca parecería una
+       alarma. */
+    .mascota-brasa {
+      animation: mascota-alterna 1.6s step-end infinite;
+    }
+  }
+
+  @keyframes mascota-se-ve {
+    0%,
+    97% {
+      opacity: 1;
+    }
+    95% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes mascota-asoma {
+    0%,
+    97% {
+      opacity: 0;
+    }
+    95% {
+      opacity: 1;
+    }
+  }
+
+  /* La mitad del tiempo sí y la otra no; `turna` es la misma al revés, para la
+     otra capa de la pareja. */
+  @keyframes mascota-alterna {
+    0% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes mascota-turna {
+    0% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  /*
+   * La entrada de lo que se despliega: aparece y baja cuatro píxeles, en 160 ms.
+   * Lo justo para que se vea de dónde viene; por encima de 180 ms se nota lento
+   * al abrir y cerrar a menudo. Se pide con `motion-safe:` y además la regla de
+   * `prefers-reduced-motion` de abajo la deja en 0,01 ms: dos cerrojos.
+   */
+  @keyframes desplegar {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-desplegar {
+    animation: desplegar 160ms ease-out both;
+  }
+
+  /*
+   * Lo mismo para un `<details>` que empuja (`ui/Disclosure` sin `flotante`).
+   * Un `<details>` cierra por `display`, que no se anima; `::details-content` sí
+   * deja hacerlo con `content-visibility` discreto. Solo donde el navegador
+   * conoce el pseudoelemento y solo si se acepta movimiento: en el resto se abre
+   * de golpe, que es como estaba. Los flotantes no entran, que ya animan su panel.
+   */
+  @supports selector(::details-content) {
+    @media (prefers-reduced-motion: no-preference) {
+      details.desplegable::details-content {
+        opacity: 0;
+        transform: translateY(-4px);
+        transition:
+          opacity 160ms ease-out,
+          transform 160ms ease-out,
+          content-visibility 160ms allow-discrete;
+      }
+      details.desplegable[open]::details-content {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  }
+
+  .animate-asomar {
+    animation: asomar 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  }
+
+  /*
+   * El movimiento de la portada: **tres animaciones y ninguna con JavaScript**.
+   *
+   * Las dos que dependen del scroll van con `animation-timeline`, que es lo que
+   * lo hace posible sin un `IntersectionObserver`, sin un componente de cliente
+   * y sin el parpadeo que trae: con observador, lo que va a aparecer tiene que
+   * pintarse **invisible** primero, así que un navegador sin JavaScript, o con
+   * él a medio cargar, deja media portada en blanco.
+   *
+   * Y degrada solo, que es lo bonito: donde no hay `animation-timeline`, la
+   * animación se queda sin duración —`auto` computa a cero— y con `both` se
+   * planta en el último fotograma. O sea, **lo de siempre**: todo visible y la
+   * barra opaca. No hace falta un `@supports`.
+   */
+  @keyframes entrar {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* La entrada del encabezado, escalonada con `[animation-delay:...]` desde el
+     JSX: es lo único que cambia entre los cuatro trozos que entran. */
+  .entra {
+    animation: entrar 620ms cubic-bezier(0.22, 0.85, 0.35, 1) both;
+  }
+
+  /*
+   * La llegada a una pantalla: **un solo gesto, y corto**.
+   *
+   * El título y su línea se posan seis píxeles en lo que dura una entrada, y nada
+   * más se mueve: si cada tarjeta entrase por su cuenta, cambiar de pantalla —que
+   * aquí se hace cien veces en una tarde— sería esperar a que acabe una cascada.
+   * Arranca al 35 % de opacidad y no a cero porque un título invisible no cuenta
+   * como pintado, y retrasaría lo que el navegador mide como lo primero que se ve.
+   */
+  @keyframes posar {
+    from {
+      opacity: 0.35;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .entra-pantalla {
+    animation: posar var(--duracion-entrada) var(--ease-salida) both;
+  }
+
+  /*
+   * Lo que aparece al bajar: sube dos centímetros y se enciende.
+   *
+   * El rango empieza en `entry 8%` —apenas asomando— y termina en `cover 26%`,
+   * o sea que está entero mucho antes de llegar al centro de la pantalla. Un
+   * rango largo se lee como que la página va lenta; lo que se busca es que nada
+   * aparezca de golpe, no que haya que esperar a nada.
+   */
+  @keyframes revelar {
+    from {
+      opacity: 0;
+      transform: translateY(1.25rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .revelar {
+    animation: revelar linear both;
+    animation-timeline: view();
+    animation-range: entry 8% cover 26%;
+  }
+
+  /*
+   * La barra de la portada se posa al bajar.
+   *
+   * Arriba del todo no hay barra: hay una marca y tres enlaces flotando sobre el
+   * hielo, que es lo que deja que el encabezado empiece en el borde de arriba y
+   * no debajo de una franja. En cuanto se baja, la barra aparece con su velo y
+   * su línea. La regla del `44 px` no la toca esto: los enlaces siguen midiendo
+   * lo mismo, se vea o no la franja.
+   */
+  @keyframes posarse {
+    from {
+      background-color: transparent;
+      border-bottom-color: transparent;
+      backdrop-filter: blur(0);
+    }
+    to {
+      background-color: color-mix(in srgb, var(--color-background) 82%, transparent);
+      border-bottom-color: var(--color-border);
+      backdrop-filter: blur(14px);
+    }
+  }
+
+  .barra-portada {
+    animation: posarse linear both;
+    animation-timeline: scroll();
+    animation-range: 0 5rem;
   }
 
   /* Quien pide menos movimiento no recibe ninguno. */
@@ -117,6 +1017,18 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
+      /*
+       * Y estas dos son las que hacen que apagar el movimiento **no apague el
+       * contenido**. Sin `animation-delay`, un trozo del encabezado con 240 ms
+       * de retardo se queda invisible ese cuarto de segundo antes de saltar a su
+       * sitio: se ha quitado la animación y queda el parpadeo. Y sin devolver la
+       * línea de tiempo al reloj, una animación atada al scroll no la mueve ni la
+       * duración de 0,01 ms: se queda en el primer fotograma —transparente— para
+       * siempre, que es la forma más tonta de dejar una página en blanco a quien
+       * ha pedido calma.
+       */
+      animation-delay: 0s !important;
+      animation-timeline: auto !important;
     }
   }
 }

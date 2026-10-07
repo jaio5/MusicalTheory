@@ -6,15 +6,17 @@
  * momento; el día que sea Stripe contestará «ir-a-pagar» con una dirección, y
  * esta ruta no cambia ni una línea.
  *
- * Bajarse de plan se pide igual, con `plan: 'gratis'`.
+ * Bajarse de plan se pide igual, con `plan: 'gratis'`. Y se paga al mes o al año
+ * con `periodo` (adr/0106); sin él, al mes.
  */
 
 import { NextResponse } from 'next/server';
 
-import { planOf, PLANS } from '@core/billing';
+import { PERIODOS, planOf, PLANS } from '@core/billing';
 import { authAvailable } from '@server/auth';
 import { billing } from '@server/billing';
 import { currentSession } from '@server/entitlements';
+import { readJsonBody } from '@server/request-body';
 
 export const runtime = 'nodejs';
 
@@ -27,6 +29,44 @@ export async function GET(): Promise<NextResponse> {
     billing: { name: cobrador.name, charges: cobrador.charges },
     accounts: authAvailable(),
   });
+}
+
+/**
+ * A dónde ir a cambiar la tarjeta o ver las facturas.
+ *
+ * Es `PUT` y no `GET` porque abrir el portal **crea una sesión** en la pasarela:
+ * no es una consulta, aunque lo parezca desde fuera. Un `GET` que crea algo lo
+ * acaba creando un rastreador de enlaces.
+ *
+ * Devuelve 404 cuando no hay adónde ir, que es lo que pasa sin pasarela puesta y
+ * también con una cuenta que nunca ha pagado. La pantalla no enseña el enlace en
+ * ninguno de los dos casos, así que esto es la red de debajo.
+ */
+export async function PUT(): Promise<NextResponse> {
+  const session = await currentSession();
+  if (session === null) {
+    return NextResponse.json(
+      { error: { code: 'sin-cuenta', message: 'Entra con tu cuenta.' } },
+      { status: 401 },
+    );
+  }
+
+  const url = await billing().portal({
+    userId: session.userId,
+    email: session.account.email ?? '',
+  });
+
+  return url === null
+    ? NextResponse.json(
+        {
+          error: {
+            code: 'sin-portal',
+            message: 'Aquí no hay facturas todavía: esta cuenta no ha pagado nada.',
+          },
+        },
+        { status: 404 },
+      )
+    : NextResponse.json({ url });
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -43,13 +83,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = {};
-  }
-  const pedido = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const pedido = await readJsonBody(request);
 
   // `planOf` cae a gratis con lo que no reconoce, así que hay que comprobar
   // aparte que el plan pedido existe de verdad: si no, pedir «premium» bajaría a
@@ -58,6 +92,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (plan === undefined) {
     return NextResponse.json(
       { error: { code: 'plan-desconocido', message: 'Ese plan no existe.' } },
+      { status: 400 },
+    );
+  }
+
+  // Sin periodo es al mes, que es lo que se pedía antes de que hubiera anual. Uno
+  // que no es ninguno de los dos se rechaza, por lo mismo que un plan que no
+  // existe: cobrar al mes a quien pidió otra cosa sería peor que decir que no.
+  const periodo = PERIODOS.find((candidato) => candidato === (pedido['periodo'] ?? 'mensual'));
+  if (periodo === undefined) {
+    return NextResponse.json(
+      { error: { code: 'periodo-desconocido', message: 'Se paga al mes o al año.' } },
       { status: 400 },
     );
   }
@@ -76,6 +121,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           userId: session.userId,
           email: session.account.email ?? '',
           plan: plan.id,
+          periodo,
         });
 
   if (result === null || result.kind === 'error') {

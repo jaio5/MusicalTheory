@@ -1,0 +1,1490 @@
+/**
+ * El montaje: la canción vista como bloques en el tiempo.
+ *
+ * Es lo que hay debajo del lienzo de componer, y existe por una diferencia
+ * pequeña con `song.ts` que lo cambia todo: **aquí un acorde dura lo que dura**.
+ * Una canción guardada es una lista de grados y cada uno vale un compás; un
+ * montaje es una lista de bloques y cada uno lleva sus pulsos. Sin eso no se
+ * puede arrastrar el borde de un bloque para que ocupe dos compases, que es la
+ * mitad de lo que se hace al montar una canción.
+ *
+ * La duración ya se medía y se estaba tirando: `captureProgression` devuelve
+ * `CapturedStep` con sus pulsos, y `capturedDegrees` se queda solo con los
+ * grados para poder guardar. Aquí no se pierde.
+ *
+ * ## Lo que este fichero no tiene, y es a propósito
+ *
+ * **No tiene tonalidad.** Un montaje son grados, y el tono con el que suenan lo
+ * pone quien lo mira: cambiar la rueda cambia el lienzo entero sin tocar un
+ * bloque. Es la misma razón por la que las canciones se guardan en grados
+ * —[song.ts]— llevada a su conclusión: si el tono estuviera dentro, habría dos
+ * sitios donde vive y uno de los dos se quedaría viejo.
+ *
+ * **No genera identificadores ni lee el reloj.** Los `id` entran por parámetro,
+ * como el instante en `exercise.ts` y en `song.ts`. Un dominio que llama a
+ * `crypto.randomUUID()` deja de poder probarse comparando estructuras.
+ *
+ * Dominio puro: ni `window`, ni fetch, ni azar.
+ */
+
+import type { KeyMode } from './keys';
+import {
+  esEspecieDeBloque,
+  esEspecieSimple,
+  grafiaDeLaFundamental,
+  notasDeEspecieSimple,
+  seventhNotes,
+  seventhSymbol,
+  simboloDeEspecieSimple,
+  type EspecieDeBloque,
+} from './chords';
+import type { PitchClass } from './notes';
+import { voiceForPlayback, type PlaybackStep, type TimedEvent } from './playback';
+import {
+  degreeInMode,
+  degreesFor,
+  resolveDegree,
+  type DegreeSymbol,
+  type ResolvedChord,
+} from './progressions';
+import type { CapturedStep } from './capture';
+import {
+  clampOffset,
+  clampStart,
+  midiOf,
+  snapLength,
+  MAX_LEAD_NOTES,
+  type LeadNote,
+} from './melody';
+import {
+  DEFAULT_ROLE,
+  isSectionRole,
+  MAX_BARS,
+  MAX_SECTIONS,
+  MAX_SECTION_DEGREES,
+  defaultSectionName,
+  nameForRole,
+  type SectionRole,
+  type Song,
+  type SongSection,
+} from './song';
+import { DEFAULT_BEATS_PER_BAR } from './tempo';
+
+/**
+ * De dónde salió un acorde del lienzo.
+ *
+ * No es una etiqueta informativa: es lo que decide de qué se puede fiar quien
+ * mire esta canción. Lo escrito a mano es la intención de quien compone y no se
+ * discute; lo oído es una lectura de un micro en una habitación, y puede estar
+ * mal. Lo corregido es lo oído que ya pasó por delante de quien tocó, así que
+ * vale tanto como lo escrito.
+ */
+export type BlockSource = 'heard' | 'written' | 'fixed';
+
+/** Un bloque del lienzo: un acorde, lo que ocupa y de dónde salió. */
+export interface Block {
+  readonly id: string;
+  readonly degree: DegreeSymbol;
+  /**
+   * La séptima, si la tiene. Sin ella el bloque es la tríada del grado.
+   *
+   * **El grado dice cuál es el acorde y la séptima qué especie es**, que son dos
+   * preguntas distintas: un `Cmaj7` y un `C7` son el mismo grado con distinta
+   * séptima, y por eso el grado se calcula de la tríada. Hasta ahora no había
+   * dónde guardar la segunda, así que escribir `E7` metía un `E` y la séptima se
+   * caía sin decirlo.
+   *
+   * **Y `quinta`, que es la tríada sin la tercera.** Un `C5` tiene grado —el de
+   * su fundamental— y no tiene tríada, así que sin esto no había manera de
+   * escribirlo, y un riff de rock es una sucesión de quintas
+   * ([adr/0035](../../../docs/adr/0035-un-bloque-sabe-que-no-lleva-tercera.md)).
+   *
+   * Opcional a propósito: un montaje guardado antes de esto no la trae, y un
+   * bloque sin especie sigue siendo exactamente lo que era, una tríada.
+   */
+  readonly especie?: EspecieDeBloque;
+  /** Pulsos. Siempre uno o más. */
+  readonly beats: number;
+  readonly source: BlockSource;
+  /**
+   * Cuánto se despegaba del siguiente candidato al oírlo, de 0 a 1.
+   *
+   * Uno para lo escrito y lo corregido: ahí no hay duda que valga. Por debajo de
+   * `DUDOSO` el bloque se marca en pantalla y se ofrece cambiarlo.
+   */
+  readonly confidence: number;
+  /** Los grados que también pudo ser. Es lo que se ofrece al corregir. */
+  readonly alternatives: readonly DegreeSymbol[];
+  /**
+   * Lo que era este bloque en el otro modo, si llegó aquí traducido.
+   *
+   * **Es lo que hace reversible cambiar de modo.** La traducción por sí sola no
+   * puede serlo: el mayor nombra dieciséis grados y el menor once, así que hay
+   * dos de mayor que caen en el mismo de menor —el `vi` y el `bVI` son los dos
+   * `VI`—, y al volver no hay manera de saber cuál era. Sin esto, C G Am F en
+   * mayor volvía de menor como C G Ab Fm.
+   *
+   * Solo vale mientras el bloque siga siendo lo que salió de traducirlo: si se
+   * corrige en el otro modo, el recuerdo se olvida (`fixBlock`), porque devolver
+   * lo de antes desharía la corrección.
+   */
+  readonly delOtroModo?: GradoEnElOtroModo;
+}
+
+/** Qué grado tenía un bloque en el otro modo, y qué alternativas traía allí. */
+export interface GradoEnElOtroModo {
+  readonly mode: KeyMode;
+  readonly degree: DegreeSymbol;
+  readonly alternatives: readonly DegreeSymbol[];
+}
+
+/**
+ * Por debajo de esto, un acorde oído se marca como dudoso.
+ *
+ * Sale de lo que significa el margen: el segundo candidato se quedó a menos de
+ * seis centésimas del elegido. Con dos acordes tan pegados, el motor eligió por
+ * poco y **preguntar cuesta menos que arrastrar el error por toda la canción**.
+ *
+ * No es un umbral de calidad del sonido —de eso ya se encarga `minScore` en el
+ * motor, que decide si hay acorde o no—: es un umbral de *ambigüedad*, que es
+ * otra cosa y la que importa aquí.
+ */
+export const DUDOSO = 0.06;
+
+/** Un bloque escrito a mano: sin duda y sin alternativas que ofrecer. */
+export function writtenBlock(
+  id: string,
+  degree: DegreeSymbol,
+  beats: number,
+  especie?: EspecieDeBloque,
+): Block {
+  return {
+    id,
+    degree,
+    // Sin especie el campo no se escribe, para que un bloque de tríada siga
+    // siendo byte a byte lo que era y las comparaciones de los tests no cambien.
+    ...(especie === undefined ? {} : { especie }),
+    beats: clampBeats(beats),
+    source: 'written',
+    confidence: 1,
+    alternatives: [],
+  };
+}
+
+/**
+ * El acorde de un bloque, con su séptima si la lleva.
+ *
+ * **Un solo sitio que sepa escribirlo y sonarlo.** El grado resuelto ya sabe
+ * escribir su fundamental en esta tonalidad —el bIII de Do es «Eb» y no «D#»—,
+ * así que la séptima se escribe encima de esa y no de la que se tecleó. Sin
+ * séptima devuelve exactamente lo que devolvía `resolveDegree`, que es lo que
+ * hace que un montaje viejo no cambie en nada.
+ */
+export function blockChord(tonic: PitchClass, mode: KeyMode, block: Block): ResolvedChord {
+  const chord = resolveDegree(tonic, mode, block.degree);
+  if (block.especie === undefined) {
+    return chord;
+  }
+  // La fundamental se escribe **como en la tríada del grado**, no con la
+  // alteración de la tonalidad: con ésta, el `bVII` de Do mayor era `Bb` a secas
+  // y `A#7` con séptima, el mismo acorde con dos nombres según llevara un 7.
+  const grafia = grafiaDeLaFundamental(chord.root, chord.symbol);
+  // Las simples se construyen sobre la fundamental que ya trae el grado
+  // resuelto: la quinta es la tríada sin tercera, la suspendida la cambia por la
+  // segunda o la cuarta, y la disminuida, la aumentada y la menor son la tríada
+  // con otra tercera o otra quinta. El cifrado sale de la misma tabla, así que
+  // no hay dos sitios que puedan decir cosas distintas.
+  if (esEspecieSimple(block.especie)) {
+    return {
+      ...chord,
+      symbol: simboloDeEspecieSimple(chord.root, block.especie, grafia),
+      notes: notasDeEspecieSimple(chord.root, block.especie),
+    };
+  }
+  return {
+    ...chord,
+    symbol: seventhSymbol(chord.root, block.especie, grafia),
+    notes: seventhNotes(chord.root, block.especie),
+  };
+}
+
+/** Si de este acorde conviene preguntar. */
+export function isDoubtful(block: Block): boolean {
+  return block.source === 'heard' && block.confidence < DUDOSO;
+}
+
+/**
+ * Los acordes que hay que preguntar, en el orden en que están en la canción.
+ *
+ * **Existe para que no haya que ir a buscarlos.** La corrección estaba puesta y
+ * solo aparecía para el bloque que tuvieras elegido, así que había que dar con los
+ * dudosos pulsándolos uno a uno: quien no supiera que están marcados no los
+ * arreglaba nunca.
+ *
+ * Solo los que traen alternativas: de un acorde del que el motor dudó **sin** tener
+ * segundo candidato no hay nada que ofrecer, y preguntar sin opciones es dar
+ * trabajo sin dar salida. Ése se cambia con el buscador, como cualquier otro.
+ */
+export function bloquesEnDuda(arrangement: Arrangement): readonly Block[] {
+  return arrangement.parts.flatMap((part) =>
+    part.blocks.filter((block) => isDoubtful(block) && block.alternatives.length > 0),
+  );
+}
+
+/**
+ * Un tramo con nombre: la estrofa, el estribillo, el puente.
+ *
+ * Los acordes van en `blocks`, uno detrás de otro y cada uno con lo que dura. El
+ * punteo va en `notes` **y por separado**, porque no es lo mismo: los acordes se
+ * suceden sin huecos y una melodía tiene silencios, se adelanta al compás y se
+ * queda callada media parte. Cada nota lleva su sitio en el tiempo; un bloque no
+ * lo necesita porque su sitio es venir después del anterior.
+ */
+export interface Part {
+  readonly id: string;
+  readonly name: string;
+  readonly blocks: readonly Block[];
+  readonly notes: readonly LeadNote[];
+  /**
+   * Cuántos compases ocupa la parte, tenga dentro lo que tenga.
+   *
+   * **Una parte tiene sitio antes de tener contenido.** Sin esto, la única
+   * manera de alargar una partitura era meterle notas: el pentagrama medía lo
+   * que había dentro, así que para escribir en el compás cuatro había que
+   * rellenar antes los tres primeros. Al revés de como se escribe música, donde
+   * primero hay papel y luego se llena.
+   *
+   * Es una medida de **papel**, no de sonido: alargar una parte no le añade
+   * silencio al final ni cambia lo que se oye. Los compases de más son sitio
+   * donde escribir.
+   */
+  readonly bars: number;
+  /**
+   * Qué papel hace dentro de la canción.
+   *
+   * Es el mismo `SectionRole` que guarda `song.ts` y no una copia: el lienzo y
+   * la canción guardada tienen que decir lo mismo, o al guardar se perdería
+   * justo el dato que hace que la IA entienda lo que le pides.
+   *
+   * Opcional y ausente quiere decir `idea`, igual que allí.
+   */
+  readonly role?: SectionRole;
+  /**
+   * Cuántas vueltas se da a la parte al tocarla: el `|: :|` de toda la vida.
+   *
+   * **Una vuelta es sonido, no papel.** Repetir no añade bloques ni compases
+   * donde escribir: los mismos ocho compases suenan dos veces. Por eso lo que
+   * cambia es lo que se oye —`soundOf`, `playbackStepsOf`— y no lo que se
+   * dibuja, que sigue midiendo `partLength`.
+   *
+   * Es lo único que le faltaba al arreglo para que una canción de rock quepa
+   * entera. Sin esto, un estribillo que va dos veces son dos partes iguales con
+   * el doble de bloques, y cambiar un acorde obliga a cambiarlo dos veces.
+   *
+   * Opcional y ausente quiere decir una, como `role` quiere decir idea. Así lo
+   * guardado antes de existir esto se sigue leyendo sin tocarlo.
+   */
+  readonly repeats?: number;
+}
+
+export interface Arrangement {
+  readonly parts: readonly Part[];
+}
+
+/**
+ * Los topes salen de `song.ts` y no se escriben otra vez.
+ *
+ * Un montaje que no cabe en una canción es un montaje que no se puede guardar,
+ * y enterarse al pulsar «guardar» —con el trabajo hecho— es la peor manera de
+ * enterarse. Al ser los mismos números, lo que entra en el lienzo entra en la
+ * base de datos.
+ */
+export const MAX_PARTS = MAX_SECTIONS;
+export const MAX_PART_BLOCKS = MAX_SECTION_DEGREES;
+
+/**
+ * Lo que puede durar un bloque, en pulsos.
+ *
+ * Cuatro compases de 4/4 es el techo. Más que eso no es un acorde largo: es que
+ * esa parte se ha quedado en un solo acorde, y para eso están las partes.
+ */
+const MIN_BLOCK_BEATS = 1;
+export const MAX_BLOCK_BEATS = 16;
+
+/**
+ * Los compases que trae una parte nueva.
+ *
+ * Cuatro, porque cuatro compases es una frase: es lo que dura casi cualquier
+ * idea que se le ocurre a alguien con una guitarra en la mano, y es lo que
+ * llena la mayoría de las estrofas de dos en dos.
+ *
+ * **Lo que ya no hay es un paso para alargar.** Estuvo en dos, y dos no cabía:
+ * `setBars` no deja bajar de lo que hay escrito, así que pegado a ese suelo el
+ * botón de acortar movía **uno** en vez de dos —de 8 a 7 cuando dentro había
+ * siete— y desde el propio suelo no movía nada. El número saltaba de forma
+ * distinta según lo que hubiera dentro, que es exactamente lo que nadie entiende.
+ * De uno en uno no puede pasar: el tope solo corta cuando de verdad no queda
+ * sitio, y entonces el botón ya está apagado.
+ */
+export const BARS_POR_DEFECTO = 4;
+
+/**
+ * Los pulsos de un bloque, siempre dentro de lo que se puede dibujar.
+ *
+ * Solo `NaN` cae al mínimo: es lo que llega si el puntero sale de la pantalla a
+ * mitad de un arrastre, y no significa «grande» ni «pequeño». Un infinito sí
+ * significa «lo más que se pueda», así que lo recortan los topes como a
+ * cualquier número.
+ */
+export function clampBeats(beats: number): number {
+  if (Number.isNaN(beats)) {
+    return MIN_BLOCK_BEATS;
+  }
+  return Math.min(MAX_BLOCK_BEATS, Math.max(MIN_BLOCK_BEATS, Math.round(beats)));
+}
+
+export const EMPTY_ARRANGEMENT: Arrangement = { parts: [] };
+
+/**
+ * Cuántas veces suena una parte. Sin decir nada, una.
+ *
+ * Se acota al leer y no solo al escribir: un montaje puede llegar de una canción
+ * guardada o de una versión anterior del fichero, y un `repeats` de cero dejaría
+ * una parte muda sin que nada lo explicara.
+ */
+export function repeatsOf(part: Part): number {
+  const vueltas = part.repeats ?? 1;
+  return Math.min(MAX_REPEATS, Math.max(1, Math.round(vueltas)));
+}
+
+/**
+ * Las vueltas que caben.
+ *
+ * Cuatro, y no más, por lo mismo que las partes son ocho: es lo que hace falta
+ * para una canción, y un número grande aquí solo sirve para dejar sonando diez
+ * minutos de lo mismo sin querer.
+ */
+export const MAX_REPEATS = 4;
+
+/** Cuántos pulsos ocupa una parte **escrita**, sin contar las vueltas. */
+export function partBeats(part: Part): number {
+  return part.blocks.reduce((total, block) => total + block.beats, 0);
+}
+
+/**
+ * Y cuántos suenan, que con vueltas no es lo mismo.
+ *
+ * **Con el punteo dentro**: una parte que es solo una melodía suena lo que dura
+ * la melodía. Contaba solo los acordes, así que un punteo sin acordes debajo
+ * medía cero, y con cero el lienzo apagaba «Escuchar la canción» y «MIDI» con
+ * la canción escrita delante. Es la misma medida con la que `soundOf` pone una
+ * vuelta detrás de otra (`partLength`), y tiene que serlo: si lo que se anuncia y
+ * lo que suena se midieran distinto, el rótulo diría una duración y sonaría otra.
+ */
+export function partPlayBeats(part: Part): number {
+  return partLength(part) * repeatsOf(part);
+}
+
+/**
+ * Cuántos pulsos dura el montaje entero al tocarlo.
+ *
+ * Cuenta las vueltas y el punteo: es lo que se oye, que es lo que dice el rótulo
+ * de la cabecera al lado del botón de escuchar. Lo que se escribe —el papel— se
+ * mide con `partBeats` y con `drawnBars`.
+ */
+export function arrangementBeats(arrangement: Arrangement): number {
+  return arrangement.parts.reduce((total, part) => total + partPlayBeats(part), 0);
+}
+
+/**
+ * Cambia las vueltas de una parte.
+ *
+ * Como todo lo demás aquí: si no cambia nada, devuelve el mismo montaje, que es
+ * de lo que cuelgan el deshacer y los repintados.
+ */
+export function setRepeats(arrangement: Arrangement, partId: string, repeats: number): Arrangement {
+  return mapPart(arrangement, partId, (part) => {
+    const siguiente = Math.min(MAX_REPEATS, Math.max(1, Math.round(repeats)));
+    return siguiente === repeatsOf(part) ? part : { ...part, repeats: siguiente };
+  });
+}
+
+/**
+ * Cuántos compases ocupa eso, escrito para leerlo.
+ *
+ * Con coma decimal y no con punto, que es como se escriben los números en
+ * español y como los escribe el resto de la aplicación. Un compás y cuarto sale
+ * de estirar un bloque a mano, así que el decimal aparece de verdad.
+ */
+export function barsLabel(beats: number, beatsPerBar: number): string {
+  const compases = beats / Math.max(1, beatsPerBar);
+  const redondeado = Math.round(compases * 100) / 100;
+  const texto = String(redondeado).replace('.', ',');
+  return `${texto} ${redondeado === 1 ? 'compás' : 'compases'}`;
+}
+
+/** Cuántos bloques tiene entero. Es lo que se enseña en el rótulo. */
+export function arrangementLength(arrangement: Arrangement): number {
+  return arrangement.parts.reduce((total, part) => total + part.blocks.length, 0);
+}
+
+/** Dónde está un bloque, o nulo si ese identificador no existe. */
+export function findBlock(
+  arrangement: Arrangement,
+  blockId: string,
+): { readonly part: Part; readonly block: Block; readonly index: number } | null {
+  for (const part of arrangement.parts) {
+    const index = part.blocks.findIndex((block) => block.id === blockId);
+    if (index !== -1) {
+      // El índice ya se ha comprobado, así que aquí hay bloque.
+      return { part, block: part.blocks[index] as Block, index };
+    }
+  }
+  return null;
+}
+
+/**
+ * Qué acorde suena en ese pulso de la parte.
+ *
+ * Hace falta para sugerir notas: lo que puede ir después no depende solo de la
+ * escala, sino sobre todo de qué acorde hay debajo —una nota del acorde cae de
+ * pie y una de la escala pide seguir andando—. Sin esto, la sugerencia sería la
+ * misma en toda la canción.
+ *
+ * Pasado el último compás devuelve el último acorde: una nota que se sale por el
+ * final es una frase que se estira sobre lo que ya sonaba, no sobre el silencio.
+ */
+export function chordAt(part: Part, beat: number): DegreeSymbol | null {
+  let desde = 0;
+  for (const block of part.blocks) {
+    if (beat < desde + block.beats) {
+      return block.degree;
+    }
+    desde += block.beats;
+  }
+  return part.blocks.at(-1)?.degree ?? null;
+}
+
+/** Dónde acaba el punteo de una parte: es donde entra la nota siguiente. */
+export function melodyEnd(part: Part): number {
+  return part.notes.reduce((mayor, note) => Math.max(mayor, note.start + note.length), 0);
+}
+
+/** El último grado de una parte, que es desde donde se sugiere el siguiente. */
+export function lastDegreeOf(part: Part): DegreeSymbol | null {
+  return part.blocks.at(-1)?.degree ?? null;
+}
+
+/**
+ * **Lo que no cambia devuelve lo mismo, con la misma referencia.**
+ *
+ * Es la propiedad que sostiene el deshacer y los repintados: quien llama compara
+ * con `===` para saber si pasó algo. Sin ella, quitar un bloque que no existe o
+ * estirar uno hasta el ancho que ya tenía cuentan como un paso atrás, y deshacer
+ * un arrastre pide tantas pulsaciones como veces pasó el puntero por un hueco.
+ *
+ * Sale barato porque todo aquí es inmutable: basta con no construir nada nuevo
+ * cuando ninguna pieza de dentro ha cambiado de referencia.
+ */
+function mapParts(arrangement: Arrangement, change: (part: Part) => Part): Arrangement {
+  let alguna = false;
+  const parts = arrangement.parts.map((part) => {
+    const siguiente = change(part);
+    if (siguiente !== part) {
+      alguna = true;
+    }
+    return siguiente;
+  });
+  return alguna ? { parts } : arrangement;
+}
+
+function mapPart(
+  arrangement: Arrangement,
+  partId: string,
+  change: (part: Part) => Part,
+): Arrangement {
+  return mapParts(arrangement, (part) => (part.id === partId ? change(part) : part));
+}
+
+/** Los mismos bloques, con el cambio aplicado solo al que toca. */
+function mapBlocks(part: Part, change: (block: Block) => Block): Part {
+  let alguno = false;
+  const blocks = part.blocks.map((block) => {
+    const siguiente = change(block);
+    if (siguiente !== block) {
+      alguno = true;
+    }
+    return siguiente;
+  });
+  return alguno ? { ...part, blocks } : part;
+}
+
+/**
+ * Mueve un elemento dentro de una lista.
+ *
+ * El destino se recorta en vez de rechazarse: arrastrar más allá del final es
+ * decir «al final», y contestar con la lista sin tocar haría que el bloque
+ * volviera de un salto al sitio del que se lo sacó.
+ */
+function reorder<T>(items: readonly T[], from: number, to: number): T[] {
+  const copia = [...items];
+  const [movido] = copia.splice(from, 1);
+  /* v8 ignore next 3 -- los dos que llaman buscan el indice antes, y solo entran si lo encontraron */
+  if (movido === undefined) {
+    return copia;
+  }
+  copia.splice(Math.min(Math.max(0, to), copia.length), 0, movido);
+  return copia;
+}
+
+export function addPart(arrangement: Arrangement, id: string, name?: string): Arrangement {
+  if (arrangement.parts.length >= MAX_PARTS) {
+    return arrangement;
+  }
+  const nombre = name?.trim() ?? '';
+  return {
+    parts: [
+      ...arrangement.parts,
+      {
+        id,
+        name: nombre === '' ? defaultSectionName(arrangement.parts.length) : nombre,
+        blocks: [],
+        notes: [],
+        bars: BARS_POR_DEFECTO,
+      },
+    ],
+  };
+}
+
+export function removePart(arrangement: Arrangement, partId: string): Arrangement {
+  const parts = arrangement.parts.filter((part) => part.id !== partId);
+  return parts.length === arrangement.parts.length ? arrangement : { parts };
+}
+
+export function renamePart(arrangement: Arrangement, partId: string, name: string): Arrangement {
+  const nombre = name.trim();
+  return mapPart(arrangement, partId, (part) =>
+    nombre === '' || nombre === part.name ? part : { ...part, name: nombre },
+  );
+}
+
+/**
+ * Le dice a una parte qué papel hace, y le ajusta el nombre si procede.
+ *
+ * Las dos cosas juntas y no dos acciones: quien elige «Estribillo» en una parte
+ * que se llama «Parte 2» espera que pase a llamarse Estribillo, y dejarlo en dos
+ * pasos significa que casi nadie da el segundo. Lo que escribió una persona no
+ * se toca —de eso se encarga `nameForRole`—.
+ */
+export function setPartRole(
+  arrangement: Arrangement,
+  partId: string,
+  role: SectionRole,
+): Arrangement {
+  const index = arrangement.parts.findIndex((part) => part.id === partId);
+  if (index === -1) {
+    return arrangement;
+  }
+  return mapPart(arrangement, partId, (part) => ({
+    ...part,
+    role,
+    name: nameForRole(part.name, index, role),
+  }));
+}
+
+export function movePart(arrangement: Arrangement, partId: string, to: number): Arrangement {
+  const from = arrangement.parts.findIndex((part) => part.id === partId);
+  const destino = Math.min(Math.max(0, to), arrangement.parts.length - 1);
+  if (from === -1 || from === destino) {
+    return arrangement;
+  }
+  return { parts: reorder(arrangement.parts, from, destino) };
+}
+
+/**
+ * Mete un bloque en una parte.
+ *
+ * `at` nulo es «al final», que es como se añade tocando: se pulsa el acorde que
+ * viene después y se coloca detrás del último.
+ */
+export function addBlock(
+  arrangement: Arrangement,
+  partId: string,
+  block: Block,
+  at: number | null = null,
+): Arrangement {
+  return mapPart(arrangement, partId, (part) => {
+    if (part.blocks.length >= MAX_PART_BLOCKS) {
+      return part;
+    }
+    const nuevo: Block = { ...block, beats: clampBeats(block.beats) };
+    const destino =
+      at === null ? part.blocks.length : Math.min(Math.max(0, at), part.blocks.length);
+    const blocks = [...part.blocks];
+    blocks.splice(destino, 0, nuevo);
+    return { ...part, blocks };
+  });
+}
+
+export function removeBlock(arrangement: Arrangement, blockId: string): Arrangement {
+  return mapParts(arrangement, (part) => {
+    const blocks = part.blocks.filter((block) => block.id !== blockId);
+    return blocks.length === part.blocks.length ? part : { ...part, blocks };
+  });
+}
+
+export function resizeBlock(arrangement: Arrangement, blockId: string, beats: number): Arrangement {
+  const pulsos = clampBeats(beats);
+  return mapParts(arrangement, (part) =>
+    mapBlocks(part, (block) =>
+      block.id === blockId && block.beats !== pulsos ? { ...block, beats: pulsos } : block,
+    ),
+  );
+}
+
+/**
+ * Cambia el acorde de un bloque, y lo da por bueno.
+ *
+ * Es la corrección: quien tocó dice qué era de verdad. El bloque pasa a
+ * `fixed` y deja de estar en duda, porque ya ha pasado por delante de quien lo
+ * tocó y eso vale más que cualquier puntuación. **Las alternativas se conservan**
+ * —incluida la lectura que había— para poder volver atrás si la corrección fue
+ * un error.
+ */
+export function fixBlock(
+  arrangement: Arrangement,
+  blockId: string,
+  degree: DegreeSymbol,
+  /**
+   * Dar por bueno lo que ya decía, sin cambiar el acorde.
+   *
+   * Es media corrección y hace la misma falta que la otra: si el motor dudó y
+   * acertó, decírselo tiene que dejar de preguntar. Sin esto, un acorde bien
+   * leído se quedaría marcado como dudoso para siempre.
+   */
+  confirmar = false,
+): Arrangement {
+  return mapParts(arrangement, (part) =>
+    mapBlocks(part, (block) => {
+      if (block.id !== blockId || (block.degree === degree && !confirmar)) {
+        return block;
+      }
+      if (confirmar && block.source !== 'heard') {
+        return block;
+      }
+      const alternatives = [
+        block.degree,
+        ...block.alternatives.filter((otro) => otro !== degree && otro !== block.degree),
+      ];
+      // Corregido, lo que era en el otro modo ya no vale: al volver devolvería
+      // el acorde de antes de la corrección y la desharía sin decirlo.
+      const base = degree === block.degree ? block : sinRecuerdo(block);
+      return { ...base, degree, source: 'fixed', confidence: 1, alternatives };
+    }),
+  );
+}
+
+/**
+ * Lleva un bloque a otro sitio: otra posición de su parte, u otra parte.
+ *
+ * Es una sola función y no dos porque arrastrando son el mismo gesto: se coge un
+ * bloque y se suelta en un hueco, y que el hueco esté en la misma fila o en la
+ * de abajo no es algo que decida quien arrastra. Con dos funciones, la interfaz
+ * tendría que adivinar cuál llamar a mitad del gesto.
+ *
+ * Si la parte de destino está llena, no se mueve nada: perder el bloque en el
+ * viaje sería peor que no dejarlo salir.
+ */
+export function moveBlock(
+  arrangement: Arrangement,
+  blockId: string,
+  toPartId: string,
+  to: number,
+): Arrangement {
+  const origen = findBlock(arrangement, blockId);
+  if (origen === null) {
+    return arrangement;
+  }
+
+  if (origen.part.id === toPartId) {
+    const destino = Math.min(Math.max(0, to), origen.part.blocks.length - 1);
+    if (destino === origen.index) {
+      return arrangement;
+    }
+    return mapPart(arrangement, toPartId, (part) => ({
+      ...part,
+      blocks: reorder(part.blocks, origen.index, destino),
+    }));
+  }
+
+  const destino = arrangement.parts.find((part) => part.id === toPartId);
+  if (destino === undefined || destino.blocks.length >= MAX_PART_BLOCKS) {
+    return arrangement;
+  }
+
+  return {
+    parts: arrangement.parts.map((part) => {
+      if (part.id === origen.part.id) {
+        return { ...part, blocks: part.blocks.filter((block) => block.id !== blockId) };
+      }
+      if (part.id === toPartId) {
+        const blocks = [...part.blocks];
+        blocks.splice(Math.min(Math.max(0, to), blocks.length), 0, origen.block);
+        return { ...part, blocks };
+      }
+      return part;
+    }),
+  };
+}
+
+/**
+ * Los bloques de una parte, o los de todo el montaje seguidos, listos para sonar.
+ *
+ * Devuelve `PlaybackStep`, que es lo que `scheduleProgression` sabe repartir en
+ * el tiempo. Aquí no hay `AudioContext`: esto dice qué notas y cuántos pulsos, y
+ * `audio/progression-player.ts` lo convierte en sonido.
+ */
+export function playbackStepsOf(
+  arrangement: Arrangement,
+  tonic: PitchClass,
+  mode: KeyMode,
+  partId: string | null = null,
+): PlaybackStep[] {
+  // El orden lo pone `recorrido`, que es el mismo que usan `soundOf` y
+  // `blocksInOrder`: los tres tienen que dar la misma lista o el bloque que se
+  // enciende en pantalla deja de ser el que suena.
+  return recorrido(arrangement, partId).flatMap(({ part }) =>
+    part.blocks.map((block) => {
+      const chord = blockChord(tonic, mode, block);
+      return { notes: chord.notes, root: chord.root, beats: block.beats };
+    }),
+  );
+}
+
+/** Un elemento por vuelta, para recorrerlas con un `flatMap`. */
+function vueltasDe(part: Part): readonly number[] {
+  return Array.from({ length: repeatsOf(part) }, (_, vuelta) => vuelta);
+}
+
+/**
+ * Las partes que entran, en el orden en que suenan y con sus vueltas
+ * desenrolladas.
+ *
+ * **Lo dice un solo sitio a propósito.** `soundOf`, `playbackStepsOf` y
+ * `blocksInOrder` tienen que dar la misma lista en el mismo orden, o el bloque
+ * que se enciende en pantalla deja de ser el que suena. Estaba escrito tres
+ * veces, y tres copias de una invariante son tres sitios donde romperla.
+ *
+ * Con `partId`, solo esa parte: es lo que hace falta para oír una sola.
+ */
+function recorrido(
+  arrangement: Arrangement,
+  partId: string | null,
+): { readonly part: Part; readonly vuelta: number }[] {
+  const partes =
+    partId === null ? arrangement.parts : arrangement.parts.filter((part) => part.id === partId);
+
+  return partes.flatMap((part) => vueltasDe(part).map((vuelta) => ({ part, vuelta })));
+}
+
+/**
+ * Todo lo que suena de un montaje —acordes y punteo— con su sitio en el tiempo.
+ *
+ * Una sola lista y no dos, para que el acompañamiento y la melodía se programen
+ * contra el mismo reloj. Junto a ella va `owners`, que dice de qué bloque es cada
+ * sonido y **nulo cuando es una nota del punteo**: así quien enseña por dónde va
+ * enciende el bloque cuando toca y no apaga nada cuando lo que suena es una nota.
+ *
+ * `withMelody` en falso deja solo los acordes, que es lo que hace falta para oír
+ * el acompañamiento mientras se escribe encima.
+ */
+export interface ArrangementSound {
+  readonly events: readonly TimedEvent[];
+  readonly owners: readonly (string | null)[];
+}
+
+export function soundOf(
+  arrangement: Arrangement,
+  tonic: PitchClass,
+  mode: KeyMode,
+  partId: string | null = null,
+  withMelody = true,
+  baseMidi?: number,
+): ArrangementSound {
+  const events: TimedEvent[] = [];
+  const owners: (string | null)[] = [];
+
+  // Las partes van una detrás de otra, así que cada una empieza donde acabó la
+  // anterior, y cada vuelta donde acabó la anterior: una parte que va dos veces
+  // se toca dos veces entera, solo que no ocupa el doble de papel. El punteo se
+  // mide desde el principio de su parte y no de la canción, así que mover una
+  // parte de sitio se lleva su melodía con ella.
+  //
+  // El orden lo pone `recorrido`, el mismo que usan `playbackStepsOf` y
+  // `blocksInOrder`.
+  let desde = 0;
+  for (const { part } of recorrido(arrangement, partId)) {
+    let enPulsos = desde;
+    for (const block of part.blocks) {
+      // Con `blockChord` y no con el grado a secas: si el bloque lleva séptima,
+      // tiene que sonar la séptima. Es todo lo que hacía falta para que se oiga.
+      const chord = blockChord(tonic, mode, block);
+      events.push({
+        startBeat: enPulsos,
+        beats: block.beats,
+        midis: voiceForPlayback(chord.root, chord.notes, baseMidi),
+      });
+      owners.push(block.id);
+      enPulsos += block.beats;
+    }
+
+    if (withMelody) {
+      for (const note of part.notes) {
+        events.push({
+          startBeat: desde + note.start,
+          beats: note.length,
+          midis: [midiOf(note, tonic)],
+        });
+        owners.push(null);
+      }
+    }
+
+    desde += partLength(part);
+  }
+
+  // Se ordenan a la vez que sus dueños: `scheduleEvents` también ordena, y si
+  // cada lista se ordenara por su cuenta el bloque encendido sería otro.
+  const orden = events
+    .map((event, indice) => ({ event, indice }))
+    .sort((a, b) => a.event.startBeat - b.event.startBeat || a.indice - b.indice);
+
+  return {
+    events: orden.map(({ event }) => event),
+    owners: orden.map(({ indice }) => owners[indice] ?? null),
+  };
+}
+
+/**
+ * Los bloques en el orden en que van a sonar.
+ *
+ * Quien reproduce recibe un índice —«va por el tercero»— y necesita saber qué
+ * bloque es ese para encenderlo en pantalla. Esta lista es esa traducción, y sale
+ * del mismo recorrido que `playbackStepsOf` para que los índices no puedan
+ * descuadrarse.
+ */
+export function blocksInOrder(
+  arrangement: Arrangement,
+  partId: string | null = null,
+): { readonly partId: string; readonly blockId: string }[] {
+  // Con las vueltas dentro: quien reproduce cuenta sonidos, y en la segunda
+  // vuelta el tercer sonido vuelve a ser el primer bloque de la parte.
+  return recorrido(arrangement, partId).flatMap(({ part }) =>
+    part.blocks.map((block) => ({ partId: part.id, blockId: block.id })),
+  );
+}
+
+/**
+ * Dónde está una nota del punteo, o nulo si ese identificador no existe.
+ *
+ * Hermana de `findBlock`, y por el mismo motivo: quien arrastra tiene un
+ * identificador y necesita saber de qué parte salió.
+ */
+export function findNote(
+  arrangement: Arrangement,
+  noteId: string,
+): { readonly part: Part; readonly note: LeadNote } | null {
+  for (const part of arrangement.parts) {
+    const note = part.notes.find((candidata) => candidata.id === noteId);
+    if (note !== undefined) {
+      return { part, note };
+    }
+  }
+  return null;
+}
+
+/**
+ * Las notas de una parte, siempre en orden de entrada.
+ *
+ * Se ordenan al guardar y no al dibujar porque hay tres sitios que las recorren
+ * —los bloques, el pentagrama y el reproductor— y los tres necesitan lo mismo.
+ * Ordenar en cada uno era pedir que alguno se olvidara.
+ */
+function ordenar(notes: readonly LeadNote[]): LeadNote[] {
+  return [...notes].sort((a, b) => a.start - b.start || a.offset - b.offset);
+}
+
+export function addNote(arrangement: Arrangement, partId: string, note: LeadNote): Arrangement {
+  return mapPart(arrangement, partId, (part) => {
+    if (part.notes.length >= MAX_LEAD_NOTES) {
+      return part;
+    }
+    const nueva: LeadNote = {
+      id: note.id,
+      offset: clampOffset(note.offset),
+      start: clampStart(note.start),
+      length: snapLength(note.length),
+      // La duda viaja con la nota. Sin esto, lo que el motor oyó sucio llegaba a
+      // la partitura limpio, y `isDoubtfulNote` no tenía nada que marcar.
+      ...(Number.isFinite(note.clarity)
+        ? { clarity: Math.min(1, Math.max(0, note.clarity!)) }
+        : {}),
+    };
+    return { ...part, notes: ordenar([...part.notes, nueva]) };
+  });
+}
+
+export function removeNote(arrangement: Arrangement, noteId: string): Arrangement {
+  return mapParts(arrangement, (part) => {
+    const notes = part.notes.filter((note) => note.id !== noteId);
+    return notes.length === part.notes.length ? part : { ...part, notes };
+  });
+}
+
+/**
+ * Lleva una nota a otro sitio: otro momento, otra altura, o las dos.
+ *
+ * Una sola función porque en el pentagrama y en el carril es un solo gesto: se
+ * coge la nota y se suelta donde sea. Separar «mover en el tiempo» de «cambiar de
+ * altura» obligaría a la interfaz a decidir cuál de las dos está pasando a mitad
+ * de un arrastre en diagonal.
+ */
+export function moveNote(
+  arrangement: Arrangement,
+  noteId: string,
+  start: number,
+  offset: number,
+): Arrangement {
+  const inicio = clampStart(start);
+  const altura = clampOffset(offset);
+
+  return mapParts(arrangement, (part) => {
+    const note = part.notes.find((candidata) => candidata.id === noteId);
+    if (note === undefined || (note.start === inicio && note.offset === altura)) {
+      return part;
+    }
+    return {
+      ...part,
+      notes: ordenar(
+        part.notes.map((candidata) =>
+          candidata.id === noteId ? { ...candidata, start: inicio, offset: altura } : candidata,
+        ),
+      ),
+    };
+  });
+}
+
+export function resizeNote(arrangement: Arrangement, noteId: string, length: number): Arrangement {
+  const pulsos = snapLength(length);
+  return mapParts(arrangement, (part) =>
+    part.notes.some((note) => note.id === noteId && note.length !== pulsos)
+      ? {
+          ...part,
+          notes: part.notes.map((note) =>
+            note.id === noteId ? { ...note, length: pulsos } : note,
+          ),
+        }
+      : part,
+  );
+}
+
+/**
+ * Los compases que se dibujan de una parte.
+ *
+ * Los que tiene reservados, o los que hacen falta para que quepa lo que hay
+ * dentro si es más. Lo segundo pasa al traer una grabación larga: nadie ha
+ * pulsado el botón de alargar y los compases están ahí igual.
+ */
+export function drawnBars(part: Part, beatsPerBar: number): number {
+  const porCompas = Math.max(1, beatsPerBar);
+  return Math.max(part.bars, Math.ceil(partLength(part) / porCompas));
+}
+
+/**
+ * Alarga o acorta una parte.
+ *
+ * **No se puede acortar por debajo de lo que hay dentro.** Un botón que borra
+ * compases con acordes es un botón que borra trabajo sin decirlo, y para quitar
+ * un acorde ya está el acorde.
+ */
+export function setBars(
+  arrangement: Arrangement,
+  partId: string,
+  bars: number,
+  beatsPerBar: number,
+): Arrangement {
+  const porCompas = Math.max(1, beatsPerBar);
+  return mapPart(arrangement, partId, (part) => {
+    const minimo = Math.max(1, Math.ceil(partLength(part) / porCompas));
+    const siguiente = Math.min(MAX_BARS, Math.max(minimo, Math.round(bars)));
+    return siguiente === part.bars ? part : { ...part, bars: siguiente };
+  });
+}
+
+/**
+ * Hasta dónde llega una parte, contando el punteo.
+ *
+ * Puede ser más de lo que ocupan sus acordes: una nota que se sale por el final
+ * es una frase que se estira sobre el acorde siguiente, y el pentagrama tiene que
+ * dibujar el compás en el que cae.
+ */
+export function partLength(part: Part): number {
+  const acordes = partBeats(part);
+  const punteo = part.notes.reduce((mayor, note) => Math.max(mayor, note.start + note.length), 0);
+  return Math.max(acordes, punteo);
+}
+
+/**
+ * Los identificadores de un montaje recién abierto.
+ *
+ * Deterministas y por posición, para que abrir dos veces la misma canción dé el
+ * mismo montaje y se pueda comparar en un test sin trucos. No colisionan con los
+ * de un bloque añadido después porque esos los pone la capa de estado con su
+ * propio generador; aquí no se puede, que no hay azar en `core/`.
+ */
+function idDePosicion(prefijo: string, parte: number, bloque?: number): string {
+  return bloque === undefined ? `${prefijo}${parte}` : `${prefijo}${parte}b${bloque}`;
+}
+
+/**
+ * Un montaje a partir de una canción guardada.
+ *
+ * Cada grado ocupa un compás, que es lo que un grado significa en `song.ts`. Al
+ * volver a guardar, un bloque que nadie haya tocado escribe exactamente el mismo
+ * grado: abrir y guardar no cambia una canción.
+ *
+ * **Y los bloques vuelven agrupados como estaban** si la canción trae
+ * `compasesPorBloque`. Sin ese campo —las canciones de antes— sale un bloque por
+ * compás, que es lo que salía siempre: no se pierde nada, solo hay que volver a
+ * juntarlos.
+ */
+/**
+ * Dónde empieza cada bloque y cuántos compases ocupa.
+ *
+ * Sin `compasesPorBloque` es un bloque por compás, que es lo de siempre. Con él,
+ * los compases que dice cada uno: ya viene comprobado de `parseSong` —suman los
+ * que hay o no se lee—, así que aquí solo hay que recorrerlo.
+ */
+function primerCompasDeCadaBloque(
+  section: SongSection,
+): readonly { readonly desde: number; readonly compases: number }[] {
+  const agrupados = section.compasesPorBloque;
+  if (agrupados === undefined) {
+    return section.degrees.map((_, desde) => ({ desde, compases: 1 }));
+  }
+  let desde = 0;
+  return agrupados.map((compases) => {
+    const bloque = { desde, compases };
+    desde += compases;
+    return bloque;
+  });
+}
+
+export function arrangementFromSong(
+  song: Song,
+  beatsPerBar: number = DEFAULT_BEATS_PER_BAR,
+  prefijo = 'c',
+): Arrangement {
+  const porCompas = clampBeats(beatsPerBar);
+  return {
+    parts: song.sections.map((section, parte) => ({
+      id: idDePosicion(prefijo, parte),
+      name: section.name,
+      blocks: primerCompasDeCadaBloque(section).map(({ desde, compases }, bloque) => ({
+        ...writtenBlock(
+          idDePosicion(prefijo, parte, bloque),
+          section.degrees[desde]!,
+          porCompas * compases,
+          section.especies?.[desde] ?? undefined,
+        ),
+        // De dónde salió cada acorde vuelve tal cual. Lo que se guardó como
+        // oído sigue siendo oído al reabrirlo: si no, guardar y volver a abrir
+        // sería una manera de dar por buena una lectura que nadie miró.
+        //
+        // Del primer compás del bloque, que es de donde salió: los dos compases
+        // de un bloque de dos se guardaron con la misma procedencia.
+        source: section.sources?.[desde] ?? 'written',
+      })),
+      notes: (section.lead ?? []).map(([offset, start, length], nota) => ({
+        id: `${idDePosicion(prefijo, parte)}n${nota}`,
+        offset,
+        start,
+        length,
+      })),
+      bars: Math.max(BARS_POR_DEFECTO, section.bars ?? 0),
+    })),
+  };
+}
+
+/**
+ * Las secciones que guardaría este montaje.
+ *
+ * **Un grado sigue siendo un compás**, que es lo que un grado significa en
+ * `song.ts` y lo que leen la ruta de salidas y la de canciones: un bloque de dos
+ * compases se escribe como el mismo grado dos veces.
+ *
+ * Lo que antes se perdía —saber que eran un bloque y no dos— ahora va aparte, en
+ * `compasesPorBloque`. Aquí decía que arreglarlo «tendría que tocar el esquema de
+ * la base de datos», y **era falso**: la canción vive en una columna `jsonb`, así
+ * que un campo opcional más no pide ninguna migración, igual que no la pidieron
+ * `sources` ni `especies`. Con canciones que se montan en varias sesiones, volver
+ * a juntar los bloques a mano cada vez que se abre sí compensaba.
+ */
+export function sectionsFromArrangement(
+  arrangement: Arrangement,
+  beatsPerBar: number = DEFAULT_BEATS_PER_BAR,
+): SongSection[] {
+  const porCompas = clampBeats(beatsPerBar);
+
+  return arrangement.parts
+    .slice(0, MAX_PARTS)
+    .map((part) => {
+      const degrees: DegreeSymbol[] = [];
+      const sources: BlockSource[] = [];
+      const especies: (EspecieDeBloque | null)[] = [];
+      const compasesPorBloque: number[] = [];
+      for (const block of part.blocks) {
+        // Al menos una vez: un bloque más corto que el compás sigue siendo un
+        // acorde de la canción, y redondear a cero lo borraría sin decirlo.
+        const compases = Math.max(1, Math.round(block.beats / porCompas));
+        // Los que de verdad entran, que el tope puede cortar a mitad de un
+        // bloque: apuntar los que se pedían dejaría una agrupación que no suma y
+        // al abrirla se descartaría entera.
+        const antes = degrees.length;
+        for (let i = 0; i < compases && degrees.length < MAX_PART_BLOCKS; i += 1) {
+          degrees.push(block.degree);
+          // La procedencia va en paralelo y se repite con el grado: los dos
+          // compases de un bloque de dos salieron del mismo sitio.
+          sources.push(block.source);
+          // Y la séptima igual. Sin esto, un `Fmaj7` se guardaba como `IV` y
+          // volvía como un `F`: escribías un acorde y te devolvían otro.
+          especies.push(block.especie ?? null);
+        }
+        if (degrees.length > antes) {
+          compasesPorBloque.push(degrees.length - antes);
+        }
+      }
+      const lead = part.notes.map((note) => [note.offset, note.start, note.length] as const);
+
+      // **Lo que no dice nada no se escribe.** Una canción sin punteo y toda
+      // escrita a mano se guarda exactamente igual que antes de que existieran
+      // estos dos campos: sin ellos. Si no, cada canción cargaría con una lista
+      // de «written» repetido y un `lead` vacío, y el documento crecería para no
+      // decir nada.
+      return {
+        name: part.name,
+        degrees,
+        // `idea` no se escribe, por lo mismo que el resto: es el valor por
+        // omisión y escribirlo haría crecer la canción sin decir nada.
+        ...(part.role === undefined || part.role === DEFAULT_ROLE ? {} : { role: part.role }),
+        // Solo si se ha alargado a mano: una parte de cuatro compases es lo de
+        // fábrica y no hace falta escribirlo.
+        ...(part.bars === BARS_POR_DEFECTO ? {} : { bars: part.bars }),
+        ...(lead.length > 0 ? { lead } : {}),
+        ...(sources.some((source) => source !== 'written') ? { sources } : {}),
+        ...(especies.some((especie) => especie !== null) ? { especies } : {}),
+        // Solo si agrupa: con todos los bloques de un compás no diría nada y
+        // haría crecer el documento.
+        ...(compasesPorBloque.some((cuantos) => cuantos > 1) ? { compasesPorBloque } : {}),
+      };
+    })
+    .filter((section) => section.degrees.length > 0);
+}
+
+/**
+ * Un montaje a partir de lo que se acaba de tocar.
+ *
+ * Es el puente que faltaba: `captureProgression` ya mide cuántos pulsos duró
+ * cada acorde y `capturedDegrees` los tiraba para poder guardar. Aquí entran
+ * enteros, y lo que se grabó tocando aparece en el lienzo con los compases que
+ * ocupaba de verdad.
+ */
+export function partFromCapture(
+  steps: readonly CapturedStep[],
+  id: string,
+  name: string,
+  prefijo = id,
+): Part {
+  return {
+    id,
+    name,
+    blocks: steps.slice(0, MAX_PART_BLOCKS).map((step, indice) => ({
+      id: `${prefijo}b${indice}`,
+      degree: step.degree,
+      beats: clampBeats(step.beats),
+      // Oído, con la duda que traía. Es lo que permite marcar en el lienzo los
+      // compases de los que el motor no estaba seguro.
+      source: 'heard' as const,
+      confidence: step.confidence,
+      alternatives: step.alternatives,
+    })),
+    // El croma oye acordes, no melodías: lo que se graba tocando entra como
+    // acompañamiento y el punteo se escribe encima.
+    notes: [],
+    bars: BARS_POR_DEFECTO,
+  };
+}
+
+/** El otro de los dos modos. */
+function otroModo(mode: KeyMode): KeyMode {
+  return mode === 'major' ? 'minor' : 'major';
+}
+
+/** El bloque sin lo que recordaba del otro modo. */
+function sinRecuerdo(block: Block): Block {
+  if (block.delOtroModo === undefined) {
+    return block;
+  }
+  const copia: { -readonly [K in keyof Block]: Block[K] } = { ...block };
+  delete copia.delOtroModo;
+  return copia;
+}
+
+/**
+ * Lo que era el bloque en `mode`, si lo recuerda y el recuerdo sigue valiendo.
+ *
+ * Vale si traducir lo recordado da exactamente lo que hay: es la prueba de que
+ * nadie ha tocado el bloque desde que llegó traducido. Si no, se ignora, y el
+ * bloque se traduce como cualquier otro.
+ */
+function recordado(block: Block, mode: KeyMode): GradoEnElOtroModo | null {
+  const recuerdo = block.delOtroModo;
+  if (recuerdo === undefined || recuerdo.mode !== mode) {
+    return null;
+  }
+  return degreeInMode(recuerdo.degree, otroModo(mode)) === block.degree ? recuerdo : null;
+}
+
+/**
+ * Pasa el montaje entero al otro modo, traduciendo cada grado.
+ *
+ * Hace falta al cambiar de tonalidad con el lienzo lleno: los dos modos no
+ * nombran los mismos grados, y `resolveDegree` y `nextDegrees` lanzan
+ * `RangeError` con uno que no les toca. No era un error de dominio en el sitio
+ * equivocado: **tumbaba la pantalla de componer entera**, con un «This page
+ * couldn't load» encima de media hora de trabajo.
+ *
+ * **Traduce, no tira.** Esto empezó filtrando —se quedaban solo los grados que
+ * el modo nuevo ya tenía— y eso convertía el fallo en otro peor: pasar de Do
+ * mayor a La menor dejaba el lienzo en blanco sin avisar, porque de `I`, `IV` y
+ * `vi` no sobrevivía ninguno. Ahora cada grado se dice en el modo nuevo por su
+ * función —`I` es `i`, `IV` es `iv`, la casa sigue siendo la casa—, que es la
+ * misma regla por la que un montaje son grados y el tono lo pone la rueda.
+ *
+ * **Y la vuelta deja la canción como estaba.** Cada bloque traducido se lleva lo
+ * que era (`delOtroModo`), y al volver al modo de antes se le devuelve tal cual,
+ * con sus alternativas. Sin eso, ir y volver era perder: el `vi` volvía como
+ * `bVI` y el `IV` como `iv`, porque traducir solo no puede saber de dónde venía.
+ * Lo que se escribe en el modo nuevo no trae recuerdo y se traduce por la tabla.
+ *
+ * Solo se cae lo que de verdad no existe allí, que hoy es una sola cosa: la
+ * dominante del `ii`, porque en menor el segundo grado es disminuido. Lo dice
+ * `bloquesSinTraduccion`, para que quien llama pueda contarlo antes de que se
+ * pierda.
+ */
+export function translateToMode(arrangement: Arrangement, mode: KeyMode): Arrangement {
+  return mapParts(arrangement, (part) => {
+    let cambiado = false;
+    const blocks: Block[] = [];
+    for (const block of part.blocks) {
+      const recuerdo = recordado(block, mode);
+      if (recuerdo !== null) {
+        cambiado = true;
+        blocks.push({
+          ...sinRecuerdo(block),
+          degree: recuerdo.degree,
+          alternatives: recuerdo.alternatives,
+        });
+        continue;
+      }
+      const degree = degreeInMode(block.degree, mode);
+      if (degree === null) {
+        cambiado = true;
+        continue;
+      }
+      if (degree === block.degree) {
+        // Un recuerdo de este modo que ya no vale —el bloque se tocó después de
+        // traducirlo— se olvida aquí: guardarlo solo serviría para que un día
+        // coincidiera por casualidad y devolviera algo que nadie pidió.
+        if (block.delOtroModo?.mode === mode) {
+          cambiado = true;
+          blocks.push(sinRecuerdo(block));
+        } else {
+          blocks.push(block);
+        }
+        continue;
+      }
+      cambiado = true;
+      // Las alternativas que trae un bloque oído son grados del modo viejo: se
+      // traducen igual, y la que no exista allí se cae y ya está. Las de antes se
+      // quedan en el recuerdo, que es lo que vuelve al volver.
+      blocks.push({
+        ...block,
+        degree,
+        alternatives: block.alternatives.flatMap((alternativa) => {
+          const otro = degreeInMode(alternativa, mode);
+          return otro === null ? [] : [otro];
+        }),
+        delOtroModo: {
+          mode: otroModo(mode),
+          degree: block.degree,
+          alternatives: block.alternatives,
+        },
+      });
+    }
+    return cambiado ? { ...part, blocks } : part;
+  });
+}
+
+/**
+ * Los bloques que `translateToMode` dejaría fuera al pasar a `mode`.
+ *
+ * Existe para avisar: un bloque que se cae sin que nadie lo diga es trabajo
+ * perdido, y quien sabe qué tonalidad había y cuál viene es la capa de estado,
+ * no esto.
+ */
+export function bloquesSinTraduccion(arrangement: Arrangement, mode: KeyMode): Block[] {
+  return arrangement.parts.flatMap((part) =>
+    part.blocks.filter(
+      (block) => recordado(block, mode) === null && degreeInMode(block.degree, mode) === null,
+    ),
+  );
+}
+
+/**
+ * Un montaje leído de fuera —lo que guardó el navegador—, sin creerse nada.
+ *
+ * Es la misma regla que `parseSong`: **lo que no se entiende se cae y lo demás
+ * se queda**. Un bloque con un grado que ya no existe se pierde él solo, no la
+ * parte entera; una parte sin identificador se pierde ella, no la canción. Y
+ * todo vuelve a pasar por los mismos topes que si se acabara de escribir, porque
+ * un montaje guardado por otra versión de la aplicación puede traer números que
+ * esta ya no admite.
+ *
+ * Los grados se aceptan **de los dos modos**: el montaje se guardó en el modo que
+ * hubiera, y quien lo traduzca al de ahora es `state/montaje-en-su-modo.ts`, que
+ * está mirando. Filtrarlos aquí contra un modo sería tirar media canción por
+ * haberla guardado en menor.
+ *
+ * Nulo si lo que llega no es un montaje en absoluto.
+ */
+export function leerMontaje(raw: unknown): Arrangement | null {
+  if (!esObjeto(raw) || !Array.isArray(raw['parts'])) {
+    return null;
+  }
+  const parts = raw['parts']
+    .map(leerParte)
+    .filter((part): part is Part => part !== null)
+    .slice(0, MAX_PARTS);
+  return { parts };
+}
+
+function esObjeto(raw: unknown): raw is Record<string, unknown> {
+  return typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+}
+
+const GRADOS_CONOCIDOS: ReadonlySet<string> = new Set<string>([
+  ...degreesFor('major'),
+  ...degreesFor('minor'),
+]);
+
+function esGrado(raw: unknown): raw is DegreeSymbol {
+  return typeof raw === 'string' && GRADOS_CONOCIDOS.has(raw);
+}
+
+function esNumero(raw: unknown): raw is number {
+  return typeof raw === 'number' && Number.isFinite(raw);
+}
+
+function leerGrados(raw: unknown): DegreeSymbol[] {
+  return Array.isArray(raw) ? raw.filter(esGrado) : [];
+}
+
+function leerParte(raw: unknown): Part | null {
+  if (!esObjeto(raw) || typeof raw['id'] !== 'string' || typeof raw['name'] !== 'string') {
+    return null;
+  }
+  const blocks = Array.isArray(raw['blocks'])
+    ? raw['blocks']
+        .map(leerBloque)
+        .filter((block): block is Block => block !== null)
+        .slice(0, MAX_PART_BLOCKS)
+    : [];
+  const notes = Array.isArray(raw['notes'])
+    ? ordenar(
+        raw['notes']
+          .map(leerNota)
+          .filter((note): note is LeadNote => note !== null)
+          .slice(0, MAX_LEAD_NOTES),
+      )
+    : [];
+  const bars = esNumero(raw['bars'])
+    ? Math.min(MAX_BARS, Math.max(1, Math.round(raw['bars'])))
+    : BARS_POR_DEFECTO;
+  const role = raw['role'];
+  const repeats = raw['repeats'];
+  return {
+    id: raw['id'],
+    name: raw['name'].trim() === '' ? 'Parte' : raw['name'],
+    blocks,
+    notes,
+    bars,
+    ...(isSectionRole(role) ? { role } : {}),
+    ...(esNumero(repeats)
+      ? { repeats: Math.min(MAX_REPEATS, Math.max(1, Math.round(repeats))) }
+      : {}),
+  };
+}
+
+function leerBloque(raw: unknown): Block | null {
+  if (!esObjeto(raw) || typeof raw['id'] !== 'string' || !esGrado(raw['degree'])) {
+    return null;
+  }
+  const source = raw['source'];
+  const especie = raw['especie'];
+  const recuerdo = leerRecuerdo(raw['delOtroModo']);
+  return {
+    id: raw['id'],
+    degree: raw['degree'],
+    ...(esEspecieDeBloque(especie) ? { especie } : {}),
+    beats: clampBeats(esNumero(raw['beats']) ? raw['beats'] : MIN_BLOCK_BEATS),
+    // Lo que no se reconoce se lee como escrito a mano, igual que en una canción
+    // guardada: es lo único que no inventa una duda que nadie tuvo.
+    source: source === 'heard' || source === 'fixed' ? source : 'written',
+    confidence: esNumero(raw['confidence']) ? Math.min(1, Math.max(0, raw['confidence'])) : 1,
+    alternatives: leerGrados(raw['alternatives']),
+    ...(recuerdo === null ? {} : { delOtroModo: recuerdo }),
+  };
+}
+
+function leerRecuerdo(raw: unknown): GradoEnElOtroModo | null {
+  if (!esObjeto(raw) || (raw['mode'] !== 'major' && raw['mode'] !== 'minor')) {
+    return null;
+  }
+  if (!esGrado(raw['degree'])) {
+    return null;
+  }
+  return {
+    mode: raw['mode'],
+    degree: raw['degree'],
+    alternatives: leerGrados(raw['alternatives']),
+  };
+}
+
+function leerNota(raw: unknown): LeadNote | null {
+  if (!esObjeto(raw) || typeof raw['id'] !== 'string') {
+    return null;
+  }
+  const { offset, start, length, clarity } = raw;
+  // Una nota con algo que no es un número se cae entera, como en `parseSong`:
+  // redondear un `null` a cero pondría una nota en la tónica que nadie tocó.
+  if (!esNumero(offset) || !esNumero(start) || !esNumero(length)) {
+    return null;
+  }
+  return {
+    id: raw['id'],
+    offset: clampOffset(offset),
+    start: clampStart(start),
+    length: snapLength(length),
+    ...(esNumero(clarity) ? { clarity: Math.min(1, Math.max(0, clarity)) } : {}),
+  };
+}

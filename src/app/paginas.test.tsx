@@ -1,0 +1,284 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest';
+
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ANONYMOUS } from '@core/billing';
+import { UNIT_ORDER } from '@core/music';
+import { AccountProvider } from '@state/account';
+
+/**
+ * Las direcciones: qué se abre en cada una.
+ *
+ * Una página de Next es la pantalla y su título —el marco lo pone el layout de
+ * `(marco)`, y se prueba en el suyo— y por eso no tienen test propio cada una. Lo que sí tiene sentido probar, y solo se ve
+ * montándolas, es **el mapa**: que cada dirección abre la pantalla que dice su
+ * nombre, que cada una lleva su título de pestaña, y que las tres que deciden
+ * algo lo deciden bien —una unidad que no existe, un plan que no existe y la
+ * contraseña olvidada con vale o sin él—.
+ *
+ * Sin esto, un `import` cruzado entre dos páginas no lo nota nadie hasta abrir
+ * el navegador.
+ */
+
+// **El lienzo de verdad solo lo carga su propio test.** Vitest reutiliza cada
+// proceso para varios ficheros, y si en uno caían dos que cargaban
+// `ArrangeCanvas.tsx`, V8 tenía dos copias del mismo módulo y al juntar la
+// cobertura se quedaba con las cuentas de una: las ramas bajaban al 90 % una
+// pasada de cada dos, con todos los tests en verde. Aquí basta con que llegue.
+vi.mock('@features/arrange/ArrangeCanvas', () => ({ ArrangeCanvas: () => null }));
+
+vi.mock('next/navigation', async () => ({
+  useRouter: () => ({ refresh: () => {}, push: () => {} }),
+  usePathname: () => '/',
+  notFound: () => {
+    throw new Error('NEXT_NOT_FOUND');
+  },
+}));
+
+vi.mock('next-auth/react', () => ({
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  useSession: () => ({ data: null, status: 'unauthenticated' }),
+  SessionProvider: ({ children }: { children: unknown }) => children,
+}));
+
+// `server/` lo abre solo `app/`, y una de estas páginas le pregunta al cobrador
+// y otra al correo. En un test no hay ni base de datos ni proveedor.
+vi.mock('@server/auth', () => ({ authAvailable: () => authDisponible() }));
+vi.mock('@server/mail', () => ({ mailer: () => ({ sends: mandaCorreo() }) }));
+vi.mock('@server/billing', () => ({ billing: () => ({ charges: false }) }));
+
+const authDisponible = vi.fn(() => true);
+const mandaCorreo = vi.fn(() => true);
+
+function pintar(elemento: React.ReactElement) {
+  return render(
+    <AccountProvider account={ANONYMOUS} accounts={false}>
+      {elemento}
+    </AccountProvider>,
+  );
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  authDisponible.mockReturnValue(true);
+  mandaCorreo.mockReturnValue(true);
+});
+
+describe('las pantallas de trabajo', () => {
+  const DIRECCIONES = [
+    // La portada entraba en esta lista la última, y por no estar se coló un 500
+    // en ella con los cinco comandos en verde. Montarla aquí no caza el fallo
+    // que fue —un `ref` en un componente de servidor solo revienta sirviendo la
+    // página de verdad—, pero sí que la portada siga montándose.
+    ['/', () => import('./page'), 'Caos ordenado'],
+    ['/afinar', () => import('./(marco)/afinar/page'), 'Afinar'],
+    ['/aprender', () => import('./(marco)/aprender/page'), 'Aprender'],
+    ['/componer', () => import('./(marco)/componer/page'), 'Componer'],
+    ['/profesor', () => import('./(marco)/profesor/page'), 'Profesor'],
+    ['/planes', () => import('./(marco)/planes/page'), 'Planes'],
+    ['/registro', () => import('./(marco)/registro/page'), 'Crear tu cuenta'],
+    ['/cuenta', () => import('./(marco)/cuenta/page'), 'Tu cuenta'],
+    ['/aprender/repaso', () => import('./(marco)/aprender/repaso/page'), 'Repaso'],
+  ] as const;
+
+  /**
+   * Con más tiempo del de fábrica, y no por lento: **el primero paga por todos**.
+   *
+   * Cada caso importa una página de verdad, y la primera importación arrastra el
+   * árbol entero de la aplicación —los motores de audio, el dominio, la interfaz—.
+   * Los veinte juntos tardan dos segundos y medio con la máquina libre, pero con
+   * ella cargada el primero se pasaba de los cinco de fábrica y fallaba **solo el
+   * primero de la lista**, que hoy es `/afinar`. Un test que falla según lo
+   * ocupado que esté el equipo no dice nada de la aplicación: enseña a no mirar
+   * los rojos.
+   *
+   * Quince segundos no esconden una regresión: si esto tarda quince, lo que hay
+   * roto se nota mucho antes en `pnpm build`.
+   */
+  it.each(DIRECCIONES)(
+    '%s abre su pantalla y lleva su titulo',
+    async (_ruta, importar) => {
+      const modulo = (await importar()) as {
+        default: () => React.ReactElement;
+        metadata?: { title?: string };
+      };
+
+      pintar(modulo.default());
+
+      expect(modulo.metadata?.title).toMatch(/Caos ordenado/);
+      expect(document.querySelectorAll('h1').length).toBeGreaterThan(0);
+    },
+    15_000,
+  );
+});
+
+describe('una unidad por direccion', () => {
+  it('la que existe se abre con su titulo de pestaña', async () => {
+    const {
+      default: Unidad,
+      generateMetadata,
+      generateStaticParams,
+    } = await import('./(marco)/aprender/[unidad]/page');
+    const unidad = UNIT_ORDER[0]!;
+
+    pintar(await Unidad({ params: Promise.resolve({ unidad }) }));
+
+    const meta = await generateMetadata({ params: Promise.resolve({ unidad }) });
+    expect(meta.title).toMatch(/Caos ordenado/);
+    // Las unidades del temario se conocen de antemano: son fijas.
+    expect(generateStaticParams()).toHaveLength(UNIT_ORDER.length);
+  });
+
+  it('la que no existe es un 404, no una pagina buena que dice que no existe', async () => {
+    // Si se puede entrar lo decide la pantalla —el avance y el plan—, pero si la
+    // unidad existe lo sabe el temario, y una que no está contestaba 200.
+    const { default: Unidad, generateMetadata } = await import('./(marco)/aprender/[unidad]/page');
+
+    await expect(Unidad({ params: Promise.resolve({ unidad: 'inventada' }) })).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
+    expect(
+      (await generateMetadata({ params: Promise.resolve({ unidad: 'inventada' }) })).title,
+    ).toMatch(/no encontrada/);
+  });
+});
+
+describe('la ventana de pago de un plan', () => {
+  it('los dos de pago tienen la suya', async () => {
+    const { default: Plan, generateStaticParams } = await import('./(marco)/planes/[plan]/page');
+
+    pintar(await Plan({ params: Promise.resolve({ plan: 'medio' }) }));
+
+    expect(screen.getByRole('heading', { name: /Plan Medio/ })).toBeInTheDocument();
+    expect(generateStaticParams()).toHaveLength(2);
+  });
+
+  // Y el título de la pestaña lleva el plan: es lo que se ve al compartirla.
+  it('el titulo de la pestaña lleva el nombre del plan', async () => {
+    const { generateMetadata } = await import('./(marco)/planes/[plan]/page');
+
+    const meta = await generateMetadata({ params: Promise.resolve({ plan: 'medio' }) });
+
+    expect(meta.title).toMatch(/Plan Medio/);
+    expect(meta.description).toMatch(/Medio,/);
+  });
+
+  it('un nombre viejo sigue llevando a su plan, no a un 404', async () => {
+    // Un renombrado no puede romper un enlace guardado.
+    const { default: Plan } = await import('./(marco)/planes/[plan]/page');
+
+    pintar(await Plan({ params: Promise.resolve({ plan: 'estudiante' }) }));
+
+    expect(screen.getByRole('heading', { name: /^Plan / })).toBeInTheDocument();
+  });
+
+  it('el gratis no es una compra: esa direccion no existe', async () => {
+    // Una ventana de pago para el plan gratis sería una pantalla que no puede
+    // terminar en nada.
+    const { default: Plan, generateMetadata } = await import('./(marco)/planes/[plan]/page');
+
+    await expect(Plan({ params: Promise.resolve({ plan: 'gratis' }) })).rejects.toThrow(
+      'NEXT_NOT_FOUND',
+    );
+    expect((await generateMetadata({ params: Promise.resolve({ plan: 'gratis' }) })).title).toMatch(
+      /no encontrado/,
+    );
+  });
+});
+
+describe('la contraseña olvidada', () => {
+  it('sin vale pide el correo', async () => {
+    const { default: Olvidada } = await import('./(marco)/olvidada/page');
+
+    pintar(await Olvidada({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByRole('heading', { name: 'Contraseña olvidada' })).toBeInTheDocument();
+    expect(screen.getByText(/Te mandamos un enlace al correo/)).toBeInTheDocument();
+  });
+
+  it('con vale pide la contraseña nueva: quien vuelve del buzon esta terminando', async () => {
+    const { default: Olvidada } = await import('./(marco)/olvidada/page');
+
+    pintar(await Olvidada({ searchParams: Promise.resolve({ vale: 'abc' }) }));
+
+    expect(screen.getByRole('heading', { name: 'Contraseña nueva' })).toBeInTheDocument();
+  });
+
+  it('si esta copia no manda correo, se dice en vez de prometerlo', async () => {
+    // Un formulario que no puede terminar en nada deja a alguien esperando
+    // delante de un buzón vacío.
+    mandaCorreo.mockReturnValue(false);
+    const { default: Olvidada } = await import('./(marco)/olvidada/page');
+
+    pintar(await Olvidada({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText(/no manda correo/)).toBeInTheDocument();
+    // La entradilla de arriba prometía un enlace al correo que no va a llegar.
+    expect(screen.queryByText(/Te mandamos un enlace/)).not.toBeInTheDocument();
+  });
+
+  it('y sin cuentas configuradas, tampoco', async () => {
+    authDisponible.mockReturnValue(false);
+    const { default: Olvidada } = await import('./(marco)/olvidada/page');
+
+    pintar(await Olvidada({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText(/no manda correo/)).toBeInTheDocument();
+  });
+});
+
+describe('la portada', () => {
+  it('dice de qué va esto y lleva a las pantallas', async () => {
+    const { default: Portada, metadata } = await import('./page');
+
+    pintar(Portada());
+
+    expect(metadata.title).toMatch(/aprende música y compón/i);
+    expect(screen.getAllByRole('link').length).toBeGreaterThan(0);
+  });
+
+  it('promete que el audio no sale del equipo, que es la regla del proyecto', async () => {
+    const { default: Portada } = await import('./page');
+
+    pintar(Portada());
+
+    expect(screen.getByText(/0 bytes de audio enviados/)).toBeInTheDocument();
+  });
+});
+
+describe('una direccion que no lleva a ninguna parte', () => {
+  /**
+   * Sin `not-found.tsx` contesta la de Next: «This page could not be found», en
+   * inglés, sin barra de navegación y sin una salida. Se llega ahí por un enlace
+   * viejo o una letra de más, y eso no es motivo para echar a nadie de la
+   * aplicación.
+   */
+  it('se queda dentro de la aplicacion y dice por donde seguir', async () => {
+    const { default: NoEncontrada, metadata } = await import('./not-found');
+
+    pintar(NoEncontrada());
+
+    expect(screen.getByRole('heading', { name: /no existe/ })).toBeInTheDocument();
+    expect(metadata.title).toMatch(/Caos ordenado/);
+    expect(screen.getByRole('link', { name: 'Ir al camino' })).toHaveAttribute('href', '/aprender');
+  });
+
+  /**
+   * Y la de dentro del marco **no trae marco**: la pinta el layout de `(marco)`,
+   * que ya lo puso. Con la de la raíz, una unidad o un plan que no existen salían
+   * con dos cabeceras y dos barras de abajo.
+   */
+  it('dentro del marco dice lo mismo, sin un segundo marco', async () => {
+    const { default: NoEncontrada, metadata } = await import('./(marco)/not-found');
+
+    pintar(NoEncontrada());
+
+    expect(screen.getByRole('heading', { name: /no existe/ })).toBeInTheDocument();
+    expect(metadata.title).toMatch(/Caos ordenado/);
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Escuchar la guitarra/ })).not.toBeInTheDocument();
+  });
+});

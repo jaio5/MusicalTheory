@@ -1,0 +1,468 @@
+'use client';
+
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+
+import {
+  ladoMasCercano,
+  moverTutor,
+  sitioDelTutor,
+  sitioDelTutorEnServidor,
+  suscribirseAlSitio,
+} from '@state/tutor-spot';
+import { useAccount } from '@state/account';
+import { Button } from '@ui/Button';
+import { Mascota } from '@ui/Mascota';
+import { prefersReducedMotion } from '@ui/motion';
+
+import { Teacher } from './Teacher';
+
+/**
+ * El profesor, con cara y a mano.
+ *
+ * Vive en la esquina de abajo de las pantallas de aprender, y hace dos cosas
+ * distintas según quién dé el paso:
+ *
+ * - **Tú lo llamas.** Está siempre ahí, del tamaño de un pulgar. Se pulsa y se
+ *   abre con el formulario dentro, así que preguntar no obliga a salir de la
+ *   unidad, ir a otra pantalla y perder por dónde ibas. Antes solo había un
+ *   enlace, y un enlace en mitad de un ejercicio no lo pulsa nadie.
+ * - **Él te llama.** Cuando fallas una pregunta se abre solo con la frase puesta,
+ *   que es el momento exacto en que uno piensa «¿y por qué?».
+ *
+ * **No sale a saludar ni a felicitar por respirar.** Cerrado no dice nada, y solo
+ * se abre por su cuenta cuando algo ha salido mal. Un ayudante que aparece sin
+ * motivo es lo que hizo que todo el mundo odiara al clip de Office: se aprende a
+ * cerrarlo sin leerlo, y el día que dice algo útil ya nadie lo mira.
+ *
+ * Habla escribiendo, letra a letra y directamente en el DOM: por el estado eran
+ * cien renders de React por frase. Nada de voz sintética, que suena a robot y se
+ * pisa con lo que estés tocando. Para quien no ve la pantalla, una región viva
+ * lleva la frase entera desde el primer momento —anunciarla letra a letra sería
+ * inservible— y con `prefers-reduced-motion` no entra deslizándose ni escribe.
+ *
+ * **Abierto es un panel que tapa, y se sale de él como de uno**: con Escape, o
+ * yéndose con el foco a otra cosa.
+ *
+ * **Y no se abre solo donde no cabe.** Abierto mide lo que mide el formulario, y
+ * en un teléfono eso es media pantalla: al fallar una pregunta se plantaba encima
+ * de la corrección —la respuesta buena, el porqué y el botón de seguir—, que es
+ * justo lo que hay que leer en ese momento. Medido: sobre «Siguiente», lo que
+ * devolvía `elementFromPoint` era el globo. En una pantalla ancha cabe al lado y
+ * no tapa nada, así que ahí sigue saliendo él solo; en una estrecha se queda
+ * donde está, a un dedo, y lo abre quien lo quiera.
+ *
+ * **Y cuando se abre él solo, se abre pequeño.** Con el formulario dentro medía
+ * 230 px de alto y, anclado abajo, subía sobre el final de la corrección, con
+ * «Entrar para preguntar» en latón al lado del otro latón, «Siguiente». Con un
+ * aviso trae la frase y un solo botón discreto, «Preguntar al profesor», que es
+ * el que despliega el formulario; sin cuentas configuradas ni eso, porque no
+ * habría a quién.
+ *
+ * **Se agarra y se mueve.** Al soltarlo se va al lado más cercano —solo izquierda
+ * o derecha— y se queda a la altura donde lo dejaste. Los dos lados y no donde
+ * caiga, porque un muñeco suelto en mitad de la pantalla acaba tapando justo lo
+ * que estabas leyendo; y la altura sí, porque es lo que cambia según lo que
+ * estorbe en cada pantalla. El sitio se recuerda entre pantallas y entre
+ * sesiones: lo guarda `state/tutor-spot`.
+ */
+/**
+ * Si la pantalla da sitio para un panel flotante sin taparlo todo.
+ *
+ * 1024 —`lg`— y no 640: por debajo la columna de la pregunta ocupa el ancho
+ * entero y la barra de pantallas va abajo, así que el globo, que sube desde la
+ * esquina de abajo, solo puede caer **sobre la corrección**, que es lo que hay
+ * que leer en ese momento. Medido a 700 × 600: tapaba «Era Re (D)…» y pisaba
+ * «Siguiente». Desde `lg` la columna va centrada con aire a los lados y la barra
+ * arriba, y el globo pequeño cabe al lado. Se mide el ancho y no se pregunta por
+ * `matchMedia` a propósito: es la misma respuesta y así no se mezcla con la
+ * consulta de movimiento reducido, que también pasa por ahí.
+ *
+ * Se pregunta en el momento de abrirse y no se guarda: quien gira el teléfono o
+ * estira la ventana cambia la respuesta, y esto solo decide un gesto que ocurre
+ * una vez.
+ */
+function cabeElGlobo(): boolean {
+  return typeof window !== 'undefined' && window.innerWidth >= 1024;
+}
+
+/**
+ * El hueco que hay que dejar al final de la columna que se desplaza, para que
+ * el muñeco no tape lo último.
+ *
+ * Flota (`fixed`) a la altura guardada —de fábrica, el 10 % de abajo— y es del
+ * tamaño de un pulgar. Sin reserva, el final de la columna quedaba justo debajo de
+ * él: en la unidad a 390 de ancho tapaba la esquina del aviso de fallo, y no había
+ * forma de desplazarlo fuera. Se reserva el mismo diez por ciento más su alto,
+ * que son los 64 px de `ui/Mascota` (`4rem`): si el muñeco cambia de tamaño, esto
+ * cambia con él, y también los dos huecos que `PathScreen` escribe a mano.
+ * Va como clase entera para que Tailwind la vea escrita; quien la use en otro
+ * punto de corte la escribe con su prefijo, como hace `PathScreen`.
+ */
+export const HUECO_DEL_TUTOR = 'pb-[calc(10dvh+4rem)]';
+
+export function Tutor({
+  unitId,
+  aviso = null,
+  onAvisoVisto,
+}: {
+  /** La lección que se está leyendo, para que responda en ese contexto. */
+  readonly unitId?: string;
+  /** Lo que el muñeco tiene que decir por su cuenta, si hay algo. */
+  readonly aviso?: string | null;
+  readonly onAvisoVisto?: () => void;
+}) {
+  const sitio = useSyncExternalStore(suscribirseAlSitio, sitioDelTutor, sitioDelTutorEnServidor);
+  const { accounts } = useAccount();
+  const [quieto] = useState(prefersReducedMotion);
+  const marco = useRef<HTMLDivElement>(null);
+  // Mientras se arrastra, la posición se escribe directamente en el estilo del
+  // elemento: pasarla por el estado serían sesenta renders por segundo mientras
+  // el dedo se mueve, y lo que se mueve es un solo `transform`.
+  const arrastre = useRef<{ dx: number; dy: number; movido: boolean } | null>(null);
+  // Si ya viene con algo que decir, nace abierto: comparar solo el cambio dejaba
+  // callado al muñeco que se monta ya con el aviso puesto.
+  const [abierto, setAbierto] = useState(aviso !== null && cabeElGlobo());
+  // Abierto por un aviso: solo la frase y el botón de preguntar, sin formulario.
+  const [soloElAviso, setSoloElAviso] = useState(aviso !== null && cabeElGlobo());
+  // Al pulsar «Preguntar al profesor» ese botón desaparece con el foco dentro, y
+  // el foco pasa a lo primero del formulario que lo sustituye (adr/0084).
+  const enfocarElFormulario = useRef(false);
+  // Empieza a hablar en el momento en que se abre, no dentro del efecto: poner
+  // estado en el cuerpo de un efecto encadena un render de más, y la regla de
+  // React que lo prohíbe está encendida en este proyecto.
+  const [hablando, setHablando] = useState(
+    aviso !== null && cabeElGlobo() && !prefersReducedMotion(),
+  );
+  const globo = useRef<HTMLSpanElement>(null);
+  const anuncio = useRef<HTMLParagraphElement>(null);
+  const muneco = useRef<HTMLButtonElement>(null);
+  // El aviso de visto, el último que llegó: quien lo pasa lo escribe como flecha
+  // en cada render, y el efecto de Escape no tiene por qué rehacerse por eso.
+  const avisoVisto = useRef(onAvisoVisto);
+  useEffect(() => {
+    avisoVisto.current = onAvisoVisto;
+  });
+
+  const frase = aviso ?? '¿Qué quieres saber? Te lo explico con los acordes de tu tonalidad.';
+
+  // Un aviso nuevo lo abre. Se compara durante el render, como en el resto de la
+  // aplicación: en un efecto se vería un fotograma con la frase anterior.
+  const [avisado, setAvisado] = useState(aviso);
+  if (avisado !== aviso) {
+    setAvisado(aviso);
+    if (aviso !== null && cabeElGlobo()) {
+      setAbierto(true);
+      setSoloElAviso(true);
+      setHablando(!quieto);
+    }
+  }
+
+  useEffect(() => {
+    if (!enfocarElFormulario.current || soloElAviso) {
+      return;
+    }
+    enfocarElFormulario.current = false;
+    marco.current
+      ?.querySelector<HTMLElement>(
+        '.superficie-alta input, .superficie-alta a, .superficie-alta button',
+      )
+      ?.focus();
+  }, [soloElAviso]);
+
+  /*
+    **La región viva está montada antes de que haya nada que decir**, y se rellena
+    después, como en `ui/Aviso`. Iba dentro del globo y nacía con la frase
+    puesta: una región que aparece ya llena no la anuncia ningún lector de
+    pantalla de forma fiable, así que el «esa no era» del muñeco no se oía. Se
+    escribe desde el efecto y no desde el render para que sea así incluso cuando
+    el muñeco se monta ya con el aviso.
+  */
+  useEffect(() => {
+    /* v8 ignore next 3 -- el parrafo se pinta siempre, abierto o cerrado */
+    if (anuncio.current === null) {
+      return;
+    }
+    anuncio.current.textContent = abierto ? frase : '';
+  }, [abierto, frase]);
+
+  /*
+    **Escape cierra el globo**, esté donde esté el foco. Abierto tapa la pregunta
+    que hay debajo, y era lo único flotante de la aplicación de lo que no se salía
+    con el teclado. Si el foco estaba dentro vuelve al muñeco, que es lo que se
+    acaba de cerrar; si estaba fuera, se queda donde estaba. Lo que flota dentro
+    de otra cosa y se cierra con Escape —`ui/Disclosure`— corta la propagación,
+    así que una pulsación no cierra dos cosas.
+  */
+  useEffect(() => {
+    if (!abierto) {
+      return;
+    }
+    function escape(evento: KeyboardEvent): void {
+      if (evento.key !== 'Escape') {
+        return;
+      }
+      // El marco está pintado: este efecto solo corre con el globo abierto.
+      const dentro = marco.current!.contains(document.activeElement);
+      setAbierto(false);
+      setHablando(false);
+      avisoVisto.current?.();
+      if (dentro) {
+        muneco.current?.focus();
+      }
+    }
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [abierto]);
+
+  useEffect(() => {
+    if (!abierto) {
+      return;
+    }
+    if (quieto) {
+      /* v8 ignore next 3 -- el globo esta pintado: este efecto solo corre con el abierto */
+      if (globo.current !== null) {
+        globo.current.textContent = frase;
+      }
+      return;
+    }
+
+    const inicio = performance.now();
+    let cuadro = 0;
+
+    const paso = (ahora: number) => {
+      const cuantas = Math.min(frase.length, Math.floor((ahora - inicio) / 18));
+      /* v8 ignore next 3 -- mismo motivo: mientras se escribe la frase el globo esta puesto */
+      if (globo.current !== null) {
+        globo.current.textContent = frase.slice(0, cuantas);
+      }
+      if (cuantas < frase.length) {
+        cuadro = requestAnimationFrame(paso);
+      } else {
+        setHablando(false);
+      }
+    };
+
+    cuadro = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(cuadro);
+  }, [abierto, frase, quieto]);
+
+  function agarrar(evento: React.PointerEvent<HTMLDivElement>): void {
+    const caja = marco.current?.getBoundingClientRect();
+    /* v8 ignore next 3 -- el gesto sale del propio marco, asi que el marco esta */
+    if (caja === undefined) {
+      return;
+    }
+    // **Aquí no se captura el puntero.** Capturarlo al apoyar el dedo redirige
+    // todos los eventos a este contenedor, y entonces el `click` deja de llegar
+    // al botón de dentro: el muñeco se movía y no se abría. Se captura en cuanto
+    // el dedo se mueve de verdad, que es cuando hace falta para no perderlo al
+    // salirse del muñeco.
+    arrastre.current = {
+      dx: evento.clientX - caja.left,
+      dy: evento.clientY - caja.top,
+      movido: false,
+    };
+  }
+
+  function mover(evento: React.PointerEvent<HTMLDivElement>): void {
+    const agarre = arrastre.current;
+    if (agarre === null || marco.current === null) {
+      return;
+    }
+    // Cinco píxeles de margen: un dedo nunca pulsa completamente quieto, y sin
+    // esto cada pulsación se leería como un arrastre y no abriría el globo.
+    if (!agarre.movido && Math.abs(evento.movementX) + Math.abs(evento.movementY) < 5) {
+      return;
+    }
+    if (!agarre.movido) {
+      agarre.movido = true;
+      evento.currentTarget.setPointerCapture(evento.pointerId);
+    }
+    marco.current.style.left = `${evento.clientX - agarre.dx}px`;
+    marco.current.style.top = `${evento.clientY - agarre.dy}px`;
+    marco.current.style.right = 'auto';
+    marco.current.style.bottom = 'auto';
+  }
+
+  function soltar(evento: React.PointerEvent<HTMLDivElement>): void {
+    const agarre = arrastre.current;
+    arrastre.current = null;
+
+    if (agarre === null || !agarre.movido || marco.current === null) {
+      // Un toque sin arrastre no se toca: se deja pasar para que el navegador
+      // dispare el `click` del botón y el muñeco se abra.
+      return;
+    }
+
+    if (evento.currentTarget.hasPointerCapture(evento.pointerId)) {
+      evento.currentTarget.releasePointerCapture(evento.pointerId);
+    }
+
+    const caja = marco.current.getBoundingClientRect();
+    moverTutor({
+      lado: ladoMasCercano(caja.left + caja.width / 2, window.innerWidth),
+      alto: (caja.top / window.innerHeight) * 100,
+    });
+
+    // Se devuelve el mando a las clases: el sitio ya está guardado, y dejar el
+    // estilo puesto congelaría al muñeco donde lo soltó el dedo.
+    marco.current.style.left = '';
+    marco.current.style.top = '';
+    marco.current.style.right = '';
+    marco.current.style.bottom = '';
+  }
+
+  function cerrar(): void {
+    setAbierto(false);
+    setHablando(false);
+    onAvisoVisto?.();
+  }
+
+  /**
+   * Y se cierra cuando el foco se va a otra cosa de la pantalla.
+   *
+   * Quien avanza con el tabulador sale del globo hacia la pregunta, y el globo se
+   * quedaba encima de ella. Solo cuando el foco aterriza en algo de fuera: si se
+   * va a ninguna parte —otra ventana, otra pestaña— el globo sigue como estaba.
+   */
+  function salirse(evento: React.FocusEvent<HTMLDivElement>): void {
+    const destino = evento.relatedTarget;
+    if (abierto && destino !== null && !evento.currentTarget.contains(destino)) {
+      cerrar();
+    }
+  }
+
+  /** «Cerrar» desaparece con el globo, así que el foco vuelve al muñeco. */
+  function cerrarDesdeDentro(): void {
+    cerrar();
+    muneco.current?.focus();
+  }
+
+  const derecha = sitio.lado === 'derecha';
+  // Hacia dónde crece el globo. Si el muñeco está en la mitad de abajo se ancla
+  // por abajo y el globo sube; si está arriba, al revés. Anclando siempre por
+  // arriba, el globo empujaba al muñeco hacia abajo y los dos se salían de la
+  // pantalla: parecía que desaparecía al pulsarlo.
+  const arriba = sitio.alto < 50;
+
+  return (
+    <div
+      ref={marco}
+      onPointerDown={agarrar}
+      onPointerMove={mover}
+      onPointerUp={soltar}
+      onPointerCancel={soltar}
+      onBlur={salirse}
+      // La altura la pone el sitio guardado; el lado, una de las dos anclas. El
+      // globo se abre hacia dentro de la pantalla, así que en el lado derecho la
+      // fila se invierte y el pico del globo cambia de esquina.
+      style={arriba ? { top: `${sitio.alto}%` } : { bottom: `${100 - sitio.alto}%` }}
+      className={`fixed z-30 flex touch-none gap-2 ${arriba ? 'items-start' : 'items-end'} ${
+        derecha ? 'right-3 flex-row-reverse' : 'left-3'
+      }`}
+    >
+      <button
+        ref={muneco}
+        type="button"
+        onClick={() => {
+          if (abierto) {
+            cerrar();
+            return;
+          }
+          setAbierto(true);
+          setSoloElAviso(false);
+          setHablando(!quieto);
+        }}
+        aria-expanded={abierto}
+        aria-label={abierto ? 'Cerrar el profesor' : 'Preguntarle al profesor'}
+        // Al pasar por encima sube dos píxeles en vez de crecer: el muñeco es de
+        // píxel, y a 1,05 cada píxel cae entre dos de pantalla y se emborrona.
+        className={`shrink-0 rounded-full transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 ${
+          quieto ? '' : 'animate-asomar'
+        }`}
+      >
+        <Mascota hablando={hablando} atento={abierto} />
+      </button>
+
+      <p ref={anuncio} className="sr-only" aria-live="polite" />
+
+      {abierto && (
+        <div
+          className={`superficie-alta w-[min(26rem,calc(100vw-6rem))] p-3 ${
+            arriba
+              ? derecha
+                ? 'rounded-tr-none'
+                : 'rounded-tl-none'
+              : derecha
+                ? 'rounded-br-none'
+                : 'rounded-bl-none'
+          } ${quieto ? '' : 'animate-asomar'}`}
+        >
+          {/* Lo que se ve se escribe letra a letra y no se lee: la frase entera
+              la dice la región de arriba, que va justo antes en el orden de
+              lectura. */}
+          <p className="text-text text-sm" aria-hidden="true">
+            <span ref={globo} />
+          </p>
+
+          {/* El formulario de siempre, aquí dentro: preguntar no debería costar
+              salirse de la unidad. Sin las preguntas de arranque, que en un globo
+              ocupan más que el propio campo. */}
+          {soloElAviso ? (
+            accounts && (
+              <div className="mt-3">
+                <Button
+                  variant="quiet"
+                  tamano="compacto"
+                  onClick={() => {
+                    enfocarElFormulario.current = true;
+                    setSoloElAviso(false);
+                  }}
+                >
+                  Preguntar al profesor
+                </Button>
+              </div>
+            )
+          ) : (
+            <div className="mt-3">
+              {/* El mismo aviso que en /profesor (AI Act, art. 50.1): aquí el
+                  muñeco habla en primera persona, y es donde más fácil se toma
+                  por alguien. */}
+              <p className="text-text-muted mb-2 text-xs">Contesta una IA: puede equivocarse.</p>
+              <Teacher unitId={unitId} compact />
+            </div>
+          )}
+
+          {/*
+            **Cambiarlo de lado sin arrastrar** (WCAG 2.5.7). Moverlo solo se
+            podía agarrándolo, y eso no lo hace quien usa el teclado, un
+            conmutador o una mano que tiembla. Un botón con una pulsación llega
+            al mismo sitio: el otro lado, a la misma altura, que es lo que deja
+            el arrastre al soltar.
+
+            Los dos con el alto de pulsar: son la salida del globo, y a doce
+            píxeles de alto no se acertaban con el pulgar.
+          */}
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                moverTutor({ lado: derecha ? 'izquierda' : 'derecha', alto: sitio.alto })
+              }
+              className="text-text-muted hover:text-text min-h-tap px-2 text-xs"
+            >
+              {derecha ? 'Pasar a la izquierda' : 'Pasar a la derecha'}
+            </button>
+            <button
+              type="button"
+              onClick={cerrarDesdeDentro}
+              className="text-text-muted hover:text-text min-h-tap px-2 text-xs"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

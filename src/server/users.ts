@@ -8,19 +8,21 @@
  * son dos frases distintas.
  */
 
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 
-import { MAX_NAME_LENGTH, MIN_PASSWORD_LENGTH, planOf, type PlanId } from '@core/billing';
+import { MAX_NAME_LENGTH, MIN_PASSWORD_LENGTH, planEnVigor, type PlanId } from '@core/billing';
 
-import { db } from './db/client';
+import { db, type Database } from './db/client';
 import { users } from './db/schema';
-import { hashPassword, verifyPassword } from './password';
+import { contrasenaDeMedida, hashPassword, verifyPassword } from './password';
 
 export interface User {
   readonly id: string;
   readonly email: string;
   readonly name: string | null;
   readonly plan: PlanId;
+  /** Sube al cambiar la contraseña. Es lo que echa a las demás sesiones. */
+  readonly sessionVersion: number;
 }
 
 /**
@@ -32,7 +34,7 @@ export interface User {
  * expresión regular exhaustiva rechaza direcciones válidas y no evita ninguna
  * falsa. Lo que de verdad comprueba que un correo existe es escribirle.
  */
-export function normalizeEmail(raw: unknown): string | null {
+function normalizeEmail(raw: unknown): string | null {
   if (typeof raw !== 'string') {
     return null;
   }
@@ -54,7 +56,7 @@ export function normalizeEmail(raw: unknown): string | null {
  * y nulo son lo mismo aquí —«no lo he dicho»—, y por eso borrarlo es una
  * operación válida y no un error.
  */
-export function normalizeName(raw: unknown): string | null {
+function normalizeName(raw: unknown): string | null {
   if (typeof raw !== 'string') {
     return null;
   }
@@ -65,30 +67,61 @@ export function normalizeName(raw: unknown): string | null {
 export type CreateUserResult =
   | { readonly kind: 'ok'; readonly user: User }
   | { readonly kind: 'sin-base-de-datos' }
+  | { readonly kind: 'menor' }
   | { readonly kind: 'correo-invalido' }
   | { readonly kind: 'contrasena-corta' }
   | { readonly kind: 'ya-existe' }
   | { readonly kind: 'error' };
 
-function toUser(row: { id: string; email: string; name: string | null; plan: string }): User {
-  return { id: row.id, email: row.email, name: row.name, plan: planOf(row.plan).id };
+function toUser(row: {
+  id: string;
+  email: string;
+  name: string | null;
+  plan: string;
+  sessionVersion: number;
+  impagadaDesde?: Date | null;
+}): User {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    // **El que vale hoy**, no el guardado: con el cobro fallando más de
+    // `DIAS_DE_GRACIA`, gratis (adr/0114). Todo lo que lee el plan pasa por aquí.
+    plan: planEnVigor(row.plan, row.impagadaDesde ?? null),
+    sessionVersion: row.sessionVersion,
+  };
 }
 
 export async function createUser(input: {
   email: unknown;
   password: unknown;
   name?: unknown;
+  /**
+   * Que ha declarado tener catorce años o más (LOPDGDD art. 7). Tiene que ser
+   * `true` y nada más: un `"sí"` o un `1` que llegue en el cuerpo no es haberlo
+   * declarado.
+   */
+  mayorDe14?: unknown;
 }): Promise<CreateUserResult> {
   const database = db();
   if (database === null) {
     return { kind: 'sin-base-de-datos' };
   }
 
+  // **Lo primero, antes que el correo y antes de cifrar nada.** Por debajo de
+  // catorce no se crea la cuenta, y no tiene sentido decirle a quien no puede
+  // tenerla que su correo está mal escrito (adr/0111).
+  if (input.mayorDe14 !== true) {
+    return { kind: 'menor' };
+  }
+
   const email = normalizeEmail(input.email);
   if (email === null) {
     return { kind: 'correo-invalido' };
   }
-  if (typeof input.password !== 'string' || input.password.length < MIN_PASSWORD_LENGTH) {
+  // Corta o enorme: las dos son `contrasena-corta`, «fuera de medida». La enorme
+  // no la escribe nadie a mano, y sin tope llegaba entera a `scrypt` (adr/0113).
+  if (!contrasenaDeMedida(input.password, MIN_PASSWORD_LENGTH)) {
     return { kind: 'contrasena-corta' };
   }
   const name = normalizeName(input.name);
@@ -101,7 +134,7 @@ export async function createUser(input: {
     // por la que dos registros a la vez crean dos cuentas con el mismo correo.
     const [row] = await database
       .insert(users)
-      .values({ email, name, passwordHash })
+      .values({ email, name, passwordHash, mayorDe14En: new Date() })
       .onConflictDoNothing({ target: users.email })
       .returning();
 
@@ -111,15 +144,32 @@ export async function createUser(input: {
   }
 }
 
+/**
+ * La base y el correo ya normalizado, o nulo si falta cualquiera de los dos.
+ *
+ * Es la entrada de todo lo que busca una cuenta por su correo, y sin ella cada
+ * sitio repetía las mismas cinco líneas. Devuelve un solo nulo a propósito:
+ * quien pregunta por un correo no puede distinguir «no hay base de datos» de
+ * «ese correo no existe», porque contestar distinto convierte la pantalla en un
+ * buscador de quién tiene cuenta aquí.
+ */
+export function baseYCorreo(
+  rawEmail: unknown,
+): { database: NonNullable<ReturnType<typeof db>>; email: string } | null {
+  const database = db();
+  const email = normalizeEmail(rawEmail);
+  return database === null || email === null ? null : { database, email };
+}
+
 /** La cuenta con su contraseña cifrada. Solo la usa la comprobación al entrar. */
 export async function findUserWithPassword(
   rawEmail: unknown,
 ): Promise<{ user: User; passwordHash: string } | null> {
-  const database = db();
-  const email = normalizeEmail(rawEmail);
-  if (database === null || email === null) {
+  const abierto = baseYCorreo(rawEmail);
+  if (abierto === null) {
     return null;
   }
+  const { database, email } = abierto;
 
   try {
     const [row] = await database.select().from(users).where(eq(users.email, email)).limit(1);
@@ -135,7 +185,7 @@ export async function findUserById(id: string): Promise<User | null> {
     return null;
   }
   try {
-    const [row] = await database.select().from(users).where(eq(users.id, id)).limit(1);
+    const row = await leerCuenta(database, id);
     return row === undefined ? null : toUser(row);
   } catch {
     return null;
@@ -164,6 +214,48 @@ export async function setName(userId: string, rawName: unknown): Promise<User | 
   } catch {
     return null;
   }
+}
+
+/**
+ * La cuenta, solo si la contraseña que dan es la suya.
+ *
+ * Lo piden las dos cosas que no se pueden hacer con la cookie a secas —cambiar
+ * la contraseña y borrar la cuenta— y lo pedían **con el mismo bloque escrito
+ * dos veces**: leer la fila, ver si existe, comparar el hash. Dos copias de una
+ * comprobación de contraseña es justo donde un arreglo se aplica a una y se
+ * olvida en la otra, y aquí eso significa dejar una puerta abierta.
+ *
+ * Devuelve la fila y no un booleano porque quien cambia la contraseña necesita
+ * `sessionVersion` de esa misma lectura: con un `true` habría que volver a
+ * buscarla, y entre las dos lecturas cabe un cambio.
+ *
+ * No distingue «no existe» de «no coincide» hacia fuera por casualidad: cada
+ * quien llama decide qué contesta, porque no contestan lo mismo.
+ */
+type FilaDeCuenta = Awaited<ReturnType<typeof leerCuenta>>;
+
+async function leerCuenta(database: Database, userId: string) {
+  const [row] = await database.select().from(users).where(eq(users.id, userId)).limit(1);
+  return row;
+}
+
+async function cuentaSiLaContrasenaEsEsa(
+  database: Database,
+  userId: string,
+  password: unknown,
+): Promise<
+  | { readonly kind: 'ok'; readonly row: NonNullable<FilaDeCuenta> }
+  | { readonly kind: 'no-existe' }
+  | { readonly kind: 'no-coincide' }
+> {
+  const row = await leerCuenta(database, userId);
+  if (row === undefined) {
+    return { kind: 'no-existe' };
+  }
+  // La cadena vacía cuando no mandan una de verdad: así se compara igual y no se
+  // contesta antes de tiempo, que es lo que diría si la cuenta existe.
+  const ok = await verifyPassword(typeof password === 'string' ? password : '', row.passwordHash);
+  return ok ? { kind: 'ok', row } : { kind: 'no-coincide' };
 }
 
 export type ChangePasswordResult =
@@ -197,24 +289,29 @@ export async function changePassword(
   if (database === null) {
     return { kind: 'sin-base-de-datos' };
   }
-  if (typeof nueva !== 'string' || nueva.length < MIN_PASSWORD_LENGTH) {
+  if (!contrasenaDeMedida(nueva, MIN_PASSWORD_LENGTH)) {
     return { kind: 'contrasena-corta' };
   }
 
   try {
-    const [row] = await database.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (row === undefined) {
+    const cuenta = await cuentaSiLaContrasenaEsEsa(database, userId, actual);
+    if (cuenta.kind === 'no-existe') {
       return { kind: 'error' };
     }
-
-    const ok = await verifyPassword(typeof actual === 'string' ? actual : '', row.passwordHash);
-    if (!ok) {
+    if (cuenta.kind === 'no-coincide') {
       return { kind: 'no-coincide' };
     }
 
     await database
       .update(users)
-      .set({ passwordHash: await hashPassword(nueva) })
+      .set({
+        passwordHash: await hashPassword(nueva),
+        // Sube la versión, y con eso las demás sesiones dejan de valer. Va en la
+        // misma sentencia que la contraseña: si fueran dos, entre una y otra
+        // habría un instante con la contraseña nueva y las sesiones viejas
+        // todavía buenas.
+        sessionVersion: cuenta.row.sessionVersion + 1,
+      })
       .where(eq(users.id, userId));
     return { kind: 'ok' };
   } catch {
@@ -222,11 +319,89 @@ export async function changePassword(
   }
 }
 
-/** Cambia el plan. Devuelve si se cambió algo. */
-export async function setPlan(userId: string, plan: PlanId): Promise<boolean> {
+export type DeleteAccountResult =
+  | 'ok'
+  | 'no-coincide'
+  | 'sin-base-de-datos'
+  | 'error'
+  /** Lo de antes de borrar —cancelar el cobro— no ha salido: no se borra. */
+  | 'sin-cancelar';
+
+/**
+ * Borra la cuenta y todo lo que cuelga de ella.
+ *
+ * **Se pide la contraseña aunque ya haya sesión**, por lo mismo que para
+ * cambiarla: una cookie viva en un ordenador prestado no puede bastar para
+ * borrarle la cuenta a alguien. Y esto no tiene vuelta atrás.
+ *
+ * El avance, las canciones y el contador de IA se van con ella porque las tres
+ * tablas cuelgan de `users` con `onDelete: cascade`. Es una sola sentencia y no
+ * cuatro, así que no puede quedarse a medias: o se borra todo o no se borra
+ * nada.
+ *
+ * Borrar de verdad y no marcar como borrada: lo segundo es más cómodo para
+ * recuperar cuentas y es exactamente lo que alguien que pide que le borren sus
+ * datos no está pidiendo.
+ */
+export async function deleteAccount(
+  userId: string,
+  password: unknown,
+  /**
+   * Lo que tiene que pasar **después de comprobar la contraseña y antes de
+   * borrar** (adr/0114): cancelar la suscripción en la pasarela y guardar lo
+   * gastado del mes. Lo escribe la ruta, que es quien conoce el cobrador. Si no
+   * dice `ok`, no se borra: una cuenta borrada con la suscripción viva sigue
+   * cobrando, y sus avisos ya no encuentran a nadie.
+   */
+  antesDeBorrar?: () => Promise<'ok' | 'sin-cancelar' | 'error'>,
+): Promise<DeleteAccountResult> {
   const database = db();
   if (database === null) {
-    return false;
+    return 'sin-base-de-datos';
+  }
+
+  try {
+    const cuenta = await cuentaSiLaContrasenaEsEsa(database, userId, password);
+    if (cuenta.kind === 'no-existe') {
+      return 'error';
+    }
+    if (cuenta.kind === 'no-coincide') {
+      return 'no-coincide';
+    }
+
+    const antes = (await antesDeBorrar?.()) ?? 'ok';
+    if (antes !== 'ok') {
+      return antes;
+    }
+
+    await database.delete(users).where(eq(users.id, userId));
+    return 'ok';
+  } catch {
+    return 'error';
+  }
+}
+
+/** Cambia el plan. Devuelve si se cambió algo. */
+export type SetPlanResult =
+  /** Cambiado. */
+  | 'ok'
+  /** Esa cuenta ya no está. Reintentarlo no lo va a arreglar. */
+  | 'no-existe'
+  /** No se ha podido escribir. Reintentarlo sí puede arreglarlo. */
+  | 'error';
+
+/**
+ * Cambia el plan.
+ *
+ * **Distingue «no existe» de «no se ha podido»**, y no es un lujo: el webhook de
+ * la pasarela contesta según eso. Con un booleano, una cuenta borrada que tenía
+ * suscripción devolvía 500 y Stripe reintentaba ese evento durante días, para
+ * siempre, sin que nunca fuera a salir bien. Se vio al ejecutarlo de verdad.
+ */
+export async function setPlan(userId: string, plan: PlanId): Promise<SetPlanResult> {
+  const database = db();
+  if (database === null) {
+    return 'error';
   }
   try {
     const rows = await database
@@ -234,8 +409,199 @@ export async function setPlan(userId: string, plan: PlanId): Promise<boolean> {
       .set({ plan })
       .where(eq(users.id, userId))
       .returning({ id: users.id });
-    return rows.length > 0;
+    return rows.length > 0 ? 'ok' : 'no-existe';
   } catch {
-    return false;
+    return 'error';
+  }
+}
+
+interface CuentaEnStripe {
+  readonly customerId: string | null;
+  readonly subscriptionId: string | null;
+}
+
+/**
+ * Lo que Stripe sabe de esta cuenta, o por qué no se sabe.
+ *
+ * Distingue «no está» de «no se ha podido leer», que `suscripcionDe` junta y el
+ * webhook no puede juntar: una cuenta borrada se contesta con 200, y una base que
+ * no contesta con 500 para que Stripe lo reintente.
+ */
+async function leerSuscripcion(userId: string): Promise<CuentaEnStripe | 'no-existe' | 'error'> {
+  const database = db();
+  if (database === null) {
+    return 'error';
+  }
+  try {
+    const [row] = await database
+      .select({
+        customerId: users.stripeCustomerId,
+        subscriptionId: users.stripeSubscriptionId,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    return row ?? 'no-existe';
+  } catch {
+    return 'error';
+  }
+}
+
+/**
+ * Lo que Stripe sabe de esta cuenta: su cliente y su suscripción viva.
+ *
+ * Nulo cuando no se ha podido leer —sin base, base caída o cuenta que ya no
+ * está—, que para quien cobra es lo mismo: no hay con qué ir a Stripe.
+ */
+export async function suscripcionDe(userId: string): Promise<CuentaEnStripe | null> {
+  const cuenta = await leerSuscripcion(userId);
+  return typeof cuenta === 'string' ? null : cuenta;
+}
+
+/** Escribe y dice si había a quién, con los tres resultados de `setPlan`. */
+async function escribirCuenta(
+  donde: SQL,
+  // Un valor o una expresión: `marcarImpago` escribe un `coalesce`.
+  cambios: { [K in keyof typeof users.$inferInsert]?: (typeof users.$inferInsert)[K] | SQL },
+): Promise<SetPlanResult> {
+  const database = db();
+  if (database === null) {
+    return 'error';
+  }
+  try {
+    const rows = await database.update(users).set(cambios).where(donde).returning({ id: users.id });
+    return rows.length > 0 ? 'ok' : 'no-existe';
+  } catch {
+    return 'error';
+  }
+}
+
+/**
+ * Lo que pasó al vincular un pago: los tres de `setPlan`, o que la cuenta ya
+ * tenía **otra** suscripción guardada, y cuál.
+ */
+export type VincularResult =
+  { readonly kind: SetPlanResult } | { readonly kind: 'otra'; readonly guardada: string };
+
+/**
+ * Un pago confirmado: el plan, el cliente y la suscripción, **en una sentencia**.
+ *
+ * Juntos porque son lo mismo dicho tres veces. Con el plan puesto y la suscripción
+ * sin guardar, cancelar no sabría qué parar en Stripe y el aviso de baja no
+ * encontraría a nadie: el plan de pago se quedaría para siempre.
+ *
+ * **Y solo si la cuenta no tenía otra.** Con dos Checkout pagados a la vez, el
+ * segundo aviso pisaba la suscripción del primero: esa seguía cobrando y sus
+ * avisos ya no encontraban a nadie. Ahora se escribe solo si lo guardado es nulo,
+ * es esta misma —un aviso repetido— o es `reemplaza`, la que quien llama ya ha
+ * comprobado en Stripe que está muerta. Y la escritura lleva **en su `where` lo
+ * que se leyó**: mirar y escribir por separado deja una rendija, y por ella se
+ * colaban los dos avisos a la vez.
+ */
+export async function vincularSuscripcion(
+  userId: string,
+  pago: { plan: PlanId; customerId: string; subscriptionId: string },
+  opciones: { reemplaza?: string } = {},
+): Promise<VincularResult> {
+  const cuenta = await leerSuscripcion(userId);
+  if (typeof cuenta === 'string') {
+    return { kind: cuenta };
+  }
+
+  const guardada = cuenta.subscriptionId;
+  if (guardada !== null && guardada !== pago.subscriptionId && guardada !== opciones.reemplaza) {
+    return { kind: 'otra', guardada };
+  }
+
+  // Se escribe solo si lo guardado sigue siendo lo que se acaba de leer. Si otro
+  // aviso lo cambió entre medias no se escribe nada, y es un error a propósito:
+  // Stripe lo reintenta, y la vez siguiente ya ve la suscripción del otro.
+  const escrito = await escribirCuenta(
+    and(
+      eq(users.id, userId),
+      guardada === null
+        ? isNull(users.stripeSubscriptionId)
+        : eq(users.stripeSubscriptionId, guardada),
+    ) as SQL,
+    {
+      plan: pago.plan,
+      stripeCustomerId: pago.customerId,
+      stripeSubscriptionId: pago.subscriptionId,
+    },
+  );
+  return { kind: escrito === 'no-existe' ? 'error' : escrito };
+}
+
+/**
+ * Lo que diga Stripe de una suscripción, aplicado a la cuenta que la tiene.
+ *
+ * **Se busca por la suscripción guardada y no por los metadatos del aviso.** Un
+ * aviso viejo que llegue tarde —Stripe no garantiza el orden— trae una
+ * suscripción que ya se soltó, y entonces no encuentra a nadie: no puede
+ * devolverle el plan de pago a quien ya se dio de baja.
+ *
+ * Con `soltar`, además se olvida la suscripción: es el aviso de que se acabó.
+ */
+export async function planDeSuscripcion(
+  subscriptionId: string,
+  plan: PlanId,
+  opciones: { soltar: boolean },
+): Promise<SetPlanResult> {
+  return escribirCuenta(eq(users.stripeSubscriptionId, subscriptionId), {
+    plan,
+    // Lo que diga Stripe ya no es `past_due`: el plazo de gracia se acaba aquí.
+    impagadaDesde: null,
+    ...(opciones.soltar ? { stripeSubscriptionId: null } : {}),
+  });
+}
+
+/**
+ * El cobro de esa suscripción ha fallado y Stripe lo está reintentando
+ * (`past_due`): empieza el plazo de gracia, **si no había empezado ya**.
+ *
+ * `coalesce` y no la fecha de ahora a secas: Stripe manda un aviso por cada
+ * cambio, y cada uno no puede volver a dar siete días. El plan no se toca; lo que
+ * se lee cambia solo al pasar el plazo (`planEnVigor`).
+ */
+export async function marcarImpago(subscriptionId: string, desde: Date): Promise<SetPlanResult> {
+  return escribirCuenta(eq(users.stripeSubscriptionId, subscriptionId), {
+    impagadaDesde: sql`coalesce(${users.impagadaDesde}, ${desde.toISOString()}::timestamptz)`,
+  });
+}
+
+/** Gratis y sin suscripción: lo que queda después de cancelarla en Stripe. */
+export async function soltarSuscripcion(userId: string): Promise<SetPlanResult> {
+  return escribirCuenta(eq(users.id, userId), { plan: 'gratis', stripeSubscriptionId: null });
+}
+
+/**
+ * Vuelve a cifrar la contraseña con los parámetros de hoy.
+ *
+ * Solo la llama la entrada, que es el único sitio donde se tiene la contraseña en
+ * claro y ya comprobada. **Solo escribe si lo guardado sigue siendo lo que se
+ * comprobó**: si entre medias alguien la cambió, esta escritura pisaría la nueva
+ * con la vieja.
+ *
+ * No sube `sessionVersion`, a propósito: es la misma contraseña, y echar a las
+ * demás sesiones por cambiar cómo se guarda sería un susto sin motivo. Si falla
+ * no pasa nada: se intenta la próxima vez que entre.
+ */
+export async function recifrarContrasena(
+  userId: string,
+  comprobado: string,
+  password: string,
+): Promise<void> {
+  const database = db();
+  /* v8 ignore next 3 -- solo se llama despues de haber leido la cuenta de la base */
+  if (database === null) {
+    return;
+  }
+  try {
+    await database
+      .update(users)
+      .set({ passwordHash: await hashPassword(password) })
+      .where(and(eq(users.id, userId), eq(users.passwordHash, comprobado)));
+  } catch {
+    // Entrar no puede fallar porque no se haya podido mejorar cómo se guarda.
   }
 }

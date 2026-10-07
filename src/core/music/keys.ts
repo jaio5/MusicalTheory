@@ -12,6 +12,8 @@
  * le sigue en vez de quedarse anclada al principio.
  */
 
+import { isRecord } from '../parse';
+import { asNoteName, type NoteName } from './notes';
 import { accidentalForKey } from './circle-of-fifths';
 import { noteName, SEMITONES_PER_OCTAVE, type PitchClass } from './notes';
 
@@ -30,11 +32,11 @@ export interface KeyCandidate {
  * Perfiles de Krumhansl y Kessler (1982): cuánto pesa cada grado cromático en
  * una tonalidad mayor y en una menor, empezando por la tónica.
  */
-export const KRUMHANSL_MAJOR_PROFILE: readonly number[] = [
+const KRUMHANSL_MAJOR_PROFILE: readonly number[] = [
   6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88,
 ];
 
-export const KRUMHANSL_MINOR_PROFILE: readonly number[] = [
+const KRUMHANSL_MINOR_PROFILE: readonly number[] = [
   6.33, 2.68, 3.52, 5.38, 2.6, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17,
 ];
 
@@ -43,7 +45,7 @@ export const KRUMHANSL_MINOR_PROFILE: readonly number[] = [
  * es media vuelta de una progresión lenta: suficiente para no bailar con cada
  * nota de paso y poco para seguir un cambio de tono real.
  */
-export const DEFAULT_HALF_LIFE_MS = 20_000;
+const DEFAULT_HALF_LIFE_MS = 20_000;
 
 /**
  * Reparto acumulado de clases de altura con su marca de tiempo.
@@ -100,6 +102,7 @@ export function addPitchClass(
   const { weight = 1, halfLifeMs = DEFAULT_HALF_LIFE_MS } = options;
   const decayed = decayPitchHistogram(histogram, at, halfLifeMs);
   const weights = [...decayed.weights];
+  /* v8 ignore next -- el histograma tiene sus doce casillas desde que se crea */
   weights[pitchClass] = (weights[pitchClass] ?? 0) + weight;
   return { weights, updatedAt: decayed.updatedAt };
 }
@@ -108,19 +111,23 @@ function pearson(a: readonly number[], b: readonly number[]): number {
   const n = a.length;
   let sumA = 0;
   let sumB = 0;
+  /* v8 ignore start -- se recorre hasta `n`, que es lo que mide el propio vector */
   for (let i = 0; i < n; i += 1) {
     sumA += a[i] ?? 0;
     sumB += b[i] ?? 0;
   }
+  /* v8 ignore stop */
   const meanA = sumA / n;
   const meanB = sumB / n;
 
   let covariance = 0;
   let varianceA = 0;
   let varianceB = 0;
+  /* v8 ignore start -- lo mismo: `n` es lo que mide el vector */
   for (let i = 0; i < n; i += 1) {
     const da = (a[i] ?? 0) - meanA;
     const db = (b[i] ?? 0) - meanB;
+    /* v8 ignore stop */
     covariance += da * db;
     varianceA += da * da;
     varianceB += db * db;
@@ -132,9 +139,11 @@ function pearson(a: readonly number[], b: readonly number[]): number {
 }
 
 function rotate(profile: readonly number[], tonic: PitchClass): number[] {
+  /* v8 ignore start -- el indice da la vuelta dentro del propio perfil */
   return profile.map(
     (_, index) => profile[(index - tonic + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE] ?? 0,
   );
+  /* v8 ignore stop */
 }
 
 export function keyName(tonic: PitchClass, mode: KeyMode): string {
@@ -191,4 +200,52 @@ export function detectKey(source: PitchHistogram | readonly number[], limit = 3)
 
 export function bestKey(source: PitchHistogram | readonly number[]): KeyCandidate | null {
   return detectKey(source, 1)[0] ?? null;
+}
+
+/**
+ * La tonalidad que venga de fuera, leída y comprobada.
+ *
+ * Las tres rutas de IA reciben la misma forma —`{ tonic, mode }`— y las tres la
+ * leían por su cuenta. Dos con `asNoteName` y la del profesor a mano, con
+ * `NOTE_NAMES.includes`, que resulta ser exactamente lo mismo escrito de otra
+ * manera. No llegaba a ser un fallo, pero eran dos sitios donde la misma regla
+ * podía separarse sin que nada fallara.
+ *
+ * Vive aquí y no en un contrato porque **un feature no importa de otro**: lo
+ * compartido sube a `core/`, y una tonalidad es de las cosas más del dominio que
+ * hay. Devuelve nulo con cualquier cosa que no sea una tonalidad, sin excepciones
+ * ni valores por defecto: quien no manda tonalidad no tiene petición.
+ */
+export function parseKey(value: unknown): { tonic: NoteName; mode: KeyMode } | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const tonic = asNoteName(value['tonic']);
+  const mode = value['mode'];
+  if (tonic === null || (mode !== 'major' && mode !== 'minor')) {
+    return null;
+  }
+  return { tonic, mode };
+}
+
+/**
+ * El cuerpo de una petición que empieza por una tonalidad.
+ *
+ * Las tres rutas de IA arrancan igual: comprobar que llega un objeto, leer la
+ * tonalidad y quedarse con la tónica y el modo. Estaba escrito tres veces, y la
+ * primera comprobación —**que el cuerpo sea un objeto**— es la que sostiene
+ * todas las demás: un contrato que se la olvide lee campos de `null` y decide
+ * con lo que salga.
+ *
+ * Devuelve también el cuerpo ya estrechado, que es lo que el contrato necesita
+ * para seguir leyendo sus campos.
+ */
+export function cuerpoConTonalidad(
+  body: unknown,
+): { campos: Record<string, unknown>; tonic: NoteName; mode: KeyMode } | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+  const key = parseKey(body['key']);
+  return key === null ? null : { campos: body, tonic: key.tonic, mode: key.mode };
 }

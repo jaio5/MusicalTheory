@@ -10,9 +10,10 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 
-.env
-.env.local
-.env.*.local
+# Cualquier .env, se llame como se llame (.env.production, .env.docker…), lleva
+# claves. El único que viaja es la plantilla, que no lleva ninguna.
+.env*
+!.env.example
 
 .DS_Store
 *.log
@@ -23,3 +24,28 @@ reference/landing/hero/
 reference/landing/uploads/
 reference/landing/support.js
 reference/landing/.thumbnail
+banco-de-ia.txt
+
+# Instantáneas de playwright-cli (skill arrancar)
+.playwright-cli/
+
+# Caché de Python de los scripts de arte/
+__pycache__/
+
+# Las grabaciones de guitarra para medir el motor (docs/MEDIR.md). Mejor fuera del
+# repositorio; si se dejan dentro, en `tomas/`, y por si acaso cualquier audio suelto:
+# el audio no sale del equipo, tampoco en un commit.
+tomas/
+*.wav
+*.m4a
+*.webm
+*.ogg
+*.mp3
+*.flac
+*.opus
+*.caf
+*.3gp
+
+# Un script que escriba en `${sinDefinir}/` crea esta carpeta; ya se coló una vez
+# en un commit con capturas.
+undefined/

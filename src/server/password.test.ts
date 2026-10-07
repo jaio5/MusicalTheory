@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { hashPassword, verifyPassword } from './password';
+import { scryptSync } from 'node:crypto';
+
+import {
+  contrasenaDeMedida,
+  HASH_DE_NADIE,
+  hashPassword,
+  MAX_PASSWORD_LENGTH,
+  igualarCoste,
+  necesitaRecifrar,
+  verifyPassword,
+} from './password';
 
 /**
  * Estos tests tardan más que el resto —cada cifrado son unos cien milisegundos a
@@ -36,7 +46,7 @@ describe('cifrado de contraseñas', () => {
   it('guarda sus propios parámetros, para poder subirlos sin invalidar nada', async () => {
     const stored = await hashPassword('cualquiera');
 
-    expect(stored.startsWith('scrypt$16384$8$1$')).toBe(true);
+    expect(stored.startsWith('scrypt$16384$8$5$')).toBe(true);
     expect(stored.split('$')).toHaveLength(6);
   });
 
@@ -56,6 +66,11 @@ describe('cifrado de contraseñas', () => {
       'bcrypt$16384$8$1$c2Fs$aGFzaA==',
       'scrypt$muchas$8$1$c2Fs$aGFzaA==',
       'scrypt$16384$8$1$$',
+      // Parámetros que revientan a `scrypt` por dentro: un coste absurdo pide
+      // más memoria de la que hay, y eso lanza en vez de devolver un hash.
+      'scrypt$1073741824$8$1$c2Fs$aGFzaA==',
+      // Y un `n` que no es potencia de dos, que también lanza.
+      'scrypt$3$8$1$c2Fs$aGFzaA==',
     ]) {
       await expect(verifyPassword('cualquiera', raro)).resolves.toBe(false);
     }
@@ -77,5 +92,96 @@ describe('cifrado de contraseñas', () => {
     const stored = await hashPassword(compuesta);
 
     await expect(verifyPassword(precompuesta, stored)).resolves.toBe(true);
+  });
+
+  /*
+    Los parámetros de OWASP (`N=2^14, r=8, p=5`), y lo que hay alrededor de
+    subirlos: lo guardado con los de antes sigue valiendo, se sabe que hay que
+    volver a cifrarlo, y la cuenta que no existe tarda lo que tarda una de hoy.
+  */
+  it('cifra con una de las combinaciones de OWASP', async () => {
+    const [, n, r, p] = (await hashPassword('cualquiera')).split('$').map(Number);
+    // Las cinco de la hoja de OWASP cuestan lo mismo: N·r·p = 2^17 · 8.
+    expect((n ?? 0) * (r ?? 0) * (p ?? 0)).toBeGreaterThanOrEqual(2 ** 17 * 8 * 0.6);
+    expect(r).toBe(8);
+  });
+
+  it('lo cifrado con los parámetros viejos sigue entrando, y pide recifrarse', async () => {
+    const sal = Buffer.from('una sal de prueb');
+    const clave = scryptSync('la de siempre', sal, 64, { N: 16_384, r: 8, p: 1 });
+    const viejo = ['scrypt', 16_384, 8, 1, sal.toString('base64'), clave.toString('base64')].join(
+      '$',
+    );
+
+    await expect(verifyPassword('la de siempre', viejo)).resolves.toBe(true);
+    expect(necesitaRecifrar(viejo)).toBe(true);
+    expect(necesitaRecifrar(await hashPassword('la de siempre'))).toBe(false);
+  });
+
+  it('una fila sin formato no se recifra: no se ha podido comprobar', () => {
+    expect(necesitaRecifrar('vaya')).toBe(false);
+  });
+
+  it('el hash de nadie lleva los parámetros de hoy, y no entra con nada', async () => {
+    // Es lo que iguala el tiempo de un correo que no existe con el de uno que sí:
+    // con los parámetros viejos escritos a mano, igualaba el de una cuenta vieja.
+    const hoy = (await hashPassword('x')).split('$').slice(0, 4).join('$');
+    expect(HASH_DE_NADIE.startsWith(`${hoy}$`)).toBe(true);
+    expect(necesitaRecifrar(HASH_DE_NADIE)).toBe(false);
+    await expect(verifyPassword('', HASH_DE_NADIE)).resolves.toBe(false);
+  });
+});
+
+/**
+ * Lo que le falta a una comprobación fallida para costar lo de hoy. Sin medir
+ * tiempos: se mira cuánto `p` deriva, que con `N` y `r` fijos es lo que cuesta.
+ */
+describe('igualar el coste de una comprobación fallida', () => {
+  it('a una cuenta de antes, con p=1, le añade los cuatro que le faltan', async () => {
+    expect(await igualarCoste(`scrypt$16384$8$1$${'a'.repeat(8)}$${'b'.repeat(8)}`)).toBe(4);
+  });
+
+  it('a una de hoy, o a una más cara, no le añade nada', async () => {
+    expect(await igualarCoste(await hashPassword('x'))).toBe(0);
+    expect(await igualarCoste(HASH_DE_NADIE)).toBe(0);
+    expect(await igualarCoste('scrypt$16384$8$6$c2Fs$Y2xhdmU=')).toBe(0);
+  });
+
+  it('con otra N redondea hacia arriba: mejor pasarse que quedarse corto', async () => {
+    // 8192·8·1 es la mitad de una unidad de hoy: faltan cuatro y media.
+    expect(await igualarCoste('scrypt$8192$8$1$c2Fs$Y2xhdmU=')).toBe(5);
+  });
+
+  it('una fila sin formato, que falla al instante, paga la comprobación entera', async () => {
+    for (const roto of [
+      '',
+      'vaya',
+      'bcrypt$16384$8$5$c2Fs$Y2xhdmU=',
+      'scrypt$x$8$5$c2Fs$Y2xhdmU=',
+    ]) {
+      expect(await igualarCoste(roto), roto).toBe(5);
+    }
+  });
+});
+
+/**
+ * **El tope de largo** (adr/0113). Sin él, lo que acotaba una contraseña era lo
+ * que dejara pasar el cuerpo de la petición, y la entrada no tenía el tope de las
+ * demás rutas: una de 10 MB llegaba entera a `scrypt`.
+ */
+describe('lo más larga que puede ser', () => {
+  it('mil veinticuatro caracteres', () => {
+    expect(MAX_PASSWORD_LENGTH).toBe(1024);
+    expect(contrasenaDeMedida('x'.repeat(1024), 8)).toBe(true);
+    expect(contrasenaDeMedida('x'.repeat(1025), 8)).toBe(false);
+    expect(contrasenaDeMedida('corta', 8)).toBe(false);
+    expect(contrasenaDeMedida(12345678, 8)).toBe(false);
+  });
+
+  it('una más larga no se comprueba: aunque lo guardado fuera suyo, dice que no', async () => {
+    const larga = 'x'.repeat(MAX_PASSWORD_LENGTH + 1);
+    const guardada = await hashPassword(larga);
+
+    expect(await verifyPassword(larga, guardada)).toBe(false);
   });
 });

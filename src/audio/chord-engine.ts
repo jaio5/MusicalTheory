@@ -11,10 +11,17 @@
  * enseñarlos todos sería un cartel parpadeando.
  */
 
-import { bestChord, type Accidental, type ChordMatch } from '@core/music';
+import {
+  PARECIDO_MINIMO,
+  readChord,
+  triadInside,
+  type Accidental,
+  type ChordReading,
+} from '@core/music';
 
 import type { AudioInput } from './audio-input';
-import { chromaFromSpectrum } from './chroma';
+import { ACORDES_HASTA_HZ, leerEspectro } from './chroma';
+import { Emisor } from '@core/estado-observable';
 
 export interface ChordEngineOptions {
   /** Análisis por segundo. */
@@ -26,6 +33,22 @@ export interface ChordEngineOptions {
   /** Por debajo de esto no se parece a ningún acorde. */
   readonly minScore: number;
   readonly accidental: Accidental;
+  /**
+   * Hasta dónde se mira el espectro, en hercios.
+   *
+   * **Mil (`ACORDES_HASTA_HZ`, el mismo que el análisis en diferido), y no los
+   * 2200 del croma**, porque en un acorde de guitarra por encima de mil no suena
+   * ninguna fundamental —la nota más aguda de una postura abierta es un Sol 4, a
+   * 392 Hz, y en el traste doce de la primera, un Mi 5 a 659—: solo hay
+   * armónicos, y los armónicos mienten.
+   *
+   * Con el descuento de antes, mirando hasta 2200 ningún acorde de C, Am, F y G
+   * pasaba del parecido mínimo. Con el de ahora, que mide cada armónico en su
+   * serie, esa toma ya sale entera también hasta 2200 (`toma-sintetica.test.ts`);
+   * el techo se queda porque en diferido, con los dos conjuntos de guitarra
+   * sintética, mirar hasta 2200 acertaba bastante menos (`docs/AUDIO-PITCH.md`).
+   */
+  readonly maxHz: number;
 }
 
 /**
@@ -38,13 +61,31 @@ export interface ChordEngineOptions {
  * confirmarse. Con estos números eso son cuatro décimas: lo que tarda en salir
  * un acorde nuevo, y lo que hay que sostenerlo para que cuente.
  */
-export const DEFAULT_CHORD_ENGINE_OPTIONS: ChordEngineOptions = {
+const DEFAULT_CHORD_ENGINE_OPTIONS: ChordEngineOptions = {
   rate: 10,
   smoothing: 0.5,
   confirmations: 4,
-  minScore: 0.78,
+  minScore: PARECIDO_MINIMO,
   accidental: 'sharp',
+  maxHz: ACORDES_HASTA_HZ,
 };
+
+/**
+ * Qué acorde es, a efectos de confirmarlo: la fundamental y la tríada de dentro.
+ *
+ * Se confirmaba por el cifrado, y con una guitarra el cifrado **parpadea entre
+ * C7, Cmaj7 y C6 de un análisis al siguiente**: la cuarta nota la ponen los
+ * armónicos y cambia con cada rasgueo. Cuatro iguales seguidos no llegaban casi
+ * nunca y el acorde no se decía. Con la tríada como identidad, los tres son el
+ * mismo Do mayor —que es lo que se tocó— y se confirma en cuatro décimas.
+ */
+function identidadDe(reading: ChordReading | null): string | null {
+  if (reading === null) {
+    return null;
+  }
+  const { root, notes, symbol } = reading.best;
+  return `${root}:${triadInside(root, notes) ?? symbol}`;
+}
 
 export interface ChordEngine {
   readonly running: boolean;
@@ -52,13 +93,18 @@ export interface ChordEngine {
   stop(): void;
   /** Cambia cómo se escriben los cifrados sin cortar el análisis. */
   setAccidental(accidental: Accidental): void;
-  subscribe(listener: (chord: ChordMatch | null) => void): () => void;
+  /**
+   * Lo que se oye, **con su duda**: el acorde, lo que también pudo ser y cuánto
+   * se despega del segundo. Antes se emitía solo el elegido, y todo lo que venía
+   * después —apuntar, corregir, saber de qué fiarse— se quedaba sin esa mitad.
+   */
+  subscribe(listener: (chord: ChordReading | null) => void): () => void;
 }
 
 export class ChromaChordEngine implements ChordEngine {
   readonly options: ChordEngineOptions;
 
-  readonly #listeners = new Set<(chord: ChordMatch | null) => void>();
+  readonly #oidos = new Emisor<ChordReading | null>();
   #input: AudioInput | null = null;
   #spectrum: Float32Array<ArrayBuffer> | null = null;
   #timer: ReturnType<typeof setInterval> | null = null;
@@ -105,11 +151,8 @@ export class ChromaChordEngine implements ChordEngine {
     this.#accidental = accidental;
   }
 
-  subscribe(listener: (chord: ChordMatch | null) => void): () => void {
-    this.#listeners.add(listener);
-    return () => {
-      this.#listeners.delete(listener);
-    };
+  subscribe(listener: (chord: ChordReading | null) => void): () => void {
+    return this.#oidos.suscribir(listener);
   }
 
   #analyse(): void {
@@ -119,9 +162,10 @@ export class ChromaChordEngine implements ChordEngine {
       return;
     }
 
-    const chroma = chromaFromSpectrum(spectrum, {
+    const { croma: chroma, bajo } = leerEspectro(spectrum, {
       sampleRate: input.sampleRate,
       fftSize: input.spectrumSize,
+      maxHz: this.options.maxHz,
     });
 
     // Media móvil: un acorde dura segundos y un análisis dura una décima, así
@@ -131,26 +175,27 @@ export class ChromaChordEngine implements ChordEngine {
       (value, note) => value * (1 - smoothing) + chroma[note]! * smoothing,
     );
 
-    const match = bestChord(this.#smoothed, {
+    // El bajo es el del análisis de ahora, no uno suavizado: solo desempata
+    // acordes con las mismas notas, y la nota más grave no se promedia.
+    const reading = readChord(this.#smoothed, {
       accidental: this.#accidental,
       minScore: this.options.minScore,
+      bajo,
     });
-    const symbol = match?.symbol ?? null;
+    const identidad = identidadDe(reading);
 
-    if (symbol !== this.#candidate) {
-      this.#candidate = symbol;
+    if (identidad !== this.#candidate) {
+      this.#candidate = identidad;
       this.#seen = 1;
       return;
     }
 
     this.#seen += 1;
-    if (this.#seen < this.options.confirmations || symbol === this.#announced) {
+    if (this.#seen < this.options.confirmations || identidad === this.#announced) {
       return;
     }
 
-    this.#announced = symbol;
-    for (const listener of this.#listeners) {
-      listener(match);
-    }
+    this.#announced = identidad;
+    this.#oidos.emitir(reading);
   }
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -41,7 +41,11 @@ describe('La meta del día', () => {
     expect(
       screen.getByRole('img', { name: `0 de ${DAILY_GOAL_XP} XP de la meta de hoy` }),
     ).toBeInTheDocument();
-    expect(screen.getByText(`${DAILY_GOAL_XP} XP`)).toBeInTheDocument();
+    const falta = screen.getByText((_, nodo) => nodo?.textContent === `${DAILY_GOAL_XP} XP`);
+    expect(falta).toBeInTheDocument();
+    // La mono solo para la cifra; la palabra va en la sans (adr/0024).
+    expect(within(falta).getByText(`${DAILY_GOAL_XP}`)).toHaveClass('font-mono');
+    expect(falta).not.toHaveClass('font-mono');
   });
 
   it('descuenta lo hecho hoy', () => {
@@ -81,12 +85,14 @@ describe('La racha', () => {
     pintar();
 
     expect(screen.getByText('sin racha')).toBeInTheDocument();
+    // Es una palabra, no una cifra: va en la sans (adr/0024).
+    expect(screen.getByText('sin racha').closest('.font-mono')).toBeNull();
   });
 
   it('en singular el primer día', () => {
     pintar(tras(1));
 
-    expect(screen.getByText(/1 día de racha/)).toBeInTheDocument();
+    expect(screen.getByTitle(/1 día seguidos/)).toHaveTextContent('1 día de racha');
   });
 
   it('no enseña una racha que ya está rota', () => {
@@ -128,5 +134,56 @@ describe('El aviso de repaso', () => {
     pintar(progress);
 
     expect(screen.getByText('Tienes una pregunta para repasar')).toBeInTheDocument();
+  });
+});
+
+describe('los plurales del avance', () => {
+  /**
+   * Una racha de varios días se dice en plural, y varias preguntas esperando
+   * también: un «1 días de racha» delata que nadie ha leído la pantalla.
+   */
+  it('la racha de varios dias va en plural', () => {
+    // Dos días seguidos: ayer y hoy.
+    const ayer = completeUnit(EMPTY_PROGRESS, UNIT_ORDER[0]!, '2026-07-28');
+    const hoy = completeUnit(ayer, UNIT_ORDER[1]!, HOY);
+
+    pintar(hoy);
+
+    expect(screen.getByTitle(/2 días seguidos/)).toHaveTextContent('2 días de racha');
+  });
+
+  it('y varias preguntas para repasar, tambien', () => {
+    const una = missQuestion(tras(1), UNIT_ORDER[0]!, 0, HOY);
+    const dos = missQuestion(una, UNIT_ORDER[0]!, 1, HOY);
+
+    pintar(dos);
+
+    expect(screen.getByRole('button', { name: /2 preguntas para repasar/ })).toBeInTheDocument();
+  });
+
+  // Y sin a dónde llevar el repaso, el aviso no se ofrece.
+  it('sin sitio al que ir, el aviso de repaso no sale', () => {
+    const progress = missQuestion(tras(1), UNIT_ORDER[0]!, 0, HOY);
+
+    pintar(progress, { repaso: false });
+
+    expect(screen.queryByRole('button', { name: /repasar/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('sin dia', () => {
+  /**
+   * El día lo pone quien monta la pantalla, y puede no estar todavía en el
+   * primer pintado: entonces no se inventa nada —ni racha, ni XP de hoy, ni
+   * cola— en vez de contar lo de otro día como si fuera el de hoy.
+   */
+  it('no se cuenta nada como si fuera de hoy', () => {
+    pintar(tras(2), { day: null });
+
+    expect(screen.getByText('sin racha')).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: `0 de ${DAILY_GOAL_XP} XP de la meta de hoy` }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /repasar/i })).not.toBeInTheDocument();
   });
 });

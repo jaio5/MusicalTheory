@@ -127,10 +127,6 @@ export const HEPTATONIC_SCALE_IDS: readonly HeptatonicScaleId[] = [
   'harmonicMinor',
 ];
 
-export function scaleDefinition(id: ScaleId): ScaleDefinition {
-  return SCALES[id];
-}
-
 export function isHeptatonic(id: ScaleId): id is HeptatonicScaleId {
   return SCALES[id].intervals.length === 7;
 }

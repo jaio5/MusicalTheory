@@ -152,3 +152,47 @@ export function substitutionOfDegree(mode: KeyMode, degree: number): Substitutio
   const table = mode === 'major' ? MAJOR_SUBSTITUTIONS : MINOR_SUBSTITUTIONS;
   return table[degree] ?? null;
 }
+
+/**
+ * El papel de un grado, buscándolo por su nombre.
+ *
+ * `roleOfDegree` va por el número —del 0 al 6— y eso solo sirve para los siete
+ * diatónicos. Los prestados y el napolitano tienen nombre pero no número: el
+ * bVII no es «el séptimo», es un acorde traído del modo menor. Al dibujar un
+ * montaje hacen falta los dos, porque en el lienzo caben.
+ *
+ * Los papeles de los de fuera no son opinión: el bVII resuelve al I sin sensible
+ * —la cadencia del rock— y por eso es dominante; el bVI y el napolitano se van
+ * de casa sin tensar, que es lo que hace una subdominante; el bIII comparte dos
+ * notas con la tónica y no llega a irse.
+ */
+const DEGREE_ROLES: Readonly<Record<string, HarmonicRole>> = {
+  // Mayor
+  I: 'tonic',
+  ii: 'subdominant',
+  iii: 'tonic',
+  IV: 'subdominant',
+  V: 'dominant',
+  vi: 'tonic',
+  'vii°': 'dominant',
+  // Menor
+  i: 'tonic',
+  'ii°': 'subdominant',
+  III: 'tonic',
+  iv: 'subdominant',
+  v: 'dominant',
+  // Tónica, y no subdominante como parece: el VI de menor comparte dos notas con
+  // el i —en La menor, Fa contra La menor— y hace de sustituto de la tónica,
+  // igual que el vi en mayor. Lo decía ya la tabla por número.
+  VI: 'tonic',
+  VII: 'dominant',
+  // Prestados y napolitano, en los dos modos
+  bII: 'subdominant',
+  bIII: 'tonic',
+  bVI: 'subdominant',
+  bVII: 'dominant',
+};
+
+export function roleOfDegreeSymbol(degree: string): HarmonicRole {
+  return DEGREE_ROLES[degree] ?? 'approach';
+}

@@ -50,3 +50,19 @@ describe('la letra del avatar', () => {
     expect(avatarInitial(cuenta({ name: '日本' }))).toBe('日');
   });
 });
+
+/**
+ * La inicial del avatar sale de cómo se te llama, y hay cuentas sin nombre y sin
+ * correo: entonces no hay letra que poner. Se corta por puntos de código porque
+ * un emoji o una letra con tilde compuesta se parten si se cortan por `[0]`.
+ */
+describe('la inicial del avatar', () => {
+  it('sale del nombre, del correo o de nada', () => {
+    expect(avatarInitial({ ...ANONYMOUS, name: 'javier' })).toBe('J');
+    expect(avatarInitial({ ...ANONYMOUS, name: null, email: 'javier@example.com' })).toBe('J');
+    // Sin nombre ni correo se cae en «tu cuenta», que empieza por t.
+    expect(avatarInitial({ ...ANONYMOUS, name: null, email: null })).toBe('T');
+    // Y con el nombre en blanco, que no es lo mismo que no tenerlo.
+    expect(avatarInitial({ ...ANONYMOUS, name: '  ', email: null })).toBe('T');
+  });
+});

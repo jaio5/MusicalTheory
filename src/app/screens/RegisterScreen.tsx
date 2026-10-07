@@ -1,97 +1,126 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 
-import { displayName, monthlyAiRequests } from '@core/billing';
+import { displayName } from '@core/billing';
 import { AccessForm } from '@features/account';
 import { useAccount } from '@state/account';
+import { estiloBoton } from '@ui/Button';
+import { Screen } from '@ui/Screen';
+
+import { QueTeDaLaCuenta } from './QueTeDaLaCuenta';
 
 /**
  * Crear tu cuenta.
  *
  * Es a donde lleva el avatar de quien todavía no tiene ninguna. Pantalla propia y
  * no un panel dentro de la cuenta, porque quien llega aquí no viene a mirar nada:
- * viene a rellenar tres campos, y todo lo que no sea el formulario le estorba.
+ * viene a rellenar tres campos.
  *
- * Lo que se cuenta al lado es **por qué merece la pena**, y en ese orden: llevarte
- * el avance a otro aparato, que la IA necesita saber de quién es el gasto, y que
- * sin cuenta la aplicación sigue funcionando entera. Lo último es lo que evita que
- * esto parezca un muro: no lo es, y decirlo aquí cuesta una línea.
+ * **Dos columnas, y el formulario primero.** A la izquierda lo que hay que hacer;
+ * a la derecha, por qué merece la pena. En una sola columna, las razones quedaban
+ * por debajo del pliegue y no las leía nadie, o quedaban encima y había que pasar
+ * por delante de ellas para llegar al campo del correo. En pantalla estrecha se
+ * apilan en ese mismo orden: primero el formulario.
+ *
+ * El muñeco da la bienvenida porque **esta es la única pantalla donde un
+ * desconocido se para a decidir**: pone cara a lo que hay dentro. Es el mismo del
+ * profesor, no un dibujo nuevo.
+ *
+ * Lo último que se cuenta es que sin cuenta la aplicación funciona entera. Es lo
+ * que evita que esto parezca un muro: no lo es, y decirlo cuesta una línea.
  *
  * Si ya has entrado no se pinta el formulario. Un formulario de registro delante
  * de quien ya tiene la sesión abierta es una invitación a crear una segunda cuenta
  * sin querer y perder el avance de la primera.
+ *
+ * **Y esa pantalla sin formulario dice dos cosas distintas**, porque se llega a
+ * ella por dos sitios: acabando de crear la cuenta aquí mismo, o entrando con la
+ * sesión ya abierta. Al segundo se le explica por qué no hay nada que rellenar;
+ * al primero se le confirma que salió bien y se le manda al camino, que es a lo
+ * que venía. Las dos daban el mismo «no hay nada que crear aquí»: un acierto
+ * contado con la cara de un tropiezo.
  */
 export function RegisterScreen() {
   const { account, accounts, signedIn } = useAccount();
+  // Acabar de crearla aquí y llegar con la sesión ya abierta terminan los dos en
+  // la misma rama, y no son lo mismo: al primero hay que darle la enhorabuena y
+  // el siguiente paso, y al segundo explicarle por qué no hay formulario. Sin
+  // esto, quien pulsaba «Crear la cuenta» recibía «no hay nada que crear aquí»,
+  // que es la frase de un tropiezo puesta encima de un acierto.
+  const [reciencreada, setReciencreada] = useState(false);
+
+  if (signedIn) {
+    return (
+      <Screen
+        title={reciencreada ? 'Tu cuenta está lista' : 'Ya tienes cuenta'}
+        lead={
+          reciencreada
+            ? `Estás dentro como ${displayName(account)}. Tu avance deja de vivir en este navegador y te sigue a donde estudies.`
+            : `Estás dentro como ${displayName(account)}, así que no hay nada que crear aquí.`
+        }
+        ancho="lectura"
+      >
+        {/* Recién creada, lo primero es ir a estudiar: es a lo que se venía, y la
+            cuenta no hay nada que mirarle todavía. Quien ya estaba dentro sí
+            viene a mirar la suya, así que ahí manda la otra. */}
+        <div className="flex flex-wrap gap-2">
+          {reciencreada ? (
+            <>
+              <Link href="/aprender" className={estiloBoton('primary')}>
+                Empezar a aprender
+              </Link>
+              <Link href="/cuenta" className={estiloBoton('quiet')}>
+                Tu cuenta
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/cuenta" className={estiloBoton('primary')}>
+                Tu cuenta
+              </Link>
+              <Link href="/aprender" className={estiloBoton('quiet')}>
+                Ir al camino
+              </Link>
+            </>
+          )}
+        </div>
+      </Screen>
+    );
+  }
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto flex max-w-2xl flex-col gap-8 p-4 md:p-8">
-        <header>
-          <h1 className="text-text text-3xl">
-            {signedIn ? 'Ya tienes cuenta' : 'Crear tu cuenta'}
-          </h1>
-          <p className="text-text-muted mt-3 max-w-prose">
-            {signedIn
-              ? `Estás dentro como ${displayName(account)}, así que no hay nada que crear aquí.`
-              : 'Con cuenta, tu avance deja de vivir en este navegador y te lo llevas al móvil, al portátil o a donde estudies.'}
-          </p>
-        </header>
+    <Screen
+      title="Crear tu cuenta"
+      lead="Tu avance deja de vivir en este navegador y te lo llevas al móvil, al portátil o a donde estudies."
+      ancho="lectura"
+      aside={<QueTeDaLaCuenta accounts={accounts} />}
+    >
+      {/*
+        **Dos columnas, y el formulario primero**, con las razones en la columna
+        de al lado (`aside` de `ui/Screen`).
 
-        {signedIn ? (
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/cuenta"
-              className="bg-brass text-background hover:bg-brass-bright inline-flex items-center justify-center rounded-md px-5 py-2.5 text-base"
-            >
-              Tu cuenta
-            </Link>
-            <Link
-              href="/aprender"
-              className="border-border text-text hover:border-brass-dim inline-flex items-center justify-center rounded-md border px-5 py-2.5 text-base"
-            >
-              Ir al camino
-            </Link>
-          </div>
-        ) : (
-          <section aria-label="Crear la cuenta">
-            <AccessForm inicial="crear" />
-          </section>
-        )}
+        Sin cuentas configuradas, «Qué te da» no puede prometerse —no hay cuenta
+        que crear— y la rejilla dejaba el aviso pegado a la izquierda con el resto
+        de la pantalla en blanco: el 23 % del ancho usado a 1920. Ahí el lado dice
+        lo que sí funciona sin cuenta, con un enlace a cada sitio.
 
-        {accounts && !signedIn && (
-          <section aria-label="Para qué sirve la cuenta">
-            <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">
-              Qué te da
-            </h2>
-            <ul className="text-text-muted mt-3 flex list-disc flex-col gap-2 pl-5 text-sm">
-              <li>
-                <strong className="text-text">Tu avance, en tu cuenta.</strong> Las unidades, el XP,
-                la racha y lo que fallaste dejan de depender de este navegador, y al entrar en otro
-                aparato se juntan quedándose lo mejor de cada lado.
-              </li>
-              <li>
-                <strong className="text-text">La IA.</strong> El profesor y las ideas cuestan dinero
-                por pregunta, así que hace falta saber de quién es el gasto. Sin pagar nada son{' '}
-                {monthlyAiRequests('gratis', account.aiModel)} preguntas al profesor al mes.
-              </li>
-              <li>
-                <strong className="text-text">Un plan, si lo quieres.</strong> Los{' '}
-                <Link href="/planes" className="text-brass-bright hover:text-brass underline">
-                  tres planes
-                </Link>{' '}
-                abren el Grado Profesional, el repaso y más IA. No hace falta ninguno para empezar.
-              </li>
-            </ul>
-            <p className="text-text-muted mt-4 max-w-prose text-sm">
-              Sin cuenta la aplicación funciona <strong className="text-text">entera</strong> menos
-              la IA: el afinador, la rueda, el mástil, el metrónomo, componer, grabarte y los cuatro
-              cursos del Grado Elemental. El avance se queda guardado en este navegador.
-            </p>
-          </section>
-        )}
+        El formulario, en su tarjeta y con el muñeco asomando por arriba (`marco`,
+        el mismo de /cuenta): es lo único que hay que hacer en esta pantalla y
+        tiene que verse como tal. Sin cuentas no hay formulario, solo el aviso de
+        `AccessForm`, y va suelto: una tarjeta encendida prometía algo que
+        rellenar.
+      */}
+      {/* Con formulario, el ancho de un formulario; con el aviso solo, lo que mida
+          el aviso, para que lo de al lado no quede a un palmo. */}
+      <div className={accounts ? 'w-full lg:w-[26rem]' : 'w-full'}>
+        <AccessForm
+          inicial="crear"
+          marco={accounts}
+          onDone={(comoEntro) => setReciencreada(comoEntro === 'crear')}
+        />
       </div>
-    </div>
+    </Screen>
   );
 }

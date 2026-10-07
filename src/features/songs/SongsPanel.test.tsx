@@ -1,0 +1,682 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest';
+
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { Account } from '@core/billing';
+import {
+  DEFAULT_BPM,
+  EMPTY_ARRANGEMENT,
+  MAX_SECTIONS,
+  pitchClassFromName,
+  type Song,
+} from '@core/music';
+import { AccountProvider } from '@state/account';
+import { useArrangementStore } from '@state/arrangement-store';
+import { useSessionStore } from '@state/session-store';
+
+import { SongsPanel } from './SongsPanel';
+
+const C = pitchClassFromName('C');
+
+const CON_PLAN: Account = {
+  email: 'javier@example.com',
+  name: null,
+  plan: 'basico',
+  aiModel: 'claude-opus-5',
+  aiLeftToday: 30,
+  aiLeftMonth: 30,
+};
+
+const SIN_PLAN: Account = { ...CON_PLAN, plan: 'gratis' };
+
+function conCuenta(node: React.ReactNode, account: Account = CON_PLAN) {
+  return (
+    <AccountProvider account={account} accounts>
+      {node}
+    </AccountProvider>
+  );
+}
+
+function respondWith(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+const UNA: Song = {
+  id: '11111111-2222-3333-4444-555555555555',
+  name: 'La mía',
+  tonic: C,
+  mode: 'major',
+  bpm: 100,
+  sections: [{ name: 'Parte 1', degrees: ['I', 'V', 'vi', 'IV'] }],
+  updatedAt: 1000,
+};
+
+/** Pone una tonalidad y un camino de acordes, como si se hubiera compuesto. */
+function componiendo(labels: readonly string[]) {
+  const { actions } = useSessionStore.getState();
+  actions.pinKey({ tonic: C, mode: 'major' });
+  actions.clearPath();
+  for (const label of labels) {
+    actions.pushChord({ symbol: label, label, root: C, notes: [C], why: 'porque sí' });
+  }
+}
+
+/**
+ * El cuerpo del `POST` que guardó, no el de la última llamada.
+ *
+ * Después de guardar se vuelve a pedir la lista, así que la última llamada es un
+ * `GET` y no lleva cuerpo.
+ */
+function cuerpoDelPost(request: { mock: { calls: unknown[][] } }): {
+  sections: { name: string; degrees: string[] }[];
+} {
+  const posts = request.mock.calls
+    .map(([init]: unknown[]) => init as { method?: string; body?: string })
+    .filter((init: { method?: string }) => init.method === 'POST');
+  return JSON.parse(String(posts.at(-1)?.body));
+}
+
+/** Deja una tonalidad puesta: sin ella no se guarda nada. */
+function conTonalidad() {
+  useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+}
+
+beforeEach(() => {
+  useArrangementStore.setState({ arrangement: EMPTY_ARRANGEMENT, past: [] });
+  useSessionStore.getState().actions.reset();
+});
+
+describe('sin el plan que lo incluye', () => {
+  it('enseña el candado y no pregunta al servidor', () => {
+    const request = vi.fn();
+    render(conCuenta(<SongsPanel request={request} />, SIN_PLAN));
+
+    expect(screen.getByRole('note')).toHaveTextContent(/plan Básico/);
+    expect(request).not.toHaveBeenCalled();
+  });
+});
+
+describe('la lista', () => {
+  it('pinta lo que hay guardado con su tonalidad', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText('La mía')).toBeInTheDocument();
+    // Cifrado anglosajón en toda la aplicación: «C mayor», no «Do mayor».
+    expect(screen.getByText(/C mayor · 1 sección · 4 acordes · 100 bpm/)).toBeInTheDocument();
+  });
+
+  it('sin nada guardado lo dice, en vez de dejar el hueco vacío', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText(/Todavía no has guardado ninguna/)).toBeInTheDocument();
+  });
+});
+
+describe('guardar', () => {
+  it('manda la tonalidad y los grados, no los cifrados', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado ninguna/);
+
+    componiendo(['I', 'V', 'vi', 'IV']);
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Mi canción');
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    const post = request.mock.calls.find(([init]) => init.method === 'POST');
+    expect(post).toBeDefined();
+    expect(JSON.parse(post![0].body as string)).toEqual({
+      name: 'Mi canción',
+      tonic: C,
+      mode: 'major',
+      // El tempo del metrónomo entra en la canción: es lo que hace que al
+      // abrirla mañana suene a la velocidad a la que la escribiste.
+      bpm: DEFAULT_BPM,
+      sections: [{ name: 'Parte 1', degrees: ['I', 'V', 'vi', 'IV'] }],
+    });
+  });
+
+  it('sin tonalidad no guarda, y dice por qué', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado ninguna/);
+
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/Elige una tonalidad/);
+    expect(request.mock.calls.some(([init]) => init.method === 'POST')).toBe(false);
+  });
+
+  it('sin un solo acorde no guarda, y dice por qué', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado ninguna/);
+
+    componiendo([]);
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/al menos uno/);
+  });
+
+  it('dice cuántos acordes se han quedado fuera, en vez de perderlos callando', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado ninguna/);
+
+    // «V7/vi» es un dominante secundario: no es un grado del catálogo.
+    componiendo(['I', 'V7/vi', 'vi']);
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/Un acorde no es un grado/);
+  });
+
+  it('el error del servidor se enseña tal y como lo escribe el servidor', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(respondWith({ songs: [] }))
+      .mockResolvedValueOnce(
+        respondWith(
+          { error: { code: 'llena', message: 'Ya tienes 50 canciones guardadas.' } },
+          409,
+        ),
+      );
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado ninguna/);
+
+    componiendo(['I', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ya tienes 50 canciones guardadas.');
+  });
+});
+
+describe('abrir', () => {
+  /**
+   * Lo que se abre es **la canción**, no el camino.
+   *
+   * Se rehacía el camino desde los grados, y era la segunda canción paralela que
+   * el ADR 0032 se propuso retirar: con las especies guardadas además mentía,
+   * porque el camino se llenaba con la tríada de cada grado y una canción de
+   * quintas volvía como una de tríadas.
+   */
+  it('deja la tonalidad y la cancion puestas, y el camino vacio', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir' }));
+
+    const state = useSessionStore.getState();
+    expect(state.pinnedKey).toEqual({ tonic: C, mode: 'major' });
+    expect(state.path).toEqual([]);
+    expect(state.currentDegree).toBe('IV');
+    expect(
+      useArrangementStore
+        .getState()
+        .arrangement.parts.flatMap((p) => p.blocks.map((b) => b.degree)),
+    ).toEqual(['I', 'V', 'vi', 'IV']);
+  });
+
+  // Con el primero elegido: abrir una canción y no tener nada elegido deja la
+  // columna del acorde pidiendo que elijas uno con la canción entera delante.
+  it('y con el primer acorde elegido', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir' }));
+
+    const primero = useArrangementStore.getState().arrangement.parts[0]?.blocks[0]?.id;
+    expect(useArrangementStore.getState().selectedBlockId).toBe(primero);
+  });
+
+  it('abrir dos veces no encadena las dos canciones', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    const abrir = await screen.findByRole('button', { name: 'Abrir' });
+    await userEvent.click(abrir);
+    await userEvent.click(abrir);
+
+    expect(useArrangementStore.getState().arrangement.parts.flatMap((p) => p.blocks)).toHaveLength(
+      4,
+    );
+  });
+});
+
+describe('borrar', () => {
+  it('manda el identificador y vuelve a leer la lista', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Borrar' }));
+
+    await waitFor(() => {
+      const del = request.mock.calls.find(([init]) => init.method === 'DELETE');
+      expect(del).toBeDefined();
+      expect(JSON.parse(del![0].body as string)).toEqual({ id: UNA.id });
+    });
+    // Tres llamadas: la lista al montar, el borrado y la lista de después.
+    expect(request.mock.calls.filter(([init]) => init.method === 'GET')).toHaveLength(2);
+  });
+});
+
+describe('renombrar', () => {
+  it('sustituye la fila en vez de abrir otra cosa, y manda la canción entera', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Renombrar' }));
+    const campo = screen.getByLabelText('Nombre nuevo');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'Otro nombre');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    const put = request.mock.calls.find(([init]) => init.method === 'PUT');
+    expect(put).toBeDefined();
+    // Entera y no solo el nombre: el contrato la interpreta con la misma función
+    // que interpreta lo que llega de Postgres, y una a medias no pasaría.
+    expect(JSON.parse(put![0].body as string)).toMatchObject({
+      id: UNA.id,
+      name: 'Otro nombre',
+      tonic: UNA.tonic,
+      sections: UNA.sections,
+    });
+  });
+
+  it('«dejarlo» no manda nada', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Renombrar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Dejarlo' }));
+
+    expect(request.mock.calls.some(([init]) => init.method === 'PUT')).toBe(false);
+    expect(screen.getByText('La mía')).toBeInTheDocument();
+  });
+});
+
+describe('añadir una parte', () => {
+  it('añade lo que llevas encadenado como sección nueva', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['ii', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    const put = request.mock.calls.find(([init]) => init.method === 'PUT');
+    expect(JSON.parse(put![0].body as string).sections).toEqual([
+      ...UNA.sections,
+      { name: 'Parte 2', degrees: ['ii', 'V'] },
+    ]);
+  });
+
+  it('no deja mezclar tonalidades, y dice por qué', async () => {
+    // Meter en una canción en Do una parte que tocaste en Sol guardaría los
+    // grados de Sol dentro de una canción de Do: al abrirla sonaría otra cosa
+    // sin que nadie hubiera hecho nada mal.
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: pitchClassFromName('G'), mode: 'major' });
+    actions.pushChord({ symbol: 'G', label: 'I', root: C, notes: [C], why: 'x' });
+    actions.pushChord({ symbol: 'D', label: 'V', root: C, notes: [C], why: 'x' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/está en C mayor y tú estás en G mayor/);
+    expect(request.mock.calls.some(([init]) => init.method === 'PUT')).toBe(false);
+  });
+
+  it('sin acordes encadenados no añade nada', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo([]);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/Escribe algún acorde/);
+  });
+
+  it('con varias partes se ven todas, con una sola no se enseña la lista', async () => {
+    const dos: Song = {
+      ...UNA,
+      sections: [
+        { name: 'Estrofa', degrees: ['I', 'V'] },
+        { name: 'Estribillo', degrees: ['vi', 'IV'] },
+      ],
+    };
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [dos] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText('Estrofa:')).toBeInTheDocument();
+    expect(screen.getByText('Estribillo:')).toBeInTheDocument();
+  });
+});
+
+describe('cuando el servidor no coopera', () => {
+  it('no poder leer la lista se dice, en vez de parecer que no tienes ninguna', async () => {
+    // Una lista vacía diría «no tienes ninguna», que es mentira y da un susto de
+    // los que hacen cerrar la aplicación.
+    const request = vi.fn().mockResolvedValue(respondWith({ error: { message: 'No va.' } }, 502));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText('No va.')).toBeInTheDocument();
+  });
+
+  it('sin red, tampoco se queda callado', async () => {
+    const request = vi.fn().mockRejectedValue(new Error('sin red'));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText(/Comprueba la conexión/)).toBeInTheDocument();
+  });
+
+  it('una cancion con el documento a medias se cae de la lista, no la tumba', async () => {
+    // Cada canción pasa por `parseSong` aunque venga del propio servidor.
+    const request = vi
+      .fn()
+      .mockResolvedValue(respondWith({ songs: [UNA, { id: 'rota', name: 'Rota' }] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText('La mía')).toBeInTheDocument();
+    expect(screen.queryByText('Rota')).not.toBeInTheDocument();
+  });
+
+  it('un cuerpo sin lista se lee como lista vacia', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({}));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    expect(await screen.findByText(/Todavía no has guardado/)).toBeInTheDocument();
+  });
+
+  it('borrar y no poder se dice', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(respondWith({ songs: [UNA] }))
+      .mockResolvedValueOnce(respondWith({ error: { message: 'No se ha borrado.' } }, 502));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    await userEvent.click(screen.getByRole('button', { name: /borrar/i }));
+
+    expect(await screen.findByText('No se ha borrado.')).toBeInTheDocument();
+  });
+
+  it('borrar sin red, tampoco', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(respondWith({ songs: [UNA] }))
+      .mockRejectedValueOnce(new Error('sin red'));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    await userEvent.click(screen.getByRole('button', { name: /borrar/i }));
+
+    expect(await screen.findByText(/No hemos podido borrar/)).toBeInTheDocument();
+  });
+
+  it('guardar sin red se dice', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValueOnce(respondWith({ songs: [] }))
+      .mockRejectedValueOnce(new Error('sin red'));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado/);
+
+    componiendo(['I', 'V']);
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Nueva');
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    expect(await screen.findByText(/No hemos podido guardar la canción/)).toBeInTheDocument();
+  });
+});
+
+describe('el tope de partes', () => {
+  it('una canción llena no admite otra, y se dice cuál es el tope', async () => {
+    const llena: Song = {
+      ...UNA,
+      sections: Array.from({ length: MAX_SECTIONS }, (_, i) => ({
+        name: `Parte ${i + 1}`,
+        degrees: ['I', 'V'],
+      })),
+    };
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [llena] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['I', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByText(/que es el tope/)).toBeInTheDocument();
+  });
+
+  it('sin tonalidad no se añade nada, y se dice por qué', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    useSessionStore.getState().actions.reset();
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByText(/Elige una tonalidad/)).toBeInTheDocument();
+  });
+});
+
+describe('guardar el montaje', () => {
+  /**
+   * Son las dos caras de componer y las dos hacen canciones, pero no dicen lo
+   * mismo: el camino es la progresión encadenada de una tirada y el montaje son
+   * partes con nombre, con lo que dura cada acorde y con el punteo. Con montaje
+   * delante, guardar el camino sería guardar la mitad pequeña.
+   */
+  it('el montaje manda sobre el camino', async () => {
+    const enviado = vi.fn(async () => new Response('{}', { status: 200 }));
+    conTonalidad();
+
+    const acciones = useArrangementStore.getState().actions;
+    const parte = acciones.addPart('Estribillo');
+    acciones.addBlock(parte, 'I', 4);
+    acciones.addBlock(parte, 'V', 4);
+
+    render(conCuenta(<SongsPanel request={enviado} />));
+    await userEvent.click(await screen.findByRole('button', { name: 'Guardar el montaje' }));
+
+    expect(cuerpoDelPost(enviado).sections).toEqual([{ name: 'Estribillo', degrees: ['I', 'V'] }]);
+  });
+
+  it('sin montaje se sigue guardando el camino', async () => {
+    const enviado = vi.fn(async () => new Response('{}', { status: 200 }));
+    conTonalidad();
+    useSessionStore.getState().actions.pushChord({
+      symbol: 'C',
+      label: 'I',
+      root: 0,
+      notes: [0, 4, 7],
+      why: 'Casa.',
+    });
+
+    render(conCuenta(<SongsPanel request={enviado} />));
+    await userEvent.click(await screen.findByRole('button', { name: 'Guardar esta progresión' }));
+
+    expect(cuerpoDelPost(enviado).sections[0]?.degrees).toEqual(['I']);
+  });
+});
+
+/**
+ * Añadir una parte usa **la canción escrita**, no el camino.
+ *
+ * El camino dejó de ser donde se escribe
+ * ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)),
+ * así que con él como única fuente esto decía «escribe algún acorde» con la
+ * canción delante.
+ */
+describe('de dónde sale la parte que se añade', () => {
+  it('de lo escrito en el lienzo, no del camino', async () => {
+    const { actions } = useSessionStore.getState();
+    actions.pinKey({ tonic: C, mode: 'major' });
+    const parte = useArrangementStore.getState().actions.addPart('Estrofa');
+    useArrangementStore.getState().actions.addBlock(parte, 'vi', 4);
+    useArrangementStore.getState().actions.addBlock(parte, 'IV', 4);
+
+    const guardadas: unknown[] = [];
+    const request = vi.fn(async (init?: RequestInit) => {
+      if (init?.method === 'PUT') {
+        guardadas.push(JSON.parse(String(init.body)));
+        return respondWith({ song: UNA });
+      }
+      return respondWith({ songs: [UNA] });
+    });
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Añadir parte' }));
+
+    await waitFor(() => expect(guardadas).toHaveLength(1));
+    const enviada = guardadas[0] as { sections: Array<{ degrees: string[] }> };
+    expect(enviada.sections.at(-1)?.degrees).toEqual(['vi', 'IV']);
+  });
+});
+
+describe('cuando guardar un cambio no sale', () => {
+  /**
+   * Renombrar que no sale no puede dejar la fila como si hubiera salido: el
+   * campo se queda abierto con lo escrito dentro, y se dice por qué.
+   */
+  it('el nombre se queda escrito y se dice lo que contesto el servidor', async () => {
+    const request = vi.fn(async (init: { method: string }) =>
+      init.method === 'PUT'
+        ? respondWith({ error: { message: 'Ese nombre ya lo tienes.' } }, 409)
+        : respondWith({ songs: [UNA] }),
+    );
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Renombrar' }));
+    const campo = screen.getByLabelText('Nombre nuevo');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'Otro nombre');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText('Ese nombre ya lo tienes.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre nuevo')).toHaveValue('Otro nombre');
+  });
+
+  // Y sin red tampoco se queda callado.
+  it('sin red se dice, y el campo sigue abierto', async () => {
+    const request = vi.fn(async (init: { method: string }) => {
+      if (init.method === 'PUT') {
+        throw new Error('sin red');
+      }
+      return respondWith({ songs: [UNA] });
+    });
+    render(conCuenta(<SongsPanel request={request} />));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Renombrar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText(/Comprueba la conexión/)).toBeInTheDocument();
+  });
+});
+
+describe('lo que se cae al guardar, contado bien', () => {
+  // En plural cuando son varios: «2 acordes no son grados» y no «2 acorde».
+  it('con varios que no son grados, se dicen en plural', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText(/Todavía no has guardado ninguna/);
+
+    componiendo(['I', 'V7/vi', 'V7/ii', 'vi']);
+    await userEvent.click(screen.getByRole('button', { name: /Guardar esta progresión/ }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/2 acordes no son grados/);
+  });
+
+  /**
+   * Y al añadir una parte a una canción que ya existe, lo mismo: la parte entra
+   * y se cuenta lo que no cabía, en vez de que desaparezca sin más.
+   */
+  it('al añadir una parte tambien se cuenta lo que no cabia', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['I', 'V7/vi', 'vi']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      /añadida a «La mía», sin 1 acorde que no es un grado/,
+    );
+  });
+
+  // Y en plural cuando son varios.
+  it('y en plural cuando son varios', async () => {
+    const request = vi.fn().mockResolvedValue(respondWith({ songs: [UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['I', 'V7/vi', 'V7/ii', 'vi']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/sin 2 acordes que no son grados/);
+  });
+});
+
+describe('sin fabrica de peticion', () => {
+  /**
+   * Se llama a `/api/canciones` sin caché: la lista cambia al guardar desde
+   * otra pestaña, y una respuesta guardada enseñaría una canción que ya no está.
+   */
+  it('pide a /api/canciones, sin cache', async () => {
+    const pedidas: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      pedidas.push({ url, init });
+      return respondWith({ songs: [] });
+    });
+
+    render(conCuenta(<SongsPanel />));
+
+    await waitFor(() => expect(pedidas.length).toBeGreaterThan(0));
+    expect(pedidas[0]!.url).toBe('/api/canciones');
+    expect(pedidas[0]!.init.cache).toBe('no-store');
+    vi.unstubAllGlobals();
+  });
+
+  // Y una fila sin identificador se lee sin él, y se cae al interpretarla.
+  it('una fila sin identificador no tumba la lista', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValue(respondWith({ songs: [{ ...UNA, id: 42, name: 'Sin id' }, UNA] }));
+    render(conCuenta(<SongsPanel request={request} />));
+
+    // Se lee con el identificador en blanco en vez de tumbar la lista entera:
+    // lo que no se entiende se degrada, no revienta.
+    expect(await screen.findByText('La mía')).toBeInTheDocument();
+    expect(screen.getByText('Sin id')).toBeInTheDocument();
+  });
+});
+
+describe('cuando añadir una parte no sale', () => {
+  // No se canta victoria: la parte no entró, así que no se dice que entró.
+  it('no se dice que se ha añadido', async () => {
+    const request = vi.fn(async (init: { method: string }) =>
+      init.method === 'PUT'
+        ? respondWith({ error: { message: 'No hemos podido.' } }, 500)
+        : respondWith({ songs: [UNA] }),
+    );
+    render(conCuenta(<SongsPanel request={request} />));
+    await screen.findByText('La mía');
+
+    componiendo(['I', 'V']);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir parte' }));
+
+    expect(await screen.findByText('No hemos podido.')).toBeInTheDocument();
+    expect(screen.queryByText(/añadida a/)).not.toBeInTheDocument();
+  });
+});

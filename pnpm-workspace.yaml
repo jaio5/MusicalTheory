@@ -6,3 +6,32 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+
+# Una versión mínima forzada por debajo de lo que pida quien sea.
+#
+# `nanoid` llega por `next > postcss`, tres niveles abajo, y la 3.3.16 tiene un
+# aviso de severidad alta: un generador propio puede quedarse en bucle. Next no
+# ha subido su postcss todavía, así que se fuerza aquí. Va en este fichero y no
+# en `package.json` porque pnpm 10 se llevó los ajustes aquí: puesto allí, se
+# lee y se ignora sin decir nada.
+#
+# Lo mismo con las demás de aquí abajo, todas por un aviso de `pnpm audit`:
+#
+# - `sharp` y `source-map-js` llegan por `next` y viajan a producción: `sharp` en
+#   la salida standalone, `source-map-js` por su postcss. Next 16.3 pide rangos
+#   que ya admiten la versión arreglada, pero el lockfile se quedó en la vieja;
+#   fijar el suelo aquí impide que una resolución futura vuelva atrás.
+# - `brace-expansion`, `js-yaml` y `esbuild` son solo de desarrollo —ESLint y
+#   drizzle-kit— y no llegan a la imagen. Se suben igual para que el aviso de
+#   CI (`pnpm audit --prod`) y el total no se acostumbren al ruido.
+#
+# `braces` no está: el aviso pide la 3.0.4 y no se ha publicado. Lo trae ESLint,
+# no viaja a producción, y queda contado en docs/adr/0117.
+overrides:
+  nanoid: '>=3.3.18'
+  sharp: '>=0.35.5'
+  source-map-js: '>=1.2.2'
+  'brace-expansion@<2': '^1.1.21'
+  'brace-expansion@>=4 <6': '^5.0.12'
+  'js-yaml@>=4 <5': '^4.3.2'
+  'esbuild@<0.24.3': '^0.25.4'

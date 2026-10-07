@@ -24,7 +24,7 @@ const ELEMENTAL_ENTERO = COURSES.filter((course) => course.grade === 'elemental'
 
 describe('isGradeIncluded', () => {
   it('regala el Elemental en los tres planes', () => {
-    for (const plan of ['gratis', 'basico', 'pro']) {
+    for (const plan of ['gratis', 'basico', 'medio']) {
       expect(isGradeIncluded(plan, 'elemental')).toBe(true);
     }
   });
@@ -43,27 +43,40 @@ describe('isUnitIncluded', () => {
   });
 
   it('una unidad que no existe no está incluida en ningún plan', () => {
-    expect(isUnitIncluded('pro', 'no-existe')).toBe(false);
+    expect(isUnitIncluded('medio', 'no-existe')).toBe(false);
+  });
+
+  // El temario se reordenó y hubo unidades que cambiaron de curso conservando su
+  // id: `p6-armonica` vive ahora en 1º de Profesional. El plan mira el grado en
+  // el que está la unidad hoy, no lo que diga su nombre.
+  it('cada unidad se cobra según el grado en el que está ahora', () => {
+    for (const course of COURSES) {
+      for (const unit of course.units) {
+        expect(isUnitIncluded('gratis', unit.id), unit.id).toBe(course.grade === 'elemental');
+        expect(isUnitIncluded('basico', unit.id), unit.id).toBe(true);
+      }
+    }
+    expect(isUnitIncluded('gratis', 'p6-armonica')).toBe(false);
   });
 
   it('coincide con isCourseIncluded para el curso de esa unidad', () => {
     const found = findUnit('p6-cadencias')!;
     expect(isCourseIncluded('gratis', found.course)).toBe(false);
-    expect(isCourseIncluded('pro', found.course)).toBe(true);
+    expect(isCourseIncluded('medio', found.course)).toBe(true);
   });
 });
 
 describe('unitAccess', () => {
   it('la primera está abierta desde el principio', () => {
-    expect(unitAccess(EMPTY_PROGRESS, 'gratis', 'e1-grados')).toBe('abierta');
+    expect(unitAccess(EMPTY_PROGRESS, 'gratis', 'e1-notas')).toBe('abierta');
   });
 
   it('lo que va después está cerrado por temario', () => {
-    expect(unitAccess(EMPTY_PROGRESS, 'gratis', 'e1-repaso')).toBe('por-temario');
+    expect(unitAccess(EMPTY_PROGRESS, 'gratis', 'e1-claves')).toBe('por-temario');
   });
 
   it('lo hecho se ve hecho', () => {
-    expect(unitAccess(tras(['e1-grados']), 'gratis', 'e1-grados')).toBe('hecha');
+    expect(unitAccess(tras(['e1-notas']), 'gratis', 'e1-notas')).toBe('hecha');
   });
 
   // Los dos candados no se abren igual, así que no pueden ser el mismo estado:
@@ -85,7 +98,7 @@ describe('unitAccess', () => {
 
 describe('nextAllowedUnit', () => {
   it('sin nada hecho, manda a la primera', () => {
-    expect(nextAllowedUnit(EMPTY_PROGRESS, 'gratis')).toBe('e1-grados');
+    expect(nextAllowedUnit(EMPTY_PROGRESS, 'gratis')).toBe('e1-notas');
   });
 
   it('salta lo que el plan no incluye', () => {
@@ -100,6 +113,6 @@ describe('nextAllowedUnit', () => {
 
   it('devuelve nulo cuando está todo hecho', () => {
     const todo = tras(COURSES.flatMap((course) => course.units.map((unit) => unit.id)));
-    expect(nextAllowedUnit(todo, 'pro')).toBeNull();
+    expect(nextAllowedUnit(todo, 'medio')).toBeNull();
   });
 });

@@ -1,6 +1,5 @@
 'use client';
 
-import { signIn, signOut } from 'next-auth/react';
 import { createContext, createElement, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -10,8 +9,13 @@ import {
   isSignedIn,
   planOf,
   type Account,
+  type Periodo,
   type PlanId,
 } from '@core/billing';
+
+import { DEMASIADOS_INTENTOS } from '@core/auth-errors';
+
+import { apiErrorFrom, apiErrorOf } from './api-error';
 
 /**
  * La cuenta, para el navegador.
@@ -28,6 +32,20 @@ import {
  * `refresh` vuelve a pedirla cuando algo la ha podido cambiar: cambiar de plan, o
  * gastar una pregunta del cupo.
  */
+
+/**
+ * La librería de sesión, **cuando se va a usar y no antes**.
+ *
+ * Importada arriba, `next-auth/react` viajaba en el paquete de las nueve rutas
+ * —7,4 KB comprimidos— porque el proveedor de la cuenta está en el layout, y lo
+ * único que se usaba de ella eran `signIn` y `signOut`, que solo corren al pulsar
+ * «Entrar» o «Salir». Nadie la necesita para pintar: la cuenta llega resuelta del
+ * servidor. Así se descarga al pulsar, que es un instante que ya lleva su
+ * «Un momento…», y el resto de visitas no la bajan nunca.
+ */
+function sesion() {
+  return import('next-auth/react');
+}
 
 export interface AccountState {
   readonly account: Account;
@@ -153,9 +171,16 @@ export type SignInResult = { readonly ok: true } | { readonly ok: false; readonl
  */
 export async function signInWithPassword(email: string, password: string): Promise<SignInResult> {
   try {
+    const { signIn } = await sesion();
     const result = await signIn('credentials', { email, password, redirect: false });
     if (result?.error !== undefined && result.error !== null) {
-      return { ok: false, message: 'El correo o la contraseña no son correctos.' };
+      // **Pasarse de intentos no es tener la contraseña mal**, y decir que lo es
+      // manda a cambiar una contraseña que está bien. El servidor lo distingue con
+      // su código y aquí se traduce
+      // ([adr/0054](../../docs/adr/0054-entrar-tiene-tope-de-intentos.md)).
+      return result.code === DEMASIADOS_INTENTOS
+        ? { ok: false, message: 'Demasiados intentos. Espera un minuto y vuelve a probar.' }
+        : { ok: false, message: 'El correo o la contraseña no son correctos.' };
     }
     return { ok: true };
   } catch {
@@ -168,26 +193,50 @@ export interface RegisterResult {
   readonly message?: string;
 }
 
-/** Crear la cuenta y entrar con ella, que es lo que espera quien se registra. */
+/**
+ * Una petición con cuerpo JSON, que es la forma de las cuatro de aquí.
+ *
+ * Eran cuatro copias del mismo `fetch` —mismo encabezado, mismo `JSON.stringify`—
+ * y lo único que cambiaba era la dirección, el verbo y qué se manda. Lo que se
+ * gana no es escribir menos: es que el día que haya que añadir algo a todas las
+ * peticiones de la cuenta haya **un** sitio donde añadirlo.
+ */
+async function pedir(url: string, method: string, body: unknown): Promise<Response> {
+  return fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Crear la cuenta y entrar con ella, que es lo que espera quien se registra.
+ *
+ * `mayorDe14` es lo que la persona ha declarado en el formulario, y viaja tal
+ * cual: quien decide si vale es el servidor (adr/0111). Por defecto, no: sin
+ * haberlo dicho no se crea.
+ */
 export async function registerAccount(
   email: string,
   password: string,
   name?: string,
+  mayorDe14 = false,
 ): Promise<RegisterResult> {
   try {
-    const response = await fetch('/api/cuenta', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, ...(name === undefined ? {} : { name }) }),
+    const response = await pedir('/api/cuenta', 'POST', {
+      email,
+      password,
+      ...(name === undefined ? {} : { name }),
+      mayorDe14,
     });
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
+      // `apiErrorFrom` es quien sabe leer el sobre que contestan todas las rutas
+      // de esta aplicación. Estaba escrito a mano aquí cuatro veces, una por
+      // función, justo en el fichero que aquel módulo decía tener en cuenta.
       return {
         ok: false,
-        message: body?.error?.message ?? 'No hemos podido crear la cuenta.',
+        message: (await apiErrorFrom(response, 'No hemos podido crear la cuenta.')).message,
       };
     }
 
@@ -203,8 +252,16 @@ export async function registerAccount(
   }
 }
 
-export async function signOutHere(): Promise<void> {
-  await signOut({ redirect: false });
+/**
+ * Cerrar la sesión.
+ *
+ * Sin destino se queda en la pantalla —`redirect: false`— y quien llama repinta.
+ * Con destino, la librería lleva allí con una navegación completa: es lo que pide
+ * borrar la cuenta, donde no queda nada de la pantalla de antes que conservar.
+ */
+export async function signOutHere(destino?: string): Promise<void> {
+  const { signOut } = await sesion();
+  await (destino === undefined ? signOut({ redirect: false }) : signOut({ callbackUrl: destino }));
 }
 
 export type ProfileResult =
@@ -224,21 +281,59 @@ export async function updateAccount(changes: {
   readonly passwordNueva?: string;
 }): Promise<ProfileResult> {
   try {
-    const response = await fetch('/api/cuenta', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(changes),
-    });
+    const response = await pedir('/api/cuenta', 'PATCH', changes);
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as {
-        error?: { message?: string };
-      } | null;
-      return { ok: false, message: body?.error?.message ?? 'No hemos podido guardar el cambio.' };
+      return {
+        ok: false,
+        message: (await apiErrorFrom(response, 'No hemos podido guardar el cambio.')).message,
+      };
     }
     return { ok: true };
   } catch {
     return { ok: false, message: 'No hemos podido guardar el cambio. Vuelve a intentarlo.' };
+  }
+}
+
+/**
+ * Borra la cuenta. Pide la contraseña, y no tiene vuelta atrás.
+ *
+ * No cierra la sesión: eso lo hace quien llama, porque la cookie sigue firmada y
+ * viva. Sin cerrarla, quien acaba de borrarse se queda con una sesión que apunta
+ * a una fila que ya no existe y todo parece roto en vez de parecer cerrado.
+ */
+export async function deleteAccount(password: string): Promise<ProfileResult> {
+  try {
+    const response = await pedir('/api/cuenta', 'DELETE', { password });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: (await apiErrorFrom(response, 'No hemos podido borrar la cuenta.')).message,
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, message: 'No hemos podido borrar la cuenta. Vuelve a intentarlo.' };
+  }
+}
+
+/**
+ * La dirección del portal de la pasarela, o nulo si no hay ninguna.
+ *
+ * Nulo y no un error: no tener facturas que mirar es lo normal en una cuenta que
+ * nunca ha pagado, y en una copia sin pasarela puesta lo es siempre.
+ */
+export async function billingPortalUrl(): Promise<string | null> {
+  try {
+    const response = await fetch('/api/plan', { method: 'PUT' });
+    if (!response.ok) {
+      return null;
+    }
+    const body = (await response.json()) as { url?: unknown };
+    return typeof body.url === 'string' && body.url !== '' ? body.url : null;
+  } catch {
+    return null;
   }
 }
 
@@ -253,19 +348,25 @@ export type ChangePlanResult =
  * Contempla ya la respuesta «vete a pagar a otro sitio» aunque el cobrador de
  * hoy no la use nunca: es la forma que tendrá cuando haya Stripe, y dejarla
  * escrita ahora cuesta cuatro líneas y evita tocar esta función entonces.
+ *
+ * El periodo elige el precio, al mes o al año (adr/0106); el plan es el mismo.
  */
-export async function changePlan(plan: PlanId): Promise<ChangePlanResult> {
+export async function changePlan(
+  plan: PlanId,
+  periodo: Periodo = 'mensual',
+): Promise<ChangePlanResult> {
   try {
-    const response = await fetch('/api/plan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ plan }),
-    });
+    const response = await pedir('/api/plan', 'POST', { plan, periodo });
+    // Aquí se interpreta el cuerpo una sola vez porque el camino bueno también lo
+    // necesita, así que el error se lee con `apiErrorOf` —el de un cuerpo ya
+    // interpretado— y no con `apiErrorFrom`, que volvería a leer la respuesta.
     const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 
     if (!response.ok) {
-      const error = body?.['error'] as { message?: string } | undefined;
-      return { kind: 'error', message: error?.message ?? 'No hemos podido cambiar el plan.' };
+      return {
+        kind: 'error',
+        message: apiErrorOf(body, 'No hemos podido cambiar el plan.').message,
+      };
     }
     if (body?.['kind'] === 'ir-a-pagar' && typeof body['url'] === 'string') {
       return { kind: 'ir-a-pagar', url: body['url'] };

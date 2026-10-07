@@ -6,7 +6,14 @@
  * milisegundo real.
  */
 
-import { midiToPitchClass, normalizePitchClass, SCALES } from '@core/music';
+import {
+  midiToPitchClass,
+  normalizePitchClass,
+  SCALES,
+  scaleTonic,
+  spellScaleOf,
+  spelledName,
+} from '@core/music';
 import type { PitchClass, PitchReading, ScaleId } from '@core/music';
 
 /**
@@ -30,6 +37,13 @@ export interface ExerciseStep {
   readonly index: number;
   readonly midi: number;
   readonly pitchClass: PitchClass;
+  /**
+   * Cómo se escribe: con la letra de su grado en la escala que se toca. En Fa#
+   * mayor la séptima es E#, y con los doce nombres de `noteName` salía F: la
+   * letra de la tónica repetida, y lo contrario de lo que dice la lección. Para
+   * validar no cuenta: el micro compara alturas, no nombres.
+   */
+  readonly name: string;
   /** Si es la vuelta, para poder dibujar la ida y la vuelta distintas. */
   readonly descending: boolean;
 }
@@ -46,9 +60,47 @@ export interface ExerciseProgress {
   /** Desde cuándo se sostiene la nota correcta, o null si no suena. */
   readonly heldSince: number | null;
   readonly done: boolean;
+  /**
+   * Los pasos que se han soltado antes de conseguir sostenerlos, con cuántas
+   * veces cada uno.
+   *
+   * Existe porque una unidad de tocar no tiene preguntas que fallar: o la haces
+   * o no la haces, y una escala que sale regular no se apuntaba en ninguna
+   * parte. Esto es lo que la apunta. Encontrarla y soltarla tres veces antes de
+   * que cuente es exactamente lo que significa «esa nota no la tengo».
+   *
+   * Se cuenta por paso y no por nota: la misma nota subiendo y bajando son dos
+   * sitios distintos del mástil, y la que se atraganta suele ser una de las dos.
+   */
+  readonly stumbles: Readonly<Record<number, number>>;
 }
 
-export const INITIAL_PROGRESS: ExerciseProgress = { index: 0, heldSince: null, done: false };
+export const INITIAL_PROGRESS: ExerciseProgress = {
+  index: 0,
+  heldSince: null,
+  done: false,
+  stumbles: {},
+};
+
+/**
+ * Cuántas veces hay que soltar una nota para que cuente como que cuesta.
+ *
+ * Dos, no una. Soltarla una vez es normal —se busca el traste, se roza la
+ * cuerda de al lado— y apuntar eso llenaría la cola de repaso con la escala
+ * entera cada vez. A la segunda ya no es buscar: es que no está.
+ */
+const STUMBLE_THRESHOLD = 2;
+
+/** Los pasos que costaron lo bastante como para volver a verlos. */
+export function stumbledSteps(
+  progress: ExerciseProgress,
+  threshold: number = STUMBLE_THRESHOLD,
+): number[] {
+  return Object.entries(progress.stumbles)
+    .filter(([, veces]) => veces >= threshold)
+    .map(([index]) => Number(index))
+    .sort((a, b) => a - b);
+}
 
 /** La nota más grave con esa clase de altura que cae dentro del mástil. */
 function lowestMidiFor(pitchClass: PitchClass): number {
@@ -62,13 +114,21 @@ function lowestMidiFor(pitchClass: PitchClass): number {
  */
 export function createExercise(tonic: PitchClass, scaleId: ScaleId): Exercise {
   const root = lowestMidiFor(tonic);
-  const ascending = [...SCALES[scaleId].intervals.map((interval) => root + interval), root + 12];
+  const names = spellScaleOf(scaleTonic(tonic, scaleId), scaleId).map(spelledName);
+  const ascending = [
+    ...SCALES[scaleId].intervals.map((interval, degree) => ({
+      midi: root + interval,
+      name: names[degree]!,
+    })),
+    { midi: root + 12, name: names[0]! },
+  ];
   const descending = [...ascending].reverse().slice(1);
 
-  const steps = [...ascending, ...descending].map((midi, index) => ({
+  const steps = [...ascending, ...descending].map(({ midi, name }, index) => ({
     index,
     midi,
     pitchClass: midiToPitchClass(midi),
+    name,
     descending: index >= ascending.length,
   }));
 
@@ -114,13 +174,26 @@ export function advanceExercise(
   }
 
   const step = exercise.steps[progress.index];
+  /* v8 ignore next 3 -- al pasar el ultimo paso se marca `done`, y arriba se ha vuelto ya si lo estaba */
   if (step === undefined) {
     return progress.done ? progress : { ...progress, done: true };
   }
 
   if (!stepMatches(step, reading, tolerance)) {
-    // Soltar la nota reinicia el contador: hay que sostenerla, no rozarla.
-    return progress.heldSince === null ? progress : { ...progress, heldSince: null };
+    // Soltar la nota reinicia el contador: hay que sostenerla, no rozarla. Y se
+    // apunta, porque soltarla varias veces antes de que cuente es la única
+    // señal que da una unidad de tocar de que esa nota no la tienes.
+    if (progress.heldSince === null) {
+      return progress;
+    }
+    return {
+      ...progress,
+      heldSince: null,
+      stumbles: {
+        ...progress.stumbles,
+        [progress.index]: (progress.stumbles[progress.index] ?? 0) + 1,
+      },
+    };
   }
 
   if (progress.heldSince === null) {
@@ -132,7 +205,12 @@ export function advanceExercise(
   }
 
   const index = progress.index + 1;
-  return { index, heldSince: null, done: index >= exercise.steps.length };
+  return {
+    index,
+    heldSince: null,
+    done: index >= exercise.steps.length,
+    stumbles: progress.stumbles,
+  };
 }
 
 /** De 0 a 1, para pintar una barra de avance. */
@@ -141,4 +219,24 @@ export function exerciseCompletion(progress: ExerciseProgress, exercise: Exercis
     return 0;
   }
   return Math.min(1, progress.index / exercise.steps.length);
+}
+
+/**
+ * Lo que toda pregunta de una unidad necesita, sea de las que se contestan
+ * pulsando o de las que se contestan tocando.
+ *
+ * Estaba escrito igual en `Question` y en `PlayNote`, y quien las coloca
+ * —`TheoryUnit`, `EarUnit`, `ReviewSession`— les pasa exactamente lo mismo. Un
+ * tipo compartido es lo que impide que una de las dos se quede sin `position`
+ * el día que se añada la tercera.
+ */
+export interface PasoContestable {
+  /** Cuál es de cuántas, para poder decir «3 de 4». Empieza en 1. */
+  readonly position: number;
+  readonly total: number;
+  /** Qué dice el botón en la última: «Terminar la unidad», «Terminar el repaso». */
+  readonly lastLabel: string;
+  /** Se avisa una vez, al contestar, diciendo si se acertó. */
+  readonly onAnswered: (correct: boolean) => void;
+  readonly onNext: () => void;
 }

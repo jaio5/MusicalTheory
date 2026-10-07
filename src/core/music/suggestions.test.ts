@@ -118,6 +118,45 @@ describe('sugerencias por estilo', () => {
   });
 });
 
+describe('los estilos que llegaron después', () => {
+  const E = pitchClassFromName('E');
+
+  it('el flamenco propone el V mayor y el VI, y enseguida el bII', () => {
+    const flamenco = symbols({ tonic: A, mode: 'minor', styleId: 'flamenco', limit: 12 });
+    expect(flamenco.slice(0, 8)).toEqual(expect.arrayContaining(['Am', 'E', 'F', 'G']));
+    expect(flamenco).toContain('Bb');
+    expect(flamenco).not.toContain('Em');
+  });
+
+  it('el funk propone la tónica y el cuarto con séptima de dominante, y el dórico en menor', () => {
+    expect(symbols({ tonic: A, mode: 'major', styleId: 'funk', limit: 6 })).toEqual(
+      expect.arrayContaining(['A7', 'D7']),
+    );
+    expect(symbols({ tonic: A, mode: 'minor', styleId: 'funk', limit: 12 })).toContain('D');
+  });
+
+  it('el country trae el II7 y no los préstamos oscuros', () => {
+    const country = suggestChords({ tonic: C, mode: 'major', styleId: 'country', limit: 16 });
+    expect(country.find((s) => s.symbol === 'D7')?.label).toBe('V7/V');
+    expect(country.some((s) => s.family === 'neapolitan' || s.family === 'altered')).toBe(false);
+  });
+
+  it('el bolero en menor pone delante la dominante con sensible', () => {
+    const bolero = symbols({ tonic: A, mode: 'minor', styleId: 'bolero', limit: 8 });
+    expect(bolero).toContain('E7');
+  });
+
+  it('el cine abre con lo prestado del menor', () => {
+    const [primera] = suggestChords({ tonic: C, mode: 'major', styleId: 'cine', limit: 1 });
+    expect(primera!.family).toBe('borrowed');
+  });
+
+  it('el reggae no propone ni alterados ni sustitutos tritonales', () => {
+    const reggae = suggestChords({ tonic: E, mode: 'major', styleId: 'reggae', limit: 200 });
+    expect(reggae.some((s) => s.family === 'altered' || s.family === 'tritoneSub')).toBe(false);
+  });
+});
+
 describe('sugerencias según lo que se está tocando', () => {
   it('sube el acorde que explica las notas que suenan', () => {
     const played = [F, pitchClassFromName('A'), pitchClassFromName('C')];
@@ -327,5 +366,44 @@ describe('función armónica', () => {
       (s) => s.label === 'I',
     );
     expect(tonic?.substitution).toBeNull();
+  });
+});
+
+describe('cómo se escriben los grados prestados', () => {
+  /**
+   * Un grado que se llama «b» algo se escribe con bemol valga lo que valga la
+   * tonalidad. Se proponía «A#, bVII» en Do mayor: la etiqueta decía bemol y el
+   * cifrado de al lado un sostenido. `resolveDegree` ya lo hacía bien —lo tiene
+   * escrito en un comentario— y esta rama no pasaba por ahí.
+   */
+  it.each([
+    ['bVII', 'Bb'],
+    ['bVI', 'Ab'],
+    ['bIII', 'Eb'],
+    // El bII no está entre los prestados que se proponen: el napolitano es de
+    // otro repertorio y no cabe en los estilos que hay.
+  ])('el %s de Do mayor se escribe %s', (label, symbol) => {
+    const propuestas = suggestChords({
+      tonic: pitchClassFromName('C'),
+      mode: 'major',
+      styleId: 'rock',
+      playedNotes: [],
+      limit: 60,
+    });
+    const prestado = propuestas.find((propuesta) => propuesta.label === label);
+
+    expect(prestado?.symbol, `${label} no se propone`).toBe(symbol);
+  });
+
+  // Los diatónicos siguen escribiéndose con la alteración de su tonalidad.
+  it('en una tonalidad de sostenidos, lo diatónico lleva sostenidos', () => {
+    const propuestas = suggestChords({
+      tonic: pitchClassFromName('G'),
+      mode: 'major',
+      styleId: 'rock',
+      playedNotes: [],
+      limit: 60,
+    });
+    expect(propuestas.find((p) => p.label === 'vii°')?.symbol).toBe('F#dim');
   });
 });

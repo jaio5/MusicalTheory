@@ -2,9 +2,31 @@
 
 import Link from 'next/link';
 
-import { displayName, monthlyAiRequests, planOf, priceLabel } from '@core/billing';
-import { AccessForm, NameForm, PasswordForm, SignOutButton } from '@features/account';
+import {
+  avatarInitial,
+  can,
+  cupoEnPalabras,
+  displayName,
+  gastoDeUnaSalida,
+  monthlyAiRequests,
+  planOf,
+  priceLabel,
+} from '@core/billing';
+import { BADGES, currentStreak } from '@core/music';
+import { estiloBoton } from '@ui/Button';
+import {
+  AccessForm,
+  BillingPortalLink,
+  DeleteAccountForm,
+  NameForm,
+  PasswordForm,
+  SignOutButton,
+} from '@features/account';
+import { useProgress } from '@features/learn';
 import { useAccount } from '@state/account';
+import { Screen, Section } from '@ui/Screen';
+
+import { QueTeDaLaCuenta } from './QueTeDaLaCuenta';
 
 /**
  * Tu cuenta: los ajustes de quien ya ha entrado.
@@ -22,123 +44,173 @@ import { useAccount } from '@state/account';
  */
 export function AccountScreen() {
   const { account, accounts, signedIn } = useAccount();
+  const { progress, day } = useProgress();
   const plan = planOf(account.plan);
+  const precio = priceLabel(plan.id);
 
   // Sin haber entrado esto no son ajustes de nada: lo único que se puede hacer es
   // entrar, y se ofrece eso en vez de cuatro secciones vacías con candados.
   if (!signedIn) {
     return (
-      <div className="h-full min-h-0 overflow-y-auto">
-        <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4 md:p-8">
-          <header>
-            <h1 className="text-text text-3xl">Entrar</h1>
-            <p className="text-text-muted mt-2 max-w-prose text-sm">
-              La cuenta sirve para dos cosas: llevarte el avance a otro aparato y tener un plan. Sin
-              ella la aplicación funciona igual y el avance se queda en este navegador.
-            </p>
-          </header>
-
-          <AccessForm />
-
-          {accounts && (
-            <p className="text-text-muted text-sm">
-              ¿Todavía no tienes?{' '}
-              <Link href="/registro" className="text-brass-bright hover:text-brass underline">
-                Crear tu cuenta
-              </Link>
-              .
-            </p>
-          )}
-        </div>
-      </div>
+      <Screen
+        title="Entrar"
+        lead="La cuenta sirve para dos cosas: llevarte el avance a otro aparato y tener un plan. Sin ella la aplicación funciona igual y el avance se queda en este navegador."
+        ancho="lectura"
+        aside={<QueTeDaLaCuenta accounts={accounts} />}
+      >
+        {/* Al lado, para qué sirve la cuenta —o, si aquí no hay, lo que funciona
+            sin ella—: era un formulario de 448 px y el resto de la pantalla en
+            negro, el 23 % del ancho usado a 1920. */}
+        <AccessForm marco={accounts} />
+      </Screen>
     );
   }
 
   return (
-    <div className="h-full min-h-0 overflow-y-auto">
-      <div className="mx-auto flex max-w-2xl flex-col gap-10 p-4 md:p-8">
-        <header>
-          <h1 className="text-text text-3xl">Tu cuenta</h1>
-          <p className="text-text-muted mt-2 text-sm">
-            Estás dentro como <span className="text-text font-mono">{account.email}</span>.
-          </p>
-        </header>
+    <Screen title="Tu cuenta" lead="Quién eres, qué plan tienes y qué se guarda de ti.">
+      {/*
+        **La pantalla se reparte en rejilla y no en una lista de apartados.**
 
-        {/* `scroll-mt` para que el título no se quede pegado al borde de arriba al
-            llegar desde el desplegable con el ancla. */}
-        <section id="perfil" aria-label="Tu perfil" className="scroll-mt-4">
-          <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">Tu perfil</h2>
-          <p className="text-text-muted mt-2 max-w-prose text-sm">
-            En la aplicación se te llama <span className="text-text">{displayName(account)}</span>,
-            y de ahí sale la letra del círculo de arriba.
+        Eran ocho bloques uno debajo de otro en una caja de 1024 px: en un monitor
+        había que desplazar tres pantallas para llegar a «Salir», con media pantalla
+        en negro a la derecha de cada una. Ahora la ficha y lo que llevas comparten
+        fila, y los ajustes van en dos columnas desde `xl` y en tres desde 1792:
+        cada uno sigue siendo su apartado con su ancla, y el orden del documento —el
+        que se lee en un teléfono y con el tabulador— no cambia.
+      */}
+      <div className="grid items-start gap-x-[clamp(2rem,4vw,5rem)] gap-y-10 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        {/* La ficha: quién eres de un vistazo. Va antes que los ajustes porque
+          entrar aquí es casi siempre mirar —cuánto llevo, qué plan tengo— y solo
+          de vez en cuando cambiar algo. */}
+        <div className="superficie-viva flex flex-wrap items-center gap-4 p-5">
+          <span
+            aria-hidden="true"
+            className="border-brass-bright text-brass-bright bg-surface flex size-16 shrink-0 items-center justify-center rounded-full border-2 font-mono text-2xl"
+          >
+            {avatarInitial(account)}
+          </span>
+
+          <div className="min-w-0">
+            <p className="text-text truncate text-xl">{displayName(account)}</p>
+            <p className="text-text-muted truncate font-mono text-xs">{account.email}</p>
+          </div>
+
+          {/* El precio, **solo si dice algo que el nombre no diga ya**: el plan
+            gratis se llama «Gratis» y su precio es «Gratis», así que la pastilla
+            ponía «Plan Gratis» y debajo «Gratis» otra vez. Repetir una palabra no
+            es informar, y el hueco que ocupa lo pide algo que sí. */}
+          <div className="border-brass-dim ml-auto rounded-md border px-3 py-1.5 text-center">
+            <p className="text-brass-bright text-sm font-medium">Plan {plan.name}</p>
+            {precio !== plan.name && <p className="text-text-muted font-mono text-xs">{precio}</p>}
+          </div>
+        </div>
+
+        {/* Lo que llevas hecho, en números. Sale del avance de este navegador, que
+          es el mismo que se sube a la cuenta cuando el plan lo incluye. */}
+        <Section title="Lo que llevas">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { que: 'XP', cuanto: progress.xp },
+              {
+                que: 'Racha',
+                cuanto: day === null ? progress.streak : currentStreak(progress, day),
+              },
+              { que: 'Unidades', cuanto: progress.done.length },
+              { que: 'Medallas', cuanto: `${progress.badges.length} de ${BADGES.length}` },
+            ].map(({ que, cuanto }) => (
+              <div key={que} className="superficie p-3 text-center">
+                <dt className="rotulo">{que}</dt>
+                <dd className="text-text mt-1 font-mono text-2xl tabular-nums">{cuanto}</dd>
+              </div>
+            ))}
+          </dl>
+        </Section>
+      </div>
+
+      <div className="grid items-start gap-x-[clamp(2rem,4vw,5rem)] gap-y-10 md:gap-y-14 xl:grid-cols-2 min-[112rem]:grid-cols-3">
+        <Section id="perfil" title="Tu perfil">
+          <p className="text-text-muted max-w-prose text-sm">
+            De cómo te llames salen el saludo y la letra del círculo, aquí y en la barra de arriba.
           </p>
           <div className="mt-3">
             <NameForm />
           </div>
           <p className="text-text-muted mt-3 max-w-prose text-xs">
-            El correo no se cambia desde aquí: identifica la cuenta, y cambiarlo pide confirmar la
-            dirección nueva antes de mover nada. Mientras no haya envío de correo, hacerlo a medias
-            dejaría cuentas apuntando a buzones que no existen.
+            El correo no se cambia desde aquí: identifica la cuenta, y cambiarlo pide confirmar
+            primero la dirección nueva y luego avisar a la vieja. Hacerlo a medias deja cuentas
+            apuntando a buzones que no existen, así que no se hace a medias.
           </p>
-        </section>
+        </Section>
 
-        <section id="suscripcion" aria-label="Tu suscripción" className="scroll-mt-4">
-          <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            Tu suscripción
-          </h2>
-
-          <div className="border-border mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 border p-4">
+        <Section id="suscripcion" title="Tu suscripción">
+          <div className="superficie flex flex-wrap items-baseline gap-x-4 gap-y-1 p-4">
             <p className="text-brass-bright text-xl">{plan.name}</p>
-            <p className="text-text-muted font-mono text-sm">{priceLabel(plan.id)}</p>
+            {precio !== plan.name && <p className="text-text-muted font-mono text-sm">{precio}</p>}
+            {/* **«61 de 67» se lee como gastado, y 61 es lo que queda.** El mismo
+              número sale en componer como «te quedan 61», así que la aplicación
+              decía dos cosas opuestas con la misma cifra. Aquí se dice el verbo. */}
             <p className="text-text-muted ml-auto font-mono text-xs">
               {account.aiLeftMonth === null
-                ? `${monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA al mes`
-                : `${account.aiLeftMonth} de ${monthlyAiRequests(plan.id, account.aiModel)} peticiones a la IA este mes`}
+                ? cupoEnPalabras(plan.id, account.aiModel)
+                : `Te quedan ${account.aiLeftMonth} de ${monthlyAiRequests(plan.id, account.aiModel)} preguntas al profesor este mes${
+                    can(plan.id, 'versiones') ? `; ${gastoDeUnaSalida(account.aiModel)}` : ''
+                  }`}
             </p>
           </div>
 
           <p className="text-text-muted mt-2 text-sm">{plan.claim}</p>
 
-          <div className="mt-3">
-            <Link
-              href="/planes"
-              className="border-border text-text hover:border-brass-dim inline-flex items-center justify-center rounded-md border px-5 py-2.5 text-base"
-            >
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Link href="/planes" className={estiloBoton('quiet')}>
               {plan.monthlyCents === 0 ? 'Ver los tres planes' : 'Cambiar de plan'}
             </Link>
+            {/* La tarjeta y las facturas se ven en la pasarela, que es quien las
+              tiene. Aquí no pasa un número de tarjeta en ningún momento, y ese
+              es justo el motivo de tener pasarela. */}
+            <BillingPortalLink />
           </div>
-        </section>
+        </Section>
 
-        <section id="contrasena" aria-label="Tu contraseña" className="scroll-mt-4">
-          <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            Contraseña
-          </h2>
-          <div className="mt-3">
-            <PasswordForm />
-          </div>
-        </section>
+        <Section id="contrasena" title="Contraseña">
+          <PasswordForm />
+        </Section>
 
-        <section id="privacidad" aria-label="Qué se guarda de ti" className="scroll-mt-4">
-          <h2 className="text-text-muted font-mono text-xs tracking-widest uppercase">
-            Qué se guarda de ti
-          </h2>
-          <ul className="text-text-muted mt-3 flex list-disc flex-col gap-1 pl-5 text-sm">
+        <Section id="privacidad" title="Qué se guarda de ti">
+          <ul className="text-text-muted flex list-disc flex-col gap-1 pl-5 text-sm">
             <li>Tu correo, tu nombre si lo has puesto, y tu contraseña cifrada. Nunca en claro.</li>
             <li>
               Las unidades que has superado, el XP, la racha, las medallas, por dónde elegiste
               empezar y las preguntas que fallaste. Identificadores y números.
             </li>
             <li>Cuántas veces has usado la IA hoy, para descontarlo del cupo de tu plan.</li>
+            <li>Tus canciones guardadas: grados, tempo y nombres de sección.</li>
             <li>
-              <strong className="text-text">
-                Ni una muestra de audio ni un fotograma de vídeo.
-              </strong>{' '}
-              Eso no sale de tu equipo, y las cuentas no han cambiado eso.
+              Los días en que entras, con un seudónimo de tu cuenta y no con ella, para saber si la
+              aplicación sirve. Se borran a los trece meses, o al borrar la cuenta.
+            </li>
+            <li>
+              <strong className="text-text">Ni una muestra de audio.</strong> Eso no sale de tu
+              equipo, y las cuentas no han cambiado eso.
             </li>
           </ul>
-        </section>
+          <p className="text-text-muted mt-3 max-w-prose text-sm">
+            El detalle, con a quién se manda lo que preguntas a la IA, en la{' '}
+            <Link href="/privacidad" className="enlace">
+              política de privacidad
+            </Link>{' '}
+            y el{' '}
+            <Link href="/aviso-legal" className="enlace">
+              aviso legal
+            </Link>
+            .
+          </p>
+        </Section>
 
-        <section aria-label="Salir">
+        <Section title="Borrar la cuenta">
+          <DeleteAccountForm />
+        </Section>
+
+        <Section title="Salir">
           <p className="text-text-muted mb-3 max-w-prose text-xs">
             Al salir no se borra nada: el avance de este navegador se queda donde está, y la próxima
             vez que entres se junta con el de tu cuenta quedándose lo mejor de cada uno.
@@ -146,8 +218,8 @@ export function AccountScreen() {
           <div className="w-fit">
             <SignOutButton />
           </div>
-        </section>
+        </Section>
       </div>
-    </div>
+    </Screen>
   );
 }

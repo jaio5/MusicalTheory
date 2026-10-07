@@ -20,10 +20,21 @@ export const METER_RANGE_CENTS = 50;
  * Confianza por debajo de la cual la lectura es válida pero merece un aviso:
  * casi siempre significa distorsión o dos cuerdas sonando a la vez.
  */
-export const CLEAN_SIGNAL_CLARITY = 0.95;
+const CLEAN_SIGNAL_CLARITY = 0.95;
 
 export function isSignalClean(clarity: number): boolean {
   return clarity >= CLEAN_SIGNAL_CLARITY;
+}
+
+/**
+ * Confianza **por debajo** de la cual la señal se da por sucia, y es más baja que
+ * la que la da por limpia. Con un solo umbral, una nota que ronda el 0,95 abre y
+ * cierra el aviso a cada lectura; con dos, entre 0,93 y 0,95 se queda como esté.
+ */
+const DIRTY_SIGNAL_CLARITY = 0.93;
+
+export function isSignalDirty(clarity: number): boolean {
+  return clarity < DIRTY_SIGNAL_CLARITY;
 }
 
 export type TuningStatus = 'afinada' | 'alta' | 'baja';

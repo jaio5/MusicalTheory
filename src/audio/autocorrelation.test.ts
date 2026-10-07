@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { centsBetween, midiToFrequency } from '@core/music';
 
-import { detectPitch, type PitchDetectionOptions } from './autocorrelation';
+import { detectPitch, signalRms, type PitchDetectionOptions } from './autocorrelation';
 
 const SAMPLE_RATE = 48_000;
 const FRAME = 2048;
@@ -149,5 +149,88 @@ describe('confianza', () => {
     const detection = detectPitch(tone(220, { amplitude: 0.5 }), OPTIONS);
     // Una senoide de amplitud A tiene un valor eficaz de A/raíz(2).
     expect(detection!.rms).toBeCloseTo(0.5 / Math.SQRT2, 2);
+  });
+});
+
+describe('los bloques que no dan para nada', () => {
+  /**
+   * El motor lee lo que le da la tarjeta de sonido, y a veces le da poco: un
+   * bloque vacío al arrancar, o uno demasiado corto para el rango que se le
+   * pide. La regla es la de siempre en esta capa: **nulo antes que una nota
+   * inventada**, porque una nota inventada en pantalla es peor que un guion.
+   */
+  it('un bloque vacío no tiene señal, y no divide entre cero', () => {
+    expect(signalRms(new Float32Array(0))).toBe(0);
+  });
+
+  it('un bloque de una muestra no da para medir un periodo', () => {
+    expect(detectPitch(new Float32Array(1), OPTIONS)).toBeNull();
+  });
+
+  it('una ventana demasiado corta para la nota más grave tampoco', () => {
+    // A 48 kHz, un periodo de 70 Hz son casi setecientas muestras: en un bloque
+    // de dieciséis no cabe ni uno.
+    expect(detectPitch(tone(110, { length: 16 }), OPTIONS)).toBeNull();
+  });
+
+  it('una señal plana no tiene periodo que encontrar', () => {
+    // Continua pura: sale de un micro con la entrada mal acoplada, y su
+    // autocorrelación no tiene pico.
+    expect(detectPitch(new Float32Array(FRAME).fill(0.5), OPTIONS)).toBeNull();
+  });
+
+  it('un rango imposible se rechaza en vez de buscar al revés', () => {
+    const alReves = { ...OPTIONS, minFrequency: 1400, maxFrequency: 70 };
+
+    expect(detectPitch(tone(110), alReves)).toBeNull();
+  });
+});
+
+/**
+ * Los búferes de trabajo se reutilizan entre análisis, y eso solo es seguro si
+ * lo de una ventana no se cuela en la siguiente. Se prueba lo peor: una ventana
+ * grande, una corta y otra vez la grande, cada una con otra nota.
+ */
+describe('lo que se reutiliza de un análisis a otro', () => {
+  it('da lo mismo que un análisis recién arrancado, cambie o no el tamaño', () => {
+    const grave = tone(midiToFrequency(40), { length: 4096 });
+    const aguda = tone(midiToFrequency(69), { length: 1024 });
+
+    const primera = detectPitch(grave, OPTIONS);
+    const corta = detectPitch(aguda, OPTIONS);
+    const otraVez = detectPitch(grave, OPTIONS);
+
+    expect(corta?.frequency).toBeCloseTo(midiToFrequency(69), 1);
+    expect(otraVez).toEqual(primera);
+  });
+
+  it('el silencio después de una nota sigue siendo silencio', () => {
+    detectPitch(tone(220), OPTIONS);
+    expect(detectPitch(new Float32Array(FRAME), OPTIONS)).toBeNull();
+  });
+});
+
+/**
+ * **Montada sobre un escalón, la nota se sigue oyendo.** La continua de una
+ * tarjeta barata o el golpe de la mano en la caja dejaban la correlación positiva
+ * en todos los desplazamientos: no aparecía ningún pico y la nota se perdía.
+ */
+describe('con continua debajo', () => {
+  // Un escalón quieto, sin nada encima, es silencio: quitada la media no queda
+  // energía con la que comparar, y no hay nota.
+  it('la continua sola no es una nota, ni con el umbral de nivel en cero', () => {
+    expect(
+      detectPitch(new Float32Array(FRAME).fill(0.3), { ...OPTIONS, rmsThreshold: 0 }),
+    ).toBeNull();
+  });
+
+  it('encuentra la nota igual que sin ella', () => {
+    const limpia = tone(midiToFrequency(60), { amplitude: 0.05 });
+    const montada = limpia.map((valor) => valor + 0.08);
+
+    const sin = detectPitch(limpia, OPTIONS);
+    const con = detectPitch(montada, OPTIONS);
+    expect(con).not.toBeNull();
+    expect(Math.abs(centsBetween(sin!.frequency, con!.frequency))).toBeLessThan(1);
   });
 });

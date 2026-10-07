@@ -4,7 +4,7 @@ import { midiToFrequency } from '@core/music';
 
 import { AutocorrelationPitchEngine } from './autocorrelation-pitch-engine';
 import type { AudioInput, AudioInputState } from './audio-input';
-import type { PitchSample } from './pitch-engine';
+import type { PitchFrame, PitchSample } from './pitch-engine';
 
 const SAMPLE_RATE = 48_000;
 const FRAME = 2048;
@@ -222,5 +222,139 @@ describe('AutocorrelationPitchEngine', () => {
     const seen = received.length;
     advance(200);
     expect(received).toHaveLength(seen);
+  });
+
+  it('el nivel se informa siempre, haya nota o no', () => {
+    // Es el dato con el que se ajustan los umbrales: sin él, la barra de señal
+    // se quedaría quieta mientras se busca el sitio del micro.
+    const niveles: number[] = [];
+    engine.subscribeLevel((nivel) => niveles.push(nivel));
+    input.frequency = null;
+
+    return engine.start(input).then(() => {
+      advance(100);
+
+      expect(niveles.length).toBeGreaterThan(0);
+      // Silencio: nivel cero, pero informado.
+      expect(niveles.every((n) => n === 0)).toBe(true);
+    });
+  });
+
+  /**
+   * **Cada análisis, haya nota o no.** Es lo que lee la toma para transcribir un
+   * punteo entero: los análisis sin nota son donde acaban las notas.
+   */
+  it('entrega cada analisis, con nota y sin ella', async () => {
+    const fotogramas: PitchFrame[] = [];
+    const dejar = engine.subscribeFrames((fotograma) => fotogramas.push(fotograma));
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    input.frequency = null;
+    advance(100);
+    // Sin dato que leer no hay análisis: no se entrega nada.
+    input.available = false;
+    const antes = fotogramas.length;
+    advance(100);
+    expect(fotogramas).toHaveLength(antes);
+
+    expect(fotogramas[0]!.frequency).toBeCloseTo(midiToFrequency(45), 0);
+    expect(fotogramas[0]!.rms).toBeGreaterThan(0);
+    expect(fotogramas.at(-1)).toMatchObject({ frequency: null, clarity: 0, rms: 0 });
+
+    dejar();
+    input.available = true;
+    advance(100);
+    expect(fotogramas).toHaveLength(antes);
+  });
+
+  it('quien deja de escuchar el nivel deja de recibirlo', async () => {
+    const niveles: number[] = [];
+    const dejar = engine.subscribeLevel((nivel) => niveles.push(nivel));
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    const cuantos = niveles.length;
+
+    dejar();
+    advance(100);
+
+    expect(niveles.length).toBe(cuantos);
+  });
+
+  it('quien deja de escuchar las notas, tambien', async () => {
+    const propias: Array<PitchSample | null> = [];
+    const dejar = engine.subscribe((sample) => propias.push(sample));
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    const cuantos = propias.length;
+
+    dejar();
+    advance(100);
+
+    expect(propias.length).toBe(cuantos);
+  });
+
+  it('parado no analiza nada', async () => {
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    const cuantos = samples.length;
+
+    // Al parar se avisa una vez con nulo —la nota deja de sonar— y después ya
+    // no llega nada más.
+    engine.stop();
+    const alParar = samples.length;
+    advance(500);
+
+    expect(alParar).toBeLessThanOrEqual(cuantos + 1);
+    expect(samples.length).toBe(alParar);
+    expect(engine.running).toBe(false);
+  });
+
+  it('arrancarlo dos veces no deja dos bucles analizando', async () => {
+    // Pasaba al cambiar de pantalla y volver: dos temporizadores leyendo el
+    // mismo buffer, y el doble de trabajo en el hilo que dibuja.
+    input.frequency = midiToFrequency(45);
+    await engine.start(input);
+    advance(100);
+    const unBucle = samples.length;
+
+    samples.length = 0;
+    await engine.start(input);
+    advance(100);
+
+    expect(samples.length).toBeLessThanOrEqual(unBucle + 1);
+  });
+});
+
+describe('el reloj del motor', () => {
+  /**
+   * Sin reloj inyectado usa el del navegador, que es lo que hace en la
+   * aplicación: los instantes que apunta el motor son los que después miden el
+   * tramo grabado.
+   */
+  it('sin reloj puesto usa el del navegador', async () => {
+    vi.useFakeTimers();
+    const entrada = new FakeAudioInput();
+    entrada.frequency = midiToFrequency(45);
+    const motor = new AutocorrelationPitchEngine();
+    const oidas: Array<PitchSample | null> = [];
+    motor.subscribe((muestra) => oidas.push(muestra));
+
+    await motor.start(entrada);
+    for (let vuelta = 0; vuelta < 10; vuelta += 1) {
+      vi.advanceTimersByTime(motor.options.analysisIntervalMs);
+    }
+    motor.stop();
+    vi.useRealTimers();
+
+    // Lo que importa es que el instante salga del reloj del navegador y no de
+    // uno inventado: avanza con los temporizadores, que es lo que hace el de
+    // verdad mientras se toca.
+    const detectadas = oidas.filter((muestra): muestra is PitchSample => muestra !== null);
+    expect(detectadas.length).toBeGreaterThan(0);
+    expect(detectadas[0]!.at).toBeGreaterThan(0);
   });
 });

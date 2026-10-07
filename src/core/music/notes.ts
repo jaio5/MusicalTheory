@@ -6,7 +6,7 @@
  */
 
 export const SEMITONES_PER_OCTAVE = 12;
-export const CENTS_PER_SEMITONE = 100;
+const CENTS_PER_SEMITONE = 100;
 
 /** Frecuencia de referencia del diapasón (La4). */
 export const A4_FREQUENCY = 440;
@@ -52,7 +52,7 @@ export const SHARP_NAMES: readonly SharpName[] = [
   'B',
 ];
 
-export const FLAT_NAMES: readonly FlatName[] = [
+const FLAT_NAMES: readonly FlatName[] = [
   'C',
   'Db',
   'D',
@@ -66,9 +66,6 @@ export const FLAT_NAMES: readonly FlatName[] = [
   'Bb',
   'B',
 ];
-
-/** Alias histórico: los nombres con sostenidos. */
-export const NOTE_NAMES: readonly SharpName[] = SHARP_NAMES;
 
 /** Lectura de altura ya interpretada: qué nota es y cuánto se desvía. */
 export interface PitchReading {
@@ -165,4 +162,17 @@ export function describePitch(frequency: number): PitchReading {
     octave: midiToOctave(midi),
     cents: (exactMidi - midi) * CENTS_PER_SEMITONE,
   };
+}
+
+/**
+ * Ese valor como nombre de nota, o nulo si no lo es.
+ *
+ * Vive aquí, al lado de `SHARP_NAMES`, y no dentro de un contrato: lo necesitan
+ * los contratos de `features/` y un feature no importa de otro. Estuvo escrito
+ * dos veces, letra por letra, en el de ideas —ya retirado— y en el de versiones.
+ */
+export function asNoteName(value: unknown): NoteName | null {
+  return typeof value === 'string' && (SHARP_NAMES as readonly string[]).includes(value)
+    ? (value as NoteName)
+    : null;
 }

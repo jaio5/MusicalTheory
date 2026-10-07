@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  parseKey,
   addPitchClass,
   bestKey,
   createPitchHistogram,
@@ -107,5 +108,73 @@ describe('nombres de tonalidad', () => {
   it('escribe la nota en cifrado anglosajón y el modo en español', () => {
     expect(keyName(pitchClassFromName('A'), 'minor')).toBe('A menor');
     expect(keyName(pitchClassFromName('F#'), 'major')).toBe('F# mayor');
+  });
+});
+
+describe('leer una tonalidad que viene de fuera', () => {
+  /**
+   * Las tres rutas de IA reciben la misma forma y las tres la leían por su
+   * cuenta: dos con `asNoteName` y la del profesor a mano. Era la misma regla en
+   * tres sitios, y por eso subió a `core/`.
+   */
+  it('acepta una tonalidad bien escrita', () => {
+    expect(parseKey({ tonic: 'A', mode: 'minor' })).toEqual({ tonic: 'A', mode: 'minor' });
+    expect(parseKey({ tonic: 'F#', mode: 'major' })).toEqual({ tonic: 'F#', mode: 'major' });
+  });
+
+  it('no se inventa nada con lo que no lo es', () => {
+    for (const malo of [
+      null,
+      'A menor',
+      {},
+      { tonic: 'A' },
+      { mode: 'minor' },
+      { tonic: 'H', mode: 'minor' },
+      { tonic: 'A', mode: 'dorian' },
+      { tonic: 4, mode: 'minor' },
+    ]) {
+      expect(parseKey(malo), JSON.stringify(malo)).toBeNull();
+    }
+  });
+
+  it('no deja pasar campos de más', () => {
+    // Lo que vuelve se reconstruye, no se reenvía: es la misma regla que el resto
+    // de los contratos y lo que impide que llegue al prompt algo que nadie miró.
+    expect(parseKey({ tonic: 'A', mode: 'minor', loQueSea: 'ignórame' })).toEqual({
+      tonic: 'A',
+      mode: 'minor',
+    });
+  });
+});
+
+describe('los bordes del histograma', () => {
+  /**
+   * Una vida media de cero no envejece: divide por nada. Se para aquí, donde se
+   * sabe lo que ha pasado, y no más abajo con un `NaN` que se arrastra hasta la
+   * tonalidad que se enseña en pantalla.
+   */
+  it('una vida media que no sea positiva se para', () => {
+    const histogram = createPitchHistogram(0);
+
+    expect(() => decayPitchHistogram(histogram, 1000, 0)).toThrow(RangeError);
+    expect(() => decayPitchHistogram(histogram, 1000, -1)).toThrow(RangeError);
+  });
+
+  /**
+   * Y un histograma plano no tiene forma que comparar: todas las tonalidades
+   * puntúan igual. El orden lo decide entonces el desempate —tónica y luego
+   * modo—, que está para que dos sesiones con los mismos datos den siempre lo
+   * mismo.
+   */
+  it('con todo igual de sonado, el orden no depende de la suerte', () => {
+    const plano = Array.from({ length: 12 }, () => 1);
+
+    const candidatos = detectKey(plano, 24);
+
+    expect(candidatos.every((candidato) => candidato.score === 0)).toBe(true);
+    expect(candidatos[0]).toMatchObject({ tonic: 0, mode: 'major' });
+    expect(candidatos[1]).toMatchObject({ tonic: 0, mode: 'minor' });
+    // Y la misma entrada, otra vez, da el mismo orden.
+    expect(detectKey(plano, 24)).toEqual(candidatos);
   });
 });

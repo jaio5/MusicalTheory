@@ -7,9 +7,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 // El menú lee la dirección para cerrarse al navegar, y el botón de salir pide
 // repintar. Ninguna de las dos cosas es lo que se prueba aquí.
+let donde = '/aprender';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
-  usePathname: () => '/aprender',
+  usePathname: () => donde,
 }));
 
 import { ANONYMOUS, type Account } from '@core/billing';
@@ -73,8 +74,15 @@ describe('El avatar con cuenta', () => {
       'aria-expanded',
       'true',
     );
-    const menu = screen.getByRole('menu');
+    const menu = screen.getByRole('navigation', { name: 'Tu cuenta' });
     expect(menu).toHaveTextContent('javier@example.com');
+    // El botón dice qué abre, y no promete un menú que no se maneja como tal.
+    expect(screen.getByRole('button', { name: /javier/i })).toHaveAttribute(
+      'aria-controls',
+      menu.id,
+    );
+    expect(screen.getByRole('button', { name: /javier/i })).not.toHaveAttribute('aria-haspopup');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
 
     for (const [nombre, destino] of [
       [/tu perfil/i, '/cuenta#perfil'],
@@ -82,7 +90,7 @@ describe('El avatar con cuenta', () => {
       [/contraseña/i, '/cuenta#contrasena'],
       [/privacidad/i, '/cuenta#privacidad'],
     ] as const) {
-      expect(screen.getByRole('menuitem', { name: nombre })).toHaveAttribute('href', destino);
+      expect(screen.getByRole('link', { name: nombre })).toHaveAttribute('href', destino);
     }
 
     expect(screen.getByRole('button', { name: /salir de la cuenta/i })).toBeInTheDocument();
@@ -97,7 +105,7 @@ describe('El avatar con cuenta', () => {
     await userEvent.click(boton);
     await userEvent.keyboard('{Escape}');
 
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Tu cuenta' })).not.toBeInTheDocument();
     expect(boton).toHaveFocus();
   });
 
@@ -112,6 +120,51 @@ describe('El avatar con cuenta', () => {
     await userEvent.click(screen.getByRole('button', { name: /javier/i }));
     await userEvent.click(screen.getByRole('button', { name: /otra cosa/i }));
 
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Tu cuenta' })).not.toBeInTheDocument();
+  });
+});
+
+describe('al cambiar de pantalla', () => {
+  /**
+   * Navegar desde el propio menú no vuelve a montar la cabecera, así que sin
+   * esto el desplegable se quedaba abierto encima de la pantalla nueva.
+   */
+  it('el desplegable se cierra solo', async () => {
+    donde = '/aprender';
+    const { rerender } = pintar(DENTRO);
+    await userEvent.click(screen.getByRole('button', { name: /javier/i }));
+    expect(screen.getByRole('navigation', { name: 'Tu cuenta' })).toBeInTheDocument();
+
+    donde = '/componer';
+    rerender(
+      <AccountProvider account={DENTRO} accounts>
+        <AccountMenu />
+      </AccountProvider>,
+    );
+
+    expect(screen.queryByRole('navigation', { name: 'Tu cuenta' })).not.toBeInTheDocument();
+    donde = '/aprender';
+  });
+});
+
+describe('mientras el desplegable está abierto', () => {
+  // Pulsar dentro no lo cierra: dentro están los enlaces a los que se va.
+  it('pulsar dentro no lo cierra', async () => {
+    pintar(DENTRO);
+    await userEvent.click(screen.getByRole('button', { name: /javier/i }));
+
+    await userEvent.click(screen.getByRole('navigation', { name: 'Tu cuenta' }));
+
+    expect(screen.getByRole('navigation', { name: 'Tu cuenta' })).toBeInTheDocument();
+  });
+
+  // Y cualquier otra tecla tampoco: solo Escape cierra.
+  it('otra tecla no lo cierra', async () => {
+    pintar(DENTRO);
+    await userEvent.click(screen.getByRole('button', { name: /javier/i }));
+
+    await userEvent.keyboard('a');
+
+    expect(screen.getByRole('navigation', { name: 'Tu cuenta' })).toBeInTheDocument();
   });
 });

@@ -54,7 +54,14 @@ tiene octava ni digitación: es el conjunto de notas que valen.
 | Menor armónica    | 0 2 3 5 7 8 11 | Menor con sensible: crea la dominante que la menor natural no tiene. |
 
 Transponer es sumar la tónica a cada intervalo. La pentatónica menor de La sale
-A, C, D, E, G; el blues de A añade el D#.
+A, C, D, E, G; el blues de A añade el Eb, y no el D#: es una quinta rebajada, y
+lo que se rebaja se escribe con bemol (lo explica «Cómo se escribe cada escala»).
+
+**La escala es una sola para toda la aplicación** —la de la tonalidad, la del
+mástil, la que lee el punteo y la que se le da al profesor— y se recuerda de una
+vez para otra. En componer se cambia también desde la cabecera del mástil, con
+flechas para pasar a la vecina, y el dibujo se repinta sin cerrar el área: es
+para ver cómo cambia una escala sobre la misma tonalidad.
 
 ## Acordes (`chords.ts`)
 
@@ -130,8 +137,11 @@ uso. El criterio es de rock, no de coral a cuatro voces. En la práctica:
   A mayor aprieta más porque trae la sensible del menor armónico.
 - **V – IV** existe y se usa constantemente en blues, aunque en armonía clásica
   se considere una retrogradación.
-- Los **prestados del menor** (bIII, bVI, bVII en tonalidad mayor) están en el
-  mapa desde el principio, y el napolitano (bII) en menor por el color frigio.
+- Los **prestados del menor** en tonalidad mayor son cuatro: bIII, bVI y bVII
+  —mayores— y el **`iv`**, que es menor y el que más se usa: la cadencia plagal
+  menor `I–iv–I` y el giro `IV–iv–I` son idioma corriente en pop y en soul
+  ([adr/0036](./adr/0036-el-cuarto-menor-prestado.md)). El napolitano (bII) está
+  en menor por el color frigio.
 - El **vii°** casi no se usa: aparece marcado con peso bajo y con la nota de
   que en rock se sustituye por V.
 
@@ -143,6 +153,24 @@ andaluza (i–VII–VI–V) y la plagal menor (i–iv–i–v).
 Cualquier grado se puede convertir en acorde concreto dentro de una tonalidad, y
 al revés: dado un acorde sonando se puede saber qué grado es, incluidos los
 prestados, para sugerir a dónde ir desde ahí.
+
+### Cambiar de modo con la canción escrita
+
+Los dos modos no nombran los mismos grados, así que al pasar de mayor a menor
+cada grado se dice en el otro **por su función** (`degreeInMode`): el `I` es el
+`i`, el `IV` el `iv`, el `vi` el `VI`. Las dominantes secundarias también: la del
+`vi` pasa a ser la del `VI`, que es el `III` —en Do, el E7 que lleva a Am se
+vuelve el Eb7 que lleva a Ab—, y la del `iii` pasa a ser el `VII`. Lo único que no
+tiene dónde caer es **la dominante del `ii`**: en menor el segundo grado es
+disminuido, y a un disminuido no se le prepara con su dominante. Ésa se cae, y el
+almacén del montaje la apunta para poder decirlo.
+
+La tabla sola no es reversible —el mayor tiene dieciséis grados y el menor once,
+y el `vi` y el `bVI` caen los dos en el `VI`—, así que **cada bloque traducido
+recuerda lo que era** (`Block.delOtroModo`) y al volver se le devuelve tal cual:
+C G Am F en mayor va a menor y vuelve C G Am F, no C G Ab Fm. Lo que se corrige
+en el otro modo olvida el recuerdo, porque volver a lo de antes desharía la
+corrección. Y traducir no gasta un paso del deshacer.
 
 ### Cuatríadas
 
@@ -159,6 +187,20 @@ dominante con séptima menor, que es justo lo que la menor natural no tiene.
 
 Un Cmaj7 y un C7 son el mismo grado con distinta séptima, así que el dominio
 sabe decir qué tríada hay debajo de cada cuatríada.
+
+**Las notas de cada especie salen de apilar terceras**, de la misma tabla que las
+nombra, y no del catálogo de cifrados del buscador. Ese catálogo no tiene `mMaj7`
+ni `maj7#5`, y cuando de él salían las notas, esas dos caían a la tríada mayor:
+un `CmMaj7` sonaba como un `C`, y como reconocer una séptima es comparar contra
+esas notas, **cualquier cuatro notas con la tríada mayor dentro se leían
+`minorMajor7`**. Un `C6` o un `Cadd9` entraban en la canción como `CmMaj7`.
+
+**Lo que no es ninguna séptima entra como su tríada**, que es lo que ya pasaba
+con un `C7b9`: un `C6` y un `Cadd9` son el I a secas, porque el bloque no sabe
+guardar la sexta ni la novena, y el buscador enseña `C` antes de pulsar. Lo que
+suena un bloque es siempre lo que se escribió o una parte, nunca una nota que
+nadie pidió. En menor, un `F6` sobre Do menor ya no entra: el IV mayor no es un
+grado de la menor, igual que no lo es el `F` a secas.
 
 ## Los dos anillos de la rueda
 
@@ -224,12 +266,32 @@ y se descartan las que no se pueden tocar. Las reglas:
 - La cuerda más grave que suena lleva la **fundamental**. Las inversiones son
   música válida, pero no es lo que se busca al aprender un acorde.
 - La mano abarca **cuatro trastes**, contando solo lo que se pisa.
+- Hay **cuatro dedos**. Si se pisan más cuerdas, el índice hace **cejilla** en el
+  traste más bajo, y una cejilla no puede tener debajo una cuerda al aire ni una
+  muda: la pisaría. Lo que no cabe en cuatro dedos así, no se ofrece. Por eso no
+  sale `103211` para F —cejilla en el 1 con la quinta al aire debajo—, y sí
+  `133211`.
+- La cejilla solo cuenta **cuando hace falta**: D `xx0232` tiene dos cuerdas en
+  el 2 y se coge con tres dedos sueltos.
 - Una cuerda muda en medio de dos que suenan resta: se puede, pero cuesta.
+- Dos dedos en el traste más bajo con cuerdas al aire entre ellos restan si
+  están lejos: cerca se ponen —A7 `x02020`—, separados la mano se tumba y apaga
+  las del medio. F `10321x` o Bm `x20402` se pueden escribir, y casi nadie las
+  coge.
 
 De las que sobreviven se ordenan por lo cómodas que son, y manda la posición: un
 acorde en primera posición con cuerdas al aire es el que se aprende y el que se
-usa, aunque más arriba haya diez formas más. Se devuelve **una por posición**,
-porque si no las cuatro mejores son la misma forma con cuerdas quitadas.
+usa, aunque más arriba haya diez formas más. Se devuelve **una por nombre**,
+porque si no las cuatro mejores son la misma forma con cuerdas quitadas; y por
+nombre y no por traste porque en el mismo traste caben dos manos: Bm sin cejilla
+`x2443x` y con ella `x24432`.
+
+El nombre dice cómo se coge. **«Al aire»** es lo que suena con cuerdas sueltas
+dentro de la primera posición de la mano —sin pasar del cuarto traste—: G
+`320003`, C `x32010`, Em `022000`. Lo demás es «3.ª posición», con «con cejilla»
+si la lleva. Una forma se escribe pegada, `x32010`, mientras todos los trastes
+son de una cifra; con uno de dos se separa, `x-8-7-10-10-8`, porque pegada no se
+sabe dónde acaba cada uno.
 
 Como se buscan y no se copian, funciona igual con un `7#9` que con un `Am`.
 
@@ -289,8 +351,189 @@ segundo y la tónica tercera. Ordenado así no se puede aprender nada.
 acorde distinto—. Y un `m7b5` es **ø7**, semidisminuido; escribirlo «°7» lo
 confunde con el disminuido entero, que tiene la séptima disminuida y no la menor.
 
+**Y su fundamental se escribe como la de su tríada.** El `bVII` de Do mayor es
+`Bb`, así que con séptima es `Bb7`, no `A#7`: la especie no vuelve a decidir con
+qué alteración va la nota, se la pregunta al grado, que ya sabe que un grado «b»
+va con bemol valga lo que valga la armadura. Antes la decidía la armadura sola, y
+en Do mayor salían `A#7`, `D#7` y `G#maj7` al lado de `Bb`, `Eb` y `Ab`. Vale en
+las veinticuatro tonalidades y para las trece especies de un bloque, las séptimas
+y las simples (`blockChord`).
+
+## El temario sigue al conservatorio (`curriculum.ts`, `lecciones/`)
+
+Lo que se enseña en `/aprender` va en el orden en que se estudia en España, y cada
+curso usa solo lo explicado antes. Es el motivo de que el Elemental empiece por las
+notas y no por los grados: no se puede hablar del quinto grado sin saber qué es una
+escala.
+
+- **Elemental, Lenguaje Musical.** 1º: notas, claves y ritmo. 2º: la escala mayor,
+  los intervalos, el dictado de intervalos y la pentatónica mayor. 3º: armaduras y
+  círculo de quintas, escalas menores, la menor natural, la pentatónica menor y el
+  blues. 4º: las especies de tríada, los grados, y la teoría de pentatónicas y blues.
+- **Profesional, Armonía.** 1º: funciones y cadencias. 2º: inversiones y enlace de
+  acordes. 3º: especies de séptima y la séptima de dominante, con su cifrado
+  (7, 6/5, +6, +4). 4º: dominantes secundarias, modulación e intercambio modal. 5º:
+  napolitana y sextas aumentadas, y sustituciones. 6º: los siete modos.
+
+Las pentatónicas y el blues no son de conservatorio, pero esto es para tocar, así
+que van donde ya se tiene la teoría que las explica
+([adr/0096](./adr/0096-el-temario-sigue-al-conservatorio.md)).
+
+**Las cadencias llevan nombre español.** Perfecta (V–I), imperfecta, plagal
+(IV–I), **semicadencia** (termina en V) y rota (V–VI). La que otros llaman
+«auténtica» aquí es la perfecta, y así tiene que salir en toda frase que la cite.
+
+### Cada nota con su letra (`spelling.ts`)
+
+En una tonalidad cada grado lleva **una letra distinta**, y la alteración es lo que
+haga falta para que suene bien: en Fa# mayor la séptima es **E#** y no F, y la
+sensible de Sol# menor es **F##** y no G. Escribir «F» en el primer caso repetiría
+la letra F con dos sonidos distintos. El mismo módulo nombra intervalos con ese
+criterio: do–mi es una tercera mayor, pero do–fa bemol es una cuarta disminuida, aunque
+suene igual.
+
+### Cada unidad se presenta
+
+Toda unidad lleva un `resumen` y la lista de `contenidos` que va a tocar. La
+pantalla la recorre en tres momentos —presentación, teoría y prueba— y lo
+prometido es lo que se explica y se pregunta. Ninguna lección sirve a dos
+unidades.
+
+## El glosario del profesor (`glossary.ts`)
+
+Medio centenar de entradas de lo que de verdad pregunta un guitarrista —cadencias,
+funciones, acordes, intervalos, escalas, los siete modos, tonalidades,
+progresiones y ritmo— que se le dan al profesor cuando la pregunta casa con
+alguna ([adr/0076](./adr/0076-el-profesor-se-apoya-en-un-glosario-comprobado.md)).
+
+**Nada de lo que depende de la tonalidad está escrito.** Las cadencias se guardan
+en grados y se resuelven con `resolveDegree`: la perfecta es V → I, que en Do mayor
+sale G → C y en La menor E → Am, con el V mayor de la menor armónica. La armadura
+sale de `keySignature`, la relativa del círculo, las sustituciones de
+`substitutionOfDegree`, y los intervalos de cada acorde de `CHORD_SHAPES`.
+
+**Las notas se escriben por letras, no por teclas.** El E7 de La menor es E G# B D,
+no E Ab B D, y la menor armónica de D# lleva un C## porque cada grado ocupa su
+letra. Lo escribe `spelling.ts`, y de ahí sale todo lo que se lee al aprender: las
+lecciones, el oído, las unidades de tocar —cada nota de la escala que se toca, la
+de blues incluida, con `spellScaleOf`— y el glosario, que cifra cada acorde con la
+letra de su grado y la especie de `resolveDegree`. Así, en Fa# mayor la unidad, la
+lección y el profesor dicen lo mismo: el vii° es `E#dim`, con sus notas E# G# B, y
+lo prestado de Db mayor es `Fb`, `Bbb` y `Cb`. Dos excepciones decididas, cada una
+con su porqué escrito donde vive: la nota de blues pasa a cuarta aumentada cuando
+la quinta disminuida pediría doble bemol (`bluesNote`), y el sustituto tritonal se
+cifra por la nota a un tritono de la dominante, con bemol —D7 y no Ebb7 en Db—. Y
+el validador lee esos cifrados por su altura, así que `E#dim` y `Fdim` le valen
+igual.
+
+Lo que **no** escribe por letras es componer: `noteName` tiene doce nombres por
+alteración y `resolveDegree` cifra con ellos, así que en el lienzo el vii° de Fa#
+mayor sigue saliendo `Fdim`. Suena igual, y cambiarlo es otro tema.
+
+Tres cosas que el resto del dominio no tenía y aquí se calculan: **el lidio y el
+locrio**, como la mayor empezando en su cuarto y su séptimo grado —los otros modos
+ya estaban en `scales.ts` y de allí sale lo que se dice de ellos—, **la menor
+melódica**, como la natural con la sexta y la séptima subidas, y **los nombres de
+los intervalos**.
+
+Y sirve también para comprobar: las cadencias y la relativa llevan una firma que se
+puede leer en un texto, y una respuesta del profesor que las nombra sin escribir
+sus acordes, o escribiendo los de otra, no llega a la pantalla.
+
+## Cuándo una salida encaja (`encaje.ts`, `paths.ts`)
+
+Que una salida sea **correcta** —no rompe ninguna regla— no es que **suene bien**.
+El juez de encaje puntúa de 0 a 100 con once criterios: sintaxis (que los acordes
+vayan a donde suelen ir), cadencia, frase, ritmo armónico, bajo, notas comunes,
+melodía, estilo, novedad, papel de la parte y forma. Pesan más lo que oye
+cualquiera —sintaxis, cadencia, frase— y menos lo que solo decide en algunos
+casos, como la melodía. Los motivos que da son verdaderos y hablan en grados.
+
+**Lo que dice una salida de sí misma es verdad en cada sitio que nombra**
+(`lo-que-dice.ts`, [adr/0101](./adr/0101-lo-que-dice-una-salida-es-verdad-sitio-por-sitio.md)):
+«X en el N», un enlace, un papel o una forma se comprueban contra lo que hay en
+ese sitio, para el juez, para el generador y para lo que escribe el modelo. El
+quinto examen arregló además tres causas del juez: **el papel manda sobre el vamp**
+(un pre, un puente o un final no se juzgan como el vamp que los rodea); el
+consecuente de un periodo se llama «Consecuente» y la B de una AABA, «Puente»
+(`papelNuevo`), y así los juzga; y los motivos del blues se construyen con lo que
+suena en el 9 y en el 10, no con el esquema.
+
+- **La frase es de cuatro, de ocho, de doce**: una continuación a siete compases
+  se nota aunque no se sepa contar. En un vals se cuentan tres pulsos.
+- **Lo que llega a la tónica y se prepara.** Una dominante que vuelve atrás o un
+  final que no llega a ningún sitio son lo primero que se castiga. Las dominantes
+  secundarias llevan séptima, y `V/V → I` no se propone.
+- **El estilo manda en los préstamos.** El bVII es de casa en el rock y una
+  licencia en el jazz; los préstamos se premian o se castigan según el estilo de la
+  barra. El blues se juzga por su forma de doce compases, y **el modal no usa la
+  sensible**: en dórico o mixolidio el V mayor lo estropea.
+- **Una especie heredada.** Si el compás era una séptima o una quinta, la
+  sustituta no la pierde en silencio; y en un idioma de dominantes séptimas
+  —blues— los acordes nuevos las traen.
+- **Trece movimientos de rearmonización**: relativo, tritono (con séptima y antes de
+  su objetivo), préstamo (del paralelo), cadencia rota (en el sitio de la I),
+  intercambio, `dominante` —«Su dominante delante»—, `funcion` —«Misma función»—,
+  `modal` —«Sin sensible» o «Con sensible»: V↔bVII, y V↔VII en menor; en quintas se
+  nombra «bVII en lugar de V»—, y cuatro que dependen del sitio:
+  - `predominante`: el compás de tónica, o la dominante repetida, que hay delante
+    del V pasa a ser una subdominante —ii o IV; en menor, ii° o iv—, salvo si ya
+    llega preparado (por una subdominante o bajando medio tono, como el VI de la
+    andaluza).
+  - `cambio-rapido`: el IV en el compás 2 de un blues de doce, que vuelve a la I en
+    el 3, y al revés. Es lo único que se toca del esquema; doblar o partir el coro
+    entero ya no es ese blues y no se ofrece.
+  - `frigio` —«Semitono frigio»—: el compás pasa a ser el acorde mayor medio tono
+    por encima de un centro (la tónica o la dominante): bII→i, VI→V. Sin séptima: con
+    ella es el sustituto tritonal.
+  - `ii-v` —«Partir la dominante»— (`partir.ts`): un V, o una secundaria, de cuatro
+    pulsos o más se parte en su ii y él, a medias. Es el único que cambia **cuántos**
+    acordes hay, y por eso se comprueba, se nombra y se aplica emparejando por
+    pulsos (`gruposPorPulsos`).
+  - `vaiven` —«Giro del vamp»—: **solo sobre un vamp de tónica de funk**
+    (`Entorno.vampDeTonica`). En mayor, I→bVII7 o IV7 y IV→bVII7; en menor,
+    i→VII7, v7 o iv7 y iv→VII7. Un I que va al IV se queda, que ya es su dominante.
+    Sin él, retocar un vamp daba el V7–I7 de una cadencia clásica.
+- **Las formas** (`formas.ts`, la misma regla para quien construye y para el juez):
+  un periodo —antecedente abierto, consecuente que cierra con su misma cabeza— y la
+  AABA, de cuatro o de ocho compases por sección. Lo que falta se completa: el
+  consecuente, la sección que contrasta tras dos que empiezan igual, y la vuelta a
+  la primera tras ella. **Una andaluza reposa en su V** (`centroFrigio`): sin estilo,
+  si lo tuyo es la bajada entera; en un flamenco, siempre que se llega por el VI o
+  desde el iv. Ahí `seguir` puede acabar sin resolver a la i.
+
+**Doce estilos**, agrupados en el selector por lo que se toca: «De riff» (rock,
+metal, blues, funk), «De canción» (pop, folk, country, reggae) y «De armonía» (jazz,
+bolero, flamenco, cine). Cada uno trae sus giros al juez y al generador, para que un
+funk no se juzgue como un blues ni una andaluza como nada
+([adr/0098](./adr/0098-seis-estilos-mas-para-que-no-se-juzguen-como-otro.md),
+[adr/0099](./adr/0099-formas-y-movimientos-nuevos.md)).
+
+**Lo que todavía falla:** lo que no es canónico en su estilo se juzga con menos
+seguridad, y los corpus que lo medían se han usado para ajustar
+([adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)).
+
 ## Lo que este dominio todavía no hace
 
 - Tensiones por encima de la séptima: novenas, oncenas, trecenas.
-- Acordes de paso, dominantes secundarias y modulación explícita.
-- Ritmo y compás: por ahora nada del dominio conoce el tiempo musical.
+- **Las dominantes secundarias, a medias.** Están las que se distinguen por la
+  especie de su tríada, que son las que más se usan: en mayor `V/ii`, `V/iii`,
+  `V/V` y `V/vi`; en menor `V/iv` y `V/V` —el `E7` de Re menor, que es lo que
+  destapó que faltaban—. **No están las que chocan con un grado mayor que ya
+  existe**: la del IV en mayor es un I con séptima, y la del VI en menor es el
+  III con séptima, y el grado se calcula de la tríada a propósito para que un
+  `Cmaj7` y un `C` sean el mismo. Esas dos piden que el grado sepa mirar la
+  séptima, que es otra cosa.
+- Acordes de paso y modulación explícita.
+- **Del tiempo musical sabe la mitad.** Sabe pulsos, compases y velocidad:
+  `tempo.ts` acota el pulso por minuto y los pulsos por compás —de uno a seis—,
+  `melody.ts` guarda cada nota en pulsos sobre una rejilla de un cuarto de pulso
+  —la semicorchea— y limita su duración a las siete figuras que tienen dibujo, `arrangement.ts` cuenta
+  compases y `capture.ts` convierte en compases lo que tocas. Lo que **no** tiene:
+  silencios, ligaduras, grupos irregulares, dos voces y anacrusa. Por eso una nota
+  que dura más de lo que le queda al compás se escribe donde empieza y cruza la
+  barra, en vez de partirse con una ligadura.
+- **Intervalos: se enseñan y se oyen, pero el resto del dominio no los usa.** Hay
+  unidad de teoría, dictado de oído (`interval`) y `spelling.ts` sabe nombrarlos,
+  pero ni `suggestions.ts` ni la detección razonan con ellos: siguen pensando en
+  grados y en acordes.
