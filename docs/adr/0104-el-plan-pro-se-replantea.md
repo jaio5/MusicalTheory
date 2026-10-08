@@ -1,5 +1,7 @@
 # ADR 0104 — Pro se funde en Medio
 
+> **Cifras de hoy:** el cupo más alto es de 193 preguntas al mes con el modelo por defecto, no 227. Mira [`CUENTAS-Y-PLANES.md`](../CUENTAS-Y-PLANES.md).
+
 Fecha: 2026-10-07 · Estado: aceptada · Corrige: los tres planes de
 [ADR 0006](./0006-planes-y-puerto-de-facturacion.md) y el reparto de
 [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)

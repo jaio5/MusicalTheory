@@ -57,7 +57,7 @@ const UMBRAL_PX = 4;
 export const PULSACION_LARGA_MS = 300;
 
 /** Dónde caería el bloque si se soltara ahora. */
-export interface DropTarget {
+interface DropTarget {
   readonly partId: string;
   readonly index: number;
 }
@@ -70,7 +70,7 @@ export interface DropTarget {
  * fantasma lo mueve ahora el propio enganche a través de `fantasma`, y el estado
  * solo cambia cuando cambia el hueco, que es lo único que cambia lo que se pinta.
  */
-export interface DragState {
+interface DragState {
   readonly blockId: string;
   readonly target: DropTarget | null;
 }

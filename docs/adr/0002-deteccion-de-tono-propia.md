@@ -1,5 +1,7 @@
 # ADR 0002 — Detección de tono propia con Web Audio, sin librerías de DSP
 
+> **Revisado en parte por [ADR 0003](./0003-analisis-en-el-hilo-principal.md):** el análisis corre en el hilo principal, no en un `AudioWorklet`, y está medido allí.
+
 Fecha: 2026-07-28 · Estado: aceptada
 
 ## Contexto

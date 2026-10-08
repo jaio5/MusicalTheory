@@ -70,7 +70,7 @@ export function GananciaAlComponer({
           Tailwind: sobre tinta, la suya es corta y dura. */}
       {gain !== null && (
         <div className="border-brass-dim bg-surface-raised rounded-md border px-3 py-2 shadow-[var(--sombra-alta)]">
-          <p className="text-text text-sm font-medium">
+          <p className="text-text text-base font-medium">
             {QUE_HICISTE[gain.deed]}
             {/* El XP en monoespaciada porque es un número que se compara con
                 otros, que es la regla de la casa. El resto, en la sans. */}

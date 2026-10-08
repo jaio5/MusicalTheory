@@ -141,7 +141,7 @@ describe('sin cuenta', () => {
       </AccountProvider>,
     );
 
-    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+    expect(screen.getByText(/todavía no está disponible aquí/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Entrar para preguntar' })).not.toBeInTheDocument();
   });
 
@@ -305,13 +305,13 @@ describe('cuando no sale', () => {
     expect(screen.queryByRole('link', { name: /planes/i })).not.toBeInTheDocument();
   });
 
-  it('sin red tampoco se queda callado', async () => {
-    fetchFalso.mockRejectedValue(new Error('sin red'));
+  it('con red y el servidor sin contestar, culpa a la llamada y no a la red', async () => {
+    fetchFalso.mockRejectedValue(new Error('caído'));
     pintar();
 
     await preguntar();
 
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/No hemos podido contactar/);
   });
 
   it('un error sin frase usa la de respaldo', async () => {
@@ -321,6 +321,56 @@ describe('cuando no sale', () => {
     await preguntar();
 
     expect(await screen.findByRole('alert')).not.toBeEmptyDOMElement();
+  });
+});
+
+/**
+ * Sin red, el profesor acababa en «no hemos podido contactar con el profesor,
+ * vuelve en un minuto»: culpaba al modelo y mandaba a esperar algo que no se
+ * arregla esperando.
+ */
+describe('sin conexión', () => {
+  function sinRed(): void {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('lo dice antes de escribir, y la pregunta no sale', async () => {
+    sinRed();
+    pintar();
+
+    expect(screen.getByRole('status')).toHaveTextContent(/^Sin conexión/);
+    await preguntar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no ha salido de este aparato/);
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it('si la red se va a mitad de la pregunta, dice eso', async () => {
+    pintar();
+    fetchFalso.mockImplementation(() => {
+      sinRed();
+      return Promise.reject(new TypeError('Failed to fetch'));
+    });
+
+    await preguntar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Sin conexión/);
+    expect(screen.queryByRole('link', { name: /planes/i })).not.toBeInTheDocument();
+  });
+
+  it('al volver la red, el aviso se va', async () => {
+    const enLinea = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    pintar();
+    expect(screen.getByRole('status')).toBeInTheDocument();
+
+    enLinea.mockReturnValue(true);
+    window.dispatchEvent(new Event('online'));
+
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
   });
 });
 

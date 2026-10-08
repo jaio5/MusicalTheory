@@ -44,6 +44,7 @@ function pintar(props: Partial<React.ComponentProps<typeof Staff>> = {}) {
       mode="major"
       selectedNoteId={null}
       selectedBlockId={null}
+      corrigiendoBlockId={null}
       partName="Estrofa"
       partId="estrofa"
       dropAt={null}
@@ -171,12 +172,13 @@ describe('La partitura', () => {
     expect(screen.getByRole('button', { name: /en el pulso 0/ })).toBeInTheDocument();
   });
 
-  it('se dice con su parte y cuantas notas lleva', () => {
+  // El lector decía «1 pulsos» en cada negra y «1 notas» en cada partitura.
+  it('se dice con su parte y cuantas notas lleva, en singular si es una', () => {
     pintar({ notes: [{ id: 'n1', start: 0, length: 1, offset: 0 }] });
 
-    expect(
-      screen.getByRole('group', { name: 'Partitura de Estrofa: 1 notas' }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Partitura de Estrofa: 1 nota' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /, 1 pulso, en el pulso 0$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^C, grado I, 4 pulsos/ })).toBeInTheDocument();
   });
 
   // La armadura se dibuja, y crece con las alteraciones que tenga la tonalidad.
@@ -403,12 +405,15 @@ describe('Los acordes sobre la partitura', () => {
     expect(Number(agarre.getAttribute('height'))).toBe(44);
   });
 
-  // Y se lee a un metro: el cuerpo de la casa, no uno menos.
-  it('se escribe al cuerpo de la casa', () => {
+  // Y se lee a un metro: veintidós píxeles en la letra de los títulos, no en la
+  // monoespaciada, que es para lo que se alinea en columna.
+  it('se escribe a veintidos en la letra de los titulos', () => {
     const { container } = pintar();
     const cifrado = porEtiqueta(container, 'C, grado I').querySelector('text') as SVGTextElement;
 
-    expect(Number(cifrado.getAttribute('font-size'))).toBe(16);
+    expect(Number(cifrado.getAttribute('font-size'))).toBe(22);
+    expect(cifrado).toHaveClass('font-display');
+    expect(cifrado.getAttribute('font-family')).toBeNull();
   });
 
   /**
@@ -869,5 +874,126 @@ describe('Los sistemas', () => {
         container.querySelector('line.stroke-brass-bright')!.getAttribute('transform'),
       ).toMatch(/^translate/);
     });
+  });
+});
+
+/**
+ * **Lo que sobra a lo ancho se gasta en escala** (adr/0119). Con el pulso en su
+ * tope, cuatro compases medían 824 píxeles en un hueco de 1.520 y dejaban la
+ * hoja en una franja de 154 de alto: un diagrama pequeño en una pantalla que se
+ * lee a un metro.
+ */
+describe('La escala de la hoja', () => {
+  const MARGEN_DO = 44 + 24 + 12;
+  const anchoNatural = (r: ReturnType<typeof repartoEnSistemas>) =>
+    MARGEN_DO + r.porSistema * 4 * r.porPulso + 8;
+
+  it('sin medida, ni en un telefono, no se agranda', () => {
+    expect(repartoEnSistemas(0, MARGEN_DO, 4, 4).escala).toBe(1);
+    expect(repartoEnSistemas(364, MARGEN_DO, 4, 4).escala).toBeCloseTo(1, 1);
+  });
+
+  it('con papel de sobra, llena el ancho de su caja', () => {
+    const reparto = repartoEnSistemas(1520, MARGEN_DO, 4, 4);
+
+    expect(reparto.escala).toBeGreaterThan(1.5);
+    expect(anchoNatural(reparto) * reparto.escala).toBeCloseTo(1520 - 18, 0);
+  });
+
+  it('y no pasa del doble, para que un compas no sea un cartel', () => {
+    expect(repartoEnSistemas(1900, MARGEN_DO, 1, 4).escala).toBe(2);
+  });
+
+  describe('dibujada', () => {
+    function enUnaPantallaAncha(props: Partial<React.ComponentProps<typeof Staff>> = {}) {
+      const observadores: Array<(e: unknown) => void> = [];
+      vi.stubGlobal(
+        'ResizeObserver',
+        class {
+          constructor(cb: (e: unknown) => void) {
+            observadores.push(cb);
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      const r = pintar({ bars: 4, ...props });
+      act(() => observadores[0]?.([{ contentRect: { width: 1520 } }]));
+      vi.unstubAllGlobals();
+      const reparto = repartoEnSistemas(1520, MARGEN_DO, 4, 4);
+      return { ...r, reparto };
+    }
+
+    it('el dibujo crece entero y el viewBox no cambia', () => {
+      const { svg, reparto } = enUnaPantallaAncha();
+      const caja = svg.getAttribute('viewBox')!.split(' ').map(Number);
+
+      expect(Number(svg.getAttribute('width'))).toBeCloseTo(caja[2]! * reparto.escala, 3);
+      expect(Number(svg.getAttribute('height'))).toBeCloseTo(caja[3]! * reparto.escala, 3);
+    });
+
+    // El cifrado sigue a veintidós en pantalla: no crece con la hoja.
+    it('el cifrado mide lo mismo en pantalla', () => {
+      const { container, reparto } = enUnaPantallaAncha();
+      const cifrado = porEtiqueta(container, 'C, grado I').querySelector('text')!;
+
+      expect(Number(cifrado.getAttribute('font-size')) * reparto.escala).toBeCloseTo(22, 3);
+    });
+
+    // Pulsar en la hoja escalada escribe donde se pulsa, no más a la derecha.
+    it('pulsar escribe en el pulso de debajo del dedo', () => {
+      const { svg, onAdd, reparto } = enUnaPantallaAncha();
+      const x = (MARGEN_DO + 2 * reparto.porPulso) * reparto.escala;
+
+      fireEvent.click(svg, { clientX: x, clientY: 60 * reparto.escala });
+
+      expect(onAdd.mock.calls[0]![1]).toBe(2);
+    });
+
+    // Y estirar cuenta el arrastre en pulsos de la hoja, no de la pantalla.
+    it('estirar un pulso es arrastrar un pulso de la hoja escalada', () => {
+      const { container, onResizeBlock, reparto } = enUnaPantallaAncha();
+      const tirador = container.querySelector('rect.cursor-ew-resize') as SVGRectElement;
+
+      fireEvent.pointerDown(tirador, { button: 0, clientX: 200 });
+      arrastrarHasta(200 + reparto.porPulso * reparto.escala, 20);
+      soltarPuntero();
+
+      expect(onResizeBlock).toHaveBeenLastCalledWith('a', 5);
+    });
+  });
+});
+
+/**
+ * El aviso de lo traído promete que los dudosos «salen marcados con «?»», y en
+ * la partitura —la vista de entrada— no salía ninguno.
+ */
+describe('La duda en la partitura', () => {
+  const dudoso = {
+    ...writtenBlock('a', 'I', 4),
+    source: 'heard' as const,
+    confidence: 0.01,
+    alternatives: ['vi' as const],
+  };
+
+  it('un acorde dudoso lleva su interrogante, su linea punteada y lo dice', () => {
+    const { container } = pintar({ blocks: [dudoso, writtenBlock('b', 'IV', 4)] });
+    const acorde = porEtiqueta(container, 'C, grado I');
+
+    expect(acorde.getAttribute('aria-label')).toMatch(/, dudoso$/);
+    expect(acorde.querySelector('tspan')).toHaveTextContent('?');
+    expect(acorde.querySelector('line')!.getAttribute('stroke-dasharray')).toBe('3 3');
+    expect(porEtiqueta(container, 'F, grado IV').querySelector('tspan')).toBeNull();
+  });
+
+  // «Apunté Em» no decía de cuál: el que se pregunta va recuadrado.
+  it('el que se esta corrigiendo va recuadrado, y solo ese', () => {
+    const { container } = pintar({
+      blocks: [dudoso, writtenBlock('b', 'IV', 4)],
+      corrigiendoBlockId: 'a',
+    });
+
+    expect(porEtiqueta(container, 'C, grado I').querySelector('[data-corrigiendo]')).not.toBeNull();
+    expect(container.querySelectorAll('[data-corrigiendo]')).toHaveLength(1);
   });
 });

@@ -1,5 +1,7 @@
 # ADR 0001 — Capas con el dominio musical aislado del navegador
 
+> **Revisado en parte por [ADR 0007](./0007-elegir-por-donde-empezar.md):** el desbloqueo lineal del temario, que el código defendía cuando se escribió esto, hoy se elige por dónde empezar.
+
 Fecha: 2026-07-28 · Estado: aceptada
 
 ## Contexto

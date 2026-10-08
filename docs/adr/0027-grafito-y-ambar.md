@@ -1,5 +1,7 @@
 # ADR 0027 — Grafito y ámbar: se jubila el amplificador
 
+> **Rehecho en parte por [ADR 0070](./0070-la-sala-encendida.md):** la paleta, sin tocar su regla —fondo frío, acento cálido—. Y sobre cómo se tratan los ADR viejos, mira [ADR 0125](./0125-los-adr-viejos-llevan-aviso-el-texto-no-se-reescribe.md): llevan aviso, el texto no se reescribe.
+
 Fecha: 2026-09-08 · Estado: aceptada
 
 **Este ADR deroga la parte estética de

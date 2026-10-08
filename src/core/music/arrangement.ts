@@ -51,6 +51,7 @@ import type { CapturedStep } from './capture';
 import {
   clampOffset,
   clampStart,
+  GRID,
   midiOf,
   snapLength,
   MAX_LEAD_NOTES,
@@ -62,6 +63,7 @@ import {
   MAX_BARS,
   MAX_SECTIONS,
   MAX_SECTION_DEGREES,
+  MAX_SECTION_NAME,
   defaultSectionName,
   nameForRole,
   type SectionRole,
@@ -132,7 +134,7 @@ export interface Block {
 }
 
 /** Qué grado tenía un bloque en el otro modo, y qué alternativas traía allí. */
-export interface GradoEnElOtroModo {
+interface GradoEnElOtroModo {
   readonly mode: KeyMode;
   readonly degree: DegreeSymbol;
   readonly alternatives: readonly DegreeSymbol[];
@@ -310,6 +312,31 @@ export const MAX_PART_BLOCKS = MAX_SECTION_DEGREES;
  */
 const MIN_BLOCK_BEATS = 1;
 export const MAX_BLOCK_BEATS = 16;
+
+/**
+ * Lo más larga que puede ser una parte, en pulsos: todos sus bloques, del largo
+ * máximo.
+ *
+ * Es más que los compases reservados —`MAX_BARS` del compás más largo son 192
+ * pulsos, y esto 512— porque los bloques pueden pasarse de lo reservado y
+ * `drawnBars` estira la parte hasta ellos. Por eso el tope de una nota es este y
+ * no aquel: con el otro, una nota escrita sobre el último bloque se caería al
+ * recargar.
+ *
+ * **Una nota no empieza más allá.** Una copia `.caos.json` editada a mano con un
+ * `start` de un billón dejaba una parte de un billón de pulsos, y el pentagrama
+ * intentaba dibujar todos sus compases: componer no volvía a abrirse, porque eso
+ * se guardaba en el navegador y se leía al recargar.
+ */
+export const MAX_PART_BEATS = MAX_PART_BLOCKS * MAX_BLOCK_BEATS;
+
+/** El último sitio donde puede empezar una nota, en la rejilla. */
+const ULTIMO_INICIO = MAX_PART_BEATS - GRID;
+
+/** El inicio de una nota escrita, dentro de lo que una parte puede durar. */
+function inicioQueCabe(start: number): number {
+  return Math.min(ULTIMO_INICIO, clampStart(start));
+}
 
 /**
  * Los compases que trae una parte nueva.
@@ -561,10 +588,23 @@ export function removePart(arrangement: Arrangement, partId: string): Arrangemen
   return parts.length === arrangement.parts.length ? arrangement : { parts };
 }
 
+/**
+ * El nombre de una parte, recortado al de una sección de una canción guardada
+ * (`MAX_SECTION_NAME`), o nulo si se queda en blanco.
+ *
+ * El mismo tope en los dos sitios: si el lienzo admitiera más, guardar la
+ * canción en la cuenta lo cortaría sin avisar. Y una copia que trae un nombre de
+ * un megabyte no lo mete en el lienzo.
+ */
+function nombreDeParte(nombre: string): string | null {
+  const recortado = nombre.trim().slice(0, MAX_SECTION_NAME).trim();
+  return recortado === '' ? null : recortado;
+}
+
 export function renamePart(arrangement: Arrangement, partId: string, name: string): Arrangement {
-  const nombre = name.trim();
+  const nombre = nombreDeParte(name);
   return mapPart(arrangement, partId, (part) =>
-    nombre === '' || nombre === part.name ? part : { ...part, name: nombre },
+    nombre === null || nombre === part.name ? part : { ...part, name: nombre },
   );
 }
 
@@ -921,7 +961,7 @@ export function addNote(arrangement: Arrangement, partId: string, note: LeadNote
     const nueva: LeadNote = {
       id: note.id,
       offset: clampOffset(note.offset),
-      start: clampStart(note.start),
+      start: inicioQueCabe(note.start),
       length: snapLength(note.length),
       // La duda viaja con la nota. Sin esto, lo que el motor oyó sucio llegaba a
       // la partitura limpio, y `isDoubtfulNote` no tenía nada que marcar.
@@ -954,7 +994,7 @@ export function moveNote(
   start: number,
   offset: number,
 ): Arrangement {
-  const inicio = clampStart(start);
+  const inicio = inicioQueCabe(start);
   const altura = clampOffset(offset);
 
   return mapParts(arrangement, (part) => {
@@ -1104,12 +1144,16 @@ export function arrangementFromSong(
         // de un bloque de dos se guardaron con la misma procedencia.
         source: section.sources?.[desde] ?? 'written',
       })),
-      notes: (section.lead ?? []).map(([offset, start, length], nota) => ({
-        id: `${idDePosicion(prefijo, parte)}n${nota}`,
-        offset,
-        start,
-        length,
-      })),
+      notes: (section.lead ?? [])
+        .map(([offset, start, length], nota) => ({
+          id: `${idDePosicion(prefijo, parte)}n${nota}`,
+          offset,
+          start,
+          length,
+        }))
+        // Una canción de la cuenta es entrada de fuera como una copia, y
+        // `parseSong` no sabe cuánto dura una parte: eso es de aquí.
+        .filter(cabeEnLaParte),
       bars: Math.max(BARS_POR_DEFECTO, section.bars ?? 0),
     })),
   };
@@ -1371,11 +1415,56 @@ export function leerMontaje(raw: unknown): Arrangement | null {
   if (!esObjeto(raw) || !Array.isArray(raw['parts'])) {
     return null;
   }
+  const vistos: IdsVistos = { partes: new Set(), bloques: new Set(), notas: new Set() };
   const parts = raw['parts']
-    .map(leerParte)
+    .map((parte) => leerParte(parte, vistos))
     .filter((part): part is Part => part !== null)
     .slice(0, MAX_PARTS);
   return { parts };
+}
+
+/**
+ * Los identificadores que ya tiene el montaje que se está leyendo.
+ *
+ * **Uno repetido no entra tal cual.** Dos partes con el mismo daban dos claves
+ * iguales al lienzo, y `removePart` borraba las dos; con los bloques y las
+ * notas, igual, y en todo el montaje y no solo en su parte, porque quitar un
+ * bloque lo busca en todas. Se renombra en vez de tirarlo: lo que trae es
+ * trabajo, y lo único malo es el nombre.
+ */
+interface IdsVistos {
+  readonly partes: Set<string>;
+  readonly bloques: Set<string>;
+  readonly notas: Set<string>;
+}
+
+/**
+ * Lo más largo que puede ser un identificador que llega de fuera.
+ *
+ * Los de aquí son UUID (36); una copia o un mensaje de otra pestaña puede traer
+ * un megabyte, que viajaría como clave de React y en cada guardado.
+ */
+const MAX_ID = 64;
+
+/** El mismo identificador si nadie lo tiene, o el primero libre con un número detrás. */
+function idLibre(id: string, vistos: Set<string>): string {
+  const base = id.slice(0, MAX_ID);
+  let libre = base;
+  for (let otro = 2; vistos.has(libre); otro += 1) {
+    libre = `${base}~${otro}`;
+  }
+  vistos.add(libre);
+  return libre;
+}
+
+function conIdLibre<T extends { readonly id: string }>(cosa: T, vistos: Set<string>): T {
+  const id = idLibre(cosa.id, vistos);
+  return id === cosa.id ? cosa : { ...cosa, id };
+}
+
+/** Si una nota empieza dentro de lo que una parte puede durar. */
+function cabeEnLaParte(note: LeadNote): boolean {
+  return note.start < MAX_PART_BEATS;
 }
 
 function esObjeto(raw: unknown): raw is Record<string, unknown> {
@@ -1399,7 +1488,7 @@ function leerGrados(raw: unknown): DegreeSymbol[] {
   return Array.isArray(raw) ? raw.filter(esGrado) : [];
 }
 
-function leerParte(raw: unknown): Part | null {
+function leerParte(raw: unknown, vistos: IdsVistos): Part | null {
   if (!esObjeto(raw) || typeof raw['id'] !== 'string' || typeof raw['name'] !== 'string') {
     return null;
   }
@@ -1408,13 +1497,15 @@ function leerParte(raw: unknown): Part | null {
         .map(leerBloque)
         .filter((block): block is Block => block !== null)
         .slice(0, MAX_PART_BLOCKS)
+        .map((block) => conIdLibre(block, vistos.bloques))
     : [];
   const notes = Array.isArray(raw['notes'])
     ? ordenar(
         raw['notes']
           .map(leerNota)
           .filter((note): note is LeadNote => note !== null)
-          .slice(0, MAX_LEAD_NOTES),
+          .slice(0, MAX_LEAD_NOTES)
+          .map((note) => conIdLibre(note, vistos.notas)),
       )
     : [];
   const bars = esNumero(raw['bars'])
@@ -1423,8 +1514,8 @@ function leerParte(raw: unknown): Part | null {
   const role = raw['role'];
   const repeats = raw['repeats'];
   return {
-    id: raw['id'],
-    name: raw['name'].trim() === '' ? 'Parte' : raw['name'],
+    id: idLibre(raw['id'], vistos.partes),
+    name: nombreDeParte(raw['name']) ?? 'Parte',
     blocks,
     notes,
     bars,
@@ -1480,11 +1571,14 @@ function leerNota(raw: unknown): LeadNote | null {
   if (!esNumero(offset) || !esNumero(start) || !esNumero(length)) {
     return null;
   }
-  return {
+  const note: LeadNote = {
     id: raw['id'],
     offset: clampOffset(offset),
     start: clampStart(start),
     length: snapLength(length),
     ...(esNumero(clarity) ? { clarity: Math.min(1, Math.max(0, clarity)) } : {}),
   };
+  // Más allá no se acota, se tira: llevarla al final de la parte sería poner una
+  // nota donde nadie la escribió.
+  return cabeEnLaParte(note) ? note : null;
 }

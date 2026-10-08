@@ -53,7 +53,7 @@ export interface ModelPrice {
  * outputs»; adr/0103). Lo que decide qué se manda es `server/ask-model.ts`, que
  * lee esto: el coste y la petición no pueden separarse.
  */
-export type Pensamiento = 'se-apaga' | 'entre-herramientas' | 'siempre' | 'no-piensa';
+type Pensamiento = 'se-apaga' | 'entre-herramientas' | 'siempre' | 'no-piensa';
 
 export interface Modelo extends ModelPrice {
   readonly pensamiento: Pensamiento;
@@ -176,9 +176,6 @@ export const MODELO_DESCONOCIDO: Modelo = {
   esfuerzo: true,
 };
 
-/** El precio de respaldo, con el nombre que tuvo. Es `MODELO_DESCONOCIDO`. */
-export const FALLBACK_PRICE: Modelo = MODELO_DESCONOCIDO;
-
 export function modeloDe(modelId: string | undefined): Modelo {
   return (modelId === undefined ? undefined : MODEL_PRICES[modelId]) ?? MODELO_DESCONOCIDO;
 }
@@ -210,7 +207,7 @@ export function reservaParaPensar(modelId: string | undefined): number {
 }
 
 /** Las dos cosas que llaman al modelo. Cada una cuesta distinto. */
-export type AiFeature = 'profesor' | 'versiones';
+export type AiFeature = 'profesor' | 'salidas';
 
 /**
  * El peor caso de tokens de cada petición.
@@ -236,7 +233,7 @@ export const TOKEN_BUDGETS: Readonly<Record<AiFeature, TokenBudget>> = {
   // La más cara de las dos, y con motivo: la entrada lleva la progresión entera
   // —hasta treinta y dos grados— más el catálogo de movimientos, y la salida son
   // tres progresiones completas en vez de cuatro frases.
-  versiones: { input: 1400, output: 900 },
+  salidas: { input: 1400, output: 900 },
 };
 
 /**
@@ -301,9 +298,9 @@ export const MAX_DIRECTRICES_LENGTH = 240;
 export const TOKENS_POR_CARACTER_LIBRE = 2;
 
 /** Cuánto texto libre deja pasar cada petición, en caracteres. */
-export const TEXTO_LIBRE: Readonly<Record<'profesor' | 'versiones', number>> = {
+export const TEXTO_LIBRE: Readonly<Record<'profesor' | 'salidas', number>> = {
   profesor: MAX_QUESTION_LENGTH,
-  versiones: MAX_DIRECTRICES_LENGTH,
+  salidas: MAX_DIRECTRICES_LENGTH,
 };
 
 /**
@@ -314,7 +311,7 @@ export const TEXTO_LIBRE: Readonly<Record<'profesor' | 'versiones', number>> = {
  * del castellano es error a favor del gasto, y restarlos ataría este número a la
  * medida de un test.
  */
-export function peorTextoLibreEnTokens(feature: 'profesor' | 'versiones'): number {
+export function peorTextoLibreEnTokens(feature: 'profesor' | 'salidas'): number {
   return TEXTO_LIBRE[feature] * TOKENS_POR_CARACTER_LIBRE;
 }
 
@@ -326,10 +323,10 @@ export function peorTextoLibreEnTokens(feature: 'profesor' | 'versiones'): numbe
  * comparar de un vistazo con la guitarra en las manos; con cinco hay que
  * desplazarse, y desplazarse es soltar las cuerdas.
  */
-export const MAX_VERSIONS = 3;
+export const MAX_SALIDAS = 3;
 
 /** Lo más larga que puede ser la progresión que se manda a rearmonizar. */
-export const MAX_VERSION_DEGREES = 32;
+export const MAX_SALIDAS_DEGREES = 32;
 
 /**
  * Cuántas veces se le puede preguntar al modelo por **una** petición del cupo.
@@ -532,7 +529,7 @@ export const FREE_MONTHLY_ALLOWANCE = 15;
  * con el dinero y engañoso para quien lo leía. Contando en preguntas, el número
  * sube con el precio y el dinero sigue acotado, porque cada petición paga lo suyo.
  */
-export const UNIDAD_DEL_CUPO: AiFeature = 'profesor';
+const UNIDAD_DEL_CUPO: AiFeature = 'profesor';
 
 /**
  * Cuántas preguntas del cupo gasta una petición de esa clase con ese modelo.
@@ -595,7 +592,7 @@ export function dailyAiRequests(planId: PlanId, modelId: string | undefined): nu
 
 /** Las clases de petición que un plan puede hacer: las que su plan abre. */
 function featuresOf(plan: Plan): readonly AiFeature[] {
-  return (['profesor', 'versiones'] as const).filter((feature) =>
+  return (['profesor', 'salidas'] as const).filter((feature) =>
     plan.capabilities.includes(feature),
   );
 }

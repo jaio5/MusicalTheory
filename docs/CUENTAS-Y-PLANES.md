@@ -32,11 +32,19 @@ coinciden, manda el código y este documento está mal.
 | Grado Profesional (6 cursos)   | —        | sí      | sí      |
 | Avance guardado en la cuenta   | —        | sí      | sí      |
 | Repaso de lo que fallaste      | —        | sí      | sí      |
-| Tus canciones guardadas        | —        | sí      | sí      |
+| Tu canción en este navegador   | sí       | sí      | sí      |
+| Tus canciones en la cuenta     | —        | sí      | sí      |
 | Salidas de lo que tocas        | —        | —       | sí      |
 | El profesor sabe por dónde vas | —        | —       | sí      |
 | Preguntas al profesor al mes   | 15       | 96      | 193     |
 | Preguntas que gasta una salida | —        | —       | 3       |
+
+**La canción vive en este navegador, con plan o sin él**
+([adr/0118](./adr/0118-la-cancion-vive-en-este-navegador-y-se-dice.md)): el lienzo se
+guarda solo en IndexedDB, y quien no paga se lo puede llevar en MIDI o en una copia
+`.caos.json`. Lo que pide plan es guardarla **también en la cuenta**, con nombre, para
+abrirla desde otro aparato. La capacidad que abre las salidas se llama `'salidas'`
+(antes `'versiones'`, adr/0124); no se guarda en la base, así que no hubo migración.
 
 **Los cupos de esas dos últimas filas no están escritos en ninguna parte: se
 calculan.** Son los que salen con `claude-sonnet-5-5`, que es el modelo por defecto
@@ -149,7 +157,8 @@ cuenta sin querer es perder el avance de la primera.
 
 ## Qué se puede cambiar de tu cuenta
 
-`PATCH /api/cuenta`, con la sesión abierta y diez intentos por minuto y dirección.
+`PATCH /api/cuenta`, con la sesión abierta y diez intentos por minuto y dirección —que solo existe con
+`TRUSTED_PROXY_HOPS`: sin él todo el mundo comparte el mismo tope—.
 Su propio contador y no el de registrarse, porque comprobar contraseñas es
 exactamente lo que hace quien las prueba a lo bruto, y gastar los intentos de una
 cosa no puede dejar sin registrarse a quien comparte salida a internet.
@@ -510,6 +519,9 @@ Lo de las cuentas está en ocho tablas, y la analítica en tres más
   los de entrar y `/olvidada` la **huella del correo**, no el correo
   ([adr/0113](./adr/0113-los-topes-cuentan-lo-que-cabe-y-agrupan-lo-que-es-de-uno.md)).
   Las filas se borran solas al caducar la ventana.
+- **`password_resets`**: el vale para recuperar la contraseña, **por su huella SHA-256 y
+  nunca el vale**, con su caducidad (una hora) y cuándo se gastó
+  ([adr/0013](./adr/0013-el-correo-como-puerto.md)).
 - **`songs`**: una fila por canción —no un documento por cuenta como el avance,
   porque una canción se abre, se renombra y se borra de una en una—. Dentro van la
   tonalidad, el tempo y **los grados**, nunca los cifrados: por eso una canción
@@ -531,7 +543,7 @@ cuenta sino de cómo se usa la aplicación:
 **Ni una muestra de audio.** Eso no sale del equipo, y las
 cuentas no han cambiado eso: lo que viaja del progreso son identificadores de
 unidad, números y fechas, y lo que viaja de una canción son grados, un número,
-nombres de sección y —desde
+nombres de sección —texto que puso quien las escribió— y —desde
 [adr/0028](./adr/0028-componer-tambien-cuenta.md)— qué papel hace cada parte,
 que es uno de ocho valores escritos en el código y no texto libre.
 
@@ -635,7 +647,7 @@ de avances, la cola de repaso, el punto de partida, las tarjetas de plan y la ve
 de pago tienen tests.
 
 **El camino con base de datos de verdad ya está andado**, con el Postgres de
-`compose.yml` (1 de agosto de 2026): se crean las tres tablas, se registra una cuenta
+`compose.yml` (1 de agosto de 2026): se crean las tablas de entonces (hoy son once), se registra una cuenta
 —y el correo se normaliza, y el repetido da 409—, se entra y se rechaza la contraseña
 equivocada, se cambia el nombre y la contraseña —y con la vieja ya no se entra—, se
 sube de plan, el avance se fusiona sin perder nada al mandar menos del que hay, y el
@@ -645,4 +657,4 @@ concordancia en un mensaje —«Las ideas de la IA _entra_ en el plan Medio»—
 fallo de consulta.
 
 Lo que sigue sin probarse es lo que pide dinero o infraestructura de verdad: la
-pasarela de pago —que no existe— y las respuestas del modelo con una clave puesta.
+pasarela de pago —`StripeBilling` está escrita y nunca se ha ejecutado contra Stripe, adr/0077— y las respuestas del modelo con una clave puesta.

@@ -554,9 +554,9 @@ function circleLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
   return {
     points: [
       `La armadura son las alteraciones que van al principio de cada pentagrama y valen para toda la obra. Los sostenidos entran siempre en este orden: ${ORDEN_DE_SOSTENIDOS}. Los bemoles, al revés: ${ORDEN_DE_BEMOLES}.`,
-      `${keyName(tonic, mode)} ${cuantas === 0 ? 'no lleva alteraciones' : `lleva ${lleva}`}. Para saber la tonalidad: con sostenidos, la mayor está medio tono por encima del último; con bemoles, es el penúltimo —con uno solo, Fa mayor—. La menor, una tercera menor por debajo de su mayor.`,
+      `${keyName(tonic, mode)} ${cuantas === 0 ? 'no lleva alteraciones' : `lleva ${lleva}`}. Para saber la tonalidad: con sostenidos, la mayor está medio tono por encima del último; con bemoles, es el penúltimo —con uno solo, Fa mayor—. La relativa menor, una tercera menor por debajo de su mayor.`,
       `La rueda ordena las tonalidades por quintas: cada paso a la derecha añade un sostenido o quita un bemol. ${keyName(tonic, mode)} tiene al lado ${vecina(fifthUp)} y ${vecina(fifthDown)}, que se diferencian de ella en una sola alteración.`,
-      `Su relativa es ${keyName(relative.tonic, relative.mode)}: la misma armadura con otro centro. La menor está una tercera menor por debajo de su relativa mayor.`,
+      `Su relativa es ${keyName(relative.tonic, relative.mode)}: la misma armadura con otro centro. La tonalidad menor está una tercera menor por debajo de su relativa mayor.`,
     ],
     exercises: [
       {
@@ -914,7 +914,13 @@ function functionsLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
       */
       mode === 'major'
         ? `En ${keyName(tonic, mode)} reposan ${first.symbol}, ${triads[2]!.symbol} y ${sixth.symbol}; salen ${second.symbol} y ${fourth.symbol}; y aprietan ${fifth.symbol} y ${triads[6]!.symbol}.`
-        : `En ${keyName(tonic, mode)} reposan ${first.symbol}, ${triads[2]!.symbol} y ${sixth.symbol}; salen ${second.symbol} y ${fourth.symbol}; y aprietan ${dominante.triada} y ${sensible}dim, los de la menor armónica, que sube el séptimo grado.`,
+        : /*
+            Y los dos de la natural que no son de la armónica tienen papel: el v y
+            el VII son dominantes sin sensible. Quedaban sin nombrar y el VII salía
+            de opción en las preguntas, así que se aprendía un acorde de la
+            tonalidad sin saber qué hace.
+          */
+          `En ${keyName(tonic, mode)} reposan ${first.symbol}, ${triads[2]!.symbol} y ${sixth.symbol}; salen ${second.symbol} y ${fourth.symbol}; y aprietan ${dominante.triada} y ${sensible}dim, los de la menor armónica, que sube el séptimo grado. Los de la natural, ${fifth.symbol} y ${triads[6]!.symbol}, son dominantes sin sensible y apenas aprietan: ${fifth.symbol} es una dominante débil, y ${triads[6]!.symbol}, el VII a un tono de la tónica, tira más hacia ${triads[2]!.symbol}, del que es dominante.`,
       `No es una etiqueta puesta a dedo: ${first.symbol} y ${sixth.symbol} comparten ${enumera(deTonica)}, y por eso el VI puede hacer de tónica. Y ${second.symbol} comparte ${enumera(deSubdominante)} con ${fourth.symbol}: el II hace de subdominante.`,
       /*
         «La dominante es la única que lleva el tritono» no era verdad: la tríada

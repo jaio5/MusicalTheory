@@ -16,7 +16,7 @@ describe('la pastilla', () => {
         Do
       </Chip>,
     );
-    expect(screen.getByRole('button')).toHaveClass('text-[13px]', 'px-3', 'min-h-tap');
+    expect(screen.getByRole('button')).toHaveClass('text-[0.8125rem]', 'px-3', 'min-h-tap');
     expect(screen.getByRole('button')).not.toHaveClass('text-sm');
 
     rerender(

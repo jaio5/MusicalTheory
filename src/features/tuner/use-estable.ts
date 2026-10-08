@@ -29,8 +29,19 @@ export const PERMANENCIA_MS = 1500;
  * El primer cambio es inmediato: nadie ha visto todavía ningún estado que haya
  * que dejar leer. Y si la razón del cambio desaparece mientras se espera, no
  * cambia: el temporizador muere con el efecto.
+ *
+ * **Salvo que se pida esperar para entrar** (`esperaAlEntrarMs`): entonces la
+ * razón tiene que durar ese tiempo seguido. Es para el aviso de señal sucia, que
+ * con una nota limpia salía igual: el ataque de la púa y la cola de la nota
+ * bajan la claridad un instante, y como el primer cambio era inmediato, ese
+ * instante dejaba «no llega limpia» segundo y medio al lado de «Está afinada».
  */
-export function useEstable(entra: boolean, sale: boolean, permanenciaMs = PERMANENCIA_MS): boolean {
+export function useEstable(
+  entra: boolean,
+  sale: boolean,
+  permanenciaMs = PERMANENCIA_MS,
+  esperaAlEntrarMs = 0,
+): boolean {
   const [valor, setValor] = useState(false);
   const desde = useRef(Number.NEGATIVE_INFINITY);
 
@@ -38,13 +49,16 @@ export function useEstable(entra: boolean, sale: boolean, permanenciaMs = PERMAN
     if (!(valor ? sale : entra)) {
       return;
     }
-    const espera = Math.max(0, desde.current + permanenciaMs - performance.now());
+    const espera = Math.max(
+      valor ? 0 : esperaAlEntrarMs,
+      desde.current + permanenciaMs - performance.now(),
+    );
     const temporizador = setTimeout(() => {
       desde.current = performance.now();
       setValor(!valor);
     }, espera);
     return () => clearTimeout(temporizador);
-  }, [valor, entra, sale, permanenciaMs]);
+  }, [valor, entra, sale, permanenciaMs, esperaAlEntrarMs]);
 
   return valor;
 }

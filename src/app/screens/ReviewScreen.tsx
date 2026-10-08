@@ -68,7 +68,7 @@ export function ReviewScreen() {
             dejaba al lado una columna de doscientos y las tarjetas en una palabra
             por renglón. */}
         <div className="flex flex-col gap-4 md:max-w-[calc(50vw-3rem)]">
-          <p className="text-text-muted max-w-prose text-sm">
+          <p className="text-text-muted max-w-prose">
             Con un plan, cada pregunta que fallas en una unidad se apunta y vuelve aquí, generada
             otra vez en la tonalidad en la que estés tocando. Sin plan, fallar se explica igual,
             pero la pregunta no se apunta.
@@ -150,7 +150,7 @@ export function ReviewScreen() {
         <div className="mx-auto min-h-0 w-full max-w-2xl grow overflow-y-auto">
           {day === null ? (
             // El día se lee después de pintar, igual que el avance. Un instante.
-            <p className="text-text-muted p-4 text-sm">Un momento...</p>
+            <p className="text-text-muted p-4">Un momento...</p>
           ) : (
             <ReviewSession
               progress={progress}
@@ -174,7 +174,7 @@ export function ReviewScreen() {
             <div className="w-full max-w-sm">
               <KeyPanel compact />
             </div>
-            <p className="text-text-muted max-w-prose text-sm">
+            <p className="text-text-muted max-w-prose">
               {activeKey === null
                 ? 'Elige una y las preguntas se escriben con sus acordes.'
                 : 'Cámbiala y las mismas preguntas hablan de otros acordes.'}

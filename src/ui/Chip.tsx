@@ -64,9 +64,13 @@ export type ChipSize = 'normal' | 'compacto' | 'grande';
 // la letra de leer y un relleno que la sube a 58 px, porque es lo único que hay
 // que pulsar en su pantalla y se pulsa desde un metro. Va aquí y no en un
 // `text-base` de `className`, que perdía contra el `text-sm` de la pieza.
+//
+// **Los 13 del compacto, en `rem`.** Iban en píxeles y eran la única letra de la
+// pieza que no crecía con la del navegador: al 200 %, la normal pasaba a 28 y la
+// compacta se quedaba en 13 (WCAG 1.4.4).
 const TAMANOS: Record<ChipSize, string> = {
   normal: 'px-3.5 text-sm',
-  compacto: 'px-3 text-[13px]',
+  compacto: 'px-3 text-[0.8125rem]',
   grande: 'px-3 py-4 text-base',
 };
 

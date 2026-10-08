@@ -22,6 +22,7 @@ import {
   lastDegreeOf,
   melodyEnd,
   MAX_BLOCK_BEATS,
+  MAX_PART_BEATS,
   MAX_PART_BLOCKS,
   MAX_PARTS,
   moveNote,
@@ -58,7 +59,7 @@ import { MAX_LEAD_NOTES, type LeadNote } from './melody';
 import type { EspecieDeBloque } from './chords';
 import { pitchClassFromName, type PitchClass } from './notes';
 import { degreesFor, type DegreeSymbol } from './progressions';
-import { MAX_BARS, parseSong, type Song } from './song';
+import { MAX_BARS, MAX_SECTION_NAME, parseSong, type Song } from './song';
 
 function bloque(id: string, degree: Block['degree'], beats = 4): Block {
   return writtenBlock(id, degree, beats);
@@ -1568,5 +1569,118 @@ describe('leerMontaje', () => {
     const leido = leerMontaje({ parts: partes });
     expect(leido?.parts).toHaveLength(MAX_PARTS);
     expect(leido?.parts[0]?.blocks).toHaveLength(MAX_PART_BLOCKS);
+  });
+});
+
+/**
+ * Lo que llega de fuera —una copia editada a mano, lo guardado en el navegador,
+ * lo que cuenta otra pestaña— no puede dejar componer sin abrir.
+ */
+describe('lo que llega de fuera no rompe el lienzo', () => {
+  function parteCon(notes: unknown[]) {
+    return { id: 'p', name: 'P', blocks: [bloque('a', 'I')], notes, bars: 4 };
+  }
+
+  // Con un `start` de un billón, `drawnBars` pedía un billón de compases al
+  // pentagrama, y eso se guardaba y se volvía a leer en cada recarga.
+  it('una nota que empieza más allá de lo que puede durar una parte se cae', () => {
+    const leido = leerMontaje({
+      parts: [
+        parteCon([
+          { id: 'lejos', offset: 0, start: 1e12, length: 1 },
+          { id: 'justo', offset: 0, start: MAX_PART_BEATS, length: 1 },
+          { id: 'ultima', offset: 0, start: MAX_PART_BEATS - 0.25, length: 1 },
+        ]),
+      ],
+    });
+
+    const parte = leido!.parts[0]!;
+    expect(parte.notes.map((note) => note.id)).toEqual(['ultima']);
+    expect(drawnBars(parte, 1)).toBeLessThanOrEqual(MAX_PART_BEATS + 1);
+  });
+
+  // Una copia puede traer un nombre o un identificador de un megabyte: no es un
+  // número, pero viajaría como clave de React y en cada guardado.
+  it('un nombre o un identificador enorme se recorta', () => {
+    const leido = leerMontaje({
+      parts: [{ id: 'x'.repeat(1_000_000), name: 'n'.repeat(1_000_000), blocks: [], bars: 4 }],
+    });
+
+    const parte = leido!.parts[0]!;
+    expect(parte.name).toHaveLength(MAX_SECTION_NAME);
+    expect(parte.id.length).toBeLessThanOrEqual(64);
+  });
+
+  it('renombrar recorta al mismo tope, y en blanco no cambia nada', () => {
+    const largo = renamePart(montaje(), 'estrofa', `  ${'a'.repeat(100)}  `);
+    expect(largo.parts[0]!.name).toBe('a'.repeat(MAX_SECTION_NAME));
+    expect(renamePart(montaje(), 'estrofa', '   ')).toEqual(montaje());
+  });
+
+  it('escribir una nota no la lleva a donde leerla la tiraría', () => {
+    const conNota = addNote(montaje(), 'estrofa', { id: 'n', offset: 0, start: 1e12, length: 1 });
+    expect(findNote(conNota, 'n')?.note.start).toBe(MAX_PART_BEATS - 0.25);
+
+    const movida = moveNote(conNota, 'n', Infinity, 0);
+    expect(findNote(movida, 'n')?.note.start).toBe(MAX_PART_BEATS - 0.25);
+    expect(leerMontaje(JSON.parse(JSON.stringify(movida)))).toEqual(movida);
+  });
+
+  it('una canción de la cuenta con una nota así tampoco la trae', () => {
+    const cancion = parseSong(
+      {
+        tonic: 0,
+        mode: 'major',
+        sections: [
+          {
+            name: 'A',
+            degrees: ['I'],
+            lead: [
+              [0, 1e12, 1],
+              [2, 1, 1],
+            ],
+          },
+        ],
+      },
+      'x',
+    );
+
+    const notas = arrangementFromSong(cancion!).parts[0]!.notes;
+    expect(notas.map((note) => note.start)).toEqual([1]);
+  });
+
+  // Dos claves iguales en React, y quitar una parte se llevaba las dos.
+  it('un identificador repetido se renombra, y en todo el montaje', () => {
+    const nota = (id: string, start: number) => ({ id, offset: 0, start, length: 1 });
+    const leido = leerMontaje({
+      parts: [
+        { id: 'p', name: 'Uno', blocks: [bloque('b', 'I'), bloque('b', 'V')], notes: [] },
+        {
+          id: 'p',
+          name: 'Dos',
+          blocks: [bloque('b', 'IV'), bloque('b~2', 'vi')],
+          notes: [nota('n', 0), nota('n', 1)],
+        },
+        { id: 'p~2', name: 'Tres', blocks: [], notes: [nota('n', 2)] },
+      ],
+    })!;
+
+    expect(leido.parts.map((part) => part.id)).toEqual(['p', 'p~2', 'p~2~2']);
+    expect(leido.parts.flatMap((part) => part.blocks.map((block) => block.id))).toEqual([
+      'b',
+      'b~2',
+      'b~3',
+      'b~2~2',
+    ]);
+    expect(leido.parts.flatMap((part) => part.notes.map((note) => note.id))).toEqual([
+      'n',
+      'n~2',
+      'n~3',
+    ]);
+    // Lo que trae se queda: solo cambia el nombre.
+    expect(leido.parts[1]?.blocks.map((block) => block.degree)).toEqual(['IV', 'vi']);
+
+    const sinLaPrimera = removePart(leido, 'p');
+    expect(sinLaPrimera.parts.map((part) => part.name)).toEqual(['Dos', 'Tres']);
   });
 });

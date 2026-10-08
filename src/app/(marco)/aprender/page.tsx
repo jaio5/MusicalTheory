@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { PathScreen } from '../../screens/PathScreen';
 
 export const metadata: Metadata = {
-  title: 'Aprender · Caos ordenado',
+  title: 'Aprender',
   description: 'El camino: diez cursos en dos grados, y puedes empezar por el nivel que quieras.',
 };
 

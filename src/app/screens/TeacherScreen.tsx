@@ -61,7 +61,7 @@ export function TeacherScreen() {
           <div className="w-full max-w-sm shrink-0">
             <KeyPanel compact />
           </div>
-          <p className="text-text-muted max-w-prose min-w-0 text-sm">
+          <p className="text-text-muted max-w-prose min-w-0">
             {activeKey === null
               ? 'Elige una en la rueda, o toca unas notas sueltas con el micro abierto y se detecta sola.'
               : 'Cámbiala y la misma pregunta se contesta con otros acordes.'}
@@ -98,7 +98,7 @@ export function TeacherScreen() {
         <p className="text-text-muted max-w-prose text-xs">
           Tu plan {plan.name} incluye {monthlyAiRequests(plan.id, account.aiModel)} preguntas al
           profesor al mes —hasta {dailyAiRequests(plan.id, account.aiModel)} en un mismo día—
-          {can(plan.id, 'versiones') && (
+          {can(plan.id, 'salidas') && (
             <>, y las salidas de componer salen de ahí: {gastoDeUnaSalida(account.aiModel)}</>
           )}
           . A la IA solo viajan símbolos: la tonalidad, la escala y lo que escribas. Nada de audio.
@@ -140,7 +140,7 @@ export function TeacherScreen() {
                   máquina antes de escribir, no enterarse en la política de
                   privacidad. El muñeco es un profesor dibujado, y sin esto se
                   puede leer como una persona al otro lado. */}
-              <p className="text-text-muted mb-3 max-w-prose text-sm">
+              <p className="text-text-muted mb-3 max-w-prose">
                 Hablas con una IA, no con una persona: puede equivocarse.{' '}
                 <Link href="/privacidad" className="enlace">
                   Qué se le manda
@@ -158,11 +158,13 @@ export function TeacherScreen() {
             quién.
           */
             <div className="flex max-w-prose flex-col items-start gap-3">
-              <p className="text-text-muted text-sm">
-                Esta copia de la aplicación no tiene cuentas configuradas, y el profesor necesita
-                una: cada pregunta es una llamada a un modelo que se paga, y hay que saber de quién
-                es el gasto. Lo que pasa en tu navegador —el camino, componer, afinar— funciona
-                igual.
+              {/* Para quien llega, no para quien la instala: «esta copia no tiene
+                  cuentas configuradas» es un mensaje de desarrollo, y quien abre el
+                  profesor no sabe qué es una copia ni qué se configura. */}
+              <p className="text-text-muted">
+                El profesor todavía no está disponible aquí. Contesta una IA, cada pregunta se paga
+                y por eso va con cuenta, y aquí aún no se pueden abrir. Todo lo demás funciona sin
+                ella: el camino, componer y afinar.
               </p>
               <Link href="/aprender" className={estiloBoton('primary')}>
                 Seguir aprendiendo

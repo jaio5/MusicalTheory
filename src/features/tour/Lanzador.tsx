@@ -3,9 +3,9 @@
 import { usePathname } from 'next/navigation';
 import { lazy, Suspense } from 'react';
 
-import { useRecorrido } from '@state/recorrido';
+import { estadoDelRecorrido, useRecorrido } from '@state/recorrido';
 
-import { tramoPara } from './tramos';
+import { tramosPara } from './tramos';
 
 /**
  * El recorrido llega **solo a quien le toca**.
@@ -19,9 +19,20 @@ import { tramoPara } from './tramos';
  * En el servidor se da por visto, así que el HTML sale igual para todos y no hay
  * nada que corregir al hidratar; el navegador lo pide después, si toca.
  */
-const Recorrido = lazy(() =>
-  import('./Recorrido').then((modulo) => ({ default: modulo.Recorrido })),
-);
+const cargarElRecorrido = () => import('./Recorrido');
+const Recorrido = lazy(() => cargarElRecorrido().then((modulo) => ({ default: modulo.Recorrido })));
+
+/*
+  **Y a quien le toca, se le pide en cuanto llega este código**, no al montarse.
+  El estado guardado se lee en el servidor como visto, así que la tarjeta se
+  monta después de hidratar, y esperar a ese momento para empezar a descargarla
+  era sumarle una ida y vuelta más a lo que ya tarda en salir. Pedirlo dos veces
+  no descarga nada dos veces: `lazy` recibe la misma promesa.
+*/
+/* v8 ignore next 3 -- en el servidor no hay nada que pedir, y en jsdom siempre hay ventana */
+if (typeof window !== 'undefined' && !estadoDelRecorrido().visto) {
+  void cargarElRecorrido();
+}
 
 /**
  * **Un trámite no se interrumpe con una visita guiada.** Quien llega del correo a
@@ -36,9 +47,9 @@ function esTramite(ruta: string): boolean {
 }
 
 /**
- * Y **solo el tramo de esta pantalla** (`tramoPara`): la bienvenida en la
- * primera, y el de aprender, componer o afinar al llegar a cada una. Si no toca
- * ninguno, no se descarga nada.
+ * Y **solo lo de esta pantalla** (`tramosPara`): la bienvenida en la primera, y
+ * el de aprender, componer o afinar al llegar a cada una, en la misma tarjeta.
+ * Si no toca ninguno, no se descarga nada.
  */
 export function LanzadorDelRecorrido() {
   const estado = useRecorrido();
@@ -46,14 +57,14 @@ export function LanzadorDelRecorrido() {
   if (estado.visto || esTramite(ruta)) {
     return null;
   }
-  const tramo = tramoPara(estado.vistos, ruta);
-  if (tramo === null) {
+  const tramos = tramosPara(estado.vistos, ruta);
+  if (tramos.length === 0) {
     return null;
   }
-  // `key`: otro tramo es otra tarjeta, que se busca su pieza desde cero.
+  // `key`: otros tramos son otra tarjeta, que se busca su pieza desde cero.
   return (
     <Suspense fallback={null}>
-      <Recorrido key={tramo} tramo={tramo} estado={estado} />
+      <Recorrido key={tramos.join()} tramos={tramos} estado={estado} />
     </Suspense>
   );
 }

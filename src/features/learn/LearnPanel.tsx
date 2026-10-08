@@ -130,35 +130,37 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
   }
 
   return (
-    <Panel
-      id="aprender"
-      title="Aprender"
-      actions={
-        <>
-          <Button variant="quiet" onClick={() => void playReference()}>
-            Oír la nota
-          </Button>
-          <Button
-            onClick={() => {
-              setProgress(INITIAL_PROGRESS);
-              setRunning((current) => !current);
-              // Empezar un ejercicio que se contesta tocando **es** abrir el
-              // micro. Si ya está abierto no se toca: lo puede estar por otra
-              // pantalla, y pedirlo dos veces no cuesta nada pero tampoco vale.
-              if (!escuchando) {
-                void start();
-              }
-            }}
-          >
-            {running ? 'Empezar de nuevo' : 'Empezar'}
-          </Button>
-        </>
-      }
-    >
-      <p className="text-text-muted mt-2 text-sm">
+    /*
+      **Sin franja de título** (`rotuloOculto`, `docs/ESTILO.md`). Decía «Aprender»
+      dentro de una unidad que ya se llama por su escala y bajo un «Tócala»: chapa.
+      El nombre queda para quien no ve la pantalla, y los dos botones, que iban en
+      la franja, bajan al cuerpo, debajo de lo que piden hacer.
+    */
+    <Panel id="aprender" title="La escala, nota a nota" rotuloOculto>
+      <p className="text-text-muted text-base">
         {SCALES[scaleId].name} de {exercise.steps[0]!.name}, subiendo y bajando. Cada nota cuenta
         cuando suena limpia y la sostienes un momento.
       </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          onClick={() => {
+            setProgress(INITIAL_PROGRESS);
+            setRunning((current) => !current);
+            // Empezar un ejercicio que se contesta tocando **es** abrir el
+            // micro. Si ya está abierto no se toca: lo puede estar por otra
+            // pantalla, y pedirlo dos veces no cuesta nada pero tampoco vale.
+            if (!escuchando) {
+              void start();
+            }
+          }}
+        >
+          {running ? 'Empezar de nuevo' : 'Empezar'}
+        </Button>
+        <Button variant="quiet" onClick={() => void playReference()}>
+          Oír la nota
+        </Button>
+      </div>
 
       <ol className="mt-6 flex flex-wrap gap-2" aria-label="Notas del ejercicio">
         {exercise.steps.map((item) => {
@@ -169,7 +171,7 @@ export function LearnPanel({ createTone, scaleId: asked, onDone, ...deps }: Lear
             <li
               key={item.index}
               aria-current={current ? 'step' : undefined}
-              className={`rounded-md border px-3 py-2 text-sm ${
+              className={`rounded-md border px-3 py-2 text-base ${
                 current
                   ? 'border-brass-bright text-brass-bright'
                   : passed

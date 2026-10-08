@@ -1,5 +1,7 @@
 # ADR 0008 — Los cupos de IA se calculan desde el precio, y la IA pide cuenta
 
+> **Corregido en parte por [ADR 0103](./0103-los-modelos-vigentes-y-el-de-por-defecto.md) y [ADR 0106](./0106-el-margen-se-cuenta-sin-iva-y-con-pago-anual.md):** la llamada al modelo no es «sin pensar y con esfuerzo bajo» en todos los modelos, y el margen se cuenta sobre lo que entra, sin IVA y con comisión. Con el modelo por defecto los cupos de hoy son 96 y 193 preguntas al mes; la cifra vigente vive en [`CUENTAS-Y-PLANES.md`](../CUENTAS-Y-PLANES.md).
+
 > **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** ya no hay ideas. Y [ADR 0067](./0067-el-cupo-se-cuenta-en-preguntas.md) corrige el cálculo: el cupo se cuenta en preguntas al profesor y una salida gasta varias. Las cifras de la tabla de abajo son las de entonces.
 
 Fecha: 2026-07-30 · Estado: aceptada · Corrige: los cupos de [ADR 0006](./0006-planes-y-puerto-de-facturacion.md)

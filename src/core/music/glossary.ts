@@ -478,7 +478,7 @@ function modeEntry(degree: number): GlossaryEntry {
     id: `modo-${mode.id}`,
     title: `Modo ${mode.name}`,
     names: [`modo ${normalizeForSearch(mode.name)}`, normalizeForSearch(mode.name)],
-    definition: `La mayor desde su ${mode.ordinal} grado: ${clause(mode.trait)} (${semitones(modeIntervals(degree))}).`,
+    definition: `Escala mayor desde su ${mode.ordinal} grado: ${clause(mode.trait)} (${semitones(modeIntervals(degree))}).`,
     inKey: (key) => {
       const root = heptatonic(tonicName(parentMajor(key), 'major'), MAJOR)[degree] as string;
       return `En ${keyName(parentMajor(key), 'major')} empieza en ${root}: ${heptatonic(root, modeIntervals(degree)).join(' ')}.`;
@@ -933,7 +933,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     id: 'pentatonica-menor',
     title: 'Pentatónica menor',
     names: ['pentatonica menor', 'escala pentatonica menor', 'pentatonica'],
-    definition: `La menor natural sin la 2.ª ni la 6.ª (${semitones(SCALES.minorPentatonic.intervals)}). ${SCALES.minorPentatonic.character.split('.')[0]}.`,
+    definition: `Escala menor natural sin la 2.ª ni la 6.ª (${semitones(SCALES.minorPentatonic.intervals)}). ${SCALES.minorPentatonic.character.split('.')[0]}.`,
     signature: { kind: 'notes' },
     notesOf: alturasSiEsDelModo('minor', SCALES.minorPentatonic.intervals),
     inKey: (key) => {
@@ -945,7 +945,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     id: 'pentatonica-mayor',
     title: 'Pentatónica mayor',
     names: ['pentatonica mayor', 'escala pentatonica mayor'],
-    definition: `La mayor sin la 4.ª ni la 7.ª (${semitones(SCALES.majorPentatonic.intervals)}). Difícil sonar mal.`,
+    definition: `Escala mayor sin la 4.ª ni la 7.ª (${semitones(SCALES.majorPentatonic.intervals)}). Difícil sonar mal.`,
     signature: { kind: 'notes' },
     notesOf: alturasSiEsDelModo('major', SCALES.majorPentatonic.intervals),
     inKey: (key) => {

@@ -66,7 +66,7 @@ export function DeleteAccountForm() {
 
   return (
     <Formulario onEnviar={submit}>
-      <p className="text-text max-w-prose text-sm">
+      <p className="text-text max-w-prose">
         Se van con la cuenta: <strong>tu avance</strong> —unidades, XP, racha y medallas—,{' '}
         <strong>tus canciones guardadas</strong> y <strong>tu plan</strong>. Lo que hay en este
         navegador se queda; lo que está en tu cuenta desaparece.

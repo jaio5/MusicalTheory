@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { midiToPitchClass, pitchClassFromName } from '../music/notes';
 import { STANDARD_TUNING } from './guitar';
-import { chordVoicings, describeVoicing, voicingToText, type Voicing } from './voicings';
+import { cejillaDe, chordVoicings, describeVoicing, voicingToText, type Voicing } from './voicings';
 
 const MAJOR = [0, 4, 7];
 const MINOR = [0, 3, 7];
@@ -201,6 +201,23 @@ describe('las formas reales, con su nombre', () => {
   it('D no lleva cejilla: se coge con tres dedos', () => {
     const d = chordVoicings(pitchClassFromName('D'), MAJOR)[0]!;
     expect(d.barre).toBe(false);
+  });
+
+  /**
+   * El nombre decía «con cejilla» y el diagrama pintaba un dedo por cuerda. La
+   * barra va de la primera a la última cuerda pisada en el traste de la cejilla.
+   */
+  it('dice dónde va la cejilla para dibujarla, y nada si no la lleva', () => {
+    const forma = (nombre: string, intervalos: readonly number[], texto: string) =>
+      chordVoicings(pitchClassFromName(nombre as never), intervalos, { limit: 50 }).find(
+        (voicing) => voicingToText(voicing) === texto,
+      )!;
+
+    expect(cejillaDe(forma('F', MAJOR, '133211'))).toEqual({ traste: 1, desde: 0, hasta: 5 });
+    expect(cejillaDe(forma('B', MINOR, 'x24432'))).toEqual({ traste: 2, desde: 1, hasta: 5 });
+    // La de la queja: Em en el 2, con la sexta al aire fuera de la barra.
+    expect(cejillaDe(forma('E', MINOR, '022453'))).toEqual({ traste: 2, desde: 1, hasta: 2 });
+    expect(cejillaDe(chordVoicings(pitchClassFromName('D'), MAJOR)[0]!)).toBeNull();
   });
 });
 

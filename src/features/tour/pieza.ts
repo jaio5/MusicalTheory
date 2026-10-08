@@ -2,7 +2,8 @@ import { union, type Caja } from './colocar';
 
 /**
  * Encontrar en la pantalla la pieza que señala un paso, medirla y traerla a la
- * vista. Lo único del recorrido que mira el DOM, y por eso va aparte.
+ * vista. Va aparte de `colocar.ts`, que es cálculo puro; quien decide cuándo
+ * medir es `seguir.ts`.
  */
 
 function cajaDe(elemento: Element): Caja {

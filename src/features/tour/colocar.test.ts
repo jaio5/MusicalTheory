@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { HUECO, MARGEN, cajaIluminada, colocarTarjeta, union } from './colocar';
 
-const PORTATIL = { ancho: 1280, alto: 800 };
-const TELEFONO = { ancho: 390, alto: 844 };
+// La pantalla entera como marco: lo que pasa cuando no hay cabecera ni barra.
+const PORTATIL = { x: 0, y: 0, ancho: 1280, alto: 800 };
+const TELEFONO = { x: 0, y: 0, ancho: 390, alto: 844 };
 const TARJETA = { ancho: 384, alto: 200 };
 
 describe('dónde va la tarjeta', () => {
@@ -68,6 +69,25 @@ describe('dónde va la tarjeta', () => {
       y: MARGEN,
       lado: 'arriba',
     });
+  });
+
+  /**
+   * El afinador a 360×640: 430 de alto entre una cabecera de 60 y una barra de
+   * pantallas de 71. Sin sitio limpio, la tarjeta se queda en el hueco de
+   * trabajo y no tapa ni la cabecera ni la navegación.
+   */
+  it('sin sitio limpio, dentro del hueco de trabajo y sin tapar cabecera ni navegación', () => {
+    const hueco = { x: 0, y: 60, ancho: 360, alto: 509 };
+    const afinador = { x: 11, y: 143, ancho: 338, alto: 430 };
+    const sitio = colocarTarjeta(afinador, { ancho: 328, alto: 210 }, hueco);
+
+    expect(sitio).toEqual({ x: 16, y: 60 + MARGEN, lado: 'arriba' });
+    expect(sitio.y + 210).toBeLessThanOrEqual(hueco.y + hueco.alto);
+  });
+
+  it('en medio del hueco, no de la ventana', () => {
+    const hueco = { x: 0, y: 60, ancho: 1280, alto: 740 };
+    expect(colocarTarjeta(null, TARJETA, hueco)).toEqual({ x: 448, y: 330, lado: 'centro' });
   });
 });
 

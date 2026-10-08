@@ -1,9 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 
-import { authAvailable } from '@server/auth';
-import { currentAccount } from '@server/entitlements';
-import { AccountProvider } from '@state/account';
 import { GUION_TEMA } from '@state/theme';
 
 import { ContarVisitas } from './ContarVisitas';
@@ -11,16 +8,22 @@ import { CLASES_DE_FUENTES } from './fuentes';
 import './globals.css';
 
 /**
- * Nada de prerenderizado, y esto no es una precaución: es un fallo que ya estaba
- * puesto.
+ * Nada de prerenderizado, y esto no es una precaución: lo piden dos cosas.
  *
- * El layout lee la cuenta. Si al construir no están `DATABASE_URL` ni
- * `AUTH_SECRET`, `authAvailable()` dice que no, nadie toca la cookie y Next
- * concluye —con razón, con lo que ve— que estas páginas son estáticas. Luego se
- * arranca el contenedor con las variables puestas y se sirve ese HTML: todo el
- * mundo entra como anónimo hasta que el JavaScript despierta. Es exactamente el
- * camino del contenedor que documenta DESPLIEGUE.md, donde se construye sin
- * variables y se corre con ellas.
+ * **La política de seguridad con número de un solo uso.** `proxy.ts` pone uno
+ * nuevo en cada petición, y Next solo se lo pone a sus guiones al pintar en el
+ * servidor: una página generada al construir no tiene petición ni cabecera de
+ * donde sacarlo, y su JavaScript lo bloquearía la propia política
+ * (`node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`,
+ * «Forcing dynamic rendering»).
+ *
+ * **Y la cuenta**, que la lee el layout de `(marco)` y hereda esto. Si al
+ * construir no están `DATABASE_URL` ni `AUTH_SECRET`, `authAvailable()` dice que
+ * no, nadie toca la cookie y Next concluye —con razón, con lo que ve— que esas
+ * páginas son estáticas. Luego se arranca el contenedor con las variables
+ * puestas y se sirve ese HTML: todo el mundo entra como anónimo hasta que el
+ * JavaScript despierta. Es exactamente el camino del contenedor que documenta
+ * DESPLIEGUE.md, donde se construye sin variables y se corre con ellas.
  *
  * Lo que cuesta: el marco de las páginas se genera en cada petición en vez de una
  * vez. Son unos kilobytes de HTML y ninguna consulta cuando no hay cuentas, y todo
@@ -46,26 +49,26 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+/**
+ * El nombre va una vez, aquí, y cada página pone solo el suyo: «Afinar» sale
+ * «Afinar · Caos ordenado». Estaba escrito a mano en cada página. La portada
+ * y el `not-found` de la raíz son de este mismo segmento y la plantilla no les
+ * llega: escriben el título entero.
+ */
 export const metadata: Metadata = {
-  title: 'Caos ordenado',
+  title: { default: 'Caos ordenado', template: '%s · Caos ordenado' },
   description:
     'Escucha la guitarra por el micro, afina, enseña la escala sobre el mástil y detecta la tonalidad de lo que estás tocando.',
 };
 
 /**
- * El layout es el único componente de servidor que lee la cuenta.
+ * El documento: la lengua, las letras y el tema antes de pintar.
  *
- * La lee aquí y la baja por el árbol para que ninguna pantalla tenga que pedirla
- * con un `fetch` al montar: quien entra pagando no debe ver medio segundo de
- * candados antes de que se abran solos.
- *
- * Leer la sesión hace que esta página se sirva en cada petición en vez de
- * quedarse cacheada. Es el precio de saber quién eres antes de pintar, y en esta
- * aplicación no cambia nada más: todas las pantallas son componentes de cliente
- * que arrancan pidiendo el micrófono.
+ * **La cuenta no se lee aquí**, sino en el layout de `(marco)`: aquí cuelga
+ * también la portada, que no la usa, y leerla eran dos consultas a Postgres por
+ * visita a la portada con la sesión abierta.
  */
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const account = await currentAccount();
   /*
     El número de un solo uso que ha puesto `proxy.ts`.
 
@@ -94,9 +97,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script nonce={numero} dangerouslySetInnerHTML={{ __html: GUION_TEMA }} />
       </head>
       <body className="antialiased">
-        <AccountProvider account={account} accounts={authAvailable()}>
-          {children}
-        </AccountProvider>
+        {children}
         {/* Una visita por pantalla, sin cookies ni nadie de fuera (adr/0110). */}
         <ContarVisitas />
       </body>

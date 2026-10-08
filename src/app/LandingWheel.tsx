@@ -19,7 +19,7 @@ export function LandingWheel() {
   return (
     <div className="flex flex-col items-center gap-3">
       <KeyPanel compact />
-      <p className="text-text-muted text-center text-sm">
+      <p className="text-text-muted text-center">
         {activeKey === null ? 'Pulsa una tonalidad' : keyName(activeKey.tonic, activeKey.mode)}
       </p>
       {/* Con alto de dedo: con `py-1.5` medía treinta y dos píxeles, y es lo que

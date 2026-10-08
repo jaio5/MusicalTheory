@@ -150,11 +150,11 @@ export function ForgottenForm({ vale, request = defaultRequest }: ForgottenFormP
       // `tabIndex={-1}`: se le puede llevar el foco por código sin que pase a
       // ser una parada más del tabulador.
       <div ref={aviso} tabIndex={-1} className="max-w-prose">
-        <p className="text-text text-sm" role="status">
+        <p className="text-text" role="status">
           {hecho}
         </p>
         {conVale && (
-          <p className="text-text-muted mt-3 text-sm">
+          <p className="text-text-muted mt-3">
             Las sesiones que hubiera abiertas en otros aparatos se han cerrado.
           </p>
         )}

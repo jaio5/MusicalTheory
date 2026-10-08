@@ -248,6 +248,49 @@ describe('sin base de datos', () => {
 describe('quién cierra', () => {
   const t = { diario: 10, mensual: 100, gratisDiario: 5, gratisMensual: 50 };
   const fila = { micros: 0, dia: '2026-10-07', diaMicros: 0, gratisMicros: 0, gratisDiaMicros: 0 };
+  const DIA = fila.dia;
+
+  /**
+   * Cada tope, **justo en el borde y uno por encima**: llegar al tope cabe,
+   * pasarse no. Un `>=` en vez de `>` cerraría un céntimo antes, y uno de los
+   * topes saltado dejaría la razón a otro; las dos cosas pasaban con los tests de
+   * arriba, que van por la base y no miran por qué cierra.
+   */
+  it.each([
+    ['todos', 'mes', { ...fila, micros: 95 }, false],
+    ['todos', 'dia', { ...fila, micros: 5, diaMicros: 5 }, false],
+    ['gratis', 'mes', { ...fila, micros: 45, gratisMicros: 45 }, true],
+    ['gratis', 'dia', fila, true],
+  ] as const)('%s, por el %s: llegar al tope cabe, pasarse no', (quien, cuando, lleva, gratis) => {
+    expect(gasto.topeQueCierra(lleva, 5, gratis, DIA, t)).toBeNull();
+    expect(gasto.topeQueCierra(lleva, 6, gratis, DIA, t)).toEqual({ quien, cuando });
+  });
+
+  it('lo de pago no mira los topes de lo gratis', () => {
+    expect(
+      gasto.topeQueCierra({ ...fila, gratisMicros: 50, gratisDiaMicros: 5 }, 1, false, DIA, t),
+    ).toBeNull();
+  });
+
+  it('el de todos manda sobre el de lo gratis, y el mes sobre el día', () => {
+    const llena = { micros: 100, dia: DIA, diaMicros: 10, gratisMicros: 50, gratisDiaMicros: 5 };
+    expect(gasto.topeQueCierra(llena, 1, true, DIA, t)).toEqual({ quien: 'todos', cuando: 'mes' });
+    expect(gasto.topeQueCierra({ ...llena, micros: 0 }, 1, true, DIA, t)).toEqual({
+      quien: 'todos',
+      cuando: 'dia',
+    });
+    expect(gasto.topeQueCierra({ ...llena, micros: 0, diaMicros: 0 }, 1, true, DIA, t)).toEqual({
+      quien: 'gratis',
+      cuando: 'mes',
+    });
+  });
+
+  it('sin fila, solo cuenta lo que se pide', () => {
+    expect(gasto.topeQueCierra(null, 5, true, DIA, t)).toBeNull();
+    expect(gasto.topeQueCierra(null, 6, true, DIA, t)).toEqual({ quien: 'gratis', cuando: 'dia' });
+    expect(gasto.topeQueCierra(null, 10, false, DIA, t)).toBeNull();
+    expect(gasto.topeQueCierra(null, 11, false, DIA, t)).toEqual({ quien: 'todos', cuando: 'dia' });
+  });
 
   it('una fila de otro día no cuenta para hoy', () => {
     expect(

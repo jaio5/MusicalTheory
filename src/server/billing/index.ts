@@ -21,8 +21,8 @@ import { CobroCerrado, FakeBilling } from './fake';
 import { StripeBilling, stripeConfigured } from './stripe';
 import type { Billing } from './port';
 
-export type { Billing, StartResult } from './port';
-export { accesoDe, planOfPrice, stripeConfigured } from './stripe';
+export type { Billing } from './port';
+export { accesoDe } from './stripe';
 
 export function billing(): Billing {
   if (stripeConfigured()) {

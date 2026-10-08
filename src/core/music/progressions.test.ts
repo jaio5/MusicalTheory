@@ -365,7 +365,7 @@ describe('el grafo de siempre', () => {
 
   // Leen el fichero porque lo que se vigila es qué grafo importan, no cómo lo usan.
   it('el reconocimiento y el lienzo leen el de siempre, y no el de las salidas', () => {
-    for (const fichero of ['audio/offline-chords.ts', 'features/arrange/ArrangeCanvas.tsx']) {
+    for (const fichero of ['audio/offline-chords.ts', 'features/arrange/Sugerencias.tsx']) {
       const fuente = readFileSync(join(import.meta.dirname, '../..', fichero), 'utf8');
       expect(fuente, fichero).toMatch(/\bnextDegrees\b/);
       expect(fuente, fichero).not.toMatch(/\bsaltosDeSalidas\b/);

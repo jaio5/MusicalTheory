@@ -19,6 +19,10 @@ import {
 
 import { ComposeScreen } from './ComposeScreen';
 
+// Tocando llega en diferido (adr/0058): con la suite entera y la cobertura, su trozo
+// tarda más que el segundo que `findBy` espera de serie, y el test caía sin fallo.
+const LO_DIFERIDO = { timeout: 5_000 };
+
 // **El lienzo de verdad solo lo carga su propio test.** Vitest reutiliza cada
 // proceso para varios ficheros, y si en uno caían dos que cargaban
 // `ArrangeCanvas.tsx`, V8 tenía dos copias del mismo módulo y al juntar la
@@ -100,11 +104,14 @@ describe('Componer en una pantalla estrecha', () => {
    * ha podido conservar, y está dicho en
    * [adr/0056](../../../docs/adr/0056-grabar-es-un-papel-de-la-toma.md).
    */
-  it('grabar sin escribir es un papel de la toma', () => {
+  it('grabar sin escribir es un papel de la toma', async () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
     render(<ComposeScreen />);
 
-    expect(screen.getByRole('button', { name: 'Solo grabar' })).toBeInTheDocument();
+    // Tocando llega en diferido: se entra por escribir (adr/0058, adr/0109).
+    expect(
+      await screen.findByRole('button', { name: 'Solo grabar' }, LO_DIFERIDO),
+    ).toBeInTheDocument();
   });
 
   /**
@@ -549,9 +556,7 @@ describe('La fila de mandos de arriba', () => {
     enEstrecho();
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
     const { container } = render(<ComposeScreen />);
-    const fila = screen
-      .getByRole('button', { name: 'Más' })
-      .closest<HTMLElement>('.hay-mas-al-lado')!;
+    const fila = container.querySelector<HTMLElement>('.hay-mas-al-lado')!;
 
     expect(fila).toHaveClass('max-sm:overflow-x-auto', 'sm:max-lg:flex-wrap');
     expect(fila).not.toHaveClass('max-lg:overflow-x-auto');
@@ -564,6 +569,29 @@ describe('La fila de mandos de arriba', () => {
     );
     expect(salto.nextElementSibling).toHaveAttribute('data-separador');
     expect(salto.nextElementSibling).toHaveClass('sm:max-lg:hidden');
+  });
+
+  /**
+   * **La tonalidad y «Más», quietos y a la vista.** Iban dentro de la tira que
+   * se desplaza, detrás del metrónomo: a 390 empezaban en x=564, fuera de la
+   * pantalla. Lo que mide cuánto se ve es la sonda de `arrancar`; aquí, que no
+   * vuelvan a meterse en la tira.
+   */
+  it('en un telefono, la tonalidad y «Más» van fuera de la tira que se desplaza', () => {
+    enEstrecho();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    const { container } = render(<ComposeScreen />);
+    const tira = container.querySelector<HTMLElement>('.hay-mas-al-lado')!;
+    const mas = screen.getByRole('button', { name: 'Más' });
+    // La de la cabecera es la que abre su panel; las otras son de la rueda.
+    const tonalidad = screen
+      .getAllByRole('button', { name: /C mayor/ })
+      .find((boton) => boton.hasAttribute('popovertarget'))!;
+
+    expect(tira).not.toContainElement(mas);
+    expect(tira).not.toContainElement(tonalidad);
+    expect(mas.parentElement).toBe(tonalidad.parentElement);
+    expect(mas.parentElement).toHaveClass('shrink-0');
   });
 
   /**
@@ -884,9 +912,9 @@ describe('Los otros dos divisores, y devolverlo todo', () => {
     divisor.focus();
     await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
 
-    // «Restablecer paneles» y no «Reordenar»: no ordena nada, devuelve el de
+    // «Áreas como venían» y no «Reordenar»: no ordena nada, devuelve el de
     // fábrica, y el nombre tiene que decir lo que se pierde.
-    await userEvent.click(screen.getByRole('button', { name: 'Restablecer paneles' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Áreas como venían' }));
 
     expect(selectReparto(useBancoStore.getState()).derecha).toBe(
       REPARTOS_DE_FABRICA.escribir.derecha,
@@ -986,13 +1014,30 @@ describe('Lo que llega en diferido', () => {
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
   }
 
-  it('el lienzo llega al pasar a escribir, y mientras tanto lo dice', async () => {
+  /**
+   * **El lienzo va en el paquete de entrada**, porque se entra por escribir
+   * (adr/0109): estuvo en diferido, y quien volvía veía la pantalla vacía,
+   * «Abriendo el lienzo…» y el lienzo, tres pantallas seguidas.
+   */
+  it('el lienzo se pinta a la primera, sin esperar a nada', () => {
     conTonalidad();
+    useBancoStore.getState().actions.espacio('escribir');
     render(<ComposeScreen />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Escribir' }));
+    expect(screen.getByRole('button', { name: 'Escuchar la canción' })).toBeInTheDocument();
+    expect(screen.queryByText(/Abriendo/)).not.toBeInTheDocument();
+  });
 
-    expect(await screen.findByRole('button', { name: 'Escuchar la canción' })).toBeInTheDocument();
+  it('tocando llega al pasar a tocar', async () => {
+    conTonalidad();
+    useBancoStore.getState().actions.espacio('escribir');
+    render(<ComposeScreen />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tocando' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Solo grabar' }, LO_DIFERIDO),
+    ).toBeInTheDocument();
   });
 
   it('el ensayo tambien', async () => {
@@ -1037,10 +1082,10 @@ describe('Lo que llega en diferido', () => {
   });
 
   /**
-   * Y en reposo se piden el lienzo y el ensayo, que son a donde se pasa desde
-   * aquí. Con `requestIdleCallback` donde lo hay, y con un plazo donde no.
+   * Y en reposo se piden tocando y el ensayo, que son a donde se pasa desde el
+   * lienzo. Con `requestIdleCallback` donde lo hay, y con un plazo donde no.
    */
-  it('en reposo se piden el lienzo y el ensayo', () => {
+  it('en reposo se piden tocando y el ensayo', () => {
     const pedir = vi.fn((traer: () => void) => {
       traer();
       return 7;
@@ -1116,27 +1161,40 @@ describe('Repartir sin arrastrar', () => {
   });
 
   /**
-   * Arrastrando, el reparto se mueve en memoria y se guarda al soltar: guardar
-   * en cada movimiento era leer y escribir las preferencias sesenta veces por
-   * segundo.
+   * **Arrastrando no se repinta componer.** Cada movimiento iba al almacén, y
+   * la pantalla entera lee el reparto: sesenta repintados por segundo para mover
+   * una raya. Ahora se mueve la variable CSS de la caja, y el almacén —y lo
+   * guardado— se enteran al soltar.
    */
-  it('arrastrando un divisor se guarda al soltar, no en cada movimiento', () => {
+  it('arrastrando un divisor se mueve su variable, y el reparto cambia al soltar', () => {
     enEscribir();
     act(() => useBancoStore.getState().actions.abrirAbajo('sesiones'));
     act(() => useBancoStore.getState().actions.plegar('izquierda'));
-    render(<ComposeScreen />);
+    const { container } = render(<ComposeScreen />);
+    const caja = container.firstElementChild as HTMLElement;
 
-    for (const nombre of ['Ancho de la tonalidad', 'Ancho del acorde', 'Alto de Sesiones']) {
+    for (const [nombre, variable] of [
+      ['Ancho de la tonalidad', '--banco-izquierda'],
+      ['Ancho del acorde', '--banco-derecha'],
+      ['Alto de Sesiones', '--banco-alto'],
+    ] as const) {
       const divisor = screen.getByRole('separator', { name: nombre });
       Object.assign(divisor, { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() });
+      const repartoAntes = selectReparto(useBancoStore.getState());
       const guardadoAntes = JSON.stringify(loadPreferences().banco);
+      const medidaAntes = caja.style.getPropertyValue(variable);
 
       fireEvent.pointerDown(divisor, { clientX: 100, clientY: 100, pointerId: 1 });
       fireEvent.pointerMove(divisor, { clientX: 132, clientY: 132, pointerId: 1 });
+      expect(selectReparto(useBancoStore.getState())).toBe(repartoAntes);
       expect(JSON.stringify(loadPreferences().banco)).toBe(guardadoAntes);
+      const arrastrada = caja.style.getPropertyValue(variable);
+      expect(arrastrada).not.toBe(medidaAntes);
 
       fireEvent.pointerUp(divisor, { clientX: 132, clientY: 132, pointerId: 1 });
       expect(JSON.stringify(loadPreferences().banco)).not.toBe(guardadoAntes);
+      // Lo que queda escrito es lo mismo que se veía al soltar.
+      expect(caja.style.getPropertyValue(variable)).toBe(arrastrada);
     }
   });
 });
@@ -1205,8 +1263,8 @@ describe('Componer en un telefono', () => {
     // Sin la línea, que en un teléfono eran cuatro letras y unos puntos: la
     // esconde la clase, que es lo que el servidor sabe pintar sin saber el ancho.
     expect(fila.querySelector(':scope > p')).toHaveClass('max-lg:hidden');
-    // Y sin «Restablecer paneles», que es del banco.
-    expect(screen.queryByRole('button', { name: 'Restablecer paneles' })).not.toBeInTheDocument();
+    // Y sin «Áreas como venían», que es del banco.
+    expect(screen.queryByRole('button', { name: 'Áreas como venían' })).not.toBeInTheDocument();
   });
 
   it('elegir en «Mas» abre lo elegido abajo y cierra el panel', async () => {
@@ -1259,12 +1317,12 @@ describe('Componer en un telefono', () => {
     Element.prototype.scrollIntoView = traido;
     useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
     render(<ComposeScreen />);
-    const mas = screen.getByRole('button', { name: 'Más' });
-    const tira = mas.closest<HTMLElement>('.hay-mas-al-lado')!;
+    const ensayar = screen.getByRole('button', { name: 'Ensayar' });
+    const tira = ensayar.closest<HTMLElement>('.hay-mas-al-lado')!;
     Object.defineProperty(tira, 'scrollWidth', { value: 900, configurable: true });
     Object.defineProperty(tira, 'clientWidth', { value: 390, configurable: true });
 
-    fireEvent.focus(mas);
+    fireEvent.focus(ensayar);
 
     expect(traido).toHaveBeenCalledWith({ inline: 'nearest', block: 'nearest' });
   });
@@ -1415,5 +1473,142 @@ describe('Lo que se quita al cambiar de modo', () => {
 
     expect(screen.queryByText(/se ha quitado/)).not.toBeInTheDocument();
     expect(container.querySelector('p[aria-live="polite"]:empty')).not.toBeNull();
+  });
+});
+
+/**
+ * La tonalidad elegida, **también en el banco cuando su columna está plegada**,
+ * que es como viene Escribir: no había ningún sitio donde leerla.
+ */
+describe('La tonalidad en la cabecera del banco', () => {
+  const pastilla = () =>
+    screen
+      .queryAllByRole('button', { name: /A menor/ })
+      .find((boton) => boton.hasAttribute('popovertarget'));
+
+  beforeEach(() => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('A'), mode: 'minor' });
+    useBancoStore.getState().actions.espacio('escribir');
+  });
+
+  it('con la columna plegada, la cabecera la dice y la abre', () => {
+    render(<ComposeScreen />);
+
+    expect(pastilla()).toBeInTheDocument();
+  });
+
+  it('con la columna abierta no se repite', () => {
+    act(() => useBancoStore.getState().actions.plegar('izquierda'));
+    render(<ComposeScreen />);
+
+    expect(pastilla()).toBeUndefined();
+  });
+});
+
+/**
+ * Un solo campo para escribir un acorde por su nombre a la vista: escribiendo,
+ * el del lienzo; «A dónde ir» lleva el suyo solo donde no hay lienzo.
+ */
+describe('Un solo buscador de acordes', () => {
+  beforeEach(() => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+  });
+
+  it('escribiendo, «a donde ir» no trae el suyo', () => {
+    useBancoStore.getState().actions.espacio('escribir');
+    act(() => useBancoStore.getState().actions.plegar('camino'));
+    render(<ComposeScreen />);
+
+    const camino = screen.getByRole('region', { name: 'A dónde ir' });
+    expect(within(camino).queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('tocando, donde no hay lienzo, sí', () => {
+    act(() => useBancoStore.getState().actions.plegar('camino'));
+    render(<ComposeScreen />);
+
+    const camino = screen.getByRole('region', { name: 'A dónde ir' });
+    expect(within(camino).getByLabelText('Buscar un acorde')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Salidas sin plan **lleva a su versión gratis**: «A dónde ir», en el mismo
+ * sitio. Era solo un candado.
+ */
+describe('Salidas sin plan', () => {
+  it('lleva a «a donde ir», que se abre con lo de abajo cerrado', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useBancoStore.getState().actions.espacio('escribir');
+    act(() => useBancoStore.getState().actions.abrirAbajo('salidas'));
+    render(<ComposeScreen />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Abrir «A dónde ir»' }));
+
+    expect(screen.queryByRole('region', { name: 'Salidas' })).not.toBeInTheDocument();
+    const camino = screen.getByRole('region', { name: 'A dónde ir' });
+    await waitFor(() =>
+      expect(within(camino).getAllByRole('button')).toContain(document.activeElement),
+    );
+  });
+});
+
+/**
+ * **La canción cambiada en otra pestaña se dice.** Llega con su deshacer, y el
+ * aviso ofrece volver a la de esta pestaña.
+ */
+describe('Lo que llega de otra pestaña', () => {
+  const aviso = /se ha cambiado en otra pestaña/;
+
+  beforeEach(() => {
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    useArrangementStore.setState({
+      arrangement: { parts: [] },
+      past: [],
+      llegoDeOtraPestana: false,
+    });
+  });
+
+  it('se dice, y «Vale» lo cierra', async () => {
+    render(<ComposeScreen />);
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+
+    act(() =>
+      useArrangementStore.getState().actions.traerDeOtraPestana({
+        parts: [
+          { id: 'p', name: 'Otra', blocks: [writtenBlock('b', 'IV', 4)], notes: [], bars: 1 },
+        ],
+      }),
+    );
+    expect(screen.getByText(aviso)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Vale' }));
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(1);
+  });
+
+  it('«Volver a la de aquí» deshace lo que llegó', async () => {
+    render(<ComposeScreen />);
+    act(() =>
+      useArrangementStore.getState().actions.traerDeOtraPestana({
+        parts: [
+          { id: 'p', name: 'Otra', blocks: [writtenBlock('b', 'IV', 4)], notes: [], bars: 1 },
+        ],
+      }),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Volver a la de aquí' }));
+
+    expect(useArrangementStore.getState().arrangement.parts).toHaveLength(0);
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+  });
+
+  it('durante una toma se calla', () => {
+    useClaqueta.getState().acciones.marcarToma(true);
+    useArrangementStore.setState({ llegoDeOtraPestana: true });
+    render(<ComposeScreen />);
+
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+    useClaqueta.getState().acciones.marcarToma(false);
   });
 });

@@ -108,14 +108,25 @@ describe('una unidad con teoría', () => {
     expect(screen.queryByText('Lo que hay')).not.toBeInTheDocument();
   });
 
-  it('el atajo apunta la unidad como empezada', async () => {
+  it('el atajo apunta que se está en la prueba, por su posición', async () => {
     render(
       <UnidadPorMomentos unit={DE_TEORIA} yaHecha teoria={<p>Lo que hay</p>} prueba={<p>P</p>} />,
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Ir directo a las preguntas' }));
 
-    expect(sessionStorage.getItem('caos-ordenado:empezada:e1-grados')).not.toBeNull();
+    expect(JSON.parse(sessionStorage.getItem('caos-ordenado:sitio:e1-grados')!)).toMatchObject({
+      momento: 2,
+    });
+  });
+
+  // Lo guardado de una de teoría no saca la teoría en una que no la tiene.
+  it('un momento guardado que la unidad no tiene se queda en la presentación', () => {
+    sessionStorage.setItem('caos-ordenado:sitio:e1-escala', JSON.stringify({ momento: 1 }));
+
+    render(<UnidadPorMomentos unit={DE_TOCAR} prueba={<p>El mástil</p>} />);
+
+    expect(screen.getByRole('button', { name: 'Empezar' })).toBeInTheDocument();
   });
 });
 
@@ -124,8 +135,8 @@ describe('una unidad con teoría', () => {
  * tiene que coincidir con la primera pintura del cliente: el atajo llega después.
  */
 describe('en el servidor', () => {
-  it('no ofrece el atajo aunque la unidad se empezara', () => {
-    sessionStorage.setItem('caos-ordenado:empezada:e1-grados', '1');
+  it('empieza por la presentación aunque la unidad se dejara a medias', () => {
+    sessionStorage.setItem('caos-ordenado:sitio:e1-grados', JSON.stringify({ momento: 2 }));
 
     const html = renderToString(
       <UnidadPorMomentos unit={DE_TEORIA} teoria={<p>Lo que hay</p>} prueba={<p>P</p>} />,

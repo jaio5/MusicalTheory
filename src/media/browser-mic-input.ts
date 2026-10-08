@@ -8,6 +8,7 @@
  */
 
 import type { MicInput, MicOptions, MicState } from './mic-input';
+import { errorDelMicro } from '@core/error-del-micro';
 import { EstadoObservable, type Oyente } from '@core/estado-observable';
 
 export class BrowserMicInput implements MicInput {
@@ -54,11 +55,9 @@ export class BrowserMicInput implements MicInput {
       });
       this.#estado.cambiarA('running');
     } catch (cause) {
-      const name = cause instanceof Error ? cause.name : '';
-      const denegado = name === 'NotAllowedError' || name === 'SecurityError';
-      this.#errorMessage = denegado
-        ? 'Has denegado el micrófono. Puedes darle permiso otra vez desde el icono de la barra de direcciones.'
-        : 'No se ha podido abrir el micrófono. Comprueba que no lo esté usando otra aplicación.';
+      const { motivo, mensaje } = errorDelMicro(cause);
+      const denegado = motivo === 'denegado';
+      this.#errorMessage = mensaje;
       this.#estado.cambiarA(denegado ? 'denied' : 'error');
     }
   }

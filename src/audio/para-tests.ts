@@ -16,7 +16,7 @@
  */
 
 /** Un cambio programado en un parámetro. */
-export interface Cambio {
+interface Cambio {
   readonly clase: 'valor' | 'rampa';
   readonly valor: number;
   readonly cuando: number;

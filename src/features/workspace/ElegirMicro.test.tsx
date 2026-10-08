@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest';
 
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useClaqueta } from '@state/claqueta';
 import { useMicrofono } from '@state/microfono';
@@ -185,5 +185,44 @@ describe('lo que dice', () => {
       useSessionStore.getState().actions.startCapture(0);
     });
     expect(region).toHaveAttribute('aria-live', 'off');
+  });
+});
+
+/**
+ * El fallo del micro de al lado sale **aquí, y el panel se abre solo**: es el
+ * panel del mismo aparato, flota por encima de todo y trae la lista de micros.
+ */
+describe('cuando el micro no se ha abierto', () => {
+  afterEach(() => {
+    delete (HTMLElement.prototype as Partial<HTMLElement>).showPopover;
+    vi.restoreAllMocks();
+  });
+
+  it('abre su panel y lo dice', () => {
+    const abrir = vi.fn();
+    HTMLElement.prototype.showPopover = abrir;
+
+    render(<ElegirMicro fallo="Permite el micrófono en el candado." />);
+
+    expect(abrir).toHaveBeenCalledTimes(1);
+    expect(within(panel()).getByRole('alert', { hidden: true })).toHaveTextContent(/candado/);
+  });
+
+  it('sin fallo no se abre, y abierto no se vuelve a abrir', () => {
+    const abrir = vi.fn();
+    HTMLElement.prototype.showPopover = abrir;
+    const { rerender } = render(<ElegirMicro />);
+    expect(abrir).not.toHaveBeenCalled();
+
+    const deVerdad = Element.prototype.matches;
+    vi.spyOn(Element.prototype, 'matches').mockImplementation(function (
+      this: Element,
+      selector: string,
+    ) {
+      return selector === ':popover-open' || deVerdad.call(this, selector);
+    });
+    rerender(<ElegirMicro fallo="Otra vez." />);
+
+    expect(abrir).not.toHaveBeenCalled();
   });
 });

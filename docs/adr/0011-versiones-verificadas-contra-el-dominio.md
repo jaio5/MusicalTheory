@@ -41,7 +41,7 @@ grados con sus pulsos, usando el tempo del metrónomo. Grabar es apuntar símbol
 milisegundos. Lo que sale del equipo son entre treinta y doscientos caracteres.
 
 **El razonamiento se verifica, no solo el resultado.**
-[`core/music/reharmonization.ts`](../../src/core/music/reharmonization.ts) declara un
+[`core/music/salidas/movimientos.ts`](../../src/core/music/salidas/movimientos.ts) declara un
 catálogo cerrado de cinco movimientos que el código sabe **nombrar y comprobar**:
 relativo, intercambio de especie, préstamo modal, cadencia interrumpida y sustitución
 tritonal. Cada compás que una versión cambia declara cuál se le ha aplicado, y el

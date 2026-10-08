@@ -53,7 +53,7 @@ export const ACORDES_DEL_ESTUDIO: readonly string[] = ['C', 'G', 'D', 'Am', 'Em'
 export const TOMAS_MINIMAS = 15;
 
 /** Cómo se tocó: todas a la vez o cuerda a cuerda. */
-export type Forma = 'rasgueo' | 'arpegio';
+type Forma = 'rasgueo' | 'arpegio';
 
 export interface TomaEtiquetada {
   readonly fichero: string;
@@ -214,7 +214,7 @@ export function cifradoDe(acorde: Acorde, accidental: Accidental = 'sharp'): str
 }
 
 /** Una línea del cotejo: lo tocado frente a lo escrito, en el sitio en que se emparejan. */
-export interface Pareja {
+interface Pareja {
   /** Lo tocado, o nulo si el motor escribió algo que no se tocó. */
   readonly tocado: string | null;
   /** Lo escrito, o nulo si lo tocado no llegó a escribirse. */

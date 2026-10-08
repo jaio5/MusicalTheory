@@ -1,7 +1,7 @@
 /**
  * El examen de las salidas contra el modelo de verdad: **si lo que elige el modelo
  * es lo que propondría un arreglista**, con el corpus de
- * `core/music/corpus-de-salidas.ts`.
+ * `core/music/salidas/corpus/corpus-de-salidas.ts`.
  *
  * El test del corpus (`corpus-de-salidas.test.ts`) mide el menú que construye el
  * dominio, y eso no dice lo que llega a la pantalla: de ese menú **elige el
@@ -34,7 +34,7 @@
  *   y de si había alguna en el menú que lo cumpliera, que es el techo.
  *
  * **Va por el mismo camino que la aplicación**: la petición se lee con el contrato
- * (`parseVersionsRequest`) y la pregunta es `SALIDAS` (`app/api/versiones/salidas.ts`)
+ * (`parseSalidasRequest`) y la pregunta es `SALIDAS` (`app/api/salidas/salidas.ts`)
  * —prompt, esquema, validador, reintento y respaldo de la ruta— por
  * `preguntarAlModelo`. Lo único que no pasa son las puertas: frecuencia, cuenta y
  * cupo, que no cambian lo que se contesta.
@@ -66,23 +66,19 @@ import {
   PRIMERAS,
   type CasoDelCorpus,
   type NotaDeUnCaso,
-} from '@core/music/corpus-de-salidas';
-import {
-  loQueNoEsta,
-  parseVersionsRequest,
-  type Version,
-  type VersionsRequest,
-} from '@features/versions/contract';
+} from '@core/music/salidas/corpus/corpus-de-salidas';
+import { loQueNoEsta, parseSalidasRequest, type SalidaPropuesta } from '@features/salidas/contract';
+import type { SalidasRequest } from '@features/salidas/peticion';
 import {
   contextoDe,
   lasTresMejores,
   MAX_OPCIONES_DEL_MENU,
   salidasDe,
-} from '@features/versions/menu';
+} from '@features/salidas/menu';
 import { configuredModel, modelProvider } from '@server/ai-model';
 import { preguntarAlModelo } from '@server/ai-intentos';
 
-import { SALIDAS } from '@/app/api/versiones/salidas';
+import { SALIDAS } from '@/app/api/salidas/salidas';
 
 import { puertaDelExamen } from './contra-la-api';
 
@@ -143,13 +139,13 @@ interface Directriz {
   readonly caso: string;
   readonly kind: Kind;
   readonly texto: string;
-  readonly cumple: (salida: SalidaPosible, peticion: VersionsRequest) => boolean;
+  readonly cumple: (salida: SalidaPosible, peticion: SalidasRequest) => boolean;
 }
 
 const pasosDe = (salida: SalidaPosible) => salida.secciones.flatMap((seccion) => seccion.steps);
 const pulsos = (pasos: readonly { readonly beats: number }[]) =>
   pasos.reduce((total, paso) => total + paso.beats, 0);
-const tonicaDe = (peticion: VersionsRequest) => (peticion.key.mode === 'major' ? 'I' : 'i');
+const tonicaDe = (peticion: SalidasRequest) => (peticion.key.mode === 'major' ? 'I' : 'i');
 
 const DIRECTRICES: readonly Directriz[] = [
   {
@@ -249,7 +245,7 @@ function cuerpoDe(caso: CasoDelCorpus, kind: Kind, directrices?: string): unknow
 }
 
 /** Una salida y una versión validada son la misma si suenan igual compás a compás. */
-function mismaCancion(salida: SalidaPosible, version: Version): boolean {
+function mismaCancion(salida: SalidaPosible, version: SalidaPropuesta): boolean {
   const pasos = salida.secciones.flatMap((seccion) => seccion.steps);
   return (
     pasos.length === version.steps.length &&
@@ -280,7 +276,7 @@ async function examinarUno(
   kind: Kind,
   directriz: Directriz | null,
 ): Promise<Resultado | null> {
-  const peticion: VersionsRequest | null = parseVersionsRequest(
+  const peticion: SalidasRequest | null = parseSalidasRequest(
     cuerpoDe(caso, kind, directriz?.texto),
   );
   /* El corpus está escrito aquí: un caso que no se lea es un fallo del corpus. */
@@ -381,7 +377,7 @@ const banco = [
     ),
 );
 
-puertaDelExamen('versiones', banco.length, argumentos);
+puertaDelExamen('salidas', banco.length, argumentos);
 console.log(
   `Examen de las salidas contra ${configuredModel()} (${modelProvider()}), en ${MAYOR} mayor y ${MENOR} menor: ${banco.length} peticiones.\n`,
 );

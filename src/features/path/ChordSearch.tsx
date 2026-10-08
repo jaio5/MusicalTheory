@@ -8,7 +8,12 @@ import {
   type ChordJudgement,
   type ParsedChord,
 } from '@core/music';
-import { selectActiveKey, useSessionStore } from '@state/session-store';
+import {
+  clasesDeLaMascara,
+  selectActiveKey,
+  selectClasesOidas,
+  useSessionStore,
+} from '@state/session-store';
 import { TextField } from '@ui/TextField';
 
 const VERDICT_STYLE: Readonly<Record<ChordJudgement['verdict'], string>> = {
@@ -38,7 +43,9 @@ export interface ChordSearchProps {
 export function ChordSearch({ onPick }: ChordSearchProps) {
   const activeKey = useSessionStore(selectActiveKey);
   const styleId = useSessionStore((state) => state.styleId);
-  const history = useSessionStore((state) => state.noteHistory);
+  // Las clases que han sonado y no el historial: una nota repetida no cambia el
+  // veredicto y no tiene por qué repintar el buscador.
+  const oidas = useSessionStore(selectClasesOidas);
   const [text, setText] = useState('');
   const [highlighted, setHighlighted] = useState(0);
 
@@ -52,9 +59,9 @@ export function ChordSearch({ onPick }: ChordSearchProps) {
       tonic: activeKey.tonic,
       mode: activeKey.mode,
       styleId,
-      playedNotes: history.map((note) => note.pitchClass),
+      playedNotes: clasesDeLaMascara(oidas),
     });
-  }, [matches, activeKey, styleId, history]);
+  }, [matches, activeKey, styleId, oidas]);
 
   // El resaltado se corrige durante el render y no en un efecto: si la lista se
   // acorta al escribir, pintarla una vez con el índice fuera de rango sería un
@@ -132,7 +139,7 @@ export function ChordSearch({ onPick }: ChordSearchProps) {
                     position === index ? 'bg-surface-raised' : ''
                   }`}
                 >
-                  <span className="text-text w-16 shrink-0 font-mono text-sm">{chord.symbol}</span>
+                  <span className="text-text w-16 shrink-0 font-mono">{chord.symbol}</span>
                   {judgement === undefined ? (
                     <span className="text-text-muted truncate text-xs">{chord.shape.name}</span>
                   ) : (

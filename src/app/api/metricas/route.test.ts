@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as Metricas from '@server/metricas';
+import type * as NextServer from 'next/server';
 import type * as RateLimitDb from '@server/rate-limit-db';
 
 /**
@@ -11,13 +12,31 @@ import type * as RateLimitDb from '@server/rate-limit-db';
  * dirección no llega a la clave del tope tal cual, y que leer pide la clave.
  */
 
-const currentSession = vi.fn();
+const authAvailable = vi.fn(() => true);
+const currentCookie = vi.fn();
+const findUserById = vi.fn();
 const registrarEvento = vi.fn();
 const leerMetricas = vi.fn();
 const hasDatabase = vi.fn(() => true);
 const limitRequest = vi.fn();
 
-vi.mock('@server/entitlements', () => ({ currentSession: () => currentSession() }));
+vi.mock('@server/auth', () => ({
+  authAvailable: () => authAvailable(),
+  currentCookie: () => currentCookie(),
+}));
+vi.mock('@server/users', () => ({ findUserById: (id: string) => findUserById(id) }));
+
+/**
+ * `after` solo existe dentro de una petición de Next. Aquí guarda lo que la ruta
+ * deja para después de contestar, y `enviar` lo espera.
+ */
+const despues = vi.hoisted((): Promise<unknown>[] => []);
+vi.mock('next/server', async (original) => ({
+  ...(await original<typeof NextServer>()),
+  after: (tarea: () => Promise<unknown>) => {
+    despues.push(tarea());
+  },
+}));
 vi.mock('@server/db/client', () => ({ hasDatabase: () => hasDatabase() }));
 vi.mock('@server/metricas', async (original) => ({
   ...(await original<typeof Metricas>()),
@@ -29,7 +48,14 @@ vi.mock('@server/rate-limit-db', async (original) => ({
   limitRequest: (...a: unknown[]) => limitRequest(...a),
 }));
 
-const { GET, POST } = await import('./route');
+const { GET, POST: contestar } = await import('./route');
+
+/** La petición entera: la respuesta y lo que se apunta después de darla. */
+async function POST(request: Request): Promise<Response> {
+  const respuesta = await contestar(request);
+  await Promise.all(despues.splice(0));
+  return respuesta;
+}
 const { seudonimo } = await import('@server/metricas');
 
 const ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
@@ -49,7 +75,9 @@ function leer(headers: Record<string, string> = {}): Request {
 }
 
 beforeEach(() => {
-  currentSession.mockReset().mockResolvedValue(null);
+  authAvailable.mockReturnValue(true);
+  currentCookie.mockReset().mockResolvedValue(null);
+  findUserById.mockReset().mockResolvedValue(null);
   registrarEvento.mockReset().mockResolvedValue(undefined);
   leerMetricas.mockReset();
   hasDatabase.mockReturnValue(true);
@@ -99,8 +127,23 @@ describe('apuntar', () => {
     expect(options).toEqual({ limit: 10, windowMs: 86_400_000 });
   });
 
+  /**
+   * **Contesta antes de apuntar.** Llega por `sendBeacon`, que no lee la
+   * respuesta: esperar a la sesión y a las escrituras era tener la petición
+   * abierta por nada.
+   */
+  it('contesta antes de apuntar nada', async () => {
+    const res = await contestar(apuntar({ evento: 'visita', ruta: '/afinar' }));
+
+    expect(res.status).toBe(204);
+    expect(registrarEvento).not.toHaveBeenCalled();
+    await Promise.all(despues.splice(0));
+    expect(registrarEvento).toHaveBeenCalledTimes(1);
+  });
+
   it('con la sesión abierta gana la cuenta, que es la misma en dos aparatos', async () => {
-    currentSession.mockResolvedValue({ userId: 'u1', account: {} });
+    currentCookie.mockResolvedValue({ id: 'u1', sessionVersion: 2 });
+    findUserById.mockResolvedValue({ id: 'u1', sessionVersion: 2 });
 
     await POST(apuntar({ evento: 'visita', ruta: '/', visitante: ID }));
 
@@ -110,6 +153,25 @@ describe('apuntar', () => {
       ruta: '/',
       visitante: seudonimo('cuenta', 'u1'),
     });
+  });
+
+  /**
+   * La cuenta se comprueba con su fila y nada más: ni el plan ni el gasto de la
+   * IA, que aquí no hacen falta. Una cookie de antes de cambiar la contraseña, o
+   * sin cuentas configuradas, cuenta como el navegador.
+   */
+  it('una cookie que ya no vale, o sin cuentas, cuenta como el navegador', async () => {
+    currentCookie.mockResolvedValue({ id: 'u1', sessionVersion: 1 });
+    findUserById.mockResolvedValue({ id: 'u1', sessionVersion: 2 });
+    await POST(apuntar({ evento: 'visita', ruta: '/', visitante: ID }));
+
+    authAvailable.mockReturnValue(false);
+    await POST(apuntar({ evento: 'visita', ruta: '/', visitante: ID }));
+
+    for (const [evento] of registrarEvento.mock.calls) {
+      expect(evento).toMatchObject({ visitante: seudonimo('navegador', ID) });
+    }
+    expect(findUserById).toHaveBeenCalledTimes(1);
   });
 
   it('con DNT o GPC no se apunta nada, ni sumado', async () => {

@@ -133,7 +133,7 @@ describe('la corrección se anuncia', () => {
     await userEvent.click(screen.getByRole('button', { name: 'F' }));
 
     expect(container.querySelector('[aria-live="polite"]')).toBe(region);
-    expect(region).toHaveTextContent('Era G. Cinco notas por encima de C está G.');
+    expect(region).toHaveTextContent('La buena era «G». Cinco notas por encima de C está G.');
   });
 
   // La marca verde no se oye: sin decirlo, acertar sonaba como un párrafo más.

@@ -122,6 +122,19 @@ playwright-cli close
   `await ctx.addInitScript(() => localStorage.setItem('caos-ordenado:recorrido', 'visto'))`.
   Los `.mjs` de aquí ya lo hacen; uno nuevo tiene que hacerlo también, o medirá la
   tarjeta y su trozo de código.
+- **Con el recorrido en pie, el humo de CI también lo marca como visto**: el trabajo
+  `humo` (`scripts/humo.mjs`) recorre cada ruta de la compilación de producción en
+  tres anchos, y lo que mide no se parece a la primera visita
+  ([adr/0121](../../../docs/adr/0121-la-base-de-los-tests-se-migra-una-vez-y-el-reloj-corre-aparte.md)).
+- **La barra precarga cada pantalla al ir a pulsarla** (`prefetch` entero al entrar el
+  puntero, tocar el dedo o llegar el foco): medir el peso de una ruta con un puntero
+  encima de su enlace cuenta también lo que se precarga
+  ([adr/0120](../../../docs/adr/0120-la-primera-visita-no-se-mueve-y-cada-pantalla-trae-lo-suyo.md)).
+  El `(marco)` no tiene `loading.tsx` a propósito: lo tendría el 404 como 200.
+- **Los textos van al cuerpo (16 px) y la barra cambia en `barra-arriba`** (el `md` de
+  Tailwind) y `ventana-baja` (500 px de alto): si una sonda de medidas da un hueco o
+  un desborde, mira primero esas dos variantes de `globals.css`
+  ([adr/0122](../../../docs/adr/0122-lo-que-se-lee-va-al-cuerpo.md)).
 - **`fullPage: true` no sirve.** La aplicación vive en un `h-dvh` con scroll
   interno: lo que está fuera no sale en la captura aunque pidas la página entera.
   Usa `scrollIntoViewIfNeeded` o mide con `getBoundingClientRect`.

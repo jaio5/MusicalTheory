@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { can, cheapestPlanWith } from '@core/billing';
 import {
@@ -24,6 +24,8 @@ import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { Button } from '@ui/Button';
 import { TextField } from '@ui/TextField';
 import { PlanLock } from '@ui/PlanLock';
+
+import { EnEsteNavegador } from './EnEsteNavegador';
 
 export interface SongsPanelProps {
   /** Se inyecta en los tests para no llamar al servidor de verdad. */
@@ -106,6 +108,7 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
   const accionesMontaje = useArrangementStore((state) => state.actions);
 
   const puedeGuardar = can(account.plan, 'canciones');
+  const idEnLaCuenta = useId();
 
   const [songs, setSongs] = useState<readonly Song[]>([]);
   const [name, setName] = useState('');
@@ -352,81 +355,94 @@ export function SongsPanel({ request = defaultRequest }: SongsPanelProps = {}) {
 
   if (!puedeGuardar) {
     return (
-      <PlanLock
-        needed={cheapestPlanWith('canciones')}
-        what="Guardar tus canciones"
-        signedIn={signedIn}
-      />
+      <div className="flex flex-col gap-4">
+        <EnEsteNavegador />
+        {/* El plan, **después y como lo que es**: no guardar, que ya se guarda,
+            sino guardarla también en la cuenta. Decía «Guardar tus canciones
+            entra en el plan Básico» y era lo primero del panel (adr/0118). */}
+        <PlanLock
+          needed={cheapestPlanWith('canciones')}
+          what="Guardarla también en tu cuenta, con nombre, y abrirla desde otro aparato"
+          signedIn={signedIn}
+        />
+      </div>
     );
   }
 
   return (
-    <div>
-      <div className="flex flex-wrap items-end gap-2">
-        {/* Un `<input>` y no `ui/Field`: Field es el desplegable de elegir una
+    <div className="flex flex-col gap-4">
+      <EnEsteNavegador />
+      <section aria-labelledby={idEnLaCuenta}>
+        <h3 id={idEnLaCuenta} className="titulo-apartado mb-2">
+          En tu cuenta
+        </h3>
+        <div className="flex flex-wrap items-end gap-2">
+          {/* Un `<input>` y no `ui/Field`: Field es el desplegable de elegir una
             opción, y aquí se escribe un nombre. El patrón es el mismo que el de
             los formularios de la cuenta. */}
-        <TextField
-          label="Nombre"
-          ancho="crece"
-          type="text"
-          maxLength={MAX_SONG_NAME}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Sin título"
-        />
-        {/* El botón dice qué se va a guardar, porque no siempre es lo mismo: el
+          <TextField
+            label="Nombre"
+            ancho="crece"
+            type="text"
+            maxLength={MAX_SONG_NAME}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Sin título"
+          />
+          {/* El botón dice qué se va a guardar, porque no siempre es lo mismo: el
             montaje si lo hay y el camino si no. Enterarse después, con la
             canción guardada a medias, sería peor. */}
-        <Button onClick={() => void save()} disabled={busy}>
-          {arrangement.parts.length > 0 ? 'Guardar el montaje' : 'Guardar esta progresión'}
-        </Button>
-      </div>
+          <Button onClick={() => void save()} disabled={busy}>
+            {arrangement.parts.length > 0 ? 'Guardar el montaje' : 'Guardar esta progresión'}
+          </Button>
+        </div>
 
-      <p className="text-text-muted mt-2 text-sm">
-        Se guardan en tu cuenta: la tonalidad y los grados, no los cifrados. Por eso una canción
-        guardada se puede abrir en otro tono. Con el montaje van también sus partes, el punteo y de
-        dónde salió cada acorde. Nada de audio, aquí tampoco.
-      </p>
-
-      {message !== null && (
-        <p role="alert" className="text-oxblood-bright mt-4 text-sm">
-          {message}
+        <p className="text-text-muted mt-2">
+          Con nombre, y se abren desde cualquier aparato con tu cuenta: la tonalidad y los grados,
+          no los cifrados. Por eso una canción guardada se puede abrir en otro tono. Con el montaje
+          van también sus partes, el punteo y de dónde salió cada acorde. Nada de audio, aquí
+          tampoco.
         </p>
-      )}
 
-      {note !== null && (
-        <p role="status" className="text-text-muted mt-4 text-sm">
-          {note}
-        </p>
-      )}
+        {message !== null && (
+          <p role="alert" className="text-oxblood-bright mt-4">
+            {message}
+          </p>
+        )}
 
-      {songs.length === 0 ? (
-        <p className="text-text-muted mt-6 text-sm">Todavía no has guardado ninguna.</p>
-      ) : (
-        <ul className="mt-6 space-y-2">
-          {songs.map((song) => (
-            <Fila
-              key={song.id}
-              song={song}
-              busy={busy}
-              renombrandoA={renombrando?.id === song.id ? renombrando.nombre : null}
-              onRenombrar={(nombre) => setRenombrando({ id: song.id, nombre })}
-              onDejarlo={() => setRenombrando(null)}
-              onGuardarNombre={(nombre) => {
-                void guardarEncima(song, { name: nombre }).then((ok) => {
-                  if (ok) {
-                    setRenombrando(null);
-                  }
-                });
-              }}
-              onAbrir={() => open(song)}
-              onAnadirParte={() => void anadirParte(song)}
-              onBorrar={() => void remove(song)}
-            />
-          ))}
-        </ul>
-      )}
+        {note !== null && (
+          <p role="status" className="text-text-muted mt-4">
+            {note}
+          </p>
+        )}
+
+        {songs.length === 0 ? (
+          <p className="text-text-muted mt-6">Todavía no has guardado ninguna.</p>
+        ) : (
+          <ul className="mt-6 space-y-2">
+            {songs.map((song) => (
+              <Fila
+                key={song.id}
+                song={song}
+                busy={busy}
+                renombrandoA={renombrando?.id === song.id ? renombrando.nombre : null}
+                onRenombrar={(nombre) => setRenombrando({ id: song.id, nombre })}
+                onDejarlo={() => setRenombrando(null)}
+                onGuardarNombre={(nombre) => {
+                  void guardarEncima(song, { name: nombre }).then((ok) => {
+                    if (ok) {
+                      setRenombrando(null);
+                    }
+                  });
+                }}
+                onAbrir={() => open(song)}
+                onAnadirParte={() => void anadirParte(song)}
+                onBorrar={() => void remove(song)}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
@@ -469,7 +485,7 @@ function Fila({
       {renombrandoA === null ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="min-w-0">
-            <span className="text-text block truncate text-sm">{song.name}</span>
+            <span className="text-text block truncate">{song.name}</span>
             <span className="text-text-muted block font-mono text-xs">
               {keyName(song.tonic, song.mode)} · {describeSong(song)}
             </span>

@@ -19,6 +19,14 @@ import {
   type TeacherAnswer,
   type TeacherErrorCode,
 } from './teacher-contract';
+import { useEnLinea } from './use-en-linea';
+
+/**
+ * Sin red la pregunta no sale de este aparato, y decirlo como «no hemos podido
+ * contactar con el profesor» culpaba al modelo y mandaba a esperar un minuto.
+ */
+const SIN_CONEXION =
+  'Sin conexión: la pregunta no ha salido de este aparato. Pregunta otra vez cuando vuelva la red.';
 
 /**
  * De quién es una respuesta que no ha escrito el modelo, en dos palabras.
@@ -88,6 +96,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
   // escribir nada es una regañina. Es el trato de los formularios de la cuenta.
   const [intentado, setIntentado] = useState(false);
   const campo = useRef<HTMLInputElement>(null);
+  const enLinea = useEnLinea();
 
   // Lo único que se marca en el campo es el blanco: sin cuenta o sin tonalidad el
   // campo ni se pinta, y se dice lo que toca en su lugar.
@@ -115,9 +124,13 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
       return;
     }
 
-    setAsking(true);
     setMessage(null);
     setAnswer(null);
+    if (!navigator.onLine) {
+      setMessage({ code: null, text: SIN_CONEXION });
+      return;
+    }
+    setAsking(true);
 
     try {
       const response = await fetch('/api/teacher', {
@@ -149,7 +162,12 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
 
       setAnswer(payload as TeacherAnswer);
     } catch {
-      setMessage({ code: 'model_unavailable', text: TEACHER_ERROR_MESSAGES.model_unavailable });
+      // La red se puede ir a mitad de la pregunta: entonces es eso, no el modelo.
+      setMessage(
+        navigator.onLine
+          ? { code: 'model_unavailable', text: TEACHER_ERROR_MESSAGES.model_unavailable }
+          : { code: null, text: SIN_CONEXION },
+      );
     } finally {
       setAsking(false);
     }
@@ -173,20 +191,20 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
         */}
         {accounts ? (
           <>
-            <p className="text-text-muted text-xs">
+            <p className="text-text-muted text-base">
               El profesor pide cuenta: es lo que permite contar el gasto por persona y no por
               navegador.
             </p>
             <div>
-              <Link href="/cuenta" className={estiloBoton('quiet', 'px-4 text-sm')}>
+              <Link href="/cuenta" className={estiloBoton('quiet', '', 'compacto')}>
                 Entrar para preguntar
               </Link>
             </div>
           </>
         ) : (
-          <p className="text-text-muted text-xs">
-            Esta copia no tiene cuentas configuradas, y sin cuenta el profesor no puede contestar:
-            cada pregunta es una llamada a un modelo que se paga.
+          <p className="text-text-muted text-base">
+            El profesor todavía no está disponible aquí: contesta una IA, cada pregunta se paga y
+            por eso va con cuenta, y aquí aún no se pueden abrir.
           </p>
         )}
 
@@ -198,7 +216,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
             {OPENERS.map((opener) => (
               <li
                 key={opener}
-                className="border-border text-text-muted rounded-md border px-3 py-2 text-sm"
+                className="border-border text-text-muted rounded-md border px-3 py-2 text-base"
               >
                 {opener}
               </li>
@@ -219,6 +237,14 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
 
   return (
     <div className="flex flex-col gap-2">
+      {/* Se dice antes de escribir, no después de pulsar: escribir una pregunta
+          entera para enterarse de que no va a salir es tiempo tirado. */}
+      {!enLinea && (
+        <p role="status" className="text-text-muted text-base">
+          Sin conexión. El profesor contesta desde el servidor, así que tendrá que esperar a que
+          vuelva la red; el camino, componer y afinar siguen funcionando sin ella.
+        </p>
+      )}
       <form
         // Sin la validación del navegador, como `ui/Formulario`: lo que falta se
         // dice aquí, en español y junto al campo. Va escrito a mano porque este
@@ -310,7 +336,7 @@ export function Teacher({ unitId, compact = false }: TeacherProps = {}) {
           {deQuienEs(answer) !== null && (
             <p className="text-text-muted mb-1 text-xs">{deQuienEs(answer)}</p>
           )}
-          <p className="text-text text-sm">{answer.answer}</p>
+          <p className="text-text text-base">{answer.answer}</p>
           {answer.example !== undefined && (
             <p className="text-text-muted mt-1 text-xs">
               {answer.example.chords.join(' → ')}

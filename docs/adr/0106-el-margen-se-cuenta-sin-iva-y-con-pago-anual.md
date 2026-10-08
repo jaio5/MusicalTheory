@@ -1,5 +1,7 @@
 # ADR 0106 — El margen se cuenta sobre lo que entra, y se puede pagar al año
 
+> **Cifras de hoy:** con el modelo por defecto son 96 y 193 al mes, no los 113 y 227 de la tabla. Mira [`CUENTAS-Y-PLANES.md`](../CUENTAS-Y-PLANES.md).
+
 Fecha: 2026-10-07 · Estado: aceptada · Corrige: el presupuesto de
 [ADR 0008](./0008-los-cupos-salen-del-precio.md) · Usa: la comisión de
 [ADR 0105](./0105-la-pasarela-y-los-precios-por-pais.md)

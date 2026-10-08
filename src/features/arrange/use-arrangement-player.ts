@@ -12,6 +12,8 @@ import {
 } from '@core/music';
 import type { ProgressionPlayer } from '@audio/progression-player';
 
+import { crearCabezal, type Cabezal } from './cabezal';
+
 /**
  * Oír el montaje, y saber por qué bloque va.
  *
@@ -34,8 +36,11 @@ export interface ArrangementPlayback {
   /** Qué parte suena, o nulo si es el montaje entero. Nulo también si no suena. */
   readonly playingPartId: string | null;
   readonly playing: boolean;
-  /** El bloque encendido ahora mismo. */
-  readonly currentBlockId: string | null;
+  /**
+   * Por qué bloque va. Un cabezal y no un identificador, para que cada paso no
+   * repinte a quien solo quiere saber si suena (`cabezal.ts`).
+   */
+  readonly cabezal: Cabezal;
   /** Suena eso; si ya sonaba lo mismo, se calla. */
   toggle(partId: string | null): void;
   stop(): void;
@@ -52,7 +57,7 @@ export function useArrangementPlayer(
 ): ArrangementPlayback {
   const [playing, setPlaying] = useState(false);
   const [playingPartId, setPlayingPartId] = useState<string | null>(null);
-  const [currentBlockId, setCurrentBlockId] = useState<string | null>(null);
+  const [cabezal] = useState(crearCabezal);
 
   const { pedir, parar } = useProgressionPlayer(createPlayer);
 
@@ -60,10 +65,10 @@ export function useArrangementPlayer(
     parar();
     setPlaying(false);
     setPlayingPartId(null);
-    setCurrentBlockId(null);
+    cabezal.cambiarA(null);
     // `pedir` y `parar` no cambian entre renders: los memoriza
     // `useProgressionPlayer`. Van en la lista para que ESLint pueda comprobarlo.
-  }, [parar]);
+  }, [cabezal, parar]);
 
   const toggle = useCallback(
     (partId: string | null) => {
@@ -86,23 +91,23 @@ export function useArrangementPlayer(
 
       setPlaying(true);
       setPlayingPartId(partId);
-      setCurrentBlockId(owners.find((dueño) => dueño !== null) ?? null);
+      cabezal.cambiarA(owners.find((dueño) => dueño !== null) ?? null);
 
       void player.play(scheduleEvents(events, bpm), (step) => {
         if (step === null) {
           setPlaying(false);
           setPlayingPartId(null);
-          setCurrentBlockId(null);
+          cabezal.cambiarA(null);
           return;
         }
         const dueño = owners[step];
         if (dueño !== null && dueño !== undefined) {
-          setCurrentBlockId(dueño);
+          cabezal.cambiarA(dueño);
         }
       });
     },
-    [arrangement, bpm, mode, pedir, playing, playingPartId, stop, tonic, withMelody],
+    [arrangement, bpm, cabezal, mode, pedir, playing, playingPartId, stop, tonic, withMelody],
   );
 
-  return { playing, playingPartId, currentBlockId, toggle, stop };
+  return { playing, playingPartId, cabezal, toggle, stop };
 }

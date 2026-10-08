@@ -1,5 +1,7 @@
 # ADR 0077 — La suscripción se guarda en la cuenta, y cambiar de plan va por el portal
 
+> **Completado por [ADR 0114](./0114-el-gasto-de-la-ia-tiene-techo-y-la-cuenta-se-cierra-en-orden.md):** el gasto de la IA tiene un techo propio y la cuenta se cierra en orden, también a quien paga.
+
 Fecha: 2026-10-02 · Estado: aceptada, **sin probar contra Stripe** · Completa
 [ADR 0006](./0006-planes-y-puerto-de-facturacion.md), que dejó el cobro como puerto
 

@@ -1,28 +1,12 @@
 'use client';
 
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useId,
-  useState,
-  type ComponentType,
-  type CSSProperties,
-  type LazyExoticComponent,
-} from 'react';
+import { Suspense, useCallback, useEffect, useId, useState, type ComponentType } from 'react';
 
-import {
-  blockChord,
-  keyName,
-  type DegreeSymbol,
-  type EspecieDeBloque,
-  type PitchClass,
-} from '@core/music';
-// Del módulo y no del índice: `@features/arrange` reexporta también el lienzo y
-// el ensayo, que van en diferido, y un índice es la manera más corta de volver a
+import { keyName, type DegreeSymbol, type EspecieDeBloque } from '@core/music';
+// Del módulo y no del índice: `@features/arrange` reexporta también tocando y el
+// ensayo, que van en diferido, y un índice es la manera más corta de volver a
 // traérselos al paquete de entrada sin que nadie lo note (adr/0045, adr/0058).
-import { TocarParaEscribir } from '@features/arrange/TocarParaEscribir';
+import { ArrangeCanvas } from '@features/arrange/ArrangeCanvas';
 // Del módulo y no del índice: el índice de `learn` reexporta el camino entero, y
 // con él viajaba el temario a una pantalla que no enseña ninguna unidad
 // (adr/0058).
@@ -34,8 +18,7 @@ import { ResumeLast } from '@features/sessions/ResumeLast';
 import { BarraDeTonalidad, KeyPanel } from '@features/wheel';
 import { Settings } from '@features/workspace';
 import { ATAJOS, useAtajosDelBanco } from '@state/atajos-del-banco';
-import { useArrangementStore, type QuitadosAlCambiarDeModo } from '@state/arrangement-store';
-import { useClaqueta } from '@state/claqueta';
+import { useArrangementStore } from '@state/arrangement-store';
 import { selectPlegada, selectReparto, useBancoStore, type EditorDeAbajo } from '@state/banco';
 import { selectActiveKey, useSessionStore } from '@state/session-store';
 import { TOPES_DEL_BANCO } from '@state/workspace';
@@ -55,11 +38,25 @@ import {
   IconoSesiones,
   IconoTocar,
 } from '@ui/icons';
-import { Aviso } from '@ui/Aviso';
 import { WorkHeader } from '@ui/Screen';
 import { useHayBanco } from '@ui/use-hay-banco';
 import { useTraerALaVista } from '@ui/use-traer-a-la-vista';
 import { cerrarAlSalirElFoco } from '@ui/cerrar-al-salir-el-foco';
+
+import { LoDeOtraPestana, LoQueSeQuito } from './componer/avisos';
+import {
+  Abriendo,
+  Ensayo,
+  FretboardPanel,
+  precargar,
+  RotulosDelMastil,
+  SalidasPanel,
+  SessionsPanel,
+  SongsPanel,
+  TocarParaEscribir,
+  usePrecargarEnReposo,
+} from './componer/diferidos';
+import { useArrastreDelBanco, variablesDelBanco } from './componer/use-arrastre-del-banco';
 
 interface Editor {
   readonly id: EditorDeAbajo;
@@ -96,71 +93,6 @@ interface Editor {
 }
 
 /**
- * **Lo que no se ve al entrar llega después** ([adr/0058](../../../docs/adr/0058-componer-se-descarga-por-partes.md)).
- *
- * Se entra por `Tocando` con el área de abajo cerrada, así que el lienzo, el
- * ensayo, el mástil y los tres paneles de abajo no se pintan en la primera
- * visita, y los seis se descargaban con ella: `/componer` bajaba 259 KB sin
- * dividir. Cada uno es aquí una promesa de su módulo —del módulo y no del
- * índice, por lo mismo que las pantallas (adr/0045)— y pedir la misma dos veces
- * no descarga nada: el empaquetador guarda lo que ya trajo.
- */
-const CARGAS = {
-  lienzo: () => import('@features/arrange/ArrangeCanvas'),
-  ensayo: () => import('@features/arrange/Ensayo'),
-  mastil: () => import('@features/fretboard/FretboardPanel'),
-  salidas: () => import('@features/versions/VersionsPanel'),
-  canciones: () => import('@features/songs/SongsPanel'),
-  sesiones: () => import('@features/sessions/SessionsPanel'),
-} as const;
-
-function precargar(...cuales: ReadonlyArray<keyof typeof CARGAS>): void {
-  for (const cual of cuales) {
-    void CARGAS[cual]();
-  }
-}
-
-/**
- * `React.lazy` sobre una exportación con nombre.
- *
- * Con `lazy` y `Suspense` de React y no con `next/dynamic`, que es lo mismo por
- * dentro: `next/dynamic` solo es el de producción después de que el compilador
- * de Next lo reescriba, y en Vitest se resuelve a la versión del Pages Router
- * —otro cargador—, así que los tests probarían una pieza que no es la que se
- * sirve (adr/0058).
- */
-function diferido<K extends string, M extends Record<K, ComponentType>>(
-  cargar: () => Promise<M>,
-  nombre: K,
-): LazyExoticComponent<M[K]> {
-  return lazy(() => cargar().then((modulo) => ({ default: modulo[nombre] })));
-}
-
-const ArrangeCanvas = diferido(CARGAS.lienzo, 'ArrangeCanvas');
-const Ensayo = diferido(CARGAS.ensayo, 'Ensayo');
-const FretboardPanel = diferido(CARGAS.mastil, 'FretboardPanel');
-const RotulosDelMastil = diferido(CARGAS.mastil, 'RotulosDelMastil');
-const VersionsPanel = diferido(CARGAS.salidas, 'VersionsPanel');
-const SongsPanel = diferido(CARGAS.canciones, 'SongsPanel');
-const SessionsPanel = diferido(CARGAS.sesiones, 'SessionsPanel');
-
-/**
- * Lo que ocupa el sitio mientras llega el código.
- *
- * Casi nunca se ve: el lienzo y el ensayo se piden en cuanto la pantalla se
- * queda quieta, y los de abajo al pasar por su pastilla. Pero cuando se ve —una
- * red lenta, un atajo de teclado nada más entrar— dice qué viene, en vez de un
- * hueco que parece un fallo.
- */
-function Abriendo({ que }: { readonly que: string }) {
-  return (
-    <p role="status" className="text-text-muted m-auto p-6 text-center text-sm">
-      Abriendo {que}…
-    </p>
-  );
-}
-
-/**
  * Los editores que caben en el área de abajo.
  *
  * Es el único sitio donde se elige **qué** se ve, que es lo que en un editor con
@@ -184,7 +116,7 @@ const EDITORES: readonly Editor[] = [
     id: 'salidas',
     name: 'Salidas',
     Icono: IconoSalidas,
-    render: VersionsPanel,
+    render: SalidasPanel,
     precargar: () => precargar('salidas'),
   },
   // Canciones antes que Sesiones porque no son lo mismo y se confunden: una
@@ -209,10 +141,11 @@ const EDITORES: readonly Editor[] = [
 /**
  * Los espacios de trabajo: **tres maneras de escribir la misma canción**.
  *
- * `Tocando` va primero porque es por donde se empieza y porque es la que estaba
- * construida y escondida
- * ([adr/0034](../../../docs/adr/0034-tres-maneras-de-escribir-la-misma-cancion.md)).
- * No son vistas distintas de la canción: son entradas distintas a la misma.
+ * En el orden en que se hace una canción: se toca, se escribe y se ensaya
+ * ([adr/0034](../../../docs/adr/0034-tres-maneras-de-escribir-la-misma-cancion.md)),
+ * aunque se entre por `Escribir` ([adr/0109](../../../docs/adr/0109-lo-que-se-da-por-hecho-al-empezar.md)):
+ * el orden de los atajos `1`, `2` y `3` no cambia con la puerta. No son vistas
+ * distintas de la canción: son entradas distintas a la misma.
  */
 const ESPACIOS = [
   { id: 'tocando', name: 'Tocando', Icono: IconoMicro, atajo: ATAJOS.tocando },
@@ -302,62 +235,6 @@ function cerrarPanel(id: string): void {
 }
 
 /**
- * Lo que un cambio de modo dejó fuera, dicho en una frase.
- *
- * Los cifrados van en el modo **de antes**, que es el que tenía esos grados: en
- * el de ahora no existen, y por eso se quitaron.
- */
-function fraseDeLoQuitado(tonica: PitchClass, { hacia, bloques }: QuitadosAlCambiarDeModo): string {
-  const antes = hacia === 'minor' ? 'major' : 'minor';
-  const nombres = bloques.map(
-    (bloque) => `${blockChord(tonica, antes, bloque).symbol} (${bloque.degree})`,
-  );
-  const lista = new Intl.ListFormat('es', { type: 'conjunction' }).format(nombres);
-  const modo = hacia === 'minor' ? 'menor' : 'mayor';
-  return nombres.length === 1
-    ? `Al pasar a ${modo} se ha quitado ${lista}: en ${modo} no tiene sitio.`
-    : `Al pasar a ${modo} se han quitado ${lista}: en ${modo} no tienen sitio.`;
-}
-
-/**
- * **Lo que se quitó al cambiar de modo, dicho.** Traducir la canción a otro modo
- * deja fuera los grados que allí no existen —un `V/ii` no tiene sitio en menor—,
- * y se quitaban sin avisar: se cambiaba la rueda y la canción tenía un acorde
- * menos sin que nadie supiera por qué.
- *
- * Aquí y no en el lienzo porque el modo se cambia desde cualquier espacio, y en
- * Tocando o en Ensayar el lienzo no está. **Durante una toma se calla**: la voz
- * del lector sale por el mismo altavoz que el clic, con el micro abierto, y
- * cuando acaba la toma vuelve a estar.
- *
- * Con `ui/Aviso`, que monta la región viva vacía antes de que haya nada que
- * decir: una que nace con el texto dentro no se lee en todos los lectores.
- */
-function LoQueSeQuito() {
-  const quitados = useArrangementStore((state) => state.quitadosAlCambiarDeModo);
-  const olvidar = useArrangementStore((state) => state.actions.olvidarQuitados);
-  const enLaToma = useClaqueta((estado) => estado.enLaToma);
-  const tonica = useSessionStore((state) => selectActiveKey(state)?.tonic ?? null);
-  const frase =
-    quitados === null || enLaToma || tonica === null ? null : fraseDeLoQuitado(tonica, quitados);
-
-  return (
-    <div
-      className={
-        frase === null ? '' : 'border-border flex shrink-0 items-start gap-3 border-b px-3 py-2'
-      }
-    >
-      <Aviso mensaje={frase} className="min-w-0 grow text-xs" />
-      {frase !== null && (
-        <Chip onClick={olvidar} tone="quiet" tamano="compacto" className="shrink-0">
-          Vale
-        </Chip>
-      )}
-    </div>
-  );
-}
-
-/**
  * Componer: un banco de trabajo de cuatro áreas.
  *
  * **Una sola pantalla repartida, y no dos caras con un conmutador.** Lo segundo
@@ -396,6 +273,7 @@ export function ComposeScreen() {
   const plegadaDerecha = useBancoStore(selectPlegada('derecha'));
   const plegadoElCamino = useBancoStore(selectPlegada('camino'));
   const accionesDelBanco = useBancoStore((state) => state.actions);
+  const { caja: cajaDelBanco, arrastrar } = useArrastreDelBanco();
 
   /**
    * Por debajo de `lg` no hay banco: **una sola área a la vez, con pestañas**.
@@ -423,7 +301,8 @@ export function ComposeScreen() {
     no, así que apilada el área se quedaba además sin su alto.
   */
   const caminoPlegado = hayBanco && plegadoElCamino;
-  const [areaMovil, setAreaMovil] = useState<'arreglo' | 'camino' | 'acorde'>('arreglo');
+  // En el almacén y no aquí: Salidas sin plan también la cambia (`irADondeIr`).
+  const areaMovil = useBancoStore((state) => state.areaEnElMovil);
 
   /**
    * Si la barra de tonalidad está abierta tapando la pantalla.
@@ -449,25 +328,8 @@ export function ComposeScreen() {
     accionesDelBanco.cargar();
   }, [accionesDelBanco]);
 
-  /*
-    El lienzo y el ensayo se piden **en cuanto la pantalla se queda quieta**.
-
-    Van en diferido para que la primera visita no los descargue
-    ([adr/0058](../../../docs/adr/0058-componer-se-descarga-por-partes.md)), pero
-    son los dos espacios a los que se pasa desde aquí: pedirlos al pulsar dejaría
-    un «Abriendo el lienzo…» justo cuando se va a escribir. En reposo no compiten
-    con la hidratación, que es lo que la división viene a aligerar.
-  */
-  useEffect(() => {
-    const traer = () => precargar('lienzo', 'ensayo');
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(traer);
-      return () => window.cancelIdleCallback(id);
-    }
-    // Safari no tiene `requestIdleCallback`: un plazo corto hace de reposo.
-    const id = window.setTimeout(traer, 200);
-    return () => window.clearTimeout(id);
-  }, []);
+  // Tocando y el ensayo, en cuanto la pantalla se queda quieta (adr/0058).
+  usePrecargarEnReposo();
 
   /**
    * Si la canción tiene algún acorde.
@@ -617,18 +479,17 @@ export function ComposeScreen() {
     </>
   );
 
-  const medidas = {
-    '--banco-izquierda': `${izquierda}rem`,
-    '--banco-derecha': `${derecha}rem`,
-    '--banco-alto': `${alto}rem`,
-  } as CSSProperties;
-
   return (
     // Las medidas van aquí y no en la fila del banco: el área de abajo es
     // **hermana** de esa fila, no hija, así que allí no heredaba
     // `--banco-alto` y se quedaba con el alto que le sobrara. El mástil, que se
-    // ajusta a su caja, salía entonces del tamaño de un sello.
-    <div className="flex h-full min-h-0 flex-col" style={medidas}>
+    // ajusta a su caja, salía entonces del tamaño de un sello. Y es la caja que
+    // los divisores mueven a mano mientras se arrastran.
+    <div
+      ref={cajaDelBanco}
+      className="flex h-full min-h-0 flex-col"
+      style={variablesDelBanco({ izquierda, derecha, alto })}
+    >
       {/*
         **La cabecera sale igual del servidor que del cliente, en cualquier
         ancho.** El servidor no sabe cuánto mide la pantalla y pinta el banco;
@@ -684,13 +545,14 @@ export function ComposeScreen() {
               completo que solo existe en esa franja; en un teléfono se vuelve a
               desplazar, que es donde no hay sitio ni para una de las dos.
             */}
-            <div
-              onFocus={traerALaVista}
-              className="hay-mas-al-lado flex min-w-0 items-center gap-2 max-lg:w-full max-sm:overflow-x-auto sm:max-lg:flex-wrap lg:ml-auto lg:flex-wrap max-lg:[&>*]:shrink-0"
-            >
-              {/* Los espacios de trabajo antes que el metrónomo: son lo que cambia
+            <div className="flex min-w-0 items-center gap-2 max-lg:w-full lg:ml-auto">
+              <div
+                onFocus={traerALaVista}
+                className="hay-mas-al-lado flex min-w-0 grow items-center gap-2 max-sm:overflow-x-auto sm:max-lg:flex-wrap lg:flex-wrap max-lg:[&>*]:shrink-0"
+              >
+                {/* Los espacios de trabajo antes que el metrónomo: son lo que cambia
                 la pantalla entera, y lo que cambia más cosas va primero. */}
-              {/*
+                {/*
               En un teléfono, **los espacios son también las pestañas**.
 
               Había dos filas: los tres espacios arriba y, debajo, «Tocando · A
@@ -704,29 +566,26 @@ export function ComposeScreen() {
               si se llega antes de que la pantalla haya tenido un momento de
               reposo (adr/0058).
             */}
-              <span
-                className="flex gap-1"
-                role="group"
-                aria-label="Espacio de trabajo"
-                data-tour="componer-espacios"
-                onPointerOver={() => precargar('lienzo', 'ensayo')}
-                onFocus={() => precargar('lienzo', 'ensayo')}
-              >
-                {ESPACIOS.map((candidato) => (
-                  <Chip
-                    key={candidato.id}
-                    onClick={() => {
-                      accionesDelBanco.espacio(candidato.id);
-                      setAreaMovil('arreglo');
-                    }}
-                    pressed={espacio === candidato.id && (hayBanco || areaMovil === 'arreglo')}
-                    tone="quiet"
-                    tamano="compacto"
-                    ariaLabel={candidato.name}
-                    atajo={candidato.atajo}
-                    className="max-sm:px-2"
-                  >
-                    {/*
+                <span
+                  className="flex gap-1"
+                  role="group"
+                  aria-label="Espacio de trabajo"
+                  data-tour="componer-espacios"
+                  onPointerOver={() => precargar('tocando', 'ensayo')}
+                  onFocus={() => precargar('tocando', 'ensayo')}
+                >
+                  {ESPACIOS.map((candidato) => (
+                    <Chip
+                      key={candidato.id}
+                      onClick={() => accionesDelBanco.espacio(candidato.id)}
+                      pressed={espacio === candidato.id && (hayBanco || areaMovil === 'arreglo')}
+                      tone="quiet"
+                      tamano="compacto"
+                      ariaLabel={candidato.name}
+                      atajo={candidato.atajo}
+                      className="max-sm:px-2"
+                    >
+                      {/*
                       **En un teléfono, el nombre y no el icono.** Iban solo los
                       iconos para que las pestañas de detrás asomaran, y lo que
                       asomaba eran tres dibujos que nadie sabía nombrar —el de en
@@ -735,141 +594,162 @@ export function ComposeScreen() {
                       relleno los tres nombres caben al lado del título; lo que
                       va detrás se alcanza arrastrando, como antes.
                     */}
-                    <span className="max-sm:hidden">
-                      <candidato.Icono />
-                    </span>
-                    {candidato.name}
-                  </Chip>
-                ))}
-                {!hayBanco && activeKey !== null && (
-                  <>
-                    <Separador />
-                    <span className="flex gap-1">
-                      {(
-                        [
-                          ['camino', 'A dónde ir'],
-                          ['acorde', 'Acorde'],
-                        ] as const
-                      ).map(([id, nombre]) => (
-                        <Chip
-                          key={id}
-                          onClick={() => setAreaMovil(id)}
-                          pressed={areaMovil === id}
-                          tone="quiet"
-                          tamano="compacto"
-                        >
-                          {nombre}
-                        </Chip>
-                      ))}
-                    </span>
-                  </>
-                )}
-              </span>
+                      <span className="max-sm:hidden">
+                        <candidato.Icono />
+                      </span>
+                      {candidato.name}
+                    </Chip>
+                  ))}
+                  {!hayBanco && activeKey !== null && (
+                    <>
+                      <Separador />
+                      <span className="flex gap-1">
+                        {(
+                          [
+                            ['camino', 'A dónde ir'],
+                            ['acorde', 'Acorde'],
+                          ] as const
+                        ).map(([id, nombre]) => (
+                          <Chip
+                            key={id}
+                            onClick={() => accionesDelBanco.verEnElMovil(id)}
+                            pressed={areaMovil === id}
+                            tone="quiet"
+                            tamano="compacto"
+                          >
+                            {nombre}
+                          </Chip>
+                        ))}
+                      </span>
+                    </>
+                  )}
+                </span>
 
-              {/* El salto de fila de la franja de la tableta: un hijo de ancho
+                {/* El salto de fila de la franja de la tableta: un hijo de ancho
                 completo que no mide nada y solo existe entre `sm` y `lg`. */}
-              <span aria-hidden="true" data-salto className="hidden basis-full sm:max-lg:block" />
-              {/* **Una raya entre los espacios y el metrónomo.** Tenían la misma
+                <span aria-hidden="true" data-salto className="hidden basis-full sm:max-lg:block" />
+                {/* **Una raya entre los espacios y el metrónomo.** Tenían la misma
                 pinta —pastillas grises de la misma altura— y «− 100 +» se leía
                 como otro espacio de trabajo más. En dos filas no hace falta: la
                 fila ya separa. */}
-              <Separador className="sm:max-lg:hidden" />
-              <Metronome />
+                <Separador className="sm:max-lg:hidden" />
+                <Metronome />
 
-              {/*
-              La tonalidad, **dentro de la fila cuando ya hay una**.
-
-              Sin tonalidad la barra de abajo se abre sola, y tiene que poder: es
-              lo primero que se pide. Con ella puesta, esa barra era una fila de
-              cuarenta y cinco píxeles para decir «Do mayor», que se mira y no se
-              toca. Aquí es una pastilla que abre la rueda y los ajustes en un
-              panel por encima de todo, como el del metrónomo y por lo mismo: un
-              panel anclado dentro de esta fila lo recortaría el desplazamiento.
-            */}
-              {!hayBanco && activeKey !== null && (
-                <>
-                  <button
-                    type="button"
-                    popoverTarget={idTonalidad}
-                    className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center gap-1 rounded-md border px-3 text-sm font-medium"
-                  >
-                    <IconoAfinar />
-                    <span className="text-brass-bright">
-                      {keyName(activeKey.tonic, activeKey.mode)}
-                    </span>
-                  </button>
-                  <div
-                    id={idTonalidad}
-                    popover="auto"
-                    // Lleva velo y parece modal: si el tabulador se sale, se
-                    // cierra, en vez de seguir por los controles que tapa.
-                    onBlur={cerrarAlSalirElFoco}
-                    role="region"
-                    aria-label="Cambiar la tonalidad"
-                    className="superficie-alta text-text backdrop:bg-night/50 m-auto max-h-[calc(100dvh-2rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto p-3"
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                      <KeyPanel compact />
-                      <Settings />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/*
-              La bandeja de abajo, **plegada a «Más»** en un teléfono.
-
-              Era una fila fija de sesenta y un píxeles con cuatro paneles que se
-              abren de vez en cuando —el mástil, las salidas, las canciones y las
-              sesiones— y que en ningún móvil cabía entera. Lo que se abre sigue
-              apareciendo abajo, con su botón de cerrar; lo que se va es la fila.
-            */}
-              {/* **Siempre en el árbol, y escondido en el banco con `lg:hidden`**: es
-                lo único de esta fila que solo existe en un teléfono y está ahí
-                desde la primera pintura, así que tiene que venir ya del servidor,
-                que no sabe el ancho. Lo de dentro del panel sí espera a saberlo:
-                cerrado no se ve, y montarlo después no mueve nada. */}
-              <button
-                type="button"
-                popoverTarget={idBandeja}
-                onPointerOver={precargarLaBandeja}
-                onFocus={precargarLaBandeja}
-                className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-sm font-medium lg:hidden"
-              >
-                Más
-              </button>
-              <div
-                id={idBandeja}
-                popover="auto"
-                onBlur={cerrarAlSalirElFoco}
-                className="superficie-alta text-text backdrop:bg-night/50 m-auto w-[min(20rem,calc(100vw-2rem))] p-3"
-              >
-                {!hayBanco && bandeja(true)}
-              </div>
-
-              {/* Lo que queda de IA, a la vista antes de gastarlo: estaba solo
+                {/* Lo que queda de IA, a la vista antes de gastarlo: estaba solo
                 dentro del panel que lo gasta, así que para saberlo había que
                 abrir el que ibas a usar
                 ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)). */}
-              <CupoDeIA className="px-2" />
+                <CupoDeIA className="px-2" />
 
-              {/* La salida para quien se lo ha dejado imposible. Un banco que se
+                {/* La salida para quien se lo ha dejado imposible. Un banco que se
                 mueve necesita una manera de volver, o plegar y arrastrar dan
                 miedo; y como el reparto es de este espacio, devolverlo no toca
-                los otros dos. **«Restablecer paneles» y no «Reordenar»**: no
-                ordena nada, devuelve el reparto de fábrica, y el nombre tiene
-                que decir lo que se pierde al pulsarlo. */}
-              {hayBanco && (
+                los otros dos. **«Áreas como venían»**, y no «Restablecer
+                paneles» ni «Reordenar»: no ordena nada y «restablecer» es de
+                manual de instrucciones; devuelve las áreas a como venían, y el
+                nombre tiene que decir lo que se pierde al pulsarlo. */}
+                {hayBanco && (
+                  <button
+                    type="button"
+                    onClick={() => accionesDelBanco.devolverElReparto()}
+                    className="text-text-muted hover:text-brass-bright min-h-tap inline-flex cursor-pointer items-center px-2 text-xs max-lg:hidden"
+                    title={`Devolver las áreas a como venían en este espacio · ${ATAJOS.devolver}`}
+                    aria-keyshortcuts={ATAJOS.devolver}
+                  >
+                    Áreas como venían
+                  </button>
+                )}
+              </div>
+              {/*
+              **La tonalidad y «Más», fuera de la tira y siempre a la vista.**
+
+              Iban dentro de la fila que se desplaza, detrás del metrónomo: a
+              390 empezaban en x=564, fuera de la pantalla, y había que arrastrar
+              la tira para saber que existían. Son los dos que abren algo —la
+              rueda y los paneles de abajo— y los que se buscan sin saber dónde
+              están, así que se quedan quietos a la derecha y la tira se desplaza
+              en lo que dejan.
+            */}
+              <div className="flex shrink-0 items-center gap-2">
+                {/*
+                La tonalidad, **en la cabecera cuando ya hay una**.
+
+                Sin tonalidad la barra de abajo se abre sola, y tiene que poder: es
+                lo primero que se pide. Con ella puesta, esa barra era una fila de
+                cuarenta y cinco píxeles para decir «Do mayor», que se mira y no se
+                toca. Aquí es una pastilla que abre la rueda y los ajustes en un
+                panel por encima de todo, como el del metrónomo y por lo mismo: un
+                panel anclado dentro de esta fila lo recortaría el desplazamiento.
+
+                **Y también en el banco cuando su columna está plegada**, que es
+                como viene Escribir: ahí no había ningún sitio donde leer en qué
+                tonalidad estaba la canción.
+              */}
+                {activeKey !== null && (!hayBanco || plegadaIzquierda) && (
+                  <>
+                    <button
+                      type="button"
+                      popoverTarget={idTonalidad}
+                      className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center gap-1 rounded-md border px-3 text-sm font-medium"
+                    >
+                      {/* Sin icono en un teléfono: cada píxel de este grupo fijo
+                          se lo quita a la tira que se desplaza. */}
+                      <span className="max-sm:hidden">
+                        <IconoAfinar />
+                      </span>
+                      <span className="text-brass-bright">
+                        {keyName(activeKey.tonic, activeKey.mode)}
+                      </span>
+                    </button>
+                    <div
+                      id={idTonalidad}
+                      popover="auto"
+                      // Lleva velo y parece modal: si el tabulador se sale, se
+                      // cierra, en vez de seguir por los controles que tapa.
+                      onBlur={cerrarAlSalirElFoco}
+                      role="region"
+                      aria-label="Cambiar la tonalidad"
+                      className="superficie-alta text-text backdrop:bg-night/50 m-auto max-h-[calc(100dvh-2rem)] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto p-3"
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <KeyPanel compact />
+                        <Settings />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/*
+                La bandeja de abajo, **plegada a «Más»** en un teléfono.
+
+                Era una fila fija de sesenta y un píxeles con cuatro paneles que se
+                abren de vez en cuando —el mástil, las salidas, las canciones y las
+                sesiones— y que en ningún móvil cabía entera. Lo que se abre sigue
+                apareciendo abajo, con su botón de cerrar; lo que se va es la fila.
+              */}
+                {/* **Siempre en el árbol, y escondido en el banco con `lg:hidden`**: es
+                  lo único de esta fila que solo existe en un teléfono y está ahí
+                  desde la primera pintura, así que tiene que venir ya del servidor,
+                  que no sabe el ancho. Lo de dentro del panel sí espera a saberlo:
+                  cerrado no se ve, y montarlo después no mueve nada. */}
                 <button
                   type="button"
-                  onClick={() => accionesDelBanco.devolverElReparto()}
-                  className="text-text-muted hover:text-brass-bright min-h-tap inline-flex cursor-pointer items-center px-2 text-xs max-lg:hidden"
-                  title={`Devolver las áreas a como venían en este espacio · ${ATAJOS.devolver}`}
-                  aria-keyshortcuts={ATAJOS.devolver}
+                  popoverTarget={idBandeja}
+                  onPointerOver={precargarLaBandeja}
+                  onFocus={precargarLaBandeja}
+                  className="border-border text-text-muted hover:border-brass-dim hover:text-text min-h-tap inline-flex cursor-pointer items-center rounded-md border px-3 text-sm font-medium lg:hidden"
                 >
-                  Restablecer paneles
+                  Más
                 </button>
-              )}
+                <div
+                  id={idBandeja}
+                  popover="auto"
+                  onBlur={cerrarAlSalirElFoco}
+                  className="superficie-alta text-text backdrop:bg-night/50 m-auto w-[min(20rem,calc(100vw-2rem))] p-3"
+                >
+                  {!hayBanco && bandeja(true)}
+                </div>
+              </div>
             </div>
           </>
         }
@@ -879,6 +759,7 @@ export function ComposeScreen() {
           eliges tonalidad o tocas algo. */}
       <ResumeLast />
       <LoQueSeQuito />
+      <LoDeOtraPestana />
 
       {/* En estrecho la tonalidad se pliega a una línea: la rueda ocupa media
           pantalla de teléfono y es justo lo que se toca una vez al empezar. En
@@ -954,7 +835,7 @@ export function ComposeScreen() {
             max={TOPES_DEL_BANCO.izquierda.max}
             etiqueta="Ancho de la tonalidad"
             onCambio={(rem) => accionesDelBanco.mover('izquierda', rem)}
-            onArrastrar={(rem) => accionesDelBanco.arrastrar('izquierda', rem)}
+            onArrastrar={(rem) => arrastrar('izquierda', rem)}
             onDevolver={() => accionesDelBanco.devolver('izquierda')}
             className="hidden lg:block"
           />
@@ -1074,15 +955,19 @@ export function ComposeScreen() {
                     : 'contents'
                 }
               >
-                {espacio === 'tocando' ? (
-                  <TocarParaEscribir onEscrito={() => accionesDelBanco.espacio('escribir')} />
+                {espacio === 'escribir' ? (
+                  // El lienzo va en el paquete de entrada: es por donde se entra
+                  // (adr/0109). Los otros dos llegan después (adr/0058).
+                  <ArrangeCanvas />
                 ) : (
-                  // Tocando se queda en el paquete de entrada: es por donde se
-                  // entra. Los otros dos llegan después (adr/0058).
                   <Suspense
-                    fallback={<Abriendo que={espacio === 'ensayar' ? 'el ensayo' : 'el lienzo'} />}
+                    fallback={<Abriendo que={espacio === 'ensayar' ? 'el ensayo' : 'tocando'} />}
                   >
-                    {espacio === 'ensayar' ? <Ensayo /> : <ArrangeCanvas />}
+                    {espacio === 'ensayar' ? (
+                      <Ensayo />
+                    ) : (
+                      <TocarParaEscribir onEscrito={() => accionesDelBanco.espacio('escribir')} />
+                    )}
                   </Suspense>
                 )}
               </div>
@@ -1168,7 +1053,10 @@ export function ComposeScreen() {
                   ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
                   Sin partes todavía se crea una: poner el primer acorde es lo
                   que crea la primera parte en todo el resto de la pantalla. */}
-              <NextChords onPoner={ponerEnLaCancion} />
+              {/* Sin su buscador escribiendo: el lienzo trae el suyo, «Escribe un
+                  acorde», y dos campos para lo mismo a la vista no ayudan a
+                  ninguno (adr/0118). */}
+              <NextChords onPoner={ponerEnLaCancion} buscador={espacio !== 'escribir'} />
             </Area>
           )}
         </div>
@@ -1182,7 +1070,7 @@ export function ComposeScreen() {
             sentido={-1}
             etiqueta="Ancho del acorde"
             onCambio={(rem) => accionesDelBanco.mover('derecha', rem)}
-            onArrastrar={(rem) => accionesDelBanco.arrastrar('derecha', rem)}
+            onArrastrar={(rem) => arrastrar('derecha', rem)}
             onDevolver={() => accionesDelBanco.devolver('derecha')}
             className="hidden lg:block"
           />
@@ -1235,7 +1123,7 @@ export function ComposeScreen() {
           sentido={-1}
           etiqueta={`Alto de ${editor.name}`}
           onCambio={(rem) => accionesDelBanco.mover('alto', rem)}
-          onArrastrar={(rem) => accionesDelBanco.arrastrar('alto', rem)}
+          onArrastrar={(rem) => arrastrar('alto', rem)}
           onDevolver={() => accionesDelBanco.devolver('alto')}
           className="hidden lg:block"
         />

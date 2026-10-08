@@ -233,7 +233,7 @@ function envolver(arrangement: Arrangement): LienzoGuardado {
  * lienzo de esta versión no se lee. Basura en la clave no puede dejar
  * `/componer` sin abrir.
  */
-export function leerLienzoGuardado(raw: unknown): Arrangement | null {
+function leerLienzoGuardado(raw: unknown): Arrangement | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
     return null;
   }

@@ -10,10 +10,8 @@ import {
   isDoubtful,
   partLength,
   blockChord,
-  resolveDegree,
   roleInfo,
   roleOf,
-  type DegreeSymbol,
   type KeyMode,
   type Part,
   type PitchClass,
@@ -26,7 +24,7 @@ import { TextField } from '@ui/TextField';
 import { useTraerALaVista } from '@ui/use-traer-a-la-vista';
 
 import { BlockButton, anchoDeBloque } from './BlockButton';
-import { BloqueFantasma } from './BloqueFantasma';
+import { useBloqueQueSuena, type Cabezal } from './cabezal';
 import { MelodyLane } from './MelodyLane';
 import { Staff } from './Staff';
 
@@ -41,9 +39,6 @@ import { Staff } from './Staff';
  * «renombrar» al lado habría metido un tercer control de cuarenta y cuatro
  * píxeles en cada fila, y son doce filas como mucho.
  */
-/** Una sola lista vacía: devolver `[]` nueva en cada render repinta siempre. */
-const SIN_PROPUESTA: readonly DegreeSymbol[] = [];
-
 /** Cómo se enseña el punteo: en bloques, escrito, o nada. */
 export type Punteo = 'bloques' | 'partitura' | 'oculto';
 
@@ -55,8 +50,16 @@ export interface PartRowProps {
   /** Lo que mide un pulso, decidido por el lienzo al medir su ancho. */
   readonly porPulso: number;
   readonly playing: boolean;
-  readonly playingBlockId: string | null;
+  /**
+   * Por dónde va la reproducción. **El cabezal y no el bloque que suena**: con
+   * el identificador como prop, cada acorde que sonaba repintaba el lienzo para
+   * pasárselo a la fila; con el cabezal, la fila se suscribe sola y solo se
+   * repinta la que tiene el bloque (`cabezal.ts`).
+   */
+  readonly cabezal: Cabezal;
   readonly selectedBlockId: string | null;
+  /** El acorde que «No lo oí claro» está preguntando, si es de esta parte. */
+  readonly corrigiendoBlockId: string | null;
   readonly draggingBlockId: string | null;
   /** Dónde caería el bloque que se está arrastrando, si cae en esta parte. */
   readonly dropIndex: number | null;
@@ -101,10 +104,6 @@ export interface PartRowProps {
   readonly onMoveBlock: (partId: string, blockId: string, to: number) => void;
   readonly onGestureStart: () => void;
   readonly onGestureEnd: () => void;
-  /** Lo que el copiloto propone para esta parte, y todavía no es de la canción. */
-  readonly propuesta?: readonly DegreeSymbol[];
-  /** Acepta los `cuantos` primeros propuestos. */
-  readonly onAceptarPropuesta: (cuantos: number) => void;
 }
 
 /**
@@ -119,8 +118,9 @@ export const PartRow = memo(function PartRow({
   beatsPerBar,
   porPulso,
   playing,
-  playingBlockId,
+  cabezal,
   selectedBlockId,
+  corrigiendoBlockId,
   draggingBlockId,
   dropIndex,
   punteo,
@@ -145,10 +145,9 @@ export const PartRow = memo(function PartRow({
   onMoveBlock,
   onGestureStart,
   onGestureEnd,
-  propuesta = SIN_PROPUESTA,
-  onAceptarPropuesta,
 }: PartRowProps) {
   const [editando, setEditando] = useState(false);
+  const playingBlockId = useBloqueQueSuena(cabezal, part);
   /**
    * Las tres tiras de la fila se desplazan de lado en un teléfono, y lo que
    * recibe el foco se trae entero: el navegador solo lo hace asomar.
@@ -242,27 +241,25 @@ export const PartRow = memo(function PartRow({
 
           **Con su rótulo a la vista.** Sin él, «Estrofa» al lado de «Una idea»
           se leía como una sola frase —una estrofa cuyo papel es una idea— y no
-          como un nombre y un selector. El rótulo visible es «Papel» a secas y el
-          nombre del selector sigue diciendo de qué parte, que es lo que oye un
-          lector al llegar sin ver la fila; por eso el visible va oculto para él.
+          como un nombre y un selector. El rótulo visible es «Sección» a secas y
+          el nombre del selector sigue diciendo de qué parte, que es lo que oye
+          un lector al llegar sin ver la fila; por eso el visible va oculto para
+          él. Decía «Papel», que es la palabra del código: «Papel: Una idea» no
+          lo dice nadie que toque, y una estrofa o un puente son secciones.
+
+          **Sin bajarle la letra**: iba a 12 px, la del rótulo, en un mando que
+          se elige con la guitarra puesta. Mide lo que mide `ui/Field`.
         */}
         <span className="flex items-center gap-1.5">
-          <span aria-hidden="true" className="text-text-muted text-xs">
-            Papel
+          <span aria-hidden="true" className="rotulo">
+            Sección
           </span>
           <Field
-            label={`Papel de ${part.name}`}
+            label={`Sección de ${part.name}`}
             compact
             ancho="auto"
             value={roleOf(part)}
             onChange={(event) => onSetRole(part.id, event.target.value as SectionRole)}
-            // Solo el tamaño de letra. **Sin `min-h-0`**, que es lo que había: la
-            // clase decía una cosa y el navegador hacía otra —el `min-h-tap` de
-            // `ui/Field` ganaba por el orden del CSS, no por diseño—, y si algún
-            // día ganara la mía, este selector bajaría de los 44 px que pide la
-            // regla de esta interfaz. Que salga bien por casualidad no es que
-            // salga bien.
-            className="text-xs"
             title={roleInfo(roleOf(part)).what}
           >
             {ROLES.map((role) => (
@@ -336,7 +333,10 @@ export const PartRow = memo(function PartRow({
                 event.currentTarget.blur();
               }
             }}
-            className="w-14 text-center font-mono tabular-nums"
+            // **Sin las flechas del navegador.** En 56 px de campo se comían el
+            // sitio de la cifra y «12» salía «1⁝»; subir y bajar ya lo hacen las
+            // dos pastillas de al lado, con su alto de dedo.
+            className="w-14 [appearance:textfield] px-1 text-center font-mono tabular-nums [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
 
           <Chip
@@ -421,6 +421,7 @@ export const PartRow = memo(function PartRow({
                   porPulso={porPulso}
                   playing={playingBlockId === block.id}
                   selected={selectedBlockId === block.id}
+                  corrigiendo={corrigiendoBlockId === block.id}
                   dragging={draggingBlockId === block.id}
                   onPointerDown={(event) => onBlockPointerDown(event, block.id)}
                   onClick={() => elegirBloque(block.id)}
@@ -467,6 +468,7 @@ export const PartRow = memo(function PartRow({
           mode={mode}
           selectedNoteId={selectedNoteId}
           selectedBlockId={selectedBlockId}
+          corrigiendoBlockId={corrigiendoBlockId}
           partName={part.name}
           partId={part.id}
           dropAt={dropAt}
@@ -480,42 +482,6 @@ export const PartRow = memo(function PartRow({
           onGestureStart={onGestureStart}
           onGestureEnd={onGestureEnd}
         />
-      )}
-
-      {/*
-        Lo que propone el copiloto, al final de lo que llevas y sin ser tuyo
-        todavía ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)).
-
-        **En su propia tira y no dentro de la de acordes**, y eso arregla dos
-        cosas de una: en partitura no hay tira de bloques —los acordes se leen
-        encima del pentagrama— así que dentro no se habrían visto en la vista por
-        defecto; y separados se lee sin dudar dónde acaba tu canción y dónde
-        empieza lo que alguien te ofrece.
-
-        Aquí y no en un panel aparte porque leer cuatro acordes en una lista y
-        buscarles sitio a mano es justo el trabajo que el copiloto debería
-        ahorrarte.
-      */}
-      {propuesta.length > 0 && (
-        <ul
-          aria-label={`Lo propuesto para ${part.name}`}
-          onFocus={traerALaVista}
-          className="hay-mas-al-lado mt-2 flex items-stretch gap-1 overflow-x-auto pb-1"
-        >
-          {propuesta.map((degree, indice) => (
-            <li key={`fantasma-${indice}`} className="flex">
-              <BloqueFantasma
-                symbol={resolveDegree(tonic, mode, degree).symbol}
-                degree={degree}
-                beats={beatsPerBar}
-                porPulso={porPulso}
-                orden={indice + 1}
-                total={propuesta.length}
-                onAceptar={() => onAceptarPropuesta(indice + 1)}
-              />
-            </li>
-          ))}
-        </ul>
       )}
     </section>
   );

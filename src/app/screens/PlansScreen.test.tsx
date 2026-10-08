@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { ANONYMOUS, type Account } from '@core/billing';
+import { ANONYMOUS, MESES_GRATIS_AL_AÑO, PAID_PLANS, type Account } from '@core/billing';
 import { AccountProvider } from '@state/account';
 
 import { PlansScreen } from './PlansScreen';
@@ -13,9 +13,10 @@ import { PlansScreen } from './PlansScreen';
  * La pantalla de planes.
  *
  * Lo que se prueba es el orden de lectura, que es la decisión de esta pantalla:
- * **lo primero que se lee es lo que no cuesta dinero**. Casi todo pasa en el
- * navegador de quien toca y servirlo no cuesta nada; empezar por la lista de
- * precios daría a entender que la guitarra está de pago, y no lo está.
+ * **lo primero que se lee es que lo que no cuesta dinero es gratis**, en una
+ * línea, y **lo primero que se ve son los planes** (adr/0122). Empezar por la
+ * lista de precios daría a entender que la guitarra está de pago; empezar por
+ * cuatro párrafos dejaba los planes bajo el pliegue.
  */
 
 const DENTRO: Account = {
@@ -36,15 +37,34 @@ function pintar(account: Account = ANONYMOUS) {
 }
 
 describe('Los planes', () => {
-  it('lo primero que se lee es lo que es gratis', () => {
+  it('lo primero que se lee es lo que es gratis, en la línea de la cabecera', () => {
     pintar();
 
     const texto = document.body.textContent ?? '';
-    const gratis = texto.indexOf('gratis y lo van a seguir siendo');
+    const gratis = texto.indexOf('es gratis y lo va a seguir siendo');
     const planes = texto.indexOf('Los planes de pago');
 
     expect(gratis).toBeGreaterThanOrEqual(0);
     expect(gratis).toBeLessThan(planes);
+  });
+
+  it('y lo primero que se ve son las tarjetas: la explicación larga va después', () => {
+    pintar();
+
+    const texto = document.body.textContent ?? '';
+    const tarjetas = texto.indexOf(PAID_PLANS[0]!.name);
+
+    expect(tarjetas).toBeGreaterThanOrEqual(0);
+    expect(tarjetas).toBeLessThan(texto.indexOf('gratis y lo van a seguir siendo'));
+    expect(tarjetas).toBeLessThan(texto.indexOf('Sin plan tienes'));
+  });
+
+  it('el pago anual se dice también en la prosa, con sus meses gratis', () => {
+    pintar();
+
+    expect(screen.getByText(/Lo que cuesta dinero es la IA/)).toHaveTextContent(
+      `el año sale con ${MESES_GRATIS_AL_AÑO} meses gratis`,
+    );
   });
 
   it('dice qué es lo que cuesta dinero, y por qué', () => {

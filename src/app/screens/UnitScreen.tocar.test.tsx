@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Account } from '@core/billing';
 import { EMPTY_PROGRESS, findUnit, pitchClassFromName, UNIT_ORDER } from '@core/music';
-import type * as Learn from '@features/learn';
 import { AccountProvider } from '@state/account';
 import { useSessionStore } from '@state/session-store';
 
@@ -20,8 +19,7 @@ import { useSessionStore } from '@state/session-store';
  * tiene sus pruebas en `features/learn`— sino lo que esta pantalla hace con lo
  * que le cuenta: apuntar lo que costó y darla por terminada.
  */
-vi.mock('@features/learn', async (original) => ({
-  ...(await original<typeof Learn>()),
+vi.mock('@features/learn/LearnPanel', () => ({
   LearnPanel: ({ onDone }: { readonly onDone?: (stumbled: readonly number[]) => void }) => (
     <>
       <button type="button" onClick={() => onDone?.([])}>
@@ -83,9 +81,9 @@ beforeEach(() => {
 describe('una unidad de tocar, terminada', () => {
   it('del tiron: se da por hecha y sin nada que repasar', async () => {
     pintar(PRO);
-    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Empezar' }));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tocarla del tirón' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Tocarla del tirón' }));
 
     expect(screen.getByRole('link', { name: /Volver al camino/ })).toBeInTheDocument();
     expect(avance().review).toEqual([]);
@@ -98,9 +96,9 @@ describe('una unidad de tocar, terminada', () => {
    */
   it('trompicada: se da por hecha igual, y lo que costo vuelve', async () => {
     pintar(PRO);
-    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Empezar' }));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tocarla trompicada' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Tocarla trompicada' }));
 
     expect(screen.getByRole('link', { name: /Volver al camino/ })).toBeInTheDocument();
     expect(avance().review).not.toEqual([]);
@@ -109,9 +107,9 @@ describe('una unidad de tocar, terminada', () => {
   // Sin plan no hay cola de repaso, así que lo que costó no se apunta.
   it('y sin plan, lo que costo no se apunta', async () => {
     pintar(SIN_PLAN);
-    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Empezar' }));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tocarla trompicada' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Tocarla trompicada' }));
 
     expect(avance().review).toEqual([]);
   });

@@ -30,7 +30,7 @@ import { filtrar } from './biquad';
 import { spectrumDb } from './fft';
 import { muestrasDelClic } from './metronome';
 
-export const SAMPLE_RATE = 48_000;
+const SAMPLE_RATE = 48_000;
 
 /** Un generador de números que siempre da los mismos: la semilla manda. */
 export function aleatorio(semilla: number): () => number {
@@ -47,7 +47,7 @@ export function aleatorio(semilla: number): () => number {
  * El retardo se redondea al entero: a 48 kHz eso desafina menos de diez
  * centésimas en la zona aguda, que es menos de lo que se desafina una guitarra.
  */
-export function cuerda(midi: number, segundos: number, amplitud = 0.35, semilla = 1): Float32Array {
+function cuerda(midi: number, segundos: number, amplitud = 0.35, semilla = 1): Float32Array {
   const azar = aleatorio(semilla * 1000 + midi);
   const periodo = Math.max(2, Math.round(SAMPLE_RATE / midiToFrequency(midi) - 0.5));
   let anillo = Float32Array.from({ length: periodo }, () => azar());
@@ -113,7 +113,7 @@ export interface Toma {
 }
 
 /** Una señal vacía con su ruido de sala, del largo de la toma. */
-export function sala({ bpm, antes, pulsos }: Toma, semilla = 7): Float32Array {
+function sala({ bpm, antes, pulsos }: Toma, semilla = 7): Float32Array {
   const azar = aleatorio(semilla);
   const segundos = antes + (pulsos * msPerBeat(bpm)) / 1000 + 1;
   return Float32Array.from({ length: Math.round(segundos * SAMPLE_RATE) }, () => azar() * 0.0015);
@@ -150,7 +150,7 @@ export function rasguear(acordes: readonly AcordeTocado[], toma: Toma): Float32A
  * El clic de antes de que sonara toda la toma: una onda cuadrada de 1000 y 1600
  * Hz. Se queda aquí para poder medir el antes y el después con la misma vara.
  */
-export function clicCuadrado(fuerte: boolean): Float32Array {
+function clicCuadrado(fuerte: boolean): Float32Array {
   const hz = fuerte ? 1600 : 1000;
   const pico = fuerte ? 0.35 : 0.22;
   const total = Math.round(0.03 * SAMPLE_RATE);

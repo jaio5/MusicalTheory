@@ -9,6 +9,7 @@
  * ya no abre un segundo micrófono para quedarse con la toma.
  */
 
+import { errorDelMicro } from '@core/error-del-micro';
 import { EstadoObservable, type Oyente } from '@core/estado-observable';
 import { MAX_RECORDING_SECONDS, type AudioRecorder, type Recording } from './recorder';
 import type { StreamSource } from './stream-source';
@@ -403,37 +404,12 @@ export class WebAudioInput implements AudioInput, AudioRecorder, StreamSource {
 
 /**
  * Traduce el error del navegador a algo que se le pueda enseñar a una persona:
- * qué ha pasado y qué hacer.
+ * qué ha pasado y qué hacer. La frase la escribe `core/error-del-micro.ts`, la
+ * misma que usa el micro de grabar; aquí solo se decide el estado.
  */
 function describeCaptureError(cause: unknown): AudioInputError {
-  const name = cause instanceof Error ? cause.name : '';
-
-  switch (name) {
-    case 'NotAllowedError':
-    case 'SecurityError':
-      return {
-        state: 'denied',
-        message:
-          'Has denegado el acceso al micrófono. Vuelve a darle permiso desde el icono de la barra de direcciones y prueba otra vez.',
-      };
-    case 'NotFoundError':
-    case 'OverconstrainedError':
-      return {
-        state: 'error',
-        message:
-          'No se ha encontrado ninguna entrada de audio. Conecta la tarjeta de sonido y vuelve a intentarlo.',
-      };
-    case 'NotReadableError':
-      return {
-        state: 'error',
-        message: 'Otra aplicación está usando la entrada de audio. Ciérrala y vuelve a intentarlo.',
-      };
-    default:
-      return {
-        state: 'error',
-        message: 'No se ha podido abrir el micrófono. Revisa los permisos del navegador.',
-      };
-  }
+  const { motivo, mensaje } = errorDelMicro(cause);
+  return { state: motivo === 'denegado' ? 'denied' : 'error', message: mensaje };
 }
 
 // Las entradas de audio disponibles viven en `entradas-de-audio.ts`: listarlas

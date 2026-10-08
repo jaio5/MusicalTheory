@@ -182,7 +182,7 @@ pasada contra la API se ha hecho; el camino es el de la ruta, con su SDK.
 
 ### Un sexto corpus, a ciegas
 
-Los cinco corpus de salidas **se han usado para ajustar y ya no miden**
+Los cinco corpus de salidas (`core/music/salidas/corpus/`) **se han usado para ajustar y ya no miden**
 ([adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)). Para la
 medida contra la API hace falta uno nuevo, **escrito por un músico ajeno que no
 haya visto la aplicación ni los corpus**: uno escrito por quien ajusta mide lo que
@@ -210,7 +210,7 @@ ya sabe arreglar. El andamio está en `docs/corpus-sexto/` y está vacío a prop
 
 2. **Se congela con un commit antes de pasar nada.** Esa es la prueba de que se
    escribió a ciegas.
-3. Se traduce a `core/music/corpus-sexto.ts` con los predicados de los otros, como
+3. Se traduce a `core/music/salidas/corpus/corpus-sexto.ts` con los predicados de los otros, como
    el quinto, diciendo caso por caso lo que no se pudo traducir. `examen:salidas`
    hoy solo lee `CORPUS`: quien lo traduzca le añade un `--corpus sexto`. **La cifra
    honesta es la primera pasada**, antes de tocar nada.

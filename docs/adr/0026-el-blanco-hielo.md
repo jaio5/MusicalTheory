@@ -1,5 +1,7 @@
 # ADR 0026 — El blanco hielo, y una portada que respira
 
+> **Sustituido en parte por [ADR 0027](./0027-grafito-y-ambar.md) y [ADR 0070](./0070-la-sala-encendida.md):** la frase de que «el tema oscuro entero se queda como estaba» quedó sin efecto, y la letra y la paleta se rehicieron.
+
 Fecha: 2026-09-08 · Estado: aceptada · Sustituido en parte por [ADR 0071](./0071-la-sala-va-a-sangre-detras-del-titular.md), que lleva el encabezado a sangre en un escenario oscuro
 
 ## Contexto

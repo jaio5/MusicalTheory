@@ -3,11 +3,9 @@
 /**
  * «No lo oí claro. ¿Era esto?»: la cola de acordes que hay que preguntar.
  *
- * **Sale de `ArrangeCanvas`, que son mil cuatrocientas líneas en una sola
- * función.** Se saca esta y no la columna entera a propósito: la columna depende de
- * diecisiete cosas del componente, así que extraerla tal cual sería cambiar un
- * fichero largo por dieciséis props, que se lee peor. Esta pieza depende de cinco
- * y es lo único que hace, así que sale sola.
+ * **Dice de cuál habla.** «Apunté Em» no bastaba con cuatro `Em` en la canción:
+ * la tarjeta nombra la parte y el compás, y el lienzo recuadra ese acorde en las
+ * dos vistas.
  *
  * Lo que decide es de qué acorde se pregunta y en qué orden, y eso vive en el
  * dominio (`bloquesEnDuda`). Aquí solo se pinta.
@@ -21,6 +19,8 @@ export interface CorregirAcordeProps {
   readonly enDuda: Block | null;
   /** Cuántos quedan por resolver, contando este. */
   readonly cuantos: number;
+  /** Dónde está, dicho como se busca: «Estrofa, compás 3». */
+  readonly donde: string;
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
   /** Cambiarlo por otro de los que el motor consideró. */
@@ -32,6 +32,7 @@ export interface CorregirAcordeProps {
 export function CorregirAcorde({
   enDuda,
   cuantos,
+  donde,
   tonic,
   mode,
   onCorregir,
@@ -55,8 +56,8 @@ export function CorregirAcorde({
         )}
       </h3>
       <p className="text-text-muted mt-1 text-xs">
-        Apunté {resolveDegree(tonic, mode, enDuda.degree).symbol} y estuve a punto de decir otra
-        cosa.
+        Apunté {resolveDegree(tonic, mode, enDuda.degree).symbol} en {donde}, el recuadrado, y
+        estuve a punto de decir otra cosa.
       </p>
       <ul className="mt-2 flex flex-wrap gap-1">
         {enDuda.alternatives.map((otro) => (

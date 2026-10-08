@@ -7,7 +7,6 @@ import {
   BURST_DAYS,
   DAYS_PER_MONTH,
   elMasCaro,
-  FALLBACK_PRICE,
   FREE_MONTHLY_ALLOWANCE,
   MODEL_PRICES,
   MODEL_SPEND_SHARE,
@@ -120,7 +119,7 @@ describe('el precio del modelo', () => {
 describe('el coste de una petición', () => {
   it('una tanda de salidas cuesta más que una pregunta al profesor', () => {
     for (const model of MODELOS) {
-      expect(requestCostMicros('versiones', model)).toBeGreaterThan(
+      expect(requestCostMicros('salidas', model)).toBeGreaterThan(
         requestCostMicros('profesor', model),
       );
     }
@@ -147,9 +146,7 @@ describe('el coste de una petición', () => {
     expect(presupuestoDe('profesor', 'claude-opus-5-5').output).toBe(400 + RESERVA_PARA_PENSAR);
     // Los que lo apagan no llevan reserva.
     for (const modelo of ['claude-sonnet-5-5', 'claude-opus-5', 'claude-haiku-4-5']) {
-      expect(presupuestoDe('versiones', modelo).output, modelo).toBe(
-        TOKEN_BUDGETS.versiones.output,
-      );
+      expect(presupuestoDe('salidas', modelo).output, modelo).toBe(TOKEN_BUDGETS.salidas.output);
     }
   });
 
@@ -160,8 +157,8 @@ describe('el coste de una petición', () => {
   });
 
   it('el mismo trabajo con Haiku cuesta bastante menos', () => {
-    const opus = requestCostMicros('versiones', 'claude-opus-5');
-    const haiku = requestCostMicros('versiones', 'claude-haiku-4-5');
+    const opus = requestCostMicros('salidas', 'claude-opus-5');
+    const haiku = requestCostMicros('salidas', 'claude-haiku-4-5');
     expect(haiku * 4).toBeLessThan(opus);
   });
 });
@@ -200,6 +197,62 @@ describe('el margen', () => {
   it('aguanta un modelo desconocido', () => {
     for (const plan of PAID_PLANS) {
       expect(worstMonthlyMarginMicros(plan.id, 'claude-vete-a-saber')).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * **Las cuentas, hechas a mano**, para que un signo cambiado no pase. Los tests
+   * de arriba solo miran que el margen sea positivo y el gasto no se pase del 40 %:
+   * sumar el gasto al ingreso en vez de restarlo, o quedarse con la petición que
+   * menos cuesta en vez de la que más, los dejaba en verde.
+   *
+   * Medio con Sonnet 5.5 (2 µ$ el token de entrada, 10 el de salida):
+   *
+   * - Una pregunta al profesor: (1180 × 2 + 400 × 10) × 2 intentos = 12.720 µ$.
+   * - Unas salidas: (1880 × 2 + 900 × 10) × 2 = 25.520 µ$, que gastan
+   *   ⌈25.520 / 12.720⌉ = 3 preguntas del cupo.
+   * - El cupo: 2.455.687 µ$ de presupuesto / 12.720 = 193 preguntas.
+   * - Gastado en el profesor: 193 × 12.720 = 2.454.960 µ$. En salidas:
+   *   ⌊193 / 3⌋ = 64 × 25.520 = 1.633.280 µ$. El peor mes es el del profesor.
+   * - Lo que entra: 99,90 € al año (diez meses de 9,99), sin el 21 % de IVA y sin
+   *   la comisión (8,65 % y 25 céntimos), entre doce: 6.139.219 µ$.
+   */
+  describe('Medio con Sonnet 5.5, a mano', () => {
+    const MODELO = 'claude-sonnet-5-5';
+
+    it('una pregunta, unas salidas y el cupo', () => {
+      expect(requestCostMicros('profesor', MODELO)).toBe(12_720);
+      expect(requestCostMicros('salidas', MODELO)).toBe(25_520);
+      expect(unidadesDe('salidas', MODELO)).toBe(3);
+      expect(monthlyBudgetMicros('medio')).toBe(2_455_687);
+      expect(monthlyAiRequests('medio', MODELO)).toBe(193);
+    });
+
+    it('el peor mes es el cupo entero en preguntas al profesor', () => {
+      expect(worstMonthlyCostMicros('medio', MODELO)).toBe(193 * 12_720);
+    });
+
+    it('y el margen es lo que entra menos eso', () => {
+      expect(ingresoMensualNetoMicros('medio')).toBe(6_139_219);
+      expect(worstMonthlyMarginMicros('medio', MODELO)).toBe(6_139_219 - 193 * 12_720);
+    });
+  });
+
+  /**
+   * Y una cota por abajo, con todos los modelos: el peor mes no puede costar
+   * menos que gastarse el cupo entero en el profesor, que es algo que cualquiera
+   * puede hacer. Por arriba ya lo acota el test del 40 %.
+   */
+  it('el peor mes cuesta al menos el cupo entero en preguntas', () => {
+    for (const model of [...MODELOS, 'claude-vete-a-saber']) {
+      for (const plan of PAID_PLANS) {
+        const cupoEnPreguntas =
+          monthlyAiRequests(plan.id, model) * requestCostMicros('profesor', model);
+        expect(
+          worstMonthlyCostMicros(plan.id, model),
+          `${plan.name} con ${model}`,
+        ).toBeGreaterThanOrEqual(cupoEnPreguntas);
+      }
     }
   });
 });
@@ -306,15 +359,14 @@ describe('lo caro gasta más de una pregunta', () => {
 
   it('una tanda de salidas gasta lo que cuesta, redondeado hacia arriba', () => {
     for (const model of MODELOS) {
-      const k = unidadesDe('versiones', model);
-      const proporcion =
-        requestCostMicros('versiones', model) / requestCostMicros('profesor', model);
+      const k = unidadesDe('salidas', model);
+      const proporcion = requestCostMicros('salidas', model) / requestCostMicros('profesor', model);
 
       expect(k, model).toBe(Math.ceil(proporcion));
       expect(k, model).toBeGreaterThanOrEqual(proporcion);
     }
     // Con los precios de hoy, tres con cualquier modelo de la tabla.
-    expect(unidadesDe('versiones', 'claude-opus-5')).toBe(3);
+    expect(unidadesDe('salidas', 'claude-opus-5')).toBe(3);
   });
 
   /**
@@ -324,8 +376,8 @@ describe('lo caro gasta más de una pregunta', () => {
   it('con el cupo entero gastado en salidas, el gasto no pasa del presupuesto', () => {
     for (const model of [...MODELOS, 'claude-vete-a-saber']) {
       for (const id of ['medio'] as const) {
-        const tandas = Math.floor(monthlyAiRequests(id, model) / unidadesDe('versiones', model));
-        const gasto = tandas * requestCostMicros('versiones', model);
+        const tandas = Math.floor(monthlyAiRequests(id, model) / unidadesDe('salidas', model));
+        const gasto = tandas * requestCostMicros('salidas', model);
 
         expect(gasto, `${id} con ${model}`).toBeLessThanOrEqual(monthlyBudgetMicros(id));
       }
@@ -378,10 +430,10 @@ describe('el reintento también se paga', () => {
    */
   it('el coste de una petición son los dos intentos', () => {
     const price = MODEL_PRICES['claude-opus-5']!;
-    const budget = presupuestoDe('versiones', 'claude-opus-5');
+    const budget = presupuestoDe('salidas', 'claude-opus-5');
     const unaLlamada = budget.input * price.inputPerToken + budget.output * price.outputPerToken;
 
-    expect(requestCostMicros('versiones', 'claude-opus-5')).toBe(unaLlamada * MAX_MODEL_ATTEMPTS);
+    expect(requestCostMicros('salidas', 'claude-opus-5')).toBe(unaLlamada * MAX_MODEL_ATTEMPTS);
   });
 
   /**
@@ -406,7 +458,7 @@ describe('el reintento también se paga', () => {
       'el cuerpo común se escribe su reintento',
     ).not.toContain('MAX_MODEL_ATTEMPTS');
 
-    for (const ruta of ['teacher', 'versiones']) {
+    for (const ruta of ['teacher', 'salidas']) {
       const codigo = leer(`../../app/api/${ruta}/route.ts`);
       expect(codigo, `${ruta} se escribe su propio reintento`).not.toContain('MAX_MODEL_ATTEMPTS');
     }
@@ -425,7 +477,7 @@ describe('los precios de los modelos', () => {
 
   it('cada modelo cuesta menos que el de encima', () => {
     const orden = ['claude-fable-5', 'claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5'];
-    const costes = orden.map((modelo) => requestCostMicros('versiones', modelo));
+    const costes = orden.map((modelo) => requestCostMicros('salidas', modelo));
 
     for (let i = 1; i < costes.length; i += 1) {
       expect(costes[i]!, `${orden[i]} no es más barato que ${orden[i - 1]}`).toBeLessThan(
@@ -456,7 +508,7 @@ describe('el precio de respaldo', () => {
   it('y el de la tabla de verdad es el mas caro de la tabla de verdad', () => {
     for (const precio of Object.values(MODEL_PRICES)) {
       expect(precio.inputPerToken + precio.outputPerToken).toBeLessThanOrEqual(
-        FALLBACK_PRICE.inputPerToken + FALLBACK_PRICE.outputPerToken,
+        MODELO_DESCONOCIDO.inputPerToken + MODELO_DESCONOCIDO.outputPerToken,
       );
     }
   });
@@ -527,7 +579,7 @@ describe('el texto libre, en su peor alfabeto', () => {
 
   it('lo que deja pasar el contrato nunca pasa de los tokens que paga el cupo', () => {
     for (const [feature, letras] of Object.entries(TEXTO_LIBRE) as [
-      'profesor' | 'versiones',
+      'profesor' | 'salidas',
       number,
     ][]) {
       for (const [nombre, trozo] of Object.entries(ALFABETOS)) {
@@ -547,9 +599,9 @@ describe('el texto libre, en su peor alfabeto', () => {
     expect(TOKENS_POR_CARACTER_LIBRE).toBe(2);
     expect(TEXTO_LIBRE).toEqual({
       profesor: MAX_QUESTION_LENGTH,
-      versiones: MAX_DIRECTRICES_LENGTH,
+      salidas: MAX_DIRECTRICES_LENGTH,
     });
-    for (const feature of ['profesor', 'versiones'] as const) {
+    for (const feature of ['profesor', 'salidas'] as const) {
       expect(presupuestoDe(feature, 'claude-sonnet-5-5').input).toBe(
         TOKEN_BUDGETS[feature].input + peorTextoLibreEnTokens(feature),
       );

@@ -71,9 +71,7 @@ describe('cupo gastado', () => {
    * acabado» se leería como mentira, así que dice por qué no cabe (adr/0067).
    */
   it('si lo pedido gasta varias, lo dice; si es una pregunta, no', () => {
-    expect(quotaMessage(MEDIO, 'claude-opus-5', 'dia', 'versiones')).toContain(
-      'una salida gasta 3',
-    );
+    expect(quotaMessage(MEDIO, 'claude-opus-5', 'dia', 'salidas')).toContain('una salida gasta 3');
     expect(quotaMessage(MEDIO, 'claude-opus-5', 'mes', 'profesor')).not.toContain('salida');
   });
 

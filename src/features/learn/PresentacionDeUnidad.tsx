@@ -63,7 +63,7 @@ export function PresentacionDeUnidad({
           </li>
         ))}
       </ul>
-      <p className="text-text-muted mt-4 text-sm">{queViene}</p>
+      <p className="text-text-muted mt-4 text-base leading-relaxed">{queViene}</p>
 
       <div className="mt-5 flex flex-wrap gap-2">
         <Button onClick={onEmpezar}>Empezar</Button>

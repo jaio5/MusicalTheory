@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import { Profiler } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -288,5 +289,28 @@ describe('lo que falta por mirar del panel', () => {
       tonic: pitchClassFromName('E'),
       mode: 'minor',
     });
+  });
+});
+
+/**
+ * **Compacta no mira los candidatos**, y no se repinta con ellos: la detección
+ * los rehace mientras suena algo, y componer lleva esta rueda montada.
+ */
+describe('la rueda compacta', () => {
+  it('con la tonalidad fijada, lo que detecta lo tocado no la repinta', () => {
+    useSessionStore.getState().actions.reset();
+    useSessionStore.getState().actions.pinKey({ tonic: pitchClassFromName('C'), mode: 'major' });
+    let pintadas = 0;
+    render(
+      <Profiler id="rueda" onRender={() => (pintadas += 1)}>
+        <KeyPanel compact />
+      </Profiler>,
+    );
+    const antes = pintadas;
+
+    act(() => playAMinor());
+
+    expect(useSessionStore.getState().keyCandidates.length).toBeGreaterThan(0);
+    expect(pintadas).toBe(antes);
   });
 });

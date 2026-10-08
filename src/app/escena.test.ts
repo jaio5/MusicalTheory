@@ -185,6 +185,18 @@ describe('la escena de la portada', () => {
     }
   });
 
+  /**
+   * Posada, la barra es opaca. Al 82 % dejaba pasar el hielo de las franjas del
+   * tema claro y se volvía gris pizarra: la noche del hero, aguada.
+   */
+  it('la barra posada es la noche entera, sin transparencia', () => {
+    const global = readFileSync(resolve(AQUI, 'globals.css'), 'utf8');
+    const posada = global.split('@keyframes posarse {')[1]!.split('to {')[1]!.split('}')[0]!;
+
+    expect(posada).toContain('background-color: var(--color-background);');
+    expect(posada).not.toContain('transparent');
+  });
+
   it('el píxel se pinta duro, y la vida solo se pide con la escena viva', () => {
     expect(HOJA_DE_ESTILOS.match(/image-rendering: pixelated/g)).toHaveLength(2);
     expect(HOJA_DE_ESTILOS).toContain(

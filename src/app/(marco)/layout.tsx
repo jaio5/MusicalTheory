@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react';
 
 import { LanzadorDelRecorrido } from '@features/tour';
+import { authAvailable } from '@server/auth';
+import { currentAccount } from '@server/entitlements';
+import { AccountProvider } from '@state/account';
 
 import { AppShell } from '../AppShell';
 
@@ -30,12 +33,19 @@ import { AppShell } from '../AppShell';
  * lo que le deja ir de una pantalla a otra sin perderse. Al lado y no dentro de
  * `AppShell` porque no es parte de la barra: es un diálogo que se pone encima de
  * todo, y la barra no tiene por qué saber que existe.
+ *
+ * **Y la cuenta se lee aquí**, una vez, y se baja por el árbol para que ninguna
+ * pantalla tenga que pedirla con un `fetch` al montar: quien entra pagando no
+ * debe ver medio segundo de candados antes de que se abran solos. Estuvo en el
+ * layout raíz, y con ella la portada —que no la usa— hacía dos consultas a
+ * Postgres en cada visita con la sesión abierta y descargaba el proveedor.
  */
-export default function Marco({ children }: { children: ReactNode }) {
+export default async function Marco({ children }: { children: ReactNode }) {
+  const account = await currentAccount();
   return (
-    <>
+    <AccountProvider account={account} accounts={authAvailable()}>
       <AppShell>{children}</AppShell>
       <LanzadorDelRecorrido />
-    </>
+    </AccountProvider>
   );
 }

@@ -35,7 +35,7 @@ function entorno(nombre: string): string | undefined {
 }
 
 /** Si hay clave para hablar con la API de Anthropic. */
-export function hasModelKey(): boolean {
+function hasModelKey(): boolean {
   return entorno('ANTHROPIC_API_KEY') !== undefined;
 }
 

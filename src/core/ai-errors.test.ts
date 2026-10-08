@@ -37,7 +37,7 @@ describe('las rutas de IA hablan el mismo idioma', () => {
    */
   it('las dos traen una frase por código', async () => {
     const contratos = await Promise.all([
-      import('../features/versions/contract'),
+      import('../features/salidas/contract'),
       import('../features/learn/teacher-contract'),
     ]);
     const mensajes = [contratos[0].ERROR_MESSAGES, contratos[1].TEACHER_ERROR_MESSAGES];
@@ -55,7 +55,7 @@ describe('las rutas de IA hablan el mismo idioma', () => {
     // acabaran siendo la misma, compartirlas sería lo correcto y este fichero
     // estaría a medias.
     const contratos = await Promise.all([
-      import('../features/versions/contract'),
+      import('../features/salidas/contract'),
       import('../features/learn/teacher-contract'),
     ]);
 

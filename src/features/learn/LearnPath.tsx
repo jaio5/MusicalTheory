@@ -170,7 +170,7 @@ export function LearnPath({
             <div className="bg-background sticky top-0 z-10 px-3 pt-3">
               <div className="bg-surface-raised border-border rounded-md border px-4 py-2.5">
                 <div className="border-brass-dim border-l-2 pl-3">
-                  <h2 className="text-text text-sm font-semibold">{grade.name}</h2>
+                  <h2 className="titulo-apartado">{grade.name}</h2>
                   <p className="text-text-muted text-xs">{grade.summary}</p>
                 </div>
               </div>
@@ -462,7 +462,7 @@ function UnitNode({
 
         <div className="min-w-0">
           <p
-            className={`truncate text-sm ${
+            className={`truncate text-base ${
               entrable || access === 'por-plan' ? 'text-text' : 'text-text-muted'
             }`}
           >

@@ -1,5 +1,7 @@
 # ADR 0067 — El cupo se cuenta en preguntas al profesor, y una salida gasta varias
 
+> **Cifras superadas:** el cálculo lo corrigieron después [ADR 0103](./0103-los-modelos-vigentes-y-el-de-por-defecto.md) (modelo por defecto), [ADR 0104](./0104-el-plan-pro-se-replantea.md) (Pro se funde en Medio), [ADR 0106](./0106-el-margen-se-cuenta-sin-iva-y-con-pago-anual.md) (margen sin IVA y pago anual) y [ADR 0114](./0114-el-gasto-de-la-ia-tiene-techo-y-la-cuenta-se-cierra-en-orden.md) (techo de gasto). Las cifras vigentes, en [`CUENTAS-Y-PLANES.md`](../CUENTAS-Y-PLANES.md).
+
 Fecha: 2026-10-01 · Estado: aceptada · Corrige: el cálculo de cupos de
 [ADR 0008](./0008-los-cupos-salen-del-precio.md) · Cierra lo que dejó abierto
 [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)

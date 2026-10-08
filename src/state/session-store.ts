@@ -619,3 +619,27 @@ export const TONALIDAD_DE_PARTIDA: SessionKey = CANONICAL_KEYS['0-major'];
 /** La que manda al aprender: la tuya, y si no hay, la de partida. */
 export const selectTonalidadParaAprender = (state: SessionState): SessionKey =>
   selectActiveKey(state) ?? TONALIDAD_DE_PARTIDA;
+
+/**
+ * Qué clases de altura han sonado, en un número de doce bits: el bit `n` es la
+ * clase `n`.
+ *
+ * Lo que miran las propuestas de acordes de lo tocado es **cuáles** han sonado
+ * —`chordFit` lo pasa a un conjunto—, y no cuántas veces ni en qué orden. Suscrito
+ * al historial entero, cada nota nueva repintaba «a dónde ir», el buscador y la
+ * oferta de la última sesión aunque la nota ya hubiera sonado; con un número,
+ * React solo se entera cuando aparece una clase que no estaba.
+ */
+export const selectClasesOidas = (state: SessionState): number =>
+  state.noteHistory.reduce((mascara, nota) => mascara | (1 << nota.pitchClass), 0);
+
+/** Las clases de una máscara de `selectClasesOidas`, de la más grave a la más aguda. */
+export function clasesDeLaMascara(mascara: number): PitchClass[] {
+  const clases: PitchClass[] = [];
+  for (let clase = 0; clase < 12; clase += 1) {
+    if ((mascara & (1 << clase)) !== 0) {
+      clases.push(clase as PitchClass);
+    }
+  }
+  return clases;
+}

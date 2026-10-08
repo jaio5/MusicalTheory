@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS } from '@core/billing';
-import { UNIT_ORDER } from '@core/music';
+import { findUnit, UNIT_ORDER } from '@core/music';
 import { AccountProvider } from '@state/account';
 
 /**
@@ -108,7 +108,8 @@ describe('las pantallas de trabajo', () => {
 
       pintar(modulo.default());
 
-      expect(modulo.metadata?.title).toMatch(/Caos ordenado/);
+      // El nombre de la aplicación lo pone la plantilla del layout raíz.
+      expect(modulo.metadata?.title).not.toMatch(/ · Caos ordenado$/);
       expect(document.querySelectorAll('h1').length).toBeGreaterThan(0);
     },
     15_000,
@@ -127,7 +128,7 @@ describe('una unidad por direccion', () => {
     pintar(await Unidad({ params: Promise.resolve({ unidad }) }));
 
     const meta = await generateMetadata({ params: Promise.resolve({ unidad }) });
-    expect(meta.title).toMatch(/Caos ordenado/);
+    expect(meta.title).toBe(findUnit(unidad)!.unit.title);
     // Las unidades del temario se conocen de antemano: son fijas.
     expect(generateStaticParams()).toHaveLength(UNIT_ORDER.length);
   });
@@ -264,6 +265,16 @@ describe('una direccion que no lleva a ninguna parte', () => {
     expect(screen.getByRole('heading', { name: /no existe/ })).toBeInTheDocument();
     expect(metadata.title).toMatch(/Caos ordenado/);
     expect(screen.getByRole('link', { name: 'Ir al camino' })).toHaveAttribute('href', '/aprender');
+    // **Sin marco**: cuelga del layout raíz, y con la barra dentro, la barra, el
+    // micro y la cuenta viajaban en el paquete de todas las rutas.
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+  });
+
+  /** Lo que no casa con nada se queda en el marco, con su barra puesta. */
+  it('una direccion inventada la contesta el marco con un 404', async () => {
+    const { default: DireccionQueNoExiste } = await import('./(marco)/[...resto]/page');
+
+    expect(() => DireccionQueNoExiste()).toThrow('NEXT_NOT_FOUND');
   });
 
   /**
@@ -277,7 +288,8 @@ describe('una direccion que no lleva a ninguna parte', () => {
     pintar(NoEncontrada());
 
     expect(screen.getByRole('heading', { name: /no existe/ })).toBeInTheDocument();
-    expect(metadata.title).toMatch(/Caos ordenado/);
+    // El nombre de la aplicación lo pone la plantilla del layout raíz.
+    expect(metadata.title).toBe('Esta dirección no existe');
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Escuchar la guitarra/ })).not.toBeInTheDocument();
   });

@@ -6,7 +6,7 @@ import { Aviso } from '@ui/Aviso';
 import { Screen, Section } from '@ui/Screen';
 
 export const metadata: Metadata = {
-  title: 'Aviso legal · Caos ordenado',
+  title: 'Aviso legal',
   description: 'Quién publica Caos ordenado, cómo contactar y las condiciones de uso.',
 };
 
@@ -46,7 +46,10 @@ export default function AvisoLegal() {
           <dt className="text-text font-medium">Domicilio</dt>
           <dd>{datos.domicilio ?? 'sin configurar'}</dd>
           <dt className="text-text font-medium">Correo</dt>
-          <dd className="font-mono">{datos.correo ?? 'sin configurar'}</dd>
+          {/* La mono es para el correo, que es un dato; «sin configurar» es una frase. */}
+          <dd className={datos.correo === null ? undefined : 'font-mono'}>
+            {datos.correo ?? 'sin configurar'}
+          </dd>
         </dl>
       </Section>
 

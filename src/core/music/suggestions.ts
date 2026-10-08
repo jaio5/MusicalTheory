@@ -357,7 +357,9 @@ function colourCandidates(mode: KeyMode): Candidate[] {
     {
       rootOffset: 0,
       shape: 'sixth',
-      label: `${tonicLabel}6`,
+      // `add6` y no un 6 a secas: en el cifrado del conservatorio, I6 es el I en
+      // primera inversión, y la sexta añadida se leía como otro acorde.
+      label: `${tonicLabel}add6`,
       family: 'added',
       why: 'La sexta redondea el acorde sin la tensión de la séptima.',
       role: 'tonic',

@@ -16,7 +16,7 @@
 import { isRecord } from './parse';
 
 /** Lo que el navegador puede contar. Lo demás lo cuenta el servidor. */
-export const BROWSER_EVENTS = ['visita', 'unidad-terminada', 'toma-grabada'] as const;
+const BROWSER_EVENTS = ['visita', 'unidad-terminada', 'toma-grabada'] as const;
 export type BrowserEvent = (typeof BROWSER_EVENTS)[number];
 
 /**
@@ -49,7 +49,7 @@ export type CountedEvent = BrowserEvent | 'cancion-guardada' | 'primera-vez' | '
  * dentro: qué unidad abre cada uno no es una pregunta que haga falta contestar
  * para saber si vuelve, y una dirección escrita a mano es texto libre.
  */
-export const KNOWN_ROUTES = [
+const KNOWN_ROUTES = [
   '/',
   '/aprender',
   '/aprender/repaso',
@@ -134,7 +134,7 @@ export interface VisitorDays {
 }
 
 /** Cuántos podían volver y cuántos volvieron. Los dos números, no el tanto por ciento. */
-export interface Returned {
+interface Returned {
   readonly cohort: number;
   readonly returned: number;
 }

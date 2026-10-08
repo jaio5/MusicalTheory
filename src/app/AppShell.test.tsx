@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ANONYMOUS } from '@core/billing';
@@ -15,6 +15,26 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: () => {}, push: () => {} }),
   usePathname: () => ruta(),
 }));
+
+/**
+ * El `Link` de Next, con lo que se le pide de precarga a la vista: en jsdom no
+ * precarga nada, y lo que se prueba es cuándo se le pide.
+ */
+vi.mock('next/link', async () => {
+  const { forwardRef } = await import('react');
+  return {
+    default: forwardRef<HTMLAnchorElement, Record<string, unknown>>(function Enlace(
+      { href, prefetch, children, ...resto },
+      ref,
+    ) {
+      return (
+        <a ref={ref} href={String(href)} data-precarga={String(prefetch)} {...resto}>
+          {children as React.ReactNode}
+        </a>
+      );
+    }),
+  };
+});
 
 vi.mock('next-auth/react', () => ({
   signIn: vi.fn(),
@@ -53,6 +73,32 @@ function pintar(pathname = '/aprender') {
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+/**
+ * Las pantallas se generan en cada petición y Next no las precarga solas: cada
+ * clic en la barra esperaba al servidor. Se precargan al ir a pulsarlas, no al
+ * verse, que con la barra siempre a la vista era descargar las cuatro.
+ */
+describe('la precarga de las pantallas', () => {
+  it('no precarga al verse, sino al ir a pulsar: puntero, dedo o foco', () => {
+    pintar('/afinar');
+    const abajo = within(screen.getByRole('navigation', { name: 'Pantallas, abajo' }));
+    const enlaces = ['Aprender', 'Profesor', 'Componer'].map((nombre) =>
+      abajo.getByRole('link', { name: nombre }),
+    );
+    expect(enlaces.map((enlace) => enlace.dataset['precarga'])).toEqual([
+      'false',
+      'false',
+      'false',
+    ]);
+
+    fireEvent.pointerEnter(enlaces[0]!);
+    fireEvent.touchStart(enlaces[1]!);
+    fireEvent.focus(enlaces[2]!);
+
+    expect(enlaces.map((enlace) => enlace.dataset['precarga'])).toEqual(['true', 'true', 'true']);
+  });
 });
 
 describe('el marco', () => {

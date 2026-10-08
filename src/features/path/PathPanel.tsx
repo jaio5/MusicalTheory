@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import { chordVoicings } from '@core/instrument';
+import { cejillaDe, chordVoicings } from '@core/instrument';
 import {
   accidentalForKey,
   comoBloque,
@@ -20,7 +20,13 @@ import {
 } from '@core/music';
 import { useAcordeElegido } from '@state/acorde-elegido';
 import { useArrangementStore } from '@state/arrangement-store';
-import { selectActiveKey, useSessionStore, type PathChord } from '@state/session-store';
+import {
+  clasesDeLaMascara,
+  selectActiveKey,
+  selectClasesOidas,
+  useSessionStore,
+  type PathChord,
+} from '@state/session-store';
 import { useProgressionPlayer } from '@state/use-progression-player';
 import type { ProgressionPlayer } from '@audio/progression-player';
 import { ChordDiagram } from '@ui/ChordDiagram';
@@ -106,7 +112,7 @@ export function VoicingList({ chord }: { chord: ShowableChord }) {
 
   if (voicings.length === 0) {
     return (
-      <p className="text-text-muted p-3 text-sm">
+      <p className="text-text-muted p-3">
         No cabe en cuatro trastes con la fundamental al bajo. Prueba otra forma del acorde.
       </p>
     );
@@ -125,6 +131,7 @@ export function VoicingList({ chord }: { chord: ShowableChord }) {
           <ChordDiagram
             frets={voicing.frets}
             position={voicing.position}
+            cejilla={cejillaDe(voicing)}
             label={`${chord.symbol}, ${voicing.name.toLowerCase()}`}
           />
           <span className="text-text-muted mt-0.5 block text-center text-xs">{voicing.name}</span>
@@ -230,7 +237,7 @@ export function CurrentChord({
 
   if (activeKey === null) {
     return (
-      <p className="text-text-muted flex h-full items-center justify-center p-6 text-center text-sm">
+      <p className="text-text-muted flex h-full items-center justify-center p-6 text-center">
         Elige una tonalidad en la rueda y empezamos.
       </p>
     );
@@ -271,7 +278,7 @@ export function CurrentChord({
               {current.notes.map((note) => noteName(note, accidental)).join(' · ')}
             </span>
           </div>
-          <p className="text-text-muted text-sm">{current.why}</p>
+          <p className="text-text-muted">{current.why}</p>
         </>
       )}
 
@@ -394,18 +401,30 @@ export function Voicings() {
 
 export function NextChords({
   onPoner,
+  buscador = true,
 }: {
   /**
    * Qué hacer con un acorde que cabe en la canción. Sin esto, la lista solo
    * lleva al camino, que es lo que hace donde no hay montaje que escribir.
    */
   readonly onPoner?: (degree: DegreeSymbol, especie?: EspecieDeBloque) => void;
+  /**
+   * Si lleva su campo de buscar un acorde por el nombre.
+   *
+   * **No donde ya hay otro a la vista.** Escribiendo, el lienzo trae el suyo
+   * —«Escribe un acorde», en «Qué poner ahora»— y con este eran dos campos para
+   * lo mismo en la misma pantalla, cada uno con su lista debajo. Se queda el del
+   * lienzo, que escribe donde está la canción (adr/0118).
+   */
+  readonly buscador?: boolean;
 } = {}) {
   const activeKey = useSessionStore(selectActiveKey);
   const path = useSessionStore((state) => state.path);
   const actions = useSessionStore((state) => state.actions);
   const styleId = useSessionStore((state) => state.styleId);
-  const history = useSessionStore((state) => state.noteHistory);
+  // Las clases que han sonado, en un número: la lista no cambia porque una nota
+  // vuelva a sonar, y suscrita al historial se repintaba con cada una.
+  const oidas = useSessionStore(selectClasesOidas);
   const acciones = useArrangementStore((state) => state.actions);
 
   // Igual que el mástil: se propone **desde el bloque que tienes elegido** si lo
@@ -415,7 +434,7 @@ export function NextChords({
   // ([adr/0032](../../../docs/adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
   const elegido = useAcordeElegido();
   const current = elegido ?? path.at(-1) ?? null;
-  const playedNotes = useMemo(() => history.map((note) => note.pitchClass), [history]);
+  const playedNotes = useMemo(() => clasesDeLaMascara(oidas), [oidas]);
 
   const inKey = useMemo(
     () =>
@@ -445,26 +464,28 @@ export function NextChords({
     // con altura propia. Apilado en el móvil, `h-full` dentro de una fila que se
     // mide por su contenido deja un hueco vacío por el que se puede desplazar.
     <div className="flex flex-col lg:h-full">
-      <div className="border-border border-b p-2">
-        {/* El buscador escribe donde escribe la lista de abajo: si no, la
-            misma área haría dos cosas distintas según dónde pulsaras. Lo que no
-            tiene grado sigue yendo al camino, igual que ahí. */}
-        <ChordSearch
-          onPick={(chord) => {
-            /* v8 ignore start -- el buscador solo se pinta con tonalidad puesta */
-            const puesto =
-              activeKey === null
-                ? null
-                : comoBloque(activeKey.tonic, activeKey.mode, chord.root, chord.notes);
-            /* v8 ignore stop */
-            if (puesto !== null && onPoner !== undefined) {
-              onPoner(puesto.degree, puesto.especie);
-              return;
-            }
-            actions.pushChord(fromSearch(chord));
-          }}
-        />
-      </div>
+      {buscador && (
+        <div className="border-border border-b p-2">
+          {/* El buscador escribe donde escribe la lista de abajo: si no, la
+              misma área haría dos cosas distintas según dónde pulsaras. Lo que no
+              tiene grado sigue yendo al camino, igual que ahí. */}
+          <ChordSearch
+            onPick={(chord) => {
+              /* v8 ignore start -- el buscador solo se pinta con tonalidad puesta */
+              const puesto =
+                activeKey === null
+                  ? null
+                  : comoBloque(activeKey.tonic, activeKey.mode, chord.root, chord.notes);
+              /* v8 ignore stop */
+              if (puesto !== null && onPoner !== undefined) {
+                onPoner(puesto.degree, puesto.especie);
+                return;
+              }
+              actions.pushChord(fromSearch(chord));
+            }}
+          />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-baseline justify-between gap-2 px-3 pt-2">
         <p className="rotulo">
@@ -489,20 +510,18 @@ export function NextChords({
           </span>
         </p>
         {/* Lo mismo con las letras: T, S y D no significan nada hasta que
-            alguien te las traduce, y tenerlo delante evita ir a buscarlo. */}
+            alguien te las traduce, y tenerlo delante evita ir a buscarlo. La
+            palabra es la del dominio, la misma en toda la aplicación: la de la
+            S decía «salida», al lado del panel Salidas, que es otra cosa. */}
         <p aria-hidden="true" className="text-text-muted flex items-center gap-2 text-xs">
-          <span className="flex items-center gap-1">
-            <span className="border-border rounded-sm border px-1 font-mono">T</span>
-            reposo
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="border-border rounded-sm border px-1 font-mono">S</span>
-            salida
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="border-border rounded-sm border px-1 font-mono">D</span>
-            tensión
-          </span>
+          {(['tonic', 'subdominant', 'dominant'] as const).map((papel) => (
+            <span key={papel} className="flex items-center gap-1">
+              <span className="border-border rounded-sm border px-1 font-mono">
+                {HARMONIC_ROLES[papel].short}
+              </span>
+              {HARMONIC_ROLES[papel].word}
+            </span>
+          ))}
         </p>
       </div>
 
@@ -609,9 +628,7 @@ export function NextChords({
                 </span>
 
                 {(repetido ? '' : porque) !== '' && (
-                  <span className="text-text-muted mt-0.5 block text-sm leading-snug">
-                    {porque}
-                  </span>
+                  <span className="text-text-muted mt-0.5 block leading-snug">{porque}</span>
                 )}
 
                 {/* Por qué se puede cambiar por otro. Va debajo y más pequeño

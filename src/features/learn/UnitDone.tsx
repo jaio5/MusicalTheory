@@ -98,7 +98,7 @@ export function UnitDone({
       </div>
 
       {celebration.goalJustMet && (
-        <p className="text-tube-bright text-sm">
+        <p className="text-tube-bright text-base">
           Meta del día cerrada. Mañana empieza vacía otra vez.
         </p>
       )}
@@ -110,7 +110,7 @@ export function UnitDone({
             {nuevas.map((badge) => (
               <li
                 key={badge.id}
-                className="border-brass-bright bg-surface-raised border px-2 py-1 text-sm"
+                className="border-brass-bright bg-surface-raised border px-2 py-1 text-base"
               >
                 <span className="text-brass-bright">{badge.name}</span>
                 <span className="text-text-muted block text-xs">{badge.how}</span>

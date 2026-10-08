@@ -74,7 +74,7 @@ no. Nunca más de dos llamadas por petición, que es lo que cuenta el coste.
 `presupuestoDe` suma a la entrada `TEXTO_LIBRE × TOKENS_POR_CARACTER_LIBRE`: 240 × 2 =
 480 tokens. Un token es al menos un byte, y el contrato recorta lo libre a lo que
 pesaría como 240 letras latinas
-([adr/0115](./0115-la-marca-no-se-adivina-y-lo-libre-se-acota-en-bytes.md)): lo que
+([adr/0115](./0115-la-marca-no-se-adivina-y-lo-libre-se-acota-en-el-peor-alfabeto.md)): lo que
 más bytes deja pasar son 240 letras latinas con tilde, de dos bytes. Un test lo
 comprueba con el recorte de verdad, alfabeto por alfabeto. Los cupos bajan: Básico de
 113 a 96 preguntas y Medio de 227 a 193 con Sonnet 5.5.

@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WebAudioProgressionPlayer } from '@audio/progression-player';
 import {
+  EAR_KINDS,
   earExercises,
   pitchClassFromName,
   presentacionDe,
@@ -39,6 +40,9 @@ async function pintar(unit: EarUnitDef, props: Partial<Parameters<typeof EarUnit
 const CALIDAD: EarUnitDef = { ...GRADOS, id: 'e2-repaso', ear: 'quality' };
 
 beforeEach(() => {
+  // Lo que se guarda de por dónde iba cada unidad vive en la pestaña: entre
+  // pruebas, cada una empieza de cero.
+  sessionStorage.clear();
   useSessionStore.getState().actions.reset();
   vi.restoreAllMocks();
 });
@@ -240,15 +244,54 @@ describe('los momentos de una unidad de oído', () => {
   });
 
   // Sin teoría no hay a qué saltar: el atajo de las de teoría aquí no sale.
-  it('no ofrece ir directo a las preguntas, porque empezar ya es eso', async () => {
+  it('no ofrece ir directo a las preguntas, porque empezar ya es eso', () => {
     conTonalidad();
-    const { unmount } = render(<EarUnit unit={GRADOS} onDone={() => {}} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
-    unmount();
-
     render(<EarUnit unit={GRADOS} onDone={() => {}} />);
 
     expect(screen.queryByRole('button', { name: /directo/ })).not.toBeInTheDocument();
+  });
+
+  /**
+   * Qué hay que hacer iba encima de cada pregunta, y la primera lo repetía con
+   * otras palabras: «Suenan dos notas, una detrás de otra…» dos veces seguidas.
+   */
+  it('qué hay que hacer se dice en la presentación, y no otra vez encima de la pregunta', async () => {
+    conTonalidad();
+    render(<EarUnit unit={GRADOS} onDone={() => {}} />);
+    const queHacer = EAR_KINDS.degree.lead;
+
+    expect(screen.getByText(new RegExp(`^${queHacer}`))).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+
+    expect(screen.queryByText(new RegExp(queHacer))).not.toBeInTheDocument();
+    expect(screen.getByText(/Primero suena/)).toHaveTextContent('Primero suena G, la referencia.');
+  });
+
+  /** Recargar a mitad volvía a la presentación y a la pregunta 1. */
+  it('recargar a mitad sigue en la misma pregunta, sin mover el foco', async () => {
+    conTonalidad();
+    const miss = vi.fn();
+    const done = vi.fn();
+    const { unmount } = render(<EarUnit unit={GRADOS} onDone={() => {}} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    const [primera] = earExercises('degree', G, 'major');
+    const mala = primera!.choices.find((opcion) => !opcion.correct)!.text;
+    await userEvent.click(screen.getByRole('button', { name: mala }));
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    unmount();
+
+    render(<EarUnit unit={GRADOS} onDone={done} onMiss={miss} />);
+
+    expect(screen.getByText('Pregunta 2 de 3')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Compruébalo de oído' })).not.toHaveFocus();
+    // Y lo fallado antes de recargar cuenta: la unidad ya no sale limpia.
+    for (const ejercicio of earExercises('degree', G, 'major').slice(1)) {
+      const buena = ejercicio.choices.find((opcion) => opcion.correct)!.text;
+      await userEvent.click(screen.getByRole('button', { name: buena }));
+      await userEvent.click(screen.getByRole('button', { name: /Siguiente|Terminar/ }));
+    }
+    expect(done).toHaveBeenCalledWith(false);
+    expect(miss).not.toHaveBeenCalled();
   });
 });
 

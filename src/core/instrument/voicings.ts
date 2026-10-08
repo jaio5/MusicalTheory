@@ -220,6 +220,34 @@ export function chordVoicings(
  * bajo, no tiene debajo ninguna cuerda al aire ni muda. Con ella, el índice es un
  * dedo y cada cuerda más arriba es otro.
  */
+/** Las cuerdas, por su índice de la sexta a la primera, que se pisan en un traste. */
+function cuerdasEnElTraste(frets: readonly (number | null)[], traste: number): number[] {
+  return frets.flatMap((fret, cuerda) => (fret === traste ? [cuerda] : []));
+}
+
+/** Dónde va la cejilla: en qué traste y de qué cuerda a qué cuerda, contando desde la sexta. */
+export interface Cejilla {
+  readonly traste: number;
+  readonly desde: number;
+  readonly hasta: number;
+}
+
+/**
+ * La cejilla de una forma, para dibujarla, o nulo si no la lleva.
+ *
+ * El nombre decía «2.ª posición con cejilla» y el diagrama pintaba un punto por
+ * cuerda, como si cada una llevara su dedo: 022453 se veía con seis dedos para
+ * cuatro que hay. La barra va de la primera a la última cuerda que se pisan en el
+ * traste de la cejilla, que es lo que tapa el índice tumbado.
+ */
+export function cejillaDe(voicing: Pick<Voicing, 'frets' | 'position' | 'barre'>): Cejilla | null {
+  if (!voicing.barre) {
+    return null;
+  }
+  const enElTraste = cuerdasEnElTraste(voicing.frets, voicing.position);
+  return { traste: voicing.position, desde: enElTraste[0]!, hasta: enElTraste.at(-1)! };
+}
+
 function cejillaQueHaceFalta(
   frets: readonly (number | null)[],
   pressed: readonly number[],
@@ -229,7 +257,7 @@ function cejillaQueHaceFalta(
     return false;
   }
 
-  const enElTraste = frets.flatMap((fret, cuerda) => (fret === position ? [cuerda] : []));
+  const enElTraste = cuerdasEnElTraste(frets, position);
   if (enElTraste.length < 2) {
     return null;
   }

@@ -309,6 +309,10 @@ Las notas compartidas cuentan **en proporción**, no en número: compartir dos d
 cuatro no es más terreno común que compartir una de tres. Contarlas a secas
 premiaría a los acordes grandes solo por tener más papeletas.
 
+**La sexta añadida se escribe `add6`, no `6`.** `Cadd6` es el do con un la; en el
+cifrado del conservatorio `C6` es el do en primera inversión, y la sexta añadida se
+leía como otro acorde (`suggestions.ts`).
+
 ## Qué papel hace cada acorde (`harmonic-function.ts`)
 
 Un grado no es solo un sitio en la escala: es un papel. Tres papeles y uno de
@@ -333,6 +337,20 @@ La séptima menor de VII en modo menor es la única discutible. No tiene sensibl
 así que no aprieta como un V de manual; pero en el idioma modal —el de quien coge
 una guitarra eléctrica— va a i constantemente y hace de cadencia. Se marca como
 dominante y el texto avisa de que llega sin sensible, que es lo que la distingue.
+
+En la natural, **el `v` y el `VII` son dominantes sin sensible**: no son los de la
+armónica, pero tienen papel, y antes quedaban sin nombrar mientras el `VII` salía de
+opción en las preguntas. Se aprendía un acorde de la tonalidad sin saber qué hace.
+
+### Las dominantes secundarias dependen del modo
+
+Cuál es la nota que se altera **no es siempre la sensible**, y el porqué que se le
+enseña a quien pregunta lo calcula el dominio y no lo da por sabido
+(`dominanteSecundaria`, con `alteradas`: las notas del acorde que no están en la
+escala, comparadas por su letra). La regla de bolsillo —«lo alterado es la sensible»—
+falla en tres sitios: el `V/IV` de mayor y el `V/VI` de menor alteran la séptima, y el
+`V/V` de menor (B7 en La menor) altera dos, la sensible y la quinta que la escala da
+disminuida.
 
 ### En qué orden se enseñan
 
@@ -440,7 +458,7 @@ Y sirve también para comprobar: las cadencias y la relativa llevan una firma qu
 puede leer en un texto, y una respuesta del profesor que las nombra sin escribir
 sus acordes, o escribiendo los de otra, no llega a la pantalla.
 
-## Cuándo una salida encaja (`encaje.ts`, `paths.ts`)
+## Cuándo una salida encaja (`salidas/juez/encaje.ts`, `salidas/menu.ts`)
 
 Que una salida sea **correcta** —no rompe ninguna regla— no es que **suene bien**.
 El juez de encaje puntúa de 0 a 100 con once criterios: sintaxis (que los acordes

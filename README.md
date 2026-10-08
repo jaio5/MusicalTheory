@@ -4,13 +4,15 @@
 unidades cortas y, con lo que llevas tocado, te propone por dónde puede seguir tu
 canción: te la continúa, le hace sus partes y te explica por qué.
 
-El micro es cómo entra lo que tocas —te oye, reconoce el acorde y la tonalidad— y
-no hace falta escribir nada ni saber solfeo para empezar. Nada de lo que suena
-sale de tu equipo.
+El micro es cómo entra lo que tocas: te oye, dice qué nota suena en el afinador y,
+al componer, intenta leer el acorde que tocas (acierta con tríadas y séptimas
+sostenidas y limpias, y duda con lo demás, y entonces te lo pregunta). No hace falta
+escribir nada ni saber solfeo para empezar. Nada de lo que suena sale de tu equipo.
 
 Hoy corre en un equipo y la usa una persona. La idea es publicarla y cobrar por
 suscripción; lo que eso pide está en
-[docs/PARA-PUBLICAR.md](./docs/PARA-PUBLICAR.md), y **nada de eso está en marcha**.
+[docs/PARA-PUBLICAR.md](./docs/PARA-PUBLICAR.md), y **todavía no hay ninguna copia
+publicada**.
 
 Cada pantalla hace una cosa:
 
@@ -66,24 +68,29 @@ Dos cosas que conviene saber antes de nada:
   defecto, Sonnet 5.5, son 96 preguntas al mes en Básico y 193 en Medio; con Haiku
   4.5, el doble. Un test comprueba que ningún plan deja menos de un 60 % de margen
   sobre lo que entra, sin IVA ni comisión.
-- **Hoy no se cobra de verdad.** Detrás del cambio de plan hay un cobrador de mentira
-  que cambia el plan y no pasa por caja. Es una decisión con su
-  [ADR](./docs/adr/0006-planes-y-puerto-de-facturacion.md), no un olvido, y significa
-  que cualquiera con una cuenta puede darse el plan más alto.
+- **Hoy no se cobra de verdad.** El cobro es un puerto
+  ([ADR](./docs/adr/0006-planes-y-puerto-de-facturacion.md)): con las variables de Stripe
+  cobra Stripe, aunque nunca se ha ejecutado contra él. Sin ellas, fuera de producción
+  hay un cobrador de mentira que cambia el plan sin pasar por caja, así que en tu
+  equipo cualquiera con una cuenta puede darse el plan más alto; en producción ese
+  cobrador es `CobroCerrado`, que no deja subir de plan.
 
 ## Cómo arrancarlo
 
-Requiere Node 22 o superior y pnpm.
+Requiere **Node 22 o superior** y **pnpm 11** (el `packageManager` de `package.json`;
+con Corepack basta `corepack enable`).
 
 ```bash
 pnpm install
-cp .env.example .env.local   # nada de esto es obligatorio para arrancar
-pnpm dev                     # http://localhost:3000
+cp .env.example .env   # nada de esto es obligatorio para arrancar
+pnpm dev               # http://localhost:3000
 ```
 
-`.env.local` tiene dos partes y las dos son opcionales: la clave de Anthropic —sin
-ella contesta el dominio, o el modelo de casa si lo has levantado— y `DATABASE_URL`
-con `AUTH_SECRET` —sin ellas no hay cuentas—. Si pones la base de datos, aplica las migraciones antes de entrar:
+El fichero es **`.env`**, no `.env.local`: es el que leen los scripts (`pnpm
+examen:profesor`, `pnpm usuarios:prueba`) y Docker. Tiene dos partes y las dos son
+opcionales: la clave de Anthropic —sin ella contesta el dominio, o el modelo de casa si
+lo has levantado— y `DATABASE_URL` con `AUTH_SECRET` —sin ellas no hay cuentas—. Si
+pones la base de datos, aplica las migraciones antes de entrar:
 
 ```bash
 pnpm db:migrate
@@ -99,14 +106,15 @@ pnpm docker:ia-sola  # solo ese modelo, sin la aplicación
 pnpm docker:down     # parar todo; con -v además borra los datos
 ```
 
-Por debajo es un solo `compose.yml` y la IA va en un **perfil**, así que también
-sirve `docker compose` a secas:
+`pnpm docker:up` escribe el `.env` que falte con las contraseñas y un `AUTH_SECRET`
+nuevos, así que no hay nada que rellenar a mano. Si el 3000 ya lo tiene otro
+contenedor tuyo, cambia `APP_PORT` en ese `.env`. Todo escucha solo en `127.0.0.1`
+([adr/0117](./docs/adr/0117-lo-que-se-levanta-escucha-solo-en-el-equipo.md)). Los
+detalles, en [docs/DESPLIEGUE.md](./docs/DESPLIEGUE.md).
 
-```bash
-docker compose up                  # la aplicación
-docker compose --profile ia up     # y además el modelo de casa
-docker compose up ollama           # solo el modelo
-```
+Por debajo es un solo `compose.yml`, con la IA en un **perfil**. Si prefieres
+`docker compose` a secas, **no hay contraseñas por defecto**: pide `POSTGRES_PASSWORD`
+y `POSTGRES_APP_PASSWORD` (y `AUTH_SECRET`) en el `.env`, o se niega a arrancar.
 
 **Para que `docker compose up -d` traiga también la IA**, dos líneas en el `.env`:
 
@@ -116,21 +124,11 @@ OLLAMA_URL_DOCKER=http://ollama:11434
 ```
 
 Van juntas: la primera enciende el perfil y la segunda le dice a la aplicación dónde
-está. Con ellas puestas no hace falta ni el script ni acordarse de nada, porque
-`ollama` es un nombre fijo de la red de compose
-([adr/0055](./docs/adr/0055-la-ia-se-enciende-desde-el-env.md)). Si ya tienes un
+está ([adr/0055](./docs/adr/0055-la-ia-se-enciende-desde-el-env.md)). Si ya tienes un
 Ollama en el equipo, mueve el puerto con `OLLAMA_PORT=11435` o `up` falla con «port
-is already allocated».
-
-**Un Ollama que ya corra en tu equipo, en cambio, solo lo encuentra `pnpm docker:up`**:
-su dirección es la IP de tu máquina y cambia al reiniciar, así que no se puede
-escribir en `compose.yml`
-([adr/0050](./docs/adr/0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)).
-
-`pnpm docker:up` escribe el `.env` que falte con un `AUTH_SECRET` nuevo, así que no
-hay nada que rellenar a mano. Si el 3000 ya lo tiene otro contenedor tuyo, cambia
-`APP_PORT` en ese `.env`. Los detalles, en
-[docs/DESPLIEGUE.md](./docs/DESPLIEGUE.md).
+is already allocated». **Un Ollama que ya corra en tu equipo, en cambio, solo lo
+encuentra `pnpm docker:up`**: su dirección es la IP de tu máquina y cambia al
+reiniciar ([adr/0050](./docs/adr/0050-la-direccion-del-ollama-del-equipo-la-calcula-el-script.md)).
 
 ### Probar la IA sin pagar tokens
 
@@ -144,25 +142,30 @@ Va en un perfil y no en un fichero aparte
 levantarlo **solo a él** con `pnpm docker:ia-sola` para iterar sobre los prompts
 con `pnpm dev` delante, sin Postgres ni contenedor de la aplicación.
 
-A mano, el perfil y la dirección **van juntos**: `COMPOSE_PROFILES=ia` levanta los
-contenedores y `OLLAMA_URL_DOCKER=http://ollama:11434` le dice a la aplicación
-dónde están. El `.env` las trae comentadas en líneas consecutivas, y
-`pnpm docker:ia` pone las dos por ti.
+A mano, el perfil y la dirección **van juntos** (las dos líneas de arriba). El `.env`
+las trae comentadas, y `pnpm docker:ia` pone las dos por ti.
 
 No es lo mismo que la API y no pretende serlo: sirve para ajustar los prompts sin
 factura. Lo que hace y lo que no, en [docs/AI.md](./docs/AI.md).
 
 ## Cómo pasar los tests
 
+Seis comprobaciones, las mismas que `CLAUDE.md` pide antes de dar nada por terminado:
+
 ```bash
-pnpm test        # una pasada
-pnpm test:watch  # en watch
-pnpm typecheck   # tipos
-pnpm lint        # ESLint, incluidas las reglas de capas
-pnpm build       # build de producción
+pnpm test         # vitest, una pasada (pnpm test:watch para verlo en watch)
+pnpm typecheck    # tipos
+pnpm lint         # ESLint, incluidas las reglas de capas
+pnpm format:check # prettier
+pnpm coverage     # cobertura: el tope está en el 100 %
+pnpm build        # build de producción
 ```
 
-Los cinco corren solos en cada empujón: [.github/workflows/ci.yml](./.github/workflows/ci.yml).
+En cada empujón corren solas, repartidas en trabajos paralelos
+([.github/workflows/ci.yml](./.github/workflows/ci.yml)): lo barato y las pruebas de
+reloj, la cobertura en tres trozos que se suman, los tests con base contra un Postgres
+de verdad, y un humo con navegador sobre la compilación de producción
+([adr/0121](./docs/adr/0121-la-base-de-los-tests-se-migra-una-vez-y-el-reloj-corre-aparte.md)).
 
 ## Cómo publicarlo
 
@@ -186,28 +189,39 @@ La detección de tono es **monofónica** y necesita señal sin distorsión.
 
 ## Privacidad
 
-El audio no sale del dispositivo. No hay una línea de código de subida.
-A la IA solo viajan símbolos: tonalidad, escala, nombres de notas y grado actual.
-Con cuenta se guarda además tu avance del temario —identificadores de unidad, números
-y fechas— y tu contraseña cifrada; nunca una muestra de sonido. Ver
-[docs/AI.md](./docs/AI.md), [docs/RECORDING.md](./docs/RECORDING.md) y
+**El audio no sale del dispositivo.** No hay una línea de código de subida. A la IA
+viajan símbolos —tonalidad, escala, grados, pulsos— y el texto que tú escribes si lo
+escribes: la pregunta al profesor o las directrices de una salida, de hasta 240
+caracteres cada una. Con cuenta, la base guarda tu correo, tu nombre si lo has dicho,
+tu contraseña cifrada, tu avance del temario (identificadores de unidad, números y
+fechas) y tus canciones con los nombres de sección que les pusiste; nunca una muestra
+de sonido. Ver [docs/AI.md](./docs/AI.md), [docs/RECORDING.md](./docs/RECORDING.md) y
 [docs/CUENTAS-Y-PLANES.md](./docs/CUENTAS-Y-PLANES.md).
 
 ## Documentación
 
-- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — capas, qué importa qué y por qué,
-  con notas para quien viene de Angular.
-- [DOMAIN-MUSIC.md](./docs/DOMAIN-MUSIC.md) — la teoría que implementa el
-  código, en lenguaje de músico.
-- [AUDIO-PITCH.md](./docs/AUDIO-PITCH.md) — cómo se detecta el tono y qué
+Para quien trabaja con un agente, [CLAUDE.md](./CLAUDE.md) es el mapa: qué comprobar,
+dónde está cada cosa y qué muerde. El porqué está en `docs/`:
+
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — capas, qué importa qué y por qué, con
+  notas para quien viene de Angular.
+- [ENCONTRAR-UN-FICHERO.md](./docs/ENCONTRAR-UN-FICHERO.md) — «busco X, está en Y».
+- [ESTILO.md](./docs/ESTILO.md) — cómo se escribe: idioma, comentarios, interfaz, tests.
+- [TRAMPAS.md](./docs/TRAMPAS.md) — lo que solo se descubre tropezando.
+- [DOMAIN-MUSIC.md](./docs/DOMAIN-MUSIC.md) — la teoría que implementa el código, en
+  lenguaje de músico.
+- [AUDIO-PITCH.md](./docs/AUDIO-PITCH.md) — cómo se detecta el tono y el acorde y qué
   limitaciones tiene.
-- [RECORDING.md](./docs/RECORDING.md) — permisos, composición en canvas,
-  formatos y descarga local.
-- [AI.md](./docs/AI.md) — contrato de los route handlers del profesor y las salidas, y las
-  dos puertas que acotan el gasto.
-- [CUENTAS-Y-PLANES.md](./docs/CUENTAS-Y-PLANES.md) — qué da cada plan, quién
-  comprueba qué y qué se guarda de ti.
-- [DESPLIEGUE.md](./docs/DESPLIEGUE.md) — qué hace falta para publicarlo y qué
-  se rompe según dónde.
-- [ROADMAP.md](./docs/ROADMAP.md) — fases y deuda anotada.
+- [RECORDING.md](./docs/RECORDING.md) — permisos, formatos y descarga local del sonido.
+- [AI.md](./docs/AI.md) — contrato de las rutas del profesor y las salidas, y las
+  puertas que acotan el gasto.
+- [CUENTAS-Y-PLANES.md](./docs/CUENTAS-Y-PLANES.md) — qué da cada plan, quién comprueba
+  qué y qué se guarda de ti.
+- [MEDIR.md](./docs/MEDIR.md) — medir el motor con guitarras reales y la IA contra la API.
+- [VALIDAR.md](./docs/VALIDAR.md) — validar con personas.
+- [DESPLIEGUE.md](./docs/DESPLIEGUE.md) — qué hace falta para publicarlo y qué se rompe
+  según dónde.
+- [PARA-PUBLICAR.md](./docs/PARA-PUBLICAR.md) — lo que hará falta al publicar y cobrar.
+- [ROADMAP.md](./docs/ROADMAP.md) — lo que falta, ordenado por lo que estorba a diario.
+- [HISTORIA.md](./docs/HISTORIA.md) — las fases hechas y los fallos que enseñaron algo.
 - [adr/](./docs/adr/) — decisiones con sus alternativas descartadas.

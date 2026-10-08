@@ -1,5 +1,7 @@
 # ADR 0005 — Cuentas propias y el avance fusionado en el servidor
 
+> **Corregido en parte por [ADR 0116](./0116-el-avance-que-sube-se-comprueba.md):** el avance ya no se lee, se funde y se escribe en tres pasos sueltos: se funde en una transacción, se comprueba lo que llega y tiene tope.
+
 Fecha: 2026-07-30 · Estado: aceptada
 
 ## Contexto

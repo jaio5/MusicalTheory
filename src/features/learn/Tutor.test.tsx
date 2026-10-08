@@ -11,7 +11,7 @@ import { AccountProvider } from '@state/account';
 import { useSessionStore } from '@state/session-store';
 import { moverTutor, SITIO_POR_DEFECTO } from '@state/tutor-spot';
 
-import { Tutor } from './Tutor';
+import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
 
 function pintar(nodo: React.ReactNode) {
   return render(
@@ -88,7 +88,7 @@ describe('El muñeco del profesor', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /preguntarle al profesor/i }));
 
-    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+    expect(screen.getByText(/todavía no está disponible aquí/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Entrar para preguntar' })).not.toBeInTheDocument();
   });
 
@@ -709,5 +709,20 @@ describe('un aviso abre el globo pequeño', () => {
 
     expect(screen.getByRole('textbox')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Preguntar al profesor' })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A 390 el muñeco tapaba tres finales de línea de la presentación al llegar: el
+ * hueco de abajo solo sirve al final de la columna. Por debajo de `lg` se
+ * reserva también su ancho a la derecha; desde `lg` cabe al lado de la columna.
+ */
+describe('el hueco que se le deja', () => {
+  it('abajo siempre, y a la derecha solo en estrecho', () => {
+    const clases = HUECO_DEL_TUTOR.split(' ');
+
+    expect(clases).toContain('pb-[calc(10dvh+4rem)]');
+    expect(clases.some((clase) => clase.startsWith('pr-[calc(4rem'))).toBe(true);
+    expect(clases).toContain('lg:pr-4');
   });
 });

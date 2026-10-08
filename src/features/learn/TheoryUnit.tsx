@@ -6,6 +6,7 @@ import { lessonNotes, type TheoryUnit as TheoryUnitDef } from '@core/music';
 import { selectTonalidadParaAprender, useSessionStore } from '@state/session-store';
 
 import { Question } from './Question';
+import { usePreguntaEnCurso } from './sitio-en-la-unidad';
 import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
 import { UnidadPorMomentos } from './UnidadPorMomentos';
 
@@ -44,8 +45,8 @@ export function TheoryUnit({
     [unit.lesson, tonalidad],
   );
 
-  const [at, setAt] = useState(0);
-  const [failed, setFailed] = useState(false);
+  // Retomada de donde se dejó si se recarga a mitad (`sitio-en-la-unidad.ts`).
+  const { at, failed, fallar, siguiente } = usePreguntaEnCurso(unit.id, notes.exercises.length);
   // Lo que el muñeco dice por su cuenta. Nulo mientras no haya nada que decir,
   // que es casi siempre.
   const [aviso, setAviso] = useState<string | null>(null);
@@ -77,7 +78,7 @@ export function TheoryUnit({
                 lastLabel="Terminar la unidad"
                 onAnswered={(correct) => {
                   if (!correct) {
-                    setFailed(true);
+                    fallar();
                     onMiss?.(at);
                     setAviso(
                       'Esa no era. Si quieres te lo explico, y con los acordes que tienes puestos.',
@@ -89,7 +90,7 @@ export function TheoryUnit({
                     onDone(!failed);
                     return;
                   }
-                  setAt(at + 1);
+                  siguiente();
                 }}
               />
             </div>

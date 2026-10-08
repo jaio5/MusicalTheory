@@ -117,6 +117,18 @@ la rueda / 260`: llega a 44 con una rueda de 318 px, así que **desde un teléfo
   Hyperlegible. Las tres letras se sirven desde el repositorio
   (`app/fuentes.ts`): antes eran las del sistema, y en un equipo sin Georgia los
   títulos salían en lo que hubiera ([adr/0070](adr/0070-la-sala-encendida.md)).
+- **Los cifrados de la partitura van en la letra de los títulos** (`font-display`, la
+  del ensayo y de «A dónde ir»), a 22 px en pantalla, no en la mono: encima de un
+  compás se leen, no se comparan dígito a dígito. El cuerpo es `CIFRADO_PX / escala`
+  para que una hoja ancha no los convierta en carteles
+  ([adr/0119](adr/0119-la-partitura-llena-su-hueco-y-el-lienzo-se-parte.md)).
+- **El muñeco del profesor tapa una esquina**, y lo que se lee se aparta de ella con
+  `HUECO_DEL_TUTOR` (`features/learn/Tutor.tsx`): hueco debajo y, por debajo de `lg`,
+  también **a la derecha**; desde `lg` la columna va centrada y él cabe al lado. Lo
+  llevan la unidad, el oído y el repaso.
+- **Fallar dice cuál era la buena, entre comillas**: «La buena era «X».» (`Question`).
+  La buena puede ser una nota, un acorde o una frase entera, y pegada a «Era» salía
+  «Era La sube un semitono».
 - **La monoespaciada es para lo que se alinea en columna, no para la interfaz.**
   Notas, cifrados, cents, hercios, compases, XP, un correo: cosas que se comparan
   dígito a dígito o que crecen y encogen sin descolocar lo de al lado. Todo lo
@@ -186,8 +198,9 @@ la rueda / 260`: llega a 44 con una rueda de 318 px, así que **desde un teléfo
   antes.** Un lector anuncia lo que **entra** en una región que ya estaba; una que
   nace con el texto dentro no se lee en todos. Así que la caja con `aria-live` va
   siempre y vacía, y lo que cambia es el texto de dentro. Lo que lo destapó: el
-  copiloto sacaba sus acordes punteados en silencio, y un fantasma en pantalla
-  **cambia lo que hace `Tab`** —deja de mover el foco y acepta lo propuesto—, así
+  copiloto en línea (retirado, [adr/0119](adr/0119-la-partitura-llena-su-hueco-y-el-lienzo-se-parte.md))
+  sacaba sus acordes punteados en silencio, y un fantasma en pantalla
+  **cambiaba lo que hace `Tab`** —deja de mover el foco y acepta lo propuesto—, así
   que quien no ve la pantalla pulsaba `Tab` para recorrerla y se encontraba cuatro
   acordes metidos en su canción. Si el aviso sale además a la vista, la región es
   la caja de fuera y no una copia escondida: dicho dos veces se oye dos veces.
@@ -332,6 +345,16 @@ lo caza `coherencia.test.ts`. Para un matiz, la opacidad de un token
   el título de una pantalla, `text-fluid-subtitle` para su línea,
   `.titulo-apartado` para un apartado, el cuerpo a 16 px y `.rotulo` a 12 px para
   nombrar una caja —nunca un trozo de página, ni en mayúsculas—.
+- **Lo que se lee seguido va al cuerpo, nunca a 14 px.** `text-sm` llegó a estar
+  en ciento noventa sitios, y en `/planes` dieciocho de veintitrés párrafos iban
+  así: la letra más pequeña para lo que más se lee. Un párrafo, una lista, una
+  definición o una caja con `max-w-prose` no llevan `text-sm` ni un tamaño entre
+  corchetes, y lo vigila `screens/coherencia.test.ts`. Los 14 px son **de los
+  mandos** —el botón y la pastilla compactos, el segmentado, la navegación—, y los
+  pone su componente ([adr/0122](adr/0122-lo-que-se-lee-va-al-cuerpo.md)).
+- **Un precio va en la letra de los títulos con `tabular-nums`**, no en la mono: la
+  mono espaciaba «4,99 €» letra a letra. Y lo que no es un dato no va en la mono
+  aunque ocupe su sitio: «sin configurar» donde iría un correo es una frase.
 - **Lo que se mueve al llegar es la cabecera de la pantalla, y nada más**
   (`.entra-pantalla`, en `ui/Screen`). Una cascada de tarjetas entrando cada vez
   que se cambia de pantalla es esperar. Lo que responde a algo usa la curva de la
@@ -415,11 +438,17 @@ que no se arreglan con ninguna clase de Tailwind.
 - Vitest corre en **entorno `node` por defecto**. Un test que necesite DOM lleva
   `// @vitest-environment jsdom` en la primera línea.
 - `include` es `src/**/*.test.ts(x)`: los tests viven al lado del código.
-- `src/audio/main-thread-cost.test.ts` es un guardián de rendimiento con topes
-  holgados a propósito. Si falla, es una regresión algorítmica, no ruido.
-- **Nada toca Postgres.** Lo que se prueba de las cuentas es lo puro: planes,
-  permisos, fusión de avances, cola de repaso, cifrado. El camino con base de datos
-  se ha ejecutado a mano dos veces y las dos salieron fallos que ningún test veía.
+- **Lo que mide tiempo de reloj va en un `*.reloj.test.ts`**: que algo tarde menos
+  de tantos milisegundos, o que dos caminos tarden lo mismo. Corren en su propio
+  proyecto de Vitest, después del resto y un fichero cada vez, y sin la cobertura
+  ([adr/0121](adr/0121-la-base-de-los-tests-se-migra-una-vez-y-el-reloj-corre-aparte.md)).
+  Mezclados con los demás medían la carga de la máquina. `tarda`, en
+  `core/cronometro-para-tests.ts`. Si uno falla, es una regresión, no ruido.
+- **Las consultas se prueban contra Postgres**: PGlite, dentro del proceso
+  (`server/db/para-tests.ts`), con la base migrada una vez por pasada
+  (`vitest.base-de-prueba.ts`). La integración continua pasa además esos ficheros
+  contra un Postgres de verdad y con el rol de la aplicación, que PGlite no puede
+  probar.
 - **Los tests que leen ficheros son a propósito.** `coherencia.test.ts` y
   `prompts.test.ts` comprueban cosas que solo se ven en conjunto —que ninguna
   pantalla se escriba su propio ancho, que ninguna ruta gaste cupo por su cuenta—.
@@ -428,9 +457,9 @@ que no se arreglan con ninguna clase de Tailwind.
   `pnpm coverage`). No es una cifra para presumir: es lo que convierte «esto no
   puede pasar» en algo escrito. Bajar de ahí significa una de dos cosas —falta una
   prueba, o falta explicar por qué esa rama no puede darse—, y las dos se arreglan
-  antes de dar nada por terminado. La prueba del coste del hilo principal se salta
-  con la cobertura puesta —medir tiempos con el instrumentador encima no mide
-  nada—, así que `pnpm test` y `pnpm coverage` son dos comprobaciones distintas.
+  antes de dar nada por terminado. Las pruebas de reloj no corren con la cobertura
+  puesta —medir tiempos con el instrumentador encima no mide nada—, así que
+  `pnpm test` y `pnpm coverage` son dos comprobaciones distintas.
 - **Una rama que no puede darse se quita; si no se puede quitar, se marca.** Lo
   primero casi siempre se puede: preguntar por la longitud de una lista y luego por
   su primer elemento deja una rama muerta, y juntarlas en una la borra. Cuando lo

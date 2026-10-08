@@ -71,7 +71,9 @@ a 44 una parte de trece filas mediría 572 px, y hay alternativa a 44 px.
 **Ahora hay tres sitios que saben del corte de la navegación**, no dos: `AppShell`
 —arriba o abajo, en `md`—, el tope del panel flotante de `ui/Disclosure` —que
 descuenta la barra de abajo mientras exista— y el de 500 px de alto. Si uno se mueve,
-los otros también. **Ningún test lo vigila**; lo caza la sonda del skill `arrancar`.
+los otros también. ~~Ningún test lo vigila~~: desde el
+[ADR 0122](./0122-lo-que-se-lee-va-al-cuerpo.md) son las variantes `barra-arriba:` y
+`ventana-baja:` de `globals.css`, y `screens/coherencia.test.ts` prohíbe el literal.
 
 Un botón que trabaja se sigue pudiendo enfocar, y pulsarlo otra vez no hace nada. Quien escriba un botón nuevo que espere tiene que pasar por
 `cargando` o `mientrasTrabaja`, o volverá a soltar el foco. Quien monte un `popover`

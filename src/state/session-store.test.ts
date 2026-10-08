@@ -10,8 +10,10 @@ import {
 } from '@core/music';
 
 import {
+  clasesDeLaMascara,
   NIVEL_QUE_SUENA,
   selectActiveKey,
+  selectClasesOidas,
   selectEscala,
   selectTonalidadParaAprender,
   TONALIDAD_DE_PARTIDA,
@@ -421,5 +423,25 @@ describe('la tonalidad para aprender', () => {
       tonic: pitchClassFromName('E'),
       mode: 'minor',
     });
+  });
+});
+
+/**
+ * Qué clases han sonado, en un número: lo que miran las propuestas de lo tocado
+ * es cuáles, no cuántas veces ni en qué orden.
+ */
+describe('las clases oidas', () => {
+  it('cada clase es un bit, y repetirla no cambia el numero', () => {
+    const { actions } = useSessionStore.getState();
+    actions.reset();
+    expect(selectClasesOidas(useSessionStore.getState())).toBe(0);
+
+    actions.setPitch(440, 0.99, 0); // A
+    const conLa = selectClasesOidas(useSessionStore.getState());
+    actions.setPitch(220, 0.99, 1000); // A otra vez
+    expect(selectClasesOidas(useSessionStore.getState())).toBe(conLa);
+
+    actions.setPitch(261.63, 0.99, 2000); // C
+    expect(clasesDeLaMascara(selectClasesOidas(useSessionStore.getState()))).toEqual([0, 9]);
   });
 });

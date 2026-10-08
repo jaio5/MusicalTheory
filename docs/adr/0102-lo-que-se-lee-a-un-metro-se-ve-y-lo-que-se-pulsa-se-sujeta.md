@@ -1,5 +1,7 @@
 # ADR 0102 — Lo que se lee a un metro se ve, y lo que se pulsa se sujeta
 
+> **Cifra superada:** hoy hay cinco `popover` en el código (el del metrónomo, el del micro y tres en `ComposeScreen`), no cuatro.
+
 Fecha: 2026-10-06 · Estado: aceptada · Amplía: [ADR 0065](./0065-lo-que-se-abre-desde-una-fila-que-se-desplaza-es-un-popover.md) · Ajusta: [ADR 0046](./0046-el-mastil-solo-ocupa-lo-que-dibuja.md)
 
 ## Contexto

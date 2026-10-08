@@ -2,7 +2,9 @@
 
 > **Nota del 2 de octubre de 2026:** «El peso no está medido todavía» ya no vale. Medido en producción ese día, `/componer` baja **227 KB de JavaScript y 339 en total**, con `peso-de-las-rutas.mjs`. Los motores de audio, además, ya no viajan a las pantallas que no escuchan ([ADR 0079](./0079-el-marco-se-monta-una-vez-y-el-micro-sobrevive-a-navegar.md)).
 
-Fecha: 2026-09-30 · Estado: aceptada · Revisa lo descartado en [ADR 0045](./0045-un-barril-por-pantalla-no.md)
+> **Nota del 8 de octubre de 2026: el reparto se ha invertido.** Desde el [ADR 0109](./0109-lo-que-se-da-por-hecho-al-empezar.md) se entra por `Escribir`, no por `Tocando`, y lo que esta decisión dejaba en el paquete de entrada era justo lo que no se pinta al entrar: quien volvía veía la pantalla vacía, «Abriendo el lienzo…» y el lienzo. Ahora **`ArrangeCanvas` va en el paquete de entrada** y **`TocarParaEscribir` en diferido**, con el ensayo; en reposo y al pasar por los espacios se piden tocando y el ensayo (`app/screens/componer/diferidos.tsx`). Medido con `peso-de-las-rutas.mjs` contra producción: el lienzo está en los scripts del HTML de `/componer` y tocando no. El resto de esta decisión —por qué `lazy` y no `next/dynamic`, del módulo y no del índice, pedir antes de hacer falta— sigue igual.
+
+Fecha: 2026-09-30 · Estado: aceptada, con el reparto invertido (nota de arriba) · Revisa lo descartado en [ADR 0045](./0045-un-barril-por-pantalla-no.md)
 
 ## Contexto
 

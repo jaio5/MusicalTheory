@@ -34,61 +34,74 @@ cualquier descripción.
 
 Después de la veinte, en un solo día (26 de agosto de 2026):
 
-| Qué                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------- |
-| Un modelo de casa —Ollama— para poder preguntarle a la IA sin clave y sin factura.                                  |
-| El esquema de las ideas deja de pedir de menos: de 0 de 4 peticiones válidas a 36 de 36.                            |
-| Un solo canal de texto libre, y el profesor declara si le preguntan de música.                                      |
-| El sonido se guarda y al parar se vuelve a escuchar entero, con ventana cuatro veces mayor.                         |
-| Las versiones pasan a ser **salidas**: canciones distintas con sus partes, no retoques.                             |
-| Repaso de toda la aplicación: código muerto fuera, tres fallos reales arreglados.                                   |
-| Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.                                   |
-| El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.                                     |
-| Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.                                   |
-| Qué nota puede seguir, siempre a la vista, y el punteo que tocas cae en la partitura.                               |
-| Aprender gana unidades de oído: suena un acorde en tu tonalidad y dices qué era.                                    |
-| Remate: el lienzo se guarda, los acordes se reordenan escritos y el bVII deja de ser A#.                            |
-| La interfaz se lee: fuera la monoespaciada de todo lo que no es un dato, y la rueda de pie.                         |
-| Grabarse pasa a ser solo sonido, que se oye ahí mismo; se va la cámara y su capa entera.                            |
-| El micrófono pasa a ser uno de verdad, y la tonalidad se recuerda de una vez para otra.                             |
-| La pregunta se ve como lo que hay que hacer, y cada botón que trabaja lo dice.                                      |
-| La rueda se recorre con las flechas, y abrirla en un móvil deja de vaciar la pantalla.                              |
-| La aplicación deja de prometer que detecta la tonalidad rasgueando: pide notas sueltas.                             |
-| La clave de sol se dibuja de su trazo y por fin se reconoce; la armadura deja de pisarla.                           |
-| Se usa la profundidad que ya estaba escrita: la partitura es hoja y las columnas se separan.                        |
-| Lo que estaba escrito tres y cinco veces pasa a estarlo una: rutas, oyentes y avisos.                               |
-| Componer suma a la racha y a la meta, y una parte dice si es estrofa, estribillo o idea.                            |
-| El grabado se mide en espacios de pentagrama, y la clave deja de parecer una clave de fa.                           |
-| Componer pasa a ser un banco de areas que se pliegan, con su reparto por espacio de trabajo.                        |
-| Se compone tocando: el micro escribe acordes y punteo, y la toma de audio se queda al lado.                         |
-| Ensayar lo escrito cuenta compases, racha y cual se atraganta, sin castigar por fallar.                             |
-| Se retiran las ideas, que ya no tenían ruta ni panel, y las salidas bajan de Pro a Medio.                           |
-| La portada cambia el vídeo por un local de ensayo de píxel, con el profesor sobre el ampli.                         |
-| La claqueta suena toda la toma, y el clic es un golpe de ruido que el micro no confunde.                            |
-| Las pantallas llenan el ancho: margen que crece, dos anchos y un `aside` pegado a un lado.                          |
-| La diana de la rueda sale de una cuenta, y pulsar abajo en «C» ya no elige La menor.                                |
-| El profesor tiene delante un glosario comprobado: de 12 a 26 de 28 preguntas bien.                                  |
-| El cobro guarda la suscripción en la cuenta y cancela primero en Stripe: sin probarlo contra él.                    |
-| Los topes cuentan la dirección que vio nuestro proxy, y entrar lleva tres claves.                                   |
-| El marco se monta una vez para todas las pantallas, y el micro abierto sigue abierto al navegar.                    |
-| Cambiar de modo recuerda lo que era cada bloque: ir y volver deja la canción como estaba.                           |
-| El lienzo de componer se guarda solo en el navegador, y vuelve al recargar.                                         |
-| Ensayar cuenta dos compases con el mismo metrónomo, y componer se pinta sin saltar al hidratar.                     |
-| Lo que trabaja no se apaga y el foco se mueve a mano: tres fronteras de error y atajos con AltGr.                   |
-| Las opciones se barajan por unidad y las formas de acorde dejan de pedir cejillas imposibles.                       |
-| Componer sencillo: una página de prueba en una columna, sin el banco de trabajo de `/componer`.                     |
-| El profesor siempre contesta: respaldo común si el modelo falla y glosario de 50 a 59 entradas.                     |
-| Las salidas las construye el dominio y el modelo elige: de 51 % a 100 % válidas, sin copiar.                        |
-| Los cifrados salen de una tabla por especie: `C6` deja de guardarse como `CmMaj7`.                                  |
-| Componer sencillo pasa a ser para tocar: cinco estados, un botón fijo y 2 toques hasta tocar.                       |
-| Se quita componer sencillo: una sola pantalla de componer y la tonalidad solo por notas.                            |
-| El micro se elige una vez, en todo momento y por su nombre, desde la barra de todas las pantallas.                  |
-| La escala se cambia dentro del mástil: flecha, desplegable y flecha en su cabecera.                                 |
-| La primera visita trae un recorrido de 21 pasos (19 en teléfono) que se puede volver a ver.                         |
-| Aprender sigue al conservatorio: 41 unidades que se presentan antes de enseñar, y dictado de intervalos.            |
-| Las salidas se juzgan por lo que encajan: contexto en la petición, once criterios y tres exámenes.                  |
-| Estética e interfaz: el mástil es una hoja en el teléfono, el dedo sujeta antes de arrastrar y no hay campo a mano. |
-| Primeros cinco minutos: recorrido de 5 pasos sin modal, aprender en Do mayor y se entra por escribir.               |
+| Qué                                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------- |
+| Un modelo de casa —Ollama— para poder preguntarle a la IA sin clave y sin factura.                                   |
+| El esquema de las ideas deja de pedir de menos: de 0 de 4 peticiones válidas a 36 de 36.                             |
+| Un solo canal de texto libre, y el profesor declara si le preguntan de música.                                       |
+| El sonido se guarda y al parar se vuelve a escuchar entero, con ventana cuatro veces mayor.                          |
+| Las versiones pasan a ser **salidas**: canciones distintas con sus partes, no retoques.                              |
+| Repaso de toda la aplicación: código muerto fuera, tres fallos reales arreglados.                                    |
+| Componer gana una segunda cara: la canción por bloques que se arrastran y suenan.                                    |
+| El punteo, en rejilla o en partitura, y los acordes se escriben o se arrastran.                                      |
+| Lo que se oye llega con su duda, se dice qué no se supo leer y se puede corregir.                                    |
+| Qué nota puede seguir, siempre a la vista, y el punteo que tocas cae en la partitura.                                |
+| Aprender gana unidades de oído: suena un acorde en tu tonalidad y dices qué era.                                     |
+| Remate: el lienzo se guarda, los acordes se reordenan escritos y el bVII deja de ser A#.                             |
+| La interfaz se lee: fuera la monoespaciada de todo lo que no es un dato, y la rueda de pie.                          |
+| Grabarse pasa a ser solo sonido, que se oye ahí mismo; se va la cámara y su capa entera.                             |
+| El micrófono pasa a ser uno de verdad, y la tonalidad se recuerda de una vez para otra.                              |
+| La pregunta se ve como lo que hay que hacer, y cada botón que trabaja lo dice.                                       |
+| La rueda se recorre con las flechas, y abrirla en un móvil deja de vaciar la pantalla.                               |
+| La aplicación deja de prometer que detecta la tonalidad rasgueando: pide notas sueltas.                              |
+| La clave de sol se dibuja de su trazo y por fin se reconoce; la armadura deja de pisarla.                            |
+| Se usa la profundidad que ya estaba escrita: la partitura es hoja y las columnas se separan.                         |
+| Lo que estaba escrito tres y cinco veces pasa a estarlo una: rutas, oyentes y avisos.                                |
+| Componer suma a la racha y a la meta, y una parte dice si es estrofa, estribillo o idea.                             |
+| El grabado se mide en espacios de pentagrama, y la clave deja de parecer una clave de fa.                            |
+| Componer pasa a ser un banco de areas que se pliegan, con su reparto por espacio de trabajo.                         |
+| Se compone tocando: el micro escribe acordes y punteo, y la toma de audio se queda al lado.                          |
+| Ensayar lo escrito cuenta compases, racha y cual se atraganta, sin castigar por fallar.                              |
+| Se retiran las ideas, que ya no tenían ruta ni panel, y las salidas bajan de Pro a Medio.                            |
+| La portada cambia el vídeo por un local de ensayo de píxel, con el profesor sobre el ampli.                          |
+| La claqueta suena toda la toma, y el clic es un golpe de ruido que el micro no confunde.                             |
+| Las pantallas llenan el ancho: margen que crece, dos anchos y un `aside` pegado a un lado.                           |
+| La diana de la rueda sale de una cuenta, y pulsar abajo en «C» ya no elige La menor.                                 |
+| El profesor tiene delante un glosario comprobado: de 12 a 26 de 28 preguntas bien.                                   |
+| El cobro guarda la suscripción en la cuenta y cancela primero en Stripe: sin probarlo contra él.                     |
+| Los topes cuentan la dirección que vio nuestro proxy, y entrar lleva tres claves.                                    |
+| El marco se monta una vez para todas las pantallas, y el micro abierto sigue abierto al navegar.                     |
+| Cambiar de modo recuerda lo que era cada bloque: ir y volver deja la canción como estaba.                            |
+| El lienzo de componer se guarda solo en el navegador, y vuelve al recargar.                                          |
+| Ensayar cuenta dos compases con el mismo metrónomo, y componer se pinta sin saltar al hidratar.                      |
+| Lo que trabaja no se apaga y el foco se mueve a mano: tres fronteras de error y atajos con AltGr.                    |
+| Las opciones se barajan por unidad y las formas de acorde dejan de pedir cejillas imposibles.                        |
+| Componer sencillo: una página de prueba en una columna, sin el banco de trabajo de `/componer`.                      |
+| El profesor siempre contesta: respaldo común si el modelo falla y glosario de 50 a 59 entradas.                      |
+| Las salidas las construye el dominio y el modelo elige: de 51 % a 100 % válidas, sin copiar.                         |
+| Los cifrados salen de una tabla por especie: `C6` deja de guardarse como `CmMaj7`.                                   |
+| Componer sencillo pasa a ser para tocar: cinco estados, un botón fijo y 2 toques hasta tocar.                        |
+| Se quita componer sencillo: una sola pantalla de componer y la tonalidad solo por notas.                             |
+| El micro se elige una vez, en todo momento y por su nombre, desde la barra de todas las pantallas.                   |
+| La escala se cambia dentro del mástil: flecha, desplegable y flecha en su cabecera.                                  |
+| La primera visita trae un recorrido de 21 pasos (19 en teléfono) que se puede volver a ver.                          |
+| Aprender sigue al conservatorio: 41 unidades que se presentan antes de enseñar, y dictado de intervalos.             |
+| Las salidas se juzgan por lo que encajan: contexto en la petición, once criterios y tres exámenes.                   |
+| Estética e interfaz: el mástil es una hoja en el teléfono, el dedo sujeta antes de arrastrar y no hay campo a mano.  |
+| Primeros cinco minutos: recorrido de 5 pasos sin modal, aprender en Do mayor y se entra por escribir.                |
+| Preguntar lo dudoso sin ir a buscarlo: la pregunta sale sola, una y con la cuenta de las que quedan.                 |
+| El lienzo se guarda solo en el navegador (IndexedDB) y reabrir ya no desagrupa los bloques: un campo más en el JSON. |
+| El primer fotograma de componer en un teléfono deja de saltar (CLS de 0,116 a 0, adr/0083).                          |
+| La canción vive en este navegador y se dice; dos pestañas se avisan; un solo buscador de acordes (adr/0118).         |
+| La partitura llena su hueco, lo elegido se cambia en su sitio y el lienzo se parte (adr/0119).                       |
+| La primera visita no se mueve y cada pantalla trae lo suyo; la precarga de la barra (adr/0120).                      |
+| La base de los tests se migra una vez, el reloj corre aparte y la CI va en trabajos paralelos (adr/0121).            |
+| Lo que se lee va al cuerpo y los cortes de la navegación tienen nombre (adr/0122).                                   |
+| La unidad se retoma por donde iba (adr/0123).                                                                        |
+| El motor de salidas se parte por oficio y `versions` pasa a llamarse `salidas` (adr/0124).                           |
+| Los ADR viejos llevan aviso y el texto no se reescribe (adr/0125).                                                   |
+| Aviso legal y política de privacidad escritos, con el titular leído del entorno (adr/0111).                          |
+| Entrar tiene tope de intentos antes de comprobar la contraseña (adr/0054), por correo y dirección juntos (adr/0078). |
 
 ## Los fallos que enseñaron algo
 

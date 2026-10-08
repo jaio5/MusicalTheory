@@ -34,7 +34,9 @@ export function ResumeLast({ createStorage }: ResumeLastProps = {}) {
 
   const pinnedKey = useSessionStore((state) => state.pinnedKey);
   const path = useSessionStore((state) => state.path);
-  const noteHistory = useSessionStore((state) => state.noteHistory);
+  // Si se ha tocado algo, y no qué: el historial cambia con cada nota y esta
+  // línea solo necesita saber si sigue vacío.
+  const nadaTocado = useSessionStore((state) => state.noteHistory.length === 0);
 
   const factoryRef = useRef(createStorage);
   useEffect(() => {
@@ -60,7 +62,7 @@ export function ResumeLast({ createStorage }: ResumeLastProps = {}) {
 
   // Virgen: nada elegido y nada tocado todavía. Se mira aquí y no al leer
   // porque entre abrir la pantalla y contestar IndexedDB da tiempo a tocar.
-  const virgen = pinnedKey === null && path.length === 0 && noteHistory.length === 0;
+  const virgen = pinnedKey === null && path.length === 0 && nadaTocado;
 
   if (last === null || descartada || !virgen || last.key === null) {
     return null;
@@ -75,7 +77,7 @@ export function ResumeLast({ createStorage }: ResumeLastProps = {}) {
 
   return (
     <div className="border-border flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5">
-      <p className="text-text-muted min-w-0 grow text-sm">
+      <p className="text-text-muted min-w-0 grow">
         La última vez estabas en{' '}
         <span className="text-brass-bright">{keyName(last.key.tonic, last.key.mode)}</span>
         {escala !== undefined && <> con la {escala.name.toLowerCase()}</>}.

@@ -27,7 +27,11 @@ beforeEach(() => {
   localStorage.clear();
   // Desde tocando, que es el que tiene las tres clases de área —abierta, plegada
   // y la rueda—; por dónde se entra lo dice su propio test.
-  useBancoStore.setState({ espacio: 'tocando', repartos: REPARTOS_DE_FABRICA });
+  useBancoStore.setState({
+    espacio: 'tocando',
+    repartos: REPARTOS_DE_FABRICA,
+    areaEnElMovil: 'arreglo',
+  });
 });
 
 /**
@@ -63,24 +67,47 @@ describe('mover un area', () => {
 });
 
 /**
- * Arrastrando un divisor se mueve en memoria y no se guarda: guardar es leer y
- * escribir las preferencias enteras, y un arrastre son sesenta movimientos por
- * segundo. Lo que se guarda es lo del final, con `mover`.
+ * En un teléfono se ve un área cada vez, y no se guarda cuál: es por dónde ibas.
  */
-describe('arrastrar un area', () => {
-  it('cambia el reparto sin guardarlo', () => {
-    const guardado = loadPreferences().banco.repartos.tocando.izquierda;
+describe('el area del telefono', () => {
+  it('se elige, y no se recuerda', () => {
+    acciones().verEnElMovil('acorde');
 
-    acciones().arrastrar('izquierda', 26);
-
-    expect(selectReparto(useBancoStore.getState()).izquierda).toBe(26);
-    expect(loadPreferences().banco.repartos.tocando.izquierda).toBe(guardado);
+    expect(useBancoStore.getState().areaEnElMovil).toBe('acorde');
+    expect(JSON.stringify(loadPreferences())).not.toContain('acorde');
   });
 
-  it('y tampoco se sale de los topes', () => {
-    acciones().arrastrar('izquierda', 9000);
+  it('pulsar un espacio vuelve al arreglo: los espacios son sus pestañas', () => {
+    acciones().verEnElMovil('camino');
+    acciones().espacio('ensayar');
 
-    expect(selectReparto(useBancoStore.getState()).izquierda).toBe(TOPES_DEL_BANCO.izquierda.max);
+    expect(useBancoStore.getState().areaEnElMovil).toBe('arreglo');
+  });
+});
+
+/**
+ * Salidas sin plan lleva a su versión gratis, «A dónde ir»: se despliega, se ve
+ * en el teléfono y el área de abajo se cierra para dejarle su alto.
+ */
+describe('ir a «a donde ir»', () => {
+  it('la despliega, cierra lo de abajo y la enseña en el telefono', () => {
+    acciones().abrirAbajo('salidas');
+    expect(reparto().plegadas).toContain('camino');
+
+    acciones().irADondeIr();
+
+    expect(reparto().plegadas).not.toContain('camino');
+    expect(reparto().abajo).toBeNull();
+    expect(guardado().abajo).toBeNull();
+    expect(useBancoStore.getState().areaEnElMovil).toBe('camino');
+  });
+
+  it('lo demas que estuviera plegado sigue plegado', () => {
+    acciones().irADondeIr();
+
+    expect(reparto().plegadas).toEqual(
+      REPARTOS_DE_FABRICA.tocando.plegadas.filter((area) => area !== 'camino'),
+    );
   });
 });
 

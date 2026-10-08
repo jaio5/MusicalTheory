@@ -92,7 +92,7 @@ export function Checkout({
         <div>
           <p className="rotulo text-tube-bright">{done ? 'Plan activado' : 'Ya lo tienes'}</p>
           <h2 className="text-text mt-1 text-2xl">Tienes el plan {plan.name}</h2>
-          <p className="text-text-muted mt-2 max-w-prose text-sm">
+          <p className="text-text-muted mt-2 max-w-prose">
             {/* v8 ignore start -- los planes de pago abren todos el Grado Profesional; la otra frase espera a que haya uno que no */}
             {can(plan.id, 'grado-profesional')
               ? 'El Grado Profesional está abierto, y puedes empezar por el curso que quieras desde el camino.'
@@ -127,9 +127,9 @@ export function Checkout({
           <div className="border-border flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-4 py-3">
             <div className="min-w-[min(100%,10rem)] grow basis-0">
               <p className="text-text text-lg">Plan {plan.name}</p>
-              <p className="text-text-muted text-sm">{plan.claim}</p>
+              <p className="text-text-muted">{plan.claim}</p>
             </div>
-            <p className="text-brass-bright min-w-0 font-mono text-lg">
+            <p className="titular text-brass-bright min-w-0 text-xl tabular-nums">
               {priceLabel(plan.id, periodo)}
             </p>
           </div>
@@ -148,7 +148,7 @@ export function Checkout({
               valor={periodo}
               onCambiar={setPeriodo}
             />
-            <p className="text-text-muted text-sm">
+            <p className="text-text-muted">
               {periodo === 'anual'
                 ? `Pagas ${MESES_QUE_SE_PAGAN_AL_AÑO} meses y tienes 12: ${MESES_GRATIS_AL_AÑO} gratis.`
                 : `O ${priceLabel(plan.id, 'anual')}: ${MESES_GRATIS_AL_AÑO} meses gratis.`}
@@ -162,7 +162,7 @@ export function Checkout({
                 // nuevo sería inflar la lista con cosas por las que ya pagabas.
                 const nuevo = !can(actual.id, capability);
                 return (
-                  <li key={capability} className="flex items-baseline gap-2 text-sm">
+                  <li key={capability} className="flex items-baseline gap-2">
                     <span aria-hidden="true" className="text-tube-bright">
                       ✓
                     </span>
@@ -174,7 +174,7 @@ export function Checkout({
                 );
               },
             )}
-            <li className="text-text mt-1 flex items-baseline gap-2 text-sm">
+            <li className="text-text mt-1 flex items-baseline gap-2">
               <span aria-hidden="true" className="text-tube-bright">
                 ✓
               </span>
@@ -192,7 +192,7 @@ export function Checkout({
         </div>
 
         {!esSubida && (
-          <p className="text-text-muted mt-2 text-sm">
+          <p className="text-text-muted mt-2">
             Vienes del plan {actual.name}. Comprueba que no pierdes nada que estés usando: lo que no
             entra en {plan.name} aparece tachado en la lista de planes.
           </p>
@@ -202,7 +202,7 @@ export function Checkout({
       {!accounts ? (
         // Lo que no hay sale de la tabla de permisos: decía «todo lo que no es IA
         // funciona igual», y el repaso y guardar canciones tampoco están sin plan.
-        <p className="text-text-muted max-w-prose text-sm">
+        <p className="text-text-muted max-w-prose">
           Esta copia de la aplicación no tiene cuentas configuradas, así que no hay dónde guardar un
           plan, y lo que trae el {plan.name} tampoco está aquí: {enUnaFrase(loQueTrae(plan.id))}. Lo
           que pasa en tu navegador —afinar, componer, grabar y el Grado Elemental— funciona igual y
@@ -211,7 +211,7 @@ export function Checkout({
       ) : !signedIn ? (
         <section aria-label="Entrar para continuar">
           <h2 className="rotulo">Primero, tu cuenta</h2>
-          <p className="text-text-muted mt-1 mb-3 max-w-prose text-sm">
+          <p className="text-text-muted mt-1 mb-3 max-w-prose">
             El plan va asociado a una cuenta. Al entrar te quedas aquí y sigues con el plan{' '}
             {plan.name}.
           </p>
@@ -224,7 +224,7 @@ export function Checkout({
           {/* Lo que sigue es la frase más importante de la pantalla y va antes del
               botón, no debajo en letra pequeña. */}
           <div className="superficie-viva mt-3 p-3">
-            <p className="text-text text-sm">
+            <p className="text-text">
               {charges ? (
                 <>
                   <strong>Al confirmar se sale a pagar.</strong> Los datos de la tarjeta se escriben

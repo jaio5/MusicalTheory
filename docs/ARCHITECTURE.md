@@ -103,7 +103,7 @@ estilo. Zustand, no Context, por lo que se explica más abajo.
 Aquí vive también `account.ts`, que es el único fichero del navegador que importa
 `next-auth/react`: un feature que importase la librería de sesión quedaría atado a
 ella, y así queda atado a `useAccount`. La cuenta no se pide con un `fetch` al
-montar: la lee el layout en el servidor y baja por el proveedor, para que quien
+montar: la lee el layout de `(marco)` en el servidor y baja por el proveedor, para que quien
 entra pagando no vea medio segundo de candados antes de que se abran solos.
 
 Aquí vive también `use-listening.ts`, que es lo que conecta la captura de audio
@@ -151,7 +151,11 @@ abajo de componer, y quien graba el sonido mientras escribes tocando es
 
 ### `ui/`
 
-Botones, paneles, tipografía, tokens. Sin lógica de negocio.
+Botones, paneles, tipografía, tokens. Sin lógica de negocio. **Tres piezas están
+conectadas con nombre** —`EmpezarPorTonalidad`, `CupoDeIA` y `ThemeToggle` leen
+`@state`— y ESLint cierra el resto: otro fichero de `ui/` que importe un valor de
+`@state`, `@audio` o `@media` no pasa el lint
+([adr/0124](./adr/0124-el-motor-de-salidas-se-parte-por-oficio.md)).
 
 ## Quién puede importar a quién
 
@@ -194,9 +198,12 @@ Las flechas van siempre hacia abajo. Cinco reglas que no se saltan:
    `AudioContext` suelto dentro de un componente.
 3. **Un `feature` no importa de otro `feature`.** Lo compartido sube a `core/`,
    `ui/` o `state/`. También lo vigila ESLint.
-4. **El audio del usuario no sale del dispositivo.** A la IA solo
-   viajan símbolos: tonalidad, escala, nombres de notas, grado actual. Y a la base
-   de datos, identificadores de unidad, números y fechas.
+4. **El audio del usuario no sale del dispositivo.** A la IA
+   viajan símbolos —tonalidad, escala, grados y pulsos— y el texto libre que
+   escribe quien pregunta (la pregunta al profesor y las directrices, hasta 240
+   caracteres cada una). A la base de datos van el correo, el nombre si lo dijo,
+   identificadores de unidad, números, fechas y los nombres de sección de las
+   canciones guardadas.
    Ver [AI.md](./AI.md) y [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md).
 5. **`server/` solo lo abre `app/`, y `server/` no importa del navegador.** Es la
    regla que evita llevarse la cadena de conexión al bundle del cliente. También
@@ -275,8 +282,8 @@ quien lo monta lo pide**. Pasada la prop, quien la pasa es de cliente y el
 componente baja con él; sin pasarla, el elemento sale limpio y el servidor lo
 sirve.
 
-El layout raíz es de servidor y lee la cuenta, y lleva `export const dynamic =
-'force-dynamic'`. Sin eso, un `pnpm build` hecho sin `DATABASE_URL` deja las
+El layout raíz es de servidor y lleva `export const dynamic = 'force-dynamic'`; la
+cuenta la lee el layout de `(marco)`, que hereda eso. Sin eso, un `pnpm build` hecho sin `DATABASE_URL` deja las
 páginas prerenderizadas con la cuenta anónima dentro y luego se sirve ese HTML
 aunque al arrancar sí haya base de datos: es exactamente lo que pasa en el camino
 del contenedor, donde se construye sin variables y se corre con ellas.

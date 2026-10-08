@@ -4,7 +4,7 @@
 
 > **Sustituido en parte por [ADR 0091](./0091-componer-sencillo-es-para-tocar.md):** la página ya no es un editor de fichas sino una pantalla para tocar; sigue en pie que es aparte, de una columna y con el almacén de la completa.
 
-Fecha: 2026-10-03 · Estado: aceptada, **a prueba** · Se apoya en:
+Fecha: 2026-10-03 · Estado: sustituida por [ADR 0095](./0095-se-quita-componer-sencillo.md) · Se apoya en:
 [ADR 0031](./0031-componer-es-un-banco-de-trabajo.md) y
 [ADR 0034](./0034-tres-maneras-de-escribir-la-misma-cancion.md), que siguen en pie
 

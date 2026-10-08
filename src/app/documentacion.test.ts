@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, resolve, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -33,7 +33,7 @@ function leer(ruta: string): string {
   return readFileSync(resolve(RAIZ, ruta), 'utf8');
 }
 
-/** Los números hasta ciento doce, como los escribe esta casa: con letra. */
+/** Los números hasta ciento veinticinco, como los escribe esta casa: con letra. */
 const EN_LETRA: Readonly<Record<number, string>> = {
   13: 'trece',
   14: 'catorce',
@@ -129,6 +129,19 @@ const EN_LETRA: Readonly<Record<number, string>> = {
   115: 'ciento quince',
   116: 'ciento dieciséis',
   117: 'ciento diecisiete',
+  118: 'ciento dieciocho',
+  119: 'ciento diecinueve',
+  120: 'ciento veinte',
+  121: 'ciento veintiuno',
+  122: 'ciento veintidós',
+  123: 'ciento veintitrés',
+  124: 'ciento veinticuatro',
+  125: 'ciento veinticinco',
+  126: 'ciento veintiséis',
+  127: 'ciento veintisiete',
+  128: 'ciento veintiocho',
+  129: 'ciento veintinueve',
+  130: 'ciento treinta',
 };
 
 describe('lo que la documentación cuenta', () => {
@@ -184,7 +197,7 @@ describe('lo que la documentación cuenta', () => {
       ),
     );
     // Y lo que gasta una salida, que es la otra mitad del número (adr/0067).
-    const k = unidadesDe('versiones', modelo);
+    const k = unidadesDe('salidas', modelo);
     expect(texto).toMatch(
       new RegExp(`Preguntas que gasta una salida\\s*\\|\\s*—\\s*\\|\\s*—\\s*\\|\\s*${k}`),
     );
@@ -198,6 +211,8 @@ describe('lo que la documentación cuenta', () => {
   it('la tabla de cupos por modelo del despliegue tambien', () => {
     const texto = leer('docs/DESPLIEGUE.md');
 
+    // La fila entera de cada modelo, con sus dos planes en su sitio: que «96/mes»
+    // salga en cualquier parte del documento no dice de quién es.
     for (const modelo of [
       'claude-sonnet-5-5',
       'claude-opus-5-5',
@@ -205,12 +220,44 @@ describe('lo que la documentación cuenta', () => {
       'claude-haiku-4-5',
       'claude-fable-5-1',
     ]) {
-      const fila = (['basico', 'medio'] as const).map(
-        (plan) => `${monthlyAiRequests(plan, modelo)}/mes`,
+      const [basico, medio] = (['basico', 'medio'] as const).map((plan) =>
+        monthlyAiRequests(plan, modelo),
       );
-      for (const celda of fila) {
-        expect(texto, `${modelo}: ${celda}`).toContain(celda);
-      }
+      const fila = texto
+        .split('\n')
+        .find((linea) => linea.startsWith(`| \`${modelo}\``) && linea.includes('/mes'));
+      expect(fila, `la fila de ${modelo}`).toBeDefined();
+      const celdas = (fila as string).split('|').map((celda) => celda.trim());
+      expect(celdas.slice(2, 4), `${modelo}: básico y medio`).toEqual([
+        `${basico}/mes`,
+        `${medio}/mes`,
+      ]);
+    }
+
+    // Y la tabla de CUENTAS-Y-PLANES, columna por columna: mes y día por modelo.
+    const cuentas = leer('docs/CUENTAS-Y-PLANES.md');
+    const modelos = [
+      DEFAULT_AI_MODEL,
+      'claude-haiku-4-5',
+      'claude-opus-5',
+      'claude-opus-5-5',
+      'claude-fable-5-1',
+    ];
+    for (const [etiqueta, plan] of [
+      ['Básico', 'basico'],
+      ['Medio', 'medio'],
+    ] as const) {
+      const fila = cuentas
+        .split('\n')
+        .find((l) => l.startsWith(`| ${etiqueta}`) && l.includes('/mes ·'));
+      expect(fila, `la fila de ${etiqueta}`).toBeDefined();
+      const esperado = modelos.map((modelo, i) => {
+        const mes = monthlyAiRequests(plan, modelo);
+        const dia = dailyAiRequests(plan, modelo);
+        return i === 0 ? `${mes}/mes · ${dia}/día` : `${mes} · ${dia}`;
+      });
+      const celdas = (fila as string).split('|').map((celda) => celda.trim());
+      expect(celdas.slice(2, 7), `${etiqueta} por modelo`).toEqual(esperado);
     }
   });
 
@@ -250,4 +297,124 @@ describe('lo que la documentación cuenta', () => {
   it('la superficie de texto libre que declara AI.md es la que hay', () => {
     expect(leer('docs/AI.md')).toContain(`${MAX_QUESTION_LENGTH} caracteres`);
   });
+
+  /**
+   * El mapa enruta, no explica: si pasa de unas 130 líneas con contenido, lo que
+   * crece es el porqué, y eso vive en `docs/`.
+   */
+  it('CLAUDE.md no pasa de 130 líneas con contenido', () => {
+    const conContenido = leer('CLAUDE.md')
+      .split('\n')
+      .filter((linea) => linea.trim() !== '');
+
+    expect(conContenido.length).toBeLessThanOrEqual(130);
+  });
+
+  /**
+   * **Un fichero que un documento nombra existe, y un símbolo de una fila está en
+   * el fichero de esa fila.** Los mapas (`CLAUDE.md` y la tabla «busco X») son lo
+   * que más se copia y menos se relee: tras partir `versions/` en `salidas/` la
+   * tabla siguió mandando a rutas que ya no estaban. Aquí se leen las comillas
+   * invertidas y se comprueban contra el árbol de verdad.
+   */
+  describe('los mapas nombran lo que existe', () => {
+    const ficheros = todosLosFicheros();
+
+    for (const doc of ['CLAUDE.md', 'docs/ENCONTRAR-UN-FICHERO.md']) {
+      it(`${doc}: cada ruta que nombra existe`, () => {
+        const rotas = [...leer(doc).matchAll(/`([^`\n]+)`/g)]
+          .map((m) => m[1] as string)
+          .filter(pareceUnaRuta)
+          .filter((ruta) => resolverRuta(ruta, ficheros).length === 0);
+
+        expect(rotas, 'rutas que no existen en el árbol').toEqual([]);
+      });
+
+      it(`${doc}: el símbolo de una fila está en el fichero de esa fila`, () => {
+        const sueltos: string[] = [];
+
+        for (const linea of leer(doc).split('\n')) {
+          if (!linea.startsWith('|')) continue;
+          const fichas = [...linea.matchAll(/`([^`\n]+)`/g)].map((m) => m[1] as string);
+          const rutas = fichas.filter(pareceUnaRuta).flatMap((r) => resolverRuta(r, ficheros));
+          if (rutas.length === 0) continue;
+          const texto = rutas.map((r) => leerSiEsCodigo(r)).join('\n');
+
+          for (const ficha of fichas.filter(pareceUnSimbolo)) {
+            if (!texto.includes(ficha)) sueltos.push(`${ficha}  ←  ${linea.slice(0, 60).trim()}`);
+          }
+        }
+
+        expect(sueltos, 'símbolos que no están en los ficheros de su fila').toEqual([]);
+      });
+    }
+  });
+
+  /**
+   * Y los enlaces entre documentos llevan a algún sitio: un `[x](./y.md)` roto
+   * se lee bien y falla al pulsarlo, que es cuando ya no hay quien lo arregle.
+   */
+  it('no hay enlaces relativos rotos en los documentos', () => {
+    const documentos = [
+      'README.md',
+      'CLAUDE.md',
+      ...todosLosFicheros().filter((f) => f.startsWith('docs/') && f.endsWith('.md')),
+    ];
+    const rotos: string[] = [];
+
+    for (const doc of documentos) {
+      const sinCodigo = leer(doc).replace(/```[\s\S]*?```/g, '');
+      for (const m of sinCodigo.matchAll(/\]\((?!https?:|mailto:|#)([^)\s]+)\)/g)) {
+        const destino = (m[1] as string).split('#')[0] as string;
+        if (destino === '') continue;
+        const absoluto = resolve(RAIZ, dirname(doc), destino);
+        if (!existsSync(absoluto)) rotos.push(`${doc} → ${m[1]}`);
+      }
+    }
+
+    expect(rotos).toEqual([]);
+  });
 });
+
+/** Todos los ficheros del proyecto, con ruta relativa, sin lo generado ni lo instalado. */
+function todosLosFicheros(): string[] {
+  const fuera = /(^|\/)(node_modules|\.next|\.git|coverage|\.vitest-reports)(\/|$)/;
+  return (readdirSync(RAIZ, { recursive: true }) as string[])
+    .map((f) => f.split(sep).join('/'))
+    .filter((f) => !fuera.test(f));
+}
+
+/** ¿Esto, entre comillas invertidas, está diciendo una ruta? */
+function pareceUnaRuta(ficha: string): boolean {
+  if (/[\s*{}<>:,;=@$]/.test(ficha) || ficha.startsWith('/') || ficha.startsWith('-')) return false;
+  // Lo instalado no es del proyecto: lo nombra `CLAUDE.md` para mandar a leerlo.
+  if (ficha.startsWith('node_modules/')) return false;
+  if (/^\d+$/.test(ficha) || ficha.startsWith('.')) return false;
+  const conExtension = /\.(tsx?|mjs|css|md|json|sql|py|svg|ya?ml)$/.test(ficha);
+  return (
+    conExtension || (ficha.includes('/') && /^[\w\-()[\].]+(\/[\w\-()[\].]+)*\/?$/.test(ficha))
+  );
+}
+
+/** Un nombre de código con mayúscula dentro (`selectEscala`, `MOVES`), no una palabra. */
+function pareceUnSimbolo(ficha: string): boolean {
+  return /^[A-Za-z_]\w*$/.test(ficha) && /[A-Z]/.test(ficha.slice(1)) && !ficha.endsWith('.');
+}
+
+/** Los ficheros del árbol a los que puede apuntar esa ruta: entera, por el final o como carpeta. */
+function resolverRuta(ruta: string, ficheros: readonly string[]): string[] {
+  const r = ruta.replace(/\/$/, '');
+  return ficheros.filter(
+    (f) =>
+      f === r ||
+      f.endsWith(`/${r}`) ||
+      f.startsWith(`${r}/`) ||
+      f.includes(`/${r}/`) ||
+      f.includes(`/${r}.`) ||
+      f.includes(`/${r}-`),
+  );
+}
+
+function leerSiEsCodigo(ruta: string): string {
+  return /\.(tsx?|mjs|css|py|sql|ya?ml|json|md)$/.test(ruta) ? leer(ruta) : '';
+}

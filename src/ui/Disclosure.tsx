@@ -217,13 +217,16 @@ export function Disclosure({
           // una fila solo pierden los 48 px que aquí sobran, y la rueda se
           // desplaza dentro de su panel: no se queda nada fuera de alcance.
           //
-          // **El corte es `md` y no `sm` porque es donde la navegación cambia de
-          // sitio**, y este número solo dice cuánto marco hay. Estuvo en `sm`
-          // mientras la barra de abajo se iba en 640; al llevarla a 768 —abajo de
-          // eso la cabecera no cabía y se comía el botón de la cuenta— este tope
-          // se quedó descontando una navegación que seguía ahí, y la rueda volvía
-          // a salirse entre 640 y 767 con la ventana baja. Si un día vuelve a
-          // moverse dónde está la navegación, esto se mueve con ella.
+          // **El corte es `barra-arriba` y no `sm` porque es donde la navegación
+          // cambia de sitio**, y este número solo dice cuánto marco hay. Estuvo en
+          // `sm` mientras la barra de abajo se iba en 640; al llevarla a 768 —abajo
+          // de eso la cabecera no cabía y se comía el botón de la cuenta— este
+          // tope se quedó descontando una navegación que seguía ahí, y la rueda
+          // volvía a salirse entre 640 y 767 con la ventana baja. Ahora es la
+          // misma variante que pide `AppShell` (`globals.css`): si la navegación
+          // se mueve, esto se mueve con ella. Va con `max-lg` porque una variante
+          // propia se escribe en la hoja **después** de `lg`, y sin acotarla le
+          // ganaría desde 1024.
           //
           // **La barra de herramientas no se descuenta, se tapa.** Mientras eliges
           // tonalidad, esa fila no sirve para nada, y reservarle sus sesenta y un
@@ -247,7 +250,7 @@ export function Disclosure({
           // del borde de abajo, y por eso por debajo de 500 px de alto **el marco
           // deja desplazar** su `<main>` y pliega la navegación de abajo a solo
           // iconos (`app/AppShell.tsx`): lo que no cabe se alcanza bajando.
-          className="border-border motion-safe:animate-desplegar absolute inset-x-0 top-full z-30 max-h-[max(9rem,calc(100dvh-22rem))] overflow-y-auto border-b shadow-[var(--sombra-alta)] sm:max-h-[max(9rem,calc(100dvh-18.5rem))] md:max-h-[max(9rem,calc(100dvh-14rem))] lg:max-h-[max(9rem,calc(100dvh-12rem))]"
+          className="border-border motion-safe:animate-desplegar barra-arriba:max-lg:max-h-[max(9rem,calc(100dvh-14rem))] absolute inset-x-0 top-full z-30 max-h-[max(9rem,calc(100dvh-22rem))] overflow-y-auto border-b shadow-[var(--sombra-alta)] sm:max-h-[max(9rem,calc(100dvh-18.5rem))] lg:max-h-[max(9rem,calc(100dvh-12rem))]"
           style={PISTA_DE_QUE_SIGUE}
         >
           {children}

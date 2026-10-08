@@ -1,5 +1,6 @@
 'use client';
 
+import { cifraCorta, enPulsos } from '@core/cifras';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 
@@ -368,7 +369,7 @@ export const MelodyLane = memo(function MelodyLane({
                 data-nota={note.id}
                 onPointerDown={(event) => cogerNota(event, note)}
                 onClick={() => onSelect(note.id)}
-                aria-label={`${nombre}, ${note.length} pulsos, en el pulso ${note.start}${
+                aria-label={`${nombre}, ${enPulsos(note.length)}, en el pulso ${cifraCorta(note.start)}${
                   isDoubtfulNote(note) ? ', dudosa' : ''
                 }`}
                 aria-pressed={selectedNoteId === note.id}

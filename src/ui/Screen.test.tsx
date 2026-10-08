@@ -201,12 +201,32 @@ describe('la linea de una cabecera de trabajo, solo en el banco', () => {
       />,
     );
 
-    expect(screen.getByText('Escribe la canción.')).toHaveClass('max-lg:hidden', 'flex-1');
+    expect(screen.getByText('Escribe la canción.')).toHaveClass('max-lg:hidden', 'sm:flex-1');
     expect(screen.getByText('Mandos').parentElement).toHaveClass(
       'max-lg:flex-1',
       'max-lg:basis-0',
       'lg:ml-auto',
     );
+  });
+
+  /**
+   * En un teléfono la línea se cortaba —«…por donde quiere…»— y dejaba las
+   * acciones solas en otra fila. Ahora va debajo, entera, y a la letra del
+   * cuerpo; solo se corta al lado del título, desde `sm`.
+   */
+  it('en un telefono va debajo y entera, a la letra del cuerpo', () => {
+    render(<WorkHeader title="Aprender" lead="Diez cursos, y empiezas por donde quieras." />);
+
+    const linea = screen.getByText('Diez cursos, y empiezas por donde quieras.');
+    expect(linea).toHaveClass('max-sm:order-last', 'max-sm:basis-full', 'sm:truncate');
+    expect(linea).not.toHaveClass('truncate', 'text-sm');
+  });
+
+  it('y empieza en el mismo borde que el cuerpo de las pantallas', () => {
+    render(<WorkHeader title="Repaso" back={{ href: '/aprender', label: 'Camino' }} />);
+
+    expect(screen.getByRole('heading', { level: 1 }).parentElement).toHaveClass('px-margen');
+    expect(screen.getByRole('link', { name: /Camino/ })).toHaveClass('min-h-tap');
   });
 
   it('sin pedirlo, la linea se ve en cualquier ancho', () => {

@@ -1,5 +1,7 @@
 # ADR 0018 — Componer tiene dos caras, y en la de montar los acordes duran
 
+> **Sustituido en parte por [ADR 0031](./0031-componer-es-un-banco-de-trabajo.md) y [ADR 0032](./0032-la-progresion-y-el-montaje-son-lo-mismo.md):** `/componer` es un banco de trabajo con tres espacios, no dos caras, y la progresión y el montaje son la misma cosa.
+
 Fecha: 2026-09-07 · Estado: aceptada
 
 ## Contexto

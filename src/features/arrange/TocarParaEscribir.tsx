@@ -28,7 +28,14 @@ import { Button } from '@ui/Button';
 import { Chip } from '@ui/Chip';
 import { Segmentado } from '@ui/Segmentado';
 import { reloj } from '@core/reloj';
-import { IconoDescargar, IconoMicro, IconoPapelera, IconoParar, IconoSonar } from '@ui/icons';
+import {
+  IconoComponer,
+  IconoDescargar,
+  IconoMicro,
+  IconoPapelera,
+  IconoParar,
+  IconoSonar,
+} from '@ui/icons';
 import { Vacio } from '@ui/Vacio';
 
 /**
@@ -268,7 +275,11 @@ export function TocarParaEscribir({
    * saber qué hay ya delante es la diferencia entre continuar una canción y
    * grabar encima sin saber dónde.
    *
-   * Apagado a propósito: es contexto, no lo que se está haciendo.
+   * **Encendido, no apagado.** Iba al sesenta por ciento, en gris y en
+   * monoespaciada, y se leía como una lista deshabilitada: es la canción de
+   * quien toca, y se mira de lejos antes de empezar. Los cifrados van en la
+   * letra de los títulos, como en la partitura del lienzo (adr/0119); la mono es
+   * para lo que se alinea en columna (adr/0024).
    */
   // **Solo los grados que existen en este modo**, y es una red y no el camino.
   // El montaje se traduce al cambiar de modo dentro del mismo `set` que cambia
@@ -296,12 +307,12 @@ export function TocarParaEscribir({
         {!tocando && loQueYaHay.length > 0 && (
           <ol
             aria-label="Lo que ya llevas"
-            className="flex max-w-3xl flex-wrap justify-center gap-1.5 opacity-60"
+            className="flex max-w-3xl flex-wrap justify-center gap-1.5"
           >
             {loQueYaHay.map((sitio, indice) => (
               <li
                 key={`${sitio.blockId}-${indice}`}
-                className="border-border text-text-muted rounded-md border px-2.5 py-1 font-mono text-sm"
+                className="border-border-strong text-text font-display rounded-md border px-3 py-1 text-2xl leading-tight"
               >
                 {
                   blockChord(activeKey!.tonic, activeKey!.mode, {
@@ -339,9 +350,7 @@ export function TocarParaEscribir({
               valor={papel}
               onCambiar={setPapel}
             />
-            <p className="text-text-muted max-w-prose text-center text-sm">
-              {PAPELES_DE_TOMA[papel].what}
-            </p>
+            <p className="text-text-muted max-w-prose text-center">{PAPELES_DE_TOMA[papel].what}</p>
           </div>
         )}
 
@@ -364,7 +373,7 @@ export function TocarParaEscribir({
                 {clicCallado ? <IconoParar /> : <IconoSonar />}
                 {clicCallado ? 'Sin clic' : 'Con clic'}
               </Chip>
-              <label className="text-text-muted flex items-center gap-2 text-sm">
+              <label className="text-text-muted flex items-center gap-2">
                 Volumen del clic
                 <input
                   type="range"
@@ -415,6 +424,12 @@ export function TocarParaEscribir({
                     ? 'Grabar'
                     : 'Tocar'}
           </Button>
+          {/* **El porqué de un fallo, pegado al botón que lo provocó.** Salía al
+              final de la columna —debajo de la explicación de cómo se graba— o
+              solo en la esquina de la barra, en rojo pequeño y escondido en un
+              teléfono: se pulsaba «Tocar», el botón volvía a su sitio y no se
+              sabía por qué. */}
+          <Aviso mensaje={mensaje} className="max-w-prose" />
         </div>
 
         {/* La cuenta, además de oírse.
@@ -431,7 +446,7 @@ export function TocarParaEscribir({
         {contando && cuenta !== null && (
           <p className="text-center" aria-hidden="true">
             <span className="text-fluid-hero tabular-nums">{cuenta}</span>
-            <span className="text-text-muted mt-1 block text-sm">
+            <span className="text-text-muted mt-1 block">
               Entra en el uno del tercer compás. El clic sigue mientras tocas.
             </span>
           </p>
@@ -450,7 +465,7 @@ export function TocarParaEscribir({
           <div className="flex flex-col items-center gap-2">
             {/* «Grabando», a la vista y en el árbol: quien navega con el lector lo
                 encuentra aquí, aunque no se anuncie encima del compás uno. */}
-            <p className="text-oxblood-bright flex items-center gap-2 text-sm font-medium">
+            <p className="text-oxblood-bright flex items-center gap-2 font-medium">
               <span aria-hidden="true" className="bg-oxblood-bright block h-2 w-2 rounded-full" />
               Grabando
             </p>
@@ -496,38 +511,29 @@ export function TocarParaEscribir({
             {/* **Solo grabar no escribe, tenga tonalidad o no.** Esta línea miraba
                 solo la tonalidad, y con una puesta prometía que «esto entra en la
                 canción» a una toma que no iba a escribir nada. */}
-            <p className="text-text-muted max-w-prose text-sm">
+            <p className="text-text-muted max-w-prose">
               {soloGrabar || activeKey === null
                 ? 'Al parar, la toma se queda aquí para oírla y descargarla. No se escribe nada en la canción.'
                 : `Toca en ${keyName(activeKey.tonic, activeKey.mode)}. Al parar, esto entra en la canción como una parte y se puede seguir por bloques o en la partitura.`}
             </p>
           </div>
-        ) : soloGrabar ? (
-          <p className="text-text-muted max-w-prose text-sm">
-            Se abre el micro y se graba el sonido, sin apuntar nada. Al parar, la toma se queda aquí
-            para oírla y descargarla, y la canción no cambia.
-          </p>
-        ) : (
-          <p className="text-text-muted max-w-prose text-sm">
-            Se abre el micro, se graba el sonido y se apunta lo que suena. Al parar, lo tocado entra
-            en la canción. Se graba en tomas separadas —primero la rítmica, luego el punteo— para
-            que cada una la lea el motor que sabe hacerla.
-          </p>
-        )}
-
-        <Aviso mensaje={mensaje} />
+        ) : null}
 
         {/* Lo primero que hay que decir al parar es **que ha entrado**, y dónde.
           El aviso de la captura cuenta lo que se perdió, que importa, pero
           después: sin esta línea, parar dejaba la canción escrita y a quien la
           escribió mirando la misma pantalla de antes. */}
+        {/* «Verlo en la partitura» es **un botón con pinta de botón**: era una
+            pastilla discreta, y debajo de «Ya está en la canción» se leía como
+            el final de la frase. Es lo siguiente que se hace al parar. */}
         {escrito && (
           <div className="flex flex-col items-center gap-2" role="status">
-            <p className="text-tube-bright text-sm">Ya está en la canción.</p>
+            <p className="text-tube-bright">Ya está en la canción.</p>
             {onEscrito !== undefined && (
-              <Chip tone="quiet" tamano="compacto" onClick={onEscrito}>
+              <Button variant="quiet" tamano="compacto" onClick={onEscrito}>
+                <IconoComponer />
                 Verlo en la partitura
-              </Chip>
+              </Button>
             )}
           </div>
         )}
@@ -570,6 +576,18 @@ export function TocarParaEscribir({
               Tirarla
             </Chip>
           </div>
+        )}
+
+        {/* **Lo que explica va después de lo que ha pasado.** Iba entre el
+            botón y la toma, y al parar empujaba «Lo que sonó de verdad» por
+            debajo del pliegue: lo que acababa de pasar quedaba fuera de la vista
+            detrás de cómo se graba, que ya se sabía. */}
+        {!tocando && (
+          <p className="text-text-muted max-w-prose">
+            {soloGrabar
+              ? 'Se abre el micro y se graba el sonido, sin apuntar nada. Al parar, la toma se queda aquí para oírla y descargarla, y la canción no cambia.'
+              : 'Se abre el micro, se graba el sonido y se apunta lo que suena. Al parar, lo tocado entra en la canción. Se graba en tomas separadas —primero la rítmica, que son los acordes, y luego el punteo, que es la melodía— para que cada una la lea el motor que sabe hacerla.'}
+          </p>
         )}
 
         {!tocando && toma === null && (

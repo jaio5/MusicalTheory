@@ -22,10 +22,10 @@ export async function generateMetadata({
   const { plan: id } = await params;
   const plan = PAID_PLANS.find((candidate) => candidate.id === planOf(id).id);
   if (plan === undefined) {
-    return { title: 'Plan no encontrado · Caos ordenado' };
+    return { title: 'Plan no encontrado' };
   }
   return {
-    title: `Plan ${plan.name} · Caos ordenado`,
+    title: `Plan ${plan.name}`,
     description: `${plan.name}, ${priceLabel(plan.id)}. ${plan.claim}`,
   };
 }

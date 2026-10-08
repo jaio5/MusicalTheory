@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EMPTY_ARRANGEMENT, arrangementLength, findBlock, findNote } from '@core/music';
+import {
+  EMPTY_ARRANGEMENT,
+  arrangementLength,
+  findBlock,
+  findNote,
+  writtenBlock,
+  type Arrangement,
+} from '@core/music';
 
 import { MAX_UNDO, nuevoId, selectCanUndo, useArrangementStore } from './arrangement-store';
 import { hechosDeComponer } from './hechos-de-componer';
+import { useSessionStore } from './session-store';
 
 function acciones() {
   return useArrangementStore.getState().actions;
@@ -105,6 +113,93 @@ describe('deshacer', () => {
     );
     acciones().undo();
     expect(montaje()).toEqual(EMPTY_ARRANGEMENT);
+  });
+});
+
+describe('abrir una copia', () => {
+  const COPIA: Arrangement = {
+    parts: [{ id: 'c', name: 'Copia', blocks: [writtenBlock('x', 'V', 4)], notes: [], bars: 1 }],
+  };
+  const abrir = () =>
+    acciones().abrirCopia({ tonic: 7, mode: 'major', bpm: 80, beatsPerBar: 3, arrangement: COPIA });
+  const ajustes = () => {
+    const { pinnedKey, bpm, beatsPerBar } = useSessionStore.getState();
+    return { pinnedKey, bpm, beatsPerBar };
+  };
+
+  beforeEach(() => {
+    useSessionStore.setState({ pinnedKey: { tonic: 0, mode: 'major' }, bpm: 120, beatsPerBar: 4 });
+  });
+
+  // Deshacía el montaje y dejaba la canción de antes en la tonalidad y el tempo
+  // de la copia: «devuelve la de antes» era media verdad.
+  it('un solo deshacer devuelve el montaje, la tonalidad y el tempo de antes', () => {
+    const parte = acciones().addPart('Mía');
+    acciones().addBlock(parte, 'IV', 4);
+    const antes = montaje();
+
+    abrir();
+    expect(montaje()).toBe(COPIA);
+    expect(ajustes()).toEqual({ pinnedKey: { tonic: 7, mode: 'major' }, bpm: 80, beatsPerBar: 3 });
+
+    acciones().undo();
+    expect(montaje()).toEqual(antes);
+    expect(ajustes()).toEqual({ pinnedKey: { tonic: 0, mode: 'major' }, bpm: 120, beatsPerBar: 4 });
+  });
+
+  it('sin tonalidad puesta, deshacer vuelve a seguir lo que se oye', () => {
+    useSessionStore.setState({ pinnedKey: null });
+
+    abrir();
+    acciones().undo();
+
+    expect(useSessionStore.getState().pinnedKey).toBeNull();
+    expect(montaje()).toEqual(EMPTY_ARRANGEMENT);
+  });
+
+  // Los ajustes van en el paso de la pila, no en el montaje: lo que vuelve al
+  // deshacer es la canción, sin nada pegado que acabara guardado con ella.
+  it('lo que vuelve al deshacer es el montaje, sin los ajustes', () => {
+    const parte = acciones().addPart('Mía');
+    const antes = montaje();
+
+    abrir();
+    expect(useArrangementStore.getState().past[0]?.ajustesDeAntes).toEqual({
+      pinnedKey: { tonic: 0, mode: 'major' },
+      bpm: 120,
+      beatsPerBar: 4,
+    });
+    acciones().undo();
+
+    expect(montaje()).toEqual(antes);
+    expect(montaje()).not.toHaveProperty('ajustesDeAntes');
+    expect(montaje().parts[0]?.id).toBe(parte);
+  });
+
+  // Un cambio cualquiera apila el montaje de antes, el mismo objeto: es lo que
+  // deja a quien guardó uno compararlo con la pila.
+  it('un cambio que no es una copia apila el mismo montaje de antes', () => {
+    acciones().addPart('Mía');
+    const antes = montaje();
+
+    acciones().addPart('Otra');
+
+    expect(useArrangementStore.getState().past[0]).toBe(antes);
+    acciones().undo();
+    expect(montaje()).toBe(antes);
+  });
+
+  // El montaje de antes vuelve a la pila al tocar algo después de deshacer, y
+  // deshacer eso no es deshacer la copia: no puede volver a cambiar el tempo.
+  it('los ajustes se devuelven una vez', () => {
+    abrir();
+    acciones().undo();
+    useSessionStore.setState({ bpm: 90 });
+    acciones().addPart('Otra');
+
+    acciones().undo();
+
+    expect(useSessionStore.getState().bpm).toBe(90);
   });
 });
 

@@ -94,7 +94,7 @@ export function PathScreen() {
               </Link>
             ) : (
               <div className="border-border border p-3">
-                <p className="text-text text-sm">
+                <p className="text-text">
                   No queda nada abierto por delante.{' '}
                   {can(account.plan, 'grado-profesional')
                     ? 'Has terminado el temario: puedes volver a cualquier unidad, y en otra tonalidad no es repetir.'

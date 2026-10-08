@@ -1,0 +1,39 @@
+# Lo que hace cada trabajo después de bajarse el código: pnpm, Node con la caché
+# del almacén de pnpm y las dependencias tal y como dice el lockfile.
+#
+# Estaba copiado en los cinco trabajos de `ci.yml`, y subir una versión era
+# cambiarla cinco veces. El checkout no va aquí: una acción local solo existe
+# cuando el código ya está bajado.
+#
+# Fijadas por su commit, como en `ci.yml`, y por lo mismo: una etiqueta se puede
+# mover. Dependabot mira también esta carpeta (`dependabot.yml`).
+name: Preparar
+description: pnpm, Node 22 con caché y las dependencias del lockfile.
+
+outputs:
+  playwright:
+    description: La versión de Playwright instalada, para la clave de la caché del navegador.
+    value: ${{ steps.versiones.outputs.playwright }}
+  pglite:
+    description: La versión de PGlite instalada, para la clave del volcado de la base de los tests.
+    value: ${{ steps.versiones.outputs.pglite }}
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 22
+        cache: pnpm
+    - shell: bash
+      run: pnpm install --frozen-lockfile
+
+    # Las versiones **instaladas**, no los rangos de `package.json`: un `^0.5.8`
+    # puede resolver a otra cosa, y la caché tiene que cambiar con lo que corre.
+    - id: versiones
+      shell: bash
+      run: |
+        version() { node -p "JSON.parse(require('fs').readFileSync('node_modules/$1/package.json','utf8')).version"; }
+        echo "playwright=$(version playwright)" >> "$GITHUB_OUTPUT"
+        echo "pglite=$(version @electric-sql/pglite)" >> "$GITHUB_OUTPUT"

@@ -1,5 +1,7 @@
 # ADR 0094 — La primera visita trae un recorrido guiado
 
+> **Sustituido en parte por [ADR 0108](./0108-el-recorrido-sale-por-pantallas.md) y completado por [ADR 0120](./0120-la-primera-visita-no-se-mueve-y-cada-pantalla-trae-lo-suyo.md):** el recorrido ya no son 21 pasos en un modal sino cinco por pantallas, sin bloquear, y la tarjeta no se mueve en la primera visita.
+
 Fecha: 2026-10-03 · Estado: aceptada, **sustituida en parte por [ADR 0108](./0108-el-recorrido-sale-por-pantallas.md)**: cinco pasos por pantallas, sin modal y sin tocar nada para enseñarse
 
 ## Contexto

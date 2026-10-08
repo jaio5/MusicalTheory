@@ -96,13 +96,26 @@ function clasesDeBotones(codigo: string): ReadonlyArray<string> {
 }
 
 /**
+ * Si la página no pinta nada: su función es `notFound()` y nada más.
+ *
+ * Se mira eso y no si el código tiene una etiqueta (`<\w`), que es lo que se hacía:
+ * un genérico de tipos —`Promise<Props>`, `Array<string>`— también la tiene, y una
+ * página que no pinta nada pasaba por pantalla y suspendía por no usar el marco.
+ */
+function soloLlamaANotFound(codigo: string): boolean {
+  return /export default function \w*\([^)]*\)[^{]*\{\s*notFound\(\);?\s*\}/.test(codigo);
+}
+
+/**
  * Las pantallas, y también las páginas que pintan la suya sin pasar por `screens/`.
  *
  * `/planes/[plan]` y `/olvidada` se escribían dentro de su `page.tsx`, y por eso
  * ningún guardián las veía: la ventana de pago llevaba el `h1` en otra letra, la
  * columna centrada y las esquinas cuadradas, y las nueve verdes. Una página cuenta
  * como pantalla cuando vive bajo el marco común —el grupo `(marco)`, que pone
- * `AppShell` en su layout— y **no** delega en una de `screens/`.
+ * `AppShell` en su layout—, **no** delega en una de `screens/` y pinta algo: la
+ * de las direcciones inventadas (`[...resto]`) solo llama a `notFound()`, y lo
+ * que se ve lo pone `not-found.tsx`.
  */
 function pantallas(): ReadonlyArray<{ nombre: string; codigo: string }> {
   return FICHEROS.filter(
@@ -110,7 +123,8 @@ function pantallas(): ReadonlyArray<{ nombre: string; codigo: string }> {
       (ruta.includes('/screens/') && ruta.endsWith('Screen.tsx')) ||
       (ruta.startsWith('src/app/(marco)/') &&
         ruta.endsWith('/page.tsx') &&
-        !/\/screens\//.test(codigo)),
+        !/\/screens\//.test(codigo) &&
+        !soloLlamaANotFound(codigo)),
   ).map(({ ruta, codigo }) => ({
     nombre: ruta.endsWith('/page.tsx')
       ? ruta.replace('src/app/(marco)/', '')
@@ -125,6 +139,18 @@ describe('Todas las pantallas', () => {
 
     expect(nombres).toContain('planes/[plan]/page.tsx');
     expect(nombres).toContain('olvidada/page.tsx');
+    // La de las direcciones inventadas solo llama a `notFound()`: no pinta nada.
+    expect(nombres).not.toContain('[...resto]/page.tsx');
+  });
+
+  it('una página que solo llama a notFound no es pantalla, aunque lleve un genérico', () => {
+    const conGenerico =
+      'export default function Nada(props: Promise<Props>): never {\n  notFound();\n}';
+
+    expect(soloLlamaANotFound(conGenerico)).toBe(true);
+    expect(soloLlamaANotFound('export default function Algo() {\n  return <Screen />;\n}')).toBe(
+      false,
+    );
   });
 
   it('usan el marco común, y ninguna se inventa el suyo', () => {
@@ -380,6 +406,54 @@ describe('Lo que no puede escaparse de la pantalla', () => {
   });
 });
 
+/**
+ * **Los cortes de la navegación se piden por nombre**
+ * ([adr/0084](../../../docs/adr/0084-lo-que-trabaja-no-se-apaga-y-el-foco-se-mueve-a-mano.md),
+ * [adr/0122](../../../docs/adr/0122-lo-que-se-lee-va-al-cuerpo.md)).
+ *
+ * Tres sitios saben dónde cambia la navegación —`AppShell`, el tope del panel
+ * flotante de `ui/Disclosure` y lo que se pliega con la ventana baja—, y el ADR
+ * 0084 dejaba escrito que **ningún test lo vigilaba**: cada uno llevaba su `md:`
+ * o su `max-height` entre corchetes, y mover uno no obligaba a mover los otros.
+ * Ahora son dos variantes de `globals.css`, y lo que se vigila es que nadie
+ * vuelva a escribir el corte a mano.
+ */
+describe('Los cortes de la navegación', () => {
+  const hoja = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
+  const codigoDe = (ruta: string) => FICHEROS.find((f) => f.ruta === ruta)!.codigo;
+
+  it('están declarados una vez, en la hoja', () => {
+    expect(hoja.match(/@custom-variant barra-arriba\b/g)).toHaveLength(1);
+    expect(hoja.match(/@custom-variant ventana-baja\b/g)).toHaveLength(1);
+  });
+
+  it('nadie escribe a mano el corte de la ventana baja', () => {
+    const pendientes = FICHEROS.filter(({ codigo }) => /max-height:\s*500px/.test(codigo)).map(
+      ({ ruta }) => ruta,
+    );
+
+    expect(pendientes).toEqual([]);
+  });
+
+  it('los tres sitios que lo saben lo piden por su nombre, y ninguno con md', () => {
+    const shell = codigoDe('src/app/AppShell.tsx');
+    const desplegable = codigoDe('src/ui/Disclosure.tsx');
+
+    expect(shell).toMatch(/\bbarra-arriba:hidden\b/);
+    expect(shell).toMatch(/\bbarra-arriba:flex\b/);
+    expect(shell).toMatch(/\bventana-baja:overflow-y-auto\b/);
+    expect(desplegable).toMatch(/\bbarra-arriba:max-lg:max-h-/);
+
+    for (const [ruta, codigo] of [
+      ['src/app/AppShell.tsx', shell],
+      ['src/ui/Disclosure.tsx', desplegable],
+      ['src/features/workspace/MicButton.tsx', codigoDe('src/features/workspace/MicButton.tsx')],
+    ] as const) {
+      expect(codigo, `${ruta} escribe md: en vez de barra-arriba:`).not.toMatch(/(?<![\w-])md:/);
+    }
+  });
+});
+
 describe('En toda la interfaz', () => {
   /**
    * La mitad que le falta a `ui/tokens.test.ts`.
@@ -468,11 +542,7 @@ describe('En toda la interfaz', () => {
    * quien lo escribió: **la lista solo puede encoger**. Uno nuevo falla aquí.
    */
   it('todo botón a mano dice su alto', () => {
-    const YA_ESTABAN = new Set([
-      'src/app/screens/ComposeScreen.tsx',
-      'src/features/learn/Tutor.tsx',
-      'src/ui/Area.tsx',
-    ]);
+    const YA_ESTABAN = new Set(['src/app/screens/ComposeScreen.tsx', 'src/ui/Area.tsx']);
     const pendientes: string[] = [];
 
     for (const { ruta, codigo } of FICHEROS) {
@@ -517,6 +587,45 @@ describe('En toda la interfaz', () => {
     }
 
     expect(pendientes).toEqual([]);
+  });
+
+  /**
+   * **Lo que se lee va al cuerpo**: cinco escalones de letra, y no seis
+   * ([adr/0122](../../../docs/adr/0122-lo-que-se-lee-va-al-cuerpo.md)).
+   *
+   * `ESTILO.md` nombraba cinco —el título, su línea, el apartado, el cuerpo y el
+   * rótulo— y había un sexto sin nombre: `text-sm`, 14 px, en unos ciento noventa
+   * sitios. En `/planes` iban así dieciocho de veintitrés párrafos, y en el
+   * profesor, el registro y la cuenta las explicaciones enteras: la letra más
+   * pequeña de la pantalla para lo que más había que leer.
+   *
+   * Aquí se mira **lo que es texto corrido**: un párrafo, un elemento de lista o
+   * de definición, o cualquier caja con `max-w-prose`, que es como esta casa
+   * dice «esto se lee seguido». Los mandos se quedan fuera a propósito —un botón
+   * compacto, una pastilla, la navegación— porque esa letra la pone su
+   * componente y no se lee, se pulsa.
+   *
+   * Lo que se prohíbe es `text-sm` y un tamaño escrito a mano entre corchetes,
+   * que es la otra forma de inventarse un escalón.
+   *
+   * Hubo una lista de ficheros que se libraban mientras otra mano trabajaba
+   * en ellos —el aprendizaje y las salidas—; ya no queda ninguno, así que
+   * no hay excepciones.
+   */
+
+  /** Los ficheros con texto corrido en un escalón sin nombre. */
+  function conLetraSinEscalon(): ReadonlyArray<string> {
+    const corrido = /<(?:p|li|dd|dt)\b[^<]*?className=(\{`[^`]*`\}|"[^"]*"|\{[^}]*\})/g;
+    const prosa = /className=(\{`[^`]*\bmax-w-prose\b[^`]*`\}|"[^"]*\bmax-w-prose\b[^"]*")/g;
+    const sinEscalon = /\btext-(?:sm\b|\[(?:\d|clamp|calc|length))/;
+
+    return FICHEROS.filter(({ codigo }) =>
+      [...codigo.matchAll(corrido), ...codigo.matchAll(prosa)].some((m) => sinEscalon.test(m[1]!)),
+    ).map(({ ruta }) => ruta);
+  }
+
+  it('lo que se lee seguido va en un escalón con nombre, no a 14 px', () => {
+    expect(conLetraSinEscalon()).toEqual([]);
   });
 
   /**

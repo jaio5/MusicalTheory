@@ -1,5 +1,7 @@
 # ADR 0059 — `memo` a mano donde se mide, y no el compilador de React
 
+> **Nota del 8 de octubre de 2026:** «ningún test lo vigila» ya no vale. `ArrangeCanvas.pintados.test.tsx` cuenta con `<Profiler>` los pintados de cada fila y falla si una flecha nueva anula el `memo` ([ADR 0119](./0119-la-partitura-llena-su-hueco-y-el-lienzo-se-parte.md)). Y el `useEstable` del lienzo es hoy `useFuncionEstable`, en `src/ui/use-funcion-estable.ts`.
+
 Fecha: 2026-09-30 · Estado: aceptada
 
 ## Contexto

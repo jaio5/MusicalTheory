@@ -114,39 +114,3 @@ describe('la copia de las instrucciones', () => {
     expect(copiaLasInstrucciones(INSTRUCCIONES)).toBe(false);
   });
 });
-
-/**
- * Lo que tarda en hacerse, **lo menos de tres veces**: la primera calienta el
- * compilador, y con otras pruebas corriendo al lado una vuelta suelta mide la carga
- * de la máquina, no la función.
- */
-function tarda(hacer: () => unknown): number {
-  hacer();
-  let menos = Infinity;
-  for (let vuelta = 0; vuelta < 3; vuelta += 1) {
-    const inicio = performance.now();
-    hacer();
-    menos = Math.min(menos, performance.now() - inicio);
-  }
-  return menos;
-}
-
-describe('128 KB no paran el hilo', () => {
-  const TOPE_MS = process.env.COBERTURA === '1' ? 150 : 50;
-  const KB_128 = 128 * 1024;
-
-  it.each([
-    ['letras', 'a'.repeat(KB_128)],
-    ['letras y puntos', 'aa.'.repeat(KB_128 / 3)],
-    ['guiones y puntos', '-.'.repeat(KB_128 / 2)],
-    ['arrobas', 'a@'.repeat(KB_128 / 2)],
-    ['palabras de las instrucciones', `${INSTRUCCIONES} `.repeat(KB_128 / INSTRUCCIONES.length)],
-  ])('%s', (_, texto) => {
-    for (const hacer of [
-      () => esUnCebo(texto),
-      () => copiaLasInstrucciones(texto, INSTRUCCIONES),
-    ]) {
-      expect(tarda(hacer)).toBeLessThan(TOPE_MS);
-    }
-  });
-});

@@ -79,7 +79,7 @@ describe('el desplegable', () => {
 
     const clases = container.querySelector('details > div')!.className.split(' ');
     expect(clases).toContain('max-h-[max(9rem,calc(100dvh-22rem))]');
-    expect(clases).toContain('md:max-h-[max(9rem,calc(100dvh-14rem))]');
+    expect(clases).toContain('barra-arriba:max-lg:max-h-[max(9rem,calc(100dvh-14rem))]');
     expect(clases).toContain('lg:max-h-[max(9rem,calc(100dvh-12rem))]');
   });
 

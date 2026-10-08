@@ -116,4 +116,8 @@ describe('El nombre del fichero', () => {
   it('sin título usable, se llama cancion', () => {
     expect(nombreDeFichero('¿¡!?')).toBe('cancion.mid');
   });
+
+  it('con otra extensión, la misma limpieza', () => {
+    expect(nombreDeFichero('Canción: la buena', 'caos.json')).toBe('cancion-la-buena.caos.json');
+  });
 });

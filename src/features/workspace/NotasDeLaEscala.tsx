@@ -38,7 +38,7 @@ export function NotasDeLaEscala() {
         {notas.map((nota, indice) => (
           <li
             key={`${nota}-${indice}`}
-            className={`border-border min-w-8 rounded-md border px-1.5 py-1 text-center font-mono text-sm ${
+            className={`border-border min-w-8 rounded-md border px-1.5 py-1 text-center font-mono ${
               // La tónica va marcada: es la nota a la que todo vuelve, y en una
               // fila de siete iguales no hay forma de saber por dónde empieza.
               indice === 0 ? 'border-brass-dim text-brass-bright bg-surface-raised' : 'text-text'
@@ -48,9 +48,7 @@ export function NotasDeLaEscala() {
           </li>
         ))}
       </ol>
-      <p className="text-text-muted mt-2 text-center text-xs text-balance">
-        {SCALES[scaleId].character}
-      </p>
+      <p className="text-text-muted mt-2 text-center text-balance">{SCALES[scaleId].character}</p>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { mailer } from '@server/mail';
 import { Screen } from '@ui/Screen';
 
 export const metadata: Metadata = {
-  title: 'Contraseña olvidada · Caos ordenado',
+  title: 'Contraseña olvidada',
   description: 'Pon una contraseña nueva con un enlace que te mandamos al correo.',
 };
 
@@ -47,7 +47,7 @@ export default async function Olvidada({
       {puede ? (
         <ForgottenForm {...(vale === undefined ? {} : { vale })} />
       ) : (
-        <p className="text-text-muted max-w-prose text-sm">
+        <p className="text-text-muted max-w-prose">
           Esta copia de la aplicación no manda correo, así que no se puede recuperar la contraseña
           desde aquí. Si sabes la que tienes, se cambia en{' '}
           <Link href="/cuenta#contrasena" className="enlace">

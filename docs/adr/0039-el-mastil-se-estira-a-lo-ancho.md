@@ -1,5 +1,7 @@
 # ADR 0039 — El mástil se estira a lo ancho
 
+> **Ajustado por [ADR 0046](./0046-el-mastil-solo-ocupa-lo-que-dibuja.md):** el mástil solo ocupa lo que dibuja.
+
 Fecha: 2026-09-22 · Estado: aceptada · Sustituye a parte del [ADR 0037](./0037-el-mastil-pide-su-alto.md)
 
 ## Contexto

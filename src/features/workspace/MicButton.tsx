@@ -1,5 +1,8 @@
 'use client';
 
+import { cifraConSigno } from '@core/cifras';
+import { useState } from 'react';
+
 import { useClaqueta } from '@state/claqueta';
 import { useSessionStore } from '@state/session-store';
 import { useListening, type ListeningDeps } from '@state/use-listening';
@@ -47,9 +50,7 @@ export function MicButton({ anuncia = true, ...deps }: MicButtonProps = {}) {
     state.reading === null ? null : `${state.reading.name}${state.reading.octave}`,
   );
   const cents = useSessionStore((state) =>
-    state.reading === null
-      ? null
-      : `${state.reading.cents > 0 ? '+' : ''}${state.reading.cents.toFixed(0)}¢`,
+    state.reading === null ? null : `${cifraConSigno(state.reading.cents)}¢`,
   );
   const hasSignal = useSessionStore((state) => state.hasSignal);
   /*
@@ -68,6 +69,18 @@ export function MicButton({ anuncia = true, ...deps }: MicButtonProps = {}) {
   // análisis aunque sea el mismo.
   const heardChord = useSessionStore((state) => state.heardChord?.symbol ?? null);
   const { start, stop } = useListening(deps);
+  /*
+    Si lo último que se pidió al micro salió de este botón.
+
+    El porqué de un fallo se enseña **junto a lo que lo provocó**: si fue «Tocar»
+    en componer, lo dice la toma; si fue el afinador, el afinador. Aquí solo lo de
+    este botón, o el mismo fallo saldría dos veces en dos sitios.
+  */
+  const [pidioAqui, setPidioAqui] = useState(false);
+  const fallo =
+    pidioAqui && (listening === 'denied' || listening === 'error' || listening === 'unsupported')
+      ? message
+      : null;
   /*
     **Callado mientras hay toma** (adr/0072): con la claqueta sonando, lo que se
     toca es la canción, y un lector de pantalla que lee cada acorde y cada cent
@@ -102,7 +115,10 @@ export function MicButton({ anuncia = true, ...deps }: MicButtonProps = {}) {
           // Mientras el navegador pide permiso no hace caso, **pero no se apaga**:
           // apagado con el foco dentro, el foco caía al `<body>` justo después de
           // pulsarlo con Intro, y quien no ve la pantalla perdía el sitio.
-          {...mientrasTrabaja(busy, () => void (isListening ? stop() : start()))}
+          {...mientrasTrabaja(busy, () => {
+            setPidioAqui(!isListening);
+            void (isListening ? stop() : start());
+          })}
           aria-pressed={isListening}
           aria-label={isListening ? 'Dejar de escuchar la guitarra' : 'Escuchar la guitarra'}
           title={isListening ? 'Dejar de escuchar' : 'Escuchar la guitarra'}
@@ -122,7 +138,7 @@ export function MicButton({ anuncia = true, ...deps }: MicButtonProps = {}) {
             />
           )}
         </button>
-        <ElegirMicro />
+        <ElegirMicro fallo={fallo} />
       </div>
 
       {/* Vive dentro de un `aria-live` para que quien no ve la pantalla se entere
@@ -163,7 +179,7 @@ export function MicButton({ anuncia = true, ...deps }: MicButtonProps = {}) {
             {/* Lo mismo el rótulo: «esperando», «acorde» y «+12¢» guardan el sitio
                 del más largo de los tres. */}
             <span
-              className={`text-text-muted inline-block min-w-[9ch] font-mono text-xs whitespace-nowrap tabular-nums md:max-lg:sr-only @max-[26rem]:sr-only ${
+              className={`text-text-muted barra-arriba:max-lg:sr-only inline-block min-w-[9ch] font-mono text-xs whitespace-nowrap tabular-nums @max-[26rem]:sr-only ${
                 busy ? '@max-[30rem]:sr-only' : ''
               }`}
             >
@@ -178,12 +194,6 @@ export function MicButton({ anuncia = true, ...deps }: MicButtonProps = {}) {
           </span>
         )}
       </span>
-
-      {message !== null && (
-        <span role="alert" className="text-oxblood-bright hidden max-w-56 text-xs md:inline">
-          {message}
-        </span>
-      )}
     </div>
   );
 }

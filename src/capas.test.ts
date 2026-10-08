@@ -87,3 +87,39 @@ describe('las reglas de capas las vigila ESLint de verdad', () => {
     expect(avisos).toEqual([]);
   });
 });
+
+/** Los avisos de «ui/ no lee el estado»: van por otra regla, que no pisa la de capas. */
+async function conexionesDe(rutaFingida: string, codigo: string): Promise<readonly string[]> {
+  const resultados = await eslint.lintText(`${codigo}\n`, { filePath: rutaFingida });
+  return (resultados[0]?.messages ?? [])
+    .filter((aviso) => aviso.ruleId === 'no-restricted-syntax')
+    .map((aviso) => aviso.message);
+}
+
+describe('ui/ no lee el estado, salvo sus tres piezas conectadas (adr/0124)', () => {
+  it('una pieza de ui/ que lee el store, o carga el audio, protesta', async () => {
+    const delStore = await conexionesDe(
+      'src/ui/Prueba.tsx',
+      "import { useAccount } from '@state/account';\nexport const x = useAccount;",
+    );
+    const delAudio = await conexionesDe(
+      'src/ui/Prueba.tsx',
+      "export const x = () => import('@audio/recorder');",
+    );
+    expect(delStore.join(' ')).toContain('piezas conectadas');
+    expect(delAudio.join(' ')).toContain('piezas conectadas');
+  });
+
+  it('las tres con nombre sí, y los tipos de cualquiera', async () => {
+    const conectada = await conexionesDe(
+      'src/ui/CupoDeIA.tsx',
+      "import { useAccount } from '@state/account';\nexport const x = useAccount;",
+    );
+    const tipo = await conexionesDe(
+      'src/ui/Prueba.tsx',
+      "import type { Account } from '@state/account';\nexport type X = Account;",
+    );
+    expect(conectada).toEqual([]);
+    expect(tipo).toEqual([]);
+  });
+});

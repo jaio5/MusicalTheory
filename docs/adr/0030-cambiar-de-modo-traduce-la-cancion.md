@@ -1,5 +1,7 @@
 # ADR 0030 — Cambiar de modo traduce la canción, no la recorta
 
+> **Ampliado por [ADR 0036](./0036-el-cuarto-menor-prestado.md):** en tonalidad mayor existe el cuarto menor prestado (`iv`).
+
 > **Corregido en parte por [ADR 0080](./0080-cambiar-de-modo-recuerda-lo-que-era-cada-bloque.md):** ir y volver ahora deja la canción como estaba, las dominantes de `vi` y `iii` se traducen y solo se cae la `V/ii`, y traducir no gasta deshacer. Eran falsas las frases «sobreviven todos menos tres», «el deshacer sigue ahí» y «no pierde nada». La vigilancia del modo la arranca el almacén del montaje al crearse ([ADR 0079](./0079-el-marco-se-monta-una-vez-y-el-micro-sobrevive-a-navegar.md)).
 
 Fecha: 2026-09-17 · Estado: aceptada · Amplía: [ADR 0018](./0018-el-lienzo-de-montar.md)

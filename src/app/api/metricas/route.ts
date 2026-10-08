@@ -13,17 +13,18 @@
 
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
-import { parseBrowserReport, utcDay } from '@core/analytics';
+import { parseBrowserReport, utcDay, type BrowserReport } from '@core/analytics';
 import { tooManyRequests } from '@server/api-response';
+import { authAvailable, currentCookie } from '@server/auth';
 import { sameHex } from '@server/constant-time';
 import { hasDatabase } from '@server/db/client';
-import { currentSession } from '@server/entitlements';
 import { leerMetricas, noQuiereQueLeSigan, registrarEvento, seudonimo } from '@server/metricas';
 import { limitRequest } from '@server/rate-limit-db';
 import { requesterKey, SlidingWindowRateLimiter } from '@server/rate-limit';
 import { readJsonBody } from '@server/request-body';
+import { findUserById } from '@server/users';
 
 export const runtime = 'nodejs';
 
@@ -67,6 +68,27 @@ const huellaDeLaDireccion = (direccion: string) =>
     .digest('hex')
     .slice(0, 16);
 
+/**
+ * De quién es la visita, si es de una cuenta que existe: solo el identificador.
+ *
+ * **Con la fila y no con la cookie a secas**: la cookie de una cuenta borrada
+ * sigue firmada hasta que caduca, y con ella se volvía a crear el seudónimo que
+ * borrar la cuenta acababa de olvidar; y la de antes de cambiar la contraseña ya
+ * no vale (adr/0113). Es la comprobación de `currentSession` **sin el gasto de la
+ * IA**, que aquí no hace falta y era la mitad de las consultas.
+ */
+async function cuentaQueManda(): Promise<string | null> {
+  if (!authAvailable()) {
+    return null;
+  }
+  const cookie = await currentCookie();
+  if (cookie === null) {
+    return null;
+  }
+  const cuenta = await findUserById(cookie.id);
+  return cuenta?.sessionVersion === cookie.sessionVersion ? cookie.id : null;
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   if (noQuiereQueLeSigan(request.headers) || !hasDatabase()) {
     return NADA();
@@ -93,21 +115,27 @@ export async function POST(request: Request): Promise<NextResponse> {
     return new NextResponse(null, { status: 400 });
   }
 
-  // La cuenta gana al navegador: es la misma persona en el móvil y en el
-  // portátil, y así cuenta como una. **Con `currentSession` y no con la cookie a
-  // secas**: la cookie de una cuenta borrada sigue firmada hasta que caduca, y con
-  // ella se volvía a crear el seudónimo que borrar la cuenta acababa de olvidar.
-  // La sesión comprueba que la cuenta existe y que la cookie no es de antes de
-  // cambiar la contraseña (adr/0113).
-  const sesion = await currentSession();
+  // **Se apunta después de contestar** (`after`). Llega por `sendBeacon`, que no
+  // lee la respuesta, y lo único que podía decirle ya está dicho: el tope y el
+  // formato. Esperar a la sesión y a las escrituras era tener la petición abierta
+  // por nada.
+  after(() => apuntar(informe, direccion, ahora));
+  return NADA();
+}
+
+/** Lo que se apunta de un evento ya admitido: de quién es y si es nuevo. */
+async function apuntar(informe: BrowserReport, direccion: string, ahora: number): Promise<void> {
   const dia = utcDay(ahora);
 
-  if (sesion !== null) {
+  // La cuenta gana al navegador: es la misma persona en el móvil y en el
+  // portátil, y así cuenta como una.
+  const cuenta = await cuentaQueManda();
+  if (cuenta !== null) {
     await registrarEvento(
-      { evento: informe.event, ruta: informe.route, visitante: seudonimo('cuenta', sesion.userId) },
+      { evento: informe.event, ruta: informe.route, visitante: seudonimo('cuenta', cuenta) },
       dia,
     );
-    return NADA();
+    return;
   }
 
   // Un navegador nuevo gasta del tope de nuevos de su dirección; uno que ya
@@ -130,7 +158,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     },
     dia,
   );
-  return NADA();
 }
 
 export async function GET(request: Request): Promise<NextResponse> {

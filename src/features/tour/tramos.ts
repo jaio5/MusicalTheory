@@ -19,18 +19,25 @@ const TRAMO_DE_LA_RUTA: Readonly<Record<string, Tramo>> = {
 };
 
 /**
- * El tramo que toca en esta pantalla, o ninguno.
+ * Los tramos que tocan en esta pantalla, en el orden en que se enseñan, o
+ * ninguno.
  *
  * **La bienvenida va primero, en cualquier pantalla de trabajo**: es la que dice
  * que hay más y que se puede saltar. Después, el de la pantalla en la que se
  * está, si no se ha visto. Las demás —una unidad, el profesor— no tienen tramo:
  * se explican solas, y una guía que sale en cada pantalla es una guía que estorba
  * ([adr/0108](../../../docs/adr/0108-el-recorrido-sale-por-pantallas.md)).
+ *
+ * **Y los dos van en la misma tarjeta**, «1 de 2» y «2 de 2». Iban por separado,
+ * y quien entraba por `/afinar` veía dos tarjetas seguidas que decían las dos
+ * «paso 1 de 1»: la segunda parecía la misma que volvía a salir
+ * ([adr/0120](../../../docs/adr/0120-la-primera-visita-no-se-mueve-y-cada-pantalla-trae-lo-suyo.md)).
  */
-export function tramoPara(vistos: readonly string[], ruta: string): Tramo | null {
-  if (!vistos.includes('bienvenida')) {
-    return 'bienvenida';
+export function tramosPara(vistos: readonly string[], ruta: string): readonly Tramo[] {
+  const deLaPantalla = TRAMO_DE_LA_RUTA[ruta];
+  const pendientes: Tramo[] = vistos.includes('bienvenida') ? [] : ['bienvenida'];
+  if (deLaPantalla !== undefined && !vistos.includes(deLaPantalla)) {
+    pendientes.push(deLaPantalla);
   }
-  const tramo = TRAMO_DE_LA_RUTA[ruta];
-  return tramo === undefined || vistos.includes(tramo) ? null : tramo;
+  return pendientes;
 }

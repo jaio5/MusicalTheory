@@ -29,7 +29,7 @@ export type Accidental = 'sharp' | 'flat';
 
 export type SharpName = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B';
 
-export type FlatName = 'C' | 'Db' | 'D' | 'Eb' | 'E' | 'F' | 'Gb' | 'G' | 'Ab' | 'A' | 'Bb' | 'B';
+type FlatName = 'C' | 'Db' | 'D' | 'Eb' | 'E' | 'F' | 'Gb' | 'G' | 'Ab' | 'A' | 'Bb' | 'B';
 
 /**
  * Nombres en notación anglosajona porque es la que usa el cifrado de acordes

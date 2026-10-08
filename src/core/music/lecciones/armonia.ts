@@ -63,13 +63,33 @@ function nombreDeTono(tonica: string, mode: KeyMode): string {
 /**
  * La dominante con séptima de un grado: la fundamental una quinta por encima,
  * y la tercera, que es la sensible del grado al que va.
+ *
+ * `alteradas` son las notas que trae de fuera de la escala, comparadas por su
+ * letra. Se calculan y no se dan por sabidas porque la regla de bolsillo —«lo
+ * alterado es la sensible»— falla en tres sitios: el V/IV de mayor y el V/VI de
+ * menor alteran la séptima y no la sensible, y el V/V de menor (B7 en La menor)
+ * altera dos, la sensible y la quinta que la escala da disminuida.
  */
 function dominanteSecundaria(tonic: PitchClass, mode: KeyMode, destino: number) {
   const raiz = spellAbove(keyDegree(tonic, mode, destino), 7, 4);
   const notas = [raiz, spellAbove(raiz, 4, 2), spellAbove(raiz, 7, 4), spellAbove(raiz, 10, 6)].map(
     spelledName,
   );
-  return { acorde: `${notas[0]!}7`, sensible: notas[1]!, notas };
+  const escala = new Set(
+    [1, 2, 3, 4, 5, 6, 7].map((grado) => spelledName(keyDegree(tonic, mode, grado))),
+  );
+  return {
+    acorde: `${notas[0]!}7`,
+    sensible: notas[1]!,
+    septima: notas[3]!,
+    notas,
+    alteradas: notas.filter((nota) => !escala.has(nota)),
+  };
+}
+
+/** «D#», «D# y F#»: una lista corta dicha como se habla. */
+function enumerar(cosas: readonly string[]): string {
+  return cosas.length > 1 ? `${cosas.slice(0, -1).join(', ')} y ${cosas.at(-1)!}` : cosas[0]!;
 }
 
 function inversiones(tonic: PitchClass, mode: KeyMode): LessonNotes {
@@ -304,6 +324,11 @@ function secundarias(tonic: PitchClass, mode: KeyMode): LessonNotes {
   const otra = dominanteSecundaria(tonic, mode, ejemplo);
   const disminuido = t.menor ? 2 : 7;
   const imposible = dominanteSecundaria(tonic, mode, disminuido).acorde;
+  const delTercero = dominanteSecundaria(tonic, mode, 3);
+  const delCuarto = dominanteSecundaria(tonic, mode, 4);
+  const delSexto = dominanteSecundaria(tonic, mode, 6);
+  // En menor el V/V altera también la quinta: el porqué no puede decir «la nota alterada».
+  const otrasAlteradas = deLaDominante.alteradas.filter((nota) => nota !== deLaDominante.sensible);
 
   return {
     points: [
@@ -311,14 +336,14 @@ function secundarias(tonic: PitchClass, mode: KeyMode): LessonNotes {
       `En ${t.nombre}: ${lista}.`,
       `Se escribe V/ y el grado al que va: V/V se lee «quinto del quinto». Un acorde disminuido no se tonicaliza porque no puede hacer de tónica, así que no hay V/${ROMANOS[disminuido - 1]!}: ${t.acorde(disminuido)} es disminuido.`,
       t.menor
-        ? `La nota alterada que trae es la sensible del grado al que va: en ${deLaDominante.acorde}, ${deLaDominante.sensible} está medio tono por debajo de ${t.nota(5)} y sube a ella. Ojo con V/III, ${dominanteSecundaria(tonic, mode, 3).acorde}: es el VII de la menor natural con su séptima y no altera nada.`
-        : `La nota alterada que trae es la sensible del grado al que va: en ${deLaDominante.acorde}, ${deLaDominante.sensible} está medio tono por debajo de ${t.nota(5)} y sube a ella. La excepción es V/IV, que es ${t.I} con séptima: lo que se altera es la séptima, ${t.nota(7, -1)}, que baja.`,
+        ? `Lo que trae de fuera de la escala es, sobre todo, la sensible del grado al que va. ${deLaDominante.acorde} trae ${enumerar(deLaDominante.alteradas)}: ${deLaDominante.sensible} está medio tono por debajo de ${t.nota(5)} y sube a ella, y ${deLaDominante.notas[2]!} hace justa la quinta que la escala da disminuida sobre ${t.nota(2)}. Dos no alteran la sensible: V/III, ${delTercero.acorde}, es el VII de la menor natural con su séptima y no altera nada; y V/VI, ${delSexto.acorde}, ya encuentra ${delSexto.sensible} en la escala, así que lo alterado es su séptima, ${delSexto.septima}, que baja.`
+        : `Lo que trae de fuera de la escala es, sobre todo, la sensible del grado al que va: en ${deLaDominante.acorde}, ${deLaDominante.sensible} está medio tono por debajo de ${t.nota(5)} y sube a ella. V/III, ${delTercero.acorde}, trae dos, ${enumerar(delTercero.alteradas)}: la sensible de ${t.nota(3)} y la quinta justa que la escala da disminuida. Y V/IV es ${t.I} con séptima: no altera la sensible, que ya está en la escala, sino la séptima, ${delCuarto.septima}, que baja.`,
     ],
     exercises: [
       {
         prompt: `¿Cuál es el V/V de ${t.nombre}?`,
         choices: choices(deLaDominante.acorde, [`${t.V}7`, `${t.nota(2)}m7`, otra.acorde]),
-        why: `V/V es la dominante de ${t.V}: la séptima de dominante una quinta por encima de ${t.nota(5)}, que es ${deLaDominante.acorde}. No sale de la escala: lleva ${deLaDominante.sensible}, la sensible de ${t.V}, para que tire hacia él.`,
+        why: `V/V es la dominante de ${t.V}: la séptima de dominante una quinta por encima de ${t.nota(5)}, que es ${deLaDominante.acorde}. No sale de la escala: ${otrasAlteradas.length === 0 ? `lleva ${deLaDominante.sensible}, que es` : `trae ${enumerar(deLaDominante.alteradas)}, y ${deLaDominante.sensible} es`} la sensible de ${t.V}, para que tire hacia él.`,
       },
       {
         prompt: `¿Qué nota de ${deLaDominante.acorde} es la sensible del acorde al que va?`,
@@ -327,7 +352,7 @@ function secundarias(tonic: PitchClass, mode: KeyMode): LessonNotes {
           deLaDominante.notas[2]!,
           deLaDominante.notas[3]!,
         ]),
-        why: `${deLaDominante.sensible} está medio tono por debajo de ${t.nota(5)}: es la sensible de ${t.V}, y en ${t.nombre} no está —la escala lleva ${t.nota(4)}—. Por eso es la nota alterada.`,
+        why: `${deLaDominante.sensible} está medio tono por debajo de ${t.nota(5)}: es la sensible de ${t.V}, y en ${t.nombre} no está —la escala lleva ${t.nota(4)}—. ${otrasAlteradas.length === 0 ? 'Por eso es la nota alterada.' : `No es la única alterada: ${enumerar(otrasAlteradas)} hace justa la quinta, que la escala da disminuida.`}`,
       },
       {
         prompt: `¿Hacia dónde resuelve ${otra.acorde} en ${t.nombre}?`,

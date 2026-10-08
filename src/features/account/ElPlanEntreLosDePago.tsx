@@ -40,11 +40,11 @@ export function ElPlanEntreLosDePago({ plan }: { readonly plan: Plan }) {
             <>
               <span className="flex items-baseline justify-between gap-3">
                 <span className="text-text">{otro.name}</span>
-                <span className="text-brass-bright shrink-0 font-mono text-sm">
+                <span className="text-brass-bright shrink-0 tabular-nums">
                   {priceLabel(otro.id)}
                 </span>
               </span>
-              <span className="text-text-muted mt-1 block text-sm">{otro.claim}</span>
+              <span className="text-text-muted mt-1 block">{otro.claim}</span>
               {(este || otro.id === tuyo) && (
                 <span className="rotulo text-tube-bright mt-2 block">
                   {este && otro.id === tuyo
@@ -78,7 +78,7 @@ export function ElPlanEntreLosDePago({ plan }: { readonly plan: Plan }) {
         })}
       </ul>
 
-      <p className="text-text-muted max-w-prose text-sm">
+      <p className="text-text-muted max-w-prose">
         Con ningún plan cambia la guitarra: el afinador, la rueda, el mástil, el metrónomo,
         componer, grabar y el Grado Elemental son gratis, y lo que tocas no sale de tu equipo.{' '}
         <Link href="/planes" className="enlace">

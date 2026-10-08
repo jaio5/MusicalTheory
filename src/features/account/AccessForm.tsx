@@ -96,7 +96,7 @@ export function AccessForm({
         <p className="text-text text-base font-medium">Aquí no hay cuentas configuradas</p>
         {/* No «todo lo demás funciona igual»: el profesor y lo que abre un plan
             —el repaso, guardar las canciones— también van con una cuenta. */}
-        <p className="text-text-muted text-sm text-balance">
+        <p className="text-text-muted text-balance">
           Lo que pasa en tu navegador funciona igual, y tu avance se guarda en este navegador. Lo
           que no hay es lo que va con una cuenta: llevártelo a otro aparato, el profesor y lo que
           abre un plan.
@@ -233,7 +233,7 @@ export function AccessForm({
       */}
       {nuevo && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-text-muted text-sm font-medium">¿Tienes 14 años o más?</p>
+          <p className="text-text-muted font-medium">¿Tienes 14 años o más?</p>
           <Segmentado
             etiqueta="¿Tienes 14 años o más?"
             opciones={[

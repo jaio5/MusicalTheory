@@ -1,3 +1,5 @@
+import type { Cejilla } from '@core/instrument';
+
 const STRINGS = 6;
 const FRETS = 4;
 const CELL = 15;
@@ -12,6 +14,8 @@ export interface ChordDiagramProps {
   /** Traste desde el que se dibuja. Cero es la cejuela. */
   readonly position: number;
   readonly label: string;
+  /** La cejilla, si la forma la lleva (`cejillaDe`): se dibuja como una barra. */
+  readonly cejilla?: Cejilla | null;
 }
 
 /**
@@ -29,7 +33,7 @@ export interface ChordDiagramProps {
  * Con el fondo un punto más claro y las esquinas redondeadas, cada uno se lee
  * como una pieza —lo que es— y la fila entera se recorre de un vistazo.
  */
-export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
+export function ChordDiagram({ frets, position, label, cejilla = null }: ChordDiagramProps) {
   // Si el acorde está más arriba del mástil se dibuja una ventana de cuatro
   // trastes y se numera, en vez de pintar doce trastes vacíos.
   const start = position <= 1 ? 1 : position;
@@ -127,6 +131,23 @@ export function ChordDiagram({ frets, position, label }: ChordDiagramProps) {
           </g>
         );
       })}
+
+      {/* **La cejilla es una barra, no un dedo por cuerda.** Con un punto en cada
+          cuerda del traste parecía que cada una llevaba su dedo, y una forma de
+          cuatro dedos se leía con seis. Va encima de los puntos de su traste, con
+          el mismo color y el mismo aro. */}
+      {cejilla !== null && (
+        <rect
+          data-cejilla=""
+          x={LEFT + CELL * cejilla.desde - 5}
+          y={TOP + CELL * (cejilla.traste - start) + CELL / 2 - 5}
+          width={CELL * (cejilla.hasta - cejilla.desde) + 10}
+          height={10}
+          rx={5}
+          className="fill-brass-bright stroke-surface-raised"
+          strokeWidth={1.5}
+        />
+      )}
 
       {start > 1 && (
         <text x={4} y={TOP + CELL / 2 + 3} className="fill-text-muted font-mono text-[10px]">

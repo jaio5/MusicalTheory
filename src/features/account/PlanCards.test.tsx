@@ -72,7 +72,7 @@ describe('Las tarjetas de los planes', () => {
       expect(texto).toContain(priceLabel(plan.id));
       // Y el anual, con sus meses gratis (adr/0106).
       expect(texto).toContain(
-        `o ${priceLabel(plan.id, 'anual')}: ${MESES_GRATIS_AL_AÑO} meses gratis`,
+        `o ${priceLabel(plan.id, 'anual')}, con ${MESES_GRATIS_AL_AÑO} meses gratis`,
       );
       expect(texto).toContain(
         `${monthlyAiRequests(plan.id, ANONIMO.aiModel)} preguntas al profesor al mes`,
@@ -163,6 +163,23 @@ describe('Las tarjetas de los planes', () => {
     for (const cifra of tarjeta('Medio').querySelectorAll('.font-mono')) {
       expect(cifra.textContent).toMatch(/^[\d,]+( €)?$/);
     }
+  });
+
+  /**
+   * El precio es lo que se mira primero: en la letra de los títulos y con
+   * cifras de ancho fijo, **sin la mono**, que lo espaciaba letra a letra; y
+   * «al mes» aparte, en la de leer (adr/0122).
+   */
+  it('el precio va en la letra de los títulos, y el anual con sus meses gratis', () => {
+    pintar(ANONIMO);
+
+    const cifra = within(tarjeta('Básico')).getByText(priceLabel('basico').replace(' al mes', ''));
+    expect(cifra).toHaveClass('titular', 'tabular-nums');
+    expect(cifra).not.toHaveClass('font-mono');
+    expect(cifra.nextElementSibling).toHaveTextContent(/^al mes$/);
+    expect(within(tarjeta('Básico')).getByText(`${MESES_GRATIS_AL_AÑO} meses gratis`)).toHaveClass(
+      'text-brass-bright',
+    );
   });
 
   it('cada tarjeta lleva a su ventana de pago, y no cobra desde aquí', () => {

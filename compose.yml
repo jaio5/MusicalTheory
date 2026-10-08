@@ -1,8 +1,8 @@
 # La aplicación entera, y la IA de casa si la quieres.
 #
-# Cinco servicios en dos grupos. El primero es la aplicación —base de datos,
+# Seis servicios en dos grupos. El primero es la aplicación —base de datos,
 # migraciones y servidor— y se levanta siempre. El segundo es el modelo de casa
-# —Ollama y la descarga de sus pesos— y **solo se levanta si lo pides**, porque
+# —Ollama, la descarga de sus pesos y su calentamiento— y **solo se levanta si lo pides**, porque
 # pide una gráfica NVIDIA y esto tiene que seguir funcionando en un portátil que
 # no la tenga ([adr/0014](docs/adr/0014-un-modelo-de-casa-para-probar.md),
 # [adr/0047](docs/adr/0047-la-ia-es-un-perfil-no-un-fichero.md)).
@@ -116,8 +116,8 @@ services:
       # silencioso: `docker compose up` avisa si falta y la aplicación arranca en
       # modo anónimo, que es justo lo que se venía a probar.
       AUTH_SECRET: ${AUTH_SECRET:?falta AUTH_SECRET, ponlo en .env — mira README}
-      # La IA es opcional: sin clave, el profesor y las ideas contestan que no hay
-      # modelo configurado y todo lo demás funciona igual.
+      # La IA es opcional: sin clave ni modelo de casa, el profesor contesta con lo que
+      # sabe el dominio y todo lo demás funciona igual.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       # A qué modelo de casa hablarle, si hay alguno.
       #
@@ -307,7 +307,7 @@ services:
   # Descargado no es cargado: tras cada `up`, la primera pregunta tenía que subir
   # cinco gigas del disco a la gráfica antes de escribir nada. Medido en este
   # equipo, 87 s de carga más 35 de la primera respuesta, por encima de los dos
-  # minutos que espera la aplicación: «no hemos podido contactar con el modelo» en
+  # minutos que esperaba entonces la aplicación (hoy espera tres): «no hemos podido contactar con el modelo» en
   # cada arranque. Una petición vacía lo carga sin generar nada, y con
   # `OLLAMA_KEEP_ALIVE` en -1 ya no se descarga. Después, la primera pregunta tarda
   # lo que las demás (1,7 s medido).

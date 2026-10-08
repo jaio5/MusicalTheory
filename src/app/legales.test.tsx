@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -63,6 +63,20 @@ describe('la política de privacidad', () => {
       'TITULAR_NOMBRE, TITULAR_NIF',
     );
     expect(screen.getAllByText('sin configurar').length).toBeGreaterThan(0);
+  });
+
+  // La mono es para el correo, que es un dato que se copia; sin él, «sin
+  // configurar» es una frase y va en la letra de leer.
+  it('el correo va en la mono, y su falta no', () => {
+    render(<Privacidad />);
+    for (const falta of screen.getAllByText('sin configurar')) {
+      expect(falta).not.toHaveClass('font-mono');
+    }
+
+    cleanup();
+    conTitular();
+    render(<Privacidad />);
+    expect(screen.getByText('hola@ejemplo.test')).toHaveClass('font-mono');
   });
 
   it('con titular, sus datos y ningún aviso', () => {
@@ -148,6 +162,9 @@ describe('el aviso legal', () => {
     const aviso = screen.getByText(/no dice todavía quién la publica/);
     expect(aviso).toHaveTextContent('TITULAR_CORREO');
     expect(aviso).not.toHaveTextContent('TITULAR_ALOJAMIENTO');
+    for (const falta of screen.getAllByText('sin configurar')) {
+      expect(falta).not.toHaveClass('font-mono');
+    }
   });
 
   it('con titular, sus datos, y enlaza la privacidad', () => {
@@ -155,6 +172,7 @@ describe('el aviso legal', () => {
     render(<AvisoLegal />);
     expect(screen.queryByText(/no dice todavía/)).not.toBeInTheDocument();
     expect(screen.getByText('00000000T')).toBeInTheDocument();
+    expect(screen.getByText('hola@ejemplo.test')).toHaveClass('font-mono');
     expect(screen.getByRole('link', { name: 'política de privacidad' })).toHaveAttribute(
       'href',
       '/privacidad',

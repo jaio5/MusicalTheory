@@ -67,7 +67,7 @@ export function Badges({
               />
               <span className="min-w-0">
                 <span
-                  className={`block text-sm ${tenida ? 'text-brass-bright font-medium' : 'text-text'}`}
+                  className={`block text-base ${tenida ? 'text-brass-bright font-medium' : 'text-text'}`}
                 >
                   {badge.name}
                 </span>

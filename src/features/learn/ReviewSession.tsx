@@ -109,7 +109,7 @@ export function ReviewSession({
     return (
       <div className="p-4">
         <h2 className="text-text text-lg">No hay nada que repasar.</h2>
-        <p className="text-text-muted mt-2 max-w-prose text-sm">
+        <p className="text-text-muted mt-2 max-w-prose text-base">
           Lo que falles se apunta aquí y vuelve el mismo día, y otra vez al día siguiente. Cuando lo
           aciertas dos veces seguidas, sale de la cola.
         </p>

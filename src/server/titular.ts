@@ -30,7 +30,7 @@ export interface Titular {
 }
 
 /** Las variables, y qué dato es cada una. Lo usan la página y su test. */
-export const VARIABLES_DEL_TITULAR = {
+const VARIABLES_DEL_TITULAR = {
   nombre: 'TITULAR_NOMBRE',
   nif: 'TITULAR_NIF',
   domicilio: 'TITULAR_DOMICILIO',

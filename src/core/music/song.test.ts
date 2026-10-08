@@ -320,7 +320,7 @@ describe('el papel de cada parte', () => {
   });
 
   it('los ocho papeles se explican, y la explicación se le manda al modelo', () => {
-    // Misma regla que los caminos de `paths.ts`: el catálogo del prompt sale de
+    // Misma regla que los caminos de `salidas/validar.ts`: el catálogo del prompt sale de
     // aquí, así que un papel sin frase es un papel que el modelo no entiende.
     for (const role of ROLES) {
       expect(role.name.length).toBeGreaterThan(0);

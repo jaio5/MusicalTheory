@@ -1,8 +1,8 @@
 # ADR 0048 — Una toma dice lo que es
 
-Fecha: 2026-09-24 · Estado: **en revisión** · Corrige un supuesto de [ADR 0034](./0034-tres-maneras-de-escribir-la-misma-cancion.md)
+Fecha: 2026-09-24 · Estado: aceptada, con su reversión **pendiente** (nota de abajo) · Corrige un supuesto de [ADR 0034](./0034-tres-maneras-de-escribir-la-misma-cancion.md)
 
-> **Esto se va a revertir.** El 26 de septiembre de 2026, quien usa la aplicación
+> **Esto se va a revertir, y todavía no se ha revertido:** el selector de papel de la toma sigue en el código (`PapelDeLaToma`, `TocarParaEscribir`) y lo que este ADR cerró sigue cerrado hasta que el ROADMAP diga lo contrario. El 26 de septiembre de 2026, quien usa la aplicación
 > decidió que **no hay que declarar la toma: tiene que transcribirse sola**, y que
 > lo que importa es poder corregir lo que se entienda mal. La medida de aquí abajo
 > sigue siendo verdad —una nota sola y su acorde mayor tienen casi la misma forma—,

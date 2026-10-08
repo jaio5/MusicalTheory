@@ -360,29 +360,11 @@ describe('entrar con correo y contraseña', () => {
     expect(await autorizar({ email: 'nadie@b.c', password: 'unaContrasenaLarga' })).toBeNull();
   });
 
+  // Que un correo desconocido tarde lo mismo que uno conocido se mide con reloj,
+  // y va aparte: `auth.reloj.test.ts`.
   it('sin credenciales, tampoco, y no revienta', async () => {
     expect(await autorizar({})).toBeNull();
     expect(await autorizar({ email: 42, password: null })).toBeNull();
-  });
-
-  it('un correo desconocido tarda lo mismo que uno conocido', async () => {
-    // Sin la contraseña cifrada que no es de nadie, entrar con un correo
-    // desconocido contesta en un milisegundo y entrar con uno conocido tarda
-    // cien: la diferencia se mide desde fuera y regala una lista de quién tiene
-    // cuenta aquí. El margen es holgado a propósito —esto mide un reloj de
-    // pared en un CI compartido— y aun así pilla la diferencia de dos ordenes de
-    // magnitud que hay entre comprobar un `scrypt` y no comprobar nada.
-    await users.createUser({ mayorDe14: true, email: 'a@b.c', password: 'unaContrasenaLarga' });
-
-    const empiezaConocido = performance.now();
-    await autorizar({ email: 'a@b.c', password: 'mal' });
-    const conocido = performance.now() - empiezaConocido;
-
-    const empiezaDesconocido = performance.now();
-    await autorizar({ email: 'nadie@b.c', password: 'mal' });
-    const desconocido = performance.now() - empiezaDesconocido;
-
-    expect(desconocido).toBeGreaterThan(conocido / 5);
   });
 });
 

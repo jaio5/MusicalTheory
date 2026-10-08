@@ -140,16 +140,17 @@ export function marcarRecorridoVisto(): void {
 }
 
 /**
- * Un tramo visto: terminado o cerrado. Con todos vistos, el recorrido entero.
- * `todos` son los nombres de los tramos, que los sabe quien los define.
+ * Los tramos de una tarjeta, vistos: terminados o cerrados. Son uno o dos —la
+ * bienvenida y el de la pantalla salen juntos—. Con todos vistos, el recorrido
+ * entero. `todos` son los nombres de los tramos, que los sabe quien los define.
  */
-export function marcarTramoVisto(tramo: string, todos: readonly string[]): void {
+export function marcarTramosVistos(tramos: readonly string[], todos: readonly string[]): void {
   const actual = estadoDelRecorrido();
   /* v8 ignore next 3 -- solo se cierra un tramo que se está enseñando, y entonces no está visto */
   if (actual.visto) {
     return;
   }
-  const vistos = actual.vistos.includes(tramo) ? actual.vistos : [...actual.vistos, tramo];
+  const vistos = [...new Set([...actual.vistos, ...tramos])];
   if (todos.every((uno) => vistos.includes(uno))) {
     marcarRecorridoVisto();
     return;

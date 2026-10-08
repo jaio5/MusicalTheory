@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { TuneScreen } from '../../screens/TuneScreen';
 
 export const metadata: Metadata = {
-  title: 'Afinar · Caos ordenado',
+  title: 'Afinar',
   description:
     'Afinador por micrófono con ocho afinaciones: estándar, drop D, DADGAD, open G y más.',
 };

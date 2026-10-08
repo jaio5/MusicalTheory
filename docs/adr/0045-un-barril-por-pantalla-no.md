@@ -1,5 +1,7 @@
 # ADR 0045 — Un barril para las pantallas, no
 
+> **Lo descartado aquí lo revisa [ADR 0058](./0058-componer-se-descarga-por-partes.md):** componer se descarga por partes, con `lazy` desde el módulo y no desde un barril.
+
 Fecha: 2026-09-23 · Estado: aceptada
 
 ## Contexto

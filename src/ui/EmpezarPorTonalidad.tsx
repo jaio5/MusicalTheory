@@ -81,9 +81,7 @@ export function CuatroTonalidades({ children }: { readonly children?: ReactNode 
     // una columna centrada, se encogía a lo que ocupaba la frase y dejaba los
     // cuatro en 123 px, dos por fila y «C mayor» saliéndose del botón.
     <div className="flex w-full flex-col items-center gap-2 py-3">
-      {children !== undefined && (
-        <span className="text-text-muted text-center text-sm">{children}</span>
-      )}
+      {children !== undefined && <span className="text-text-muted text-center">{children}</span>}
       <FilaDeSalida />
     </div>
   );
@@ -184,7 +182,7 @@ function TonalidadesDeSalida() {
               <span id={idNombre} className="titular text-text text-lg @min-[36rem]:text-xl">
                 {keyName(tonic, modo)}
               </span>
-              <span id={idAcordes} className="text-text-muted font-mono text-sm">
+              <span id={idAcordes} className="text-text-muted font-mono">
                 {acordes.join(' · ')}
               </span>
             </button>

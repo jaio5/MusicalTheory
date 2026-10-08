@@ -6,6 +6,7 @@ import { useClaqueta } from '@state/claqueta';
 import { nombreDeLaEntrada, useMicrofono } from '@state/microfono';
 import { useSessionStore } from '@state/session-store';
 import { cambiarDeMicro, ponerAlDiaLasEntradas } from '@state/use-listening';
+import { Aviso } from '@ui/Aviso';
 import { Chevron } from '@ui/Chevron';
 import { cerrarAlSalirElFoco } from '@ui/cerrar-al-salir-el-foco';
 
@@ -35,7 +36,20 @@ import { cerrarAlSalirElFoco } from '@ui/cerrar-al-salir-el-foco';
  * Sin velo, a diferencia de los tres de componer: es una lista que se abre de un
  * botón, como el menú de la cuenta que tiene al lado, y no un panel de ajustes.
  */
-export function ElegirMicro() {
+export function ElegirMicro({
+  fallo = null,
+}: {
+  /**
+   * Por qué no se ha abierto el micro, cuando lo pidió el botón de al lado.
+   *
+   * **Sale aquí, debajo del botón que lo provocó, y el panel se abre solo.** Era
+   * una línea roja de doce píxeles al lado del micro, escondida por debajo de
+   * `md`: en un teléfono se pulsaba el micro, no pasaba nada y no se decía por
+   * qué. Este panel es el del mismo aparato, flota por encima de todo y trae la
+   * lista de micros, que es justo lo que hace falta cuando el que había no está.
+   */
+  readonly fallo?: string | null;
+} = {}) {
   const elegido = useMicrofono((estado) => estado.elegido);
   const entradas = useMicrofono((estado) => estado.entradas);
   const delSistema = useMicrofono((estado) => estado.delSistema);
@@ -50,6 +64,19 @@ export function ElegirMicro() {
   const enLaToma = useClaqueta((estado) => estado.enLaToma);
   const capturando = useSessionStore((estado) => estado.capturing);
   const panel = useId();
+
+  useEffect(() => {
+    const lista = document.getElementById(panel) as HTMLElement;
+    // La API falta en jsdom; los navegadores a los que va esto la traen desde
+    // 2024. Abrir uno abierto lanza `InvalidStateError`.
+    if (
+      fallo !== null &&
+      typeof lista.showPopover === 'function' &&
+      !lista.matches(':popover-open')
+    ) {
+      lista.showPopover();
+    }
+  }, [fallo, panel]);
 
   // Lo guardado, después de pintar: leerlo en el render daría un HTML distinto en
   // el servidor. Y la lista, por si ya hay permiso de otra vez y trae los nombres.
@@ -122,15 +149,18 @@ export function ElegirMicro() {
       >
         <p className="rotulo mb-2">Micrófono</p>
 
+        {/* Montada siempre y vacía antes de su frase, para que se lea (adr/0084). */}
+        <Aviso mensaje={fallo} anuncio="urgente" className="mb-2" />
+
         {cayo && (
-          <p className="text-oxblood-bright mb-2 text-sm">
+          <p className="text-oxblood-bright mb-2">
             El micrófono elegido no está conectado: escucho por el del sistema.
           </p>
         )}
         {pendiente && (
           // No interrumpir lo que se graba es la razón; decirla evita que parezca
           // que no ha hecho caso.
-          <p className="text-brass-bright mb-2 text-sm">
+          <p className="text-brass-bright mb-2">
             Cambiaré de micrófono al acabar la toma, para no cortar lo que se graba.
           </p>
         )}
@@ -165,7 +195,7 @@ export function ElegirMicro() {
         </ul>
 
         {!conNombres && (
-          <p className="text-text-muted mt-2 text-sm">
+          <p className="text-text-muted mt-2">
             Los nombres de los micrófonos salen al darle permiso: pulsa el micro de la barra.
           </p>
         )}

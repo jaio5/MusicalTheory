@@ -36,12 +36,22 @@ export interface ChordEntryProps {
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
   readonly onPick: (degree: DegreeSymbol, especie?: EspecieDeBloque) => void;
+  /**
+   * El nombre del campo. Lo cambia «Cambiar por…», que usa este mismo buscador
+   * para sustituir el acorde elegido en vez de meter uno detrás.
+   */
+  readonly etiqueta?: string;
 }
 
 /** Cuántos candidatos se enseñan. Con la fundamental escrita salen de sobra. */
 const CUANTOS = 6;
 
-export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
+export function ChordEntry({
+  tonic,
+  mode,
+  onPick,
+  etiqueta = 'Escribe un acorde',
+}: ChordEntryProps) {
   const [texto, setTexto] = useState('');
 
   /**
@@ -156,7 +166,7 @@ export function ChordEntry({ tonic, mode, onPick }: ChordEntryProps) {
   return (
     <div>
       <TextField
-        label="Escribe un acorde"
+        label={etiqueta}
         compact
         ancho="completo"
         placeholder="Am7, F#, Bb…"

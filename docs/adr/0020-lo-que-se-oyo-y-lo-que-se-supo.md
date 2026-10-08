@@ -1,5 +1,7 @@
 # ADR 0020 — Lo que se oyó, lo seguro que se estaba, y quién lo dijo
 
+> **Corregida en parte por [ADR 0107](./0107-los-armonicos-se-miden-en-su-serie.md):** contra quién se mide el margen.
+
 Fecha: 2026-09-07 · Estado: aceptada · Amplía: [ADR 0004](./0004-reconocimiento-de-acordes-por-croma.md), [ADR 0018](./0018-el-lienzo-de-montar.md)
 
 > **Corregida en parte por [ADR 0043](./0043-dos-maneras-de-equivocarse.md).** La

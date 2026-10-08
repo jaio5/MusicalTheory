@@ -12,7 +12,7 @@ import { normalizePitchClass, type PitchClass } from './notes';
 import type { KeyMode } from './keys';
 
 /** Grados sobre tonalidad mayor, incluidos los tres prestados de rigor. */
-export type MajorDegreeSymbol =
+type MajorDegreeSymbol =
   | 'I'
   | 'ii'
   | 'iii'
@@ -31,7 +31,7 @@ export type MajorDegreeSymbol =
   | 'V/vi';
 
 /** Grados sobre tonalidad menor, con las dos dominantes y el napolitano. */
-export type MinorDegreeSymbol =
+type MinorDegreeSymbol =
   'i' | 'ii°' | 'bII' | 'III' | 'iv' | 'v' | 'V' | 'VI' | 'VII' | 'V/iv' | 'V/V';
 
 export type DegreeSymbol = MajorDegreeSymbol | MinorDegreeSymbol;

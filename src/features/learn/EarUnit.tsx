@@ -14,6 +14,7 @@ import { selectTonalidadParaAprender, useSessionStore } from '@state/session-sto
 import { Button } from '@ui/Button';
 
 import { Question } from './Question';
+import { usePreguntaEnCurso } from './sitio-en-la-unidad';
 import { HUECO_DEL_TUTOR, Tutor } from './Tutor';
 import { UnidadPorMomentos } from './UnidadPorMomentos';
 
@@ -61,8 +62,8 @@ export function EarUnit({
     [activeKey, unit.ear],
   );
 
-  const [at, setAt] = useState(0);
-  const [failed, setFailed] = useState(false);
+  // Retomada de donde se dejó si se recarga a mitad (`sitio-en-la-unidad.ts`).
+  const { at, failed, fallar, siguiente } = usePreguntaEnCurso(unit.id, ejercicios.length);
   /** Si esta pregunta ya se ha oído alguna vez, para saber qué decir en el botón. */
   const [oido, setOido] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -116,7 +117,7 @@ export function EarUnit({
   let prueba: ReactNode;
   /* v8 ignore start -- las clases de oido del catalogo traen sus preguntas */
   if (ejercicio === undefined) {
-    prueba = <p className="text-text-muted text-sm">Esta unidad no tiene nada que oír.</p>;
+    prueba = <p className="text-text-muted text-base">Esta unidad no tiene nada que oír.</p>;
     /* v8 ignore stop */
   } else {
     const last = at >= ejercicios.length - 1;
@@ -126,8 +127,6 @@ export function EarUnit({
 
     prueba = (
       <div className="max-w-prose">
-        <p className="text-text text-base leading-relaxed">{EAR_KINDS[unit.ear].lead}</p>
-
         <div className="mt-4 flex flex-wrap items-center gap-3">
           {/*
             No suena solo al entrar, y el botón no se gasta.
@@ -147,10 +146,10 @@ export function EarUnit({
             {oido ? 'Escuchar otra vez' : 'Escuchar'}
           </Button>
           {referencia.length > 0 && (
-            <p className="text-text-muted text-sm">
+            <p className="text-text-muted text-base">
               Primero suena{' '}
-              <span className="text-brass-bright font-mono">{referencia.join(' y ')}</span>, que es
-              la referencia. La pregunta es lo que viene después.
+              <span className="text-brass-bright font-mono">{referencia.join(' y ')}</span>, la
+              referencia.
             </p>
           )}
         </div>
@@ -163,7 +162,7 @@ export function EarUnit({
             lastLabel="Terminar la unidad"
             onAnswered={(correct) => {
               if (!correct) {
-                setFailed(true);
+                fallar();
                 onMiss?.(at);
                 setAviso('Vuelve a darle a escuchar con la respuesta delante: es donde se pilla.');
               }
@@ -175,7 +174,7 @@ export function EarUnit({
               }
               // La siguiente suena en el mismo gesto: aquí sí, porque quien pulsa
               // «siguiente» en una unidad de oído está pidiendo justo eso.
-              setAt(at + 1);
+              siguiente();
               setOido(true);
               escuchar(at + 1);
             }}
@@ -187,7 +186,18 @@ export function EarUnit({
 
   return (
     <div className={`min-h-0 grow overflow-y-auto p-4 ${HUECO_DEL_TUTOR}`}>
-      <UnidadPorMomentos unit={unit} prueba={prueba} />
+      {/*
+        **Qué hay que hacer se dice una vez, en la presentación.** Iba encima de
+        cada pregunta y la primera lo repetía con otras palabras —«Suenan dos
+        notas, una detrás de otra…» dos veces seguidas—, y con la referencia,
+        tres. Delante de la pregunta queda lo que cambia: qué suena y qué se
+        pregunta.
+      */}
+      <UnidadPorMomentos
+        unit={unit}
+        prueba={prueba}
+        queViene={`${EAR_KINDS[unit.ear].lead} Se puede escuchar las veces que haga falta.`}
+      />
 
       <Tutor unitId={unit.id} aviso={aviso} onAvisoVisto={() => setAviso(null)} />
     </div>

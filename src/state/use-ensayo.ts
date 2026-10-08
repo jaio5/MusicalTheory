@@ -60,7 +60,7 @@ import { useSessionStore } from './session-store';
  * pulso que marca el compás.
  */
 
-export type FaseDelEnsayo = 'quieto' | 'preparando' | 'ensayando' | 'terminado';
+type FaseDelEnsayo = 'quieto' | 'preparando' | 'ensayando' | 'terminado';
 
 export interface EnsayoEnMarcha {
   readonly fase: FaseDelEnsayo;

@@ -10,7 +10,7 @@ import { Aviso } from '@ui/Aviso';
 import { Screen, Section } from '@ui/Screen';
 
 export const metadata: Metadata = {
-  title: 'Privacidad · Caos ordenado',
+  title: 'Privacidad',
   description:
     'Qué se guarda de ti, para qué y dónde. El audio no sale de tu aparato, y sin cuenta casi nada sale de tu navegador.',
 };
@@ -62,7 +62,10 @@ export default function Privacidad() {
           <dt className="text-text font-medium">Domicilio</dt>
           <dd>{datos.domicilio ?? 'sin configurar'}</dd>
           <dt className="text-text font-medium">Contacto</dt>
-          <dd className="font-mono">{datos.correo ?? 'sin configurar'}</dd>
+          {/* La mono es para el correo, que es un dato; «sin configurar» es una frase. */}
+          <dd className={datos.correo === null ? undefined : 'font-mono'}>
+            {datos.correo ?? 'sin configurar'}
+          </dd>
         </dl>
         <p className={`${TEXTO} mt-3`}>
           A esa dirección se escribe para cualquier cosa de esta página. Los datos completos están
@@ -217,7 +220,7 @@ export default function Privacidad() {
           mismo desde tu cuenta. Si crees que no se ha hecho bien, puedes reclamar ante la Agencia
           Española de Protección de Datos (aepd.es).
         </p>
-        <p className={`${TEXTO} mt-3 text-sm`}>Revisada el {REVISADA}.</p>
+        <p className={`${TEXTO} mt-3`}>Revisada el {REVISADA}.</p>
       </Section>
     </Screen>
   );

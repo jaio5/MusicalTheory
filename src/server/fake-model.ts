@@ -20,7 +20,7 @@
  * lee «Sin IA», no un título que parezca escrito por alguien.
  */
 
-import { MAX_VERSIONS } from '@core/billing';
+import { MAX_SALIDAS } from '@core/billing';
 import {
   pitchClassFromName,
   respuestaDelGlosario,
@@ -62,7 +62,7 @@ interface Peticion {
  * camino de verdad.
  *
  * **Cuáles, lo decide la ruta**: las tres mejores con variedad
- * (`lasTresMejores`, en `features/versions/menu.ts`), que son también las que el
+ * (`lasTresMejores`, en `features/salidas/menu.ts`), que son también las que el
  * modelo explica cuando no hay directrices. Aquí se contestan.
  *
  * **El porqué es el del juez** —«V I en el 8: cadencia perfecta», «vi IV, el eje
@@ -72,13 +72,13 @@ interface Peticion {
  * Lo que **no** prueban sigue siendo lo de siempre: si el criterio de un modelo de
  * verdad vale la pena. Por eso todas llevan «Sin IA» escrito en su título.
  */
-export function versionesSinIA(peticion: Peticion): {
+export function salidasSinIA(peticion: Peticion): {
   readonly versions: readonly { opcion: number; title: string; why: string }[];
 } {
   const { menu } = peticion;
   const elegidas = (peticion.elegidas ?? menu.map((_, i) => i + 1))
     .filter((numero) => menu[numero - 1] !== undefined)
-    .slice(0, MAX_VERSIONS);
+    .slice(0, MAX_SALIDAS);
   return {
     versions: elegidas.map((numero) => {
       const salida = menu[numero - 1]!;

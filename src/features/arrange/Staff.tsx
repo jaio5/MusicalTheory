@@ -1,10 +1,12 @@
 'use client';
 
+import { cifraCorta, enPulsos } from '@core/cifras';
 import { memo, useCallback, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 
 import {
   figuraDe,
+  isDoubtful,
   isDoubtfulNote,
   keySignature,
   MAX_OFFSET,
@@ -19,7 +21,7 @@ import {
 
 import { useArrastre } from './arrastrar';
 import { BOLITA, CLAVE_DE_SOL, ESPACIO_CLAVE } from './clef';
-import { useMedida } from '@ui/use-medida';
+import { useAncho } from '@ui/use-medida';
 
 /**
  * La partitura: el mismo punteo, escrito.
@@ -85,6 +87,38 @@ const PULSO_MAXIMO = 46;
  * catorce salían por la derecha —727 de hoja en 713 de hueco, medido a 1440—.
  */
 const PAPEL = 18;
+
+/**
+ * Lo más que se agranda la partitura cuando le sobra papel.
+ *
+ * Con el pulso en su tope, cuatro compases medían 824 píxeles en un hueco de
+ * 1.520 a 1920 de pantalla, y el pentagrama —un espacio de doce píxeles— se
+ * quedaba en una franja de 154 de alto con 450 vacíos debajo: un diagrama
+ * pequeño en una pantalla que se lee a un metro. **Lo que sobra a lo ancho se
+ * gasta en escala**, no en estirar el pulso: escalado, todo crece a la vez y en
+ * la misma proporción —cabeza, plica, clave, espacio—, que es lo que mantiene
+ * el grabado en espacios de pentagrama
+ * ([adr/0029](../../../docs/adr/0029-la-partitura-se-dibuja-aqui.md)); estirado,
+ * cuatro compases eran una pancarta de notas pequeñas.
+ *
+ * El tope está en el doble: un espacio de veinticuatro píxeles, que se lee a
+ * dos metros, y por encima una parte de un compás sería un cartel
+ * ([adr/0119](../../../docs/adr/0119-la-partitura-llena-su-hueco-y-el-lienzo-se-parte.md)).
+ */
+const ESCALA_MAXIMA = 2;
+
+/**
+ * El cuerpo de los cifrados **en pantalla**, se escale la hoja o no.
+ *
+ * Iban a dieciséis en la monoespaciada, que medida en pantalla se leía como de
+ * catorce al lado de un pentagrama cinco veces más alto. Ahora van a veintidós
+ * en la letra de los títulos —la misma con la que el ensayo y «A dónde ir»
+ * escriben los acordes grandes—: la mono es para lo que se alinea en columna, y
+ * un cifrado encima de un compás se lee, no se compara dígito a dígito
+ * ([adr/0024](../../../docs/adr/0024-la-interfaz-se-lee-primero.md)). Se divide
+ * por la escala para que una hoja grande no los convierta en carteles.
+ */
+const CIFRADO_PX = 22;
 
 /** Medio espacio del pentagrama: lo que sube una nota al pasar de línea a espacio. */
 const PASO = 6;
@@ -323,7 +357,7 @@ export function repartoEnSistemas(
   margen: number,
   compases: number,
   beatsPerBar: number,
-): { sistemas: number; porSistema: number; porPulso: number } {
+): { sistemas: number; porSistema: number; porPulso: number; escala: number } {
   const util = disponible - PAPEL - margen - 12;
   const caben = Math.max(1, Math.floor(util / (beatsPerBar * PULSO_MINIMO)));
   const sistemas = disponible === 0 ? 1 : Math.ceil(compases / caben);
@@ -332,7 +366,15 @@ export function repartoEnSistemas(
     PULSO_MAXIMO,
     Math.max(PULSO_MINIMO, util / (porSistema * beatsPerBar)),
   );
-  return { sistemas, porSistema, porPulso };
+  // Lo que mide la hoja a escala uno, y cuánto se puede agrandar hasta llenar
+  // su caja. Con el pulso justificado ya la llena y sale uno; con el pulso en
+  // su tope sobra papel y la escala se lo come.
+  const anchoNatural = margen + porSistema * beatsPerBar * porPulso + 8;
+  const escala =
+    disponible === 0
+      ? 1
+      : Math.min(ESCALA_MAXIMA, Math.max(1, (disponible - PAPEL) / anchoNatural));
+  return { sistemas, porSistema, porPulso, escala };
 }
 
 /**
@@ -366,6 +408,11 @@ export interface StaffProps {
   readonly mode: KeyMode;
   readonly selectedNoteId: string | null;
   readonly selectedBlockId: string | null;
+  /**
+   * El acorde por el que se está preguntando en «No lo oí claro», si es de esta
+   * parte: se recuadra para que se sepa de cuál de los cuatro `Em` se habla.
+   */
+  readonly corrigiendoBlockId: string | null;
   readonly partName: string;
   readonly partId: string;
   /** Entre qué dos compases caería lo que se está arrastrando, si es aquí. */
@@ -407,6 +454,7 @@ export const Staff = memo(function Staff({
   mode,
   selectedNoteId,
   selectedBlockId,
+  corrigiendoBlockId,
   partName,
   partId,
   dropAt,
@@ -484,12 +532,16 @@ export const Staff = memo(function Staff({
    * El ancho de la caja, medido.
    *
    * Un `ResizeObserver` y no un porcentaje de CSS: hace falta el número para
-   * repartir los pulsos, y un SVG escalado con `width: 100%` estiraría también
-   * las notas y la clave hasta deformarlas.
+   * repartir los pulsos y para decidir la escala, y un SVG con `width: 100%`
+   * cambiaría de proporción con la caja y deformaría las notas y la clave. La
+   * escala es la misma a lo ancho y a lo alto, y el dibujo no lo nota.
+   *
+   * **Solo el ancho**: el alto de la caja sale de la escala, así que cada cambio
+   * de ancho traía otro aviso por el alto y el pentagrama se pintaba dos veces.
    */
-  const { ref: cajaRef, medida } = useMedida<HTMLDivElement>();
-  const { sistemas, porSistema, porPulso } = repartoEnSistemas(
-    medida.ancho,
+  const { ref: cajaRef, ancho: anchoDeLaCaja } = useAncho<HTMLDivElement>();
+  const { sistemas, porSistema, porPulso, escala } = repartoEnSistemas(
+    anchoDeLaCaja,
     margen,
     compases,
     beatsPerBar,
@@ -534,16 +586,17 @@ export const Staff = memo(function Staff({
     (clientX: number, clientY: number): { step: number; start: number } => {
       /* v8 ignore next -- el pentagrama está montado: sin él no hay dónde pulsar. */
       const caja = svgRef.current?.getBoundingClientRect() ?? SIN_PENTAGRAMA;
-      // El SVG se dibuja a su tamaño natural, así que un píxel de pantalla es un
-      // píxel del dibujo. Si algún día se escala, aquí hay que dividir por la
-      // razón entre `caja.width` y `ancho`.
-      const x = clientX - caja.left;
+      // La hoja se dibuja a `escala`, así que un píxel de pantalla es un
+      // `1 / escala` del dibujo: sin dividir, en una pantalla ancha cada nota caía
+      // lejos de donde se pulsaba.
+      const x = (clientX - caja.left) / escala;
+      const alto = (clientY - caja.top) / escala;
       // Primero qué sistema, por la altura: cada uno mide lo mismo.
-      const s = Math.min(sistemas - 1, Math.max(0, Math.floor((clientY - caja.top) / altoSistema)));
+      const s = Math.min(sistemas - 1, Math.max(0, Math.floor(alto / altoSistema)));
       // El `viewBox` empieza en `-respiro`, así que el cero de pantalla no es el
       // cero del dibujo. Sin esta resta, escribir sobre una partitura con notas
       // agudas pone la nota tantos escalones más abajo como aire se haya abierto.
-      const y = clientY - caja.top - respiro - s * altoSistema;
+      const y = alto - respiro - s * altoSistema;
       return {
         step: Math.round((BASE - y) / PASO) + STEP_BASE,
         start: s * pulsosPorSistema + Math.max(0, Math.round((x - margen) / porPulso / 0.5) * 0.5),
@@ -552,7 +605,7 @@ export const Staff = memo(function Staff({
     // El margen entra aquí desde que depende de la tonalidad: en Fa sostenido
     // hay seis sostenidos delante, y con el número de Do mayor cada nota que se
     // escribe caería medio compás a la izquierda de donde se pulsó.
-    [porPulso, margen, respiro, sistemas, altoSistema, pulsosPorSistema],
+    [porPulso, margen, respiro, sistemas, altoSistema, pulsosPorSistema, escala],
   );
 
   /**
@@ -612,12 +665,12 @@ export const Staff = memo(function Staff({
       empezarArrastre({
         mover: (x) => {
           arrastradaRef.current = true;
-          onResizeBlock(blockId, beats + (x - inicioX) / porPulso);
+          onResizeBlock(blockId, beats + (x - inicioX) / (porPulso * escala));
         },
         soltar: onGestureEnd,
       });
     },
-    [empezarArrastre, onGestureEnd, onGestureStart, onResizeBlock, porPulso],
+    [empezarArrastre, escala, onGestureEnd, onGestureStart, onResizeBlock, porPulso],
   );
 
   /**
@@ -685,15 +738,15 @@ export const Staff = memo(function Staff({
       <div className="superficie w-fit max-w-full overflow-x-auto px-2 py-1">
         <svg
           ref={svgRef}
-          width={ancho}
-          height={sistemas * altoSistema}
+          width={ancho * escala}
+          height={sistemas * altoSistema * escala}
           viewBox={`0 ${-respiro} ${ancho} ${sistemas * altoSistema}`}
           // Un grupo y no una imagen: los hijos de una imagen son decoración por
           // definición, y aquí dentro están los acordes y las notas, que se
           // eligen. Con `img` el lector no los anunciaba y axe lo marca como
           // interactivos anidados (`docs/ESTILO.md`, lo mismo que la rueda).
           role="group"
-          aria-label={`Partitura de ${partName}: ${notes.length} notas`}
+          aria-label={`Partitura de ${partName}: ${notes.length} ${notes.length === 1 ? 'nota' : 'notas'}`}
           className="text-text block"
           onClick={(event) => {
             if (arrastradaRef.current) {
@@ -883,6 +936,7 @@ export const Staff = memo(function Staff({
                   const final = lugar(acumulado.x + block.beats, true);
                   const x = inicio.x;
                   const elegido = selectedBlockId === block.id;
+                  const dudoso = isDoubtful(block);
                   /*
                     La línea de lo que dura, **un tramo por sistema que pisa**.
                     Un acorde que cruza el final de un renglón sigue en el de
@@ -910,7 +964,9 @@ export const Staff = memo(function Staff({
                       data-parte={partId}
                       data-indice={acumulado.x === 0 ? 0 : indice}
                       data-bloque={block.id}
-                      aria-label={`${chord.symbol}, grado ${block.degree}, ${block.beats} pulsos`}
+                      aria-label={`${chord.symbol}, grado ${block.degree}, ${enPulsos(block.beats)}${
+                        dudoso ? ', dudoso' : ''
+                      }`}
                       aria-pressed={elegido}
                       // `pan-y` y no `none`: el cifrado se mueve de lado —por
                       // compases— y eso lo deja hacer; un barrido de arriba abajo
@@ -935,34 +991,61 @@ export const Staff = memo(function Staff({
                         }
                       }}
                     >
-                      {/* El cifrado, con peso: en esta vista **es** el acorde, no su
-                      etiqueta, y a catorce píxeles al 85 % se leía como un pie de
-                      foto al lado de un pentagrama que ocupa cinco veces más.
-                      Dieciséis, el cuerpo de la casa: a un metro los quince se
-                      quedaban cortos. */}
+                      {/* Lo que se está corrigiendo, recuadrado: la tarjeta de
+                          «No lo oí claro» dice «Apunté Em», y con cuatro `Em` en
+                          la canción eso no decía de cuál. El recuadro va
+                          punteado, que es la marca de la duda en las dos vistas. */}
+                      {corrigiendoBlockId === block.id && (
+                        <rect
+                          aria-hidden
+                          data-corrigiendo
+                          x={x - 4}
+                          y={1}
+                          transform={bajada(inicio.s)}
+                          width={Math.max(28, primero.hasta - primero.desde + 6)}
+                          height={26}
+                          rx={4}
+                          className="fill-brass/15 stroke-brass-bright"
+                          strokeDasharray="4 3"
+                        />
+                      )}
+                      {/* El cifrado, con peso y en la letra de los títulos: en
+                          esta vista **es** el acorde, no su etiqueta, y se lee a
+                          un metro (`CIFRADO_PX`). */}
                       <text
                         x={x}
-                        y={17}
+                        y={19}
                         transform={bajada(inicio.s)}
-                        fontSize={16}
-                        fontWeight={600}
-                        fontFamily="ui-monospace, monospace"
+                        fontSize={CIFRADO_PX / escala}
+                        fontWeight={650}
+                        className="font-display"
                         fill="currentColor"
                         fillOpacity={elegido ? 1 : 0.95}
                       >
                         {chord.symbol}
+                        {/* La duda, como en la tira de bloques: un interrogante
+                            al lado del cifrado. El aviso de lo traído promete
+                            que los dudosos salen marcados con «?», y en esta
+                            vista, que es la de entrada, no salía ninguno. */}
+                        {dudoso && (
+                          <tspan dx={2} className="fill-text-muted">
+                            ?
+                          </tspan>
+                        )}
                       </text>
                       {tramos.map((tramo) => (
                         <line
                           key={tramo.s}
                           x1={tramo.desde}
                           x2={tramo.hasta}
-                          y1={22}
-                          y2={22}
+                          y1={24}
+                          y2={24}
                           transform={bajada(tramo.s)}
                           stroke="currentColor"
                           strokeOpacity={elegido ? 0.9 : 0.3}
                           strokeWidth={elegido ? 2 : 1}
+                          // Punteada si está en duda, como el filo del bloque.
+                          strokeDasharray={dudoso ? '3 3' : undefined}
                         />
                       ))}
                       {/* La zona de agarre del cifrado: `ALTO_DEL_AGARRE`, los
@@ -1115,7 +1198,7 @@ export const Staff = memo(function Staff({
                 role="button"
                 tabIndex={0}
                 data-nota={note.id}
-                aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${note.length} pulsos, en el pulso ${note.start}${dudosa ? ', dudosa' : ''}`}
+                aria-label={`${escrita.letter}${escrita.accidental}${escrita.octave}, ${enPulsos(note.length)}, en el pulso ${cifraCorta(note.start)}${dudosa ? ', dudosa' : ''}`}
                 className="focus-visible:outline-brass-bright cursor-grab rounded-sm focus-visible:outline-2"
                 // Aquí sí `none`: una nota se mueve en las dos direcciones
                 // —de pulso y de altura— y no hay eje que cederle al

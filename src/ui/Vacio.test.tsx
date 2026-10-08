@@ -35,7 +35,7 @@ describe('lo que se ve cuando no hay nada', () => {
 
   it('discreto: sin margen en la acción, y sin icono ni texto si no se dan', () => {
     const { container } = render(
-      <Vacio tono="discreto" titulo="Nada" accion={<a href="/x">Ir</a>} />,
+      <Vacio tono="discreto" titulo="Nada" accion={<a href="https://ejemplo.test/x">Ir</a>} />,
     );
 
     expect(screen.getByRole('link', { name: 'Ir' }).parentElement).not.toHaveClass('mt-1');
@@ -50,10 +50,10 @@ describe('lo que se ve cuando no hay nada', () => {
       </Vacio>,
     );
 
-    // Más pequeño que el normal, pero no por debajo de lo que se lee a un metro:
-    // la explicación estaba en 12 px, y es justo lo que hay que leer.
+    // Más pequeño el dibujo y el título, **la explicación no**: es justo lo que
+    // hay que leer, y va al cuerpo como cualquier párrafo (adr/0122).
     expect(container.querySelector('[aria-hidden]')).toHaveClass('size-11');
-    expect(screen.getByText('Aún no hay nada.')).toHaveClass('text-sm');
+    expect(screen.getByText('Aún no hay nada.')).not.toHaveClass('text-sm');
     expect(screen.getByText('Nada')).toHaveClass('text-base');
   });
 

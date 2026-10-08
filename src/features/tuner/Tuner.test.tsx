@@ -162,6 +162,33 @@ describe('Afinador', () => {
     expect(screen.getByText(/cuerda 5\.ª al aire/i)).toBeInTheDocument();
   });
 
+  /**
+   * A 1440 × 900 «Dejar de escuchar» quedaba bajo el borde: la nota, a 160 px,
+   * heredaba el interlineado del cuerpo y se llevaba ochenta de aire, y crecía
+   * con el ancho sin mirar el alto.
+   */
+  it('la nota no se lleva aire de más, y en ancho crece también con el alto', async () => {
+    renderTuner();
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 });
+
+    const nota = (await screen.findByText('A')).closest('span')!;
+    expect(nota).toHaveClass('leading-none', 'xl:text-[min(10rem,14dvh)]');
+  });
+
+  /** Apagado mide lo que dice: llegó a ser una tarjeta de 1300 × 740 para tres líneas. */
+  it('apagado no se estira a lo alto de la ventana', () => {
+    renderTuner();
+
+    // Ninguna caja por encima del aviso reserva alto: lo pone lo que lleva dentro.
+    const cajas: string[] = [];
+    for (let el = screen.getByText(/necesitamos oírte/i).parentElement; el; el = el.parentElement) {
+      cajas.push(el.className);
+    }
+    expect(cajas.filter((clases) => /min-h-\[/.test(clases))).toEqual([]);
+  });
+
   it('anuncia la nota y el consejo en una sola frase para el lector de pantalla', async () => {
     const { container } = render(
       <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
@@ -208,7 +235,7 @@ describe('Afinador', () => {
       act(() => engine.emitLevel(rms));
     }
 
-    expect(screen.getByText(/\+1\.0 cents/)).toBeInTheDocument();
+    expect(screen.getByText(/\+1,0 cents · 110,\d Hz/)).toBeInTheDocument();
     expect(marco.pintado).toBe(antes);
   });
 
@@ -273,7 +300,7 @@ describe('Afinador', () => {
     act(() => engine.emitLevel(0.2));
     act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
     await screen.findByText('A');
-    const hueco = container.querySelector('p.min-h-10.md\\:min-h-5');
+    const hueco = container.querySelector('p.min-h-12.md\\:min-h-6');
     await waitFor(() => expect(hueco).toBeEmptyDOMElement());
 
     act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.91, rms: 0.2, at: 0 }));
@@ -364,7 +391,7 @@ describe('medidor de nivel', () => {
       <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
     );
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
-    const hueco = () => container.querySelector('p.min-h-10.md\\:min-h-5');
+    const hueco = () => container.querySelector('p.min-h-12.md\\:min-h-6');
 
     // Poca señal, con la nota limpia.
     act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 0 }));
@@ -381,6 +408,29 @@ describe('medidor de nivel', () => {
     expect(hueco()).not.toHaveTextContent(/no llega limpia/i);
   });
 
+  /**
+   * **Un instante sucio no es una señal sucia.** El ataque y la cola de una nota
+   * limpia bajan la claridad un momento, y como el aviso entraba en el primer
+   * fotograma, salía al lado de «Está afinada» con la cuerda perfecta.
+   */
+  it('un instante sucio en una nota limpia no avisa', async () => {
+    const engine = new FakeEngine();
+    const { container } = render(
+      <Tuner createInput={() => new FakeInput()} createEngine={() => engine} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+    act(() => engine.emitLevel(0.2));
+
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.85, rms: 0.2, at: 0 }));
+    // Un fotograma después, como llegan del motor: veinte por segundo.
+    await act(() => new Promise((listo) => setTimeout(listo, 50)));
+    act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.99, rms: 0.2, at: 50 }));
+    await act(() => new Promise((listo) => setTimeout(listo, 700)));
+
+    expect(screen.getByText('Está afinada')).toBeInTheDocument();
+    expect(container.querySelector('p.min-h-12.md\\:min-h-6')).toBeEmptyDOMElement();
+  });
+
   // Entre los dos umbrales no cambia nada: 0,94 ni ensucia ni limpia.
   it('una claridad entre los dos umbrales no ensucia una señal limpia', async () => {
     const engine = new FakeEngine();
@@ -393,7 +443,7 @@ describe('medidor de nivel', () => {
     act(() => engine.emit({ frequency: midiToFrequency(45), clarity: 0.94, rms: 0.2, at: 0 }));
     await screen.findByText('A');
     await waitFor(() =>
-      expect(container.querySelector('p.min-h-10.md\\:min-h-5')).toBeEmptyDOMElement(),
+      expect(container.querySelector('p.min-h-12.md\\:min-h-6')).toBeEmptyDOMElement(),
     );
     expect(screen.queryByText(/no llega limpia/i)).not.toBeInTheDocument();
   });
@@ -541,13 +591,13 @@ describe('a cuántos semitonos está la cuerda', () => {
   it('y uno solo va en singular', async () => {
     await oyendo(46);
 
-    expect(await screen.findByText(/A 1 semitono/)).toBeInTheDocument();
+    expect(await screen.findByText(/^1 semitono por/)).toBeInTheDocument();
   });
 
   it('y por debajo, y en plural', async () => {
     await oyendo(43);
 
-    expect(await screen.findByText(/A 2 semitonos por debajo/)).toBeInTheDocument();
+    expect(await screen.findByText(/^2 semitonos por debajo de la cuerda/)).toBeInTheDocument();
   });
 });
 

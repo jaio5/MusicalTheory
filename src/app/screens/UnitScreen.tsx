@@ -2,19 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { can, cheapestPlanWith, nextAllowedUnit, unitAccess } from '@core/billing';
-import { findUnit } from '@core/music';
-import {
-  EarUnit,
-  LearnPanel,
-  TheoryUnit,
-  UnidadPorMomentos,
-  UnitDone,
-  useProgress,
-  type Celebration,
-} from '@features/learn';
+import { findUnit, type PlayUnit, type Unit } from '@core/music';
+import { olvidarSitio } from '@features/learn/sitio-en-la-unidad';
+import { UnidadPorMomentos } from '@features/learn/UnidadPorMomentos';
+import { UnitDone } from '@features/learn/UnitDone';
+import { useProgress, type Celebration } from '@features/learn/use-progress';
 import { BarraDeTonalidad } from '@features/wheel';
 import { useAccount } from '@state/account';
 import { selectActiveKey, TONALIDAD_DE_PARTIDA, useSessionStore } from '@state/session-store';
@@ -23,6 +18,37 @@ import { IconoCamino, IconoCandado } from '@ui/icons';
 import { PlanLock } from '@ui/PlanLock';
 import { Screen, WorkHeader } from '@ui/Screen';
 import { Vacio } from '@ui/Vacio';
+
+/**
+ * **Cada unidad descarga lo de su tipo, y nada más.** Las tres venían en el
+ * paquete de la pantalla: una unidad de teoría se traía los ejercicios de oído
+ * de todo el temario y el afinador de la de tocar, y una de oído, todas las
+ * lecciones. Era un trozo de 111 KB —34 comprimido— y `/aprender/[unidad]` la
+ * ruta más pesada de la aplicación. Ahora cada tipo llega en el suyo, pedido de
+ * su módulo y no del índice de `features/learn`, que lo traería de golpe
+ * ([adr/0120](../../../docs/adr/0120-la-primera-visita-no-se-mueve-y-cada-pantalla-trae-lo-suyo.md)).
+ *
+ * No choca con que el texto del Grado Profesional viaje
+ * ([adr/0116](../../../docs/adr/0116-el-avance-que-sube-se-comprueba.md)): sigue
+ * viajando, solo que a quien abre una unidad de ese tipo.
+ */
+const TheoryUnit = lazy(() =>
+  import('@features/learn/TheoryUnit').then((modulo) => ({ default: modulo.TheoryUnit })),
+);
+const EarUnit = lazy(() =>
+  import('@features/learn/EarUnit').then((modulo) => ({ default: modulo.EarUnit })),
+);
+const cargarLaPrueba = () => import('@features/learn/LearnPanel');
+const LearnPanel = lazy(() => cargarLaPrueba().then((modulo) => ({ default: modulo.LearnPanel })));
+
+/** El sitio de lo que llega aparte, mientras llega: dicho, no un hueco. */
+function Abriendo({ que }: { readonly que: string }) {
+  return (
+    <p role="status" className="text-text-muted p-4 text-center text-base">
+      Abriendo {que}…
+    </p>
+  );
+}
 
 /**
  * Una unidad, a pantalla completa y con su propia dirección.
@@ -83,7 +109,7 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
   if (acceso === 'por-plan') {
     return (
       <Marco titulo={found.unit.title}>
-        <p className="text-text-muted max-w-prose text-sm">
+        <p className="text-text-muted max-w-prose text-base">
           Es del Grado Profesional. Los cuatro cursos del Elemental —el lenguaje musical— son gratis
           y lo seguirán siendo; los seis del Profesional —la armonía: funciones y cadencias,
           inversiones, séptimas, modulación, cromatismo y modos— van con plan.
@@ -190,47 +216,89 @@ export function UnitScreen({ unitId }: { readonly unitId: string }) {
         {/* `key`: otra unidad es otra unidad, aunque la pantalla siga montada al
             ir de una a otra. Sin ella se heredaban el momento y la pregunta en
             la que iba la anterior. */}
-        {found.unit.kind === 'theory' ? (
-          <TheoryUnit
+        <Suspense fallback={<Abriendo que="la unidad" />}>
+          <UnidadDeSuTipo
             key={unitId}
             unit={found.unit}
             yaHecha={acceso === 'hecha'}
-            onDone={(flawless) => complete(unitId, flawless)}
+            onDone={(flawless) => {
+              // Terminada, la próxima vez se empieza de nuevo y no por donde iba.
+              olvidarSitio(unitId);
+              complete(unitId, flawless);
+            }}
             {...(repasa ? { onMiss: (index: number) => miss(unitId, index) } : {})}
           />
-        ) : found.unit.kind === 'ear' ? (
-          <EarUnit
-            key={unitId}
-            unit={found.unit}
-            onDone={(flawless) => complete(unitId, flawless)}
-            {...(repasa ? { onMiss: (index: number) => miss(unitId, index) } : {})}
-          />
-        ) : (
-          <div key={unitId} className="p-4">
-            {/* La de tocar también se presenta antes: «tócala» sin saber qué
-                escala ni para qué es pedir a ciegas, y el micro se abre en cuanto
-                se empieza. Las notas que costaron entran en la cola igual que
-                una pregunta fallada. Terminar la escala sigue siendo terminarla
-                —aquí no se suspende— pero lo que salió regular vuelve. */}
-            <UnidadPorMomentos
-              unit={found.unit}
-              prueba={
-                <LearnPanel
-                  scaleId={found.unit.scaleId}
-                  onDone={(stumbled) => {
-                    if (repasa) {
-                      for (const index of stumbled) {
-                        miss(unitId, index);
-                      }
-                    }
-                    complete(unitId, stumbled.length === 0);
-                  }}
-                />
-              }
-            />
-          </div>
-        )}
+        </Suspense>
       </div>
+    </div>
+  );
+}
+
+/**
+ * La unidad según su tipo: se lee, se oye o se toca. Cada uno llega en su trozo,
+ * y mientras llega se dice.
+ */
+function UnidadDeSuTipo({
+  unit,
+  yaHecha,
+  onDone,
+  onMiss,
+}: {
+  readonly unit: Unit;
+  readonly yaHecha: boolean;
+  readonly onDone: (flawless: boolean) => void;
+  readonly onMiss?: (index: number) => void;
+}) {
+  const repaso = onMiss === undefined ? {} : { onMiss };
+  if (unit.kind === 'theory') {
+    return <TheoryUnit unit={unit} yaHecha={yaHecha} onDone={onDone} {...repaso} />;
+  }
+  if (unit.kind === 'ear') {
+    return <EarUnit unit={unit} onDone={onDone} {...repaso} />;
+  }
+  return <UnidadDeTocar unit={unit} onDone={onDone} {...repaso} />;
+}
+
+/**
+ * La de tocar también se presenta antes: «tócala» sin saber qué escala ni para
+ * qué es pedir a ciegas, y el micro se abre en cuanto se empieza. Las notas que
+ * costaron entran en la cola igual que una pregunta fallada. Terminar la escala
+ * sigue siendo terminarla —aquí no se suspende— pero lo que salió regular vuelve.
+ *
+ * **La prueba se pide mientras se lee la presentación**: llega aparte —trae el
+ * tono de referencia y la escucha— y al pulsar «Empezar» ya suele estar.
+ */
+function UnidadDeTocar({
+  unit,
+  onDone,
+  onMiss,
+}: {
+  readonly unit: PlayUnit;
+  readonly onDone: (flawless: boolean) => void;
+  readonly onMiss?: (index: number) => void;
+}) {
+  useEffect(() => {
+    void cargarLaPrueba();
+  }, []);
+
+  return (
+    <div className="p-4">
+      <UnidadPorMomentos
+        unit={unit}
+        prueba={
+          <Suspense fallback={<Abriendo que="la prueba" />}>
+            <LearnPanel
+              scaleId={unit.scaleId}
+              onDone={(stumbled) => {
+                for (const index of stumbled) {
+                  onMiss?.(index);
+                }
+                onDone(stumbled.length === 0);
+              }}
+            />
+          </Suspense>
+        }
+      />
     </div>
   );
 }
@@ -277,7 +345,7 @@ function Siguiente({
         onNext={onNext}
       />
       <p className="pb-6 text-center">
-        <Link href="/aprender" className="text-text-muted hover:text-text text-sm">
+        <Link href="/aprender" className="text-text-muted hover:text-text text-base">
           Volver al camino
         </Link>
       </p>

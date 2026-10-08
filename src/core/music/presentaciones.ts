@@ -88,9 +88,9 @@ export const CONTENIDOS_DE_UNIDAD: Readonly<Record<string, readonly string[]>> =
     'Notar la nota nueva que trae un cambio de tonalidad',
   ],
   'e3-menores': [
-    'La menor natural y su relativa mayor',
-    'La menor armónica: la sensible y la segunda aumentada',
-    'La menor melódica: subiendo y bajando',
+    'La escala menor natural y su relativa mayor',
+    'La escala menor armónica: la sensible y la segunda aumentada',
+    'La escala menor melódica: subiendo y bajando',
     'Modo mayor y modo menor: la tercera manda',
   ],
   'e2-menor': ['Subir y bajar la menor natural', 'Oír la tercera menor sobre la tónica'],

@@ -293,7 +293,7 @@ describe('Las notas ya escritas', () => {
    */
   it('la zona de agarre no baja de 24 aunque la nota sea corta', () => {
     pintar({ notes: [{ id: 'c', start: 0, length: 0.25, offset: 0 }] });
-    const nota = screen.getByRole('button', { name: /^C, 0.25 pulsos/ });
+    const nota = screen.getByRole('button', { name: /^C, 0,25 pulsos/ });
 
     expect(nota.style.height).toBe(`${ALTO_FILA}px`);
     expect(nota.style.width).toBe('24px');
@@ -307,7 +307,7 @@ describe('Las notas ya escritas', () => {
       notes: [{ id: 'c', start: 0, length: 0.25, offset: 0 }],
     });
     cajaDeLaRejilla(rejilla, 8);
-    const nota = screen.getByRole('button', { name: /^C, 0.25 pulsos/ });
+    const nota = screen.getByRole('button', { name: /^C, 0,25 pulsos/ });
     nota.getBoundingClientRect = () => ({ left: 0, right: 24, top: 0, bottom: 24 }) as DOMRect;
 
     fireEvent.pointerDown(nota, { button: 0, clientX: 20, clientY: 5 });

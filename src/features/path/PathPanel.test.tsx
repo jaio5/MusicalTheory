@@ -2,6 +2,7 @@
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Profiler } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { ProgressionPlayer } from '@audio/progression-player';
@@ -239,8 +240,40 @@ describe('Por dónde empezar', () => {
     render(<NextChords />);
 
     expect(screen.getByText('reposo')).toBeInTheDocument();
-    expect(screen.getByText('salida')).toBeInTheDocument();
+    // «Salida» chocaba con el panel Salidas, que es otra cosa.
+    expect(screen.getByText('se aleja')).toBeInTheDocument();
+    expect(screen.queryByText('salida')).not.toBeInTheDocument();
     expect(screen.getByText('tensión')).toBeInTheDocument();
+  });
+
+  it('sin buscador, solo la lista: donde ya hay otro campo a la vista', () => {
+    startIn(0, 'major');
+    render(<NextChords buscador={false} />);
+
+    expect(screen.queryByLabelText('Buscar un acorde')).not.toBeInTheDocument();
+    expect(screen.getByText('reposo')).toBeInTheDocument();
+  });
+
+  /**
+   * Una nota que ya había sonado no cambia nada de la lista, y no la repinta:
+   * se suscribe a qué clases han sonado, no al historial entero.
+   */
+  it('una nota repetida no la repinta', () => {
+    startIn(0, 'major');
+    let pintadas = 0;
+    render(
+      <Profiler id="lista" onRender={() => (pintadas += 1)}>
+        <NextChords />
+      </Profiler>,
+    );
+    const { actions } = useSessionStore.getState();
+    act(() => actions.setPitch(440, 0.99, 0));
+    const conLaNota = pintadas;
+
+    act(() => actions.setPitch(220, 0.99, 1000));
+
+    expect(useSessionStore.getState().noteHistory).toHaveLength(2);
+    expect(pintadas).toBe(conLaNota);
   });
 });
 

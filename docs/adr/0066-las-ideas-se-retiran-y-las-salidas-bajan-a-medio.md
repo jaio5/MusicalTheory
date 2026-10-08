@@ -1,5 +1,7 @@
 # ADR 0066 — Las ideas se retiran y las salidas bajan a Medio
 
+> **Ajustado después:** [ADR 0104](./0104-el-plan-pro-se-replantea.md) funde Pro en Medio, y [ADR 0119](./0119-la-partitura-llena-su-hueco-y-el-lienzo-se-parte.md) borra el copiloto en línea (los bloques fantasma).
+
 Fecha: 2026-10-01 · Estado: aceptada · Sustituye en lo que toca a las ideas a
 [ADR 0006](./0006-planes-y-puerto-de-facturacion.md),
 [ADR 0008](./0008-los-cupos-salen-del-precio.md),

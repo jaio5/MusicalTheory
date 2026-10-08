@@ -27,10 +27,10 @@ export async function generateMetadata({
   const { unidad } = await params;
   const found = findUnit(unidad);
   if (found === null) {
-    return { title: 'Unidad no encontrada · Caos ordenado' };
+    return { title: 'Unidad no encontrada' };
   }
   return {
-    title: `${found.unit.title} · Caos ordenado`,
+    title: `${found.unit.title}`,
     description: `${found.course.title}: ${found.course.summary}`,
   };
 }

@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { MAX_DIRECTRICES_LENGTH, MAX_QUESTION_LENGTH } from '@core/billing';
 import { CARACTERES_POR_TOKEN, tokensEnElPeorCaso } from '@core/marca';
 import { parseTeacherRequest, type TeacherAnswer } from '@features/learn/teacher-contract';
-import { parseVersionsRequest, validateVersions, type Version } from '@features/versions/contract';
-import { TEACHER_SYSTEM_PROMPT, VERSIONS_SYSTEM_PROMPT } from '@server/prompts';
+import {
+  parseSalidasRequest,
+  validateSalidas,
+  type SalidaPropuesta,
+} from '@features/salidas/contract';
+import { TEACHER_SYSTEM_PROMPT, SALIDAS_SYSTEM_PROMPT } from '@server/prompts';
 
 import { PROFESOR } from './teacher/prompt';
-import { SALIDAS } from './versiones/salidas';
+import { SALIDAS } from './salidas/salidas';
 
 /**
  * **Los ataques de la auditoría del 7 de octubre de 2026, uno por uno**, contra el
@@ -15,87 +19,11 @@ import { SALIDAS } from './versiones/salidas';
  * sus prompts de sistema (adr/0115). Cada uno pasaba antes del arreglo.
  *
  * Aquí y no en los contratos porque los prompts de sistema viven en `server/` y
- * solo `app/` ve las dos capas.
+ * solo `app/` ve las dos capas. El ReDoS, que mide tiempo de reloj, va aparte en
+ * `inyecciones.reloj.test.ts` (adr/0121).
  */
 
 const DO_MAYOR = { tonic: 'C', mode: 'major' } as const;
-const TOPE_MS = process.env.COBERTURA === '1' ? 150 : 50;
-const KB_128 = 128 * 1024;
-
-/**
- * Lo que tarda en hacerse, **lo menos de tres veces**: la primera calienta el
- * compilador, y con otras pruebas corriendo al lado una vuelta suelta mide la carga
- * de la máquina, no la función.
- */
-function tarda(hacer: () => unknown): number {
-  hacer();
-  let menos = Infinity;
-  for (let vuelta = 0; vuelta < 3; vuelta += 1) {
-    const inicio = performance.now();
-    hacer();
-    menos = Math.min(menos, performance.now() - inicio);
-  }
-  return menos;
-}
-
-/**
- * Lo que tarda **de más** con ese texto que con uno corto: leer una petición de
- * salidas construye el menú, que cuesta lo mismo escribas lo que escribas.
- */
-function tardaDeMas(hacer: (texto: string) => unknown, texto: string): number {
-  return tarda(() => hacer(texto)) - tarda(() => hacer('hola'));
-}
-
-describe('el ReDoS de la marca', () => {
-  /**
-   * Cuarenta mil almohadillas eran tres segundos en `sinMarca`, y un cuerpo de
-   * 128 KB contra `/api/teacher`, cuarenta y siete con el hilo parado y sin cuenta:
-   * la pregunta se limpia antes de mirar la sesión.
-   */
-  it.each([
-    ['almohadillas', '#'.repeat(KB_128)],
-    ['almohadillas y espacios', '## '.repeat(KB_128 / 3)],
-    ['sostenidos', '♯'.repeat(KB_128 / 3)],
-    ['marcas a medias', '##PREGUNT'.repeat(KB_128 / 9)],
-    ['selectores', '#\uFE0F'.repeat(KB_128 / 2)],
-  ])('128 KB de %s se leen en menos de 50 ms', (_, texto) => {
-    expect(
-      tardaDeMas((question) => parseTeacherRequest({ key: DO_MAYOR, question }), texto),
-    ).toBeLessThan(TOPE_MS);
-    expect(
-      tardaDeMas(
-        (directrices) =>
-          parseVersionsRequest({
-            key: DO_MAYOR,
-            kind: 'continuar',
-            progression: [{ degree: 'I', beats: 4 }],
-            directrices,
-          }),
-        texto,
-      ),
-    ).toBeLessThan(TOPE_MS);
-  });
-
-  it('y lo que vuelve del modelo, por largo que venga, también', () => {
-    const peticion = parseTeacherRequest({ key: DO_MAYOR, question: '¿Qué es una cadencia?' })!;
-    const larga = `El acorde de G ${'nota '.repeat(KB_128 / 5)}`;
-    expect(
-      tardaDeMas((answer) => PROFESOR.validar({ tema: 'musica', answer }, peticion), larga),
-    ).toBeLessThan(TOPE_MS);
-    const salidas = parseVersionsRequest({
-      key: DO_MAYOR,
-      kind: 'continuar',
-      progression: [{ degree: 'I', beats: 4 }],
-    })!;
-    expect(
-      tardaDeMas(
-        (texto) =>
-          SALIDAS.validar({ versions: [{ opcion: 1, title: texto, why: texto }] }, salidas),
-        larga,
-      ),
-    ).toBeLessThan(TOPE_MS);
-  });
-});
 
 describe('la marca con disfraz', () => {
   it.each([
@@ -154,7 +82,7 @@ describe('la prosa del modelo', () => {
     expect(respuesta.answer).toContain('G → C');
   });
 
-  const salidas = parseVersionsRequest({
+  const salidas = parseSalidasRequest({
     key: DO_MAYOR,
     kind: 'continuar',
     progression: [
@@ -167,7 +95,7 @@ describe('la prosa del modelo', () => {
   })!;
 
   /** Lo que valida la ruta de las salidas, con su prompt de sistema dentro. */
-  function validadas(title: string, why: string): readonly Version[] {
+  function validadas(title: string, why: string): readonly SalidaPropuesta[] {
     const respuesta = SALIDAS.validar({ versions: [{ opcion: 1, title, why }] }, salidas);
     return respuesta!.versions;
   }
@@ -182,7 +110,7 @@ describe('la prosa del modelo', () => {
       'Entra en https://evil.example/login y escribe tu correo y tu contraseña.',
     );
     // Sin el prompt de sistema el cebo se tapa igual: no depende de él.
-    const [sinInstrucciones] = validateVersions(
+    const [sinInstrucciones] = validateSalidas(
       { versions: [{ opcion: 1, title: 'Renueva tu cuenta en evil.example', why: 'Por aquí.' }] },
       salidas,
     );
@@ -193,7 +121,7 @@ describe('la prosa del modelo', () => {
   });
 
   it('el prompt de sistema copiado en el porqué, también', () => {
-    const copia = VERSIONS_SYSTEM_PROMPT.replace(/\s+/gu, ' ').slice(0, 200);
+    const copia = SALIDAS_SYSTEM_PROMPT.replace(/\s+/gu, ' ').slice(0, 200);
     const [version] = validadas('Por aquí', copia);
 
     expect(version!.why).not.toBe(copia);
@@ -211,7 +139,7 @@ describe('la prosa del modelo', () => {
 describe('lo libre, en tokens', () => {
   it.each(['x', 'ñ', 'Ж', '和', 'ꀀ', '🎸'])('%s', (caracter) => {
     const pregunta = parseTeacherRequest({ key: DO_MAYOR, question: caracter.repeat(5000) })!;
-    const directrices = parseVersionsRequest({
+    const directrices = parseSalidasRequest({
       key: DO_MAYOR,
       kind: 'continuar',
       progression: [{ degree: 'I', beats: 4 }],

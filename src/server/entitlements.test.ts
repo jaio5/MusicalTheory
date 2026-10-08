@@ -125,7 +125,7 @@ describe('pedirle algo al modelo', () => {
     // al modelo.
     await entrar('gratis');
 
-    const verdict = await entitlements.spendAi('versiones');
+    const verdict = await entitlements.spendAi('salidas');
 
     expect(verdict.kind).toBe('plan');
     expect(verdict.kind === 'plan' && verdict.needed).not.toBeNull();
@@ -151,16 +151,16 @@ describe('pedirle algo al modelo', () => {
 
   /**
    * El cupo se cuenta en preguntas al profesor y una salida gasta las que cuesta
-   * (adr/0067): con el modelo que haya puesto, `unidadesDe('versiones')`.
+   * (adr/0067): con el modelo que haya puesto, `unidadesDe('salidas')`.
    */
   it('una tanda de salidas descuenta las preguntas que cuesta', async () => {
     await entrar('medio');
     const { unidadesDe } = await import('@core/billing');
     const { configuredModel } = await import('./ai-model');
-    const k = unidadesDe('versiones', configuredModel());
+    const k = unidadesDe('salidas', configuredModel());
 
     const pregunta = await entitlements.spendAi('profesor');
-    const salida = await entitlements.spendAi('versiones');
+    const salida = await entitlements.spendAi('salidas');
 
     expect(k).toBeGreaterThan(1);
     expect(pregunta.kind === 'ok' && salida.kind === 'ok').toBe(true);

@@ -1,5 +1,7 @@
 # ADR 0010 — Dos temas: el negro de casa, el claro a un clic
 
+> **Sustituido en parte por [ADR 0027](./0027-grafito-y-ambar.md) y [ADR 0070](./0070-la-sala-encendida.md):** la paleta del amplificador se jubiló y se rehízo; el tema de casa, oscuro sin preferencia guardada, sigue.
+
 Fecha: 2026-08-01 · Estado: aceptada
 
 > El nombre del fichero dice «claro por defecto» porque es lo que decidía la

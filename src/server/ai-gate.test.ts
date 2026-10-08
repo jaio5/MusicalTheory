@@ -45,7 +45,7 @@ const CUENTA = { plan: 'gratis', aiModel: 'claude-opus-5' } as never;
 
 function puerta() {
   return {
-    feature: 'versiones',
+    feature: 'salidas',
     error,
     loQueEs: 'Las salidas de lo que tocas',
     plural: true,
@@ -87,7 +87,7 @@ describe('la puerta del cupo', () => {
 
     await abrirPuertaDeIa(puerta(), sesion);
 
-    expect(spendAi).toHaveBeenCalledWith('versiones', sesion);
+    expect(spendAi).toHaveBeenCalledWith('salidas', sesion);
   });
 
   /**
@@ -298,7 +298,7 @@ describe('la puerta de la frecuencia, por cuenta', () => {
 
 describe('la capa barata de la dirección', () => {
   const desde = (ip: string) =>
-    new Request('http://x/api/versiones', { method: 'POST', headers: { 'x-forwarded-for': ip } });
+    new Request('http://x/api/salidas', { method: 'POST', headers: { 'x-forwarded-for': ip } });
 
   it('es más ancha que la de la cuenta, y frena pasado su tope', async () => {
     let frenadas = 0;

@@ -23,7 +23,7 @@
 
 /**
  * Caracteres por token en español, a la baja: la misma cuenta que usan las pruebas
- * del presupuesto (`server/prompts.test.ts`, `app/api/versiones/presupuesto.test.ts`).
+ * del presupuesto (`server/prompts.test.ts`, `app/api/salidas/presupuesto.test.ts`).
  */
 export const CARACTERES_POR_TOKEN = 3.2;
 

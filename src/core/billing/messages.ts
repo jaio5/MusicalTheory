@@ -47,7 +47,7 @@ export function planAfter(id: PlanId): Plan | null {
  * pide salidas hace un tercio de esas peticiones.
  */
 export function gastoDeUnaSalida(modelId: string | undefined): string {
-  return `una salida gasta ${unidadesDe('versiones', modelId)}`;
+  return `una salida gasta ${unidadesDe('salidas', modelId)}`;
 }
 
 /**
@@ -57,7 +57,7 @@ export function gastoDeUnaSalida(modelId: string | undefined): string {
  */
 export function cupoEnPalabras(planId: PlanId, modelId: string | undefined): string {
   const base = `${monthlyAiRequests(planId, modelId)} preguntas al profesor al mes`;
-  return can(planId, 'versiones') ? `${base}; ${gastoDeUnaSalida(modelId)}` : base;
+  return can(planId, 'salidas') ? `${base}; ${gastoDeUnaSalida(modelId)}` : base;
 }
 
 /**

@@ -187,7 +187,7 @@ export const COURSES: readonly Course[] = [
       theory('e3-rueda', 'Armaduras y círculo de quintas', 'circle'),
       ear('e3-oido', 'La relativa y la vecina', 'circle'),
       theory('e3-menores', 'Las tres escalas menores', 'escalasMenores'),
-      play('e2-menor', 'La menor natural', 'naturalMinor'),
+      play('e2-menor', 'La escala menor natural', 'naturalMinor'),
       play('e4-pentatonica', 'La pentatónica menor', 'minorPentatonic'),
       play('e4-blues', 'La de blues, con su quinta bemol', 'blues'),
     ],
@@ -217,7 +217,7 @@ export const COURSES: readonly Course[] = [
       ear('p1-oido', 'Qué papel hace el acorde', 'functions'),
       theory('p6-cadencias', 'Las cadencias', 'cadences'),
       ear('p6-oido', 'Si cierra o se queda colgada', 'cadence'),
-      play('p6-armonica', 'La menor armónica, la de la sensible', 'harmonicMinor'),
+      play('p6-armonica', 'La escala menor armónica, la de la sensible', 'harmonicMinor'),
     ],
   },
   {

@@ -37,14 +37,11 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
   toma ya no depende de él, pero esa vía sí.
 - **`VersionsPanel` mezcla instantes relativos a la grabación con un `endedAt` de
   `performance.now`.**
-- **Preguntar lo dudoso sin tener que ir a buscarlo: hecho.** La corrección estaba
-  puesta y solo aparecía para el bloque que tuvieras elegido, así que había que dar
-  con los dudosos pulsándolos uno a uno. Ahora la pregunta sale sola, **una y con la
-  cuenta de las que quedan** —ni todas, que llenaría la columna, ni ninguna—. Es el
-  paso 1 de los tres que hacen falta para quitar el selector.
-- **Y hay que quitar el selector de rítmica o punteo: tiene que transcribirse
-  solo.** Decidido el 26 de septiembre de 2026 por quien la usa, y **revierte
-  [adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)**. La medida de aquel sigue en
+- **Quitar el selector de rítmica o punteo: tiene que transcribirse solo.** Decidido
+  el 26 de septiembre de 2026 por quien la usa, y **revertirá
+  [adr/0048](./adr/0048-una-toma-dice-lo-que-es.md)**, que sigue en pie mientras tanto
+  (el selector existe: `PapelDeLaToma`). La pregunta de lo dudoso ya sale sola, una y
+  con la cuenta de las que quedan: es el paso 1 de los tres. La medida de aquel sigue en
   pie —tras el descuento de armónicos, una nota sola y su acorde mayor tienen casi
   la misma forma— pero cambia el objetivo: no hay que acertar siempre, hay que
   transcribir solo **y dejar corregir**. Tres pasos, en este orden: que corregir
@@ -95,18 +92,13 @@ lecciones corrigen mal y las salidas se construyen sobre una semilla falsa.
 
 El corazón de la aplicación, y lo único que no se puede comprobar con un test.
 
-- **Medir las salidas contra la API, no contra un modelo local.** El banco ya
-  está hecho —`pnpm banco:ia`, y deja su informe en `banco-de-ia.txt`—: usa el
-  mismo prompt, el mismo esquema y el mismo validador que la ruta, así que mide
-  lo que hay en producción y no una copia. **Falta pasarlo contra la API**: hoy
-  el `ANTHROPIC_API_KEY` del `.env` está vacío, así que contesta el Ollama de
-  casa.
-
-  La línea base medida con `qwen3:8b`, 22 de septiembre de 2026: **5 de 12
-  salidas pasan el contrato**, una de ellas devolviendo la canción tal cual.
-  Por camino: `seguir` 2, `contraste` 2, `estirar` 1, y **`rearmonizar` y
-  `otro-final` ni aparecen**. Con esto no se sabe si la función sirve o si el
-  modelo es pequeño, que es exactamente para lo que hace falta la API.
+- **Medir las salidas contra la API, no contra un modelo local.** El examen está hecho
+  —`pnpm examen:salidas`, con `--api` contra el modelo de pago (antes dice cuánto
+  puede costar, [MEDIR.md](./MEDIR.md))—: usa el mismo prompt, el mismo esquema y el
+  mismo validador que la ruta, así que mide lo que hay en producción y no una copia.
+  **Falta pasarlo contra la API**: hoy el `ANTHROPIC_API_KEY` del `.env` está vacío,
+  así que contesta el Ollama de casa. Con `qwen3:8b` contesta 72/72 y no se sabe si un
+  modelo grande aporta algo más que el menú.
 
 - **Pasar el examen del profesor contra la API.** `pnpm examen:profesor` son 88
   preguntas por el mismo camino que la ruta, y ya sabe llamar a la API con `--api`;
@@ -116,9 +108,9 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
   nombrar ninguno. El validador solo mira las cadencias y la relativa, así que
   errores pequeños fuera de ellas —«la menor natural tiene la séptima justa»—
   siguen llegando a la pantalla.
-- **`pnpm docker:ia` está escrito y sin levantar.** El adaptador sí se probó
-  contra un Ollama de verdad; el camino de compose, nunca, porque en este equipo
-  Docker Desktop no tiene encendida la integración con WSL.
+- **El perfil `ia` de compose (`pnpm docker:ia`) no se ha levantado en este
+  equipo.** El adaptador sí se probó contra un Ollama de verdad; el camino de
+  compose, no, porque Docker Desktop no tiene encendida la integración con WSL.
 - **Retocar y continuar ya dan salidas válidas, y encajan con lo que llevas.** El
   dominio las construye y un juez las ordena
   ([adr/0089](./adr/0089-las-salidas-las-construye-el-dominio-y-el-modelo-elige.md),
@@ -126,9 +118,6 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
   `qwen3:8b`: contesta 72/72, 216/216 porqués verdaderos, 508/513 sin directrices.
   Lo que falta saber, contra la API, es si un modelo grande aporta algo más que el
   menú. **Y lo que sigue fallando:**
-  - **`pnpm banco:ia` es redundante con `pnpm examen:salidas`**, que mide lo mismo
-    contra el modelo de verdad y con más casos. Cuando se pase contra la API,
-    conviene quedarse con uno.
   - **Un sexto corpus para volver a medir**, escrito a ciegas por un músico ajeno: el
     andamio vacío está en `docs/corpus-sexto/` y el procedimiento en
     [MEDIR.md](./MEDIR.md). Los cinco se han usado para arreglar
@@ -150,14 +139,17 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
     las construye (`lasTresMejores`). Lo propone la auditoría de prompts; es decisión
     abierta, no hecha.
   - **Medir contra la API**, y no solo con `qwen3:8b`.
-- **`TOKEN_BUDGETS.versiones.output` está en 900 y bastan unos 300.** Bajarlo sube
+- **`TOKEN_BUDGETS.salidas.output` está en 900 y bastan unos 300.** Bajarlo sube
   los cupos de Medio: decisión de precio, no de código.
-- **El presupuesto del profesor está lleno: 696 de 700 tokens.** No cabe otra frase
+- **El presupuesto del profesor está lleno: 700 de 700 tokens.** No cabe otra frase
   en el prompt sin subirlo, y subirlo baja los cupos.
-- **Los bloques fantasma no tienen quien los llene.** `state/propuesta.ts` y su
-  tira siguen funcionando, pero quien proponía era el panel de ideas, retirado. Si
-  el copiloto en línea vuelve, tiene que volver con otra fuente: una salida
-  aceptada a fantasma, o una propuesta del dominio sin modelo.
+- **El copiloto en línea se retiró**
+  ([adr/0119](./adr/0119-la-partitura-llena-su-hueco-y-el-lienzo-se-parte.md)):
+  nadie llenaba los bloques fantasma desde que se fue el panel de ideas. Si
+  vuelve, tiene que volver con otra fuente —una salida aceptada, o una propuesta
+  del dominio sin modelo— y con la regla del
+  [adr/0033](./adr/0033-el-copiloto-propone-y-no-escribe.md): nada entra sin
+  aceptarlo.
 - **Cambiar de tonalidad sería el sexto camino.** `circle-of-fifths.ts` ya sabría
   comprobar que la vecina es vecina y que el pivote existe en las dos. Descartado
   por ahora, no para siempre.
@@ -165,58 +157,15 @@ El corazón de la aplicación, y lo único que no se puede comprobar con un test
 ## 3. Que el lienzo llegue hasta donde se compone de verdad
 
 El montaje por bloques está —arrastrar, estirar, escuchar y traer lo grabado
-([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y le faltan dos cosas para ser
-la manera normal de componer aquí.
+([adr/0018](./adr/0018-el-lienzo-de-montar.md))— y se guarda solo en el navegador
+([adr/0081](./adr/0081-el-lienzo-se-guarda-solo-en-el-navegador.md),
+[adr/0118](./adr/0118-la-cancion-vive-en-este-navegador-y-se-dice.md)). Lo que no
+hace, y falta:
 
-- **El lienzo ya se guarda solo en el navegador: hecho.** Estaba anotado como lo
-  primero de esta sección desde el 26 de septiembre de 2026 —una canción se monta
-  en **muchas** sesiones, y sin plan un F5 la borraba entera—. Ahora el lienzo que
-  hay se guarda en la IndexedDB `caos-ordenado`, con su versión, al cabo de 300 ms
-  del último cambio y nunca a mitad de un arrastre, y vuelve al abrir
-  (`guardarElLienzo` en `state/arrangement-store.ts`). Es local y no sube nada.
-  **Lo que no hace**: no guarda el deshacer, que es de la sesión; no es una
-  canción con nombre —es un solo lienzo, el último—, así que tener varias sigue
-  pidiendo guardarlas desde Canciones; y lo de otro navegador u otro aparato no
-  lo ve, que para eso está la cuenta.
-- **Y reabrir ya no desagrupa los bloques: hecho.** Un grado sigue siendo un
-  compás, que es lo que leen la ruta de salidas y la de canciones, pero la
-  agrupación se guarda aparte en `compasesPorBloque`. Aquí ponía que arreglarlo
-  pedía tocar el esquema de la base de datos, y **era falso**: la canción vive en
-  una columna `jsonb`, así que un campo opcional más no pide ninguna migración,
-  igual que no la pidieron `sources` ni `especies`. Las canciones de antes no lo
-  traen y siguen abriendo un bloque por compás.
-
-- **Que la marca de «oído» sirva de algo medible.** Los compases que leyó el micro
-  y nadie confirmó viajan al modelo marcados, y el prompt le dice que no se fíe de
-  ellos. **No está medido**: no se sabe si cambia lo que devuelve, y no se sabrá
-  hasta que las salidas se midan contra la API, que es lo primero de esta lista.
-- **Las lecciones siguen sin leer la procedencia.** Un `vi` que leyó el micro y
-  otro escrito a mano valen lo mismo cuando el profesor o una unidad hablan de tu
-  canción.
-- **Dos notas iguales seguidas se transcriben como una sola larga.** El motor mide
-  altura y no ataques, así que no las distingue. Hace falta detección de onsets
-  para que la transcripción sea fiel.
-- **La partitura no tiene ligaduras ni silencios escritos.** Tampoco tresillos ni
-  dos voces. No es que falte dibujarlos: es que el modelo no los tiene, y una nota
-  que cruza la barra de compás se dibuja donde empieza y ya.
-- **Que la IA ordene las partes.** Sería el sexto camino de `paths.ts`,
-  `estructura`: el modelo recibe las partes que hay y devuelve un orden con
-  nombres, y el dominio comprueba que solo ha reordenado y repetido lo que había,
-  sin inventar acordes. El validador es más fácil que los cinco que ya hay.
-- **Exportar a MusicXML o a PDF.** El MIDI ya sale
-  ([adr/0041](./adr/0041-la-cancion-sale-en-midi.md)); lo otro, cuando la
-  partitura tenga silencios, ligaduras y tresillos, que es lo de arriba.
-- **En la partitura no se mueven acordes de una parte a otra.** Dentro de una
-  parte se reordenan arrastrando el cifrado; para llevárselo al estribillo hay que
-  pasar a la vista de bloques, que es donde se ven las dos partes a la vez.
-
-- **Una entrada para tocar, sin banco.** Hubo una pantalla sencilla y se quitó
-  ([adr/0095](./adr/0095-se-quita-componer-sencillo.md)): lo que abruma de
-  `/componer` lo atienden entrar por `Escribir` con solo la canción abierta y el
-  recorrido por pantallas
-  ([adr/0108](./adr/0108-el-recorrido-sale-por-pantallas.md),
-  [adr/0109](./adr/0109-lo-que-se-da-por-hecho-al-empezar.md)). Si vuelve, que sea
-  el espacio `Tocando` más claro y no una segunda pantalla.
+- **El deshacer no se guarda**: es de la sesión.
+- **Es un solo lienzo, el último**: tener varias canciones sigue pidiendo guardarlas
+  desde Canciones, con cuenta; y lo de otro navegador u otro aparato no se ve sin
+  ella.
 
 ## 4. Que componer sea un banco de trabajo, y no dos caras
 
@@ -246,11 +195,8 @@ Lo que queda, en el orden en que se hace:
   aparezca, el ADR 0035 se amplía con la medida delante
   ([adr/0032](./adr/0032-la-progresion-y-el-montaje-son-lo-mismo.md)).
 
-- **El parpadeo del primer fotograma en un teléfono: el del banco, hecho.**
-  El servidor sigue contestando que sí hay banco, pero su árbol lleva las clases que
-  esconden lo de escritorio en un teléfono, y el CLS de componer a 390 pasa de 0,116
-  a 0 ([adr/0083](./adr/0083-componer-pinta-lo-de-escritorio-y-las-clases-lo-esconden.md)).
-  **Lo que queda de lo que se anotó aquí**: el servidor no puede saber la tonalidad
+- **El primer fotograma en un teléfono** (el del banco se arregló,
+  [adr/0083](./adr/0083-componer-pinta-lo-de-escritorio-y-las-clases-lo-esconden.md)): el servidor no puede saber la tonalidad
   —vive en el navegador—, y que el primer fotograma diga «sin elegir» y enseñe la
   rueda abierta hasta cargar el estado **no se ha vuelto a medir** después de este
   cambio. Si sigue ahí, lo que lo resolvería es pintar el marco y esperar al estado,
@@ -360,6 +306,16 @@ Las dos mitades del corazón funcionan por separado y todavía no se hablan.
 - **Regenerar la escena y la mascota con la paleta del
   [adr/0070](./adr/0070-la-sala-encendida.md)**: `arte/portada/build.py` y
   `arte/mascota/build.py`.
+- **Sin red, pulsar «Profesor» en la barra lleva a la página de error del navegador**
+  en vez de a una pantalla de la aplicación que lo diga. Por qué pasa no está
+  investigado (la precarga de las pantallas es de
+  [adr/0120](./adr/0120-la-primera-visita-no-se-mueve-y-cada-pantalla-trae-lo-suyo.md));
+  `features/learn/use-en-linea.ts` ya sabe si hay red.
+- **Texto a 12 px que no es rótulo y la regla de `text-sm` no vigila**: el resumen
+  del grado y la XP en `LearnPath`, el «cómo se consigue» de las medallas en
+  `Badges` y `UnitDone`, quién responde en `Teacher`, el ejemplo de acordes, el
+  cupo y «Entrar con tu cuenta». Pendiente de decidir si suben al cuerpo o se
+  nombran como un escalón ([adr/0122](./adr/0122-lo-que-se-lee-va-al-cuerpo.md)).
 
 ## Lo que se decidió no hacer
 
@@ -373,5 +329,8 @@ No es deuda, son decisiones, y están aquí para no volver a proponerlas:
   ([adr/0007](./adr/0007-elegir-por-donde-empezar.md)).
 - **Un instrumento por ahora**, con el mapa del segundo escrito
   ([adr/0012](./adr/0012-un-instrumento-por-ahora.md)).
-- **Un solo canal de texto libre**, y el profesor solo contesta de música
-  ([adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md)).
+- **Más de dos canales de texto libre.** Hay dos, la pregunta al profesor y las
+  directrices de una salida
+  ([adr/0015](./adr/0015-un-solo-canal-de-texto-libre.md), abierto por
+  [adr/0052](./adr/0052-el-segundo-canal-de-texto-libre.md)), y el profesor solo
+  contesta de música.

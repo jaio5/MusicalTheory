@@ -286,7 +286,12 @@ export function useTocarYApuntar(deps: TocarDeps = {}): TocarYApuntar {
       // sonido no se puede grabar se sigue sin él, pero sin motor no hay nada que
       // apuntar y entonces no se empieza.
       await escucha.start();
-      if (useSessionStore.getState().listening !== 'listening') {
+      const { listening, message } = useSessionStore.getState();
+      if (listening !== 'listening') {
+        // **El porqué, aquí y no solo en la barra.** La barra lo enseñaba en
+        // rojo pequeño en su esquina —en un teléfono, ni eso— y quien había
+        // pulsado «Tocar» veía que el botón volvía a su sitio sin más.
+        setMensaje(message ?? 'No se ha podido abrir el micrófono. Vuelve a pulsar.');
         setFase('quieto');
         return;
       }

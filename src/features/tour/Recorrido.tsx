@@ -1,30 +1,18 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 
 import {
   guardarPasoDelRecorrido,
   marcarRecorridoVisto,
-  marcarTramoVisto,
+  marcarTramosVistos,
   type RecorridoEnCurso,
 } from '@state/recorrido';
 import { Button } from '@ui/Button';
 
-import { cajaIluminada, colocarTarjeta, type Caja, type Sitio } from './colocar';
 import { indiceDe, pasosDe } from './pasos';
-import { buscarPieza, medirPieza, traerPiezaALaVista } from './pieza';
+import { seguirLaPieza, type Vista } from './seguir';
 import { TRAMOS, type Tramo } from './tramos';
-
-/**
- * Cuánto se espera a que aparezca la pieza de un paso.
- *
- * Hay piezas que llegan tarde a propósito —el lienzo se descarga aparte
- * ([adr/0058](../../../docs/adr/0058-componer-se-descarga-por-partes.md))—, y
- * otras que llegan con la pantalla. Pasado el plazo el paso se enseña igual, sin
- * señalar: uno que se queda esperando a una pieza que no viene es peor que uno
- * que la explica sin señalarla.
- */
-const ESPERA_MS = 3000;
 
 /**
  * Abrir sin bloquear, o a secas donde no se sabe —jsdom—: los tests miran lo que
@@ -38,15 +26,14 @@ function abrir(elDialogo: HTMLDialogElement): void {
   }
 }
 
-/** Lo que se pinta, redondeado: si no cambia un píxel, no se repinta. */
-function firmaDe(caja: Caja | null, sitio: Sitio): string {
-  const numeros = caja === null ? [] : [caja.x, caja.y, caja.ancho, caja.alto];
-  return [...numeros, sitio.x, sitio.y].map(Math.round).join(',');
+/** Mover con `transform`, que no cuenta como desplazamiento de la página. */
+function trasladar(x: number, y: number): string {
+  return `translate(${x}px, ${y}px)`;
 }
 
-interface Vista {
-  readonly caja: Caja | null;
-  readonly sitio: Sitio | null;
+/** Lo pintado, y si ya estaba en otro sitio: la primera vez se pone, no se desliza. */
+interface Colocada extends Vista {
+  readonly movida: boolean;
 }
 
 /**
@@ -63,20 +50,27 @@ interface Vista {
  * la tarjeta aparecer
  * ([adr/0108](../../../docs/adr/0108-el-recorrido-sale-por-pantallas.md)).
  *
- * **Sale el tramo de la pantalla en la que se está**, y nada más: no navega ni
+ * **Sale lo que toca en la pantalla en la que se está**, y nada más —la
+ * bienvenida y el tramo de la pantalla, en la misma tarjeta—: no navega ni
  * cambia nada de la aplicación para enseñarse, así que no hay nada que deshacer
  * al acabar. Se acaba de tres maneras: «Entendido» en el último paso, Escape con
- * el foco dentro —las dos dan el tramo por visto—, o «Saltar el recorrido», que
- * lo da por visto entero.
+ * el foco dentro —las dos dan sus tramos por vistos—, o «Saltar el recorrido»,
+ * que lo da por visto entero.
+ *
+ * **Y no mueve la página.** Se colocaba animando `left` y `top`, y cada
+ * fotograma de ese deslizamiento era un desplazamiento de la página: 0,23 a 0,32
+ * de CLS en un teléfono, en seis pantallas. Ahora se mueve con `transform`, que
+ * no cuenta; la primera vez se pone en su sitio sin deslizarse, y no se pinta
+ * hasta tenerlo ([adr/0120](../../../docs/adr/0120-la-primera-visita-no-se-mueve-y-cada-pantalla-trae-lo-suyo.md)).
  */
 export function Recorrido({
-  tramo,
+  tramos,
   estado,
 }: {
-  readonly tramo: Tramo;
+  readonly tramos: readonly Tramo[];
   readonly estado: RecorridoEnCurso;
 }) {
-  const pasos = pasosDe(tramo);
+  const pasos = tramos.flatMap(pasosDe);
   const indice = indiceDe(pasos, estado.paso);
   const paso = pasos[indice]!;
   const ultimo = indice === pasos.length - 1;
@@ -86,12 +80,8 @@ export function Recorrido({
 
   const dialogo = useRef<HTMLDialogElement>(null);
   const tarjeta = useRef<HTMLDivElement>(null);
-  const pieza = useRef<Element | null>(null);
-  /** Mientras la primera búsqueda espera a la pieza, el fotograma no busca. */
-  const buscando = useRef(true);
-  const firma = useRef('');
 
-  const [vista, setVista] = useState<Vista>({ caja: null, sitio: null });
+  const [vista, setVista] = useState<Colocada | null>(null);
   /** El paso cuya pieza ya se ha buscado: hasta entonces no se anuncia nada. */
   const [buscado, setBuscado] = useState<string | null>(null);
 
@@ -102,99 +92,30 @@ export function Recorrido({
     return () => elDialogo.removeAttribute('open');
   }, []);
 
-  // Buscar la pieza del paso, esperando un poco a la que llegue tarde.
-  useEffect(() => {
-    // La del paso anterior ya no vale, aunque siga en pantalla.
-    pieza.current = null;
-    buscando.current = true;
-    let vivo = true;
-    const inicio = Date.now();
-    let temporizador = 0;
-    const buscar = () => {
-      /* v8 ignore next 3 -- el temporizador se cancela al desmontar; esto solo cubre la carrera */
-      if (!vivo) {
-        return;
-      }
-      const encontrada = buscarPieza(paso.objetivo);
-      if (encontrada === null && Date.now() - inicio < ESPERA_MS) {
-        temporizador = window.setTimeout(buscar, 100);
-        return;
-      }
-      if (encontrada !== null) {
-        traerPiezaALaVista(encontrada);
-      }
-      pieza.current = encontrada;
-      buscando.current = false;
-      setBuscado(paso.id);
-    };
-    temporizador = window.setTimeout(buscar, 0);
-    return () => {
-      vivo = false;
-      window.clearTimeout(temporizador);
-    };
-  }, [paso]);
-
-  /*
-    Medir en cada fotograma, y repintar solo si algo se ha movido.
-
-    La pieza se mueve sin avisar: la pantalla termina de llegar, una fila se
-    desplaza, la ventana cambia de tamaño o el teléfono se gira. Y ahora que la
-    pantalla sigue viva, **la pieza puede cambiar por otra**: en componer, elegir
-    tonalidad quita los cuatro botones de salida y pone la lista de acordes, y el
-    paso es el mismo. Si la que se señalaba ya no está, se busca otra vez por el
-    mismo objetivo. Son dos medidas por fotograma mientras la tarjeta está abierta,
-    y el estado solo cambia cuando cambia un píxel.
-  */
-  useEffect(() => {
-    let id = 0;
-    let fotogramas = 0;
-    const medir = () => {
-      const ventana = {
-        ancho: document.documentElement.clientWidth,
-        alto: document.documentElement.clientHeight,
-      };
-      fotogramas += 1;
-      let elemento = pieza.current;
-      // Si se fue, se busca la que la sustituye; y si no hay ninguna, se vuelve a
-      // mirar cada cuarto de segundo, porque la nueva puede llegar tarde —la
-      // lista de acordes viene con el lienzo, que se descarga aparte—.
-      const perdida = elemento !== null && !elemento.isConnected;
-      const sinEncontrar = elemento === null && buscando.current === false;
-      if (perdida || (sinEncontrar && fotogramas % 15 === 0)) {
-        elemento = buscarPieza(paso.objetivo);
-        pieza.current = elemento;
-      }
-      const medida = elemento === null ? null : medirPieza(elemento, paso.conLoQueFlota);
-      const caja = medida === null ? null : cajaIluminada(medida, ventana);
-      const nodo = tarjeta.current!;
-      const sitio = colocarTarjeta(
-        caja,
-        { ancho: nodo.offsetWidth, alto: nodo.offsetHeight },
-        ventana,
-      );
-      const nueva = firmaDe(caja, sitio);
-      if (nueva !== firma.current) {
-        firma.current = nueva;
-        setVista({ caja, sitio });
-      }
-      id = requestAnimationFrame(medir);
-    };
-    id = requestAnimationFrame(medir);
-    return () => cancelAnimationFrame(id);
-  }, [paso]);
+  // De maquetación y no de efecto: si la pieza ya está, la tarjeta se coloca
+  // antes de que el navegador pinte el fotograma en el que aparece.
+  useLayoutEffect(
+    () =>
+      seguirLaPieza(paso, tarjeta.current!, (nueva) => {
+        setVista((antes) => ({ ...nueva, movida: antes !== null }));
+        setBuscado(paso.id);
+      }),
+    [paso],
+  );
 
   function ir(nuevo: number): void {
     guardarPasoDelRecorrido({ vistos: estado.vistos, paso: pasos[nuevo]!.id });
   }
 
-  /** Este tramo, visto: el de la siguiente pantalla sale al llegar a ella. */
+  /** Lo de esta tarjeta, visto: el tramo de otra pantalla sale al llegar a ella. */
   function terminarElTramo(): void {
-    marcarTramoVisto(tramo, TRAMOS);
+    marcarTramosVistos(tramos, TRAMOS);
   }
 
   const siguiente = () => (ultimo ? terminarElTramo() : ir(indice + 1));
 
-  const nombre = vista.caja !== null ? paso.nombre : undefined;
+  const caja = vista?.caja ?? null;
+  const nombre = caja !== null ? paso.nombre : undefined;
   /*
     Lo que se dice en cada paso, **también en el primero**: sin modal la tarjeta
     no se lleva el foco, así que nadie la lee al abrirse. La región está montada
@@ -208,15 +129,16 @@ export function Recorrido({
         }`
       : '';
 
+  // Solo se desliza lo que ya estaba puesto, y solo para quien no pide quietud.
+  const desliza = vista?.movida === true;
   const aro: CSSProperties | null =
-    vista.caja === null
+    caja === null
       ? null
-      : {
-          left: vista.caja.x,
-          top: vista.caja.y,
-          width: vista.caja.ancho,
-          height: vista.caja.alto,
-        };
+      : { transform: trasladar(caja.x, caja.y), width: caja.ancho, height: caja.alto };
+  const sitioDeLaTarjeta: CSSProperties =
+    vista === null
+      ? { visibility: 'hidden' }
+      : { transform: trasladar(vista.sitio.x, vista.sitio.y) };
 
   return (
     <>
@@ -226,7 +148,11 @@ export function Recorrido({
         <div
           aria-hidden="true"
           data-aro-del-recorrido
-          className="outline-brass-bright pointer-events-none fixed z-40 rounded-md outline-2 motion-safe:transition-[left,top,width,height] motion-safe:duration-200"
+          className={`outline-brass-bright pointer-events-none fixed top-0 left-0 z-40 rounded-md outline-2 ${
+            desliza
+              ? 'motion-safe:transition-[transform,width,height] motion-safe:duration-200'
+              : ''
+          }`}
           style={aro}
         />
       )}
@@ -246,12 +172,10 @@ export function Recorrido({
             terminarElTramo();
           }
         }}
-        className="superficie-alta fixed z-50 m-0 max-h-[calc(100dvh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto border-0 p-0 motion-safe:transition-[left,top] motion-safe:duration-200"
-        style={{
-          left: vista.sitio?.x ?? 0,
-          top: vista.sitio?.y ?? 0,
-          visibility: vista.sitio === null ? 'hidden' : undefined,
-        }}
+        className={`superficie-alta fixed top-0 left-0 z-50 m-0 max-h-[calc(100dvh-2rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto border-0 p-0 ${
+          desliza ? 'motion-safe:transition-transform motion-safe:duration-200' : ''
+        }`}
+        style={sitioDeLaTarjeta}
       >
         <div ref={tarjeta} className="p-4">
           <p className="rotulo">
@@ -260,7 +184,7 @@ export function Recorrido({
           <h2 id={idTitulo} className="titular text-text mt-1 text-lg">
             {paso.titulo}
           </h2>
-          <p id={idTexto} className="text-text-muted mt-2 text-sm">
+          <p id={idTexto} className="text-text-muted mt-2">
             {paso.texto}
             {nombre !== undefined && <span className="sr-only"> Señalado: {nombre}.</span>}
           </p>

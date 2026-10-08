@@ -2,6 +2,7 @@
 
 import { DEFAULT_PITCH_ENGINE_OPTIONS } from '@audio/pitch-engine';
 import { nearestString, semitonesFromString, TUNINGS, type TuningId } from '@core/instrument';
+import { cifra, cifraConSigno } from '@core/cifras';
 import { noteName, type PitchReading } from '@core/music';
 import { Button } from '@ui/Button';
 import { IconoMicro } from '@ui/icons';
@@ -14,7 +15,7 @@ import { useEffect, useRef } from 'react';
 
 import { LevelMeter } from './LevelMeter';
 import { TuningMeter } from './TuningMeter';
-import { useEstable } from './use-estable';
+import { PERMANENCIA_MS, useEstable } from './use-estable';
 import {
   isSignalClean,
   isSignalDirty,
@@ -24,6 +25,15 @@ import {
 } from './tuning';
 
 export type TunerProps = ListeningDeps;
+
+/**
+ * Cuánto tiene que durar la señal sucia para decirlo.
+ *
+ * Más que el ataque de la púa y menos que lo que se tarda en girar una clavija:
+ * con una nota limpia la claridad cae en el golpe y en la cola, nunca seis
+ * décimas seguidas; con distorsión o dos cuerdas, cae y se queda.
+ */
+const SUCIA_SEGUIDA_MS = 600;
 
 export function Tuner(deps: TunerProps = {}) {
   /*
@@ -89,7 +99,7 @@ export function Tuner(deps: TunerProps = {}) {
         <>
           <Listening />
 
-          <div className="border-border mt-8 flex flex-wrap items-end gap-4 border-t pt-4">
+          <div className="border-border mt-6 flex flex-wrap items-end gap-4 border-t pt-4">
             <Button
               variant="quiet"
               data-mando-del-afinador
@@ -149,11 +159,11 @@ function Stopped({
   const blocked = listening === 'unsupported';
 
   return (
-    // **El hueco del instrumento**, y no el de un aviso: en un escritorio el
-    // afinador ocupa todo el alto que deje la ventana —con suelo y techo—, y
-    // apagado se centra dentro. Era una tarjeta de 360 px en medio de 800 de
-    // negro. En un teléfono no tiene alto propio: ahí manda la pantalla.
-    <div className="flex flex-col justify-center md:min-h-[min(44rem,calc(100dvh-14rem))]">
+    // **Apagado mide lo que dice.** Llegó a ocupar todo el alto de la ventana
+    // para que no fuera una tarjeta suelta en medio del negro, y a 1920 acabó en
+    // 1300 × 740 para tres líneas. Lo que evita el hueco es que la pantalla lo
+    // centre junto a la afinación (`TuneScreen`), no que crezca.
+    <div className="flex flex-col justify-center">
       <Vacio
         icono={<IconoMicro />}
         titulo="Necesitamos oírte para afinarte"
@@ -177,7 +187,7 @@ function Stopped({
       </Vacio>
 
       {message !== null && (
-        <p role="alert" className="text-oxblood-bright mt-2 text-center text-sm">
+        <p role="alert" className="text-oxblood-bright mt-2 text-center">
           {message}
         </p>
       )}
@@ -204,7 +214,14 @@ function Listening() {
     level >= DEFAULT_PITCH_ENGINE_OPTIONS.rmsThreshold,
     level < DEFAULT_PITCH_ENGINE_OPTIONS.releaseRmsThreshold,
   );
-  const sucia = useEstable(hasSignal && isSignalDirty(clarity), isSignalClean(clarity));
+  // Sucia **seguida**, no un instante: el ataque y la cola de una nota limpia
+  // bajan la claridad un momento, y el aviso salía al lado de «Está afinada».
+  const sucia = useEstable(
+    hasSignal && isSignalDirty(clarity),
+    isSignalClean(clarity),
+    PERMANENCIA_MS,
+    SUCIA_SEGUIDA_MS,
+  );
   // Solo después de la primera nota: antes de ella no hay señal que se haya ido, y
   // «sin señal» se quedaría puesto segundo y medio sobre la primera que llegue.
   const sinSenal = useEstable(nota && !hasSignal, hasSignal);
@@ -216,7 +233,7 @@ function Listening() {
     // a mano —que se queda corto en un teléfono y largo en un monitor— se pinta
     // **la misma nota con huecos** debajo de la espera, invisible y fuera del
     // árbol de accesibilidad: mide lo que va a medir porque es lo mismo.
-    <div className="mt-6 grid md:min-h-[min(40rem,calc(100dvh-20rem))]">
+    <div className="mt-4 grid md:min-h-[min(40rem,calc(100dvh-30rem))]">
       <NotaYAguja
         reading={reading}
         tuningId={tuningId}
@@ -267,7 +284,7 @@ function Esperando({ oyendo, level }: { readonly oyendo: boolean; readonly level
         <p className="text-text-muted min-h-14 text-lg sm:min-h-7">
           {oyendo ? 'Te oigo, pero no engancho la nota…' : 'Esperando a que suene algo…'}
         </p>
-        <p className="text-text-muted mt-2 min-h-20 text-sm sm:min-h-10">
+        <p className="text-text-muted mt-2 min-h-24 sm:min-h-12">
           {oyendo
             ? 'Voy cuerda a cuerda y solo sé leer una nota cada vez: si estás rasgueando, toca una sola al aire y déjala sonar.'
             : 'Toca una cuerda al aire y deja que suene un momento. Si el medidor no se mueve, sube el volumen de la guitarra o la ganancia de entrada.'}
@@ -314,7 +331,12 @@ function NotaYAguja({
         <span
           // Ocho o nueve veces el cuerpo del texto. Es lo primero que se busca
           // al mirar la pantalla desde donde se está tocando.
-          className={`font-display text-8xl sm:text-9xl xl:text-[10rem] min-[112rem]:text-[13rem] ${status === 'afinada' ? 'text-tube-bright' : 'text-brass-bright'}`}
+          // `leading-none` porque un tamaño entre corchetes no trae su
+          // interlineado: heredaba el 1,5 del cuerpo, y a 160 px la nota se
+          // llevaba 240 de alto —ochenta de aire—. Y en ancho crece **con el
+          // alto también** (`dvh`): un 1440 × 900 es ancho y bajo, y con la nota
+          // a 160 «Dejar de escuchar» quedaba bajo el borde.
+          className={`font-display text-8xl leading-none sm:text-9xl xl:text-[min(10rem,14dvh)] min-[112rem]:text-[min(13rem,19dvh)] ${status === 'afinada' ? 'text-tube-bright' : 'text-brass-bright'}`}
         >
           {vacia ? '—' : noteName(reading.pitchClass)}
           <span className="text-text-muted text-4xl">{vacia ? '' : reading.octave}</span>
@@ -344,26 +366,27 @@ function NotaYAguja({
         <TuningMeter cents={vacia ? 0 : reading.cents} status={status} />
       </div>
 
-      <p className="text-text-muted mt-4 font-mono text-sm">
+      <p className="text-text-muted mt-4 font-mono">
         {vacia || !hasSignal
           ? NBSP
-          : `${reading.cents > 0 ? '+' : ''}${reading.cents.toFixed(1)} cents · ${reading.frequency.toFixed(1)} Hz`}
+          : `${cifraConSigno(reading.cents, 1)} cents · ${cifra(reading.frequency, 1)} Hz`}
       </p>
 
-      {/* Dos líneas en estrecho por lo mismo que el aviso: «A 2 semitonos por
-          encima de la 6.ª» parte en dos en un teléfono y «Cuerda 6.ª al aire»
+      {/* Dos líneas en estrecho por lo mismo que el aviso: «2 semitonos por
+          encima de la cuerda 6.ª» parte en dos en un teléfono y «Cuerda 6.ª al aire»
           no, y al cambiar de cuerda saltaba todo lo de debajo. */}
-      <p className="text-text-muted mt-1 min-h-10 text-sm sm:min-h-5">
+      <p className="text-text-muted mt-1 min-h-12 sm:min-h-6">
         {string === null
           ? NBSP
           : distance === 0
             ? `Cuerda ${string.number}.ª al aire (${string.label})`
-            : `A ${Math.abs(distance)} ${Math.abs(distance) === 1 ? 'semitono' : 'semitonos'} ${
+            : // Sin «A» delante: «A 3 semitonos…» se leía como la nota La.
+              `${Math.abs(distance)} ${Math.abs(distance) === 1 ? 'semitono' : 'semitonos'} ${
                 distance > 0 ? 'por encima' : 'por debajo'
-              } de la ${string.number}.ª (${string.label})`}
+              } de la cuerda ${string.number}.ª (${string.label})`}
       </p>
 
-      <div className="mt-6 w-full max-w-md">
+      <div className="mt-4 w-full max-w-md">
         <LevelMeter rms={level} />
       </div>
 
@@ -374,7 +397,7 @@ function NotaYAguja({
           diciendo cosas distintas de la misma señal. Dos líneas en estrecho, que
           es lo que ocupa el aviso largo en un teléfono, y una a partir de `md`. */}
       <p
-        className={`mt-4 min-h-10 text-sm md:min-h-5 ${aviso?.tono === 'alerta' ? 'text-brass' : 'text-text-muted'}`}
+        className={`mt-3 min-h-12 md:min-h-6 ${aviso?.tono === 'alerta' ? 'text-brass' : 'text-text-muted'}`}
       >
         {vacia ? '' : (aviso?.texto ?? '')}
       </p>

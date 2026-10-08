@@ -86,8 +86,8 @@ function cabeElGlobo(): boolean {
 }
 
 /**
- * El hueco que hay que dejar al final de la columna que se desplaza, para que
- * el muñeco no tape lo último.
+ * El hueco que hay que dejar al final de la columna que se desplaza, y a su
+ * lado, para que el muñeco no tape lo último ni los finales de línea.
  *
  * Flota (`fixed`) a la altura guardada —de fábrica, el 10 % de abajo— y es del
  * tamaño de un pulgar. Sin reserva, el final de la columna quedaba justo debajo de
@@ -98,7 +98,14 @@ function cabeElGlobo(): boolean {
  * Va como clase entera para que Tailwind la vea escrita; quien la use en otro
  * punto de corte la escribe con su prefijo, como hace `PathScreen`.
  */
-export const HUECO_DEL_TUTOR = 'pb-[calc(10dvh+4rem)]';
+/*
+  **Y a la derecha, por debajo de `lg`.** Con el hueco de abajo solo, lo que
+  quedaba a su altura mientras se leía seguía tapado: a 390 la presentación de
+  una unidad perdía tres finales de línea al llegar, sin haber desplazado nada.
+  Son los 64 px del muñeco más los 12 de `right-3` y un respiro, en vez del
+  relleno de la columna. Desde `lg` la columna va centrada y él cabe al lado.
+*/
+export const HUECO_DEL_TUTOR = 'pb-[calc(10dvh+4rem)] pr-[calc(4rem+1.25rem)] lg:pr-4';
 
 export function Tutor({
   unitId,
@@ -377,11 +384,14 @@ export function Tutor({
         aria-label={abierto ? 'Cerrar el profesor' : 'Preguntarle al profesor'}
         // Al pasar por encima sube dos píxeles en vez de crecer: el muñeco es de
         // píxel, y a 1,05 cada píxel cae entre dos de pantalla y se emborrona.
-        className={`shrink-0 rounded-full transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 ${
-          quieto ? '' : 'animate-asomar'
-        }`}
+        // Siempre con su entrada: quien pide quietud la recibe congelada por la
+        // regla global, y preguntarlo aquí daba otra clase en el servidor, que no
+        // sabe del movimiento, y un error de hidratación.
+        // El alto lo dice el botón y el muñeco lo llena: medido por lo que lleva
+        // dentro, un cambio en el dibujo podía dejarlo por debajo de los 44 px.
+        className="animate-asomar size-16 shrink-0 rounded-full transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0"
       >
-        <Mascota hablando={hablando} atento={abierto} />
+        <Mascota hablando={hablando} atento={abierto} className="size-full" />
       </button>
 
       <p ref={anuncio} className="sr-only" aria-live="polite" />
@@ -401,7 +411,7 @@ export function Tutor({
           {/* Lo que se ve se escribe letra a letra y no se lee: la frase entera
               la dice la región de arriba, que va justo antes en el orden de
               lectura. */}
-          <p className="text-text text-sm" aria-hidden="true">
+          <p className="text-text text-base" aria-hidden="true">
             <span ref={globo} />
           </p>
 

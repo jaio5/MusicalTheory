@@ -107,7 +107,7 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
           antes que el botón de hacerlo. Estaban en dos filas y el botón arriba
           del todo a la derecha, tan lejos de su frase que parecía de otra cosa. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="text-text-muted max-w-prose text-sm">
+        <p className="text-text-muted max-w-prose">
           Se guardan en tu navegador: tonalidad, escala y las notas que has tocado. Nada de audio, y
           sin cuenta ni servidor.
         </p>
@@ -118,7 +118,7 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
       </div>
 
       {message !== null && (
-        <p role="alert" className="text-oxblood-bright mt-4 text-sm">
+        <p role="alert" className="text-oxblood-bright mt-4">
           {message}
         </p>
       )}
@@ -135,7 +135,7 @@ export function SessionsPanel({ createStorage, now = () => Date.now() }: Session
               key={session.id}
               className="border-border flex flex-wrap items-center justify-between gap-3 border-b pb-2"
             >
-              <span className="text-text font-mono text-sm">
+              <span className="text-text tabular-nums">
                 {describeSession(session)}
                 {session.key !== null && (
                   <span className="text-text-muted">

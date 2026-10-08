@@ -30,7 +30,7 @@ export function ContarVueltas() {
 
   if (noSeguir) {
     return (
-      <p className="text-text-muted max-w-prose text-sm">
+      <p className="text-text-muted max-w-prose">
         Tu navegador pide que no se te siga (Do Not Track o Global Privacy Control), y se respeta:
         desde aquí no se cuenta nada, ni siquiera sumado.
       </p>
@@ -39,7 +39,7 @@ export function ContarVueltas() {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-text-muted max-w-prose text-sm">
+      <p className="text-text-muted max-w-prose">
         ¿Te contamos las vueltas desde este navegador? Se guarda en él un número al azar, que no
         dice quién eres, para saber si vuelves otro día. Puedes cambiarlo cuando quieras; decir que
         no lo borra.

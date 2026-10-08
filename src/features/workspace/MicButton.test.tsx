@@ -28,11 +28,13 @@ class EntradaFalsa implements AudioInput {
   readonly sampleRate = 48_000;
   readonly frameSize = 2048;
   readonly spectrumSize = 8192;
-  error = null;
+  error: AudioInput['error'] = null;
+  /** En qué se queda al abrirla: las que fallan cambian solo esto. */
+  protected alAbrir: AudioInputState = 'running';
   readonly #oyentes = new Set<(estado: AudioInputState) => void>();
 
   async start(): Promise<void> {
-    this.#pasar('running');
+    this.#pasar(this.alAbrir);
   }
   async stop(): Promise<void> {
     this.#pasar('idle');
@@ -156,7 +158,7 @@ describe('el boton de escuchar', () => {
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     expect(await screen.findByText('A2')).toBeInTheDocument();
-    expect(screen.getByText('-7¢')).toBeInTheDocument();
+    expect(screen.getByText('\u22127¢')).toBeInTheDocument();
   });
 
   it('una desviacion hacia arriba lleva su signo', async () => {
@@ -217,14 +219,33 @@ describe('el boton de escuchar', () => {
     expect(screen.getByText('+3¢')).toBeInTheDocument();
   });
 
-  it('un problema con el micro se anuncia, no se traga', () => {
-    // Va con `role="alert"`: quien esté mirando el mástil y no el botón tiene que
-    // enterarse de que no se le está oyendo.
-    useSessionStore.setState({ message: 'Has denegado el acceso al micrófono.' });
+  /**
+   * El porqué de un fallo **junto al botón que lo provocó**: en el panel del
+   * micro, que se abre solo debajo de él. Era una línea de doce píxeles al lado,
+   * escondida en un teléfono.
+   */
+  it('si el micro no se abre al pulsarlo, lo dice en su panel', async () => {
+    class EntradaDenegada extends EntradaFalsa {
+      override error = { state: 'denied', message: 'Permite el micrófono en el candado.' } as const;
+      protected override alAbrir: AudioInputState = 'denied';
+    }
+    const entrada = new EntradaDenegada();
+    render(<MicButton createInput={() => entrada} createEngine={() => new MotorCallado()} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
+
+    const panel = screen.getByLabelText('Elegir micrófono', { selector: '[popover]' });
+    await waitFor(() => expect(panel.querySelector('[role="alert"]')).toHaveTextContent(/candado/));
+  });
+
+  // Si lo provocó otro —«Tocar» en componer, el afinador—, lo dice ese, y aquí
+  // no sale: el mismo fallo en dos sitios se leería dos veces.
+  it('un fallo que no pidió este botón no sale aquí', () => {
+    useSessionStore.setState({ listening: 'denied', message: 'Permite el micrófono.' });
 
     pintar();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/denegado/);
+    expect(screen.queryByText('Permite el micrófono.')).not.toBeInTheDocument();
   });
 });
 
@@ -252,7 +273,7 @@ describe('la pastilla en una barra estrecha', () => {
     await userEvent.click(screen.getByRole('button', { name: /escuchar la guitarra/i }));
 
     const rotulo = await screen.findByText('esperando');
-    expect(rotulo).toHaveClass('md:max-lg:sr-only', '@max-[26rem]:sr-only');
+    expect(rotulo).toHaveClass('barra-arriba:max-lg:sr-only', '@max-[26rem]:sr-only');
     // Dentro de la región viva: callado a la vista, no al oído.
     expect(rotulo.closest('[aria-live]')).not.toBeNull();
     // Solo «pidiendo permiso» se calla antes, que es el largo.

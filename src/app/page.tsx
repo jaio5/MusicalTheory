@@ -131,9 +131,25 @@ const QUESTIONS: ReadonlyArray<{ q: string; a: string }> = [
  * es la única que arrastra una línea: es la que queda pegada al encabezado, que
  * también es hielo.
  */
+/**
+ * **Lo que se enfoca no queda debajo de la barra.** La barra es pegajosa, y al
+ * tabular hacia arriba el navegador traía cada enlace justo al borde de la
+ * ventana, que es donde ella está: en un teléfono el foco acababa tapado entero
+ * (WCAG 2.4.11). `scroll-padding-top` en el documento, que es quien se desplaza,
+ * le dice dónde empieza lo que se ve.
+ *
+ * **Y vale lo que mide la barra**, en `rem` para que crezca con la letra: 4,25
+ * de alto con su línea de un píxel, y cuando la letra grande la parte en dos o
+ * tres filas —por debajo de 17,25 y de 12,25 rem de ventana, medido al 150, 200
+ * y 250 %—, 6,5 y 8,25. La pone la portada sobre `:root` porque es la única que
+ * se desplaza entera: en las pantallas de trabajo el documento no se mueve.
+ */
+const HUECO_DE_LA_BARRA =
+  '[:root:has(&)]:scroll-pt-[calc(4.25rem+1px)] max-[17.25rem]:[:root:has(&)]:scroll-pt-[calc(6.5rem+1px)] max-[12.25rem]:[:root:has(&)]:scroll-pt-[calc(8.25rem+1px)]';
+
 export default function Portada() {
   return (
-    <div className="portada fondo-sala text-text">
+    <div className={`portada fondo-sala text-text ${HUECO_DE_LA_BARRA}`}>
       {/* Lo mismo que hace `AppShell`, y por lo mismo: sin esto, llegar al
           contenido de la portada con el teclado cuesta pasar por la marca, los
           tres enlaces de la barra y el botón de abrir. Va `fixed` y no
@@ -261,7 +277,7 @@ export default function Portada() {
                 </a>
               </div>
 
-              <ul className="text-text-muted entra mt-10 flex flex-wrap gap-x-6 gap-y-2 text-xs [animation-delay:320ms] sm:text-sm 2xl:text-base">
+              <ul className="text-text-muted entra mt-10 flex flex-wrap gap-x-6 gap-y-2 [animation-delay:320ms]">
                 {CLAIMS.map((claim) => (
                   <li key={claim} className="flex items-center gap-2">
                     <span aria-hidden="true" className="bg-brass block h-1 w-1 rounded-full" />
@@ -298,7 +314,7 @@ export default function Portada() {
                 analiza en tu equipo: no se graba y no se envía. Es el mismo afinador que hay
                 dentro, no una demostración.
               </p>
-              <p className="text-text-muted mt-4 text-sm">
+              <p className="text-text-muted mt-4">
                 Con otra afinación —drop D, DADGAD, open G— entra en{' '}
                 <Link href="/afinar" className="enlace">
                   la pantalla de afinar
@@ -482,7 +498,7 @@ export default function Portada() {
         {/* Los del pie **también se pulsan con el dedo**. Eran renglones de
             veinte píxeles: en un teléfono, cinco destinos pegados y ninguno con
             alto de dedo es la manera de acabar entrando donde no querías. */}
-        <div className={`${MARCO} flex flex-wrap items-center gap-x-1 gap-y-1 py-6 text-sm`}>
+        <div className={`${MARCO} flex flex-wrap items-center gap-x-1 gap-y-1 py-6`}>
           <span className="font-display text-text min-h-tap mr-3 inline-flex items-center px-1">
             Caos ordenado
           </span>

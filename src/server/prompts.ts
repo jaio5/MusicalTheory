@@ -17,7 +17,7 @@
  * fija un esquema y pensar se cobra como salida.
  */
 
-import { MAX_VERSIONS } from '@core/billing';
+import { MAX_SALIDAS } from '@core/billing';
 import {
   keyName,
   pitchClassFromName,
@@ -137,7 +137,7 @@ export const ANSWER_SCHEMA = {
  * cosas las repite el prompt en su última línea —que es lo último que lee— y las
  * obliga el esquema con su `minItems` y su `maxItems`. Fuera, son 44 tokens menos
  * en cada petición, que es holgura del presupuesto
- * (`app/api/versiones/presupuesto.test.ts`).
+ * (`app/api/salidas/presupuesto.test.ts`).
  *
  * Medido contra `qwen3:8b` el 5 de octubre, con el corpus en dos tonalidades y las
  * directrices en cinco: sin directrices contesta lo mismo (513 de 514, los 216
@@ -146,7 +146,7 @@ export const ANSWER_SCHEMA = {
  * suyo (`soloExplica`). Devolverle «de mas a menos encaje» lo dejaba en 2 de 72,
  * pero se perdía lo ganado con las directrices.
  */
-export const VERSIONS_SYSTEM_PROMPT = `Eres un musico que ayuda a otro a componer.
+export const SALIDAS_SYSTEM_PROMPT = `Eres un musico que ayuda a otro a componer.
 
 Te dan sus compases y un menu numerado de salidas comprobadas; pon su numero en
 opcion.
@@ -171,7 +171,7 @@ sola frase de porque. No incluyas etiquetas XML internas ni de sistema.`;
  * compás con su grado, sus pulsos y su movimiento— y el dominio la juzgaba. Con
  * `qwen3:8b` eso daba 21 de 22 salidas que eran el ejemplo del prompt copiado: lo
  * único que ponía de suyo era el título. Ahora las salidas las construye el
- * dominio (`salidasPosibles`, en `core/music/paths.ts`) y el modelo **elige** entre
+ * dominio (`salidasPosibles`, en `core/music/salidas/menu.ts`) y el modelo **elige** entre
  * ellas con tus directrices delante, que es lo que un modelo sabe hacer y una
  * tabla no.
  *
@@ -185,11 +185,11 @@ sola frase de porque. No incluyas etiquetas XML internas ni de sistema.`;
  * y dos frases por salida no pasa, y **cuando solo explica, el suelo es el menú**:
  * tres salidas de un número y dos frases caben de sobra en el tope de salida.
  */
-export function versionsSchema(
+export function salidasSchema(
   opciones: number,
   /**
    * Si las tiene que contar todas: sin directrices el menú son las tres mejores y
-   * el modelo las explica (`soloExplica`, en `features/versions/menu.ts`). Entonces
+   * el modelo las explica (`soloExplica`, en `features/salidas/menu.ts`). Entonces
    * el suelo es el menú entero, y una que se callara sería una de las tres mejores
    * que no llega a la pantalla.
    */
@@ -198,10 +198,14 @@ export function versionsSchema(
   return {
     type: 'object',
     properties: {
+      // `versions` y no `salidas` a propósito, aunque el panel se llame «Salidas»:
+      // la clave la lee el modelo en el esquema y la escribe en cada respuesta, y
+      // eso lo tiene contado `TOKEN_BUDGETS.salidas`. Renombrarla cambia lo que se
+      // le pregunta y lo que cuesta por un nombre que la persona no ve.
       versions: {
         type: 'array',
-        minItems: todas ? Math.max(1, Math.min(opciones, MAX_VERSIONS)) : 1,
-        maxItems: MAX_VERSIONS,
+        minItems: todas ? Math.max(1, Math.min(opciones, MAX_SALIDAS)) : 1,
+        maxItems: MAX_SALIDAS,
         items: {
           type: 'object',
           properties: {

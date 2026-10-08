@@ -1,5 +1,7 @@
 # ADR 0090 — Los cifrados salen de una tabla por especie, y la grafía de la tríada
 
+> **La trampa de la sonda de medidas** (no ve los solapes entre hermanos) vive hoy en [`TRAMPAS.md`](../TRAMPAS.md); aquí queda lo decidido sobre los cifrados.
+
 Fecha: 2026-10-03 · Estado: aceptada · Amplía:
 [ADR 0035](./0035-un-bloque-sabe-que-no-lleva-tercera.md) y
 [ADR 0042](./0042-la-especie-dice-lo-que-el-grado-no-sabe.md)

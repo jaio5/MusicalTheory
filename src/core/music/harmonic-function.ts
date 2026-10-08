@@ -6,7 +6,7 @@
  * empuja, y se entiende por qué se pueden cambiar por otros.
  *
  * Tres papeles y uno de paso. Los tres primeros son la armonía funcional de
- * toda la vida —reposo, salida, tensión— y el cuarto está para los acordes
+ * toda la vida —reposo, alejarse, tensión— y el cuarto está para los acordes
  * cromáticos que no hacen ninguno de los tres: solo llevan de un sitio a otro.
  *
  * La sustitución sale de aquí y no de una tabla aparte: dos acordes con el
@@ -24,6 +24,14 @@ export interface HarmonicRoleInfo {
   readonly name: string;
   /** Una letra para las etiquetas apretadas: T, S, D. */
   readonly short: string;
+  /**
+   * La letra dicha en una palabra, para la leyenda que la explica.
+   *
+   * Estaba escrita a mano en cada leyenda, y la de la subdominante era
+   * «salida»: en componer, al lado del panel «Salidas», que es otra cosa —lo
+   * que propone la IA—. Una sola palabra por papel, aquí, y que no choque.
+   */
+  readonly word: string;
   /** Qué hace, en una frase que se lee tocando. */
   readonly what: string;
   /** Adónde suele ir después. */
@@ -35,6 +43,7 @@ export const HARMONIC_ROLES: Readonly<Record<HarmonicRole, HarmonicRoleInfo>> = 
     id: 'tonic',
     name: 'Tónica',
     short: 'T',
+    word: 'reposo',
     what: 'Reposo. Es donde la frase suena terminada.',
     goes: 'Puede ir a cualquier sitio: es la casa de la que se sale.',
   },
@@ -42,13 +51,15 @@ export const HARMONIC_ROLES: Readonly<Record<HarmonicRole, HarmonicRoleInfo>> = 
     id: 'subdominant',
     name: 'Subdominante',
     short: 'S',
-    what: 'La salida. Se ha ido de casa pero todavía no hay tensión.',
+    word: 'se aleja',
+    what: 'Se aleja. Ha salido de casa, pero todavía no hay tensión.',
     goes: 'Casi siempre a la dominante, o de vuelta a la tónica.',
   },
   dominant: {
     id: 'dominant',
     name: 'Dominante',
     short: 'D',
+    word: 'tensión',
     what: 'Tensión. Contiene el tritono y pide resolver.',
     goes: 'A la tónica. Llevarla a otro sitio es el recurso, no la norma.',
   },
@@ -56,6 +67,7 @@ export const HARMONIC_ROLES: Readonly<Record<HarmonicRole, HarmonicRoleInfo>> = 
     id: 'approach',
     name: 'De paso',
     short: '→',
+    word: 'de paso',
     what: 'No reposa ni resuelve: une dos acordes por el camino más corto.',
     goes: 'Al acorde que tiene medio tono al lado.',
   },

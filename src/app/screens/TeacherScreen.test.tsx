@@ -125,7 +125,7 @@ describe('El profesor', () => {
 
     pintar(ANONYMOUS, false);
 
-    expect(screen.getByText(/no tiene cuentas configuradas/)).toBeInTheDocument();
+    expect(screen.getByText(/todavía no está disponible aquí/)).toBeInTheDocument();
     expect(screen.queryByText(/preguntas al\s+profesor al mes/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Con el plan Pro/)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Entrar/ })).not.toBeInTheDocument();

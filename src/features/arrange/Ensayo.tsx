@@ -156,7 +156,7 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
             {/* En la sans y a catorce: es una frase que se lee de lejos mientras
                 se toca, no una columna de datos, y a doce en mono se perdía
                 debajo del cifrado. */}
-            <p className="text-text-muted text-sm">
+            <p className="text-text-muted">
               {/* v8 ignore start -- el paso siempre esta dentro del guion mientras se ensaya */}
               Compás {guion[paso]?.bar ?? 1} de {guion.length}
               {/* v8 ignore stop */}
@@ -196,12 +196,12 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
             <p className="font-display text-text text-4xl leading-none">
               {resultado.acertados} de {resultado.total}
             </p>
-            <p className="text-text-muted text-sm">
+            <p className="text-text-muted">
               compases a tiempo
               {resultado.tarde > 0 && `, y ${resultado.tarde} que llegaron tarde`}.
             </p>
 
-            <dl className="text-text-muted flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm">
+            <dl className="text-text-muted flex flex-wrap justify-center gap-x-8 gap-y-2">
               <div>
                 <dt className="text-xs">Racha más larga</dt>
                 <dd className="text-text font-mono text-lg">{resultado.rachaMasLarga}</dd>
@@ -322,12 +322,12 @@ export const Ensayo = memo(function Ensayo({ deps = SIN_DEPS }: { readonly deps?
             {contando && (
               <p className="text-center" aria-hidden="true">
                 <span className="text-fluid-hero tabular-nums">{cuenta}</span>
-                <span className="text-text-muted mt-1 block text-sm">
+                <span className="text-text-muted mt-1 block">
                   Dos compases de cuenta. El primer acorde se enciende con el último clic.
                 </span>
               </p>
             )}
-            <p className="text-text-muted max-w-prose text-sm">
+            <p className="text-text-muted max-w-prose">
               Suena el metrónomo y se enciende el acorde que toca, con los dos siguientes a la
               vista. Te escucho por el micro y al final te digo cuántos salieron y cuál se te
               atragantó.

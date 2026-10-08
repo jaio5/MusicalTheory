@@ -39,7 +39,7 @@ export function PlanLock({
 }) {
   return (
     <div className={`superficie-viva ${compact ? 'px-2 py-1.5' : 'p-4 md:p-5'}`} role="note">
-      <p className={`text-text ${compact ? 'text-xs' : 'text-sm'}`}>
+      <p className={compact ? 'text-text text-xs' : 'text-text'}>
         {needsPlanMessage(needed, what, plural)}
       </p>
       {/* Compacto es una fila estrecha dentro de otra cosa; ahí el botón se come

@@ -181,6 +181,18 @@ describe('lo que faltaba por mirar del micrófono', () => {
     await micro.start();
 
     expect(micro.state).toBe('error');
-    expect(micro.errorMessage).toMatch(/otra aplicación/);
+    expect(micro.errorMessage).toMatch(/No se ha podido abrir el micrófono/);
+  });
+
+  // Sin micrófono no es lo mismo que ocupado: uno se arregla conectando y el
+  // otro cerrando otro programa.
+  it('sin micrófono lo dice, y no culpa a otra aplicación', async () => {
+    getUserMedia.mockRejectedValueOnce(fallo('NotFoundError'));
+    const micro = new BrowserMicInput();
+
+    await micro.start();
+
+    expect(micro.state).toBe('error');
+    expect(micro.errorMessage).toMatch(/No encuentro ningún micrófono/);
   });
 });

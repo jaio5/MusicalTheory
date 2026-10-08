@@ -94,18 +94,18 @@ export function PlayNote({
         {nombre}
         <span className="text-text-muted text-base">{midiToOctave(step.midi)}</span>
       </p>
-      <p className="text-text-muted mt-1 max-w-prose text-sm">
+      <p className="text-text-muted mt-1 max-w-prose text-base">
         {step.descending ? 'Bajando' : 'Subiendo'} la escala, esta te costó. Sostenla afinada un
         momento y cuenta.
       </p>
 
       {resultado === 'bien' && (
-        <p className="text-tube-bright mt-4 text-sm" role="status">
+        <p className="text-tube-bright mt-4 text-base" role="status">
           Ahí está.
         </p>
       )}
       {resultado === 'mal' && (
-        <p className="text-text-muted mt-4 max-w-prose text-sm" role="status">
+        <p className="text-text-muted mt-4 max-w-prose text-base" role="status">
           Sin problema: vuelve mañana. Está en el traste que da {nombre}, y hay varios en el mástil.
         </p>
       )}

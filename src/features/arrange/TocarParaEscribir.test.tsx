@@ -39,7 +39,7 @@ class EntradaFalsa implements AudioInput {
   readonly sampleRate = 48_000;
   readonly frameSize = 2048;
   readonly spectrumSize = 8192;
-  error = null;
+  error: AudioInput['error'] = null;
   #oyentes = new Set<(state: AudioInputState) => void>();
 
   // **Avisa de su estado**, que es de donde se entera la escucha: quien no lo
@@ -1210,5 +1210,53 @@ describe('lo que se ve mientras tocas', () => {
     await userEvent.click(screen.getByRole('button', { name: /^Tocar$/ }));
 
     expect(screen.queryByRole('list', { name: 'Lo que ya llevas' })).not.toBeInTheDocument();
+  });
+
+  /**
+   * **Encendida, no apagada**: al sesenta por ciento y en gris se leía como una
+   * lista deshabilitada. Los cifrados, en la letra de los títulos.
+   */
+  it('lo que ya llevas se lee como la cancion, no como algo apagado', () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    const id = useArrangementStore.getState().actions.addPart('Estrofa');
+    useArrangementStore.getState().actions.addBlock(id, 'I', 4);
+
+    render(<TocarParaEscribir deps={DEPS} />);
+
+    const lista = screen.getByRole('list', { name: 'Lo que ya llevas' });
+    expect(lista.className).not.toMatch(/opacity/);
+    const acorde = within(lista).getByText('C');
+    expect(acorde).toHaveClass('text-text', 'border-border-strong', 'font-display');
+    expect(acorde).not.toHaveClass('font-mono');
+  });
+});
+
+/**
+ * **El porqué de un micro que no se abre, junto a «Tocar».** Salía en la
+ * esquina de la barra, en rojo pequeño y escondido en un teléfono.
+ */
+describe('cuando el micro no se abre', () => {
+  class EntradaDenegada extends EntradaFalsa {
+    override error = {
+      state: 'denied',
+      message: 'Pulsa el candado de la barra de direcciones.',
+    } as const;
+    // Se queda sin abrir y avisa, que es de donde la escucha saca el mensaje.
+    override async start(): Promise<void> {
+      await super.stop();
+      this.state = 'denied';
+    }
+  }
+
+  it('lo dice pegado al boton que se pulso', async () => {
+    useSessionStore.getState().actions.pinKey({ tonic: C, mode: 'major' });
+    render(<TocarParaEscribir deps={{ ...DEPS, createInput: () => new EntradaDenegada() }} />);
+    const tocar = screen.getByRole('button', { name: /^Tocar$/ });
+
+    await userEvent.click(tocar);
+
+    const aviso = await screen.findByText(/candado/);
+    // En la misma caja que el botón, y no al final de la columna.
+    expect(aviso.parentElement).toBe(tocar.parentElement);
   });
 });

@@ -1,5 +1,7 @@
 # ADR 0014 — Un modelo de casa para probar, y por qué no es el de producción
 
+> **Sustituido en parte por [ADR 0047](./0047-la-ia-es-un-perfil-no-un-fichero.md):** la IA es un perfil de `compose.yml`, no un fichero que se superpone. Y las rutas de IA hoy son dos, el profesor y las salidas ([ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)).
+
 Fecha: 2026-08-26 · Estado: aceptada · Amplía: [ADR 0011](./0011-versiones-verificadas-contra-el-dominio.md)
 
 ## Contexto

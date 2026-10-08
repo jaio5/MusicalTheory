@@ -2,13 +2,9 @@
 import '@testing-library/jest-dom/vitest';
 
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { ANONYMOUS } from '@core/billing';
 import { GUION_TEMA } from '@state/theme';
-
-const currentAccount = vi.fn(async () => ANONYMOUS);
-const authAvailable = vi.fn(() => true);
 
 /*
   El número de un solo uso que en la aplicación pone `proxy.ts`.
@@ -24,19 +20,9 @@ vi.mock('next/headers', () => ({
     new Headers(numeroEnLaCabecera === null ? {} : { 'x-nonce': numeroEnLaCabecera }),
 }));
 
-vi.mock('@server/entitlements', () => ({ currentAccount: () => currentAccount() }));
-vi.mock('@server/auth', () => ({ authAvailable: () => authAvailable() }));
-
 // Las letras las carga el compilador de Next, que aquí no está: lo que se prueba
 // de ellas vive en `fuentes.test.ts`, y aquí solo importa que lleguen al `<html>`.
 vi.mock('./fuentes', () => ({ CLASES_DE_FUENTES: 'las-tres-letras' }));
-
-vi.mock('next-auth/react', () => ({
-  signIn: vi.fn(),
-  signOut: vi.fn(),
-  useSession: () => ({ data: null, status: 'unauthenticated' }),
-  SessionProvider: ({ children }: { children: unknown }) => children,
-}));
 
 const { default: RootLayout, dynamic, metadata } = await import('./layout');
 
@@ -56,12 +42,6 @@ const { default: RootLayout, dynamic, metadata } = await import('./layout');
  *   evita el fogonazo.
  */
 
-beforeEach(() => {
-  currentAccount.mockClear();
-  authAvailable.mockReset();
-  authAvailable.mockReturnValue(true);
-});
-
 async function pintar(): Promise<string> {
   return renderToStaticMarkup(await RootLayout({ children: <p>El contenido</p> }));
 }
@@ -71,8 +51,9 @@ describe('el marco', () => {
     expect(dynamic).toBe('force-dynamic');
   });
 
-  it('lleva su titulo y su descripcion', () => {
-    expect(metadata.title).toBe('Caos ordenado');
+  /** El nombre va una vez, aquí: cada página pone solo el suyo. */
+  it('lleva su titulo, que remata el de cada pagina, y su descripcion', () => {
+    expect(metadata.title).toEqual({ default: 'Caos ordenado', template: '%s · Caos ordenado' });
     expect(metadata.description).toMatch(/guitarra/);
   });
 
@@ -100,21 +81,12 @@ describe('el marco', () => {
   });
 });
 
+/** La cuenta la lee el layout de `(marco)`: la portada cuelga de aquí y no la usa. */
 describe('la cuenta', () => {
-  it('la lee aqui y la baja por el arbol', async () => {
-    // Para que ninguna pantalla tenga que pedirla con un `fetch` al montar: quien
-    // entra pagando no debe ver medio segundo de candados antes de que se abran.
-    await pintar();
+  it('no la lee ni la baja: no hay proveedor alrededor de la portada', async () => {
+    const html = await pintar();
 
-    expect(currentAccount).toHaveBeenCalledTimes(1);
-  });
-
-  it('sin cuentas configuradas se pinta igual', async () => {
-    // Sin `DATABASE_URL` y `AUTH_SECRET` todo el mundo es anónimo y la aplicación
-    // funciona entera: fallar aquí la dejaría sin arrancar.
-    authAvailable.mockReturnValue(false);
-
-    await expect(pintar()).resolves.toContain('El contenido');
+    expect(html).toContain('<body class="antialiased"><p>El contenido</p>');
   });
 });
 

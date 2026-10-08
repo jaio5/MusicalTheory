@@ -69,8 +69,8 @@ export function QueTeDaLaCuenta({ accounts }: { readonly accounts: boolean }) {
                   <Icono />
                 </span>
                 <span className="min-w-0">
-                  <span className="text-text block text-sm">{titulo}</span>
-                  <span className="text-text-muted mt-1 block text-sm">{texto}</span>
+                  <span className="text-text block">{titulo}</span>
+                  <span className="text-text-muted mt-1 block">{texto}</span>
                 </span>
               </Link>
             </li>
@@ -80,7 +80,7 @@ export function QueTeDaLaCuenta({ accounts }: { readonly accounts: boolean }) {
             cuenta es la IA», y el repaso y guardar las canciones también van con
             un plan, que va con una cuenta. El plan de arriba, que lo trae todo:
             nombrarlo a mano se quedó apuntando a Pro cuando se fundió en Medio. */}
-        <p className="text-text-muted max-w-prose text-sm">
+        <p className="text-text-muted max-w-prose">
           Lo que no hay sin cuenta es lo que va con ella:{' '}
           {enUnaFrase(loQueTrae(PAID_PLANS.at(-1)!.id))}. La IA, porque cuesta dinero servirla y hay
           que saber de quién es el gasto; lo demás, porque va con un plan, y un plan va con una
@@ -119,14 +119,14 @@ export function QueTeDaLaCuenta({ accounts }: { readonly accounts: boolean }) {
               <Icono />
             </span>
             <div className="min-w-0">
-              <p className="text-text text-sm">{titulo}</p>
-              <p className="text-text-muted mt-1 text-sm">{texto}</p>
+              <p className="text-text">{titulo}</p>
+              <p className="text-text-muted mt-1">{texto}</p>
             </div>
           </li>
         ))}
       </ul>
 
-      <p className="text-text-muted max-w-prose text-sm">
+      <p className="text-text-muted max-w-prose">
         Sin cuenta funciona <strong className="text-text">todo lo que pasa en tu navegador</strong>:
         el afinador, la rueda, el mástil, el metrónomo, componer, grabar y los cuatro cursos del
         Grado Elemental, con el avance guardado en él. Lo que va con un plan no:{' '}

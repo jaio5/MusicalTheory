@@ -11,7 +11,7 @@ import { NoMailer } from './none';
 import { HttpMailer, mailConfigured } from './resend';
 import type { Mailer } from './port';
 
-export type { Mail, Mailer } from './port';
+export type { Mailer } from './port';
 export { mailConfigured } from './resend';
 
 export function mailer(): Mailer {

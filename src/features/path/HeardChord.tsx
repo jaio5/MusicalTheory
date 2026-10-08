@@ -108,9 +108,7 @@ export function HeardChord({
         <span className="rotulo">{sounding ? 'Suena' : 'Último'}</span>
 
         {chord === null ? (
-          <span className="text-text-muted text-sm">
-            Toca un acorde entero y sosténlo un momento.
-          </span>
+          <span className="text-text-muted">Toca un acorde entero y sosténlo un momento.</span>
         ) : (
           <>
             <span

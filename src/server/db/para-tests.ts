@@ -24,17 +24,30 @@
  * La costura para meterlo ya existía: `db/client.ts` guarda la conexión en
  * `globalThis` porque Next recarga los módulos a cada cambio en desarrollo. Aquí
  * se aprovecha ese mismo hueco.
+ *
+ * **Lo que PGlite no ve son los permisos**: corre como superusuario, así que un
+ * `grant` que falte pasaría aquí y reventaría en producción, donde la aplicación
+ * entra con un rol que solo lee y escribe filas (adr/0117). Por eso la
+ * integración continua pasa además estos mismos tests contra un Postgres de
+ * verdad y con ese rol (`postgres-para-tests.ts`, adr/0121).
  */
 
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
-import { readdirSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { inject } from 'vitest';
 
 import * as schema from './schema';
 
+declare module 'vitest' {
+  export interface ProvidedContext {
+    /** El directorio de datos ya migrado, volcado por `vitest.base-de-prueba.ts`. */
+    baseMigrada: string;
+  }
+}
+
 /** Lo mismo que guarda `db/client.ts`, para poder ponerlo desde aquí. */
-interface Cache {
+export interface CacheDeLaBase {
   sql?: unknown;
   db?: unknown;
 }
@@ -57,36 +70,27 @@ export interface BaseDePrueba {
 }
 
 /**
- * Levanta la base, le aplica las migraciones de verdad y la deja puesta.
+ * Levanta la base con las migraciones ya aplicadas y la deja puesta.
  *
- * **Las migraciones son las del repositorio**, leídas de `drizzle/`, no un
- * esquema escrito a mano en el test: si fueran dos cosas, una migración mal
- * escrita pasaría los tests y reventaría al desplegar, que es exactamente el
- * fallo que esto viene a cazar.
+ * **No migra**: carga el directorio de datos que `vitest.base-de-prueba.ts`
+ * migró una vez para toda la pasada (adr/0121). Cada fichero tiene su base, así
+ * que los ficheros no se pisan las filas aunque corran a la vez.
+ *
+ * Con `BASE_DE_PRUEBA_URL` la base es un Postgres de verdad y la aplicación
+ * entra con el rol sin privilegios (`postgres-para-tests.ts`).
  */
 export async function levantarBaseDePrueba(): Promise<BaseDePrueba> {
-  const cliente = new PGlite();
+  /* v8 ignore next 4 -- solo en el trabajo de Postgres de la integracion continua, que no mide cobertura */
+  if (process.env['BASE_DE_PRUEBA_URL']) {
+    const { levantarPostgresDeVerdad } = await import('./postgres-para-tests');
+    return levantarPostgresDeVerdad(process.env['BASE_DE_PRUEBA_URL']);
+  }
+
+  const volcado = readFileSync(inject('baseMigrada'));
+  const cliente = new PGlite({ loadDataDir: new Blob([volcado]) });
   const base = drizzle(cliente, { schema });
 
-  const carpeta = fileURLToPath(new URL('../../../drizzle', import.meta.url));
-  const migrar = async () => {
-    for (const fichero of readdirSync(carpeta)
-      .filter((f) => f.endsWith('.sql'))
-      .sort()) {
-      const sql = readFileSync(`${carpeta}/${fichero}`, 'utf8');
-      // Drizzle separa las sentencias de una migración con esta marca.
-      for (const sentencia of sql.split('--> statement-breakpoint')) {
-        const limpia = sentencia.trim();
-        /* v8 ignore next 3 -- ninguna migracion acaba con una marca suelta, pero costaria una tarde averiguarlo */
-        if (limpia !== '') {
-          await cliente.exec(limpia);
-        }
-      }
-    }
-  };
-  await migrar();
-
-  const cache = ((globalThis as { __caosDb?: Cache }).__caosDb ??= {});
+  const cache = ((globalThis as { __caosDb?: CacheDeLaBase }).__caosDb ??= {});
   cache.db = base;
   // `db()` mira `DATABASE_URL` antes de devolver nada: sin ella contesta nulo y
   // ni llega a mirar lo que hay guardado.
@@ -102,16 +106,13 @@ export async function levantarBaseDePrueba(): Promise<BaseDePrueba> {
 
   return {
     limpiar: async () => {
-      /* v8 ignore next 3 -- las migraciones crean tablas, asi que siempre hay algo que vaciar */
-      if (tablas.length > 0) {
-        await cliente.exec(`truncate table ${tablas.join(', ')} cascade`);
-      }
+      await cliente.exec(`truncate table ${tablas.join(', ')} cascade`);
     },
     ejecutar: async (sql: string) => {
       await cliente.exec(sql);
     },
     cerrar: async () => {
-      delete (globalThis as { __caosDb?: Cache }).__caosDb;
+      delete (globalThis as { __caosDb?: CacheDeLaBase }).__caosDb;
       delete process.env['DATABASE_URL'];
       await cliente.close();
     },

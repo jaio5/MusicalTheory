@@ -73,11 +73,7 @@ export function Vacio({
         {titulo}
       </p>
       {children !== undefined && (
-        <p
-          className={`text-text-muted max-w-sm text-balance ${discreto ? 'text-sm' : 'text-base'}`}
-        >
-          {children}
-        </p>
+        <p className="text-text-muted max-w-sm text-balance">{children}</p>
       )}
       {/* **Con todo el ancho y la acción centrada dentro.** Sin `w-full`, este div
           en una columna `items-center` encogía a lo que midiera su contenido, y una

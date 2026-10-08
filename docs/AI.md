@@ -4,7 +4,7 @@
 
 Dos cosas de la aplicación le preguntan a un modelo: **el profesor**
 (`/api/teacher`), que contesta dudas de teoría, y **las salidas**
-(`/api/versiones`), que proponen por dónde puede seguir lo que llevas compuesto.
+(`/api/salidas`), que proponen por dónde puede seguir lo que llevas compuesto.
 Las dos las responde un modelo de Anthropic, y siempre a través de un route
 handler del servidor.
 
@@ -12,11 +12,13 @@ Hubo una tercera, **las ideas** (`/api/ideas`): progresiones, giros y escalas
 pedidas mientras compones. Se retiró, y con ella las salidas bajaron de Pro a
 Medio ([adr/0066](./adr/0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)).
 
-**A la IA solo viajan símbolos.** Nunca audio, nunca una grabación,
-nunca un identificador de usuario. Lo que sale del navegador es la tonalidad, la
-escala, grados con sus pulsos, el identificador de una unidad y, cuando lo hay,
-el texto que escribes —la pregunta al profesor o las directrices de una salida—.
-Nada de eso permite reconstruir la interpretación.
+**A la IA viajan símbolos y, a veces, lo que escribes.** Nunca audio, nunca una
+grabación, nunca un identificador de usuario. Lo que sale del navegador es la
+tonalidad, la escala, grados con sus pulsos, el identificador de una unidad y, cuando
+lo hay, **texto libre**: la pregunta al profesor o las directrices de una salida, de
+hasta 240 caracteres cada una. Eso lo escribe una persona y puede decir cualquier cosa;
+por eso va acotado y entre marcas (más abajo, en «Por dónde entra texto que no
+controlamos»). Nada de lo demás permite reconstruir la interpretación.
 
 ## Por qué la clave vive solo en el servidor
 
@@ -79,21 +81,23 @@ Las dos rutas contestan los errores igual. Siempre con esta forma, nunca con el 
 {
   "error": {
     "code": "invalid_request",
-    "message": "Falta la tonalidad. Toca unos compases para que podamos detectarla.",
+    "message": "Falta la tonalidad o la pregunta. Elige una tonalidad, escribe qué quieres saber y vuelve a probar.",
   },
 }
 ```
 
-| Código HTTP | `code`                 | Cuándo                                                    |
-| ----------- | ---------------------- | --------------------------------------------------------- |
-| 400         | `invalid_request`      | El cuerpo no cumple el esquema, o no hay nada que pedir.  |
-| 401         | `account_required`     | No hay cuenta. La IA no se sirve sin ella.                |
-| 402         | `plan_required`        | El plan de quien pide no incluye esto.                    |
-| 429         | `rate_limited`         | Demasiadas peticiones seguidas desde esta dirección.      |
-| 429         | `quota_exhausted`      | Se gastó el cupo del mes o el del día.                    |
-| 502         | `model_unavailable`    | El proveedor ha fallado o ha tardado demasiado.           |
-| 502         | `unparseable_response` | El modelo ha contestado algo que no encaja.               |
-| 503         | `model_unavailable`    | No se ha podido contar el cupo, así que no se ha servido. |
+| Código HTTP | `code`                 | Cuándo                                                                        |
+| ----------- | ---------------------- | ----------------------------------------------------------------------------- |
+| 400         | `invalid_request`      | El cuerpo no cumple el esquema, o no hay nada que pedir.                      |
+| 401         | `account_required`     | No hay cuenta. La IA no se sirve sin ella.                                    |
+| 402         | `plan_required`        | El plan de quien pide no incluye esto.                                        |
+| 429         | `rate_limited`         | Demasiadas peticiones seguidas de esta cuenta, o de esta dirección si la hay. |
+| 429         | `quota_exhausted`      | Se gastó el cupo del mes o el del día.                                        |
+| 502         | `model_unavailable`    | El proveedor ha fallado o ha tardado demasiado.                               |
+| 502         | `unparseable_response` | El modelo ha contestado algo que no encaja.                                   |
+| 503         | `model_unavailable`    | No hay ningún proveedor de modelo configurado en esta copia.                  |
+| 503         | `model_unavailable`    | El techo de gasto de la IA está alcanzado (con `Retry-After`).                |
+| 503         | `model_unavailable`    | No se ha podido contar el cupo, así que no se ha servido.                     |
 
 El mensaje va en español, dice qué ha pasado y qué hacer. Nunca se filtran ni
 la clave, ni la URL del proveedor, ni la traza.
@@ -103,7 +107,7 @@ así no hay nada que pedir: la ruta declara `porQueNoVale` y el cuerpo común la
 en vez de la de `invalid_request`. Es el caso de «Continuar» con treinta y un
 compases, donde ya no cabe otra parte: decía «nos falta la progresión», y ahora
 dice que no cabe y que se pruebe a retocar (`NO_CABE_OTRA_PARTE`). **Y un menú
-vacío contesta con su razón**: `porQueNoHaySalidas` (`core/music/paths.ts`) dice
+vacío contesta con su razón**: `porQueNoHaySalidas` (`core/music/salidas/menu.ts`) dice
 por qué no hay salida para esa canción en vez de «nos falta la progresión». El
 panel ya no ejecuta `salidasPosibles`: lo construye el servidor, y el panel
 pesa 70 KB gzip en vez de 87.
@@ -147,7 +151,7 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
    tiraba toda idea sin grados. Contra dos modelos locales pasaban 0 de 4
    peticiones —cupo gastado, 502— y exigiéndolo, 36 de 36.
 
-   Por eso `versionsSchema(opciones)` **es una función**: lo que se pide es un
+   Por eso `salidasSchema(opciones)` **es una función**: lo que se pide es un
    número del menú de esa petición, y el enumerado va de uno a cuantas salidas
    haya. La generación constreñida no puede salirse de un `enum`, así que no puede
    elegir una que no está.
@@ -160,7 +164,7 @@ Es el caso normal, no el excepcional, y por eso hay tres capas:
    tiene que escribir sus acordes y no los de otra cosa (más abajo, en «El
    profesor»); en las salidas, el título y el porqué no pueden nombrar acordes ni
    movimientos que la salida no tiene (más abajo, en «Las salidas»).
-3. **Un reintento y basta.** Si la respuesta no valida, se reintenta una vez. Si
+3. **Un reintento y basta.** Si la respuesta no valida, se reintenta una vez (con el modelo de casa, a otra temperatura; con la API no se toca ningún parámetro de muestreo). Si
    la segunda tampoco, se contesta el `respaldo` de la ruta si lo tiene, y si no, el
    error. No se encadenan reintentos: cuestan dinero y tiempo, y el usuario
    prefiere un «no ha salido, prueba otra vez» rápido a treinta segundos de espera.
@@ -183,19 +187,19 @@ un acorde imposible, muere en el servidor.
 ## Cuánto se espera, y cuántas llamadas puede haber
 
 **La espera está acotada en las dos ramas, y en la de la API no lo estuvo.** El
-modelo de casa siempre tuvo su tope de dos minutos —la primera petición carga
+modelo de casa siempre tuvo su tope —hoy de tres minutos, 180 s— —la primera petición carga
 cinco gigas de pesos en la gráfica—, y la llamada a la API se quedaba con el que
 trae el SDK de serie: **diez minutos**, con dos reintentos suyos por debajo. Con
 el reintento de la ruta encima, una pregunta al profesor podía tener a alguien
 esperando casi una hora contra una pantalla parada. Este documento llevaba desde
 el principio diciendo que aquí había «tiempo máximo», y no lo había.
 
-| Lo que se espera              | Cuánto                                                     |
-| ----------------------------- | ---------------------------------------------------------- |
-| Una llamada a la API          | 30 s                                                       |
-| Reintentos del SDK            | **0**                                                      |
-| Reintentos de la ruta         | `MAX_MODEL_ATTEMPTS` = 2, también para un 429 o un 5xx     |
-| **Peor caso de una petición** | **60 s**, por debajo de los dos minutos del modelo de casa |
+| Lo que se espera              | Cuánto                                                          |
+| ----------------------------- | --------------------------------------------------------------- |
+| Una llamada a la API          | 30 s                                                            |
+| Reintentos del SDK            | **0**                                                           |
+| Reintentos de la ruta         | `MAX_MODEL_ATTEMPTS` = 2, también para un 429 o un 5xx          |
+| **Peor caso de una petición** | **60 s**, muy por debajo de los tres minutos del modelo de casa |
 
 **El SDK no reintenta, y fue una decisión de coste** (adr/0114). Llevaba uno, para
 que un pico de carga de la API no saliera como 502 a la primera, y se decía que no se
@@ -216,7 +220,7 @@ caso; un error que contestó la API —un 400, un 429— no generó nada y cuent
 
 ```ts
 // src/server/ask-model.ts — el único sitio del proyecto que importa el SDK.
-const client = new Anthropic({ timeout: 30_000, maxRetries: 1 });
+const client = new Anthropic({ timeout: 30_000, maxRetries: 0 });
 
 const modelo = configuredModel();
 const { thinking, effort } = opcionesDelModelo(modelo); // lo que acepta ese modelo
@@ -300,7 +304,8 @@ pnpm docker:ia     # Postgres, migraciones, Ollama con su modelo, y la aplicaci�
 
 Levanta el perfil `ia` de `compose.yml`
 ([adr/0047](./adr/0047-la-ia-es-un-perfil-no-un-fichero.md)); a mano es
-`docker compose --profile ia up`, y `docker compose up ollama` levanta **solo el
+`docker compose --profile ia up` —con `OLLAMA_URL_DOCKER=http://ollama:11434` en el
+`.env`, o la aplicación no sabe dónde está—, y `pnpm docker:ia-sola` levanta **solo el
 modelo**, sin la aplicación, para iterar sobre los prompts con `pnpm dev`
 delante. La primera vez descarga unos
 5 GB —`qwen3:8b`, que de su tamaño es el que mejor respeta un esquema JSON
@@ -330,18 +335,18 @@ traducen, no se reinventan:
 | En la API              | En Ollama             | Por qué                                           |
 | ---------------------- | --------------------- | ------------------------------------------------- |
 | `thinking` apagado     | `think: false`        | La respuesta la fija un esquema: nada que razonar |
-| `max_tokens`           | `options.num_predict` | El mismo número del presupuesto de `cost.ts`      |
+| `max_tokens`           | `options.num_predict` | Tres veces el del presupuesto de `cost.ts`        |
 | `output_config.format` | `format`              | El esquema constriñe la generación                |
 
 Tres cosas que conviene saber antes de que muerdan:
 
 - **La primera petición tarda.** Cargar cinco gigas de pesos en la gráfica va
-  antes de generar el primer token. El tope de espera son dos minutos por eso; las
+  antes de generar el primer token. El tope de espera son tres minutos por eso (`TIEMPO_MAXIMO_MS`, 180 s); las
   siguientes tardan segundos.
 - **Los cupos salen pequeños.** El modelo local no está en la tabla de precios, así
   que se cobra al precio del más caro conocido. Es incómodo y es lo correcto: el
   cupo defiende de un gasto, y suponer coste cero sería dividir entre cero.
-- **`/api/versiones` fue la que peor iba, y ya no.** Mientras el modelo escribía
+- **`/api/salidas` fue la que peor iba, y ya no.** Mientras el modelo escribía
   las salidas, un 8B se quedaba sin ninguna o copiaba el ejemplo del prompt. Desde
   que el dominio las construye y el modelo elige, `qwen3:8b` contesta las cuarenta
   peticiones del banco (más abajo, en «Las salidas»).
@@ -362,7 +367,7 @@ glosario de teoría (`core/music/glossary.ts`), contesta su entrada resuelta en 
 tonalidad —«Sin IA, del glosario. Cadencia plagal: … En G mayor, IV → I: C → G.»—,
 así que sin clave ya se dice algo cierto; si no casa, dice que no hay modelo y qué
 hacer. Las salidas son **las tres mejores del mismo menú que se le da al
-modelo** (`salidasPosibles`, en `core/music/paths.ts`), con variedad y el porqué
+modelo** (`salidasPosibles`, en `core/music/salidas/menu.ts`), con variedad y el porqué
 que dice el juez de encaje, así que pasan la misma verificación que pasaría su
 respuesta. Eso permite
 probar la pantalla, la reproducción y «quedarme con esta» sin gastar un céntimo.
@@ -394,7 +399,7 @@ quedaba sin peticiones del mes por una variable de entorno que faltaba.
 lee las rutas y comprueba que el proveedor se sigue mirando antes que el cupo:
 el orden de dos líneas es justo lo que se pierde al refactorizar.
 
-## Las puertas: dirección, cuenta, frecuencia, techo y cupo
+## Las puertas: dirección, cuenta, frecuencia, cuerpo, plan, techo y cupo
 
 En este orden, de lo que no cuesta nada a lo que cuesta dinero (`server/ai-route.ts`,
 [adr/0114](./adr/0114-el-gasto-de-la-ia-tiene-techo-y-la-cuenta-se-cierra-en-orden.md)):
@@ -414,6 +419,14 @@ dirección IP se cambia con el móvil en la mano.
 propósito: aunque pagues, no hay razón para hacer diez peticiones en un segundo. Con
 base de datos el contador es una fila compartida entre instancias; sin ella, en
 memoria.
+
+**El cuerpo, por un lector acotado** (`readJsonBody`): se lee después de la cuenta y del
+límite, y uno roto, vacío o enorme llega como vacío y se contesta con el mismo 400, sin
+juntar en memoria lo que no cabe.
+
+**El plan** (`abrirPuertaDeIa`, `spendAi`): si el de quien pide no incluye la función,
+`402` con la frase del plan que sí. Las salidas piden Medio; el profesor entra en el
+gratis.
 
 **El techo de gasto de todos** (`server/ai-gasto.ts`): cuatro topes en dinero —de
 todos y del plan gratis, al día y al mes— que cierran la IA con un `503` que dice que
@@ -469,8 +482,8 @@ Los dos prompts y los dos esquemas viven juntos en `server/prompts.ts`, y no den
 sus rutas, porque **de su longitud dependen los cupos de todos los planes**. Allí se
 pueden medir: `server/prompts.test.ts` cuenta sus caracteres y falla si crecen hasta
 comerse la holgura del presupuesto de tokens. **El prompt entero de las salidas se
-mide aparte**, en `app/api/versiones/presupuesto.test.ts`: lo arma
-`features/versions/prompt.ts`, que `server/` no puede abrir, y el estimado que había
+mide aparte**, en `app/api/salidas/presupuesto.test.ts`: lo arma
+`app/api/salidas/prompt.ts`, que `server/` no puede abrir, y el estimado que había
 en `prompts.test.ts` se dejaba fuera la mitad (más abajo, en «Las salidas»).
 
 ## Por dónde entra texto que no controlamos
@@ -594,8 +607,9 @@ escribe el modelo llega a otra persona.
 
 ## Privacidad, en una línea
 
-Lo que sale del equipo son entre diez y cincuenta caracteres de símbolos
-musicales. Ni una muestra de audio.
+Lo que sale del equipo son símbolos musicales —tonalidad, grados, pulsos— y, si la
+escribes, tu pregunta o tus directrices (hasta 240 caracteres cada una). Ni una
+muestra de audio.
 
 Y **se dice que es una IA donde se pregunta**, encima de la pregunta al profesor
 (AI Act, art. 50.1), con un enlace a `/privacidad`, que nombra al proveedor que
@@ -636,7 +650,7 @@ lleva tres cosas más, todas calculadas por el dominio y ninguna escrita a mano:
   `Acordes de C mayor. Tónica: I C, iii Em, vi Am. Subdominante: ii Dm, IV F. Dominante: V G, vii° Bdim.`
   En menor va también el V mayor de la armónica, que es el de la cadencia perfecta.
 - **Hasta dos entradas del glosario**, si la pregunta casa con alguna, bajo
-  «Teoría comprobada: úsala y no la contradigas.». Son sesenta —cadencias,
+  «Teoría comprobada: úsala y no la contradigas.». Son cincuenta y nueve —cadencias,
   funciones, acordes e inversiones, intervalos, escalas, modos, tonalidades,
   progresiones, ritmo y figuras, y cinco de **la aplicación**: afinar, grabar, tu
   audio, escribir tocando y ensayar— y lo que depende de la tonalidad está escrito
@@ -663,8 +677,8 @@ El prompt de sistema dice en una frase que la tabla y la referencia mandan sobre
 lo que recuerde.
 
 **Y lo que contesta se comprueba** (`checkAnswerAgainstTheory`, desde
-`validateTeacherAnswer`). Lo que no pasa vuelve nulo y la ruta reintenta con otra
-temperatura; si la segunda tampoco, contesta el glosario (abajo). Las firmas:
+`validateTeacherAnswer`). Lo que no pasa vuelve nulo y la ruta reintenta (con el modelo de casa, a otra
+temperatura); si la segunda tampoco, contesta el glosario (abajo). Las firmas:
 
 | Si se pregunta por...           | La respuesta tiene que...                                                   |
 | ------------------------------- | --------------------------------------------------------------------------- |
@@ -727,7 +741,7 @@ escritura más en la base de datos por cada respaldo.
 **Cabe en el presupuesto sin subirlo.** El peor caso —la tabla más larga de las
 veinticuatro, las dos entradas más largas, la unidad de título más largo, la
 pregunta entera y el recordatorio de detrás— lo construye `server/prompts.test.ts`
-pieza a pieza: **696 tokens estimados de 700**. Para que quepa el recordatorio se
+pieza a pieza: **700 tokens estimados de 700**, que es lo que escribe `server/prompts.test.ts` al correr. Para que quepa el recordatorio se
 apretaron el prompt de sistema y la cabecera de la teoría sin quitarles ninguna
 instrucción, y cada entrada tiene un tope de 180 caracteres. Los cupos no cambian,
 y **no queda sitio**: lo próximo que entre en el prompt pide subir el presupuesto, y
@@ -757,7 +771,7 @@ un poema sobre el mar escrito con grados y los dos poemas sobre París. Pide
 
 ## Las salidas: por dónde puede tirar lo que tocas
 
-El otro route handler, `POST /api/versiones`, con el mismo reparto que el del
+El otro route handler, `POST /api/salidas`, con el mismo reparto que el del
 profesor. Es **la petición más cara de las dos** y entra en el plan Medio
 ([adr/0066](./adr/0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md)), que
 desde [adr/0104](./adr/0104-el-plan-pro-se-replantea.md) es el de arriba.
@@ -796,24 +810,24 @@ contra la API, que sigue pendiente.
 **Aunque por delante se llame «grabar un trozo», aquí no sube nada de audio.** La
 aplicación ya sabe qué acorde suena —el motor de croma lo dice y `core/music/capture.ts`
 lo convierte en grados con sus pulsos—, así que grabar es apuntar símbolos. Lo que
-viaja son entre treinta y doscientos caracteres.
+viaja son símbolos: grados, pulsos y los enumerados del contexto.
 
 ### El dominio construye las salidas, y el modelo elige
 
 **El modelo ya no escribe salidas: las elige de un menú.** `salidasPosibles`
-(`core/music/paths.ts`) construye para tu canción muchas más de las que enseña
+(`core/music/salidas/menu.ts`) construye para tu canción muchas más de las que enseña
 (`candidatasDeSalida`), las ordena por lo que encajan con lo que llevas
-(`core/music/encaje.ts`) y se queda con hasta nueve, con variedad entre caminos
+(`core/music/salidas/juez/encaje.ts`) y se queda con hasta nueve, con variedad entre caminos
 ([adr/0097](./adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)). Hay cinco
 caminos, y cada uno trae lo suyo:
 
-- **rearmonizar**: cada movimiento de `reharmonization.ts` en todos los compases
+- **rearmonizar**: cada movimiento de `salidas/movimientos.ts` en todos los compases
   que lo admiten, y el último compás con cada sustituto que tenga;
 - **estirar**: cuadrar a los pulsos que más se repiten lo que se tocó desigual, a
   medio tiempo, a doble tiempo, y el último o el primero el doble;
 - **otro final**: llegar a la tónica, quedarse en la dominante o caer en el vi
   —el VI en menor— tocando lo menos posible, y acabar antes si se puede;
-- **seguir**: las cadencias de `cadenciasParaCerrar`, un cierre de tres y otro de
+- **seguir**: las cadencias que salen de `cierresDesde`, un cierre de tres y otro de
   cuatro compases que no tocan la tónica hasta el final, y una parte nueva antes
   del cierre;
 - **contraste**: puentes que se van sin pasar por la tónica y saben volver a tu
@@ -840,7 +854,7 @@ prestado, si cierra, si es más lento, más rápido o más corto. Los colores sa
 comparar la salida con lo tuyo, no de una etiqueta, y son lo que deja elegir con
 «más triste» o «estilo rock» delante.
 
-El prompt lleva ese menú numerado (`features/versions/menu.ts`), la tabla de los
+El prompt lleva ese menú numerado (`features/salidas/menu.ts`), la tabla de los
 grados que salen con su acorde —los tuyos y los del menú, para que el porqué hable
 de acordes que existen— y tus compases numerados. Lo que vuelve es, por salida, **un número, un título y un
 porqué**, y el esquema exige el número como enumerado del uno a cuantas haya. Ya
@@ -882,9 +896,9 @@ cierto, y la medición contra la API diría si se paga caro.
 ### Lo que la petición sabe de tu canción
 
 **Además de los grados viaja un contexto** (`ContextoDeSalidas`, en
-`core/music/contexto-de-salidas.ts`): el estilo de la barra, los pulsos por
+`core/music/salidas/contexto.ts`): el estilo de la barra, los pulsos por
 compás, el papel real de la parte, la especie de cada compás, los compases
-dudosos y la melodía compás a compás. Lo valida `features/versions/contract.ts`,
+dudosos y la melodía compás a compás. Lo valida `features/salidas/contract.ts`,
 lo arma el panel (`lo-que-se-manda.ts`) y el servidor lo usa en
 `salidasPosibles` **las dos veces que construye el menú**, al escribir el prompt y
 al validar: si cambiara entre una y otra, el número elegido señalaría otra salida.
@@ -894,7 +908,7 @@ la tónica; los nombres de las partes no viajan, ni audio.
 
 ### Quién ordena el menú
 
-**El juez de encaje** (`core/music/encaje.ts`) puntúa de 0 a 100 cada candidata
+**El juez de encaje** (`core/music/salidas/juez/encaje.ts`) puntúa de 0 a 100 cada candidata
 con once criterios —sintaxis, cadencia, frase, ritmo armónico, bajo, notas
 comunes, melodía, estilo, novedad, papel y forma— y deja por escrito, en grados,
 los motivos que son verdad. Un `descarte` la quita siempre; un `reparo` baja sus
@@ -912,7 +926,7 @@ lo que el dominio no hace. Canciones de un acorde se aceptan.
 
 Cinco exámenes del dominio, sin modelo, que corre `pnpm test` —`corpus-de-salidas`
 (71 de 72 casos), `corpus-de-verificacion` (93 de 96), `corpus-ciego` (98 de 98),
-`corpus-final` (53 de 54) y `corpus-quinto` (27 de 50 menús), en `core/music/`—, cada uno con un trinquete que no deja
+`corpus-final` (53 de 54) y `corpus-quinto` (27 de 50 menús), en `core/music/salidas/corpus/`—, cada uno con un trinquete que no deja
 bajar y una lista `YA_NO_PUEDEN_FALLAR`. **Y `pnpm examen:salidas`**
 (`scripts/examen-de-las-salidas.ts`), que pasa las peticiones por la ruta contra el
 modelo de verdad —el de pago con `--api`, que antes dice cuánto puede costar
@@ -940,7 +954,7 @@ generalización; para volver a medir hace falta un sexto corpus
 **El título y el porqué son la única prosa del modelo que se pinta**, y al lado
 de acordes comprobados un porqué falso enseña algo falso con autoridad
 ([adr/0011](./adr/0011-versiones-verificadas-contra-el-dominio.md)). Así que
-`loQueNoEsta` (`features/versions/contract.ts`) los lee contra la salida: los
+`loQueNoEsta` (`features/salidas/contract.ts`) los lee contra la salida: los
 acordes y grados que nombran tienen que sonar en ella o haber estado en lo tuyo; un
 movimiento nombrado tiene que estar hecho —el relativo de la tónica y la cadencia
 rota valen también si suenan—, y no puede decir que cierra si no acaba en la
@@ -978,17 +992,17 @@ debe a quien lo pagó es saber que eso no lo eligió el modelo.
 `server/prompts.test.ts` estimaba la entrada de las salidas con el prompt de
 sistema, el esquema, la progresión, los movimientos y los grados, y **se dejaba el
 mapa de saltos, las cadencias, las directrices y los ejemplos de retocar**: decía
-que cabía en los 1.400 tokens de `TOKEN_BUDGETS.versiones` mientras el peor prompt
+que cabía en los 1.400 tokens de `TOKEN_BUDGETS.salidas` mientras el peor prompt
 real rondaba los 1.950. Desde aquí no se podía medir mejor —el prompt lo arma
 `features/`, y `server/` no la abre—, así que la medida de verdad vive en
-`app/api/versiones/presupuesto.test.ts`, que ve las dos capas:
+`app/api/salidas/presupuesto.test.ts`, que ve las dos capas:
 
 - **busca el peor** con cientos de canciones de treinta y dos compases en las
-  veinticuatro tonalidades, el papel más largo y las directrices enteras: **1.277
+  veinticuatro tonalidades, el papel más largo y las directrices enteras: **1.278
   tokens de 1.400**;
 - y **suma el peor de cada pieza** aunque no puedan darse juntas, con el prompt por
   su tope de caracteres (`MAX_CARACTERES_DEL_PROMPT`, 2.950, en
-  `features/versions/prompt.ts`): **1.278 de 1.400**. Es lo que hace que sea un tope
+  `app/api/salidas/prompt.ts`): **1.278 de 1.400**. Es lo que hace que sea un tope
   y no una muestra.
 
 **Y el test exige una holgura de 120 tokens** (`HOLGURA`): el peor prompt tiene que
@@ -1012,6 +1026,8 @@ como el acorde en estado fundamental, porque el croma olvida la octava
 
 ### El nombre
 
-En pantalla son **salidas**. Por dentro la ruta, la carpeta y la capacidad del plan
-se siguen llamando `versiones`: renombrarlo toca cuarenta ficheros y habría ahogado
-el cambio de comportamiento en un diff de nombres. Es deuda mecánica y está anotada.
+En pantalla y por dentro son **salidas**: la ruta (`/api/salidas`), la carpeta
+(`features/salidas/`), la función de la IA y la capacidad del plan
+([adr/0124](./adr/0124-el-motor-de-salidas-se-parte-por-oficio.md)). Se quedó `versions`
+en un solo sitio: la clave del JSON que devuelve el modelo, porque es lo que lee en su
+esquema y lo que cuenta el presupuesto del prompt.

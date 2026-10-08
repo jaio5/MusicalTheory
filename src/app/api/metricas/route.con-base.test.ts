@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { utcDay } from '@core/analytics';
 import { levantarBaseDePrueba, type BaseDePrueba } from '@server/db/para-tests';
 import type * as Metricas from '@server/metricas';
+import type * as NextServer from 'next/server';
 import type * as Users from '@server/users';
 
 /**
@@ -21,6 +22,18 @@ vi.mock('@server/auth', () => ({
   currentCookie: async () => cookie,
 }));
 
+/**
+ * `after` solo existe dentro de una petición de Next: aquí guarda lo que la ruta
+ * deja para después de contestar, y cada `POST` de este fichero lo espera.
+ */
+const despues = vi.hoisted((): Promise<unknown>[] => []);
+vi.mock('next/server', async (original) => ({
+  ...(await original<typeof NextServer>()),
+  after: (tarea: () => Promise<unknown>) => {
+    despues.push(tarea());
+  },
+}));
+
 let base: BaseDePrueba;
 let POST: (request: Request) => Promise<Response>;
 let metricas: typeof Metricas;
@@ -28,7 +41,12 @@ let users: typeof Users;
 
 beforeAll(async () => {
   base = await levantarBaseDePrueba();
-  POST = (await import('./route')).POST;
+  const ruta = await import('./route');
+  POST = async (request) => {
+    const respuesta = await ruta.POST(request);
+    await Promise.all(despues.splice(0));
+    return respuesta;
+  };
   metricas = await import('@server/metricas');
   users = await import('@server/users');
 });

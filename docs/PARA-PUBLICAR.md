@@ -1,11 +1,12 @@
 # Para publicar y cobrar
 
-**Nada de este documento está en marcha.** Aquí vive todo lo que hará falta el
-día que esto salga de un equipo y lo use gente que paga, y está separado del
+**Lo que sigue está por hacer, o escrito y sin ejecutar.** Aquí vive todo lo que
+hará falta el día que esto salga de un equipo y lo use gente que paga, y está separado del
 resto a propósito: mezclarlo con lo que funciona hoy es lo que hacía imposible
 leer la documentación y saber qué es cierto.
 
-Lo que sí funciona hoy está en los demás documentos, en presente. Lo que estorba
+Lo que sí funciona hoy está en los demás documentos, en presente, y lo que se hizo
+de esta lista se lleva a [HISTORIA.md](./HISTORIA.md). Lo que estorba
 para usarla a diario, en [ROADMAP.md](./ROADMAP.md).
 
 El plan es publicar la aplicación y **cobrar por suscripción**, con beneficio. No
@@ -17,11 +18,11 @@ Tres puertos con la misma forma: sin sus variables de entorno hay una
 implementación que no hace nada y **lo declara**, de modo que la aplicación
 funciona entera sin ellos. Ninguno de los tres ha hablado con su servicio.
 
-| Puerto     | Sin configurar                             | Qué falta para ejecutarlo                  |
-| ---------- | ------------------------------------------ | ------------------------------------------ |
-| **Cobro**  | `FakeBilling` cambia el plan sin cobrar    | Una clave de pruebas de Stripe y una tarde |
-| **Correo** | `NoMailer` no manda, y la pantalla lo dice | Dos variables del proveedor                |
-| **Modelo** | Contesta el dominio, o el Ollama de casa   | Una clave de API                           |
+| Puerto     | Sin configurar                                                     | Qué falta para ejecutarlo                  |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------ |
+| **Cobro**  | `FakeBilling` (solo fuera de producción) cambia el plan sin cobrar | Una clave de pruebas de Stripe y una tarde |
+| **Correo** | `NoMailer` no manda, y la pantalla lo dice                         | Dos variables del proveedor                |
+| **Modelo** | Contesta el dominio, o el Ollama de casa                           | Una clave de API                           |
 
 **El de cobro, en producción, no regala nada**: allí, sin Stripe, es `CobroCerrado`,
 que no deja subir de plan. `FakeBilling` es solo fuera de producción.
@@ -45,8 +46,9 @@ está probado con avisos de la forma que ella describe, **nunca contra Stripe**
 - Que los cuatro avisos llegan con los campos que se leen —`payment_status`,
   `customer`, `subscription` y el precio de `items`— y que el orden en que llegan no
   cambia el plan que queda.
-- Qué pasa con `past_due` a la vista: hoy no se corta el plan y **la aplicación no le
-  dice nada a quien paga**.
+- Qué pasa con `past_due` a la vista: el plan se conserva siete días y después se lee
+  como gratis (`DIAS_DE_GRACIA`, [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md)), pero
+  **la aplicación no le dice nada a quien paga** durante esa semana.
 
 ### La pasarela como vendedora oficial, decidida y sin dar de alta
 
@@ -108,14 +110,15 @@ test comprueba que ningún plan pierde dinero ni gastándose el cupo entero.
 - **El 40 % de lo que entra puede irse en modelo**, o sea un 60 % de margen sobre
   el precio sin IVA (21 %, supuesto) y sin la comisión del peor caso (8,65 % + 0,25 €).
   Contado sobre el precio con IVA, como se hacía, era un 43–45 %.
-- **Tres planes**: Gratis, Básico 4,99 € y Medio 9,99 €, o 49,90 € y 99,90 € al
+- **Tres planes en el catálogo, dos de pago**: Gratis, Básico 4,99 € y Medio 9,99 €, o 49,90 € y 99,90 € al
   año, cada uno con algo que el anterior no tiene. Pro se fundió en Medio
   ([adr/0104](./adr/0104-el-plan-pro-se-replantea.md)).
 - **El modelo por defecto es Sonnet 5.5**: 96 preguntas al mes en Básico y 193 en
   Medio ([adr/0103](./adr/0103-los-modelos-vigentes-y-el-de-por-defecto.md)).
 - **El plan gratis pierde dinero a propósito**: quince preguntas al mes por cuenta,
-  dieciséis céntimos con el modelo por defecto contando el reintento —162 $ al mes
-  cada mil cuentas—. Es gasto de captación, y es el único sitio de la aplicación que
+  diecinueve céntimos con el modelo por defecto contando el reintento —191 $ al mes
+  cada mil cuentas; la cifra viva está en [CUENTAS-Y-PLANES.md](./CUENTAS-Y-PLANES.md)—.
+  Es gasto de captación, y es el único sitio de la aplicación que
   pierde dinero queriendo. A partir de unos cientos de cuentas deja de ser captación
   y pasa a ser una factura; entonces hay que decidir, no descubrirlo.
 
@@ -151,14 +154,16 @@ El detalle entero, con la tabla de qué da cada plan y qué se guarda de ti, est
   el flujo entero están probados contra Postgres; el envío, nunca.
 - **Cambiar de dirección de correo sigue sin poder hacerse.** Pide confirmar la
   nueva y avisar a la vieja: dos correos y dos vales más. No lo ha pedido nadie.
-- ~~**Aviso legal y política de privacidad.**~~ **Escritos el 7 de octubre de
-  2026**: `/aviso-legal` y `/privacidad`, que leen del entorno quién publica y a qué
-  modelo va la pregunta ([adr/0111](./adr/0111-la-edad-se-declara-y-el-titular-se-configura.md)).
-  Lo que sigue en pie está en la sección de abajo: los datos del titular, y que
-  **los textos no los ha revisado nadie que sepa de leyes**.
-- **Nada de las cuentas está probado contra Postgres de forma continua.** Se
-  ejecutó a mano dos veces —el 25 y el 26 de agosto de 2026— y las dos salieron
-  fallos que ningún test veía. No hay nada que lo repita solo.
+- **Que alguien que sepa lea el aviso legal y la política de privacidad.** Están
+  escritos ([adr/0111](./adr/0111-la-edad-se-declara-y-el-titular-se-configura.md)) y
+  los datos del titular salen del entorno (sección de abajo), pero **los textos no los
+  ha revisado nadie que sepa de leyes**.
+- **Las cuentas contra Postgres: la integración continua lo repite, pero no hay una
+  copia publicada.** Se ejecutó a mano dos veces —el 25 y el 26 de agosto de 2026— y
+  las dos salieron fallos que ningún test veía; hoy el trabajo `postgres` de la CI
+  corre los tests con base contra un Postgres 17 y el rol de la aplicación
+  ([adr/0121](./adr/0121-la-base-de-los-tests-se-migra-una-vez-y-el-reloj-corre-aparte.md)).
+  Lo que no hay es una base con datos de verdad a la que migrar.
 - **Brotli, sin poner.** `next start` sirve gzip y no Brotli. Lo que hace falta
   está escrito en
   [DESPLIEGUE.md](./DESPLIEGUE.md#lo-que-hay-que-saber-una-vez-publicado): Brotli en
@@ -168,15 +173,9 @@ El detalle entero, con la tabla de qué da cada plan y qué se guarda de ti, est
   huella en el nombre ([adr/0069](./adr/0069-la-portada-es-una-escena-de-pixel.md)).
 - **El límite de frecuencia en memoria** es por instancia. Con base de datos se
   comparte; con varias instancias y sin ella, cada una lleva su cuenta.
-- ~~**Entrar no tiene límite de intentos.**~~ **Hecho el 27 de septiembre de
-  2026**, antes de comprobar la contraseña, que es lo que evita gastar el `scrypt`
-  que el tope viene a proteger ([adr/0054](./adr/0054-entrar-tiene-tope-de-intentos.md)).
-  Desde el 2 de octubre se cuenta por **correo y dirección juntos** —cinco por
-  minuto—, con dos topes más anchos detrás: veinte por minuto por dirección y
-  treinta por cuarto de hora por correo. Con el correo solo, cinco intentos de
-  cualquiera dejaban fuera al dueño de la cuenta. Lo que sigue en pie es lo de
-  abajo: **el contador de memoria es por instancia**, así que sin base de datos cada
-  una lleva su cuenta.
+- **El contador de intentos al entrar de memoria es por instancia**: sin base de
+  datos, cada una lleva su cuenta
+  ([adr/0054](./adr/0054-entrar-tiene-tope-de-intentos.md)).
 - **Los topes por dirección piden `TRUSTED_PROXY_HOPS`.** Sin ella no se cree
   `X-Forwarded-For` —la escribe el cliente— y todo el mundo comparte un contador
   ([DESPLIEGUE.md](./DESPLIEGUE.md#detrás-de-un-proxy-de-quién-es-cada-petición)).
@@ -197,11 +196,12 @@ El detalle entero, con la tabla de qué da cada plan y qué se guarda de ti, est
   peticiones de IA.** Así que una dirección inventada son quince llamadas al
   modelo pagadas, y el registro admite cinco por minuto.
   [ADR 0015](./adr/0015-un-solo-canal-de-texto-libre.md) apoya su argumento en que
-  el abuso «se hace inútil» por el cupo y la cuenta obligatoria: el cupo aguanta,
+  el abuso «se hace inútil» por el cupo y la cuenta obligatoria: el cupo aguanta, el techo de gasto de lo gratis cierra
+  lo gratis y no lo que se paga (adr/0114), y
   **la cuenta obligatoria hoy no es una barrera**. Lo que hay que decidir es si la
   IA gratis se pone detrás de un correo verificado —no la aplicación, que funciona
   sin cuenta a propósito—. **Decidido el 26 de septiembre de 2026: se verifica antes
-  de la IA y antes de subir audio.** Y eso convierte mandar correos en requisito de
+  de la IA** (la aplicación no sube audio). Y eso convierte mandar correos en requisito de
   la IA, cuando hoy no lo es de nada: el envío sigue sin probarse contra un
   proveedor de verdad, que es el primer punto de esta lista.
 
@@ -232,8 +232,10 @@ de ahí no es técnico y **es requisito para abrir**:
   añadir es una pregunta al entrar, con «sí» y «no» igual de grandes
   ([adr/0110](./adr/0110-contar-sin-seguir.md)). Un identificador sin preguntar no
   es una opción: la AEPD no exime la medición de audiencia del consentimiento.
-- **La migración 0006** —la analítica y la edad declarada— solo se ha aplicado en
-  PGlite, en los tests. La primera vez contra un Postgres de verdad es al desplegar.
+- **Las migraciones 0006 y 0007** —la analítica y la edad declarada; el techo de gasto
+  y el plazo de gracia— se aplican en los tests y en el Postgres de la integración
+  continua, pero ninguna se ha aplicado a una base con datos de verdad: la primera
+  vez es al desplegar.
 
 ## Lo que pedirá cobrar, además de Stripe
 
@@ -258,6 +260,8 @@ No hace falta decidirlo hoy, pero conviene que esté escrito para no improvisarl
   medir otra vez si las salidas valen la pena. Un modelo nuevo de la API va primero a
   la tabla de `cost.ts` con lo que acepta; si no, se cobra como el peor caso.
 - **Qué se hace con el plan gratis** cuando la captación pase a ser factura: bajar
-  el número, quitarle la IA o poner un tope de gasto global.
+  el número o quitarle la IA. El tope de gasto global ya existe (`IA_TOPE_*_USD`,
+  [adr/0114](./adr/0114-el-gasto-de-la-ia-tiene-techo-y-la-cuenta-se-cierra-en-orden.md)):
+  lo que queda por decidir son sus cifras cuando haya clientes.
 - **Dónde se despliega.** Lo que hace falta y qué se rompe según dónde está en
   [DESPLIEGUE.md](./DESPLIEGUE.md).

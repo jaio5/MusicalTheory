@@ -35,11 +35,13 @@ class EntradaFalsa implements AudioInput {
   readonly sampleRate = 48_000;
   readonly frameSize = 2048;
   readonly spectrumSize = 8192;
-  error = null;
+  error: AudioInput['error'] = null;
+  /** En qué se queda al abrirla: las que fallan cambian solo esto. */
+  protected alAbrir: AudioInputState = 'running';
   #oyentes = new Set<(state: AudioInputState) => void>();
 
   async start(): Promise<void> {
-    this.#poner('running');
+    this.#poner(this.alAbrir);
   }
   async stop(): Promise<void> {
     this.#poner('idle');
@@ -113,6 +115,39 @@ afterEach(async () => {
   const { result, unmount } = renderHook(() => useListening({}));
   await act(() => result.current.stop());
   unmount();
+});
+
+/**
+ * Si el micro no se abre, el porqué lo dice la toma, al lado del botón que se
+ * pulsó; antes solo lo decía la barra, en su esquina.
+ */
+describe('cuando el micro no se abre', () => {
+  class EntradaDenegada extends EntradaFalsa {
+    override error = { state: 'denied', message: 'Permite el micrófono en el candado.' } as const;
+    protected override alAbrir: AudioInputState = 'denied';
+  }
+
+  it('el motivo llega a la toma, y la toma no empieza', async () => {
+    const toma = renderHook(() => useTocarYApuntar(dependencias(new EntradaDenegada())));
+
+    await act(() => toma.result.current.empezar());
+
+    expect(toma.result.current.mensaje).toBe('Permite el micrófono en el candado.');
+    expect(toma.result.current.fase).toBe('quieto');
+    toma.unmount();
+  });
+
+  it('y sin motivo dicho, uno de reserva', async () => {
+    class EntradaMuda extends EntradaFalsa {
+      protected override alAbrir: AudioInputState = 'error';
+    }
+    const toma = renderHook(() => useTocarYApuntar(dependencias(new EntradaMuda())));
+
+    await act(() => toma.result.current.empezar());
+
+    expect(toma.result.current.mensaje).toMatch(/Vuelve a pulsar/);
+    toma.unmount();
+  });
 });
 
 describe('irse a mitad de una toma', () => {

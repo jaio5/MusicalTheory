@@ -46,7 +46,9 @@ solas al arrancar.
   panel tiene además escalones en `sm` y `lg`**, porque la fila de mandos de
   componer va en dos filas entre 640 y 1023: si esa fila cambia, el tope también
   ([adr/0102](adr/0102-lo-que-se-lee-a-un-metro-se-ve-y-lo-que-se-pulsa-se-sujeta.md)).
-  **Ningún test lo vigila**; lo caza la sonda del skill `arrancar` a los dos lados de 640 y de 768
+  **El corte de la barra lo vigila un test** —son las variantes `barra-arriba` y
+  `ventana-baja`, y `screens/coherencia.test.ts` prohíbe el literal
+  ([adr/0122](adr/0122-lo-que-se-lee-va-al-cuerpo.md))—; **los escalones de `sm` y `lg` no**, y los caza la sonda del skill `arrancar` a los dos lados de 640 y de 768
   ([adr/0084](adr/0084-lo-que-trabaja-no-se-apaga-y-el-foco-se-mueve-a-mano.md)).
 - **`docker compose up -d` no reconstruye la imagen**: arranca la que ya había, y
   enseña la aplicación de la última vez que se construyó. Pasó con la portada: la
@@ -112,7 +114,7 @@ solas al arrancar.
   ([adr/0094](adr/0094-el-recorrido-de-la-primera-visita.md)). Y los scripts
   de `arrancar` lo marcan como visto: tapa la pantalla.
 - **Un corpus que se usa para ajustar deja de medir.** El de las salidas subió de
-  68 % a 98,6 % y uno independiente dio 48 %; hoy **los cuatro se han usado**, y la
+  68 % a 98,6 % y uno independiente dio 48 %; hoy **los cinco se han usado**, y la
   próxima medida honesta necesita un corpus nuevo. Los arreglos van a la causa, no
   al caso
   ([adr/0097](adr/0097-las-salidas-se-juzgan-por-lo-que-encajan.md)).
@@ -169,19 +171,40 @@ solas al arrancar.
   `scroll-margin-top`, sacado del alto de lo que tapa y no de un número a mano.
 - **La barra de tonalidad flota y se abre sola cuando no hay tonalidad**, así que
   **lo que pongas debajo no se ve**: un aviso que dijera «elígela en la rueda de
-  aquí arriba» quedaba detrás de la rueda que lo tapaba. Ha mordido en la unidad y
-  en componer estrecho. Lo que cabe ahí abajo es `ui/CuatroTonalidades`, y flotar
+  aquí arriba» quedaba detrás de la rueda que lo tapaba. Ha mordido en componer
+  estrecho; en la unidad ya no, porque aprender no pide tonalidad
+  ([adr/0109](adr/0109-lo-que-se-da-por-hecho-al-empezar.md)). Lo que cabe ahí abajo es
+  `ui/EmpezarPorTonalidad`, y flotar
   no se toca: está peleado dos veces y lo vigila `screens/coherencia`.
 - **Entrar tiene tope de intentos, y va antes de comprobar la contraseña**, con tres
   claves: comprobar primero gastaría el `scrypt` que el tope viene a proteger
-  ([adr/0054](adr/0054-entrar-tiene-tope-de-intentos.md), que sustituye en parte
-  el [0078](adr/0078-los-topes-se-cuentan-con-la-direccion-que-vio-nuestro-proxy.md)).
+  ([adr/0054](adr/0054-entrar-tiene-tope-de-intentos.md), que el
+  [0078](adr/0078-los-topes-se-cuentan-con-la-direccion-que-vio-nuestro-proxy.md)
+  sustituye en parte).
   **Y la dirección sale de `TRUSTED_PROXY_HOPS`**: sin ella no se cree ninguna
   cabecera y todos comparten un contador; detrás de un proxy hay que ponerla.
 - **Las burbujas de validación del navegador salen en su idioma**, no en el de la
   aplicación. Por eso `ui/Formulario` va con `noValidate` y lo que falta se dice
   con `ui/Aviso`. Un `<form>` escrito a mano vuelve a traerlas. `Aviso` monta su
   región viva **vacía y antes** del mensaje: nacer con el texto dentro no se lee.
+- **Las pestañas se avisan por `BroadcastChannel`**: lo que una guarda lo pone y lo dice
+  la otra, con deshacer, sin guardarlo ni contarlo otra vez; y lo que llega igual a lo
+  que hay se ignora, o dos pestañas se lo devolverían para siempre
+  ([adr/0118](adr/0118-la-cancion-vive-en-este-navegador-y-se-dice.md)).
+- **Todo montaje que llega de fuera pasa por `leerMontaje`**: la copia `.caos.json`,
+  lo guardado en IndexedDB, lo que trae otra pestaña y la canción de la cuenta. Ahí se
+  descarta la nota que empieza en `MAX_PART_BEATS` (512 pulsos) o más —con un `start` de 1e12 el pentagrama pedía un billón de compases y la canción quedaba rota para
+  siempre—, se renombran los identificadores repetidos con `~2`, `~3`…, y se recortan
+  nombres (al de una sección, 30) e identificadores (64). Una entrada nueva que se
+  salte `leerMontaje` vuelve a abrir todo eso. Abrir una copia se deshace en un paso,
+  con la tonalidad y el tempo de antes (`abrirCopia`).
+- **Lo que mide reloj va en `*.reloj.test.ts`**, un proyecto de Vitest aparte que corre
+  después y un fichero cada vez, sin cobertura: un tope de tiempo metido en un test
+  normal falla según lo cargada que esté la máquina
+  ([adr/0121](adr/0121-la-base-de-los-tests-se-migra-una-vez-y-el-reloj-corre-aparte.md)).
+- **El texto corrido no lleva `text-sm`** ni un tamaño entre corchetes; los 14 px son de
+  los mandos y los pone su componente. Lo vigila `screens/coherencia.test.ts`
+  ([adr/0122](adr/0122-lo-que-se-lee-va-al-cuerpo.md)).
 - **La sonda de medidas no ve los solapes entre hermanos**, y **sin base de datos el
   botón de la cuenta no se pinta**, que es justo el que desborda la barra a 390:
   mide con cuentas y mira la barra a ojo ([adr/0090](adr/0090-los-cifrados-salen-de-una-tabla-por-especie.md)).
@@ -189,8 +212,9 @@ solas al arrancar.
   lectura cambia veinte veces por segundo y la tonalidad detectada dos: se
   selecciona el dato suelto (`s.reading?.midi`), y `selectActiveKey` devuelve una
   de 24 tonalidades fijas. Y en el lienzo, **una flecha nueva hacia `PartRow`
-  anula su `memo`** sin que falle nada: ningún test lo vigila
-  ([adr/0059](adr/0059-memo-a-mano-y-no-el-compilador.md)).
+  anula su `memo`**, y lo caza `ArrangeCanvas.pintados.test.tsx`, que cuenta con
+  `<Profiler>` los pintados de cada fila
+  ([adr/0059](adr/0059-memo-a-mano-y-no-el-compilador.md), [0119](adr/0119-la-partitura-llena-su-hueco-y-el-lienzo-se-parte.md)).
 
 ## Modelos, planes y dinero
 
@@ -240,7 +264,8 @@ Cada una cuesta media hora de mirar el sitio equivocado. Las decisiones están e
   `TRUSTED_PROXY_HOPS`. Sin ella no se cree ninguna cabecera y todos comparten una
   dirección: se queda como está, que es lo seguro, y lo dice un aviso al arrancar.
   **`TRUSTED_PROXY_HOPS=0` no es lo mismo que vacío**: dice «sin proxy, lo sé» y
-  calla el aviso. Es lo que lleva el Docker de casa.
+  calla el aviso. El Docker de casa **no lo trae puesto**: sin proxy delante, ponlo
+  tú en el `.env`.
 - **Si cambia `textoLibre`, `cost.test.ts` falla a propósito**: el peor caso del
   texto libre entra en la cuenta de cada petición, y hay que cuadrar
   `TOKENS_POR_CARACTER_LIBRE` (`core/billing/cost.ts`). Cambia los cupos y las tablas
@@ -300,6 +325,19 @@ Cada una cuesta media hora de mirar el sitio equivocado. Las decisiones están e
 
 ## Aprender y el recorrido
 
+- **Los cortes de la navegación se llaman `barra-arriba` y `ventana-baja`**: son
+  variantes de `globals.css`, no `md:` ni un `max-height` a mano, y
+  `screens/coherencia.test.ts` prohíbe el literal en los tres sitios que los usan
+  ([adr/0122](adr/0122-lo-que-se-lee-va-al-cuerpo.md)). Una variante propia se escribe
+  después de `lg`, así que donde convive con él va acotada (`barra-arriba:max-lg:`).
+- **Un `loading.tsx` en `(marco)` convierte los 404 en 200** con `noindex`: dentro de
+  su espera, el `notFound()` ya no sale como 404. Por eso no hay; la precarga de la
+  barra se hace con `prefetch` al ir a pulsar (`EnlaceDePantalla`,
+  [adr/0120](adr/0120-la-primera-visita-no-se-mueve-y-cada-pantalla-trae-lo-suyo.md)).
+- **La unidad se retoma por donde iba**, en `sessionStorage` y con tres números
+  (`learn/sitio-en-la-unidad.ts`); se aplica una vez, al llegar, y retomar no mueve el
+  foco ([adr/0123](adr/0123-la-unidad-se-retoma-por-donde-iba.md)).
+
 - **Aprender no pide tonalidad**: parte de Do mayor (`selectTonalidadParaAprender`),
   y **la escala se lee con `selectEscala`, nunca con `scaleId` a pelo**, porque
   la de fábrica depende de la tonalidad y de la pantalla
@@ -344,9 +382,18 @@ que viaja por el cable—. Cada página importa su pantalla **del módulo**, y
 `package.json` declara `sideEffects: ["*.css"]` para que un índice de `core/` no
 arrastre lo que nadie usa ([adr/0045](adr/0045-un-barril-por-pantalla-no.md)).
 Lo mide `peso-de-las-rutas.mjs` del skill `arrancar`. **`/componer` descarga por
-partes**: lo que no se ve al entrar llega con `lazy`, y por eso se importa de su
-módulo y no del índice, que lo traería de golpe
-([adr/0058](adr/0058-componer-se-descarga-por-partes.md)).
+partes**: se entra por Escribir, así que **el lienzo va en el paquete de entrada y
+Tocando y el ensayo van en diferido** (`app/screens/componer/diferidos.tsx`); lo que va
+con `lazy` se importa de su módulo y no del índice, que lo traería de golpe
+([adr/0058](adr/0058-componer-se-descarga-por-partes.md), con su nota del 8 de octubre).
+
+Tres más de capas, de la misma familia: **`@core/music` hace `export *` de
+`salidas`**, cuyo índice nombra cada export a mano, así que un nombre nuevo que deba
+verse desde arriba se añade ahí ([adr/0124](adr/0124-el-motor-de-salidas-se-parte-por-oficio.md));
+**`ui/` solo tiene tres piezas conectadas** (`EmpezarPorTonalidad`, `CupoDeIA`,
+`ThemeToggle`) y cualquier otra que importe un valor de `@state`, `@audio` o `@media` no
+pasa el lint; y **la cuenta la lee el layout de `(marco)`**, no el raíz, para que
+las precargas de la barra no consulten la base por enlace.
 
 Cuatro trampas, cada una explicada donde vive: **`song.ts` solo importa tipos de
 `arrangement.ts`** —el ciclo revienta en el navegador y ningún test lo ve—;

@@ -67,18 +67,59 @@ function conLaBienvenidaVista(paso: string | null = null): void {
   guardarPasoDelRecorrido({ vistos: ['bienvenida'], paso });
 }
 
+/**
+ * La pieza de cada paso, donde el test no ha puesto la suya. Sin pieza, la
+ * tarjeta espera a que llegue antes de pintarse.
+ */
+const PIEZAS: ReadonlyArray<readonly [string, string]> = [
+  ['nav[aria-label="Pantallas"]', '<nav aria-label="Pantallas"></nav>'],
+  ['[data-tour="aprender-hoy"]', '<div data-tour="aprender-hoy"></div>'],
+  ['[data-tour="afinar-afinador"]', '<div data-tour="afinar-afinador"></div>'],
+  ['[data-tour="componer-empezar"]', '<div data-tour="componer-empezar"></div>'],
+  ['[data-tour="componer-espacios"]', '<div data-tour="componer-espacios"></div>'],
+];
+
 async function abrir(nombre: string | RegExp = /./): Promise<HTMLElement> {
+  for (const [selector, html] of PIEZAS) {
+    if (document.querySelector(selector) === null) {
+      pieza(html);
+    }
+  }
   render(<LanzadorDelRecorrido />);
   return screen.findByRole('dialog', { name: nombre });
+}
+
+/**
+ * jsdom no trae `ResizeObserver`. Este apunta qué se observa y deja avisar a
+ * mano, que es lo que hace el navegador cuando algo cambia de tamaño.
+ */
+const observados = vi.hoisted(() => ({ cajas: new Set<Element>(), avisar: () => {} }));
+class ObservadorDeMentira {
+  constructor(avisar: () => void) {
+    observados.avisar = avisar;
+  }
+  observe(caja: Element): void {
+    observados.cajas.add(caja);
+  }
+  disconnect(): void {
+    observados.cajas.clear();
+  }
+}
+
+/** El aro, si está. */
+function aro(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[data-aro-del-recorrido]');
 }
 
 beforeEach(() => {
   localStorage.clear();
   navegacion.poner('/aprender');
+  vi.stubGlobal('ResizeObserver', ObservadorDeMentira);
 });
 
 afterEach(() => {
   document.body.innerHTML = '';
+  vi.unstubAllGlobals();
 });
 
 describe('cuándo sale', () => {
@@ -88,6 +129,7 @@ describe('cuándo sale', () => {
    * antes de haber visto nada (adr/0108).
    */
   it('la primera vez, la bienvenida en un solo paso, que dice dónde retomarlo', async () => {
+    navegacion.poner('/profesor');
     const dialogo = await abrir('Bienvenido a Caos ordenado');
 
     expect(dialogo).toHaveAccessibleDescription(/si lo saltas, lo retomas desde Aprender/);
@@ -131,6 +173,28 @@ describe('cuándo sale', () => {
     localStorage.setItem(CLAVE_RECORRIDO, 'visto');
     const { container } = render(<LanzadorDelRecorrido />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  /**
+   * **La bienvenida y el de la pantalla, en la misma tarjeta.** Iban por
+   * separado, y en `/afinar` salían dos tarjetas seguidas que decían las dos
+   * «paso 1 de 1» (adr/0120).
+   */
+  it('la primera vez en una pantalla con tramo, los dos en la misma tarjeta', async () => {
+    navegacion.poner('/afinar');
+    await abrir('Bienvenido a Caos ordenado');
+    expect(screen.getByText('1 de 2')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText(/^Recorrido, paso 1 de 2\. Bienvenido/)).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await screen.findByRole('dialog', { name: 'Afinar, cuerda a cuerda' });
+    expect(screen.getByText('2 de 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Entendido' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(JSON.parse(guardado()!)).toEqual({ vistos: ['bienvenida', 'afinar'], paso: null });
   });
 
   /** Cada pantalla, el suyo, al llegar: no todos de golpe. */
@@ -196,14 +260,17 @@ describe('moverse por él', () => {
 });
 
 describe('acabar', () => {
-  it('«Entendido» da el tramo por visto, y no sale más en esta pantalla', async () => {
+  it('«Entendido» da el tramo por visto, y el de otra pantalla sale al llegar a ella', async () => {
+    navegacion.poner('/profesor');
     await abrir('Bienvenido a Caos ordenado');
 
     fireEvent.click(screen.getByRole('button', { name: 'Entendido' }));
 
-    // En `/aprender`, al cerrar la bienvenida sale el de la pantalla.
-    await screen.findByRole('dialog', { name: 'Por dónde seguir' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(JSON.parse(guardado()!)).toEqual({ vistos: ['bienvenida'], paso: null });
+
+    navegacion.poner('/aprender');
+    await screen.findByRole('dialog', { name: 'Por dónde seguir' });
   });
 
   it('Escape con el foco dentro cierra el tramo', async () => {
@@ -240,12 +307,65 @@ describe('acabar', () => {
 describe('señalar la pieza', () => {
   it('pone el aro alrededor de la pieza, y la tarjeta al lado', async () => {
     pieza('<nav aria-label="Pantallas"></nav>', 200, 0);
+    const dialogo = await abrir();
+
+    await waitFor(() => expect(aro()).not.toBeNull());
+    // La caja de la pieza con el aire de alrededor (`cajaIluminada`), movida con
+    // `transform`, que no cuenta como desplazamiento de la página.
+    expect(aro()!.style.transform).toBe('translate(194px, 0px)');
+    expect(dialogo.style.transform).toMatch(/^translate\(/);
+    expect(dialogo.style.visibility).toBe('');
+  });
+
+  /**
+   * **La primera vez se pone, no se desliza**: deslizarla desde la esquina era
+   * un desplazamiento de la página en cada fotograma. Lo que ya estaba puesto sí
+   * se desliza al pasar de un paso a otro.
+   */
+  it('se coloca sin transición, y se desliza solo lo que ya estaba puesto', async () => {
+    conLaBienvenidaVista();
+    navegacion.poner('/componer');
+    pieza('<div data-tour="componer-empezar"></div>', 10, 300);
+    pieza('<div data-tour="componer-espacios"></div>', 200, 0);
+    const dialogo = await abrir('Tu canción, acorde a acorde');
+    await waitFor(() => expect(aro()).not.toBeNull());
+    expect(dialogo.className).not.toMatch(/transition/);
+    expect(aro()!.className).not.toMatch(/transition/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+
+    await waitFor(() => expect(aro()!.style.transform).toBe('translate(194px, 0px)'));
+    expect(dialogo.className).toMatch(/motion-safe:transition-transform/);
+    expect(aro()!.className).toMatch(/motion-safe:transition-\[transform,width,height\]/);
+  });
+
+  /** Lo que ninguna medida de tamaño avisa: se desplaza la caja de dentro. */
+  it('vuelve a medir al desplazarse algo o cambiar de tamaño, y sigue a la pieza', async () => {
+    const nav = pieza('<nav aria-label="Pantallas"></nav>', 200, 0);
+    await abrir();
+    await waitFor(() => expect(aro()).not.toBeNull());
+    expect(observados.cajas).toContain(nav);
+
+    conCaja(nav, 200, 100);
+    // Dos avisos en el mismo fotograma son una sola medida.
+    fireEvent.scroll(window);
+    fireEvent.scroll(window);
+    await waitFor(() => expect(aro()!.style.transform).toBe('translate(194px, 94px)'));
+
+    conCaja(nav, 300, 100);
+    act(() => observados.avisar());
+    await waitFor(() => expect(aro()!.style.transform).toBe('translate(294px, 94px)'));
+  });
+
+  /** El hueco de trabajo de la aplicación es donde puede ir la tarjeta. */
+  it('coloca la tarjeta dentro del hueco de trabajo', async () => {
+    conCaja(pieza('<main id="contenido"></main>'), 0, 60, 1024, 500);
     await abrir();
 
-    const aro = () => document.querySelector<HTMLElement>('[data-aro-del-recorrido]');
-    await waitFor(() => expect(aro()).not.toBeNull());
-    // La caja de la pieza con el aire de alrededor (`cajaIluminada`).
-    expect(aro()!.style.left).toBe('194px');
+    const dialogo = screen.getByRole('dialog');
+    await waitFor(() => expect(dialogo.style.transform).not.toBe(''));
+    const [, y] = /translate\((-?\d+)px, (-?\d+)px\)/.exec(dialogo.style.transform)!.slice(1);
+    expect(Number(y)).toBeGreaterThanOrEqual(60);
   });
 
   /**
@@ -257,34 +377,64 @@ describe('señalar la pieza', () => {
     navegacion.poner('/componer');
     const vieja = pieza('<div data-tour="componer-empezar"></div>', 10, 10);
     await abrir('Tu canción, acorde a acorde');
-    const aro = () => document.querySelector<HTMLElement>('[data-aro-del-recorrido]')!;
-    await waitFor(() => expect(aro().style.left).toBe('4px'));
+    await waitFor(() => expect(aro()!.style.transform).toBe('translate(4px, 4px)'));
 
     vieja.remove();
-    pieza('<div data-tour="componer-que-poner"></div>', 300, 10);
+    const nueva = pieza('<div data-tour="componer-que-poner"></div>', 300, 10);
 
-    await waitFor(() => expect(aro().style.left).toBe('294px'));
+    await waitFor(() => expect(aro()!.style.transform).toBe('translate(294px, 4px)'));
+
+    // Y si se va sin que llegue otra, se deja de señalar.
+    nueva.remove();
+    await waitFor(() => expect(aro()).toBeNull());
+  });
+
+  /**
+   * Con la pieza quieta no se mira nada: se miraba cada cuarto de segundo
+   * mientras la tarjeta estuviera abierta, se moviera algo o no. Ahora lo que
+   * cambia lo avisa el navegador, y cumplido el plazo no queda ninguna espera.
+   */
+  it('con la pieza quieta no queda nada mirando cada poco', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await abrir();
+      await waitFor(() => expect(aro()).not.toBeNull());
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3500);
+      });
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   /** Si la pieza no llega, el paso se enseña igual, sin señalar nada, hasta que llegue. */
   it('sin pieza a la vista, la tarjeta sale igual y sin aro, y la señala cuando llega', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
+      navegacion.poner('/profesor');
       render(<LanzadorDelRecorrido />);
+      // Escondida no tiene nombre para quien no ve: se busca sin él.
+      const dialogo = await screen.findByRole('dialog', { hidden: true });
+      // Mientras espera a la pieza no se pinta: saldría en medio y luego saltaría.
+      expect(dialogo.style.visibility).toBe('hidden');
+      expect(document.querySelector('[aria-live]')).toBeEmptyDOMElement();
+
       await act(async () => {
         await vi.advanceTimersByTimeAsync(3500);
       });
-      expect(await screen.findByRole('dialog', { name: /Bienvenido/ })).toBeInTheDocument();
-      expect(document.querySelector('[data-aro-del-recorrido]')).toBeNull();
+      expect(dialogo.style.visibility).toBe('');
+      expect(screen.getByRole('dialog', { name: /Bienvenido/ })).toBe(dialogo);
+      expect(aro()).toBeNull();
 
       // Y si llega más tarde, se la encuentra y se señala.
       pieza('<nav aria-label="Pantallas"></nav>', 200, 0);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(500);
       });
-      await waitFor(() =>
-        expect(document.querySelector('[data-aro-del-recorrido]')).not.toBeNull(),
-      );
+      await waitFor(() => expect(aro()).not.toBeNull());
     } finally {
       vi.useRealTimers();
     }

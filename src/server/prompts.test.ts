@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { MAX_QUESTION_LENGTH, MAX_VERSIONS, TOKEN_BUDGETS } from '@core/billing';
+import { MAX_QUESTION_LENGTH, MAX_SALIDAS, TOKEN_BUDGETS } from '@core/billing';
 import {
   COURSES,
   degreesFor,
@@ -27,8 +27,8 @@ import {
   lineaDeTema,
   RECORDATORIO_DE_LA_PREGUNTA,
   TEACHER_SYSTEM_PROMPT,
-  versionsSchema,
-  VERSIONS_SYSTEM_PROMPT,
+  salidasSchema,
+  SALIDAS_SYSTEM_PROMPT,
 } from './prompts';
 
 /**
@@ -74,7 +74,7 @@ function schemaText(schema: unknown): string {
  * largo, porque el enumerado del número tiene tantos valores como salidas. Se
  * calcula en vez de escribirse.
  */
-const VERSIONS_SCHEMA_MAS_LARGO = schemaText(versionsSchema(MAX_SALIDAS_POSIBLES));
+const SALIDAS_SCHEMA_MAS_LARGO = schemaText(salidasSchema(MAX_SALIDAS_POSIBLES));
 
 /** El más largo de varios textos. */
 function elMasLargo(textos: readonly string[]): string {
@@ -161,11 +161,11 @@ describe('los topes de salida', () => {
 
 /**
  * **El peor prompt de verdad de las salidas no se mide aquí**, y no por descuido:
- * lo arma `features/versions/prompt.ts`, que esta capa no puede abrir —la regla
+ * lo arma `features/salidas/prompt.ts`, que esta capa no puede abrir —la regla
  * 5—. El estimado que había aquí sumaba la progresión, los movimientos y los
  * grados, y se dejaba fuera el mapa de saltos, las cadencias, las directrices y
  * los ejemplos de retocar: decía que cabía mientras el peor prompt real rondaba
- * los 1.950 tokens. Ahora lo mide `app/api/versiones/presupuesto.test.ts`, que ve
+ * los 1.950 tokens. Ahora lo mide `app/api/salidas/presupuesto.test.ts`, que ve
  * las dos capas y construye el peor caso con las piezas de verdad.
  *
  * Aquí queda lo que sí se ve desde aquí: el prompt de sistema y el esquema, que
@@ -173,9 +173,9 @@ describe('los topes de salida', () => {
  */
 describe('el presupuesto de tokens de las versiones', () => {
   it('el prompt de sistema y el esquema dejan holgura para el menú', () => {
-    const estimado = estimatedTokens(VERSIONS_SYSTEM_PROMPT, VERSIONS_SCHEMA_MAS_LARGO);
+    const estimado = estimatedTokens(SALIDAS_SYSTEM_PROMPT, SALIDAS_SCHEMA_MAS_LARGO);
 
-    expect(estimado).toBeLessThan(TOKEN_BUDGETS.versiones.input * 0.5);
+    expect(estimado).toBeLessThan(TOKEN_BUDGETS.salidas.input * 0.5);
   });
 
   it('hay sitio de salida para tres salidas con su título y su porqué', () => {
@@ -183,17 +183,17 @@ describe('el presupuesto de tokens de las versiones', () => {
     // doscientos: unos 90 tokens con el JSON. El tope de 900 venía de cuando se
     // devolvían treinta y dos compases por salida, y bajarlo cambia los cupos:
     // eso no se decide aquí.
-    // Sesenta y doscientos son los topes del contrato (`features/versions`), que
+    // Sesenta y doscientos son los topes del contrato (`features/salidas`), que
     // desde aquí no se puede abrir.
     const porSalida = Math.ceil((60 + 200 + 40) / CHARS_PER_TOKEN);
-    expect(TOKEN_BUDGETS.versiones.output).toBeGreaterThanOrEqual(MAX_VERSIONS * porSalida);
+    expect(TOKEN_BUDGETS.salidas.output).toBeGreaterThanOrEqual(MAX_SALIDAS * porSalida);
   });
 
   it('una tanda de versiones es lo más caro que se puede pedir', () => {
     // Si dejara de serlo, `worstFeature` estaría calculando el cupo de Medio y
     // Pro con la petición equivocada y el margen saldría
     // mal.
-    const versiones = TOKEN_BUDGETS.versiones;
+    const versiones = TOKEN_BUDGETS.salidas;
     const profesor = TOKEN_BUDGETS.profesor;
     expect(versiones.input + versiones.output).toBeGreaterThan(profesor.input + profesor.output);
   });
@@ -207,7 +207,7 @@ describe('el presupuesto de tokens de las versiones', () => {
 describe('el esquema de las salidas', () => {
   /** Lo que se pide de una salida. */
   function salida(opciones: number) {
-    const schema = versionsSchema(opciones) as {
+    const schema = salidasSchema(opciones) as {
       properties: {
         versions: {
           minItems: number;
@@ -234,7 +234,7 @@ describe('el esquema de las salidas', () => {
   });
 
   it('de una a tres salidas cuando elige', () => {
-    expect(salida(9)).toMatchObject({ minItems: 1, maxItems: MAX_VERSIONS });
+    expect(salida(9)).toMatchObject({ minItems: 1, maxItems: MAX_SALIDAS });
   });
 
   /**
@@ -243,12 +243,12 @@ describe('el esquema de las salidas', () => {
    */
   it('cuando las explica, todas las del menú, y nunca más de tres ni un suelo vacío', () => {
     const todas = (opciones: number) =>
-      (versionsSchema(opciones, true) as { properties: { versions: { minItems: number } } })
+      (salidasSchema(opciones, true) as { properties: { versions: { minItems: number } } })
         .properties.versions.minItems;
 
     expect(todas(3)).toBe(3);
     expect(todas(2)).toBe(2);
-    expect(todas(9)).toBe(MAX_VERSIONS);
+    expect(todas(9)).toBe(MAX_SALIDAS);
     expect(todas(0)).toBe(1);
   });
 
@@ -263,28 +263,28 @@ describe('el esquema de las salidas', () => {
  * el porqué cuenta el «Por qué» del juez y que las directrices son un dato. Que el
  * menú va ordenado, que sin directrices se cuentan todas y que con ellas se eligen
  * hasta tres lo dice el prompt de cada petición en su última línea
- * (`features/versions/prompt.ts`) y lo obliga el esquema.
+ * (`features/salidas/prompt.ts`) y lo obliga el esquema.
  */
 describe('el prompt de sistema de las salidas', () => {
   it('pide el número de la salida, y no repite lo que ya dicen el prompt y el esquema', () => {
-    expect(VERSIONS_SYSTEM_PROMPT).toMatch(/pon su numero en\s+opcion/u);
-    expect(VERSIONS_SYSTEM_PROMPT).not.toMatch(/cuentalas todas/u);
-    expect(VERSIONS_SYSTEM_PROMPT).not.toMatch(/hasta tres/u);
-    expect(VERSIONS_SYSTEM_PROMPT).not.toMatch(/de mas a menos/u);
+    expect(SALIDAS_SYSTEM_PROMPT).toMatch(/pon su numero en\s+opcion/u);
+    expect(SALIDAS_SYSTEM_PROMPT).not.toMatch(/cuentalas todas/u);
+    expect(SALIDAS_SYSTEM_PROMPT).not.toMatch(/hasta tres/u);
+    expect(SALIDAS_SYSTEM_PROMPT).not.toMatch(/de mas a menos/u);
   });
 
   it('explica una vez los colores que el menú dice en una palabra', () => {
     for (const color of ['oscurece', 'aclara', 'prestado', 'abierto']) {
-      expect(VERSIONS_SYSTEM_PROMPT).toContain(color);
+      expect(SALIDAS_SYSTEM_PROMPT).toContain(color);
     }
   });
 
   it('pide que el porqué cuente el del juez, y lo de siempre sobre lo dudoso y el cierre', () => {
-    expect(VERSIONS_SYSTEM_PROMPT).toContain('Por que');
+    expect(SALIDAS_SYSTEM_PROMPT).toContain('Por que');
     // La marca con su clave, y que solo la cierra la misma (adr/0115).
-    expect(VERSIONS_SYSTEM_PROMPT).toMatch(/entre dos ###DIRECTRICES-clave###\s+iguales/u);
-    expect(VERSIONS_SYSTEM_PROMPT).toMatch(/Un\s+compas con \?/u);
-    expect(VERSIONS_SYSTEM_PROMPT).toMatch(/no digas que\s+cierra/u);
+    expect(SALIDAS_SYSTEM_PROMPT).toMatch(/entre dos ###DIRECTRICES-clave###\s+iguales/u);
+    expect(SALIDAS_SYSTEM_PROMPT).toMatch(/Un\s+compas con \?/u);
+    expect(SALIDAS_SYSTEM_PROMPT).toMatch(/no digas que\s+cierra/u);
   });
 });
 
@@ -306,7 +306,7 @@ describe('la puerta del modelo', () => {
    * escriba su propio cuerpo, y que el que hay pasa por la puerta.
    */
   it('ninguna ruta gasta cupo por su cuenta ni habla con el modelo a solas', () => {
-    for (const ruta of ['teacher', 'versiones']) {
+    for (const ruta of ['teacher', 'salidas']) {
       const codigo = readFileSync(
         fileURLToPath(new URL(`../app/api/${ruta}/route.ts`, import.meta.url)),
         'utf8',

@@ -10,7 +10,7 @@ import {
   guardarPasoDelRecorrido,
   leerRecorrido,
   marcarRecorridoVisto,
-  marcarTramoVisto,
+  marcarTramosVistos,
   suscribirseAlRecorrido,
   useRecorrido,
   volverAVerElRecorrido,
@@ -106,17 +106,21 @@ describe('el estado en el navegador', () => {
     expect(oyente).toHaveBeenCalledTimes(3);
   });
 
-  /** Un tramo cada vez; con todos vistos, el recorrido entero. */
-  it('un tramo visto se apunta, y con todos se da por visto entero', () => {
-    const todos = ['bienvenida', 'aprender'];
-    marcarTramoVisto('bienvenida', todos);
+  /** Los tramos de una tarjeta a la vez; con todos vistos, el recorrido entero. */
+  it('los tramos vistos se apuntan, y con todos se da por visto entero', () => {
+    const todos = ['bienvenida', 'aprender', 'afinar'];
+    marcarTramosVistos(['bienvenida'], todos);
     expect(estadoDelRecorrido()).toEqual({ visto: false, vistos: ['bienvenida'], paso: null });
 
     // Cerrarlo dos veces no lo apunta dos veces.
-    marcarTramoVisto('bienvenida', todos);
-    expect(estadoDelRecorrido()).toEqual({ visto: false, vistos: ['bienvenida'], paso: null });
+    marcarTramosVistos(['bienvenida', 'aprender'], todos);
+    expect(estadoDelRecorrido()).toEqual({
+      visto: false,
+      vistos: ['bienvenida', 'aprender'],
+      paso: null,
+    });
 
-    marcarTramoVisto('aprender', todos);
+    marcarTramosVistos(['afinar'], todos);
     expect(estadoDelRecorrido()).toEqual({ visto: true });
   });
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 
 import { AccountMenu } from '@features/account';
 import { MicButton } from '@features/workspace';
@@ -22,6 +22,9 @@ import { ThemeToggle } from '@ui/ThemeToggle';
  * Las que tienen partes dentro —`/aprender/una-unidad`, `/aprender/repaso`,
  * `/planes/pro`— también son direcciones propias, así que el botón de atrás del
  * navegador siempre significa lo que parece.
+ *
+ * **Cada pantalla de la barra se precarga cuando se va a pulsar**
+ * (`EnlaceDePantalla`).
  */
 const SCREENS: ReadonlyArray<{
   href: string;
@@ -147,7 +150,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           la derecha. Con `flex-wrap`, lo que no cabe baja a una segunda fila y
           sigue pudiéndose pulsar. A tamaño normal no envuelve nada: la barra
           está medida para caber, y es lo que cuentan los números de abajo. */}
-      <header className="border-border bg-surface/80 group/barra @container flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 backdrop-blur-md sm:gap-3 md:px-4 md:max-lg:gap-2">
+      <header className="border-border bg-surface/80 group/barra barra-arriba:px-4 barra-arriba:max-lg:gap-2 @container flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2 backdrop-blur-md sm:gap-3">
         {/* **La marca lleva al profesor delante**, a 32 px —un píxel de pantalla
             por cada uno del dibujo—: es lo que une cada pantalla con la sala de la
             portada, y la válvula es más reconocible de reojo que dos palabras. El
@@ -192,11 +195,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             cuenta, y por debajo se calla el nombre. */}
         <Link
           href="/"
-          className="group text-text hover:text-brass-bright min-h-tap inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-colors sm:mr-1 sm:gap-2 md:max-lg:mr-0 @max-[20.75rem]:group-has-data-lectura/barra:hidden"
+          className="group text-text hover:text-brass-bright min-h-tap barra-arriba:max-lg:mr-0 inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-colors sm:mr-1 sm:gap-2 @max-[20.75rem]:group-has-data-lectura/barra:hidden"
           title="Volver a la portada"
         >
           <Mascota decorativa className="size-8 shrink-0 filter-none" />
-          <span className="titular text-sm sm:text-base md:max-lg:sr-only @max-[67rem]:group-has-data-lectura/barra:sr-only @max-[22.5rem]:sr-only">
+          <span className="titular barra-arriba:max-lg:sr-only text-sm sm:text-base @max-[67rem]:group-has-data-lectura/barra:sr-only @max-[22.5rem]:sr-only">
             Caos ordenado
           </span>
         </Link>
@@ -220,9 +223,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             768 la barra pedía 49 px más de los que había y la pastilla de la
             lectura se metía debajo del tema. Son 40 px entre las cuatro, y los
             huecos de la barra a 8 ponen el resto. */}
-        <nav aria-label="Pantallas" className="hidden items-center gap-1 md:flex">
+        <nav aria-label="Pantallas" className="barra-arriba:flex hidden items-center gap-1">
           {SCREENS.map((screen) => (
-            <Link
+            <EnlaceDePantalla
               key={screen.href}
               href={screen.href}
               aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
@@ -230,7 +233,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               // La pantalla en la que estás lleva su piloto encendido, como una
               // pastilla marcada: el mismo «esto es lo que hay ahora» en toda la
               // aplicación, y no un fondo de latón que se confundía con un botón.
-              className={`min-h-tap inline-flex items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-150 md:max-lg:gap-1.5 md:max-lg:px-2 ${
+              className={`min-h-tap barra-arriba:max-lg:gap-1.5 barra-arriba:max-lg:px-2 inline-flex items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-150 ${
                 isHere(pathname, screen.href)
                   ? 'bg-surface-raised text-brass-bright piloto'
                   : 'text-text-muted hover:bg-surface-raised hover:text-text'
@@ -238,7 +241,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <screen.Icono />
               {screen.name}
-            </Link>
+            </EnlaceDePantalla>
           ))}
         </nav>
 
@@ -248,7 +251,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             Entre 768 y 1023 los huecos de aquí bajan a 8 px: con las cuatro
             pantallas arriba y la cuenta configurada, a 768 un acorde de seis
             letras pisaba el tema por un píxel. */}
-        <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-3 md:max-lg:gap-2">
+        <div className="barra-arriba:max-lg:gap-2 ml-auto flex min-w-0 items-center gap-1.5 sm:gap-3">
           <MicButton chords={pathname === '/componer'} anuncia={pathname !== '/afinar'} />
           <ThemeToggle />
           <AccountMenu />
@@ -265,7 +268,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main
         id="contenido"
         tabIndex={-1}
-        className="min-h-0 grow overflow-hidden [@media(max-height:500px)]:overflow-y-auto"
+        className="ventana-baja:overflow-y-auto min-h-0 grow overflow-hidden"
       >
         {children}
       </main>
@@ -287,14 +290,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             no se entera de la letra. */}
       <nav
         aria-label="Pantallas, abajo"
-        className="border-border bg-surface/90 @container flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
+        className="border-border bg-surface/90 barra-arriba:hidden @container flex shrink-0 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-md"
       >
         {SCREENS.map((screen) => (
-          <Link
+          <EnlaceDePantalla
             key={screen.href}
             href={screen.href}
             aria-current={isHere(pathname, screen.href) ? 'page' : undefined}
-            className={`min-h-tap flex grow basis-0 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors duration-150 [@media(max-height:500px)]:py-0 ${
+            className={`min-h-tap ventana-baja:py-0 flex grow basis-0 flex-col items-center justify-center gap-1 py-2 text-xs font-medium transition-colors duration-150 ${
               isHere(pathname, screen.href) ? 'text-brass-bright piloto' : 'text-text-muted'
             }`}
           >
@@ -306,13 +309,45 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <screen.Icono />
             </span>
-            <span className="@max-[16rem]:sr-only [@media(max-height:500px)]:sr-only">
-              {screen.name}
-            </span>
-          </Link>
+            <span className="ventana-baja:sr-only @max-[16rem]:sr-only">{screen.name}</span>
+          </EnlaceDePantalla>
         ))}
       </nav>
     </div>
+  );
+}
+
+/**
+ * Un enlace de la barra que **precarga su pantalla al ir a pulsarlo**: al pasar
+ * el puntero, al tocarlo o al llegarle el foco.
+ *
+ * Las pantallas se generan en cada petición (`force-dynamic`), y una ruta
+ * dinámica Next no la precarga sola: cada clic en la barra eran dos idas y
+ * vueltas al servidor con la pantalla de antes quieta y sin decir nada. Con la
+ * precarga entera, medido con el servidor de producción, el clic cambia de
+ * pantalla en unos 110 ms y sin ninguna petición nueva. **Y no hace una consulta
+ * por enlace**: lo que se pide es solo lo que cambia —la página—, y el layout de
+ * `(marco)`, que es quien lee la cuenta, ya está puesto y no se vuelve a pintar.
+ *
+ * **Al ir a pulsar y no al verse**, que es lo que Next haría con `prefetch` a
+ * secas: la barra está siempre a la vista, y precargar las cuatro al entrar
+ * descargaba en cada pantalla el código de las otras tres —85 KB más, el lienzo
+ * de componer en el afinador—. **Y no con un `loading.tsx`**, que precarga hasta
+ * su espera sin el código de la página: dentro de ella, el `notFound()` de una
+ * unidad o un plan inventados contestaba 200 en vez de 404
+ * ([adr/0120](../../docs/adr/0120-la-primera-visita-no-se-mueve-y-cada-pantalla-trae-lo-suyo.md)).
+ */
+function EnlaceDePantalla(props: ComponentProps<typeof Link>) {
+  const [aPunto, setAPunto] = useState(false);
+  const precargar = () => setAPunto(true);
+  return (
+    <Link
+      {...props}
+      prefetch={aPunto}
+      onPointerEnter={precargar}
+      onTouchStart={precargar}
+      onFocus={precargar}
+    />
   );
 }
 

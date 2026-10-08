@@ -47,12 +47,12 @@ export function ComoFuncionaElRepaso() {
       <ol className="grid gap-3 @min-[40rem]:grid-cols-3">
         {pasos.map(({ titulo, texto }, indice) => (
           <li key={titulo} className="superficie flex gap-3 p-4">
-            <span aria-hidden="true" className="text-brass-bright shrink-0 font-mono text-sm">
+            <span aria-hidden="true" className="text-brass-bright shrink-0 font-mono text-base">
               {indice + 1}
             </span>
             <div className="min-w-0">
-              <p className="text-text text-sm">{titulo}</p>
-              <p className="text-text-muted mt-1 text-sm">{texto}</p>
+              <p className="text-text text-base">{titulo}</p>
+              <p className="text-text-muted mt-1 text-base">{texto}</p>
             </div>
           </li>
         ))}
@@ -89,7 +89,7 @@ export function LaColaDeHoy({
       <h2 className="rotulo">Lo que vuelve hoy</h2>
       <ul className="border-border divide-border divide-y border-y">
         {porUnidad.map(({ unitId, titulo, cuantas }) => (
-          <li key={unitId} className="flex items-baseline justify-between gap-4 py-2 text-sm">
+          <li key={unitId} className="flex items-baseline justify-between gap-4 py-2 text-base">
             <span className="text-text min-w-0">{titulo}</span>
             <span className="text-brass-bright shrink-0 font-mono tabular-nums">
               {cuantas === 1 ? '1 pregunta' : `${cuantas} preguntas`}

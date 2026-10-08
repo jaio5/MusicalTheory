@@ -31,4 +31,23 @@ describe('el diagrama de un acorde', () => {
 
     expect([...svg.querySelectorAll('text')].map((t) => t.textContent)).toContain('5');
   });
+
+  it('dibuja la cejilla como una barra cuando la forma la lleva, y no si no', () => {
+    const { container, rerender } = render(
+      <ChordDiagram
+        frets={[0, 2, 2, 4, 5, 3]}
+        position={2}
+        label="Em"
+        cejilla={{ traste: 2, desde: 1, hasta: 2 }}
+      />,
+    );
+    const barra = container.querySelector('[data-cejilla]')!;
+
+    // Del centro de la quinta cuerda al de la cuarta, y un poco más por cada lado.
+    expect(Number(barra.getAttribute('x'))).toBe(16 + 15 - 5);
+    expect(Number(barra.getAttribute('width'))).toBe(15 + 10);
+
+    rerender(<ChordDiagram frets={[null, 3, 2, 0, 1, 0]} position={0} label="C" />);
+    expect(container.querySelector('[data-cejilla]')).toBeNull();
+  });
 });

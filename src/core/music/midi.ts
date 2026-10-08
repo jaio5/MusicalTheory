@@ -170,13 +170,16 @@ export function ficheroMidi(
  *
  * Sin acentos, sin espacios y sin lo que Windows no deja: la descarga acaba en
  * el disco de alguien, y un fichero que no se puede guardar no vale de nada.
+ *
+ * La extensión se pide porque la copia de la canción (`.caos.json`) sale del mismo
+ * título, y cambiarle la de MIDI con una expresión era depender de cómo acaba esta.
  */
-export function nombreDeFichero(titulo: string): string {
+export function nombreDeFichero(titulo: string, extension = 'mid'): string {
   const limpio = titulo
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
-  return `${limpio === '' ? 'cancion' : limpio}.mid`;
+  return `${limpio === '' ? 'cancion' : limpio}.${extension}`;
 }

@@ -2,7 +2,7 @@
 
 > **Sustituido por [ADR 0095](./0095-se-quita-componer-sencillo.md):** la versión sencilla ya no existe.
 
-Fecha: 2026-10-03 · Estado: aceptada, **a prueba** · Sustituye en parte a
+Fecha: 2026-10-03 · Estado: sustituida por [ADR 0095](./0095-se-quita-componer-sencillo.md) · Sustituye en parte a
 [ADR 0087](./0087-componer-sencillo-es-una-pagina-de-prueba.md), que seguía el orden
 de un editor de fichas · Ampliado en lo del primer acorde por
 [ADR 0072](./0072-la-claqueta-suena-toda-la-toma.md)

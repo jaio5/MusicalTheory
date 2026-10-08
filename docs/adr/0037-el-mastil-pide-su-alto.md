@@ -1,5 +1,7 @@
 # ADR 0037 — El mástil pide su alto, y el arreglo tiene un suelo de verdad
 
+> **Corregido por [ADR 0038](./0038-doce-trastes-que-se-vean.md) y sustituido en parte por [ADR 0039](./0039-el-mastil-se-estira-a-lo-ancho.md):** doce trastes que se vean, y el dibujo se estira a lo ancho en vez de tener proporción fija.
+
 Fecha: 2026-09-22 · Estado: aceptada · Amplía: [ADR 0031](./0031-componer-es-un-banco-de-trabajo.md)
 
 ## Contexto

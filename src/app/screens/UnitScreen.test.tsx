@@ -62,7 +62,7 @@ function pintar(unitId: string, account: Account = ANONYMOUS) {
  * quien llega a una unidad.
  */
 async function hastaLasPreguntas(): Promise<void> {
-  await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Empezar' }));
   const aPrueba = screen.queryByRole('button', { name: 'Ponerlo a prueba' });
   if (aPrueba !== null) {
     await userEvent.click(aPrueba);
@@ -159,7 +159,7 @@ describe('la unidad abierta', () => {
     expect(
       screen.queryByRole('group', { name: 'Tonalidades para empezar' }),
     ).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Empezar' }));
     expect(screen.getByRole('button', { name: 'Ponerlo a prueba' })).toBeInTheDocument();
   });
 });
@@ -181,10 +181,11 @@ describe('la presentación', () => {
 
     pintar(DICTADO, PRO);
 
-    expect(screen.getByText(presentacionDe(DICTADO).resumen)).toBeInTheDocument();
+    // Cada tipo de unidad llega en su trozo: la de oído, cuando se abre una.
+    expect(await screen.findByText(presentacionDe(DICTADO).resumen)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Escuchar' })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Empezar' }));
 
     expect(screen.getByRole('heading', { name: 'Compruébalo de oído' })).toHaveFocus();
     expect(screen.getByRole('button', { name: 'Escuchar' })).toBeInTheDocument();
@@ -272,12 +273,17 @@ describe('una unidad de tocar', () => {
 
     // Primero de qué va: la escala no se pide a ciegas.
     expect(screen.getByText(presentacionDe(DE_TOCAR).resumen)).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Aprender' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'La escala, nota a nota' }),
+    ).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Empezar' }));
 
+    // La prueba llega aparte, con la escucha.
+    expect(
+      await screen.findByRole('region', { name: 'La escala, nota a nota' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Tócala' })).toHaveFocus();
-    expect(screen.getByRole('region', { name: 'Aprender' })).toBeInTheDocument();
     expect(screen.getByText(/XP$/)).toBeInTheDocument();
     expect(screen.getByText(/Tonalidad:/)).toBeInTheDocument();
     // Sin preguntas: lo que hay es el mástil esperando a que suene algo.
@@ -294,7 +300,11 @@ describe('una unidad de tocar', () => {
  */
 describe('lo que se falla', () => {
   /** El avance guardado, tal y como queda en el equipo. */
-  function avance(): { readonly review?: unknown } {
+  function avance(): {
+    readonly review?: unknown;
+    readonly done?: readonly string[];
+    readonly xpToday?: number;
+  } {
     return JSON.parse(localStorage.getItem('caos-ordenado:aprender') ?? '{}');
   }
 
@@ -317,7 +327,7 @@ describe('lo que se falla', () => {
    *
    * No se sabe de antemano cuál es la buena —las preguntas se escriben con la
    * tonalidad que haya puesta—, así que se busca el fallo por la pista que deja
-   * en pantalla: «Era tal».
+   * en pantalla: «La buena era tal».
    */
   async function hastaFallarUna(): Promise<boolean> {
     for (let vuelta = 0; vuelta < 20; vuelta += 1) {
@@ -326,7 +336,7 @@ describe('lo que se falla', () => {
         return false;
       }
       await userEvent.click(within(pregunta).getAllByRole('button')[0]!);
-      if (screen.queryByText(/^Era /) !== null) {
+      if (screen.queryByText(/^La buena era «/) !== null) {
         return true;
       }
       const seguir = screen.queryByRole('button', { name: /Siguiente|Terminar la unidad/ });
@@ -370,7 +380,7 @@ describe('lo que se falla', () => {
 
     await userEvent.click(screen.getByRole('button', { name: mala.text }));
 
-    expect(screen.getByText(/^Era /)).toBeInTheDocument();
+    expect(screen.getByText(/^La buena era «/)).toBeInTheDocument();
     expect(avance().review).not.toEqual([]);
   });
 
@@ -383,13 +393,22 @@ describe('lo que se falla', () => {
     pintar(DE_OIDO, PRO);
     await hastaLasPreguntas();
 
+    // Sin la pausa entre pulsación y pulsación: son decenas, y con ella el test
+    // pasaba de los cinco segundos en cuanto la máquina estaba ocupada.
+    const usuario = userEvent.setup({ delay: null });
     for (const ejercicio of ejercicios) {
       const buena = ejercicio.choices.find((opcion) => opcion.correct)!;
-      await userEvent.click(screen.getByRole('button', { name: buena.text }));
-      await userEvent.click(screen.getByRole('button', { name: /Siguiente|Terminar la unidad/ }));
+      await usuario.click(screen.getByRole('button', { name: buena.text }));
+      await usuario.click(screen.getByRole('button', { name: /Siguiente|Terminar la unidad/ }));
     }
 
     expect(screen.getByRole('link', { name: /Volver al camino/ })).toBeInTheDocument();
+    // Lo que promete el nombre: la unidad queda hecha y su XP, sumado al de hoy.
+    expect(avance().done).toContain(DE_OIDO);
+    expect(unidad.xp).toBeGreaterThan(0);
+    expect(avance().xpToday).toBe(unidad.xp);
+    // Terminada, se olvida por dónde iba: la próxima vez empieza de nuevo.
+    expect(sessionStorage.getItem(`caos-ordenado:sitio:${DE_OIDO}`)).toBeNull();
   });
 
   // Sin plan no hay cola: fallar se explica igual, pero la pregunta no vuelve.
@@ -405,7 +424,7 @@ describe('lo que se falla', () => {
 
     await userEvent.click(screen.getByRole('button', { name: mala.text }));
 
-    expect(screen.getByText(/^Era /)).toBeInTheDocument();
+    expect(screen.getByText(/^La buena era «/)).toBeInTheDocument();
     expect(avance().review).toEqual([]);
   });
 

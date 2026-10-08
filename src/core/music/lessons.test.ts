@@ -290,6 +290,16 @@ describe('Lo que cambia al estudiar en menor', () => {
     expect(lessonNotes('functions', A, 'minor').exercises[0]!.prompt).toContain('papel hace E ');
   });
 
+  it('en menor ningún acorde de la natural se queda sin papel', () => {
+    const punto = lessonNotes('functions', A, 'minor').points[1]!;
+
+    for (const acorde of ['Am', 'Bdim', 'C', 'Dm', 'Em', 'F', 'G']) {
+      expect(punto).toMatch(new RegExp(`\\b${acorde}\\b`));
+    }
+    expect(punto).toContain('Em es una dominante débil');
+    expect(punto).toContain('G, el VII a un tono de la tónica, tira más hacia C');
+  });
+
   it('la rota va al VI, que solo en mayor es el relativo', () => {
     expect(exerciseOf('cadences', 1, A, 'minor').why).not.toContain('relativo');
     expect(exerciseOf('cadences', 1, A, 'minor').why).toContain('al VI, F');

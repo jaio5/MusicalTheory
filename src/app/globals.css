@@ -97,6 +97,24 @@
 }
 
 /*
+ * **Los dos cortes de la navegación, con nombre** (docs/adr/0084, adr/0122).
+ *
+ * Tres sitios saben dónde cambia la navegación —`AppShell`, que la pone arriba o
+ * abajo; el tope del panel flotante de `ui/Disclosure`, que descuenta la barra de
+ * abajo mientras exista, y lo que se pliega con la ventana baja— y cada uno lo
+ * escribía a su manera: `md:` en dos y un `max-height` entre corchetes repetido
+ * tres veces en el tercero. Si uno se movía, nada obligaba a mover los otros.
+ * Ahora se piden por nombre, y `screens/coherencia.test.ts` prohíbe el literal.
+ *
+ * - `barra-arriba:` es desde donde las pantallas van en la cabecera y no hay barra
+ *   abajo. Es el `md` de Tailwind, leído de su variable: moverlo es moverlo aquí.
+ * - `ventana-baja:` es por debajo de 500 px de alto, donde el `<main>` se desplaza
+ *   y la barra de abajo se queda en iconos.
+ */
+@custom-variant barra-arriba (@media (width >= theme(--breakpoint-md)));
+@custom-variant ventana-baja (@media (height <= 500px));
+
+/*
  * Las duraciones, espejo de `durations` en tokens.ts. Fuera de `@theme` porque
  * no son una escala de Tailwind: las piden las clases de esta hoja.
  */
@@ -988,17 +1006,20 @@
    * no debajo de una franja. En cuanto se baja, la barra aparece con su velo y
    * su línea. La regla del `44 px` no la toca esto: los enlaces siguen midiendo
    * lo mismo, se vea o no la franja.
+   *
+   * **Posada es opaca.** Era la noche al 82 % con desenfoque, y la barra es de la
+   * sala en los dos temas (`.escenario-oscuro`): encima del hero no se notaba,
+   * pero al bajar a las franjas de hielo del tema claro el 18 % que dejaba pasar
+   * la volvía gris pizarra. Opaca es la misma noche del hero en todo el recorrido.
    */
   @keyframes posarse {
     from {
       background-color: transparent;
       border-bottom-color: transparent;
-      backdrop-filter: blur(0);
     }
     to {
-      background-color: color-mix(in srgb, var(--color-background) 82%, transparent);
+      background-color: var(--color-background);
       border-bottom-color: var(--color-border);
-      backdrop-filter: blur(14px);
     }
   }
 

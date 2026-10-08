@@ -37,7 +37,7 @@ export const RESUMENES_DE_UNIDAD: Readonly<Record<string, string>> = {
   'e2-menor':
     'La escala menor tal como sale de su armadura. Tócala entera y escucha cómo cae la tercera.',
   'e4-pentatonica':
-    'La menor natural sin su segundo ni su sexto grado: cinco notas, las mismas que la pentatónica mayor de su relativa.',
+    'La escala menor natural sin su segundo ni su sexto grado: cinco notas, las mismas que la pentatónica mayor de su relativa.',
   'e4-blues': 'La pentatónica menor con una nota de paso: la quinta disminuida, la «blue note».',
   // 4º de Elemental: Los acordes de la tonalidad
   'e2-calidades':

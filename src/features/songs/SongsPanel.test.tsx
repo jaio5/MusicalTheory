@@ -100,6 +100,23 @@ describe('sin el plan que lo incluye', () => {
     expect(screen.getByRole('note')).toHaveTextContent(/plan Básico/);
     expect(request).not.toHaveBeenCalled();
   });
+
+  /**
+   * **Primero que ya está guardada, y el plan después y como lo que es.** Decía
+   * «Guardar tus canciones entra en el plan Básico», y la canción se guardaba
+   * sola en el navegador sin que nada lo dijera.
+   */
+  it('primero dice que la canción ya se guarda, y el plan es guardarla en la cuenta', () => {
+    render(conCuenta(<SongsPanel request={vi.fn()} />, SIN_PLAN));
+
+    const enEsteNavegador = screen.getByRole('heading', {
+      name: 'Tu canción se guarda sola en este navegador',
+    });
+    const candado = screen.getByRole('note');
+    expect(enEsteNavegador.compareDocumentPosition(candado)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(candado).toHaveTextContent(/también en tu cuenta/);
+    expect(candado).not.toHaveTextContent(/Guardar tus canciones/);
+  });
 });
 
 describe('la lista', () => {

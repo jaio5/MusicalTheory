@@ -1,5 +1,7 @@
 # ADR 0006 — Tres planes en el dominio y la facturación como puerto
 
+> **Corregido en parte por [ADR 0104](./0104-el-plan-pro-se-replantea.md):** los planes de pago hoy son dos, Básico y Medio; Pro se fundió en Medio. Los tres de abajo son lo que se decidió entonces.
+
 > **Sustituido en parte por [ADR 0066](./0066-las-ideas-se-retiran-y-las-salidas-bajan-a-medio.md):** el permiso `ideas` ya no existe, y las salidas (`versiones`) entran en Medio.
 
 Fecha: 2026-07-30 · Estado: aceptada

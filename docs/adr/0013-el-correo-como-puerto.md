@@ -1,5 +1,7 @@
 # ADR 0013 — El correo es un puerto, y recuperar la contraseña es un vale de un solo uso
 
+> **Corregido:** `NoMailer` solo calla en producción. En desarrollo `sends` es `true` y escribe el correo en el registro del servidor (`server/mail/none.ts`), que es lo que permite probar el flujo sin proveedor.
+
 Fecha: 2026-08-25 · Estado: aceptada · Cierra: la deuda de [ADR 0005](./0005-cuentas-y-avance-en-servidor.md)
 
 ## Contexto

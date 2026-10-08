@@ -1,5 +1,6 @@
 'use client';
 
+import { cifraCorta, enPulsos } from '@core/cifras';
 import { HARMONIC_ROLES, roleOfDegreeSymbol, type HarmonicRole } from '@core/music';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 
@@ -61,6 +62,25 @@ export const ZONA_ESTIRAR_PX = 16;
 
 export function anchoDeBloque(beats: number, porPulso: number = PX_POR_PULSO): number {
   return Math.max(ANCHO_MINIMO_PX, beats * porPulso);
+}
+
+/**
+ * Cuánto dura un bloque, en su esquina: los compases enteros y, si sobran, los
+ * pulsos sueltos —«12», «11 + 3 p», «2 p»—. Nada si es un compás justo.
+ *
+ * Era la división tal cual, y un bloque estirado a mano salía «11,75»: una cifra
+ * que nadie cuenta así tocando. Se cuenta en compases y lo que sobra, en pulsos.
+ */
+export function duracionEnLaEsquina(beats: number, beatsPerBar: number): string | null {
+  const porCompas = Math.max(1, beatsPerBar);
+  const enteros = Math.floor(beats / porCompas);
+  const sueltos = beats - enteros * porCompas;
+
+  if (sueltos === 0) {
+    return enteros === 1 ? null : `${enteros}`;
+  }
+  const pulsos = `${cifraCorta(sueltos)} p`;
+  return enteros === 0 ? pulsos : `${enteros} + ${pulsos}`;
 }
 
 /**
@@ -139,6 +159,13 @@ export interface BlockButtonProps {
   /** Encendido mientras suena, para que se vea por dónde va. */
   readonly playing?: boolean;
   readonly selected?: boolean;
+  /**
+   * Es el acorde por el que pregunta «No lo oí claro». Se recuadra con un
+   * contorno punteado —la marca de la duda—, y por dentro del bloque porque la
+   * tira recorta lo que sale por fuera. Así la tarjeta que dice «Apunté Em»
+   * señala a cuál de los `Em` se refiere.
+   */
+  readonly corrigiendo?: boolean;
   /** Se está arrastrando: se queda en su sitio, apagado, como hueco de origen. */
   readonly dragging?: boolean;
   readonly onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -156,6 +183,7 @@ export function BlockButton({
   doubtful = false,
   playing = false,
   selected = false,
+  corrigiendo = false,
   dragging = false,
   onPointerDown,
   onClick,
@@ -163,7 +191,7 @@ export function BlockButton({
 }: BlockButtonProps) {
   const role = roleOfDegreeSymbol(degree);
   const info = HARMONIC_ROLES[role];
-  const compases = beats / Math.max(1, beatsPerBar);
+  const duracion = duracionEnLaEsquina(beats, beatsPerBar);
 
   return (
     <button
@@ -180,14 +208,14 @@ export function BlockButton({
             : selected
               ? 'border-brass-dim'
               : 'hover:border-brass-dim'
-      }`}
+      } ${corrigiendo ? 'outline-brass-bright outline-2 -outline-offset-4 outline-dashed' : ''}`}
       // `pan-x pan-y` y no `none`: el bloque tapa la tira que se desplaza de
       // lado y la columna que se desplaza de arriba abajo, y con `none` un
       // barrido que naciera en él no movía ninguna de las dos (medido a 390:
       // 238 px de tira sin forma de verlos). El dedo arrastra tras sujetarlo
       // —`use-block-drag`—, y entonces es el gesto quien frena el desplazamiento.
       style={{ width: anchoDeBloque(beats, porPulso), touchAction: 'pan-x pan-y' }}
-      aria-label={`${symbol}, grado ${degree}, ${info.name.toLowerCase()}, ${beats} pulsos${
+      aria-label={`${symbol}, grado ${degree}, ${info.name.toLowerCase()}, ${enPulsos(beats)}${
         doubtful ? ', dudoso' : ''
       }`}
       aria-pressed={selected}
@@ -230,9 +258,9 @@ export function BlockButton({
         </span>
         {/* Los compases solo cuando no es uno: escribir «1» en todos los bloques
             es ruido en la única fila que se mira mientras se toca. */}
-        {compases !== 1 && (
+        {duracion !== null && (
           <span className="ml-auto tabular-nums" aria-hidden>
-            {String(Math.round(compases * 100) / 100).replace('.', ',')}
+            {duracion}
           </span>
         )}
       </span>

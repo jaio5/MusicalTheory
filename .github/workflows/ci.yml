@@ -1,7 +1,15 @@
 # Lo mismo que hay que pasar antes de publicar, en cada empujón.
 #
-# El orden no es casual: primero lo que falla rápido y barato —formato, reglas,
-# tipos— y al final la compilación, que es la que tarda.
+# Repartido en trabajos que corren a la vez, porque en uno solo eran once minutos
+# y los tests se pasaban dos veces (adr/0121):
+#
+# - `comprobar`: lo que falla rápido y barato —formato, reglas, tipos— y las
+#   pruebas de reloj, que no entran en la cobertura.
+# - `cobertura`: la suite en tres trozos con la cobertura midiendo, y `juntar`, que
+#   los suma y exige el cien por cien sobre el total.
+# - `postgres`: los tests con base contra un Postgres de verdad y con el rol de la
+#   aplicación, que es lo que PGlite no puede probar.
+# - `humo`: la compilación de producción y cada ruta en un navegador.
 name: Comprobaciones
 
 on:
@@ -15,25 +23,34 @@ on:
 permissions:
   contents: read
 
+# Los pasos que repite cada trabajo —pnpm, Node con caché, instalar— están en la
+# acción `.github/actions/preparar`.
+#
+# **Cada acción, fijada por su commit** y no por la etiqueta: una etiqueta se
+# puede mover, y quien la mueva ejecuta lo que quiera aquí dentro. El comentario
+# dice qué versión es; Dependabot sube las dos cosas juntas. Todas corren en
+# Node 24: las de Node 20 las forzaba GitHub y avisaba en cada pasada.
+#
+# **Y la máquina, por su versión**: `ubuntu-latest` cambia de sistema cuando
+# GitHub lo decide, y lo que se rompa ese día no lo habrá roto ningún commit.
+
 jobs:
   comprobar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      # **Cada acción, fijada por su commit** y no por la etiqueta: una etiqueta
-      # se puede mover, y quien la mueva ejecuta lo que quiera aquí dentro.
-      # El comentario dice qué versión es; Dependabot sube las dos cosas juntas.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - id: preparar
+        uses: ./.github/actions/preparar
 
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      # El volcado de la base de los tests ya migrada (`vitest.base-de-prueba.ts`):
+      # sin él, cada pasada arranca el `initdb` de PGlite y migra. Cambia con las
+      # migraciones y con PGlite, que es lo mismo que mira su huella.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+          path: node_modules/.cache/caos-ordenado
+          key: pglite-${{ steps.preparar.outputs.pglite }}-${{ hashFiles('drizzle/**') }}
 
       # Lo que viaja a producción, sin avisos altos. Solo `--prod`: las de
       # desarrollo no llegan a la imagen, y alguna —`braces`, por ESLint— no
@@ -50,14 +67,159 @@ jobs:
       - name: Tipos
         run: pnpm typecheck
 
-      - name: Tests
-        run: pnpm test
+      # Las que miden tiempo de reloj: solas y sin la cobertura encima, que
+      # multiplica por tres lo que tarda todo (`vitest.config.ts`).
+      - name: Pruebas de reloj
+        run: pnpm vitest run --project reloj
 
-      # Aparte de los tests y no en su lugar: con la cobertura puesta se salta
-      # la prueba del coste del hilo principal —mide tiempos, y medir con el
-      # instrumentador encima no mide nada—, así que hacen falta las dos.
-      - name: Cobertura
-        run: pnpm coverage
+  cobertura:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        trozo: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: preparar
+        uses: ./.github/actions/preparar
+
+      # El volcado de la base de los tests ya migrada (`vitest.base-de-prueba.ts`):
+      # sin él, cada pasada arranca el `initdb` de PGlite y migra. Cambia con las
+      # migraciones y con PGlite, que es lo mismo que mira su huella.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules/.cache/caos-ordenado
+          key: pglite-${{ steps.preparar.outputs.pglite }}-${{ hashFiles('drizzle/**') }}
+
+      # Cada trozo deja su informe en `.vitest-reports/`. El tope no se mira aquí:
+      # un trozo solo ve su parte del código.
+      - name: Tests con cobertura, trozo ${{ matrix.trozo }} de 3
+        run: pnpm vitest run --project unidad --coverage --reporter=blob --shard=${{ matrix.trozo }}/3
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: informe-${{ matrix.trozo }}
+          path: .vitest-reports/*
+          # La carpeta empieza por punto, y sin esto se queda fuera sin avisar.
+          include-hidden-files: true
+          retention-days: 1
+
+  juntar:
+    needs: cobertura
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/preparar
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: informe-*
+          path: .vitest-reports
+          merge-multiple: true
+
+      # Aquí sí se exige el cien por cien, sobre la suma de los tres trozos.
+      - name: Cobertura de la suite entera
+        run: pnpm vitest --merge-reports --coverage
+
+  postgres:
+    runs-on: ubuntu-24.04
+    # La misma imagen que `compose.yml`, por su huella: los tests prueban el
+    # Postgres que se despliega.
+    services:
+      postgres:
+        image: postgres:17.11-alpine3.24@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        env:
+          POSTGRES_USER: caos
+          POSTGRES_PASSWORD: solo-para-la-integracion
+          POSTGRES_DB: caos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U caos"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 30
+    env:
+      # El superusuario, que migra y que los tests usan para vaciar y romper
+      # tablas; y la clave del rol con el que entra la aplicación.
+      URL_DEL_DUENO: postgres://caos:solo-para-la-integracion@localhost:5432/caos
+      POSTGRES_APP_PASSWORD: tambien-solo-para-la-integracion
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/preparar
+
+      # Lo mismo que el contenedor de las migraciones (`Dockerfile`): migrar con
+      # el superusuario y dar de alta el rol que solo lee y escribe filas.
+      - name: Migrar y dar de alta el rol de la aplicación
+        env:
+          DATABASE_URL: ${{ env.URL_DEL_DUENO }}
+        run: pnpm db:migrate && node scripts/rol-de-la-aplicacion.mjs
+
+      # Los ficheros que levantan base, los de reloj incluidos, uno cada vez:
+      # comparten la base, y el `truncate` de uno vaciaría las filas de otro. El
+      # proyecto `postgres` solo existe con `BASE_DE_PRUEBA_URL`, y sus ficheros
+      # van por su nombre (`vitest.con-base.ts`).
+      - name: Tests con base, con el rol de la aplicación
+        env:
+          BASE_DE_PRUEBA_URL: ${{ env.URL_DEL_DUENO }}
+          BASE_DE_PRUEBA_URL_APP: postgres://caos_app:${{ env.POSTGRES_APP_PASSWORD }}@localhost:5432/caos
+        run: pnpm vitest run --project postgres
+
+  humo:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: preparar
+        uses: ./.github/actions/preparar
+
+      # Lo que Next guarda entre compilaciones. La clave cambia con las
+      # dependencias y con los fuentes; sin acierto exacto vale la última con el
+      # mismo lockfile, y Next rehace solo lo que cambió.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .next/cache
+          key: next-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**', 'next.config.ts', 'postcss.config.mjs') }}
+          restore-keys: next-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Compilación de producción
         run: pnpm build
+
+      # Solo el Chromium sin ventana: es lo que usa el humo, y pesa la mitad. El
+      # binario se guarda con la versión de Playwright; las bibliotecas del sistema
+      # no caben en la caché y se instalan cada vez, que es lo rápido.
+      - id: navegador
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ steps.preparar.outputs.playwright }}-chromium-headless-shell
+
+      - name: Navegador
+        if: steps.navegador.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps --only-shell chromium
+
+      - name: Bibliotecas del navegador
+        if: steps.navegador.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+
+      # Sin base de datos, como cualquier copia recién clonada: así se prueba
+      # también que la aplicación funciona sin ella. Y con el servidor que se
+      # publica, el de `output: 'standalone'`: `next start` avisa de que con esa
+      # salida no sirve, y probaría otra cosa. Los estáticos se copian a su lado
+      # como en el `Dockerfile`, que es lo que no trae la carpeta standalone.
+      - name: Cada ruta, en tres anchos
+        run: |
+          export AUTH_SECRET="$(openssl rand -base64 33)"
+          cp -r .next/static .next/standalone/.next/static
+          HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/server.js &
+          for _ in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:3000/ && break
+            sleep 1
+          done
+          HUMO_URL=http://127.0.0.1:3000 node scripts/humo.mjs

@@ -1,5 +1,7 @@
 # ADR 0040 — Ni un cuadrado ni una tira: el mástil, con notas que se leen
 
+> **Ajustado por [ADR 0046](./0046-el-mastil-solo-ocupa-lo-que-dibuja.md):** el mástil solo ocupa lo que dibuja.
+
 Fecha: 2026-09-22 · Estado: aceptada · Amplía: [ADR 0039](./0039-el-mastil-se-estira-a-lo-ancho.md)
 
 ## Contexto

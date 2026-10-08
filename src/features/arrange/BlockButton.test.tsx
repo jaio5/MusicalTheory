@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { BlockButton, ZONA_ESTIRAR_PX } from './BlockButton';
+import { BlockButton, duracionEnLaEsquina, ZONA_ESTIRAR_PX } from './BlockButton';
 
 function pintar() {
   render(<BlockButton blockId="a" symbol="C" degree="I" beats={4} beatsPerBar={4} />);
@@ -34,5 +34,32 @@ describe('Un bloque bajo el dedo', () => {
   // Sujetar un texto medio segundo lo selecciona, y sujetar es cómo se coge.
   it('no se le selecciona el texto al sujetarlo', () => {
     expect(pintar()).toHaveClass('select-none');
+  });
+});
+
+/**
+ * Cuánto dura, contado como se cuenta tocando: un bloque estirado a mano salía
+ * «11,75», la división tal cual.
+ */
+describe('La duración en la esquina del bloque', () => {
+  it('en compases enteros, y lo que sobra en pulsos', () => {
+    expect(duracionEnLaEsquina(4, 4)).toBeNull();
+    expect(duracionEnLaEsquina(8, 4)).toBe('2');
+    expect(duracionEnLaEsquina(47, 4)).toBe('11 + 3 p');
+    expect(duracionEnLaEsquina(2, 4)).toBe('2 p');
+    expect(duracionEnLaEsquina(6.5, 3)).toBe('2 + 0,5 p');
+  });
+
+  it('y no se ve el decimal en el bloque', () => {
+    render(<BlockButton blockId="a" symbol="C" degree="I" beats={47} beatsPerBar={4} />);
+
+    expect(screen.getByText('11 + 3 p')).toBeInTheDocument();
+    expect(screen.queryByText(/11,75/)).not.toBeInTheDocument();
+  });
+
+  it('el lector dice «1 pulso», no «1 pulsos»', () => {
+    render(<BlockButton blockId="a" symbol="C" degree="I" beats={1} beatsPerBar={4} />);
+
+    expect(screen.getByRole('button', { name: /, 1 pulso$/ })).toBeInTheDocument();
   });
 });

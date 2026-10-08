@@ -23,6 +23,28 @@ import type { ReactNode } from 'react';
  * sola parada del tabulador, y quien use esto con la guitarra puesta da al botón
  * que ve, no recorre un grupo.
  */
+/**
+ * El carril: hundido —el fondo de la pared y la sombra por dentro— para que lo
+ * que sube a la superficie alzada se lea como una tecla abajo y las demás
+ * arriba, un selector de un aparato y no una fila de botones. Lo comparte
+ * `ui/Mandos`, que es la misma pieza con acciones en vez de opciones.
+ */
+export const CARRIL =
+  'border-border bg-background inline-flex w-fit overflow-hidden rounded-md border shadow-[var(--sombra-hueco)]';
+
+/**
+ * Cada pieza del carril, sin borde propio: lo pone el grupo.
+ *
+ * **El aro del foco, hacia dentro** (`-outline-offset-3`). El de la casa va tres
+ * píxeles por fuera, y aquí por fuera está el `overflow-hidden` del carril, que
+ * lo recorta: con el tabulador no se veía cuál de las piezas tenía el foco.
+ */
+export const PIEZA =
+  'min-h-tap min-w-tap ease-salida inline-flex cursor-pointer items-center justify-center gap-1.5 px-3.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-150 focus-visible:-outline-offset-3';
+
+/** Entre dos piezas, una raya del color del borde, que las une en vez de separarlas. */
+export const PIEZA_SIGUIENTE = 'border-border border-l';
+
 export interface OpcionSegmentada<T extends string> {
   readonly valor: T;
   readonly texto: ReactNode;
@@ -45,14 +67,7 @@ export function Segmentado<T extends string>({
   readonly className?: string;
 }) {
   return (
-    <div
-      role="group"
-      aria-label={etiqueta}
-      // El carril va hundido —el fondo de la pared y la sombra por dentro— y la
-      // opción elegida sube a la superficie alzada con su piloto: es un selector
-      // de un aparato, una tecla abajo y las demás arriba, y no una fila de botones.
-      className={`border-border bg-background inline-flex w-fit overflow-hidden rounded-md border shadow-[var(--sombra-hueco)] ${className}`}
-    >
+    <div role="group" aria-label={etiqueta} className={`${CARRIL} ${className}`}>
       {opciones.map((opcion, i) => {
         const elegida = opcion.valor === valor;
         return (
@@ -62,16 +77,7 @@ export function Segmentado<T extends string>({
             aria-pressed={elegida}
             title={opcion.title}
             onClick={() => onCambiar(opcion.valor)}
-            // Sin borde propio: lo pone el grupo. Entre dos opciones, una raya del
-            // mismo color, que es lo que las une en vez de separarlas.
-            //
-            // **El aro del foco, hacia dentro** (`-outline-offset-3`). El de la
-            // casa va tres píxeles por fuera, y aquí por fuera está el
-            // `overflow-hidden` del carril, que lo recorta: con el tabulador no
-            // se veía cuál de las opciones tenía el foco.
-            className={`min-h-tap min-w-tap ease-salida inline-flex cursor-pointer items-center justify-center gap-1.5 px-3.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-150 focus-visible:-outline-offset-3 ${
-              i > 0 ? 'border-border border-l' : ''
-            } ${
+            className={`${PIEZA} ${i > 0 ? PIEZA_SIGUIENTE : ''} ${
               elegida
                 ? 'text-brass-bright bg-surface-raised filo-latón piloto'
                 : 'text-text-muted hover:bg-surface-raised hover:text-text'

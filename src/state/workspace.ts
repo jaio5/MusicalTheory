@@ -26,7 +26,7 @@ import {
 import { TUNINGS, type TuningId } from '@core/instrument';
 
 /** La tonalidad fijada a mano. Nula significa «sigue a la detección». */
-export interface PinnedKey {
+interface PinnedKey {
   readonly tonic: PitchClass;
   readonly mode: KeyMode;
 }

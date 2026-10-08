@@ -104,8 +104,8 @@ function despuesDeHidratar(hayBanco: boolean): Element {
  *
  * El servidor no sabe el ancho y pinta el banco. Cuando la cabecera, las de las
  * áreas y la fila de abajo dependían de `useHayBanco`, un teléfono recibía la de
- * escritorio —la línea, los mandos envueltos en tres renglones, «Restablecer
- * paneles», la fila de abajo— y al hidratar se le cambiaba por la suya: la
+ * escritorio —la línea, los mandos envueltos en tres renglones, «Áreas como
+ * venían», la fila de abajo— y al hidratar se le cambiaba por la suya: la
  * pantalla entera subía de golpe. Medido con la CPU a ×4: **CLS 0,12 a 390 y
  * 0,05 a 800**. Ahora lo de cada ancho lo eligen las clases, y JavaScript solo
  * poda lo que ya estaba escondido.
@@ -129,13 +129,13 @@ describe('La primera pintura de componer', () => {
 
   // Calibrado: si las dos pasadas pintaran lo mismo en cualquier caso, las dos
   // de arriba no probarían nada. Del servidor al teléfono cambia el árbol
-  // —se va «Restablecer paneles», llega la lista de «Más»—, y eso no se ve.
+  // —se va «Áreas como venían», llega la lista de «Más»—, y eso no se ve.
   it('aunque el arbol cambie al hidratar', () => {
     const servidor = delServidor();
     const telefono = despuesDeHidratar(false);
 
-    expect(servidor.textContent).toContain('Restablecer paneles');
-    expect(telefono.textContent).not.toContain('Restablecer paneles');
+    expect(servidor.textContent).toContain('Áreas como venían');
+    expect(telefono.textContent).not.toContain('Áreas como venían');
     expect(loQueSePinta(servidor, 'banco')).not.toEqual(loQueSePinta(telefono, 'banco'));
   });
 });

@@ -801,7 +801,7 @@ function escalasMenoresLesson(tonic: PitchClass, mode: KeyMode): LessonNotes {
 
   return {
     points: [
-      `La menor natural es la de la armadura: ${clave} tiene las mismas notas que su relativa mayor, ${claveRelativa}, empezando una tercera menor más abajo: ${serie(natural)}. Su fórmula es T-S-T-T-S-T-T, y su VII está a un tono de la tónica: es subtónica, no sensible.`,
+      `La escala menor natural es la de la armadura: ${clave} tiene las mismas notas que su relativa mayor, ${claveRelativa}, empezando una tercera menor más abajo: ${serie(natural)}. Su fórmula es T-S-T-T-S-T-T, y su VII está a un tono de la tónica: es subtónica, no sensible.`,
       `La armónica sube el VII un semitono para tener sensible: ${serie(armonica)}. Entre el VI y el VII queda una segunda aumentada, ${nombre(sexto)}–${nombre(sensible)}, de tres semitonos: el salto que le da su color.`,
       `La melódica sube también el VI, para no tener que dar ese salto: ${subiendo(melodica)}. Al bajar, en el uso tradicional, los dos vuelven a su sitio y queda la natural: ${bajando(natural)}.`,
       `Lo que hace mayor o menor una escala es la tercera sobre la tónica. En ${clave}, de ${nombre(t)} a ${nombre(natural[2]!)} hay tres semitonos, una tercera menor, y las tres menores la comparten: lo que cambian entre ellas es el VI y el VII.`,

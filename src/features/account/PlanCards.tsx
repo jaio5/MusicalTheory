@@ -61,7 +61,7 @@ export const ETIQUETAS: ReadonlyArray<{ capability: Capability; label: string }>
   { capability: 'canciones', label: 'Guardar tus canciones en la cuenta' },
   { capability: 'repaso', label: 'El repaso de lo que fallaste' },
   { capability: 'grado-profesional', label: 'Los seis cursos del Grado Profesional' },
-  { capability: 'versiones', label: 'Salidas de lo que tocas' },
+  { capability: 'salidas', label: 'Salidas de lo que tocas' },
   { capability: 'profesor-con-progreso', label: 'Un profesor que sabe por dónde vas' },
 ];
 
@@ -110,8 +110,8 @@ export function PlanCards() {
 /**
  * «4,99 € al mes» partido en la cifra y lo demás, y lo mismo con «al año».
  *
- * La monoespaciada es para lo que se compara en columna, y en un precio eso es
- * la cifra: «al mes» es una frase y va en la de leer
+ * La cifra es lo que se compara de una tarjeta a otra y va grande; «al mes» es
+ * una frase y va en la de leer
  * ([adr/0024](../../../docs/adr/0024-la-interfaz-se-lee-primero.md)). Se parte
  * aquí y no en el dominio porque `priceLabel` es la forma única de escribir un
  * precio, y partirla allí sería tener dos.
@@ -161,24 +161,37 @@ function PlanCard({
           El que recomendamos
         </p>
       )}
+      {/*
+        **El precio es lo primero que se mira, y va en la letra de los títulos.**
+
+        Iba en la sans a 18 px con la cifra en mono, y la mono es ancha: «4,99 €»
+        salía espaciado letra a letra al lado de un nombre del mismo tamaño, y
+        nada en la tarjeta decía qué era lo importante. Ahora la cifra es lo
+        grande —con cifras de ancho fijo, `tabular-nums`, que es lo que la mono
+        daba sin cambiar de letra— y el nombre la acompaña.
+
+        **Y el anual se ve.** Estaba debajo en gris de 14 px, y es la mitad de la
+        oferta: dos meses gratis dichos en latón, con el número de meses de
+        verdad (adr/0106). Se elige en la ventana de pago, porque es la misma
+        compra pagada de otra manera, no otro plan.
+      */}
       <header>
         <h3
           id={`plan-${plan.id}`}
-          className={`text-xl ${current ? 'text-brass-bright' : 'text-text'}`}
+          className={`text-lg font-semibold ${current ? 'text-brass-bright' : 'text-text'}`}
         >
           {plan.name}
         </h3>
-        <p className="text-text mt-1 text-lg">
-          <span className="font-mono">{cifra}</span>
-          {resto}
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-2">
+          <span className="titular text-text text-4xl tabular-nums">{cifra}</span>{' '}
+          <span className="text-text-muted">{resto.trim()}</span>
         </p>
-        {/* El anual debajo y en pequeño: es la misma compra pagada de otra
-            manera, no otro plan, y se elige en la ventana de pago (adr/0106). */}
-        <p className="text-text-muted text-sm">
-          o <span className="font-mono">{anual.cifra}</span>
-          {anual.resto}: {MESES_GRATIS_AL_AÑO} meses gratis
+        <p className="text-text-muted mt-1">
+          o <span className="text-text tabular-nums">{anual.cifra}</span>
+          {anual.resto}, con{' '}
+          <span className="text-brass-bright font-medium">{MESES_GRATIS_AL_AÑO} meses gratis</span>
         </p>
-        <p className="text-text-muted mt-2 text-sm">{plan.claim}</p>
+        <p className="text-text-muted mt-3">{plan.claim}</p>
       </header>
 
       <ul className="mt-4 flex flex-col gap-1">
@@ -189,7 +202,7 @@ function PlanCard({
           return (
             <li
               key={capability}
-              className={`grid grid-cols-[1rem_minmax(0,1fr)_2.5rem] items-baseline gap-2 text-sm ${
+              className={`grid grid-cols-[1rem_minmax(0,1fr)_2.5rem] items-baseline gap-2 ${
                 incluido ? 'text-text' : 'text-text-muted'
               }`}
             >
@@ -215,13 +228,13 @@ function PlanCard({
             exactamente el dinero que hay para gastar, y no puede separarse de él.
             Se cuenta en preguntas al profesor, y donde hay salidas se dice cuántas
             gasta una: sin eso, el número prometería el triple (adr/0067). */}
-        <li className="text-brass-bright mt-2 text-sm">
+        <li className="text-brass-bright mt-2">
           <span className="font-mono">{monthlyAiRequests(plan.id, model)}</span> preguntas al
           profesor al mes
-          <span className="text-text-muted block text-xs">
+          <span className="text-text-muted block">
             hasta <span className="font-mono">{dailyAiRequests(plan.id, model)}</span> en un mismo
             día
-            {can(plan.id, 'versiones') && <>; {gastoDeUnaSalida(model)}</>}
+            {can(plan.id, 'salidas') && <>; {gastoDeUnaSalida(model)}</>}
           </span>
         </li>
       </ul>
@@ -230,11 +243,11 @@ function PlanCard({
           la misma altura aunque una tarjeta tenga menos que contar. */}
       <div className="mt-auto pt-4">
         {current ? (
-          <p className="text-brass-bright text-sm font-medium">Es el que tienes</p>
+          <p className="text-brass-bright font-medium">Es el que tienes</p>
         ) : (
           <>
             {recomendado && (
-              <p className="text-text-muted mb-2 text-xs">
+              <p className="text-text-muted mb-2">
                 Es donde entra la IA que propone mientras compones.
               </p>
             )}

@@ -233,10 +233,10 @@ describe('cuando no se puede escuchar', () => {
     const casos = [
       ['NotAllowedError', 'denied', /barra de direcciones/],
       ['SecurityError', 'denied', /barra de direcciones/],
-      ['NotFoundError', 'error', /entrada de audio/],
-      ['OverconstrainedError', 'error', /entrada de audio/],
+      ['NotFoundError', 'error', /ningún micrófono/],
+      ['OverconstrainedError', 'error', /ningún micrófono/],
       ['NotReadableError', 'error', /Otra aplicación/],
-      ['CualquierOtro', 'error', /permisos del navegador/],
+      ['CualquierOtro', 'error', /recarga la página/],
     ] as const;
 
     for (const [nombre, estado, frase] of casos) {

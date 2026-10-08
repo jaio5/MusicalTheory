@@ -1,5 +1,7 @@
 # ADR 0024 — La interfaz se lee primero, y el aparato viene después
 
+> **Sustituido en parte por [ADR 0027](./0027-grafito-y-ambar.md) y [ADR 0070](./0070-la-sala-encendida.md)** (la paleta que decidió no tocar se jubiló y se rehízo) **y completado por [ADR 0122](./0122-lo-que-se-lee-va-al-cuerpo.md):** el texto corrido va al cuerpo.
+
 Fecha: 2026-09-08 · Estado: aceptada
 
 ## Contexto

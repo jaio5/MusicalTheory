@@ -84,7 +84,7 @@ describe('fallar una pregunta', () => {
 
     await userEvent.click(screen.getByRole('button', { name: mala().text }));
 
-    expect(screen.getByText(/^Era /)).toBeInTheDocument();
+    expect(screen.getByText(/^La buena era «/)).toBeInTheDocument();
   });
 });
 
@@ -158,7 +158,7 @@ describe('los tres momentos', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Volver a las preguntas' }));
     expect(screen.getByRole('group', { name: primera.prompt })).toBeInTheDocument();
-    expect(screen.getByText(/^Era /)).toBeInTheDocument();
+    expect(screen.getByText(/^La buena era «/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: mala.text })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Siguiente' })).toBeInTheDocument();
   });
@@ -227,14 +227,38 @@ describe('volver a una unidad', () => {
     expect(screen.getByRole('heading', { name: 'Compruébalo' })).toHaveFocus();
   });
 
-  it('empezada en esta pestaña, también', async () => {
+  /**
+   * Recargar a mitad volvía a la presentación, y desde ella se ofrecía un atajo
+   * a la pregunta 1: quien iba por la cuarta volvía a contestar tres.
+   */
+  it('recargar a mitad de la teoría vuelve a la teoría, sin mover el foco', async () => {
     const { unmount } = pintarUnidad();
     await userEvent.click(screen.getByRole('button', { name: 'Empezar' }));
     unmount();
 
     pintarUnidad();
 
-    expect(screen.getByRole('button', { name: 'Ir directo a las preguntas' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Lo que hay que saber' })).not.toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Ponerlo a prueba' })).toBeInTheDocument();
+  });
+
+  it('recargar a mitad de las preguntas sigue en la misma', async () => {
+    const { unmount } = pintarUnidad();
+    await hastaLaPrueba();
+    const [primera] = lessonNotes('degrees', pitchClassFromName('C'), 'major').exercises;
+    await userEvent.click(
+      screen.getByRole('button', { name: primera!.choices.find((c) => c.correct)!.text }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+    unmount();
+
+    pintarUnidad();
+
+    expect(screen.getByRole('heading', { name: 'Compruébalo' })).toBeInTheDocument();
+    expect(screen.getByText(/^Pregunta 2 de/)).toBeInTheDocument();
+    // Y desde la teoría se vuelve a ellas, no se empiezan.
+    await userEvent.click(screen.getByRole('button', { name: 'Repasar la teoría' }));
+    expect(screen.getByRole('button', { name: 'Volver a las preguntas' })).toBeInTheDocument();
   });
 
   // Sin almacenamiento —navegación privada estricta— no hay atajo, y nada se rompe.

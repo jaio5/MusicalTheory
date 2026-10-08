@@ -194,7 +194,7 @@ export function spellScaleOf(tonic: SpelledNote, id: ScaleId): SpelledNote[] {
   return SCALES[id].intervals.map((semitones, index) => spellAt(tonic, steps[index]!, semitones));
 }
 
-export type IntervalQuality = 'perfect' | 'major' | 'minor' | 'augmented' | 'diminished';
+type IntervalQuality = 'perfect' | 'major' | 'minor' | 'augmented' | 'diminished';
 
 /** Un intervalo simple y ascendente: del unísono (1) a la octava (8). */
 export interface Interval {
@@ -206,7 +206,7 @@ export interface Interval {
 const BASE_SEMITONES: readonly number[] = [0, 0, 2, 4, 5, 7, 9, 11, 12];
 
 /** Unísono, cuarta, quinta y octava: los que son justos y no mayores ni menores. */
-export function isPerfectNumber(number: number): boolean {
+function isPerfectNumber(number: number): boolean {
   return number === 1 || number === 4 || number === 5 || number === 8;
 }
 

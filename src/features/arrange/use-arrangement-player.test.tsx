@@ -63,7 +63,7 @@ describe('Escuchar el montaje', () => {
     const { vista } = montar();
 
     expect(vista.result.current.playing).toBe(false);
-    expect(vista.result.current.currentBlockId).toBeNull();
+    expect(vista.result.current.cabezal.valor).toBeNull();
   });
 
   // Sin tonalidad no hay acordes que resolver, así que no hay nada que sonar.
@@ -91,7 +91,7 @@ describe('Escuchar el montaje', () => {
 
     expect(vista.result.current.playing).toBe(true);
     expect(vista.result.current.playingPartId).toBeNull();
-    expect(vista.result.current.currentBlockId).toBe('a');
+    expect(vista.result.current.cabezal.valor).toBe('a');
     expect(player.pasos.length).toBeGreaterThan(0);
   });
 
@@ -101,7 +101,7 @@ describe('Escuchar el montaje', () => {
     act(() => vista.result.current.toggle('estribillo'));
 
     expect(vista.result.current.playingPartId).toBe('estribillo');
-    expect(vista.result.current.currentBlockId).toBe('c');
+    expect(vista.result.current.cabezal.valor).toBe('c');
   });
 
   /**
@@ -153,7 +153,7 @@ describe('Escuchar el montaje', () => {
     act(() => vista.result.current.toggle(null));
 
     expect(vista.result.current.playing).toBe(true);
-    expect(vista.result.current.currentBlockId).toBeNull();
+    expect(vista.result.current.cabezal.valor).toBeNull();
   });
 
   it('el bloque encendido sigue a los pasos', () => {
@@ -162,7 +162,7 @@ describe('Escuchar el montaje', () => {
 
     act(() => player.avisar?.(1));
 
-    expect(vista.result.current.currentBlockId).toBe('b');
+    expect(vista.result.current.cabezal.valor).toBe('b');
   });
 
   /**
@@ -181,12 +181,12 @@ describe('Escuchar el montaje', () => {
     };
     const { player, vista } = montar(conPunteo);
     act(() => vista.result.current.toggle(null));
-    const antes = vista.result.current.currentBlockId;
+    const antes = vista.result.current.cabezal.valor;
 
     const paso = player.pasos.findIndex((_, i) => i > 0);
     act(() => player.avisar?.(paso));
 
-    expect(vista.result.current.currentBlockId).not.toBeNull();
+    expect(vista.result.current.cabezal.valor).not.toBeNull();
     expect(typeof antes).toBe('string');
   });
 
@@ -196,11 +196,11 @@ describe('Escuchar el montaje', () => {
   it('un paso fuera de la lista deja el bloque como estaba', () => {
     const { player, vista } = montar();
     act(() => vista.result.current.toggle('estrofa'));
-    const antes = vista.result.current.currentBlockId;
+    const antes = vista.result.current.cabezal.valor;
 
     act(() => player.avisar?.(999));
 
-    expect(vista.result.current.currentBlockId).toBe(antes);
+    expect(vista.result.current.cabezal.valor).toBe(antes);
   });
 
   it('al terminar se apaga todo', () => {
@@ -211,7 +211,7 @@ describe('Escuchar el montaje', () => {
 
     expect(vista.result.current.playing).toBe(false);
     expect(vista.result.current.playingPartId).toBeNull();
-    expect(vista.result.current.currentBlockId).toBeNull();
+    expect(vista.result.current.cabezal.valor).toBeNull();
   });
 
   it('y se puede cortar desde fuera', () => {

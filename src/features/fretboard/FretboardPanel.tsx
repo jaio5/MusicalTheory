@@ -64,7 +64,7 @@ export function RotulosDelMastil() {
   return (
     <div className="flex min-w-0 items-stretch gap-2 self-stretch">
       <EscalaDelMastil />
-      <p className="hidden max-w-[calc(100vw-26rem)] self-center truncate text-sm xl:block">
+      <p className="hidden max-w-[calc(100vw-26rem)] self-center truncate xl:block">
         de {noteName(activeKey.tonic, alteracion)}:{' '}
         <span className="text-text font-mono">
           {scaleNotes(activeKey.tonic, scaleId)

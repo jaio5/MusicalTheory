@@ -77,7 +77,7 @@ análisis, no la sensación.
 ## Medición
 
 Hecha el 29 de julio de 2026 con
-[`main-thread-cost.test.ts`](../../src/audio/main-thread-cost.test.ts), que
+[`main-thread-cost.reloj.test.ts`](../../src/audio/main-thread-cost.reloj.test.ts), que
 queda en la suite para que una regresión del algoritmo salte sola. Señales
 sintéticas de guitarra: E2 para el tono —el periodo más largo es el peor caso—
 y un C mayor en posición abierta para el acorde, también con el espectro sucio

@@ -11,6 +11,10 @@ import { useBancoStore } from '@state/banco';
 import { useSessionStore } from '@state/session-store';
 import { DEFAULT_BANCO, loadPreferences, savePreferences } from '@state/workspace';
 
+// Tocando llega en diferido (adr/0058): con la suite entera y la cobertura, su trozo
+// tarda más que el segundo que `findBy` espera de serie, y el test caía sin fallo.
+const LO_DIFERIDO = { timeout: 5_000 };
+
 /**
  * Pasar de «Tocando» a «Escribir» en cuanto lo tocado está escrito.
  *
@@ -20,8 +24,8 @@ import { DEFAULT_BANCO, loadPreferences, savePreferences } from '@state/workspac
  * nunca. Lo que se prueba aquí no es el micro —eso ya tiene sus pruebas en
  * `features/arrange`—, sino que la pantalla se entera y cambia de espacio.
  */
-// El módulo y no el índice: la pantalla lo importa de ahí para no traerse el
-// lienzo en el paquete de entrada (adr/0058).
+// El módulo y no el índice: la pantalla lo carga en diferido de ahí, para no
+// traérselo en el paquete de entrada (adr/0058).
 // **El lienzo de verdad solo lo carga su propio test.** Vitest reutiliza cada
 // proceso para varios ficheros, y si en uno caían dos que cargaban
 // `ArrangeCanvas.tsx`, V8 tenía dos copias del mismo módulo y al juntar la
@@ -61,7 +65,10 @@ describe('De tocando a escribir', () => {
     render(<ComposeScreen />);
     expect(useBancoStore.getState().espacio).toBe('tocando');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Verlo en la partitura' }));
+    // Tocando llega en diferido: se entra por escribir (adr/0058, adr/0109).
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Verlo en la partitura' }, LO_DIFERIDO),
+    );
 
     expect(useBancoStore.getState().espacio).toBe('escribir');
     // Y el reparto que se enseña es el de escribir, no el que traía tocando.

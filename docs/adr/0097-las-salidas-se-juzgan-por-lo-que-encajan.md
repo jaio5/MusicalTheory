@@ -1,5 +1,7 @@
 # ADR 0097 — Las salidas se juzgan por lo que encajan, y se miden con exámenes que no se ajustan
 
+> **Cifra superada:** los movimientos de rearmonización hoy son trece ([ADR 0099](./0099-formas-y-movimientos-nuevos.md) y [ADR 0101](./0101-lo-que-dice-una-salida-es-verdad-sitio-por-sitio.md)), y el motor vive en `core/music/salidas/` ([ADR 0124](./0124-el-motor-de-salidas-se-parte-por-oficio.md)).
+
 Fecha: 2026-10-04 · Estado: aceptada · **Sustituye en parte** a
 [ADR 0089](./0089-las-salidas-las-construye-el-dominio-y-el-modelo-elige.md) ·
 Amplía [ADR 0011](./0011-versiones-verificadas-contra-el-dominio.md),

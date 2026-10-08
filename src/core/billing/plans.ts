@@ -41,7 +41,7 @@ export type Capability =
    * `versiones` por el nombre que tuvo (adr/0016). Cada tanda es una llamada al
    * modelo.
    */
-  | 'versiones'
+  | 'salidas'
   /** El profesor sabe qué unidades llevas hechas antes de contestar. */
   | 'profesor-con-progreso';
 
@@ -150,7 +150,7 @@ export const PLANS: readonly Plan[] = [
       'sincronizar',
       'repaso',
       'canciones',
-      'versiones',
+      'salidas',
       'profesor-con-progreso',
     ],
   }),

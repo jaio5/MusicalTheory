@@ -223,6 +223,49 @@ describe('Dominantes secundarias', () => {
     }
   });
 
+  it('en menor el V/VI altera la séptima y el V/V dos notas, no «la sensible» a secas', () => {
+    expect(leccion('secundarias', A, 'minor').points[3]).toBe(
+      'Lo que trae de fuera de la escala es, sobre todo, la sensible del grado al que va. B7 trae D# y F#: D# está medio tono por debajo de E y sube a ella, y F# hace justa la quinta que la escala da disminuida sobre B. Dos no alteran la sensible: V/III, G7, es el VII de la menor natural con su séptima y no altera nada; y V/VI, C7, ya encuentra E en la escala, así que lo alterado es su séptima, Bb, que baja.',
+    );
+    expect(leccion('secundarias', C, 'major').points[3]).toBe(
+      'Lo que trae de fuera de la escala es, sobre todo, la sensible del grado al que va: en D7, F# está medio tono por debajo de G y sube a ella. V/III, B7, trae dos, D# y F#: la sensible de E y la quinta justa que la escala da disminuida. Y V/IV es C con séptima: no altera la sensible, que ya está en la escala, sino la séptima, Bb, que baja.',
+    );
+    expect(leccion('secundarias', A, 'minor').exercises[1]!.why).toContain(
+      'No es la única alterada: F# hace justa la quinta',
+    );
+    expect(leccion('secundarias', A, 'minor').exercises[0]!.why).toContain('trae D# y F#');
+    expect(leccion('secundarias', C, 'major').exercises[0]!.why).toContain('lleva F#, que es');
+  });
+
+  it('lo que dice alterado es lo que sale de la escala, contado por alturas en las veinticuatro', () => {
+    const ESCALA = { major: [0, 2, 4, 5, 7, 9, 11], minor: [0, 2, 3, 5, 7, 8, 10] };
+    for (const [tonic, mode] of todas()) {
+      const notes = leccion('secundarias', tonic, mode);
+      const t = tonica(tonic, mode);
+      const escala = ESCALA[mode].map((i) => (t.altura + i) % 12);
+      const fuera = (raiz: number) =>
+        [0, 4, 7, 10].filter((i) => !escala.includes((raiz + i) % 12)).length;
+      const donde = keyName(tonic, mode);
+      // El V/V, sobre el II; el V/III, sobre el VII de la escala; el V/IV, sobre la tónica.
+      const delQuinto = fuera(t.altura + 2);
+
+      expect(delQuinto, donde).toBe(mode === 'major' ? 1 : 2);
+      expect(notes.exercises[1]!.why.endsWith('Por eso es la nota alterada.'), donde).toBe(
+        delQuinto === 1,
+      );
+      expect(fuera(t.altura + ESCALA[mode][6]!), donde).toBe(mode === 'major' ? 2 : 0);
+      if (mode === 'minor') {
+        // El V/VI, sobre la tercera: solo sale su séptima.
+        const raiz = t.altura + 3;
+        expect(fuera(raiz), donde).toBe(1);
+        expect(escala.includes((raiz + 10) % 12), donde).toBe(false);
+      } else {
+        expect(fuera(t.altura), donde).toBe(1);
+        expect(escala.includes((t.altura + 10) % 12), donde).toBe(false);
+      }
+    }
+  });
+
   it('E7 va a Am en Do, y A7 a Dm en La menor', () => {
     expect(buena(leccion('secundarias', C, 'major'), 2)).toBe('Am');
     expect(buena(leccion('secundarias', C, 'major'), 3)).toBe('V/VI');

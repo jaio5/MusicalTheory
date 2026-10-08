@@ -59,4 +59,25 @@ describe('useEstable', () => {
 
     expect(result.current).toBe(true);
   });
+
+  /**
+   * Con espera para entrar, lo que dura un instante no entra: el ataque de una
+   * nota limpia ensucia la claridad un momento, y el aviso de señal sucia salía.
+   */
+  it('con espera para entrar, un instante no basta y lo que dura sí', () => {
+    const { result, rerender } = renderHook(
+      (props: { entra: boolean }) => useEstable(props.entra, !props.entra, PERMANENCIA_MS, 600),
+      { initialProps: { entra: true } },
+    );
+    act(() => vi.advanceTimersByTime(300));
+    rerender({ entra: false });
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current).toBe(false);
+
+    rerender({ entra: true });
+    act(() => vi.advanceTimersByTime(599));
+    expect(result.current).toBe(false);
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current).toBe(true);
+  });
 });

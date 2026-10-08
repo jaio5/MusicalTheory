@@ -95,7 +95,7 @@ export function TextField({
     // su nombre. Fuera, se enlazan con `aria-describedby`, que es su sitio.
     <div className={`flex flex-col gap-1 ${ANCHOS_TEXTO[ancho]}`}>
       <label className="flex flex-col gap-1">
-        <span className={compact ? 'sr-only' : 'text-text-muted text-sm font-medium'}>
+        <span className={compact ? 'sr-only' : 'text-text-muted font-medium'}>
           {label}
           {!compact && extra}
         </span>
@@ -111,12 +111,12 @@ export function TextField({
         />
       </label>
       {hint !== undefined && (
-        <span id={`${id}-pista`} className="text-text-muted text-sm">
+        <span id={`${id}-pista`} className="text-text-muted">
           {hint}
         </span>
       )}
       {hayError && (
-        <span id={`${id}-error`} className="text-oxblood-bright text-sm font-medium">
+        <span id={`${id}-error`} className="text-oxblood-bright font-medium">
           {error}
         </span>
       )}

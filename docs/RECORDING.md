@@ -42,9 +42,11 @@ Son dos flujos con dos vidas distintas —analizar no debería parar porque se p
 de grabar— y el navegador los reparte sin problema. El segundo permiso, en la
 práctica, ya está concedido si se estaba escuchando.
 
-Si se deniega, el mensaje dice qué ha pasado y qué hacer: «Has denegado el
-micrófono. Puedes darle permiso otra vez desde el icono de la barra de
-direcciones.» Denegarlo no rompe nada: se puede seguir componiendo sin grabar.
+Si no se abre, el mensaje dice qué ha pasado y qué hacer, y es el mismo venga de
+donde venga (`core/error-del-micro.ts`, que traduce el error de `getUserMedia`): permiso
+bloqueado —«Pulsa el candado de la barra de direcciones, permite el micrófono y vuelve
+a pulsar»—, ningún micrófono, otra aplicación usándolo, u otro motivo. Denegarlo no
+rompe nada: se puede seguir componiendo sin grabar.
 
 ## Qué micrófono se usa
 

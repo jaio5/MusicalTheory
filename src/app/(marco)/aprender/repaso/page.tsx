@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { ReviewScreen } from '../../../screens/ReviewScreen';
 
 export const metadata: Metadata = {
-  title: 'Repaso · Caos ordenado',
+  title: 'Repaso',
   description: 'Lo que fallaste, otra vez y en la tonalidad en la que estés ahora.',
 };
 

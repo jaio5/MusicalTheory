@@ -104,12 +104,15 @@ export function Question({
         queda para rato, que es lo que de verdad se pregunta uno al empezar. El
         texto sigue estando para quien no ve el dibujo.
       */}
+      {/* **En una línea a cualquier ancho.** Con diez preguntas eran diez barritas
+          de 24 px más el texto: a 390 px «Pregunta 1 de 10» se partía en dos. Las
+          barritas encogen —hasta 8 px— y el texto no se parte. */}
       <div className="flex items-center gap-3">
-        <span aria-hidden="true" className="flex gap-1">
+        <span aria-hidden="true" className="flex min-w-0 gap-1">
           {Array.from({ length: total }, (_, indice) => (
             <span
               key={indice}
-              className={`h-1 w-6 rounded-full ${
+              className={`h-1 w-6 min-w-2 shrink rounded-full ${
                 indice < position - 1
                   ? 'bg-brass-dim'
                   : indice === position - 1
@@ -119,7 +122,7 @@ export function Question({
             />
           ))}
         </span>
-        <span className="text-text-muted text-xs">
+        <span className="text-text-muted shrink-0 text-xs whitespace-nowrap">
           Pregunta {position} de {total}
         </span>
       </div>
@@ -188,7 +191,7 @@ export function Question({
             : ''
         }
       >
-        <p className="flex items-start gap-2 text-sm empty:sr-only" aria-live="polite">
+        <p className="flex items-start gap-2 empty:sr-only" aria-live="polite">
           {answered && (
             <>
               <span
@@ -205,7 +208,12 @@ export function Question({
                   // un párrafo cualquiera.
                   <span className="sr-only">Bien. </span>
                 ) : (
-                  <strong className="text-oxblood-bright font-medium">Era {correct.text}. </strong>
+                  /* Entre comillas: la buena puede ser una nota, un acorde o una frase
+                     entera, y pegada a «Era» salían «Era La sube un semitono» —¿la
+                     nota La?— y «Era Un semitono diatónico», con mayúscula a media frase. */
+                  <strong className="text-oxblood-bright font-medium">
+                    La buena era «{correct.text}».{' '}
+                  </strong>
                 )}
                 {exercise.why}
               </span>

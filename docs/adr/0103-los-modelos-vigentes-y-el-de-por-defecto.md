@@ -1,5 +1,7 @@
 # ADR 0103 — A cada modelo lo que acepta, y Sonnet 5.5 por defecto
 
+> **Cifras de hoy:** con el modelo por defecto los cupos son 96 y 193 preguntas al mes, no los 113 y 227 de la tabla de abajo. Mira [`CUENTAS-Y-PLANES.md`](../CUENTAS-Y-PLANES.md).
+
 Fecha: 2026-10-07 · Estado: aceptada · Corrige: la llamada de
 [ADR 0008](./0008-los-cupos-salen-del-precio.md) («sin pensar y con esfuerzo bajo en
 las dos rutas») · Cambia: el modelo por defecto

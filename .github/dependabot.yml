@@ -12,6 +12,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      # React, ReactDOM y sus tipos, siempre en la misma petición y en cualquier
+      # salto de versión. Llegaron separados una vez: `@types/react` subió sin
+      # `@types/react-dom` y los tipos dejaron de cuadrar en 138 ficheros. Va el
+      # primero porque cada dependencia entra en el primer grupo que la admite.
+      react:
+        patterns: [react, react-dom, '@types/react', '@types/react-dom']
       desarrollo:
         dependency-type: development
         update-types: [minor, patch]
@@ -19,8 +25,10 @@ updates:
         dependency-type: production
         update-types: [patch]
 
+  # La raíz mira los flujos de `.github/workflows`; la acción compuesta vive aparte
+  # y, sin nombrarla, sus acciones fijadas no se subirían nunca.
   - package-ecosystem: github-actions
-    directory: /
+    directories: [/, /.github/actions/preparar]
     schedule:
       interval: weekly
 

@@ -51,7 +51,7 @@ export function DailyGoal({
 
         <div className="min-w-0 grow">
           <p className="rotulo">La meta de hoy</p>
-          <p className="text-text mt-0.5 text-sm">
+          <p className="text-text mt-0.5 text-base">
             {parte >= 1 ? (
               <span className="text-tube-bright">Hecha. Lo de ahora es de propina.</span>
             ) : (
@@ -115,7 +115,7 @@ export function DailyGoal({
         <button
           type="button"
           onClick={onReview}
-          className="border-oxblood-bright text-text hover:bg-surface-raised min-h-tap mt-3 flex w-full items-center gap-2 rounded-md border px-3 text-left text-sm transition-colors"
+          className="border-oxblood-bright text-text hover:bg-surface-raised min-h-tap mt-3 flex w-full items-center gap-2 rounded-md border px-3 text-left text-base transition-colors"
         >
           <IconoGrieta />
           <span className="grow">

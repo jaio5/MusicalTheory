@@ -1,5 +1,7 @@
 # ADR 0034 — Tres maneras de escribir, y una sola canción
 
+> **Corregido en parte por [ADR 0048](./0048-una-toma-dice-lo-que-es.md) y [ADR 0109](./0109-lo-que-se-da-por-hecho-al-empezar.md):** una toma dice qué es, y se entra por Escribir, no por Tocando.
+
 Fecha: 2026-09-17 · Estado: aceptada · Amplía: [ADR 0032](./0032-la-progresion-y-el-montaje-son-lo-mismo.md)
 
 ## Contexto

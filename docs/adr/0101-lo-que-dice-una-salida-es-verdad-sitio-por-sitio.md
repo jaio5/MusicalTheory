@@ -1,5 +1,7 @@
 # ADR 0101 — Lo que dice una salida es verdad sitio por sitio, y el giro del vamp
 
+> **Quién usa la regla:** hoy `loQueNoEsVerdad` la usa solo el validador (`features/salidas/contract.ts`); el juez y el generador ya no. Ver [ADR 0124](./0124-el-motor-de-salidas-se-parte-por-oficio.md).
+
 Fecha: 2026-10-05 · Estado: aceptada · Amplía el
 [ADR 0097](./0097-las-salidas-se-juzgan-por-lo-que-encajan.md) y el
 [ADR 0099](./0099-formas-y-movimientos-nuevos.md)

@@ -341,6 +341,14 @@ describe('función armónica', () => {
     expect(byLabel.get('vii°')).toBe('dominant');
   });
 
+  it('la sexta añadida no se cifra como la primera inversión', () => {
+    const labels = suggestChords({ tonic: C, mode: 'major', styleId: 'pop', limit: 200 }).map(
+      (s) => s.label,
+    );
+    expect(labels).toContain('Iadd6');
+    expect(labels).not.toContain('I6');
+  });
+
   it('el que sustituye a otro lo dice y comparte su papel', () => {
     const suggestions = suggestChords({ tonic: C, mode: 'major', styleId: 'pop', limit: 7 });
     const byLabel = new Map(suggestions.map((s) => [s.label, s]));

@@ -129,16 +129,16 @@ hacia atrás, y decide acorde a acorde.
 **Al parar de grabar** entra `audio/offline-chords.ts`, que tiene el trozo entero
 delante:
 
-|                 | En vivo                    | Al parar                           |
-| --------------- | -------------------------- | ---------------------------------- |
-| Ventana         | 2048 · 23,4 Hz por casilla | 16384 · **2,9 Hz por casilla**     |
-| Contexto        | Solo lo anterior           | Lo anterior y lo posterior         |
-| Umbral de ruido | Fijo, escrito aquí         | **Medido en la propia grabación**  |
-| Decisión        | Acorde a acorde            | **La secuencia entera de una vez** |
-| Techo           | 1000 Hz                    | 1000 Hz (miraba hasta 2200)        |
+|                 | En vivo                   | Al parar                           |
+| --------------- | ------------------------- | ---------------------------------- |
+| Ventana         | 8192 · 5,9 Hz por casilla | 16384 · **2,9 Hz por casilla**     |
+| Contexto        | Solo lo anterior          | Lo anterior y lo posterior         |
+| Umbral de ruido | Fijo, escrito aquí        | **Medido en la propia grabación**  |
+| Decisión        | Acorde a acorde           | **La secuencia entera de una vez** |
+| Techo           | 1000 Hz                   | 1000 Hz (miraba hasta 2200)        |
 
 Lo de la ventana es el punto entero: el Mi y el Fa graves están a 4,9 Hz, así que
-con 23,4 Hz por casilla caen en la misma y ahí abajo es donde una guitarra pasa
+con 5,9 Hz por casilla en vivo caen casi en la misma y ahí abajo es donde una guitarra pasa
 media canción.
 
 Y lo de la secuencia usa el grafo que ya estaba escrito, `nextDegrees` —de cada
@@ -262,6 +262,13 @@ lleno dos líneas más abajo— dice que te oye y no engancha, y que pruebes una
 cuerda sola. Es la misma regla de decir cuándo se duda que sigue el
 reconocimiento de acordes.
 
+**El afinador avisa de la señal sucia, pero no al primer vistazo.** Una nota limpia
+también baja su claridad un instante en el ataque y en la cola, así que el aviso solo
+sale si la claridad se queda por debajo de 0,93 durante 600 ms seguidos
+(`features/tuner/Tuner.tsx`, `SUCIA_SEGUIDA_MS`), y se retira cuando vuelve a pasar
+de 0,95: con un solo umbral, una nota que ronda el 0,95 lo abría y cerraba a cada
+lectura. Si el micro ni siquiera se abre, la frase la da `core/error-del-micro.ts`.
+
 **La distorsión la confunde.** Un previo saturado genera armónicos que pueden
 superar en energía a la fundamental. Cuando el segundo armónico domina, la
 autocorrelación encuentra un pico igual de bueno en la mitad del periodo y
@@ -284,7 +291,7 @@ buscado. No afecta a la guitarra —el traste 24 de la primera cuerda está en
 1319 Hz— pero conviene saberlo, y hay un test que lo fija para que no se
 confunda con un fallo.
 
-**El hueco entre dos púas no apaga la nota.** El motor espera 250 ms sin señal
+**El hueco entre dos púas no apaga la nota.** El motor espera 600 ms sin señal
 antes de avisar de que ya no suena nada. Sin esa espera, la pantalla parpadearía
 en cada silencio de la mano derecha.
 

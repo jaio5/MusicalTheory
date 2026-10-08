@@ -6,15 +6,15 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  HARMONIC_ROLES,
   NOTE_LENGTHS,
   EMPTY_ARRANGEMENT,
   MAX_BARS,
+  MAX_PART_BLOCKS,
   pitchClassFromName,
   type CapturedChord,
-  type DegreeSymbol,
 } from '@core/music';
 import { useArrangementStore } from '@state/arrangement-store';
-import { usePropuestaStore } from '@state/propuesta';
 import { useSessionStore } from '@state/session-store';
 
 import { ArrangeCanvas } from './ArrangeCanvas';
@@ -30,9 +30,6 @@ beforeEach(() => {
   document.elementFromPoint = () => null;
   useArrangementStore.setState({ arrangement: EMPTY_ARRANGEMENT, past: [] });
   useSessionStore.getState().actions.reset();
-  // Lo propuesto y sin aceptar también se queda de una prueba para otra, y una
-  // propuesta colgando esconde media barra de herramientas.
-  usePropuestaStore.setState({ propuesta: null });
 });
 
 /**
@@ -79,15 +76,9 @@ function tiraDe(parte: string) {
  */
 function acordesDe(parte: string): string[] {
   const seccion = screen.getByRole('region', { name: parte });
-  return (
-    within(seccion)
-      .queryAllByLabelText(/, grado /)
-      // Los fantasmas del copiloto también dicen su grado, y **no son de la
-      // canción**: quedan fuera de esta cuenta a propósito, que si entraran
-      // cualquier prueba de poner acordes pasaría con acordes que nadie aceptó.
-      .filter((nodo) => nodo.closest('[aria-label^="Lo propuesto"]') === null)
-      .map((nodo) => nodo.getAttribute('aria-label')?.split(',')[0] ?? '')
-  );
+  return within(seccion)
+    .queryAllByLabelText(/, grado /)
+    .map((nodo) => nodo.getAttribute('aria-label')?.split(',')[0] ?? '');
 }
 
 describe('sin tonalidad', () => {
@@ -174,7 +165,8 @@ describe('montar', () => {
     await userEvent.click(propuestas()[0]!);
 
     expect(screen.getByText('reposo')).toBeInTheDocument();
-    expect(screen.getByText('salida')).toBeInTheDocument();
+    expect(screen.getByText(HARMONIC_ROLES.subdominant.word)).toBeInTheDocument();
+    expect(screen.queryByText('salida')).not.toBeInTheDocument();
     expect(screen.getByText('tensión')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Partitura' }));
     expect(screen.queryByText('reposo')).not.toBeInTheDocument();
@@ -376,6 +368,9 @@ describe('lo grabado', () => {
     acciones.stopCapture(6000);
 
     render(<ArrangeCanvas />);
+    // «Solo grabar» no escribe nada: ofrecerlo era una frase rota que no hacía nada.
+    expect(screen.getByRole('button', { name: 'Traer punteo' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Traer solo/ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
     await enBloques();
 
@@ -431,7 +426,7 @@ describe('La fila de una parte', () => {
     render(<ArrangeCanvas />);
     await userEvent.click(propuestas()[0]!);
 
-    const papel = screen.getByRole('combobox', { name: 'Papel de Estrofa' });
+    const papel = screen.getByRole('combobox', { name: 'Sección de Estrofa' });
     const fila = papel.closest('.hay-mas-al-lado')!;
     expect(fila).toHaveClass('sm:flex-wrap', 'sm:[&>*]:shrink-0', 'max-sm:[&>*]:shrink-0');
   });
@@ -854,6 +849,55 @@ describe('lo que se oyó, y lo que no', () => {
     expect(screen.queryByText(/quedan/)).not.toBeInTheDocument();
   });
 
+  /**
+   * **Y dice de cuál habla.** «Apunté C» no bastaba con varios C en la canción:
+   * la tarjeta nombra la parte y el compás, y ese acorde va recuadrado en las
+   * dos vistas. Al resolverlo, el recuadro pasa al siguiente.
+   */
+  it('dice de cual habla y lo recuadra, en las dos vistas', async () => {
+    conTonalidad();
+    grabacion([
+      {
+        root: 0,
+        notes: triada(0, 4),
+        at: 0,
+        margin: 0.01,
+        alternatives: [{ root: 9, notes: triada(9, 3) }],
+      },
+      {
+        root: 5,
+        notes: triada(5, 4),
+        at: 4000,
+        margin: 0.01,
+        alternatives: [{ root: 2, notes: triada(2, 3) }],
+      },
+    ]);
+
+    render(<ArrangeCanvas />);
+    await userEvent.click(screen.getByRole('button', { name: 'Traer rítmica' }));
+    const tarjeta = screen.getByRole('region', { name: 'Corregir el acorde' });
+
+    expect(tarjeta).toHaveTextContent(/Apunté C en Lo que has tocado, compás 1, el recuadrado/);
+    const recuadrado = () =>
+      document
+        .querySelector('[data-corrigiendo]')!
+        .closest('[data-bloque]')!
+        .getAttribute('aria-label');
+    expect(recuadrado()).toMatch(/^C, /);
+    expect(document.querySelectorAll('[data-corrigiendo]')).toHaveLength(1);
+
+    await userEvent.click(within(tarjeta).getByRole('button', { name: /^Am/ }));
+    expect(recuadrado()).toMatch(/^F, /);
+    expect(screen.getByRole('region', { name: 'Corregir el acorde' })).toHaveTextContent(
+      /Apunté F en Lo que has tocado, compás \d+/,
+    );
+
+    await enBloques();
+    const [primero, segundo] = tiraDe('Lo que has tocado');
+    expect(primero).not.toHaveClass('outline-dashed');
+    expect(segundo).toHaveClass('outline-dashed');
+  });
+
   // Y cuando no queda ninguna, la pregunta desaparece.
   it('sin nada dudoso no pregunta nada', async () => {
     conTonalidad();
@@ -1074,6 +1118,8 @@ describe('la longitud de la partitura', () => {
     await conUnaParte();
     expect(screen.getByRole('group', { name: /Partitura de Parte 1/ })).toBeInTheDocument();
     expect(compases()).toHaveValue(4);
+    // Sin las flechas del navegador, que en 56 px dejaban «12» en «1⁝».
+    expect(compases()).toHaveClass('[appearance:textfield]');
   });
 
   it('el más y el menos van de uno en uno', async () => {
@@ -1201,100 +1247,6 @@ describe('quitar lo que has puesto', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
 
     expect(notasDe('Estrofa')).toHaveLength(1);
-  });
-});
-
-/**
- * Lo que el copiloto propone, en el lienzo.
- *
- * Punteado al final de la parte, sin el filo de color de seguridad, y **nada
- * entra hasta que alguien dice que sí**
- * ([adr/0033](../../../docs/adr/0033-el-copiloto-propone-y-no-escribe.md)).
- */
-describe('los bloques fantasma', () => {
-  function conPropuesta(degrees: readonly DegreeSymbol[] = ['IV', 'V']): string {
-    conTonalidad();
-    const id = useArrangementStore.getState().actions.addPart('Estrofa');
-    useArrangementStore.getState().actions.addBlock(id, 'I', 4);
-    usePropuestaStore.getState().acciones.proponer(id, degrees, 'Bajar por tonos');
-    return id;
-  }
-
-  it('salen al final de la parte, y se dicen como propuestos', () => {
-    conPropuesta();
-    render(<ArrangeCanvas />);
-
-    expect(
-      screen.getByRole('button', { name: /Aceptar F, grado IV\. Propuesto, 1 de 2\./ }),
-    ).toBeInTheDocument();
-    // Y la canción sigue teniendo un solo acorde: los fantasmas no son suyos.
-    expect(acordesDe('Estrofa')).toEqual(['C']);
-  });
-
-  // Pulsar el segundo acepta los dos: se acepta «hasta aquí», que es como se
-  // lee una fila de acordes.
-  it('pulsar uno acepta hasta ahi', async () => {
-    conPropuesta();
-    render(<ArrangeCanvas />);
-
-    await userEvent.click(screen.getByRole('button', { name: /Aceptar G, grado V/ }));
-
-    expect(acordesDe('Estrofa')).toEqual(['C', 'F', 'G']);
-    expect(usePropuestaStore.getState().propuesta).toBeNull();
-  });
-
-  it('y hay botones a la vista para aceptarlo todo o tirarlo', async () => {
-    conPropuesta();
-    render(<ArrangeCanvas />);
-
-    await userEvent.click(screen.getByRole('button', { name: /^Descartar/ }));
-
-    expect(usePropuestaStore.getState().propuesta).toBeNull();
-    expect(acordesDe('Estrofa')).toEqual(['C']);
-  });
-
-  /**
-   * `Tab` acepta y `Esc` descarta, que es lo que ya tiene aprendido quien usa un
-   * copiloto. **Solo mientras hay algo propuesto**: quedarse con `Tab` para
-   * siempre dejaría la pantalla sin poder recorrerse con el teclado.
-   */
-  it('Tab acepta lo propuesto, y Esc lo descarta', async () => {
-    conPropuesta();
-    render(<ArrangeCanvas />);
-
-    await userEvent.keyboard('{Tab}');
-
-    expect(acordesDe('Estrofa')).toEqual(['C', 'F', 'G']);
-
-    conPropuesta(['vi']);
-    await userEvent.keyboard('{Escape}');
-
-    expect(usePropuestaStore.getState().propuesta).toBeNull();
-  });
-
-  /**
-   * Y se dice en voz alta, porque un fantasma **cambia lo que hace `Tab`**.
-   *
-   * Aparecía sin decir nada: quien no ve la pantalla pulsaba `Tab` para
-   * recorrerla y se encontraba los acordes metidos en su canción. Se comprueba
-   * que la región está montada **antes** de que haya propuesta, que es lo que
-   * hace que se lea: una que nace con el texto ya puesto no se lee en todos los
-   * lectores.
-   */
-  it('se anuncia solo, con las teclas dentro', () => {
-    conTonalidad();
-    const { rerender } = render(<ArrangeCanvas />);
-    // El párrafo, y no la caja del aviso de lo grabado, que también se lee sola.
-    const region = screen.getByText('', { selector: 'p[aria-live="polite"]' });
-
-    expect(region).toBeInTheDocument();
-
-    conPropuesta();
-    rerender(<ArrangeCanvas />);
-
-    expect(region).toHaveTextContent(
-      'Bajar por tonos: 2 acordes propuestos para Estrofa. Tab los acepta, Mayúsculas y Tab acepta uno, Escape los descarta.',
-    );
   });
 });
 
@@ -1522,7 +1474,7 @@ describe('Lo que se hace con una parte', () => {
   it('y el papel que hace', async () => {
     await conUnaParte();
 
-    const papel = screen.getByRole('combobox', { name: /Papel de/ });
+    const papel = screen.getByRole('combobox', { name: /Sección de/ });
     await userEvent.selectOptions(papel, 'estribillo');
 
     expect(useArrangementStore.getState().arrangement.parts[0]!.role).toBe('estribillo');
@@ -2413,18 +2365,82 @@ describe('lo elegido, sin arrastrar', () => {
   });
 
   /**
-   * En una fila que se envolvía salían tres y uno: «+ pulso» solo abajo, lejos
-   * de su pareja. Dos pares en rejilla, arriba mover y abajo estirar.
+   * Eran cuatro `Chip` silenciosos en rejilla, sin contorno y con cien píxeles
+   * entre ellos: se leían como texto. Ahora son dos mandos con borde, mover y
+   * lo que dura, y lo que dura se lee entre el menos y el más.
    */
-  it('van en dos pares, mover arriba y estirar abajo', async () => {
+  it('van en dos mandos con borde, mover y lo que dura', async () => {
     const panel = await conTresAcordesYElPrimeroElegido();
-    const grupo = panel.getByRole('group', { name: 'Mover y estirar' });
-    const nombres = within(grupo)
-      .getAllByRole('button')
-      .map((b) => b.textContent);
+    const textos = (nombre: string) =>
+      within(panel.getByRole('group', { name: nombre }))
+        .getAllByRole('button')
+        .map((b) => b.textContent);
 
-    expect(grupo.className).toContain('grid-cols-2');
-    expect(nombres).toEqual(['Antes', 'Después', '− pulso', '+ pulso']);
+    expect(textos('Mover')).toEqual(['Antes', 'Después']);
+    expect(textos('Lo que dura')).toEqual(['−', '+']);
+    expect(panel.getByRole('group', { name: 'Lo que dura' })).toHaveTextContent('4 pulsos');
+    expect(panel.getByRole('group', { name: 'Mover' }).className).toContain('border');
+  });
+
+  // Con un pulso dice «pulso», no «pulsos».
+  it('lo que dura se dice en singular con un pulso', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    act(() => useArrangementStore.getState().actions.resizeBlock(bloques()[0]!.id, 1));
+
+    expect(panel.getByRole('group', { name: 'Lo que dura' })).toHaveTextContent('1 pulso');
+  });
+
+  /**
+   * Las teclas solo con un puntero fino: en un teléfono no hay flechas ni `Supr`.
+   * jsdom no evalúa la consulta, así que se mira que la variante esté puesta.
+   */
+  it('la ayuda del teclado solo sale con un puntero fino', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    const ayuda = panel.getByText(/^Con el teclado:/);
+
+    expect(ayuda).toHaveClass('hidden', 'pointer-fine:block');
+  });
+
+  /**
+   * **Cambiar no es meter detrás.** Escribir con un acorde elegido lo mete
+   * detrás, que es lo que deja encadenar; cambiarlo es otra cosa y tiene su
+   * sitio en lo elegido. Se queda donde estaba, con lo que duraba, y vuelve con
+   * un solo «Deshacer».
+   */
+  it('cambiar por otro lo sustituye en su sitio, y se deshace de una vez', async () => {
+    const panel = await conTresAcordesYElPrimeroElegido();
+    act(() => useArrangementStore.getState().actions.resizeBlock(bloques()[0]!.id, 6));
+    const antes = acordesDe('Estrofa');
+
+    await userEvent.click(panel.getByText('Cambiar por…'));
+    const campo = screen.getByRole('textbox', { name: `Cambiar ${antes[0]} por` });
+    await userEvent.type(campo, 'Em7{Enter}');
+
+    expect(acordesDe('Estrofa')).toEqual(['Em7', ...antes.slice(1)]);
+    expect(bloques()[0]!.beats).toBe(6);
+    expect(useArrangementStore.getState().selectedBlockId).toBe(bloques()[0]!.id);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Deshacer' }));
+    expect(acordesDe('Estrofa')).toEqual(antes);
+  });
+
+  // En una parte llena también: se quita antes de poner, o no cabría el nuevo y
+  // el viejo se perdería por el camino.
+  it('en una parte llena tambien se puede cambiar', async () => {
+    conTonalidad();
+    const acciones = useArrangementStore.getState().actions;
+    const parte = acciones.addPart('Estrofa');
+    for (let i = 0; i < MAX_PART_BLOCKS; i++) {
+      acciones.addBlock(parte, 'I', 1);
+    }
+    acciones.elegirBloque(bloques()[3]!.id);
+    render(<ArrangeCanvas />);
+
+    await userEvent.click(screen.getByText('Cambiar por…'));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Cambiar C por' }), 'G{Enter}');
+
+    expect(bloques()).toHaveLength(MAX_PART_BLOCKS);
+    expect(bloques()[3]!.degree).toBe('V');
   });
 
   it('y al final de la parte, despues se apaga', async () => {
@@ -2670,13 +2686,15 @@ describe('la barra del lienzo, por grupos', () => {
  * su nombre sigue diciendo de qué parte es.
  */
 describe('el papel de una parte', () => {
-  it('lleva el rotulo «Papel» a la vista', async () => {
+  // «Papel» era la palabra del código; quien toca dice «sección».
+  it('lleva el rotulo «Sección» a la vista', async () => {
     conTonalidad();
     render(<ArrangeCanvas />);
     await enBloques();
     await userEvent.click(screen.getAllByRole('button', { name: /^(I|C)\b/ })[0]!);
 
-    const selector = screen.getByRole('combobox', { name: /^Papel de / });
-    expect(selector.closest('label')!.parentElement!.textContent).toMatch(/^Papel/);
+    const selector = screen.getByRole('combobox', { name: /^Sección de / });
+    expect(selector.closest('label')!.parentElement!.textContent).toMatch(/^Sección/);
+    expect(selector).not.toHaveClass('text-xs');
   });
 });

@@ -12,7 +12,7 @@ import { useSessionStore } from '@state/session-store';
 
 import { ForgottenForm } from './account/ForgottenForm';
 import { SongsPanel } from './songs/SongsPanel';
-import { VersionsPanel } from './versions/VersionsPanel';
+import { SalidasPanel } from './salidas/SalidasPanel';
 
 vi.mock('next-auth/react', () => ({
   signIn: vi.fn(),
@@ -86,15 +86,15 @@ afterEach(() => {
 });
 
 describe('las direcciones que se usan de verdad', () => {
-  it('las salidas van a /api/versiones', async () => {
+  it('las salidas van a /api/salidas', async () => {
     componiendo();
     fetchFalso.mockResolvedValue(contesta({ versions: [] }));
-    conCuenta(<VersionsPanel />);
+    conCuenta(<SalidasPanel />);
 
     await userEvent.click(screen.getByRole('button', { name: /Salidas de esto/ }));
 
     await waitFor(() => expect(fetchFalso).toHaveBeenCalled());
-    expect(ultima()[0]).toBe('/api/versiones');
+    expect(ultima()[0]).toBe('/api/salidas');
   });
 
   it('las canciones van a /api/canciones, y se leen sin caché', async () => {

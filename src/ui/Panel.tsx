@@ -4,8 +4,6 @@ export interface PanelProps {
   readonly title: string;
   /** Identificador para enlazar el título con la región. */
   readonly id: string;
-  /** Controles propios del panel, alineados con el título. */
-  readonly actions?: ReactNode;
   /**
    * Que el título no se vea, pero siga nombrando la región.
    *
@@ -24,10 +22,9 @@ export interface PanelProps {
  * Cada pantalla monta varios: la cabecera es lo que deja saber de un vistazo
  * qué es cada cosa sin tener que leerla entera.
  */
-export function Panel({ title, id, actions, rotuloOculto = false, children }: PanelProps) {
-  // Sin franja: el título se queda como nombre de la región y nada más. Si hay
-  // controles propios siguen haciendo falta, así que la franja vuelve.
-  if (rotuloOculto && actions === undefined) {
+export function Panel({ title, id, rotuloOculto = false, children }: PanelProps) {
+  // Sin franja: el título se queda como nombre de la región y nada más.
+  if (rotuloOculto) {
     return (
       <section aria-labelledby={id} className="superficie flex flex-col overflow-hidden">
         <h2 id={id} className="sr-only">
@@ -40,11 +37,10 @@ export function Panel({ title, id, actions, rotuloOculto = false, children }: Pa
 
   return (
     <section aria-labelledby={id} className="superficie flex flex-col overflow-hidden">
-      <header className="border-border bg-surface-raised min-h-tap flex items-center justify-between gap-3 border-b px-4">
+      <header className="border-border bg-surface-raised min-h-tap flex items-center border-b px-4">
         <h2 id={id} className="rotulo">
           {title}
         </h2>
-        {actions !== undefined && <div className="flex items-center gap-2">{actions}</div>}
       </header>
       <div className="p-4">{children}</div>
     </section>

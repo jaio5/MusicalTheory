@@ -13,7 +13,7 @@ import { scaleNotes } from './scales';
 import { chordFit, suggestChords, type ChordSuggestion } from './suggestions';
 import type { StyleId } from './styles';
 
-export type Verdict = 'diatonic' | 'colour' | 'outside';
+type Verdict = 'diatonic' | 'colour' | 'outside';
 
 export interface ChordJudgement {
   readonly verdict: Verdict;

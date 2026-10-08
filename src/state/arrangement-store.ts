@@ -16,6 +16,9 @@
  * devuelven uno nuevo, así que guardar el anterior es gratis y no puede
  * descuadrarse; escribir la inversa de cada gesto sí, y el gesto que peor se
  * deshace —arrastrar entre partes— es justo el más frecuente.
+ *
+ * Un paso puede llevar algo más que el montaje: abrir una copia cambia también
+ * la tonalidad y el tempo, y deshacerla los devuelve (`PasoAtras`).
  */
 
 import { create, type StoreApi } from 'zustand';
@@ -29,6 +32,7 @@ import {
   findBlock,
   fixBlock,
   translateToMode,
+  leerMontaje,
   moveBlock,
   moveNote,
   movePart,
@@ -44,6 +48,7 @@ import {
   type Arrangement,
   type Block,
   type CapturedStep,
+  type CopiaDeLaCancion,
   type DegreeSymbol,
   type EspecieDeBloque,
   type LeadNote,
@@ -53,6 +58,7 @@ import {
 
 import { apuntarHecho } from './hechos-de-componer';
 import { vigilarElModoDelMontaje } from './montaje-en-su-modo';
+import { selectActiveKey, useSessionStore, type SessionState } from './session-store';
 import { createAlmacenDelLienzo, type AlmacenDelLienzo } from './session-storage';
 
 /**
@@ -108,6 +114,16 @@ export interface ArrangementActions {
   /** Abre un montaje entero: al cargar una canción, o al deshacerlo todo. */
   replace(arrangement: Arrangement): void;
   /**
+   * Abre una copia `.caos.json`: su tonalidad, su tempo y su montaje.
+   *
+   * **Se deshace entera, en un paso.** La tonalidad y el tempo viven en
+   * `session-store` y no en la pila, así que deshacer solo el montaje dejaba la
+   * canción de antes sonando en la tonalidad y el tempo de la copia; y si la
+   * copia era de otro modo, poner su tonalidad traducía antes la canción de
+   * antes, y lo que se apilaba ya venía con los bloques que el modo tira.
+   */
+  abrirCopia(copia: CopiaDeLaCancion): void;
+  /**
    * Pasa el montaje al modo pedido, traduciendo cada grado por su función.
    *
    * Lo llama `montaje-en-su-modo.ts`, que vigila la tonalidad desde que se crea
@@ -127,6 +143,17 @@ export interface ArrangementActions {
   keepMode(mode: KeyMode): void;
   /** Deja de avisar de lo que se quedó fuera al cambiar de modo. */
   olvidarQuitados(): void;
+
+  /**
+   * Pone la canción que se acaba de escribir en otra pestaña.
+   *
+   * **Con deshacer detrás**, al contrario que lo leído al abrir: lo de aquí era
+   * trabajo de quien está mirando esta pestaña, y si no quería lo de la otra,
+   * deshacer se lo devuelve.
+   */
+  traerDeOtraPestana(arrangement: Arrangement): void;
+  /** Deja de avisar de que la canción llegó de otra pestaña. */
+  olvidarOtraPestana(): void;
 
   /**
    * Un arrastre entero cuenta como un paso atrás.
@@ -168,14 +195,36 @@ export interface QuitadosAlCambiarDeModo {
   readonly bloques: readonly Block[];
 }
 
+/** Lo de `session-store` que una copia cambia y deshacerla devuelve. */
+type AjustesDeLaSesion = Pick<SessionState, 'pinnedKey' | 'bpm' | 'beatsPerBar'>;
+
+/**
+ * Un paso del deshacer: el montaje de antes y, si el paso fue abrir una copia,
+ * los ajustes de la sesión que había antes de abrirla.
+ *
+ * **Es el montaje mismo, con los ajustes al lado**, y no una caja que lo
+ * envuelva: así lo apilado por un cambio cualquiera es el montaje de antes, el
+ * mismo objeto, y quien compara la pila con un montaje que guardó —Salidas, para
+ * saber si lo último fue probar una propuesta— sigue pudiendo hacerlo. Solo el
+ * paso de una copia es un objeto propio, y deshacerlo pone el montaje sin los
+ * ajustes.
+ */
+export type PasoAtras = Arrangement & { readonly ajustesDeAntes?: AjustesDeLaSesion };
+
 export interface ArrangementState {
   readonly arrangement: Arrangement;
-  /** Montajes anteriores, el último primero. */
-  readonly past: readonly Arrangement[];
+  /** Lo que se deshace, el último primero. */
+  readonly past: readonly PasoAtras[];
   /** Lo que el último cambio de modo dejó fuera, o nulo si no dejó nada. */
   readonly quitadosAlCambiarDeModo: QuitadosAlCambiarDeModo | null;
   /** El bloque elegido, o nulo. Lo miran el lienzo y la columna del acorde. */
   readonly selectedBlockId: string | null;
+  /**
+   * Si la canción que se ve llegó de otra pestaña y todavía no se ha dicho que
+   * vale. Es para poder decirlo: que la canción cambie sola, sin que nadie la
+   * toque aquí, sin una frase es un fallo (adr/0118).
+   */
+  readonly llegoDeOtraPestana: boolean;
   readonly actions: ArrangementActions;
 }
 
@@ -207,6 +256,28 @@ export function nuevoId(prefijo: string): string {
  */
 let enGesto = false;
 let yaApilado = false;
+
+/**
+ * Quien quiere enterarse de que se ha soltado un arrastre: el guardado, que con
+ * el gesto abierto no programa nada y espera a esto en vez de mirar cada poco.
+ */
+const alCerrarElGesto = new Set<() => void>();
+
+/** Avisa al soltar cada arrastre. Devuelve con qué dejar de avisar. */
+export function avisarAlCerrarElGesto(aviso: () => void): () => void {
+  alCerrarElGesto.add(aviso);
+  return () => alCerrarElGesto.delete(aviso);
+}
+
+function devolverAjustes({ pinnedKey, bpm, beatsPerBar }: AjustesDeLaSesion): void {
+  const sesion = useSessionStore.getState().actions;
+  if (pinnedKey === null) {
+    sesion.followDetection();
+  } else {
+    sesion.pinKey(pinnedKey);
+  }
+  sesion.setTempo(bpm, beatsPerBar);
+}
 
 /** Si hay un arrastre a medias. Mientras lo haya, el lienzo no se guarda. */
 export function gestoAbierto(): boolean {
@@ -244,6 +315,7 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
     past: [],
     quitadosAlCambiarDeModo: null,
     selectedBlockId: null,
+    llegoDeOtraPestana: false,
     actions: {
       elegirBloque(blockId) {
         set({ selectedBlockId: blockId });
@@ -342,6 +414,27 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
       replace(arrangement) {
         cambiar(() => arrangement);
       },
+      abrirCopia(copia) {
+        const { pinnedKey, bpm, beatsPerBar, actions: sesion } = useSessionStore.getState();
+        const { arrangement, past } = get();
+        // Se apila antes de poner la tonalidad, que tradujera lo de antes al modo
+        // de la copia, y con los ajustes que deshacerla devuelve.
+        const antes: PasoAtras = {
+          ...arrangement,
+          ajustesDeAntes: { pinnedKey, bpm, beatsPerBar },
+        };
+        sesion.pinKey({ tonic: copia.tonic, mode: copia.mode });
+        sesion.setTempo(copia.bpm, copia.beatsPerBar);
+        set({
+          arrangement: copia.arrangement,
+          past: [antes, ...past].slice(0, MAX_UNDO),
+          // Lo que el cambio de modo quitó era de la canción de antes, que vuelve
+          // entera al deshacer; y lo elegido allí no existe aquí.
+          quitadosAlCambiarDeModo: null,
+          selectedBlockId: null,
+          llegoDeOtraPestana: false,
+        });
+      },
       keepMode(mode) {
         const { arrangement, selectedBlockId } = get();
         const siguiente = translateToMode(arrangement, mode);
@@ -367,6 +460,21 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
       olvidarQuitados() {
         set({ quitadosAlCambiarDeModo: null });
       },
+      traerDeOtraPestana(arrangement) {
+        cambiar(() => arrangement);
+        const { selectedBlockId } = get();
+        // El bloque elegido aquí puede no existir en lo que llega: la columna del
+        // acorde enseñaría algo que ya no está en la canción.
+        set({
+          llegoDeOtraPestana: true,
+          ...(selectedBlockId !== null && findBlock(arrangement, selectedBlockId) === null
+            ? { selectedBlockId: null }
+            : {}),
+        });
+      },
+      olvidarOtraPestana() {
+        set({ llegoDeOtraPestana: false });
+      },
 
       beginGesture() {
         enGesto = true;
@@ -375,6 +483,9 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
       endGesture() {
         enGesto = false;
         yaApilado = false;
+        for (const aviso of alCerrarElGesto) {
+          aviso();
+        }
       },
 
       undo() {
@@ -383,7 +494,21 @@ export const useArrangementStore = create<ArrangementState>((set, get) => {
         if (anterior === undefined) {
           return;
         }
-        set({ arrangement: anterior, past: resto });
+        const { ajustesDeAntes, ...montaje } = anterior;
+        if (ajustesDeAntes === undefined) {
+          // El mismo objeto que se apiló, no una copia: es el montaje de antes.
+          set({ arrangement: anterior, past: resto });
+          return;
+        }
+        // La tonalidad antes que el montaje: al revés, la vigilancia del modo
+        // traduciría la canción de antes al de la copia y la volvería a recortar.
+        devolverAjustes(ajustesDeAntes);
+        set({
+          arrangement: montaje,
+          past: resto,
+          quitadosAlCambiarDeModo: null,
+          selectedBlockId: null,
+        });
       },
       clear() {
         cambiar(() => EMPTY_ARRANGEMENT);
@@ -427,6 +552,23 @@ export const RETRASO_DEL_GUARDADO = 300;
 type AlmacenQueSeGuarda = Pick<StoreApi<ArrangementState>, 'getState' | 'setState' | 'subscribe'>;
 
 /**
+ * Lo que hace falta de un canal entre pestañas: mandar y oír. Es lo que tiene
+ * `BroadcastChannel`, y en los tests, un doble.
+ */
+export type CanalEntrePestanas = Pick<
+  BroadcastChannel,
+  'postMessage' | 'addEventListener' | 'removeEventListener'
+>;
+
+/** El nombre del canal: el mismo en todas las pestañas del mismo sitio. */
+const CANAL_DEL_LIENZO = 'caos-ordenado:lienzo';
+
+/** Si dos montajes dicen lo mismo, aunque sean objetos distintos. */
+function iguales(uno: Arrangement, otro: Arrangement): boolean {
+  return JSON.stringify(uno) === JSON.stringify(otro);
+}
+
+/**
  * Que el lienzo sobreviva a recargar: lo lee al empezar y lo guarda al cambiar.
  *
  * **Primero se lee y después se guarda.** Al revés, el lienzo vacío con el que
@@ -442,7 +584,8 @@ type AlmacenQueSeGuarda = Pick<StoreApi<ArrangementState>, 'getState' | 'setStat
  * **No se guarda en cada movimiento.** Cada cambio reinicia la espera, y a mitad
  * de un arrastre no se escribe: arrastrar un bloque cambia el montaje en cada
  * hueco por el que pasa, y serían decenas de escrituras para quedarse con la
- * última. Si la espera se cumple con el gesto abierto, se vuelve a esperar. Las
+ * última. Con el gesto abierto no se programa nada: queda pendiente, y al soltar
+ * (`avisarAlCerrarElGesto`) empieza la espera. Las
  * escrituras van en fila y cada una lee el montaje del momento, así que una lenta
  * no puede dejar en la base uno más viejo que el siguiente.
  *
@@ -451,39 +594,85 @@ type AlmacenQueSeGuarda = Pick<StoreApi<ArrangementState>, 'getState' | 'setStat
  * guarda: es de la sesión, y volver mañana a una pila de pasos de ayer no
  * devuelve a nadie a donde estaba.
  *
+ * **Y lo escrito se cuenta a las otras pestañas** (`canal`). El lienzo guardado
+ * es uno, y con dos pestañas abiertas cada una guardaba el suyo encima del de la
+ * otra sin que ninguna lo supiera: lo último que se tocaba en una borraba lo
+ * hecho en la otra. `storage` no sirve, porque solo avisa de `localStorage` y
+ * esto vive en IndexedDB; un `BroadcastChannel` avisa de lo que se le diga.
+ * Lo que llega entra con su deshacer y con un aviso, en el modo de la tonalidad
+ * de esta pestaña, y **no se vuelve a contar**: si cada pestaña repitiera lo que
+ * oye, dos pestañas se lo devolverían para siempre. A mitad de un arrastre no
+ * entra: lo de esta pestaña, al soltar, se guarda y se cuenta, y manda
+ * ([adr/0118](../../docs/adr/0118-la-cancion-vive-en-este-navegador-y-se-dice.md)).
+ *
  * Solo en el navegador: escucha a la ventana, y en el servidor no hay ni ventana
  * ni de quién guardar nada.
  */
 export function guardarElLienzo(
   montaje: AlmacenQueSeGuarda,
   lienzo: AlmacenDelLienzo,
+  canal: CanalEntrePestanas | null = null,
   retraso: number = RETRASO_DEL_GUARDADO,
 ): () => void {
   let leido = false;
   let temporizador: ReturnType<typeof setTimeout> | null = null;
   let fila: Promise<void> = Promise.resolve();
+  /** Lo último que llegó de otra pestaña: eso no se guarda ni se cuenta otra vez. */
+  let deFuera: Arrangement | null = null;
+  /** Si algo cambió con el gesto abierto y espera a que se suelte para guardarse. */
+  let alSoltar = false;
 
   const escribir = (): void => {
     temporizador = null;
     fila = fila
-      .then(() => lienzo.guardar(montaje.getState().arrangement))
+      .then(async () => {
+        const { arrangement } = montaje.getState();
+        await lienzo.guardar(arrangement);
+        canal?.postMessage({ arrangement });
+      })
       // Si el navegador no deja guardar —modo privado, cuota llena—, se pierde
       // el guardado y no la sesión: el lienzo sigue en memoria y se puede seguir.
       .catch(() => {});
   };
 
-  const esperar = (): void => {
+  const pararLaEspera = (): void => {
     if (temporizador !== null) {
       clearTimeout(temporizador);
+      temporizador = null;
+    }
+  };
+
+  /**
+   * Empieza la espera, o la deja para cuando se suelte el gesto.
+   *
+   * **Con el gesto abierto no se programa nada.** Se volvía a esperar cada
+   * `retraso`, y un arrastre largo era un temporizador cada 300 ms para
+   * comprobar que seguía abierto.
+   */
+  const esperar = (): void => {
+    pararLaEspera();
+    if (gestoAbierto()) {
+      alSoltar = true;
+      return;
     }
     temporizador = setTimeout(() => {
+      // Una espera que empezó antes del gesto y se cumple dentro también lo deja
+      // para el final: a mitad de un arrastre no se escribe.
       if (gestoAbierto()) {
-        esperar();
+        temporizador = null;
+        alSoltar = true;
         return;
       }
       escribir();
     }, retraso);
   };
+
+  const dejarDeOirElGesto = avisarAlCerrarElGesto(() => {
+    if (alSoltar) {
+      alSoltar = false;
+      esperar();
+    }
+  });
 
   void lienzo
     .leer()
@@ -502,14 +691,35 @@ export function guardarElLienzo(
     });
 
   const dejarDeMirar = montaje.subscribe((estado, anterior) => {
-    if (leido && estado.arrangement !== anterior.arrangement) {
+    if (leido && estado.arrangement !== anterior.arrangement && estado.arrangement !== deFuera) {
       esperar();
     }
   });
 
+  const alLlegar = (evento: MessageEvent): void => {
+    const llegado = leerMontaje((evento.data as { arrangement?: unknown } | null)?.arrangement);
+    if (llegado === null || gestoAbierto()) {
+      return;
+    }
+    // En el modo de esta pestaña, que puede tener otra tonalidad puesta: sin
+    // traducirlo aquí lo traduciría la vigilancia del modo, y eso sería un
+    // cambio de esta pestaña que se guardaría y se contaría de vuelta.
+    const modo = selectActiveKey(useSessionStore.getState())?.mode;
+    const traducido = modo === undefined ? llegado : translateToMode(llegado, modo);
+    if (iguales(traducido, montaje.getState().arrangement)) {
+      return;
+    }
+    deFuera = traducido;
+    montaje.getState().actions.traerDeOtraPestana(traducido);
+  };
+  canal?.addEventListener('message', alLlegar);
+
   const alIrse = (): void => {
-    if (temporizador !== null) {
-      clearTimeout(temporizador);
+    // Lo que esperaba al final del gesto también: quien se va a mitad de un
+    // arrastre no lo va a soltar aquí.
+    if (temporizador !== null || alSoltar) {
+      pararLaEspera();
+      alSoltar = false;
       escribir();
     }
   };
@@ -517,10 +727,10 @@ export function guardarElLienzo(
 
   return () => {
     dejarDeMirar();
+    dejarDeOirElGesto();
+    canal?.removeEventListener('message', alLlegar);
     window.removeEventListener('pagehide', alIrse);
-    if (temporizador !== null) {
-      clearTimeout(temporizador);
-    }
+    pararLaEspera();
   };
 }
 
@@ -531,7 +741,25 @@ export function guardarElLienzo(
  * dónde guardar ni de quién.
  */
 if (typeof window !== 'undefined') {
-  guardarElLienzo(useArrangementStore, createAlmacenDelLienzo());
+  /**
+   * El guardado de la vez anterior que se evaluó este módulo, para quitarlo.
+   *
+   * En el navegador de verdad se evalúa una vez; **en desarrollo, una por cada
+   * recarga en caliente**, y cada una dejaba otro canal abierto y otros oyentes
+   * guardando un almacén que ya nadie pinta. Colgado de `globalThis`, como la
+   * conexión de `server/db/client.ts`, porque es lo único que sobrevive a la
+   * recarga.
+   */
+  const anterior = globalThis as { __caosGuardadoDelLienzo?: () => void };
+  anterior.__caosGuardadoDelLienzo?.();
+  // Sin comprobar si existe: lo traen todos los navegadores desde 2022, y esta
+  // aplicación ya pide `popover`, que es de 2024.
+  const canal = new BroadcastChannel(CANAL_DEL_LIENZO);
+  const dejarDeGuardar = guardarElLienzo(useArrangementStore, createAlmacenDelLienzo(), canal);
+  anterior.__caosGuardadoDelLienzo = () => {
+    dejarDeGuardar();
+    canal.close();
+  };
 }
 
 /** Si hay algo que deshacer, para no dejar el botón encendido sin nada detrás. */

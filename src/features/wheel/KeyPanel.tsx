@@ -32,30 +32,42 @@ export interface KeyPanelProps {
 }
 
 export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
-  const activeKey = useSessionStore(selectActiveKey);
-  const pinnedKey = useSessionStore((state) => state.pinnedKey);
-  const candidates = useSessionStore((state) => state.keyCandidates);
-  const actions = useSessionStore((state) => state.actions);
+  return compact ? <Rueda /> : <PanelEntero />;
+}
 
-  const wheel = (
+/**
+ * Solo la rueda, suscrita solo a lo que pinta.
+ *
+ * Aparte del panel entero porque **compacta no mira los candidatos** y suscrita
+ * a ellos se repintaba igual: la detección los rehace cada medio segundo
+ * mientras suena algo, y componer lleva esta rueda montada en su columna y en el
+ * panel de la tonalidad del teléfono.
+ */
+function Rueda() {
+  const activeKey = useSessionStore(selectActiveKey);
+  const actions = useSessionStore((state) => state.actions);
+  return (
     <WheelOfFifths
       tonic={activeKey?.tonic ?? null}
       mode={activeKey?.mode ?? null}
       onPick={(tonic, mode) => actions.pinKey({ tonic, mode })}
     />
   );
+}
 
-  if (compact) {
-    return wheel;
-  }
+function PanelEntero() {
+  const activeKey = useSessionStore(selectActiveKey);
+  const pinnedKey = useSessionStore((state) => state.pinnedKey);
+  const candidates = useSessionStore((state) => state.keyCandidates);
+  const actions = useSessionStore((state) => state.actions);
 
   return (
     <Panel id="tonalidad" title="Tonalidad">
       <div className="mt-6 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
-        {wheel}
+        <Rueda />
 
         <div className="w-full">
-          <p className="text-text-muted text-sm" aria-live="polite">
+          <p className="text-text-muted" aria-live="polite">
             {activeKey === null
               ? 'Toca unas notas sueltas y la detectamos sola.'
               : pinnedKey === null
@@ -106,7 +118,7 @@ export function KeyPanel({ compact = false }: KeyPanelProps = {}) {
                 {candidates.map((candidate) => (
                   <li
                     key={`${candidate.tonic}:${candidate.mode}`}
-                    className="text-text flex justify-between font-mono text-sm"
+                    className="text-text flex justify-between font-mono"
                   >
                     <span>{candidate.name}</span>
                     <span className="text-text-muted">{candidate.score.toFixed(2)}</span>

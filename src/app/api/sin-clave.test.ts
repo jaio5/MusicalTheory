@@ -10,12 +10,13 @@ import { describe, expect, it } from 'vitest';
  */
 
 import { validateTeacherAnswer } from '@features/learn/teacher-contract';
-import { validateVersions, type VersionsRequest } from '@features/versions/contract';
-import { lasTresMejores, salidasDe } from '@features/versions/menu';
+import { validateSalidas } from '@features/salidas/contract';
+import type { SalidasRequest } from '@features/salidas/peticion';
+import { lasTresMejores, salidasDe } from '@features/salidas/menu';
 
-import { respuestaSinIA, SIN_IA, versionesSinIA } from '@server/fake-model';
+import { respuestaSinIA, SIN_IA, salidasSinIA } from '@server/fake-model';
 
-const EN_DO: VersionsRequest = {
+const EN_DO: SalidasRequest = {
   key: { tonic: 'C', mode: 'major' },
   kind: 'retocar',
   progression: [
@@ -27,9 +28,9 @@ const EN_DO: VersionsRequest = {
 };
 
 /** Lo que contesta el modelo que no piensa, ya validado contra el contrato. */
-function sinIA(request: VersionsRequest) {
-  return validateVersions(
-    versionesSinIA({
+function sinIA(request: SalidasRequest) {
+  return validateSalidas(
+    salidasSinIA({
       menu: salidasDe(request),
       elegidas: lasTresMejores(salidasDe(request), request.progression).map((i) => i + 1),
     }),
@@ -60,7 +61,7 @@ describe('las versiones sin IA', () => {
   });
 
   it('en menor también salen, y también pasan', () => {
-    const enLa: VersionsRequest = {
+    const enLa: SalidasRequest = {
       kind: 'retocar',
       key: { tonic: 'A', mode: 'minor' },
       progression: [
@@ -75,7 +76,7 @@ describe('las versiones sin IA', () => {
   });
 
   it('una progresión con poco que hacer da lo que haya, sin inventar', () => {
-    const rara: VersionsRequest = {
+    const rara: SalidasRequest = {
       kind: 'retocar',
       key: { tonic: 'C', mode: 'major' },
       progression: [

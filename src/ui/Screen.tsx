@@ -224,7 +224,9 @@ export function WorkHeader({
   readonly lineaSoloEnElBanco?: boolean;
 }) {
   return (
-    <div className="border-border flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 md:px-4">
+    // `px-margen`, el mismo borde que el título de `Screen`: con `px-4` fijo, a
+    // 1920 la cabecera empezaba a 16 px del canto y lo de debajo a 64.
+    <div className="border-border px-margen flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b py-1.5">
       {back !== undefined && (
         <Link
           href={back.href}
@@ -243,20 +245,24 @@ export function WorkHeader({
           baja antes a las acciones a su renglón. */}
       <h1 className="titular text-text min-w-0 text-lg break-words">{title}</h1>
       {/*
-        `flex-1` con base cero, y no solo `min-w-0`: es lo que hace que la línea
-        comparta fila con el rótulo en vez de bajarse a la suya.
+        **En un teléfono, la línea va en su renglón y entera; desde `sm`, al lado.**
+
+        Al lado del título en un teléfono no cabía: se cortaba —«…por donde
+        quiere…»— y además se llevaba el sitio de las acciones, que bajaban solas
+        a otra fila («35 XP» en un renglón para él). Con `order-last` el título y
+        sus acciones se quedan juntos arriba y la línea va debajo, sin cortar.
+
+        Desde `sm`, `flex-1` con base cero, y no solo `min-w-0`: es lo que hace
+        que la línea comparta fila con el rótulo en vez de bajarse a la suya.
 
         `flex-wrap` decide dónde parte **antes** de encoger a nadie, y mira el
         tamaño natural del texto: una frase de trescientos píxeles al lado de un
         rótulo de ochenta no cabía, así que se bajaba y se quedaba con una fila
         entera para ella. Con base cero sí cabe, y luego crece hasta lo que sobre.
-
-        Son veinte píxeles en un teléfono, y ahí valen: esta cabecera gastaba 153
-        de 640 —casi una cuarta parte de la pantalla— en decir dónde estás.
       */}
       {lead !== undefined && (
         <p
-          className={`text-text-muted min-w-0 flex-1 basis-0 truncate text-sm ${
+          className={`text-text-muted min-w-0 max-sm:order-last max-sm:basis-full sm:flex-1 sm:basis-0 sm:truncate ${
             lineaSoloEnElBanco ? 'max-lg:hidden' : ''
           }`}
         >

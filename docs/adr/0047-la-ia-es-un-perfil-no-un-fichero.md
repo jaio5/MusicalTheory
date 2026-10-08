@@ -1,5 +1,7 @@
 # ADR 0047 — La IA es un perfil, no un fichero
 
+> **Hoy `compose.yml` tiene seis servicios** y los de la IA son tres: `ollama`, `ia-modelo` e `ia-calentar`. El fichero superpuesto de la primera redacción ya no existe.
+
 Fecha: 2026-09-24 · Estado: aceptada · Sustituye el punto 4 de [ADR 0014](./0014-un-modelo-de-casa-para-probar.md)
 
 ## Contexto

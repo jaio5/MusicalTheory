@@ -183,7 +183,7 @@ export interface CapturedStep {
  * oyó bien y no es ninguno de los grados del modo —un F#m en Do mayor—, y
  * `ilegible` es que no se pareció lo bastante a nada.
  */
-export interface UnreadChord {
+interface UnreadChord {
   /** Milisegundos desde que empezó a grabarse. */
   readonly at: number;
   readonly beats: number;

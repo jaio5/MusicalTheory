@@ -100,7 +100,7 @@ export function AccountScreen() {
             ponía «Plan Gratis» y debajo «Gratis» otra vez. Repetir una palabra no
             es informar, y el hueco que ocupa lo pide algo que sí. */}
           <div className="border-brass-dim ml-auto rounded-md border px-3 py-1.5 text-center">
-            <p className="text-brass-bright text-sm font-medium">Plan {plan.name}</p>
+            <p className="text-brass-bright font-medium">Plan {plan.name}</p>
             {precio !== plan.name && <p className="text-text-muted font-mono text-xs">{precio}</p>}
           </div>
         </div>
@@ -129,7 +129,7 @@ export function AccountScreen() {
 
       <div className="grid items-start gap-x-[clamp(2rem,4vw,5rem)] gap-y-10 md:gap-y-14 xl:grid-cols-2 min-[112rem]:grid-cols-3">
         <Section id="perfil" title="Tu perfil">
-          <p className="text-text-muted max-w-prose text-sm">
+          <p className="text-text-muted max-w-prose">
             De cómo te llames salen el saludo y la letra del círculo, aquí y en la barra de arriba.
           </p>
           <div className="mt-3">
@@ -145,7 +145,7 @@ export function AccountScreen() {
         <Section id="suscripcion" title="Tu suscripción">
           <div className="superficie flex flex-wrap items-baseline gap-x-4 gap-y-1 p-4">
             <p className="text-brass-bright text-xl">{plan.name}</p>
-            {precio !== plan.name && <p className="text-text-muted font-mono text-sm">{precio}</p>}
+            {precio !== plan.name && <p className="text-text-muted tabular-nums">{precio}</p>}
             {/* **«61 de 67» se lee como gastado, y 61 es lo que queda.** El mismo
               número sale en componer como «te quedan 61», así que la aplicación
               decía dos cosas opuestas con la misma cifra. Aquí se dice el verbo. */}
@@ -153,12 +153,12 @@ export function AccountScreen() {
               {account.aiLeftMonth === null
                 ? cupoEnPalabras(plan.id, account.aiModel)
                 : `Te quedan ${account.aiLeftMonth} de ${monthlyAiRequests(plan.id, account.aiModel)} preguntas al profesor este mes${
-                    can(plan.id, 'versiones') ? `; ${gastoDeUnaSalida(account.aiModel)}` : ''
+                    can(plan.id, 'salidas') ? `; ${gastoDeUnaSalida(account.aiModel)}` : ''
                   }`}
             </p>
           </div>
 
-          <p className="text-text-muted mt-2 text-sm">{plan.claim}</p>
+          <p className="text-text-muted mt-2">{plan.claim}</p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link href="/planes" className={estiloBoton('quiet')}>
@@ -176,7 +176,7 @@ export function AccountScreen() {
         </Section>
 
         <Section id="privacidad" title="Qué se guarda de ti">
-          <ul className="text-text-muted flex list-disc flex-col gap-1 pl-5 text-sm">
+          <ul className="text-text-muted flex list-disc flex-col gap-1 pl-5">
             <li>Tu correo, tu nombre si lo has puesto, y tu contraseña cifrada. Nunca en claro.</li>
             <li>
               Las unidades que has superado, el XP, la racha, las medallas, por dónde elegiste
@@ -193,7 +193,7 @@ export function AccountScreen() {
               equipo, y las cuentas no han cambiado eso.
             </li>
           </ul>
-          <p className="text-text-muted mt-3 max-w-prose text-sm">
+          <p className="text-text-muted mt-3 max-w-prose">
             El detalle, con a quién se manda lo que preguntas a la IA, en la{' '}
             <Link href="/privacidad" className="enlace">
               política de privacidad

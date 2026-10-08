@@ -49,3 +49,7 @@ tomas/
 # Un script que escriba en `${sinDefinir}/` crea esta carpeta; ya se coló una vez
 # en un commit con capturas.
 undefined/
+
+# Las copias de trabajo que crean los agentes (`isolation: worktree`): repositorios
+# enteros, de un giga, que no son de aquí.
+.claude/worktrees/

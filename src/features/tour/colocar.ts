@@ -11,6 +11,13 @@
  * un teléfono ocupa casi todo— no hay sitio limpio, y entonces se pega al borde
  * de arriba o al de abajo, el que menos tape. Es cálculo puro, sin `window`, y
  * por eso se prueba con números.
+ *
+ * **Se coloca dentro de un marco, no de la ventana**: el hueco de trabajo, entre
+ * la cabecera y la barra de pantallas. Con la ventana entera, sin sitio limpio
+ * la tarjeta se pegaba al borde de abajo encima de la navegación, o al de arriba
+ * encima de la cabecera, y tapaba justo lo que se usa para salir de ahí. Medido
+ * en `/afinar` a 360×640: el afinador mide 430 de alto y la tarjeta caía sobre
+ * el micro, el tema y la marca.
  */
 
 export interface Caja {
@@ -48,22 +55,24 @@ function solape(a: Caja, b: Caja): number {
   return ancho > 0 && alto > 0 ? ancho * alto : 0;
 }
 
-export function colocarTarjeta(objetivo: Caja | null, tarjeta: Medida, ventana: Medida): Sitio {
-  const xMax = Math.max(MARGEN, ventana.ancho - MARGEN - tarjeta.ancho);
-  const yMax = Math.max(MARGEN, ventana.alto - MARGEN - tarjeta.alto);
+export function colocarTarjeta(objetivo: Caja | null, tarjeta: Medida, marco: Caja): Sitio {
+  const xMin = marco.x + MARGEN;
+  const yMin = marco.y + MARGEN;
+  const xMax = Math.max(xMin, marco.x + marco.ancho - MARGEN - tarjeta.ancho);
+  const yMax = Math.max(yMin, marco.y + marco.alto - MARGEN - tarjeta.alto);
 
   if (objetivo === null) {
     return {
-      x: acotar((ventana.ancho - tarjeta.ancho) / 2, MARGEN, xMax),
-      y: acotar((ventana.alto - tarjeta.alto) / 2, MARGEN, yMax),
+      x: acotar(marco.x + (marco.ancho - tarjeta.ancho) / 2, xMin, xMax),
+      y: acotar(marco.y + (marco.alto - tarjeta.alto) / 2, yMin, yMax),
       lado: 'centro',
     };
   }
 
   const centroX = objetivo.x + objetivo.ancho / 2;
   const centroY = objetivo.y + objetivo.alto / 2;
-  const enColumna = acotar(centroX - tarjeta.ancho / 2, MARGEN, xMax);
-  const enFila = acotar(centroY - tarjeta.alto / 2, MARGEN, yMax);
+  const enColumna = acotar(centroX - tarjeta.ancho / 2, xMin, xMax);
+  const enFila = acotar(centroY - tarjeta.alto / 2, yMin, yMax);
 
   const candidatos: ReadonlyArray<Sitio> = [
     { x: enColumna, y: objetivo.y + objetivo.alto + HUECO, lado: 'debajo' },
@@ -73,10 +82,10 @@ export function colocarTarjeta(objetivo: Caja | null, tarjeta: Medida, ventana: 
   ];
 
   const cabe = (sitio: Sitio) =>
-    sitio.x >= MARGEN &&
-    sitio.y >= MARGEN &&
-    sitio.x + tarjeta.ancho <= ventana.ancho - MARGEN &&
-    sitio.y + tarjeta.alto <= ventana.alto - MARGEN;
+    sitio.x >= xMin &&
+    sitio.y >= yMin &&
+    sitio.x + tarjeta.ancho <= marco.x + marco.ancho - MARGEN &&
+    sitio.y + tarjeta.alto <= marco.y + marco.alto - MARGEN;
 
   const limpio = candidatos.find(cabe);
   if (limpio !== undefined) {
@@ -86,7 +95,7 @@ export function colocarTarjeta(objetivo: Caja | null, tarjeta: Medida, ventana: 
   // Sin sitio limpio: contra un borde, el que menos tape. A igualdad, abajo, que
   // es donde llega el pulgar.
   const abajo: Sitio = { x: enColumna, y: yMax, lado: 'abajo' };
-  const arriba: Sitio = { x: enColumna, y: MARGEN, lado: 'arriba' };
+  const arriba: Sitio = { x: enColumna, y: yMin, lado: 'arriba' };
   const tapa = (sitio: Sitio) => solape({ ...sitio, ...tarjeta }, objetivo);
   return tapa(arriba) < tapa(abajo) ? arriba : abajo;
 }

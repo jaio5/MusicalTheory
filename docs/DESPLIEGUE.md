@@ -14,7 +14,7 @@ que corren en el servidor y que existen precisamente para que la clave del model
 llegue nunca al navegador:
 
 - `/api/teacher` — el profesor.
-- `/api/versiones` — las salidas: por dónde puede seguir lo que llevas tocado. Es
+- `/api/salidas` — las salidas: por dónde puede seguir lo que llevas tocado. Es
   la más cara de las dos.
 
 Las dos pasan por las mismas puertas —frecuencia, cuenta y cupo— y están en un
@@ -67,7 +67,7 @@ aplicación se comporta como si no hubiera ninguna. Es a propósito: media confi
 de cuentas es peor que ninguna, porque falla al entrar en vez de decir que aquí no hay
 cuentas.
 
-**Las seis de Stripe también van juntas**, y por lo mismo: `billing()` comprueba que
+**Las seis de Stripe también van juntas**, y por lo mismo: `stripeConfigured()` —que `billing()` consulta— comprueba que
 estén la clave y los cuatro precios —dos planes, al mes y al año—, y si falta
 cualquiera devuelve el cobrador que no cobra. `STRIPE_PRICE_PRO` ya no se lee: Pro se
 fundió en Medio (adr/0104). Media configuración de pasarela sería una ventana de pago que promete cobrar y
@@ -103,9 +103,11 @@ así no pide pasarela.
    - **El Postgres de `compose.yml`** en un servidor propio. _Probado en casa_ (1 de
      agosto de 2026), nunca en un servidor público.
 4. **Las migraciones, antes de arrancar la versión nueva**:
-   `DATABASE_URL=… pnpm db:migrate` desde tu equipo, o el contenedor `migrate` de
-   compose. _Probadas contra Postgres de verdad hasta la 0005; la 0006 —la analítica
-   y la edad declarada— solo contra PGlite, en los tests._
+   `DATABASE_URL=… pnpm db:migrate` desde tu equipo, o el contenedor `migraciones` de
+   compose. _Las ocho (0000 a 0007) las aplica a un Postgres 17 de verdad el trabajo
+   `postgres` de la integración continua; la 0006 —la analítica y la edad declarada—
+   y la 0007 —el techo de gasto y el plazo de gracia— no se han aplicado a mano a una
+   base con datos._
 5. **Las variables** de la tabla de arriba:
    - Siempre: `DATABASE_URL`, `AUTH_SECRET` (`openssl rand -base64 32`),
      `APP_URL=https://tu-dominio`, `TRUSTED_PROXY_HOPS=1` y las cinco `TITULAR_*`.
@@ -170,9 +172,10 @@ Los seis de después de instalar tienen que pasar —son los de `CLAUDE.md`—. 
 producción: es el único que compila las rutas y avisa si algo del servidor se ha
 colado en el cliente.
 
-Ninguno necesita base de datos ni claves. Los tests no tocan Postgres a propósito:
-lo que se prueba es la política de planes, la fusión de avances y el cifrado de
-contraseñas, que son puros.
+Ninguno necesita base de datos ni claves. Los tests corren contra PGlite, un Postgres en memoria,
+migrado una vez por pasada ([adr/0121](./adr/0121-la-base-de-los-tests-se-migra-una-vez-y-el-reloj-corre-aparte.md)),
+y en la integración continua un trabajo repite los que levantan base contra un
+Postgres 17 de verdad con el rol de la aplicación.
 
 ## Las cabeceras de seguridad, que las pone la aplicación
 
@@ -235,7 +238,8 @@ del socket **solo si no venía ya**, y desde dentro no se distingue la suya de l
 cliente.
 
 **Frenar de más aquí es mucho**: con un contador para todos, diez peticiones de
-cualquiera dejan a todo el mundo un minuto sin IA, sin registrarse y sin entrar. Por
+cualquiera dejan a todo el mundo un minuto sin registrarse y sin entrar (la IA tiene
+el tope por minuto por cuenta, y el de dirección solo existe con esta variable). Por
 eso, en producción y sin la variable, **el servidor lo dice al arrancar** con un
 bloque de error en el registro (`src/instrumentation.ts`) y otra vez la primera vez
 que pasa una petición. No se niega a arrancar —el Docker de casa sirve en producción
@@ -304,7 +308,7 @@ Tres cosas que se aprenden la primera vez:
   de medio mundo, y si otro contenedor tuyo ya lo tiene, esto falla con un error que
   habla de «endpoint» y no de quién lo ocupa.
 
-Comprobado el 1 de agosto de 2026 con Docker 29.4.2: las tres tablas se crean, se
+Comprobado el 1 de agosto de 2026 con Docker 29.4.2: las tablas de entonces se crean (hoy son once), se
 registra una cuenta, se entra, se cambia el nombre y la contraseña —y con la vieja ya
 no se entra—, se sube de plan, el avance se fusiona sin perder nada y el contador de IA
 sube en `ai_usage`.

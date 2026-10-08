@@ -64,7 +64,7 @@ export interface Role {
    * Qué es, en una frase.
    *
    * Se lee en pantalla **y** se le manda al modelo, igual que `why` en los
-   * caminos de `paths.ts`: así lo que entiende quien compone y lo que entiende
+   * caminos de `salidas/validar.ts`: así lo que entiende quien compone y lo que entiende
    * el modelo salen del mismo sitio y no pueden separarse.
    */
   readonly what: string;
@@ -195,7 +195,7 @@ export interface SongSection {
 }
 
 /** Una nota del punteo, como se guarda: altura, entrada y duración. */
-export type LeadTriple = readonly [offset: number, start: number, length: number];
+type LeadTriple = readonly [offset: number, start: number, length: number];
 
 export interface Song {
   readonly id: string;
@@ -218,7 +218,7 @@ export interface Song {
  * cálculo.
  */
 export const MAX_SONG_NAME = 60;
-const MAX_SECTION_NAME = 30;
+export const MAX_SECTION_NAME = 30;
 export const MAX_SECTIONS = 12;
 export const MAX_SECTION_DEGREES = 32;
 

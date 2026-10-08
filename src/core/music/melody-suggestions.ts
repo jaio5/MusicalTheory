@@ -38,7 +38,7 @@ import { resolveDegree, type DegreeSymbol } from './progressions';
 import { accidentalForScale, scaleNotes, type ScaleId } from './scales';
 
 /** El papel de una nota sobre el acorde que suena debajo. */
-export type NoteRole = 'acorde' | 'escala' | 'fuera';
+type NoteRole = 'acorde' | 'escala' | 'fuera';
 
 export interface NoteSuggestion {
   /** Semitonos sobre la tónica de la canción, con su octava ya elegida. */

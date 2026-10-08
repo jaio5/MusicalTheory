@@ -765,6 +765,102 @@ describe('la progresion en la rejilla de la toma', () => {
     });
     expect(resumen(steps)).toEqual(['I/4', 'V/4']);
   });
+
+  /**
+   * **Los bordes de la rejilla, con la cuenta hecha a mano.** Cada fila cambia un
+   * solo número respecto a la de al lado, y es el número en que un redondeo o una
+   * comparación mal puestos cambian lo que se escribe: los tests de arriba cuentan
+   * la idea, y estos la clavan.
+   */
+  it.each([
+    // Se entra a destiempo: el primero cae en el uno de su compás.
+    [
+      'entra en el pulso 2,6 y se escribe desde el uno',
+      [
+        [C, 2.6],
+        [G, 8],
+      ],
+      {},
+      ['I/8', 'V/4'],
+    ],
+    // Se entra antes de darle a grabar: el pulso -0,7 no resta, cuenta desde cero.
+    [
+      'entra antes de grabar y no se come un compás',
+      [
+        [C, -0.7],
+        [G, 4],
+      ],
+      {},
+      ['I/4', 'V/8'],
+    ],
+    // Un compás de cero pulsos se lee como de uno, sin dividir entre cero.
+    [
+      'con un compás de cero, uno',
+      [
+        [C, 5],
+        [G, 8],
+      ],
+      { beatsPerBar: 0 },
+      ['I/3', 'V/4'],
+    ],
+    // Medio pulso justo es lo mínimo que cuenta: entra, y no se salta.
+    [
+      'un acorde de paso de medio pulso justo cuenta',
+      [
+        [C, 0],
+        [F, 4],
+        [G, 4.5],
+      ],
+      {},
+      ['I/4', 'IV/1', 'V/7'],
+    ],
+    // Y uno de 0,4 se salta: su tiempo es del de antes.
+    [
+      'uno de 0,4 pulsos se salta',
+      [
+        [C, 0],
+        [F, 4],
+        [G, 4.4],
+      ],
+      {},
+      ['I/4', 'V/8'],
+    ],
+  ] as const)('%s', (_, tocado, opciones, esperado) => {
+    const { steps } = captureProgression(
+      tocado.map(([raiz, pulso]) => mayor(raiz, en(pulso))),
+      { ...REJILLA, endedAt: en(12), sonoHasta: en(12), ...opciones },
+    );
+    expect(resumen(steps)).toEqual(esperado);
+  });
+
+  /**
+   * El final se redondea hacia arriba con un cuarto de pulso de holgura: lo que
+   * deja de sonar en el 3,2 es un tercer pulso que se apagaba, y en el 3,3, un
+   * cuarto.
+   */
+  it.each([
+    [3.2, 'I/3'],
+    [3.25, 'I/3'],
+    [3.3, 'I/4'],
+    [3.8, 'I/4'],
+  ])('lo que deja de sonar en el pulso %s se escribe %s', (hasta, esperado) => {
+    const { steps } = captureProgression([mayor(C, en(0))], {
+      ...REJILLA,
+      endedAt: en(8),
+      sonoHasta: en(hasta),
+    });
+    expect(resumen(steps)).toEqual([esperado]);
+  });
+
+  it('el último dura al menos un pulso aunque deje de sonar antes de su frontera', () => {
+    // El Sol entra en el 4,6 —su frontera es el 5— y deja de sonar en el 5,1.
+    const { steps } = captureProgression([mayor(C, en(0)), mayor(G, en(4.6))], {
+      ...REJILLA,
+      endedAt: en(8),
+      sonoHasta: en(5.1),
+    });
+    expect(resumen(steps)).toEqual(['I/5', 'V/1']);
+  });
 });
 
 /**

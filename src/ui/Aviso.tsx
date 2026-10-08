@@ -48,7 +48,7 @@ export function Aviso({
 
   return (
     <p
-      className={`text-sm font-medium empty:sr-only ${tono === 'hecho' ? 'text-tube-bright' : 'text-oxblood-bright'} ${className}`}
+      className={`font-medium empty:sr-only ${tono === 'hecho' ? 'text-tube-bright' : 'text-oxblood-bright'} ${className}`}
       {...(anuncio === 'amable' ? { 'aria-live': 'polite' as const } : {})}
       {...(anuncio === 'urgente' ? { role: 'alert' } : {})}
     >

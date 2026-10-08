@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { degreesFor, salidasPosibles, type DegreeSymbol, type KeyMode } from '@core/music';
 
-import { SIN_IA, respuestaSinIA, versionesSinIA } from './fake-model';
+import { SIN_IA, respuestaSinIA, salidasSinIA } from './fake-model';
 
 /**
  * El modelo que no piensa.
@@ -22,8 +22,8 @@ const MENU = salidasPosibles('minor', 'retocar', [
   { degree: 'VII', beats: 4 },
 ]);
 
-function versiones(peticion: Parameters<typeof versionesSinIA>[0] = { menu: MENU }) {
-  return versionesSinIA(peticion).versions;
+function versiones(peticion: Parameters<typeof salidasSinIA>[0] = { menu: MENU }) {
+  return salidasSinIA(peticion).versions;
 }
 
 describe('las salidas sin IA', () => {

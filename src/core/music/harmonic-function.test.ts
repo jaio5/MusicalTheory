@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { roleOfDegree, roleOfDegreeSymbol, teachingRank } from './harmonic-function';
+import {
+  HARMONIC_ROLES,
+  roleOfDegree,
+  roleOfDegreeSymbol,
+  teachingRank,
+} from './harmonic-function';
 
 describe('roleOfDegreeSymbol', () => {
   // La tabla por nombre y la tabla por número tienen que decir lo mismo de los
@@ -38,5 +43,17 @@ describe('un grado que no es de la tonalidad', () => {
     expect(teachingRank('minor', 99)).toBe(7);
     // Y la casa es siempre la primera que se enseña.
     expect(teachingRank('major', 0)).toBe(0);
+  });
+});
+
+/**
+ * La palabra de cada letra, para su leyenda. **Ninguna es «salida»**: en
+ * componer, al lado está el panel Salidas, que es otra cosa.
+ */
+describe('la palabra de cada papel', () => {
+  it('cada uno tiene la suya, distinta, y ninguna choca con Salidas', () => {
+    const palabras = Object.values(HARMONIC_ROLES).map((papel) => papel.word);
+    expect(new Set(palabras).size).toBe(palabras.length);
+    expect(palabras.join(' ')).not.toMatch(/salida/i);
   });
 });

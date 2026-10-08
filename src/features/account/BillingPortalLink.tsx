@@ -25,7 +25,7 @@ export function BillingPortalLink() {
 
   if (nada) {
     return (
-      <p className="text-text-muted text-sm" role="status">
+      <p className="text-text-muted" role="status">
         Aquí no hay facturas todavía: esta cuenta no ha pagado nada.
       </p>
     );

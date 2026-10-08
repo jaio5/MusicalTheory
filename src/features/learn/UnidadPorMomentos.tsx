@@ -1,23 +1,19 @@
 'use client';
 
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-  type Ref,
-} from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react';
 
 import { presentacionDe, type Unit, type UnitKind } from '@core/music';
 import { Button } from '@ui/Button';
 import { IconoAcierto } from '@ui/icons';
 
 import { PresentacionDeUnidad } from './PresentacionDeUnidad';
+import { apuntarSitio, useSitioGuardado } from './sitio-en-la-unidad';
 
 /** En qué momento de la unidad se está. */
 export type Momento = 'presentacion' | 'teoria' | 'prueba';
+
+/** Los tres, en su orden: lo que se guarda es la posición (`sitio-en-la-unidad.ts`). */
+const ORDEN: readonly Momento[] = ['presentacion', 'teoria', 'prueba'];
 
 const NOMBRES: Readonly<Record<Momento, string>> = {
   presentacion: 'Presentación',
@@ -40,43 +36,6 @@ const TITULO_DE_LA_PRUEBA: Readonly<Record<UnitKind, string>> = {
 };
 
 /**
- * Las unidades que se han empezado en esta pestaña.
- *
- * Volver a una unidad empezada —se va uno a afinar a mitad de la teoría, o se
- * recarga— la monta de cero, y obligar a pasar otra vez por la presentación y
- * la teoría para llegar a las preguntas es castigar a quien ya las ha leído. Así
- * que, si ya se empezó, la presentación ofrece ir directo a la prueba. **No
- * salta sola**: la presentación es una pantalla y un botón, y quien vuelve al
- * día siguiente puede querer releerla.
- *
- * En `sessionStorage` y no en el avance: no es algo que se haya ganado ni que
- * deba viajar a la cuenta, es por dónde iba uno hace un rato. Y se lee con
- * `useSyncExternalStore`, que en el servidor contesta «no»: leerlo en el render
- * daría un HTML distinto del de la primera pintura.
- */
-const EMPEZADA = (unitId: string) => `caos-ordenado:empezada:${unitId}`;
-
-function fueEmpezada(unitId: string): boolean {
-  try {
-    return sessionStorage.getItem(EMPEZADA(unitId)) !== null;
-  } catch {
-    // Sin almacenamiento —navegación privada estricta— no hay atajo, y ya.
-    return false;
-  }
-}
-
-function apuntarEmpezada(unitId: string): void {
-  try {
-    sessionStorage.setItem(EMPEZADA(unitId), '1');
-  } catch {
-    // Igual que al leer: no recordarlo solo quita el atajo de la próxima vez.
-  }
-}
-
-/** Nadie más escribe esto mientras la unidad está montada: no hay a quién avisar. */
-const sinAvisos = () => () => {};
-
-/**
  * Los tres momentos de una unidad: presentación, teoría y prueba.
  *
  * Antes la teoría y las preguntas iban a la vez, una debajo de otra, y se
@@ -97,12 +56,19 @@ const sinAvisos = () => () => {};
  * pregunta en blanco y sin el porqué. Subir esa respuesta a cada unidad que
  * pregunta era tocar la pregunta y sus dos usos para algo que aquí se arregla
  * no tirándola.
+ *
+ * **Recargar retoma el momento en el que se estaba** (`sitio-en-la-unidad.ts`).
+ * Antes se volvía a la presentación y, desde ella, se ofrecía un atajo a las
+ * preguntas: dos pulsaciones y un texto ya leído para seguir donde se estaba.
+ * El atajo queda para la unidad ya superada, que se empieza de nuevo y puede
+ * querer saltarse la teoría.
  */
 export function UnidadPorMomentos({
   unit,
   yaHecha = false,
   teoria,
   prueba,
+  queViene = QUE_VIENE[unit.kind],
 }: {
   readonly unit: Unit;
   /** Si ya se superó alguna vez: entonces se ofrece ir directo a la prueba. */
@@ -110,19 +76,34 @@ export function UnidadPorMomentos({
   /** Lo que hay que saber. Sin ella, de la presentación se pasa a la prueba. */
   readonly teoria?: ReactNode;
   readonly prueba: ReactNode;
+  /** Cómo se pone a prueba, si la unidad sabe decirlo mejor que su clase. */
+  readonly queViene?: string;
 }) {
   const [momento, setMomento] = useState<Momento>('presentacion');
   // Si ya se ha llegado a las preguntas, para que volver de la teoría diga
   // «volver» y no «ponerlo a prueba», que suena a empezar de nuevo.
   const [probada, setProbada] = useState(false);
-  const empezadaAntes = useSyncExternalStore(
-    sinAvisos,
-    () => fueEmpezada(unit.id),
-    () => false,
-  );
-
   const momentos: readonly Momento[] =
     teoria === undefined ? ['presentacion', 'prueba'] : ['presentacion', 'teoria', 'prueba'];
+
+  /*
+    Lo guardado se aplica una vez, al llegar, y **sin mover el foco**: el foco al
+    título es para quien acaba de pulsar, y quien recarga no ha pulsado nada.
+    «Al llegar» es hasta que se hace algo, porque lo que se apunta al avanzar
+    también cambia lo guardado.
+  */
+  const guardado = useSitioGuardado(unit.id);
+  const [retomado, setRetomado] = useState(false);
+  const [sinFoco, setSinFoco] = useState<Momento | null>(null);
+  if (!retomado && guardado !== null) {
+    setRetomado(true);
+    const donde = ORDEN[guardado.momento]!;
+    if (momentos.includes(donde) && donde !== 'presentacion') {
+      setSinFoco(donde);
+      setMomento(donde);
+      setProbada(donde === 'prueba' || guardado.pregunta > 0);
+    }
+  }
 
   const encabezado = useRef<HTMLHeadingElement>(null);
   const idEncabezado = useId();
@@ -143,6 +124,9 @@ export function UnidadPorMomentos({
       return;
     }
     enfocado.current = momento;
+    if (momento === sinFoco) {
+      return;
+    }
     const titulo = encabezado.current;
     /* v8 ignore next 3 -- el título se pinta en todos los momentos */
     if (titulo === null) {
@@ -160,18 +144,16 @@ export function UnidadPorMomentos({
     const hueco = parseFloat(getComputedStyle(titulo.parentElement!.parentElement!).rowGap) || 0;
     titulo.style.scrollMarginTop = `${alto + hueco}px`;
     titulo.focus();
-  }, [momento]);
+  }, [momento, sinFoco]);
 
   function ir(a: Momento): void {
     if (a === 'prueba') {
       setProbada(true);
     }
+    setRetomado(true);
+    setSinFoco(null);
     setMomento(a);
-  }
-
-  function empezar(a: Momento): void {
-    apuntarEmpezada(unit.id);
-    ir(a);
+    apuntarSitio(unit.id, { momento: ORDEN.indexOf(a) });
   }
 
   return (
@@ -182,14 +164,14 @@ export function UnidadPorMomentos({
         <PresentacionDeUnidad
           titulo={unit.title}
           presentacion={presentacionDe(unit.id)}
-          queViene={QUE_VIENE[unit.kind]}
+          queViene={queViene}
           encabezado={encabezado}
-          onEmpezar={() => empezar(momentos[1]!)}
-          {...(teoria !== undefined && (yaHecha || empezadaAntes)
+          onEmpezar={() => ir(momentos[1]!)}
+          {...(teoria !== undefined && yaHecha
             ? {
                 atajo: {
                   etiqueta: 'Ir directo a las preguntas',
-                  onClick: () => empezar('prueba'),
+                  onClick: () => ir('prueba'),
                 },
               }
             : {})}
@@ -261,7 +243,7 @@ function MomentosDeLaUnidad({
           <li
             key={momento}
             aria-current={ahora ? 'step' : undefined}
-            className={`flex items-center gap-2 text-sm ${
+            className={`flex items-center gap-2 text-base ${
               ahora ? 'text-text font-semibold' : 'text-text-muted'
             }`}
           >

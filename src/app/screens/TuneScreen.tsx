@@ -1,6 +1,6 @@
 'use client';
 
-import { Tuner, TuningPicker } from '@features/tuner';
+import { CuerdasDeLaAfinacion, Tuner, TuningPicker } from '@features/tuner';
 import { useSessionStore } from '@state/session-store';
 import { Disclosure } from '@ui/Disclosure';
 import { WorkHeader } from '@ui/Screen';
@@ -69,6 +69,12 @@ export function TuneScreen() {
         izquierda y el afinador se queda con todo lo demás, a lo alto y a lo ancho;
         en un teléfono se apilan como antes, con la afinación encima.
 
+        **En reposo, el afinador mide lo que dice.** Se quedaba con todo el ancho y
+        el alto que sobraran, y a 1920 era una tarjeta de 1300 × 740 para un
+        dibujo, un título, tres líneas y un botón. Ahora la afinación y el aviso de
+        «necesitamos oírte» van juntos y centrados, como un aparato sobre la mesa,
+        y el ancho entero es para cuando hay una nota que mirar.
+
         **Escuchando, la columna se pliega con ella** y el afinador se queda con el
         ancho entero, con la afinación en una línea encima, igual que en el
         teléfono. Plegada al lado dejaba una columna de 400 px con un solo renglón
@@ -80,10 +86,14 @@ export function TuneScreen() {
           className={`grid w-full gap-6 md:gap-x-[clamp(1.5rem,4vw,5rem)] ${
             escuchando
               ? ''
-              : 'my-auto md:grid-cols-[minmax(15rem,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]'
+              : 'my-auto justify-center md:grid-cols-[minmax(15rem,22rem)_minmax(0,40rem)] xl:grid-cols-[minmax(18rem,26rem)_minmax(0,44rem)]'
           }`}
         >
-          <div className="min-w-0 md:self-start">
+          {/* Las cuerdas **fuera** de lo que se pliega: es lo que se mira
+              mientras se afina, y plegadas con la afinación no se veía cuáles
+              iban ya. En el mismo sitio del árbol en los dos estados, para que
+              no se olvide cómo quedó cada una al empezar a escuchar. */}
+          <div className="flex min-w-0 flex-col gap-3 md:self-start">
             {escuchando ? (
               <Disclosure
                 summary={
@@ -99,6 +109,7 @@ export function TuneScreen() {
             ) : (
               <TuningPicker />
             )}
+            <CuerdasDeLaAfinacion />
           </div>
           <div className="min-w-0" data-tour="afinar-afinador">
             <Tuner />

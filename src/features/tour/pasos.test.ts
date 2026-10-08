@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { PASOS, indiceDe, pasosDe } from './pasos';
-import { TRAMOS, tramoPara } from './tramos';
+import { TRAMOS, tramosPara } from './tramos';
 
 /** Todo el código de las pantallas, para buscar dónde está puesta cada pieza. */
 const CODIGO = (() => {
@@ -105,21 +105,25 @@ describe('por dónde se sigue dentro del tramo', () => {
 });
 
 /** Cada pantalla, el suyo al llegar; la bienvenida, la primera en cualquiera. */
-describe('qué tramo toca', () => {
-  it('sin nada visto, la bienvenida, en cualquier pantalla de trabajo', () => {
-    expect(tramoPara([], '/componer')).toBe('bienvenida');
-    expect(tramoPara([], '/aprender/e1-notas')).toBe('bienvenida');
+describe('qué tramos tocan', () => {
+  it('sin nada visto, la bienvenida y el de la pantalla, en la misma tarjeta', () => {
+    expect(tramosPara([], '/afinar')).toEqual(['bienvenida', 'afinar']);
+    expect(tramosPara([], '/aprender/e1-notas')).toEqual(['bienvenida']);
   });
 
   it('con la bienvenida vista, el de la pantalla', () => {
-    expect(tramoPara(['bienvenida'], '/aprender')).toBe('aprender');
-    expect(tramoPara(['bienvenida'], '/componer')).toBe('componer');
-    expect(tramoPara(['bienvenida'], '/afinar')).toBe('afinar');
+    expect(tramosPara(['bienvenida'], '/aprender')).toEqual(['aprender']);
+    expect(tramosPara(['bienvenida'], '/componer')).toEqual(['componer']);
+    expect(tramosPara(['bienvenida'], '/afinar')).toEqual(['afinar']);
+  });
+
+  it('con el de la pantalla visto, solo la bienvenida que falte', () => {
+    expect(tramosPara(['componer'], '/componer')).toEqual(['bienvenida']);
   });
 
   it('nada en una pantalla sin tramo, o con el suyo ya visto', () => {
-    expect(tramoPara(['bienvenida'], '/profesor')).toBeNull();
-    expect(tramoPara(['bienvenida'], '/aprender/e1-notas')).toBeNull();
-    expect(tramoPara(['bienvenida', 'componer'], '/componer')).toBeNull();
+    expect(tramosPara(['bienvenida'], '/profesor')).toEqual([]);
+    expect(tramosPara(['bienvenida'], '/aprender/e1-notas')).toEqual([]);
+    expect(tramosPara(['bienvenida', 'componer'], '/componer')).toEqual([]);
   });
 });

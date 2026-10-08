@@ -2,7 +2,7 @@
 import { act, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { useMedida, type Medida } from './use-medida';
+import { useAncho, useMedida, type Medida } from './use-medida';
 
 /** Un observador de mentira que se deja disparar a mano. */
 let avisar: ((entradas: unknown[]) => void) | null = null;
@@ -77,5 +77,46 @@ describe('Lo que mide una caja', () => {
     act(() => avisar?.([]));
 
     expect(vistas.at(-1)).toEqual({ ancho: 0, alto: 0 });
+  });
+});
+
+/**
+ * Para quien reparte a lo ancho y crece a lo alto con lo que reparte —el lienzo,
+ * el pentagrama—: el alto nuevo que trae su propio reparto no es otra medida.
+ */
+describe('Lo que mide de ancho una caja', () => {
+  it('se queda con el ancho, y un cambio solo de alto no pinta nada', () => {
+    vi.stubGlobal('ResizeObserver', ObservadorDeMentira);
+    const vistas: number[] = [];
+    function Caja() {
+      const { ref, ancho } = useAncho<HTMLDivElement>();
+      vistas.push(ancho);
+      return <div ref={ref} />;
+    }
+    render(<Caja />);
+    act(() => avisar?.([entrada(300, 120)]));
+    expect(vistas.at(-1)).toBe(300);
+    const pintados = vistas.length;
+
+    act(() => avisar?.([entrada(300, 480)]));
+    act(() => avisar?.([entrada(300, 90)]));
+
+    expect(vistas).toHaveLength(pintados);
+  });
+
+  it('sin entrada se queda en cero', () => {
+    vi.stubGlobal('ResizeObserver', ObservadorDeMentira);
+    const vistas: number[] = [];
+    function Caja() {
+      const { ref, ancho } = useAncho<HTMLDivElement>();
+      vistas.push(ancho);
+      return <div ref={ref} />;
+    }
+    render(<Caja />);
+
+    act(() => avisar?.([entrada(10, 10)]));
+    act(() => avisar?.([]));
+
+    expect(vistas.at(-1)).toBe(0);
   });
 });
