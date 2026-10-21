@@ -239,7 +239,7 @@ services:
     # Versión fija, aunque sea una herramienta de desarrollo: `latest` es código
     # que entra en la máquina sin que nadie lo haya leído, y con la gráfica
     # montada. Los modelos nuevos piden Ollama nuevo, y para eso está Dependabot.
-    image: ollama/ollama:0.40.0@sha256:1bef639749741b375e9a1eb2c1346fb57ce52f5432de1f74846e44ccc18e1687
+    image: ollama/ollama:0.40.6@sha256:265409e1d931028a8f7d5a32bcbafddd7bffbc6cc629d77efe9560adf692a5e7
     restart: unless-stopped
     environment:
       # **El modelo se queda cargado mientras el contenedor viva.**
@@ -292,7 +292,7 @@ services:
   # arranque de otro servicio.
   ia-modelo:
     profiles: ['ia']
-    image: ollama/ollama:0.40.0@sha256:1bef639749741b375e9a1eb2c1346fb57ce52f5432de1f74846e44ccc18e1687
+    image: ollama/ollama:0.40.6@sha256:265409e1d931028a8f7d5a32bcbafddd7bffbc6cc629d77efe9560adf692a5e7
     environment:
       OLLAMA_HOST: http://ollama:11434
     entrypoint: ['/bin/ollama']
@@ -318,7 +318,7 @@ services:
   # carga entera.
   ia-calentar:
     profiles: ['ia']
-    image: ollama/ollama:0.40.0@sha256:1bef639749741b375e9a1eb2c1346fb57ce52f5432de1f74846e44ccc18e1687
+    image: ollama/ollama:0.40.6@sha256:265409e1d931028a8f7d5a32bcbafddd7bffbc6cc629d77efe9560adf692a5e7
     environment:
       OLLAMA_HOST: http://ollama:11434
       MODELO: ${OLLAMA_MODEL:-qwen3:8b}
