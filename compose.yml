@@ -50,7 +50,7 @@ services:
   db:
     # Versión exacta y huella: `17-alpine` a secas cambia por debajo sin avisar, y
     # una imagen que no se puede repetir no se puede auditar. Dependabot la sube.
-    image: postgres:17.11-alpine3.24@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    image: postgres:18.4-alpine3.24@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
     # Vuelve sola al encender Docker, pero no si la paraste a mano. Es lo que hace
     # que este proyecto esté donde lo dejaste en vez de haber que acordarse.
     restart: unless-stopped
